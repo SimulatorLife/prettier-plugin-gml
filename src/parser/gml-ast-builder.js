@@ -12,12 +12,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.stop) {
             object.end = {
                 line: ctx.stop.line + getLineBreakCount(ctx.stop.text),
-                index: ctx.stop.stop,
+                index: ctx.stop.stop
             };
         } else {
             object.end = {
                 line: ctx.start.line + getLineBreakCount(ctx.start.text),
-                index: ctx.start.stop,
+                index: ctx.start.stop
             };
         }
 
@@ -36,7 +36,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         const ast = this.astNode(ctx, {
             type: "Program",
-            body: body,
+            body: body
         });
 
         return ast;
@@ -133,7 +133,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         return this.astNode(ctx, {
             type: "BlockStatement",
-            body: this.visit(ctx.statementList()),
+            body: this.visit(ctx.statementList())
         });
     }
 
@@ -150,7 +150,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "IfStatement",
             test: test,
             consequent: consequent,
-            alternate: alternate,
+            alternate: alternate
         });
     }
 
@@ -159,7 +159,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "DoUntilStatement",
             body: this.visit(ctx.statement()),
-            test: this.visit(ctx.expression()),
+            test: this.visit(ctx.expression())
         });
     }
 
@@ -168,7 +168,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "WhileStatement",
             test: this.visit(ctx.expression()),
-            body: this.visit(ctx.statement()),
+            body: this.visit(ctx.statement())
         });
     }
 
@@ -199,7 +199,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             init: init,
             test: test,
             update: update,
-            body: body,
+            body: body
         });
     }
 
@@ -208,7 +208,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "RepeatStatement",
             test: this.visit(ctx.expression()),
-            body: this.visit(ctx.statement()),
+            body: this.visit(ctx.statement())
         });
     }
 
@@ -217,7 +217,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "WithStatement",
             object: this.visit(ctx.expression()),
-            body: this.visit(ctx.statement()),
+            body: this.visit(ctx.statement())
         });
     }
 
@@ -226,28 +226,28 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "SwitchStatement",
             discriminant: this.visit(ctx.expression()),
-            cases: this.visit(ctx.caseBlock()),
+            cases: this.visit(ctx.caseBlock())
         });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#continueStatement.
     visitContinueStatement(ctx) {
         return this.astNode(ctx, {
-            type: "ContinueStatement",
+            type: "ContinueStatement"
         });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#breakStatement.
     visitBreakStatement(ctx) {
         return this.astNode(ctx, {
-            type: "BreakStatement",
+            type: "BreakStatement"
         });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#exitStatement.
     visitExitStatement(ctx) {
         return this.astNode(ctx, {
-            type: "ExitStatement",
+            type: "ExitStatement"
         });
     }
 
@@ -286,7 +286,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "SwitchCase",
             test: this.visit(ctx.expression()),
-            body: consequent,
+            body: consequent
         });
     }
 
@@ -299,7 +299,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "SwitchCase",
             test: null,
-            body: consequent,
+            body: consequent
         });
     }
 
@@ -307,7 +307,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitThrowStatement(ctx) {
         return this.astNode(ctx, {
             type: "ThrowStatement",
-            argument: this.visit(ctx.expression()),
+            argument: this.visit(ctx.expression())
         });
     }
 
@@ -325,7 +325,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "TryStatement",
             block: this.visit(ctx.statement()),
             handler: handler,
-            finalizer: finalizer,
+            finalizer: finalizer
         });
     }
 
@@ -338,7 +338,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "CatchClause",
             param: param,
-            body: this.visit(ctx.statement()),
+            body: this.visit(ctx.statement())
         });
     }
 
@@ -346,7 +346,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitFinallyProduction(ctx) {
         return this.astNode(ctx, {
             type: "Finalizer",
-            body: this.visit(ctx.statement()),
+            body: this.visit(ctx.statement())
         });
     }
 
@@ -358,7 +358,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         return this.astNode(ctx, {
             type: "ReturnStatement",
-            argument: arg,
+            argument: arg
         });
     }
 
@@ -367,7 +367,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "DeleteStatement",
             operator: "delete",
-            argument: this.visit(ctx.expression()),
+            argument: this.visit(ctx.expression())
         });
     }
 
@@ -377,7 +377,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "AssignmentExpression",
             operator: this.visit(ctx.assignmentOperator()),
             left: this.visit(ctx.lValueExpression()),
-            right: this.visit(ctx.expressionOrFunction()),
+            right: this.visit(ctx.expressionOrFunction())
         });
     }
 
@@ -386,7 +386,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "VariableDeclaration",
             declarations: this.visit(ctx.variableDeclaration()),
-            kind: this.visit(ctx.varModifier()),
+            kind: this.visit(ctx.varModifier())
         });
     }
 
@@ -409,7 +409,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "VariableDeclarator",
             id: this.visit(ctx.identifier()),
-            init: initExpr,
+            init: initExpr
         });
     }
 
@@ -418,7 +418,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "GlobalVarStatement",
             kind: "globalvar",
-            declarations: this.visit(ctx.identifier()),
+            declarations: this.visit(ctx.identifier())
         });
     }
 
@@ -461,7 +461,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "MemberIndexExpression",
             object: null,
             property: this.visit(ctx.expressionSequence()),
-            accessor: this.visit(ctx.accessor()),
+            accessor: this.visit(ctx.accessor())
         });
     }
 
@@ -470,7 +470,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "MemberDotExpression",
             object: null,
-            property: this.visit(ctx.identifier()),
+            property: this.visit(ctx.identifier())
         });
     }
 
@@ -479,7 +479,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "CallExpression",
             object: null,
-            arguments: this.visit(ctx.arguments()),
+            arguments: this.visit(ctx.arguments())
         });
     }
 
@@ -535,7 +535,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "TernaryExpression",
             test: this.visit(ctx.expression()[0]),
             consequent: this.visit(ctx.expression()[1]),
-            alternate: this.visit(ctx.expression()[2]),
+            alternate: this.visit(ctx.expression()[2])
         });
     }
 
@@ -545,7 +545,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "&&",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -555,7 +555,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "||",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -565,7 +565,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "UnaryExpression",
             operator: "!",
             prefix: true,
-            argument: this.visit(ctx.expression()),
+            argument: this.visit(ctx.expression())
         });
     }
 
@@ -575,7 +575,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "UnaryExpression",
             operator: "-",
             prefix: true,
-            argument: this.visit(ctx.expression()),
+            argument: this.visit(ctx.expression())
         });
     }
 
@@ -585,7 +585,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "==",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -595,7 +595,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "^",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -618,7 +618,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: operator,
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -640,7 +640,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: operator,
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -662,7 +662,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: operator,
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -685,7 +685,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: operator,
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -706,7 +706,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "UnaryExpression",
             operator: operator,
             prefix: false,
-            argument: this.visit(ctx.lValueExpression()),
+            argument: this.visit(ctx.lValueExpression())
         });
     }
 
@@ -723,7 +723,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "UnaryExpression",
             operator: operator,
             prefix: true,
-            argument: this.visit(ctx.lValueExpression()),
+            argument: this.visit(ctx.lValueExpression())
         });
     }
 
@@ -733,7 +733,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "UnaryExpression",
             operator: "~",
             prefix: true,
-            argument: this.visit(ctx.expression()),
+            argument: this.visit(ctx.expression())
         });
     }
 
@@ -742,7 +742,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "NewExpression",
             expression: this.visit(ctx.identifier()),
-            arguments: this.visit(ctx.arguments()),
+            arguments: this.visit(ctx.arguments())
         });
     }
 
@@ -756,7 +756,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "MemberDotExpression",
             object: this.visit(ctx.expression()[0]),
-            property: this.visit(ctx.expression()[1]),
+            property: this.visit(ctx.expression()[1])
         });
     }
 
@@ -766,7 +766,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "MemberIndexExpression",
             object: this.visit(ctx.expression()),
             property: this.visit(ctx.expressionSequence()),
-            accessor: this.visit(ctx.accessor()),
+            accessor: this.visit(ctx.accessor())
         });
     }
 
@@ -781,7 +781,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "&",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -791,7 +791,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "^^",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -801,7 +801,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "|",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -811,7 +811,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "BinaryExpression",
             operator: "??",
             left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1]),
+            right: this.visit(ctx.expression()[1])
         });
     }
 
@@ -827,7 +827,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "CallExpression",
             object: object,
-            arguments: this.visit(ctx.arguments()),
+            arguments: this.visit(ctx.arguments())
         });
     }
 
@@ -874,7 +874,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         return this.astNode(ctx, {
             type: "Literal",
-            value: value,
+            value: value
         });
     }
 
@@ -895,14 +895,14 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             if (atom.TemplateStringText() != null) {
                 atomList.push({
                     type: "TemplateStringText",
-                    value: atom.TemplateStringText().getText(),
+                    value: atom.TemplateStringText().getText()
                 });
             }
         }
 
         return this.astNode(ctx, {
             type: "TemplateStringExpression",
-            atoms: atomList,
+            atoms: atomList
         });
     }
 
@@ -921,7 +921,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "ArrayExpression",
             elements: this.visit(ctx.elementList()),
-            hasTrailingComma: hasTrailingComma,
+            hasTrailingComma: hasTrailingComma
         });
     }
 
@@ -945,7 +945,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "StructExpression",
             properties: properties,
-            hasTrailingComma: hasTrailingComma,
+            hasTrailingComma: hasTrailingComma
         });
     }
 
@@ -981,7 +981,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             id: id,
             params: params,
             body: this.visit(ctx.block()),
-            hasTrailingComma: hasTrailingComma,
+            hasTrailingComma: hasTrailingComma
         });
     }
 
@@ -1008,7 +1008,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "ConstructorParentClause",
             id: id,
             params: params,
-            hasTrailingComma: hasTrailingComma,
+            hasTrailingComma: hasTrailingComma
         });
     }
 
@@ -1028,7 +1028,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             return this.astNode(ctx, {
                 type: "DefaultParameter",
                 left: this.visit(ctx.identifier()),
-                right: this.visit(ctx.expressionOrFunction()),
+                right: this.visit(ctx.expressionOrFunction())
             });
         } else {
             return this.visit(ctx.identifier());
@@ -1040,7 +1040,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "Property",
             name: this.visit(ctx.propertyIdentifier()),
-            value: this.visit(ctx.expressionOrFunction()),
+            value: this.visit(ctx.expressionOrFunction())
         });
     }
 
@@ -1053,7 +1053,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitIdentifier(ctx) {
         return this.astNode(ctx, {
             type: "Identifier",
-            name: ctx.getText(),
+            name: ctx.getText()
         });
     }
 
@@ -1063,7 +1063,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "EnumDeclaration",
             name: this.visit(ctx.identifier()),
             members: this.visit(ctx.enumeratorList()),
-            hasTrailingComma: ctx.enumeratorList().Comma() != null,
+            hasTrailingComma: ctx.enumeratorList().Comma() != null
         });
     }
 
@@ -1087,7 +1087,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "EnumMember",
             name: this.visit(ctx.identifier()),
-            initializer: initializer,
+            initializer: initializer
         });
     }
 
@@ -1096,7 +1096,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "MacroDeclaration",
             name: this.visit(ctx.identifier()),
-            tokens: this.visit(ctx.macroToken()),
+            tokens: this.visit(ctx.macroToken())
         });
     }
 
@@ -1109,7 +1109,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitDefineStatement(ctx) {
         return this.astNode(ctx, {
             type: "DefineStatement",
-            name: ctx.RegionCharacters().getText(),
+            name: ctx.RegionCharacters().getText()
         });
     }
 
@@ -1122,12 +1122,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.Region() != null) {
             return this.astNode(ctx, {
                 type: "RegionStatement",
-                name: name,
+                name: name
             });
         } else {
             return this.astNode(ctx, {
                 type: "EndRegionStatement",
-                name: name,
+                name: name
             });
         }
     }
@@ -1136,7 +1136,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitIdentifierStatement(ctx) {
         return this.astNode(ctx, {
             type: "IdentifierStatement",
-            name: this.visit(ctx.identifier()),
+            name: this.visit(ctx.identifier())
         });
     }
 

@@ -74,7 +74,7 @@ const handleComments = {
             handleMacroComments(comment) ||
             false
         );
-    },
+    }
 };
 
 function printComment(commentPath, options) {
@@ -319,5 +319,5 @@ export {
     printDanglingComments,
     printDanglingCommentsAsGroup,
     handleComments,
-    printComment,
+    printComment
 };

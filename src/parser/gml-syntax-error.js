@@ -1,4 +1,4 @@
-import antlr4 from 'antlr4';
+import antlr4 from "antlr4";
 
 export default class GameMakerParseErrorListener extends antlr4.error.ErrorListener {
     constructor() {
@@ -25,7 +25,7 @@ export default class GameMakerParseErrorListener extends antlr4.error.ErrorListe
             if (stack[1] === "block") {
                 throw (
                     `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
-                    `missing associated closing brace for this block`
+                    "missing associated closing brace for this block"
                 );
             }
         }
@@ -47,7 +47,7 @@ export default class GameMakerParseErrorListener extends antlr4.error.ErrorListe
         if (currentRule == "lValueExpression" && stack[1] == "incDecStatement") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
-                `++, -- can only be used on a variable-addressing expression`
+                "++, -- can only be used on a variable-addressing expression"
             );
         }
 

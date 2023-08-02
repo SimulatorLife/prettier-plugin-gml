@@ -1,9 +1,9 @@
-import antlr4 from 'antlr4';
-import { PredictionMode } from 'antlr4';
-import GameMakerLanguageLexer from './generated/GameMakerLanguageLexer.js';
-import GameMakerLanguageParser from './generated/GameMakerLanguageParser.js';
-import GameMakerASTBuilder from './gml-ast-builder.js';
-import GameMakerParseErrorListener from './gml-syntax-error.js';
+import antlr4 from "antlr4";
+import { PredictionMode } from "antlr4";
+import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
+import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
+import GameMakerASTBuilder from "./gml-ast-builder.js";
+import GameMakerParseErrorListener from "./gml-syntax-error.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -16,8 +16,8 @@ export default class GMLParser {
     static optionDefaults = {
         getComments: true,
         getLocations: true,
-        simplifyLocations: true,
-    }
+        simplifyLocations: true
+    };
 
     static parse(
         text,
@@ -85,7 +85,7 @@ export default class GMLParser {
         ) {
             const name = names[token.type];
             console.log(
-                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace('\n', '\\n')}'`
+                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", "\\n")}'`
             );
         }
 
@@ -115,7 +115,7 @@ export default class GMLParser {
             } else if (token.type == GameMakerLanguageLexer.SingleLineComment) {
                 let node = {
                     type: "CommentLine",
-                    value: token.text.replace(/^[\/][\/]/, ''),
+                    value: token.text.replace(/^[\/][\/]/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line,
@@ -124,7 +124,7 @@ export default class GMLParser {
                     leadingWS: prevWS,
                     trailingWS: "",
                     leadingChar: prevSignificantChar,
-                    trailingChar: "",
+                    trailingChar: ""
                 };
                 prevComment = node;
                 finalComment = node;
@@ -134,7 +134,7 @@ export default class GMLParser {
             } else if (token.type == GameMakerLanguageLexer.MultiLineComment) {
                 let node = {
                     type: "CommentBlock",
-                    value: token.text.replace(/^[\/][\*]/, '').replace(/[\*][\/]$/, ''),
+                    value: token.text.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line + getLineBreakCount(token.text),
@@ -144,7 +144,7 @@ export default class GMLParser {
                     leadingWS: prevWS,
                     trailingWS: "",
                     leadingChar: prevSignificantChar,
-                    trailingChar: "",
+                    trailingChar: ""
                 };
                 prevComment = node;
                 finalComment = node;

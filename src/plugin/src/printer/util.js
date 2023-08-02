@@ -43,7 +43,7 @@ function nodeTypeNeedsSemicolon(type) {
         "ExitStatement",
         "ThrowStatement",
         "IncDecStatement",
-        "VariableDeclaration",
+        "VariableDeclaration"
     ].includes(type);
 }
 
@@ -94,7 +94,7 @@ function isAssignmentLikeExpression(nodeType) {
         "AssignmentExpression",
         "GlobalVarStatement",
         "VariableDeclarator",
-        "Property",
+        "Property"
     ].includes(nodeType);
 }
 
@@ -105,7 +105,7 @@ function shouldAddNewlinesAroundStatement(node, options) {
     if (
         [
             "FunctionDeclaration",
-            "ConstructorDeclaration",
+            "ConstructorDeclaration"
         ].includes(nodeType)
     ) {
         return true;
@@ -126,4 +126,4 @@ export {
     hasComment,
     isNextLineEmpty,
     shouldAddNewlinesAroundStatement
-}
+};

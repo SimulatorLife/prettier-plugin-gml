@@ -1,8 +1,8 @@
-import GMLParser from '../src/parser/gml-parser.js';
-import fs from 'fs';
+import GMLParser from "../src/parser/gml-parser.js";
+import fs from "fs";
 
-const fp = 'test/large-files/SnowState.gml';
-let input = fs.readFileSync(fp, 'utf8');
+const fp = "test/large-files/SnowState.gml";
+let input = fs.readFileSync(fp, "utf8");
 
 console.time("cold");
 GMLParser.parse(input, {getLocations: true});

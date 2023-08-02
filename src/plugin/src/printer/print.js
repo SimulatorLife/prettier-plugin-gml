@@ -18,7 +18,7 @@ const {
     dedentToRoot,
     concat,
     indentIfBreak,
-    lineSuffixBoundary,
+    lineSuffixBoundary
 } = builders;
 
 import {
@@ -30,7 +30,7 @@ import {
 
 import {
     printDanglingComments,
-    printDanglingCommentsAsGroup,
+    printDanglingCommentsAsGroup
 } from "./comments.js";
 
 export function print(path, options, print) {
@@ -66,10 +66,10 @@ export function print(path, options, print) {
                 ),
                 indent([
                     hardline, // the first statement of a non-empty block must begin on its own line.
-                    printStatements(path, options, print, "body"),
+                    printStatements(path, options, print, "body")
                 ]),
                 hardline,
-                "}",
+                "}"
             ];
         }
         case "IfStatement": {
@@ -79,14 +79,14 @@ export function print(path, options, print) {
             );
 
             if (node.alternate != null) {
-                // don't add braces to else-if
+            // don't add braces to else-if
                 const elseBlock =
                     node.alternate.type === "IfStatement"
                         ? print("alternate")
                         : printInBlock(path, options, print, "alternate");
                 parts.push([
                     " else ",
-                    elseBlock,
+                    elseBlock
                 ]);
             }
             return parts;
@@ -107,7 +107,7 @@ export function print(path, options, print) {
                         path.map(print, "cases")
                     ]),
                     hardline,
-                    "}",
+                    "}"
                 ]);
             }
             return parts;
@@ -120,7 +120,7 @@ export function print(path, options, print) {
                     indent([
                         hardline,
                         printStatements(path, options, print, "body")
-                    ]),
+                    ])
                 ]);
             }
             return parts;
@@ -133,7 +133,7 @@ export function print(path, options, print) {
                     "? ", print("consequent"),
                     line,
                     ": ", print("alternate")
-                ]),
+                ])
             ]);
         }
         case "ForStatement": {
@@ -142,12 +142,12 @@ export function print(path, options, print) {
                 group([
                     indent([
                         ifBreak(line),
-                        join([";", line], [print("init"), print("test"), print("update")]),
+                        join([";", line], [print("init"), print("test"), print("update")])
                     ]),
-                    line,
+                    line
                 ]),
                 ") ",
-                printInBlock(path, options, print, "body"),
+                printInBlock(path, options, print, "body")
             ];
         }
         case "DoUntilStatement": {
@@ -156,8 +156,8 @@ export function print(path, options, print) {
                 printInBlock(path, options, print, "body"),
                 " until (",
                 group([indent([ifBreak(line), print("test")]), ifBreak(line)]),
-                ") ",
-            ]
+                ") "
+            ];
         }
         case "WhileStatement": {
             return printSingleClauseStatement(path, options, print, "while", "test", "body");
@@ -177,7 +177,7 @@ export function print(path, options, print) {
                 parts.push(
                     printDelimitedList(path, print, "params", "(", ")", {
                         delimiter: ",",
-                        allowTrailingDelimiter: false,
+                        allowTrailingDelimiter: false
                     })
                 );
             } else {
@@ -197,7 +197,7 @@ export function print(path, options, print) {
             if (node.params.length > 0) {
                 params = printDelimitedList(path, print, "params", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: false
                 });
             } else {
                 params = printEmptyParens(path, print, options);
@@ -218,7 +218,7 @@ export function print(path, options, print) {
                 " ",
                 node.operator,
                 " ",
-                group(print("right")),
+                group(print("right"))
             ]);
         }
         case "GlobalVarStatement":
@@ -229,8 +229,8 @@ export function print(path, options, print) {
                     delimiter: ",",
                     allowTrailingDelimiter: false,
                     leadingNewline: false,
-                    trailingNewline: false,
-                })
+                    trailingNewline: false
+                });
             } else {
                 decls = path.map(print, "declarations");
             }
@@ -266,26 +266,26 @@ export function print(path, options, print) {
                         node.type === "StructExpression"
                 )
             ) {
-                // treat this function like it has a callback
+            // treat this function like it has a callback
                 let optionA = printDelimitedList(path, print, "arguments", "(", ")", {
                     addIndent: false,
                     forceInline: true,
                     delimiter: ",",
                     allowTrailingDelimiter: false,
                     leadingNewline: false,
-                    trailingNewline: false,
+                    trailingNewline: false
                 });
 
                 let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: false
                 });
 
                 printedArgs = conditionalGroup([optionA, optionB]);
             } else {
                 printedArgs = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: false
                 });
             }
 
@@ -298,18 +298,18 @@ export function print(path, options, print) {
         case "MemberDotExpression": {
             if (isInLValueChain(path)) {
                 if (path.parent?.type === "CallExpression") {
-                    // this dot expression is part of a call expression, so add a line break
+                // this dot expression is part of a call expression, so add a line break
                     return [
                         print("object"),
                         softline,
                         ".",
-                        print("property"),
+                        print("property")
                     ];
                 } else {
                     return [
                         print("object"),
                         ".",
-                        print("property"),
+                        print("property")
                     ];
                 }
             } else {
@@ -330,14 +330,14 @@ export function print(path, options, print) {
             if (property === undefined) {
                 property = printDelimitedList(path, print, "property", "", "", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: false
                 });
             }
             return [
                 print("object"),
                 accessor,
                 group(indent(property)),
-                "]",
+                "]"
             ];
         }
         case "StructExpression": {
@@ -359,7 +359,7 @@ export function print(path, options, print) {
             return printDelimitedList(path, print, "elements", "[", "]", {
                 delimiter: ",",
                 allowTrailingDelimiter: true,
-                forceBreak: node.hasTrailingComma,
+                forceBreak: node.hasTrailingComma
             });
         }
         case "EnumDeclaration": {
@@ -368,9 +368,9 @@ export function print(path, options, print) {
                 printDelimitedList(path, print, "members", "{", "}", {
                     delimiter: ",",
                     allowTrailingDelimiter: true,
-                    forceBreak: node.hasTrailingComma,
-                    //padding: " "
-                }),
+                    forceBreak: node.hasTrailingComma
+                //padding: " "
+                })
             ];
         }
         case "ReturnStatement": {
@@ -388,7 +388,7 @@ export function print(path, options, print) {
             }
         }
         case "MacroDeclaration": {
-            // can't touch this
+        // can't touch this
             return options.originalText.slice(node.start.index, node.end.index + 1);
         }
         case "RegionStatement": {
@@ -447,7 +447,7 @@ function printDelimitedList(
 
     const innerDoc = [
         ifBreak(leadingNewline ? lineBreak : "", padding),
-        printElements(path, print, listKey, delimiter, lineBreak),
+        printElements(path, print, listKey, delimiter, lineBreak)
     ];
 
     const groupElements = [
@@ -455,7 +455,7 @@ function printDelimitedList(
         addIndent ? indent(innerDoc) : innerDoc,
         // always print a trailing delimiter if the list breaks
         ifBreak([finalDelimiter, trailingNewline ? lineBreak : ""], padding),
-        endChar,
+        endChar
     ];
 
     const groupElementsNoBreak = [
@@ -463,7 +463,7 @@ function printDelimitedList(
         padding,
         printElements(path, print, listKey, delimiter, " "),
         padding,
-        endChar,
+        endChar
     ];
 
     if (forceInline) {
@@ -482,10 +482,10 @@ function printInBlock(path, options, print, expressionKey) {
             indent([
                 hardline,
                 print(expressionKey),
-                optionalSemicolon(node.type),
+                optionalSemicolon(node.type)
             ]),
             hardline,
-            "}",
+            "}"
         ];
     } else {
         return [print(expressionKey), optionalSemicolon(node.type)];
@@ -580,8 +580,8 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
         keyword, " (",
         group([indent([ifBreak(line), print(clauseKey)]), ifBreak(line)]),
         ") ",
-        printInBlock(path, options, print, bodyKey),
-    ]
+        printInBlock(path, options, print, bodyKey)
+    ];
 }
 
 function printSimpleDeclaration(leftDoc, rightDoc) {
@@ -625,7 +625,7 @@ function printEmptyBlock(path, options, print) {
                 true,
                 (comment) => !comment.attachToBrace
             ),
-            "}",
+            "}"
         ];
     } else {
         return "{}";
