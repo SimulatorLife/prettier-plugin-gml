@@ -7,6 +7,7 @@ export const languages = [
         name: 'GameMaker Language',
         extensions: ['.gml'],
         parsers: ['gml-parse'],
+        vscodeLanguageIds: ["gml-gms2"],
     }
 ];
 

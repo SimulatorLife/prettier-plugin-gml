@@ -1,14 +1,14 @@
-import { format } from "prettier";
+// prettier-plugin-test.js
+
+import * as prettier from "prettier";
 import fs from 'fs';
-import clipboardy from 'clipboardy';
 
 const fp = 'test/input/loungeware.gml';
 let input = fs.readFileSync(fp, 'utf8');
 
-const output = format(input, {
+const output = await prettier.format(input, {
     parser: "gml-parse",
-    pluginSearchDirs: ["../gamemaker-language-parser"],
-    plugins: ["prettier-plugin-gamemaker"],
+    plugins: ["./src/plugin/src/gml.js"],
 });
 
-clipboardy.writeSync(output);
+console.log(output);

@@ -1,6 +1,6 @@
-import ErrorListener from 'antlr4/src/antlr4/error/ErrorListener.js';
+import antlr4 from 'antlr4';
 
-export default class GameMakerParseErrorListener extends ErrorListener {
+export default class GameMakerParseErrorListener extends antlr4.error.ErrorListener {
     constructor() {
         super();
     }

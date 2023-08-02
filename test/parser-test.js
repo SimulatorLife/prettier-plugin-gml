@@ -1,6 +1,5 @@
 import GMLParser from '../src/parser/gml-parser.js';
 import fs from 'fs';
-import clipboardy from 'clipboardy';
 
 const fp = 'test/large-files/SnowState.gml';
 let input = fs.readFileSync(fp, 'utf8');
@@ -14,4 +13,5 @@ const ast = GMLParser.parse(input, {getLocations: true});
 console.timeEnd("warm");
 
 const astText = JSON.stringify(ast, null, 3);
-clipboardy.writeSync(astText);
+
+console.log("Result AST text:", astText);
