@@ -3,16 +3,30 @@
   "private": true,
   "main": "src/plugin/index.js",
   "type": "module",
-  "scripts": {
-    "test": "node ./test/parser-test.js && node ./test/prettier-plugin-test.js",
-    "write": "prettier --plugin=./ --write $npm_config_path --ignore-path .prettierignore --no-error-on-unmatched-pattern --loglevel=warn"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/henrylkirk/prettier-plugin-gml.git"
   },
-  "dependencies": {
-    "yaml": "^2.2.2",
-    "antlr4": "^4.13.0"
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "gml",
+    "game-maker",
+    "game-maker-studio",
+    "game-maker-studio-2",
+    "game-maker-language",
+    "parser",
+    "formatter"
+  ],
+  "author": "Two Scoop Studio",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "npm run test:subpackage1 && npm run test:subpackage2",
+    "test:subpackage1": "cd subpackage1 && npm test",
+    "test:subpackage2": "cd subpackage2 && npm test"
   },
   "devDependencies": {
-    "@types/node": "^18.16.3",
-    "prettier": "^3.0.0"
+    "eslint": "^8.45.0",
+    "@types/node": "^18.16.3"
   }
 }

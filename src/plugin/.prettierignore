@@ -1,0 +1,6 @@
+*.yy
+sh_**
+*.yyp
+*.xml
+*.json
+datafiles
