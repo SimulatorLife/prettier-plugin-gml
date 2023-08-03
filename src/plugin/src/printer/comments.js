@@ -85,7 +85,15 @@ function printComment(commentPath, options) {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
-            return "// " + comment.value.trim();
+            const trimmedValue = comment.value.trim();
+            // Use regular expression to match any sequence starting with '/'
+            const match = trimmedValue.match(/^\/(\s*)@/);
+            if (match) {
+                // Replace '/' (and any spaces after it) with ' ' and prepend with '///'
+                return "///" + trimmedValue.replace(/^\/(\s*)@/, ' @');
+            } else {
+                return "// " + trimmedValue;
+            }
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);

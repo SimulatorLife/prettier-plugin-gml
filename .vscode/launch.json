@@ -11,7 +11,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/test/prettier-plugin-test.js"
+            "program": "${workspaceFolder}/src/plugin/tests/testRunner.js"
         }
     ]
 }
