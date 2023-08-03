@@ -7,10 +7,7 @@
     "write": "prettier --plugin=./src/gml.js --write $npm_config_path --ignore-path .prettierignore --no-error-on-unmatched-pattern --loglevel=warn"
   },
   "dependencies": {
-    "gamemaker-language-parser": "0.0.1",
+    "gamemaker-language-parser": "file:../parser",
     "prettier": "^3.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^18.16.3"
   }
 }

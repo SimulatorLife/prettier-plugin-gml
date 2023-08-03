@@ -20,13 +20,14 @@
   ],
   "author": "Two Scoop Studio",
   "scripts": {
+    "install:recursive": "find . -name 'package.json' -not -path './node_modules/*' -not -path './.*' -execdir npm install \\;",
     "lint": "eslint .",
-    "test": "npm run test:subpackage1 && npm run test:subpackage2",
-    "test:subpackage1": "cd subpackage1 && npm test",
-    "test:subpackage2": "cd subpackage2 && npm test"
+    "format": "eslint . --fix",
+    "test": "npm run test:parser && npm run test:plugin",
+    "test:parser": "cd src/parser && npm run test",
+    "test:plugin": "cd src/plugin && npm run test"
   },
   "devDependencies": {
-    "@types/node": "^18.16.3",
     "eslint": "^8.46.0"
   }
 }
