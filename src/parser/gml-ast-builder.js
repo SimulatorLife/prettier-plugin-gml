@@ -216,7 +216,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitWithStatement(ctx) {
         return this.astNode(ctx, {
             type: "WithStatement",
-            object: this.visit(ctx.expression()),
+            test: this.visit(ctx.expression()),
             body: this.visit(ctx.statement())
         });
     }

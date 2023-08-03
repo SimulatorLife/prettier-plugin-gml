@@ -87,10 +87,11 @@ function printComment(commentPath, options) {
         case "CommentLine": {
             const trimmedValue = comment.value.trim();
             // Use regular expression to match any sequence starting with '/'
-            const match = trimmedValue.match(/^\/(\s*)@/);
-            if (match) {
+            const regexPattern = /^\/(\s*)@/;
+            const match = trimmedValue.match(regexPattern);
+            if (match) {  // JSDoc comment
                 // Replace '/' (and any spaces after it) with ' ' and prepend with '///'
-                return "///" + trimmedValue.replace(/^\/(\s*)@/, ' @');
+                return "///" + trimmedValue.replace(regexPattern, ' @');
             } else {
                 return "// " + trimmedValue;
             }
