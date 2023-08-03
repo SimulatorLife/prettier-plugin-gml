@@ -3,6 +3,7 @@
   "main": "src/gml.js",
   "type": "module",
   "scripts": {
+    "test": "node ./tests/testRunner.js",
     "example": "prettier --plugin ./src/gml.js example.gml",
     "write": "prettier --plugin=./src/gml.js --write $npm_config_path --ignore-path .prettierignore --no-error-on-unmatched-pattern --loglevel=warn"
   },
