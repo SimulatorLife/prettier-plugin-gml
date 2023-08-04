@@ -79,8 +79,16 @@ const handleComments = {
 
 const jsDocReplacements = {
     "@func": "@function",
+    "@method": "@function",
+    "@yield": "@returns",
+    "@yields": "@returns",
+    "@return": "@returns",
     "@desc": "@description",
-    "@arg": "@param"
+    "@arg": "@param",
+    "@argument": "@param",
+    "@overrides": "@override",
+    "@exception": "@throws",
+    "@private": "@hide"
     // Add more replacements here as needed
 };
 
