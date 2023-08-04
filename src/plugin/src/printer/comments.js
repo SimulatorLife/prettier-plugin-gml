@@ -91,7 +91,9 @@ function printComment(commentPath, options) {
             const match = trimmedValue.match(regexPattern);
             if (match) {  // JSDoc comment
                 // Replace '/' (and any spaces after it) with ' ' and prepend with '///'
-                return "///" + trimmedValue.replace(regexPattern, ' @');
+                let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, ' @');
+                // Check for empty parentheses at the end of the comment line and remove them
+                return formattedCommentLine.replace(/\(\)\s*$/, '');
             } else {
                 return "// " + trimmedValue;
             }

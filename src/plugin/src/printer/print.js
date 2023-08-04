@@ -416,7 +416,11 @@ export function print(path, options, print) {
             return "";
         }
         case "Literal": {
-            return node.value.toString();
+            let value = node.value;
+            if (value.startsWith('.') && !value.startsWith('"')) {
+                value = '0' + value;  // fix decimals without a leading 0
+            }
+            return value;
         }
         case "Identifier": {
             return node.name;

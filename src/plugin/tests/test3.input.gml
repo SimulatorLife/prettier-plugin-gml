@@ -17,11 +17,16 @@ function func_add(n1, n2) {
     return n1 + n2;
 }
 
-/// @function func_sub()
+/// @function func_sub(n1, n2)
 /// @desc Subtract 2 numbers
 function func_sub(n1, n2) {
     return n1 - n2;
 }
+func_sub(.5, 9);
+
+var testStringShouldNotHaveLeadingZero = ".5";
+
+var testComplicatedString = "This is a string with a \"quote\" in it";
 
 //This is an inline comment without a space after the slashes
 if global.disableDraw{exit;}
@@ -32,8 +37,8 @@ show_debug_message("Test console message");
 }
 
 while true
-{
-    show_debug_message("Print statement within while loop");
+{show_debug_message("Print statement within while loop");
+    
 }
 
 repeat 2 {
