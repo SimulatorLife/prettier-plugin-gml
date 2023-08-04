@@ -425,6 +425,24 @@ export function print(path, options, print) {
         case "Identifier": {
             return node.name;
         }
+        case "TemplateStringText": {
+            return node.value;
+        }
+        case "TemplateStringExpression": {
+            const parts = [];
+            parts.push('$"');
+            node.atoms.forEach((atom, index) => {
+                if (atom.type === "TemplateStringText") {
+                    parts.push(atom.value);
+                } else {
+                    parts.push('{', path.map(print, "atoms")[index], '}');
+                }
+            });
+            parts.push('"');
+            return parts;
+        }        
+        default:
+            console.warn("Unhandled type: " + node.type);
     }
 }
 
