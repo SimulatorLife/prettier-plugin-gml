@@ -77,6 +77,13 @@ const handleComments = {
     }
 };
 
+const jsDocReplacements = {
+    "@func": "@function",
+    "@desc": "@description",
+    "@arg": "@param"
+    // Add more replacements here as needed
+};
+
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
     comment.printed = true;
@@ -92,8 +99,17 @@ function printComment(commentPath, options) {
             if (match) {  // JSDoc comment
                 // Replace '/' (and any spaces after it) with ' ' and prepend with '///'
                 let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, ' @');
+                
                 // Check for empty parentheses at the end of the comment line and remove them
-                return formattedCommentLine.replace(/\(\)\s*$/, '');
+                formattedCommentLine = formattedCommentLine.replace(/\(\)\s*$/, '');
+
+                // Loop through each replacement and apply it
+                for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
+                    const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
+                    formattedCommentLine = formattedCommentLine.replace(regex, `$1${newWord}`);
+                }
+
+                return formattedCommentLine;
             } else {
                 return "// " + trimmedValue;
             }

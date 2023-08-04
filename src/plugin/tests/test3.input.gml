@@ -12,6 +12,8 @@ with(enemy)
 #endregion
 
 ///@func func_add
+/// @Arg {Real} n1
+/// @Arg {Real} n2
 /// @description Add 2 numbers
 function func_add(n1, n2) {
     return n1 + n2;
