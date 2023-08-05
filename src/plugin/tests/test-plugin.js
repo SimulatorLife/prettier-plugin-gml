@@ -56,10 +56,11 @@ async function testFiles() {
         expectedOutput = expectedOutput.trim();
 
         if (formatted !== expectedOutput) {
+            var isAnyLineDiff = false;
+
             const formattedLines = formatted.split("\n");
             const expectedLines = expectedOutput.split("\n");
 
-            console.error(`\nTest failed for file '${inputFile}'`);
             for (let i = 0; i < Math.max(formattedLines.length, expectedLines.length); i++) {
                 var expectedLine = expectedLines[i];
                 var formattedLine = formattedLines[i];
@@ -78,14 +79,18 @@ async function testFiles() {
                 }
         
                 if (formattedLine !== expectedLine) {
+                    isAnyLineDiff = true;
                     console.error(`\tLine ${lineNum} does not match:`);
                     console.error(`\tExpected: ${expectedLine}`);
                     console.error(`\tReceived: ${formattedLine}`);
                 }
             }
 
-            console.log(`\nFull formatted code for file '${inputFile}':\n`, formatted);
-            process.exit(1); // Exit with a failure code
+            if (isAnyLineDiff) {
+                console.error(`\nTest failed for file '${inputFile}'`);
+                console.log(`\nFull formatted code for file '${inputFile}':\n\n`, formatted);
+                process.exit(1); // Exit with a failure code
+            }
         }
         console.log(`Test for file '${inputFile}' passed!`);
     }

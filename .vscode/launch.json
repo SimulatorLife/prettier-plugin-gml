@@ -7,11 +7,12 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/src/plugin/tests/testRunner.js"
+            "name": "Debug npm run test:plugin",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run-script",
+                "test:plugin"
+            ]
         }
     ]
 }

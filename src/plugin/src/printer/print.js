@@ -142,14 +142,13 @@ export function print(path, options, print) {
                 group([
                     indent([
                         ifBreak(line),
-                        join([";", line], [print("init"), print("test"), print("update")])
-                    ]),
-                    line
+                        concat([print("init"), ";", line, print("test"), ";", line, print("update")])
+                    ])
                 ]),
                 ") ",
                 printInBlock(path, options, print, "body")
             ];
-        }
+        }        
         case "DoUntilStatement": {
             return [
                 "do ",
