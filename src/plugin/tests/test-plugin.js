@@ -1,6 +1,6 @@
 // testRunner.js
 
-import * as prettier from "prettier";
+import { format } from "prettier";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -39,7 +39,7 @@ async function testFiles() {
             process.exit(1);
         }
 
-        var formatted = await prettier.format(inputCode, {
+        var formatted = await format(inputCode, {
             plugins: [path.join(currentDirectory, "../src/gml.js")],
             parser: "gml-parse"
         });
