@@ -1,4 +1,5 @@
 # GameMaker Language Parser
+
 A parser and Prettier plugin for GameMaker Language (GML) implemented in Antlr4.
 
 <p align="center">
@@ -57,7 +58,6 @@ with (enemy) {
 }
 ```
 
-
 ## Installation
 
 Install the prequisites, then follow either the global or local install below.
@@ -91,7 +91,6 @@ This will install Prettier and the Prettier GML plugin ONLY for a single Game Ma
 npm init
 npm install --save-dev --save-exact prettier prettier-plugin-gml
 ```
-
 
 ## IMPORTANT NOTICE
 
@@ -135,28 +134,37 @@ npx prettier --plugin .\prettier-plugin-gml\ .\TEST.gml
 ```
 
 Or, run the development plugin version on a whole directory:
+
 ```
 npm run write --path=/Users/henrykirk/GameMakerStudio2/ColMesh
 ```
 
 ## Tests
+
 ### Run all the tests for both the parser and the Prettier plugin
+
 ```
 npm run test
 ```
+
 ### Run Prettier plugin tests
+
 ```
 npm run test:plugin
 ```
+
 ### Run parser tests
+
 ```
 npm run test:parser
 ```
 
 ## Generate JavaScript code from grammar files
+
 ```
 antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageLexer.g4 && antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageParser.g4
 ```
 
 ## Useful VSCode extensions
-* ANTLR4 Grammar Syntax Support
+
+- ANTLR4 Grammar Syntax Support

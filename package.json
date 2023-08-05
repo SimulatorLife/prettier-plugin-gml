@@ -3,7 +3,7 @@
   "private": true,
   "main": "src/plugin/index.js",
   "config": {
-    "root_path": "./"
+    "root_path": "."
   },  
   "type": "module",
   "repository": {
@@ -28,9 +28,10 @@
     "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
     "test": "npm run test:parser && npm run test:plugin",
     "test:parser": "cd $npm_package_config_root_path/src/parser && npm run test",
+    "prettier": "cd $npm_package_config_root_path/src/plugin && npm run prettier --path=$npm_config_path",
     "test:plugin": "cd $npm_package_config_root_path/src/plugin && npm run test",
-    "prettier": "prettier --write .",
-    "antlr": "cd $npm_package_config_root_path/src/parser && npm run antlr"
+    "antlr": "cd $npm_package_config_root_path/src/parser && npm run antlr",
+    "example:plugin": "cd $npm_package_config_root_path/src/plugin && npm run example"
   },
   "devDependencies": {
     "eslint": "^8.46.0"

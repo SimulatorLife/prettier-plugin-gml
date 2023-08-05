@@ -7,11 +7,11 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Debug npm run test:plugin",
+            "name": "Debug npm run example:plugin",
             "runtimeExecutable": "npm",
             "runtimeArgs": [
                 "run-script",
-                "test:plugin"
+                "example:plugin"
             ]
         }
     ]
