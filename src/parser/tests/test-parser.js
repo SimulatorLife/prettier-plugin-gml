@@ -1,7 +1,7 @@
 import GMLParser from "../src/gml-parser.js";
 import fs from "fs";
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from "path";
+import { fileURLToPath } from "url";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const testsDirectory = path.join(currentDirectory, "input");

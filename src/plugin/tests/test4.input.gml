@@ -1,3 +1,4 @@
-globalvar testGlobalVarName = "test global value";
+globalvar testGlobalVarName;
+testGlobalVarName = "test global value";
 
-testGlobalVarName = "new test blobal value";
+testGlobalVarName = "new test global value";

@@ -1,4 +1,4 @@
-#macro is_debug_mode true 
+#macro is_debug_mode true
 
 #region Enemy damage
 

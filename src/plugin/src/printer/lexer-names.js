@@ -1,4 +1,4 @@
-import { default as Lexer } from './GameMakerLanguageLexer.js';
+import { default as Lexer } from "./GameMakerLanguageLexer.js";
 
 export const MULTI_LINE_COMMENT = Lexer.literalNames[Lexer.MultiLineComment];
 export const SINGLE_LINE_COMMENT = Lexer.literalNames[Lexer.SingleLineComment];

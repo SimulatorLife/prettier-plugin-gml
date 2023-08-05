@@ -417,8 +417,8 @@ export function print(path, options, print) {
         }
         case "Literal": {
             let value = node.value;
-            if (value.startsWith('.') && !value.startsWith('"')) {
-                value = '0' + value;  // fix decimals without a leading 0
+            if (value.startsWith(".") && !value.startsWith("\"")) {
+                value = "0" + value;  // fix decimals without a leading 0
             }
             return value;
         }
@@ -430,15 +430,15 @@ export function print(path, options, print) {
         }
         case "TemplateStringExpression": {
             const parts = [];
-            parts.push('$"');
+            parts.push("$\"");
             node.atoms.forEach((atom, index) => {
                 if (atom.type === "TemplateStringText") {
                     parts.push(atom.value);
                 } else {
-                    parts.push('{', path.map(print, "atoms")[index], '}');
+                    parts.push("{", path.map(print, "atoms")[index], "}");
                 }
             });
-            parts.push('"');
+            parts.push("\"");
             return parts;
         }        
         default:

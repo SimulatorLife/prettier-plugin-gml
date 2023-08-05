@@ -139,12 +139,21 @@ Or, run the development plugin version on a whole directory:
 npm run write --path=/Users/henrykirk/GameMakerStudio2/ColMesh
 ```
 
-## Generate project structure tree
+## Tests
+### Run all the tests for both the parser and the Prettier plugin
 ```
-find . | grep -v "__pycache__\|\.pytest_cache\|\.benchmarks\|node_modules\|\.pyc\|./talk-venv\|./.github\|./.DS_Store\|package-lock.json\|./.git" > project_structure.txt
+npm run test
+```
+### Run Prettier plugin tests
+```
+npm run test:plugin
+```
+### Run parser tests
+```
+npm run test:parser
 ```
 
-## Generate JavaScript code from grammar files (from within 'lib' directory)
+## Generate JavaScript code from grammar files
 ```
 antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageLexer.g4 && antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageParser.g4
 ```
