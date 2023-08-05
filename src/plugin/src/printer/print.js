@@ -239,12 +239,22 @@ export function print(path, options, print) {
             return printSimpleDeclaration(print("id"), print("init"));
         }
         case "BinaryExpression": {
+            let left = print("left");
+            let operator = node.operator;
+            let right = print("right");
+        
+            // Check if the operator is division and the right-hand side is 2
+            if (operator === "/" && node.right.value === "2") {
+                operator = "*";
+                right = "0.5";
+            }
+        
             return group([
-                print("left"),
+                left,
                 " ",
-                group([node.operator, line, print("right")])
+                group([operator, line, right])
             ]);
-        }
+        }        
         case "IncDecStatement":
         case "UnaryExpression": {
             if (node.prefix) {
