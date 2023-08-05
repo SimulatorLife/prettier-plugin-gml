@@ -26,7 +26,7 @@
     "install:recursive": "find . -name 'package.json' -not -path './node_modules/*' -not -path './.*' -execdir npm install \\;",
     "lint": "eslint .",
     "format": "eslint . --fix",
-    "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
+    "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
     "test": "npm run test:parser && npm run test:plugin",
     "test:parser": "cd $npm_package_config_root_path/src/parser && npm run test",
     "test:plugin": "cd $npm_package_config_root_path/src/plugin && npm run test"

@@ -1,4 +1,6 @@
-import GMLParser from "../src/parser/gml-parser.js";
+// import path from 'path';
+// import { fileURLToPath } from 'url';
+import GMLParser from "../src/gml-parser.js";
 import fs from "fs";
 
 const options = {

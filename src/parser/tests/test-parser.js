@@ -1,7 +1,12 @@
-import GMLParser from "../src/parser/gml-parser.js";
+import GMLParser from "../src/gml-parser.js";
 import fs from "fs";
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const fp = "test/large-files/SnowState.gml";
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const testsDirectory = path.join(currentDirectory, "input");
+
+const fp = path.join(testsDirectory, "SnowState.gml");
 let input = fs.readFileSync(fp, "utf8");
 
 console.time("cold");

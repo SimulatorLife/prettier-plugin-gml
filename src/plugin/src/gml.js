@@ -1,4 +1,4 @@
-import GMLParser from "../../parser/gml-parser.js";
+import GMLParser from "../../parser/src/gml-parser.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
 
