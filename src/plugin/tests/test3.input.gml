@@ -1,3 +1,5 @@
+#macro is_debug_mode true 
+
 #region Enemy damage
 
 var enemy = argument0; var damage = argument1
@@ -36,7 +38,7 @@ var testComplicatedString = "This is a string with a \"quote\" in it";
 //This is an inline comment without a space after the slashes
 if global.disableDraw{exit;}
 
-if true//this is an inline comment
+if is_debug_mode//this is an inline comment
 {
 show_debug_message("Test console message");
 }

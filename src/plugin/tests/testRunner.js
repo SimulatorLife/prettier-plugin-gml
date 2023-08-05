@@ -3,8 +3,10 @@
 import * as prettier from "prettier";
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const testsDirectory = './src/plugin/tests';
+const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
+const testsDirectory = path.join(currentDirectory, '.');
 const fileEncoding = 'utf8';
 const fileExt = '.gml';
 
@@ -38,7 +40,7 @@ async function testFiles() {
     }
 
     var formatted = await prettier.format(inputCode, {
-      plugins: ["./src/plugin/src/gml.js"],
+      plugins: [path.join(currentDirectory, "../src/gml.js")],
       parser: "gml-parse",
     });
 
