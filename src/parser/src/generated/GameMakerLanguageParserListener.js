@@ -617,12 +617,30 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
+	// Enter a parse tree produced by GameMakerLanguageParser#argumentList.
+	enterArgumentList(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#argumentList.
+	exitArgumentList(ctx) {
+	}
+
+
 	// Enter a parse tree produced by GameMakerLanguageParser#argument.
 	enterArgument(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#argument.
 	exitArgument(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#trailingComma.
+	enterTrailingComma(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#trailingComma.
+	exitTrailingComma(ctx) {
 	}
 
 

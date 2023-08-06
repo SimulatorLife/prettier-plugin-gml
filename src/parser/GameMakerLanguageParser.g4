@@ -226,13 +226,23 @@ accessor
 
 arguments
     : '(' ')'
-    | '(' argument (',' argument)* (',')? ')'
+    | '(' argumentList? trailingComma? ')'
+    ;
+
+argumentList
+    : ',' argument (',' argument)*
+    | argument ',' argument (',' argument)*
+    | argument
     ;
 
 argument
     : expressionOrFunction
     | UndefinedLiteral
     | /* empty, to represent a missing argument */
+    ;
+
+trailingComma
+    : ',' 
     ;
 
 assignmentOperator

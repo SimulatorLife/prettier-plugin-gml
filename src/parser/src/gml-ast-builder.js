@@ -838,20 +838,31 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#arguments.
     visitArguments(ctx) {
-        let args = ctx.argument();
         let argList = [];
-        for (let i = 0; i < args.length; i++) {
-            let arg = args[i];
-            if (!arg.children) {
-                argList.push(this.astNode(ctx, { type: "MissingOptionalArgument" }));
-            } else if (arg.UndefinedLiteral()) {
-                argList.push(this.astNode(ctx, { type: "MissingOptionalArgument", value: "undefined" }));
+        let argumentListCtx = ctx.argumentList();
+        if (argumentListCtx) {
+            this.collectArguments(argumentListCtx, argList);
+        }
+        // check if trailingComma exists
+        if (ctx.trailingComma()) {
+            argList.push(this.astNode(ctx, { type: "MissingOptionalArgument" }));
+        }
+        return argList;
+    }    
+    
+    // Helper function to collect arguments recursively from an argumentList
+    collectArguments(ctx, argList) {
+        for (let i = 0; i < ctx.argument().length; i++) {
+            let arg = ctx.argument()[i];
+            if (arg.UndefinedLiteral()) {
+                argList.push(this.visit(arg));
+            } else if (!arg.expressionOrFunction()) {
+                argList.push(this.astNode(arg, { type: "MissingOptionalArgument" }));
             } else if (arg.expressionOrFunction()) {
                 argList.push(this.visit(arg.expressionOrFunction()));
             }
         }
-        return argList;
-    }     
+    }
 
     // Visit a parse tree produced by GameMakerLanguageParser#assignmentOperator.
     visitAssignmentOperator(ctx) {
