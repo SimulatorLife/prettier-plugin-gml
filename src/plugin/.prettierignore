@@ -1,9 +1,3 @@
-# Ignore everything
-/*
-
-# Don't ignore .gml files in any directory
-!/**/*.gml
-
 **/*.yy
 **/*.old.yy
 **/*.y_input
@@ -13,5 +7,6 @@
 **/*.fsh
 **/*.vsh
 **/*.resource_order
-datafiles/**
-vector_store/**
+datafiles
+vector_store
+.DS_STORE

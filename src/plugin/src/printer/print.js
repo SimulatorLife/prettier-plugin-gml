@@ -438,7 +438,38 @@ export function print(path, options, print) {
             return node.value;
         }
         case "MissingOptionalArgument": {
-            return "undefined";
+            return "undefined"; // TODO: Add plugin option to choose undefined or just empty comma
+        }
+        case "NewExpression": {
+            let args = path.map(print, "arguments").join(", ");
+            return ["new ", print("expression"), "(", args, ")"];
+        }
+        case "CatchClause": {
+            const parts = [];
+            parts.push(" catch ");
+            if (node.param) {
+              parts.push(["(", print("param"), ")"]);
+            }
+            if (node.body) {
+              parts.push(" ", printInBlock(path, options, print, "body"));
+            }
+            return parts;
+        }
+        case "Finalizer": {
+            const parts = [];
+            parts.push(" finally ");
+            if (node.body) {
+                parts.push(printInBlock(path, options, print, "body"));
+            }
+            return parts;
+        }
+        case "TryStatement": {
+            return [
+                "try ",
+                printInBlock(path, options, print, "block"),
+                print("handler"),
+                print("finalizer")
+            ];
         }
         case "TemplateStringExpression": {
             const parts = [];
@@ -685,3 +716,12 @@ function isLValueExpression(nodeType) {
         nodeType === "MemberDotExpression"
     );
 }
+
+// function printInParentheses(path, options, print, key) {
+//     return [
+//         "(",
+//         indent([softline, path.call(print, key)]),
+//         softline,
+//         ")"
+//     ];
+// }

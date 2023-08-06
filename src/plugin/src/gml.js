@@ -36,5 +36,6 @@ export const printers = {
 };
 
 export const defaultOptions = {
-    tabWidth: 4
+    tabWidth: 4,
+    "semi": true
 };

@@ -7,9 +7,9 @@
   "scripts": {
     "test": "node ./tests/test-plugin.js",
     "prettier:write": "prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --write --ignore-path=$npm_package_config_root_path/.prettierignore --no-error-on-unmatched-pattern --log-level=warn --ignore-unknown",
-    "prettier": "prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
-    "example": "npm run prettier --path=tests/test6.input.gml",
-    "prettier:alt": "cd $npm_package_config_root_path && npm link && cd $npm_config_path && prettier . --write --plugin=$npm_package_config_root_path/src/gml.js --log-level=warn --no-error-on-unmatched-pattern && cd $npm_package_config_root_path"
+    "prettier": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
+    "example": "npm run prettier --path=tests/test5.input.gml",
+    "prettier:alt": "node prettier-wrapper.js $npm_config_path"
   },
   "dependencies": {
     "gamemaker-language-parser": "file:../parser",

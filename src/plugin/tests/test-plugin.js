@@ -1,6 +1,6 @@
 // testRunner.js
 
-import { format } from "prettier";
+import prettier from 'prettier';
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,6 +9,8 @@ const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const testsDirectory = path.join(currentDirectory, ".");
 const fileEncoding = "utf8";
 const fileExt = ".gml";
+const failFast = false;  // Exit on the first failed test if true
+const outputFormattedCodeOnFailure = true;
 
 async function getFilesWithExtension(directory, extension) {
     const files = await fs.promises.readdir(directory);
@@ -23,6 +25,7 @@ async function testFiles() {
         process.exit(1);
     }
 
+    var numFailedTests = 0;
     for (let inputFile of inputFiles) {
         console.log(`Testing file '${inputFile}'...`);
 
@@ -41,7 +44,7 @@ async function testFiles() {
             process.exit(1);
         }
 
-        var formatted = await format(inputCode, {
+        var formatted = await prettier.format(inputCode, {
             plugins: [path.join(currentDirectory, "../src/gml.js")],
             parser: "gml-parse"
         });
@@ -57,8 +60,8 @@ async function testFiles() {
         formatted = formatted.trim();
         expectedOutput = expectedOutput.trim();
 
+        var didCurrTestFail = false;
         if (formatted !== expectedOutput) {
-            var isAnyLineDiff = false;
 
             const formattedLines = formatted.split("\n");
             const expectedLines = expectedOutput.split("\n");
@@ -81,20 +84,31 @@ async function testFiles() {
                 }
         
                 if (formattedLine !== expectedLine) {
-                    isAnyLineDiff = true;
+                    didCurrTestFail = true;
+                    numFailedTests++;
                     console.error(`\tLine ${lineNum} does not match:`);
                     console.error(`\tExpected: ${expectedLine}`);
                     console.error(`\tReceived: ${formattedLine}`);
                 }
             }
+        }
 
-            if (isAnyLineDiff) {
-                console.error(`\tFAILED`);
-                console.log(`\n\nFull formatted code for file '${inputFile}':\n\n`, formatted);
+        if (didCurrTestFail) {
+            console.log(`\tFAILED`);
+            if (outputFormattedCodeOnFailure) {
+                console.log(`\n\nFull formatted code for failed file '${inputFile}':\n\n`, formatted);
+            }
+            if (failFast) {
                 process.exit(1); // Exit with a failure code
             }
+        } else {
+            console.log(`\tPASSED`);
         }
-        console.log(`\tPASSED`);
+    }
+
+    if (numFailedTests > 0) {
+        console.error(`\n\n${numFailedTests}/${inputFiles.length} tests failed!`);
+        process.exit(1); // Exit with a failure code
     }
 
     console.log(`\n\nAll ${inputFiles.length} tests passed!`);
