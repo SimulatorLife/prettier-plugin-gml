@@ -1,6 +1,17 @@
-*.yy
-sh_**
-*.yyp
-*.xml
-*.json
-datafiles
+# Ignore everything
+/*
+
+# Don't ignore .gml files in any directory
+!/**/*.gml
+
+**/*.yy
+**/*.old.yy
+**/*.y_input
+**/*.yyp
+**/*.xml
+**/*.json
+**/*.fsh
+**/*.vsh
+**/*.resource_order
+datafiles/**
+vector_store/**
