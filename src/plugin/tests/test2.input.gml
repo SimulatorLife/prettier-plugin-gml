@@ -23,3 +23,13 @@ show_debug_message( "Hello World "+string(i+1) )
 
 var myWidth = 14;
 var halfWidth = myWidth / 2;
+
+	enum eStates {
+		STATE_IDLE = 0,
+	STATE_WALK =  1,
+	STATE_RUN=2,}
+
+
+
+
+var currState = eStates.STATE_IDLE;

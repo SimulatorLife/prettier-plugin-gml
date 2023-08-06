@@ -19,3 +19,12 @@ call(
         foo();
     }
 );
+
+var myBar;
+try {
+    myBar = new bar();
+} catch (e) {
+    show_debug_message("Caught exception: " + string(e));
+} finally {
+    myBar = undefined;
+}

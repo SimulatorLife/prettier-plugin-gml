@@ -19,3 +19,11 @@ static clearSubdiv = function() {
 
 var myWidth = 14;
 var halfWidth = myWidth * 0.5;
+
+enum eStates {
+    STATE_IDLE = 0,
+    STATE_WALK = 1,
+    STATE_RUN = 2
+}
+
+var currState = eStates.STATE_IDLE;

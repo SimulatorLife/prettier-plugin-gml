@@ -368,17 +368,18 @@ export function print(path, options, print) {
             return printDelimitedList(path, print, "elements", "[", "]", {
                 delimiter: ",",
                 allowTrailingDelimiter: true,
-                forceBreak: node.hasTrailingComma
+                forceBreak: options.hasTrailingComma && node.hasTrailingComma
             });
         }
         case "EnumDeclaration": {
             return [
                 "enum ",
+                print("name"),
+                " ",
                 printDelimitedList(path, print, "members", "{", "}", {
                     delimiter: ",",
-                    allowTrailingDelimiter: true,
+                    allowTrailingDelimiter: options.trailingComma === "all",
                     forceBreak: node.hasTrailingComma
-                //padding: " "
                 })
             ];
         }
@@ -443,6 +444,11 @@ export function print(path, options, print) {
         case "NewExpression": {
             let args = path.map(print, "arguments").join(", ");
             return ["new ", print("expression"), "(", args, ")"];
+        }
+        case "EnumMember": {
+            return printSimpleDeclaration(
+                print("name"), print("initializer")
+            );
         }
         case "CatchClause": {
             const parts = [];
