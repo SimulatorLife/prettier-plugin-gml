@@ -24,18 +24,20 @@ async function testFiles() {
     }
 
     for (let inputFile of inputFiles) {
+        console.log(`Testing file '${inputFile}'...`);
+
         const baseName = inputFile.slice(0, -4); // remove '.gml' extension
         const outputFile = baseName.replace(".input", ".output") + fileExt;
 
         const inputCode = await fs.promises.readFile(path.join(testsDirectory, inputFile), fileEncoding);
         if (typeof inputCode !== "string") {
-            console.error(`Unexpected type for input code. Expected string but got ${typeof inputCode}`);
+            console.error(`\tUnexpected type for input code. Expected string but got ${typeof inputCode}`);
             process.exit(1);
         }
 
         var expectedOutput = await fs.promises.readFile(path.join(testsDirectory, outputFile), fileEncoding);
         if (typeof expectedOutput !== "string") {
-            console.error(`Unexpected type for expected output. Expected string but got ${typeof expectedOutput}`);
+            console.error(`\tUnexpected type for expected output. Expected string but got ${typeof expectedOutput}`);
             process.exit(1);
         }
 
@@ -45,10 +47,10 @@ async function testFiles() {
         });
 
         if (typeof formatted !== "string") {
-            console.error(`Unexpected type for formatted code. Expected string but got ${typeof formatted}`);
+            console.error(`\tUnexpected type for formatted code. Expected string but got ${typeof formatted}`);
             process.exit(1);
         } else if (formatted.trim() === "") {
-            console.error("Unexpected empty string for formatted code.");
+            console.error("\tUnexpected empty string for formatted code.");
             process.exit(1);
         }
 
@@ -87,15 +89,15 @@ async function testFiles() {
             }
 
             if (isAnyLineDiff) {
-                console.error(`\nTest failed for file '${inputFile}'`);
-                console.log(`\nFull formatted code for file '${inputFile}':\n\n`, formatted);
+                console.error(`\tFAILED`);
+                console.log(`\n\nFull formatted code for file '${inputFile}':\n\n`, formatted);
                 process.exit(1); // Exit with a failure code
             }
         }
-        console.log(`Test for file '${inputFile}' passed!`);
+        console.log(`\tPASSED`);
     }
 
-    console.log(`All ${inputFiles.length} tests passed!`);
+    console.log(`\n\nAll ${inputFiles.length} tests passed!`);
     process.exit(0); // Exit with a success code
 }
 

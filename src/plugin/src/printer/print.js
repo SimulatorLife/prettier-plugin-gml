@@ -437,6 +437,9 @@ export function print(path, options, print) {
         case "TemplateStringText": {
             return node.value;
         }
+        case "MissingOptionalArgument": {
+            return "undefined";
+        }
         case "TemplateStringExpression": {
             const parts = [];
             parts.push("$\"");
@@ -451,7 +454,7 @@ export function print(path, options, print) {
             return parts;
         }        
         default:
-            console.warn("Unhandled type: " + node.type);
+            console.warn("Print.js:print encountered unhandled node type: " + node.type, node);
     }
 }
 
@@ -531,7 +534,7 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
     return path.map((childPath, index) => {
         const parts = [];
         const printed = print();
-        const separator = (index !== finalIndex) ? delimiter : "";
+        const separator = (index !== finalIndex ? delimiter : "");
 
         if (docHasTrailingComment(printed)) {
             printed.splice(printed.length - 1, 0, separator);
@@ -540,6 +543,7 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
             parts.push(printed);
             parts.push(separator);
         }
+
 
         if (index !== finalIndex) {
             parts.push(lineBreak);

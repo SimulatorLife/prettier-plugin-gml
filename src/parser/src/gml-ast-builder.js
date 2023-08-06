@@ -838,13 +838,20 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#arguments.
     visitArguments(ctx) {
-        let args = ctx.expressionOrFunction();
+        let args = ctx.argument();
         let argList = [];
         for (let i = 0; i < args.length; i++) {
-            argList.push(this.visit(args[i]));
+            let arg = args[i];
+            if (!arg.children) {
+                argList.push(this.astNode(ctx, { type: "MissingOptionalArgument" }));
+            } else if (arg.UndefinedLiteral()) {
+                argList.push(this.astNode(ctx, { type: "MissingOptionalArgument", value: "undefined" }));
+            } else if (arg.expressionOrFunction()) {
+                argList.push(this.visit(arg.expressionOrFunction()));
+            }
         }
         return argList;
-    }
+    }     
 
     // Visit a parse tree produced by GameMakerLanguageParser#assignmentOperator.
     visitAssignmentOperator(ctx) {

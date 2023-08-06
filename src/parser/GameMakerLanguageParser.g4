@@ -225,7 +225,14 @@ accessor
     ;
 
 arguments
-    : '(' ( expressionOrFunction (',' expressionOrFunction)* ','? )? ')'
+    : '(' ')'
+    | '(' argument (',' argument)* (',')? ')'
+    ;
+
+argument
+    : expressionOrFunction
+    | UndefinedLiteral
+    | /* empty, to represent a missing argument */
     ;
 
 assignmentOperator
