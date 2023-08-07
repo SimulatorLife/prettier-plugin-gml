@@ -105,7 +105,8 @@ function shouldAddNewlinesAroundStatement(node, options) {
     if (
         [
             "FunctionDeclaration",
-            "ConstructorDeclaration"
+            "ConstructorDeclaration",
+            "EndRegionStatement"
         ].includes(nodeType)
     ) {
         return true;

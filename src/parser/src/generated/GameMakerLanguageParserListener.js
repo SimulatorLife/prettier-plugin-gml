@@ -581,21 +581,30 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#PreIncDecExpression.
-	enterPreIncDecExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
+	enterPreIncDecStatement(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#PreIncDecExpression.
-	exitPreIncDecExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
+	exitPreIncDecStatement(ctx) {
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#PostIncDecExpression.
-	enterPostIncDecExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#PostIncDecStatement.
+	enterPostIncDecStatement(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#PostIncDecExpression.
-	exitPostIncDecExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#PostIncDecStatement.
+	exitPostIncDecStatement(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#incDecStatement.
+	enterIncDecStatement(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#incDecStatement.
+	exitIncDecStatement(ctx) {
 	}
 
 

@@ -174,7 +174,8 @@ expressionOrFunction
     ;
 
 expression
-    : incDecStatement # IncDecExpression
+    : ( preIncDecExpression
+      | postIncDecExpression ) # IncDecExpression
     | lValueExpression # VariableExpression
     | callStatement # CallExpression
 
@@ -210,9 +211,17 @@ callableExpression
     | '(' (functionDeclaration | callableExpression) ')'
     ;
 
+preIncDecExpression
+    : ('++' | '--') lValueExpression # PreIncDecStatement
+    ;
+
+postIncDecExpression
+    : lValueExpression ('++' | '--') # PostIncDecStatement
+    ;
+
 incDecStatement
-    : ('++' | '--') lValueExpression # PreIncDecExpression
-    | lValueExpression ('++' | '--') # PostIncDecExpression
+    : postIncDecExpression 
+    | preIncDecExpression 
     ;
 
 accessor

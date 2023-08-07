@@ -10,15 +10,12 @@ Almost done!
 #region Enemy damage
 
 var enemy = argument0; var damage = argument1
-var numEnemies = 0;
 with(enemy)
 {
 
 	  self.hp-=damage
 	if self.hp<=0 {instance_destroy(self)}
-    ++numEnemies;
 }
-
 #endregion
 
 ///@func func_add

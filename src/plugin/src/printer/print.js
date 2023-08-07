@@ -196,7 +196,7 @@ export function print(path, options, print) {
             if (node.params.length > 0) {
                 params = printDelimitedList(path, print, "params", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false
+                    allowTrailingDelimiter: options.trailingComma === "all"
                 });
             } else {
                 params = printEmptyParens(path, print, options);
@@ -226,7 +226,7 @@ export function print(path, options, print) {
             if (node.declarations.length > 1) {
                 decls = printDelimitedList(path, print, "declarations", "", "", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: options.trailingComma === "all",
                     leadingNewline: false,
                     trailingNewline: false
                 });
@@ -254,15 +254,15 @@ export function print(path, options, print) {
                 " ",
                 group([operator, line, right])
             ]);
-        }        
+        }
+        case "UnaryExpression":
         case "IncDecStatement":
-        case "UnaryExpression": {
+        case "IncDecExpression":
             if (node.prefix) {
                 return [node.operator, print("argument")];
             } else {
                 return [print("argument"), node.operator];
             }
-        }
         case "CallExpression": {
             let printedArgs = [];
 
@@ -280,21 +280,21 @@ export function print(path, options, print) {
                     addIndent: false,
                     forceInline: true,
                     delimiter: ",",
-                    allowTrailingDelimiter: false,
+                    allowTrailingDelimiter: options.trailingComma === "all",
                     leadingNewline: false,
                     trailingNewline: false
                 });
 
                 let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false
+                    allowTrailingDelimiter: options.trailingComma === "all",
                 });
 
                 printedArgs = conditionalGroup([optionA, optionB]);
             } else {
                 printedArgs = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false
+                    allowTrailingDelimiter: options.trailingComma === "all"
                 });
             }
 
@@ -339,7 +339,7 @@ export function print(path, options, print) {
             if (property === undefined) {
                 property = printDelimitedList(path, print, "property", "", "", {
                     delimiter: ",",
-                    allowTrailingDelimiter: false
+                    allowTrailingDelimiter: options.trailingComma === "all"
                 });
             }
             return [
@@ -355,7 +355,7 @@ export function print(path, options, print) {
             }
             return printDelimitedList(path, print, "properties", "{", "}", {
                 delimiter: ",",
-                allowTrailingDelimiter: true,
+                allowTrailingDelimiter: options.trailingComma === "all",
                 forceBreak: node.hasTrailingComma,
                 // TODO: decide whether to add bracket spacing for struct expressions
                 padding: ""
@@ -365,10 +365,11 @@ export function print(path, options, print) {
             return [print("name"), ": ", print("value")];
         }
         case "ArrayExpression": {
+            const allowTrailingComma = options.trailingComma === "all";
             return printDelimitedList(path, print, "elements", "[", "]", {
                 delimiter: ",",
-                allowTrailingDelimiter: true,
-                forceBreak: options.hasTrailingComma && node.hasTrailingComma
+                allowTrailingDelimiter: allowTrailingComma,
+                forceBreak: allowTrailingComma && node.hasTrailingComma
             });
         }
         case "EnumDeclaration": {
@@ -503,7 +504,7 @@ function printDelimitedList(
     endChar,
     {
         delimiter = ",",
-        allowTrailingDelimiter = true,
+        allowTrailingDelimiter = false,
         leadingNewline = true,
         trailingNewline = true,
         forceBreak = false,
@@ -722,12 +723,3 @@ function isLValueExpression(nodeType) {
         nodeType === "MemberDotExpression"
     );
 }
-
-// function printInParentheses(path, options, print, key) {
-//     return [
-//         "(",
-//         indent([softline, path.call(print, key)]),
-//         softline,
-//         ")"
-//     ];
-// }

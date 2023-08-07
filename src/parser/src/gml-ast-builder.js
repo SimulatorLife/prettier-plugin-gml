@@ -85,7 +85,6 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.enumeratorDeclaration() != null) {
             return this.visit(ctx.enumeratorDeclaration());
         }
-
         if (ctx.incDecStatement() != null) {
             return this.visit(ctx.incDecStatement());
         }
@@ -689,8 +688,29 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         });
     }
 
+    // Visit a parse tree produced by GameMakerLanguageParser#incDecStatement.
+    visitIncDecStatement(ctx) {
+        if (ctx.preIncDecExpression() != null) {
+            let result = this.visit(ctx.preIncDecExpression());
+            // Modify type to denote statement context
+            result.type = 'IncDecStatement';
+            return result;
+        }
+        if (ctx.postIncDecExpression() != null) {
+            let result = this.visit(ctx.postIncDecExpression());
+            // Modify type to denote statement context
+            result.type = 'IncDecStatement';
+            return result;
+        }
+        return null;
+    }
+
     visitIncDecExpression(ctx) {
-        return this.visit(ctx.incDecStatement());
+        if (ctx.preIncDecExpression()) {
+            return this.visit(ctx.preIncDecExpression());
+        } else if (ctx.postIncDecExpression()) {
+            return this.visit(ctx.postIncDecExpression());
+        }
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#PostIncDecExpression.
@@ -703,12 +723,46 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             operator = ctx.MinusMinus().getText();
         }
         return this.astNode(ctx, {
-            type: "UnaryExpression",
+            type: "IncDecExpression",
             operator: operator,
             prefix: false,
             argument: this.visit(ctx.lValueExpression())
         });
     }
+
+    // Visit a parse tree produced by GameMakerLanguageParser#PostIncDecStatement.
+    visitPostIncDecStatement(ctx) {
+        let operator = null;
+        if (ctx.PlusPlus() != null) {
+            operator = ctx.PlusPlus().getText();
+        }
+        if (ctx.MinusMinus() != null) {
+            operator = ctx.MinusMinus().getText();
+        }
+        return this.astNode(ctx, {
+            type: "IncDecStatement",
+            operator: operator,
+            prefix: false,
+            argument: this.visit(ctx.lValueExpression())
+        });
+    }
+
+        // Visit a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
+        visitPreIncDecStatement(ctx) {
+            let operator = null;
+            if (ctx.PlusPlus() != null) {
+                operator = ctx.PlusPlus().getText();
+            }
+            if (ctx.MinusMinus() != null) {
+                operator = ctx.MinusMinus().getText();
+            }
+            return this.astNode(ctx, {
+                type: "IncDecStatement",
+                operator: operator,
+                prefix: true,
+                argument: this.visit(ctx.lValueExpression())
+            });
+        }
 
     // Visit a parse tree produced by GameMakerLanguageParser#PreIncDecExpression.
     visitPreIncDecExpression(ctx) {
@@ -720,7 +774,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             operator = ctx.MinusMinus().getText();
         }
         return this.astNode(ctx, {
-            type: "UnaryExpression",
+            type: "IncDecExpression",
             operator: operator,
             prefix: true,
             argument: this.visit(ctx.lValueExpression())

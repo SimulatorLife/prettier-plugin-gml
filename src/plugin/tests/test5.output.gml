@@ -10,15 +10,9 @@ some(
     }
 );
 
-call(
-    1,
-    2,
-    3,
-    someFunctionCallWithBigArgumentsAndACallback,
-    function(aaaaaaaaaaaaaaaaaa) {
-        foo();
-    }
-);
+call(1, 2, 3, someFunctionCallWithBigArgumentsAndACallback, function(aaaaaaaaaaaaaaaaaa) {
+    foo();
+});
 
 var myBar;
 try {

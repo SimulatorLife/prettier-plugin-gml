@@ -390,14 +390,20 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#PreIncDecExpression.
-	visitPreIncDecExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
+	visitPreIncDecStatement(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#PostIncDecExpression.
-	visitPostIncDecExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#PostIncDecStatement.
+	visitPostIncDecStatement(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#incDecStatement.
+	visitIncDecStatement(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
