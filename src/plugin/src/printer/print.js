@@ -463,25 +463,15 @@ export function print(path, options, print) {
         case "MissingOptionalArgument": {
             return "undefined"; // TODO: Add plugin option to choose undefined or just empty comma
         }
-        // case "NewExpression": {
-        //     let args = path.map(print, "arguments").join(", ");
-        //     return ["new ", print("expression"), "(", args, ")"];
-        // }
         case "NewExpression": {
             let argsPrinted;
             if (node.arguments.length === 0) {
                 argsPrinted = [printEmptyParens(path, print, options)];
             } else {
-                argsPrinted = [
-                    "(",
-                    ...node.arguments.map((arg, idx) => {
-                        const printedArg = path.call(print, "arguments", idx);
-                        return idx === node.arguments.length - 1
-                            ? printedArg
-                            : printedArg + ",";
-                    }),
-                    ")"
-                ];
+                argsPrinted = [printDelimitedList(path, print, "arguments", "(", ")", {
+                    delimiter: ",",
+                    allowTrailingDelimiter: options.trailingComma === "all"
+                })];
             }
             return ["new ", print("expression"), ...argsPrinted];
         }           
