@@ -247,6 +247,14 @@ export function print(path, options, print) {
             if (operator === "/" && node.right.value === "2") {
                 operator = "*";
                 right = "0.5";
+            } else if (operator === "&&") { // TODO add option to specify if we want 'and' or '&&'
+                operator = "and";
+            } else if (operator === "||") {
+                operator = "or";
+            } else if (operator === "%") {
+                operator = "mod";
+            } else if (operator === "^^") {
+                operator = "xor";
             }
         
             return group([
@@ -265,9 +273,9 @@ export function print(path, options, print) {
             }
         case "CallExpression": {
             let printedArgs = [];
-
+        
             if (node.arguments.length === 0) {
-                printedArgs = printEmptyParens(path, print, options);
+                printedArgs = [printEmptyParens(path, print, options)];
             } else if (
                 [node.arguments[0], node.arguments[node.arguments.length - 1]].some(
                     (node) =>
@@ -275,7 +283,7 @@ export function print(path, options, print) {
                         node.type === "StructExpression"
                 )
             ) {
-            // treat this function like it has a callback
+                // treat this function like it has a callback
                 let optionA = printDelimitedList(path, print, "arguments", "(", ")", {
                     addIndent: false,
                     forceInline: true,
@@ -284,51 +292,64 @@ export function print(path, options, print) {
                     leadingNewline: false,
                     trailingNewline: false
                 });
-
+        
                 let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
                     allowTrailingDelimiter: options.trailingComma === "all",
                 });
-
-                printedArgs = conditionalGroup([optionA, optionB]);
+        
+                printedArgs = [conditionalGroup([optionA, optionB])];
             } else {
-                printedArgs = printDelimitedList(path, print, "arguments", "(", ")", {
+                printedArgs = [printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
                     allowTrailingDelimiter: options.trailingComma === "all"
-                });
+                })];
             }
-
+        
             if (isInLValueChain(path)) {
-                return [print("object"), printedArgs];
+                return [print("object"), ...printedArgs];
             } else {
-                return group([indent(print("object")), printedArgs]);
+                return group([indent(print("object")), ...printedArgs]);
             }
-        }
+        }                     
         case "MemberDotExpression": {
-            if (isInLValueChain(path)) {
-                if (path.parent?.type === "CallExpression") {
-                // this dot expression is part of a call expression, so add a line break
-                    return [
-                        print("object"),
-                        softline,
-                        ".",
-                        print("property")
-                    ];
-                } else {
-                    return [
-                        print("object"),
-                        ".",
-                        print("property")
-                    ];
-                }
-            } else {
-                const printed = [
-                    group(indent(print("object"))),
-                    ".",
-                    print("property")
-                ];
-                return printed;
-            }
+            return [
+                print("object"),
+                ".",
+                print("property")
+            ];
+            // if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
+            //     // this dot expression is part of a call expression, so add a line break
+            //     return [
+            //         print("object"),
+            //         softline,
+            //         ".",
+            //         print("property")
+            //     ];
+            // } else {
+            //     // return [
+            //     //     print("object"),
+            //     //     ".",
+            //     //     print("property")
+            //     // ];
+            //     let property = print("property");
+            //     if (property === undefined) {
+            //         property = printDelimitedList(path, print, "property", "", "", {
+            //             delimiter: ",",
+            //             allowTrailingDelimiter: options.trailingComma === "all"
+            //         });
+            //     }
+            //     return [
+            //         print("object"),
+            //         ".",
+            //         group(indent(property))
+            //     ];
+            //     // return [
+            //     //     print("object"),
+            //     //     ".",
+            //     //     print("property")
+            //     // ];
+            // }
         }
         case "MemberIndexExpression": {
             let accessor = print("accessor");
@@ -442,10 +463,28 @@ export function print(path, options, print) {
         case "MissingOptionalArgument": {
             return "undefined"; // TODO: Add plugin option to choose undefined or just empty comma
         }
+        // case "NewExpression": {
+        //     let args = path.map(print, "arguments").join(", ");
+        //     return ["new ", print("expression"), "(", args, ")"];
+        // }
         case "NewExpression": {
-            let args = path.map(print, "arguments").join(", ");
-            return ["new ", print("expression"), "(", args, ")"];
-        }
+            let argsPrinted;
+            if (node.arguments.length === 0) {
+                argsPrinted = [printEmptyParens(path, print, options)];
+            } else {
+                argsPrinted = [
+                    "(",
+                    ...node.arguments.map((arg, idx) => {
+                        const printedArg = path.call(print, "arguments", idx);
+                        return idx === node.arguments.length - 1
+                            ? printedArg
+                            : printedArg + ",";
+                    }),
+                    ")"
+                ];
+            }
+            return ["new ", print("expression"), ...argsPrinted];
+        }           
         case "EnumMember": {
             return printSimpleDeclaration(
                 print("name"), print("initializer")
