@@ -3,6 +3,7 @@ import { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
+import GMLRefactoringListener from "./gml-refactoring-listener.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
 
 export default class GMLParser {
@@ -41,12 +42,19 @@ export default class GMLParser {
         parser.removeErrorListeners();
         parser.addErrorListener(new GameMakerParseErrorListener());
 
+        let tree;
         try {
-            var tree = parser.program();
+            tree = parser.program();
         } catch (error) {
             console.error(error);
             return null;
         }
+
+        // Attach and apply refactoring listener
+        const refactoringListener = new GMLRefactoringListener();
+        antlr4.tree.ParseTreeWalker.DEFAULT.walk(refactoringListener, tree);
+
+        const refactorings = refactoringListener.refactorings;
 
         if (this.options.getComments) {
             lexer.reset();
