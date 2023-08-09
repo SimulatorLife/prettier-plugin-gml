@@ -92,7 +92,9 @@ BooleanLiteral:                 'true' | 'false';
 /// Numeric Literals
 
 IntegerLiteral:                 DecimalIntegerLiteral;
-DecimalLiteral:                 DecimalIntegerLiteral? '.' [0-9] [0-9_]* ;
+
+DecimalLiteral: (DecimalIntegerLiteral? '.' [0-9]+) | (DecimalIntegerLiteral '.');
+
 BinaryLiteral:                  '0b' ('_'* [01])+;
 HexIntegerLiteral:              HexLiteralPrefix [0-9a-fA-F] HexDigit*;
 

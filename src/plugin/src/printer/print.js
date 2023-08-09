@@ -451,10 +451,13 @@ export function print(path, options, print) {
         case "EmptyStatement": {
             return "";
         }
-        case "Literal": {
+        case "Literal": {  // TODO add option to allow missing trailing/leading zeroes
             let value = node.value;
             if (value.startsWith(".") && !value.startsWith("\"")) {
                 value = "0" + value;  // fix decimals without a leading 0
+            }
+            if (value.endsWith(".") && !value.endsWith("\"")) {
+                value = value + "0";  // fix decimals without a trailing 0
             }
             return value;
         }
