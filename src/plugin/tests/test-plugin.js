@@ -44,10 +44,17 @@ async function testFiles() {
             process.exit(1);
         }
 
-        var formatted = await prettier.format(inputCode, {
-            plugins: [path.join(currentDirectory, "../src/gml.js")],
-            parser: "gml-parse"
-        });
+        var formatted = "";
+        try {
+            formatted = await prettier.format(inputCode, {
+                plugins: [path.join(currentDirectory, "../src/gml.js")],
+                parser: "gml-parse"
+            });
+        } catch (e) {
+            console.error(`\tUnexpected error while formatting code`, e);
+            numFailedTests++;
+            continue;
+        }
 
         if (typeof formatted !== "string") {
             console.error(`\tUnexpected type for formatted code. Expected string but got ${typeof formatted}`);

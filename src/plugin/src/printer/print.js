@@ -184,7 +184,11 @@ export function print(path, options, print) {
             }
 
             if (node.type == "ConstructorDeclaration") {
-                parts.push(print("parent"));
+                if (node.parent) {
+                    parts.push(print("parent"));
+                } else {
+                    parts.push(" constructor");
+                }
             }
 
             parts.push(" ");

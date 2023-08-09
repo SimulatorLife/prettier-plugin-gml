@@ -1062,20 +1062,25 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         let id = null;
         let params = [];
         let hasTrailingComma = false;
-
+    
         if (ctx.Identifier() != null) {
             id = ctx.Identifier().getText();
         }
-
-        if (ctx.parameterList() != null) {
-            params = this.visit(ctx.parameterList());
-            const paramListCtx = ctx.parameterList();
+    
+        let paramListCtx = ctx.parameterList();
+        if (paramListCtx != null) {
+            params = this.visit(paramListCtx);
             hasTrailingComma = this.hasTrailingComma(
                 paramListCtx.Comma(),
                 paramListCtx.parameterArgument()
             );
         }
-
+    
+        // Check if neither identifier nor parameterList is present
+        if (!id && params.length === 0) {
+            return null;
+        }
+    
         return this.astNode(ctx, {
             type: "ConstructorParentClause",
             id: id,
@@ -1083,6 +1088,32 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             hasTrailingComma: hasTrailingComma
         });
     }
+
+    visitInheritanceClause(ctx) {
+        let id = this.visit(ctx.identifier());
+        let args = ctx.arguments() ? this.visit(ctx.arguments()) : [];
+    
+        return this.astNode(ctx, {
+            type: "InheritanceClause",
+            id: id,
+            arguments: args
+        });
+    }    
+    
+    visitStructDeclaration(ctx) {
+        let id = this.visit(ctx.identifier());
+        let params = this.visit(ctx.parameterList());
+        let body = this.visit(ctx.block());
+        let parent = ctx.inheritanceClause() ? this.visit(ctx.inheritanceClause()) : null;
+    
+        return this.astNode(ctx, {
+            type: "StructDeclaration",
+            id: id,
+            params: params,
+            body: body,
+            parent: parent
+        });
+    }    
 
     // Visit a parse tree produced by GameMakerLanguageParser#parameterList.
     visitParameterList(ctx) {
