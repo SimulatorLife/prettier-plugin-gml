@@ -580,13 +580,19 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#EqualityExpression.
     visitEqualityExpression(ctx) {
+        let operator;
+        if (ctx.NotEquals()) {
+            operator = "!=";
+        } else {
+            operator = "==";
+        }
         return this.astNode(ctx, {
             type: "BinaryExpression",
-            operator: "==",
+            operator: operator,
             left: this.visit(ctx.expression()[0]),
             right: this.visit(ctx.expression()[1])
         });
-    }
+    }    
 
     // Visit a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
     visitBitXOrExpression(ctx) {
@@ -834,6 +840,16 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "BinaryExpression",
             operator: "&",
+            left: this.visit(ctx.expression()[0]),
+            right: this.visit(ctx.expression()[1])
+        });
+    }
+
+    // Visit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
+    visitLogicalXorExpression(ctx) {
+        return this.astNode(ctx, {
+            type: "BinaryExpression",
+            operator: "^^",
             left: this.visit(ctx.expression()[0]),
             right: this.visit(ctx.expression()[1])
         });
