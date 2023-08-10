@@ -246,6 +246,7 @@ function handleCommentAttachedToOpenBrace(
         }
         return false;
     }
+    return false;
 }
 
 function handleCommentInEmptyParens(
@@ -255,6 +256,7 @@ function handleCommentInEmptyParens(
     ast,
     isLastComment
 ) {
+    
     if (comment.leadingChar != "(" || comment.trailingChar != ")") {
         return false;
     }

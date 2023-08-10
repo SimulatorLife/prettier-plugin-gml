@@ -29,7 +29,7 @@
     "lint": "eslint . --fix",
     "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
     "test": "npm run test:parser && npm run test:plugin",
-    "test:parser": "cd $npm_package_config_root_path/$npm_package_config_parser_path && npm run test",
+    "test:parser": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_parser_path && npm run test",
     "prettier": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run prettier:plugin --path=$npm_config_path",
     "test:plugin": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run test",
     "antlr": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_parser_path && npm run antlr",

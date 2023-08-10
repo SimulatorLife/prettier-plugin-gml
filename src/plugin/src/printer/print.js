@@ -37,26 +37,26 @@ export function print(path, options, print) {
     const node = path.getValue();
 
     if (!node) {
-        return "";
+        return concat("");
     }
 
     if (typeof node === "string") {
-        return node;
+        return concat(node);
     }
 
     switch (node.type) {
         case "Program": {
             if (node.body.length === 0) {
-                return printDanglingComments(path, options, true);
+                return concat(printDanglingComments(path, options, true));
             }
-            return printStatements(path, options, print, "body");
+            return concat(printStatements(path, options, print, "body"));
         }
         case "BlockStatement": {
             if (node.body.length === 0) {
-                return printEmptyBlock(path, options, print);
+                return concat(printEmptyBlock(path, options, print));
             }
 
-            return [
+            return concat([
                 "{",
                 printDanglingComments(
                     path,
@@ -70,7 +70,7 @@ export function print(path, options, print) {
                 ]),
                 hardline,
                 "}"
-            ];
+            ]);
         }
         case "IfStatement": {
             const parts = [];
@@ -79,7 +79,7 @@ export function print(path, options, print) {
             );
 
             if (node.alternate != null) {
-            // don't add braces to else-if
+                // don't add braces to else-if
                 const elseBlock =
                     node.alternate.type === "IfStatement"
                         ? print("alternate")
@@ -89,7 +89,7 @@ export function print(path, options, print) {
                     elseBlock
                 ]);
             }
-            return parts;
+            return concat(parts);
         }
         case "SwitchStatement": {
             const parts = [];
@@ -110,7 +110,7 @@ export function print(path, options, print) {
                     "}"
                 ]);
             }
-            return parts;
+            return concat(parts);
         }
         case "SwitchCase": {
             const caseText = node.test !== null ? "case " : "default";
@@ -123,7 +123,7 @@ export function print(path, options, print) {
                     ])
                 ]);
             }
-            return parts;
+            return concat(parts);
         }
         case "TernaryExpression": {
             return group([
@@ -137,7 +137,7 @@ export function print(path, options, print) {
             ]);
         }
         case "ForStatement": {
-            return [
+            return concat([
                 "for (",
                 group([
                     indent([
@@ -147,25 +147,25 @@ export function print(path, options, print) {
                 ]),
                 ") ",
                 printInBlock(path, options, print, "body")
-            ];
+            ]);
         }        
         case "DoUntilStatement": {
-            return [
+            return concat([
                 "do ",
                 printInBlock(path, options, print, "body"),
                 " until (",
                 group([indent([ifBreak(line), print("test")]), ifBreak(line)]),
                 ") "
-            ];
+            ]);
         }
         case "WhileStatement": {
-            return printSingleClauseStatement(path, options, print, "while", "test", "body");
+            return concat(printSingleClauseStatement(path, options, print, "while", "test", "body"));
         }
         case "RepeatStatement": {
-            return printSingleClauseStatement(path, options, print, "repeat", "test", "body");
+            return concat(printSingleClauseStatement(path, options, print, "repeat", "test", "body"));
         }
         case "WithStatement": {
-            return printSingleClauseStatement(path, options, print, "with", "test", "body");
+            return concat(printSingleClauseStatement(path, options, print, "with", "test", "body"));
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
@@ -193,7 +193,7 @@ export function print(path, options, print) {
 
             parts.push(" ");
             parts.push(printInBlock(path, options, print, "body"));
-            return parts;
+            return concat(parts);
         }
         case "ConstructorParentClause": {
             let params;
@@ -205,15 +205,15 @@ export function print(path, options, print) {
             } else {
                 params = printEmptyParens(path, print, options);
             }
-            return [
+            return concat([
                 " : ",
                 print("id"),
                 params,
                 " constructor"
-            ];
+            ]);
         }
         case "DefaultParameter": {
-            return printSimpleDeclaration(print("left"), print("right"));
+            return concat(printSimpleDeclaration(print("left"), print("right")));
         }
         case "AssignmentExpression": {
             return group([
@@ -237,16 +237,24 @@ export function print(path, options, print) {
             } else {
                 decls = path.map(print, "declarations");
             }
-            return [node.kind, " ", decls];
+            return concat([node.kind, " ", decls]);
         }
         case "VariableDeclarator": {
-            return printSimpleDeclaration(print("id"), print("init"));
+            return concat(printSimpleDeclaration(print("id"), print("init")));
         }
         case "BinaryExpression": {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
-        
+
+            // Check precedence
+            if (needsParentheses(node.left, node)) {
+                left = concat(["(", left, ")"]);
+            }
+            if (needsParentheses(node.right, node)) {
+                right = concat(["(", right, ")"]);
+            }
+
             // Check if the operator is division and the right-hand side is 2
             if (operator === "/" && node.right.value === "2") {
                 operator = "*";
@@ -260,20 +268,22 @@ export function print(path, options, print) {
             } else if (operator === "^^") {
                 operator = "xor";
             }
-        
+
             return group([
                 left,
                 " ",
-                group([operator, line, right])
+                operator,
+                line,
+                right
             ]);
         }
         case "UnaryExpression":
         case "IncDecStatement":
         case "IncDecExpression":
             if (node.prefix) {
-                return [node.operator, print("argument")];
+                return concat([node.operator, print("argument")]);
             } else {
-                return [print("argument"), node.operator];
+                return concat([print("argument"), node.operator]);
             }
         case "CallExpression": {
             let printedArgs = [];
@@ -311,49 +321,49 @@ export function print(path, options, print) {
             }
         
             if (isInLValueChain(path)) {
-                return [print("object"), ...printedArgs];
+                return concat([print("object"), ...printedArgs]);
             } else {
                 return group([indent(print("object")), ...printedArgs]);
             }
         }                     
         case "MemberDotExpression": {
-            return [
-                print("object"),
-                ".",
-                print("property")
-            ];
-            // if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
-            //     // this dot expression is part of a call expression, so add a line break
-            //     return [
-            //         print("object"),
-            //         softline,
-            //         ".",
-            //         print("property")
-            //     ];
-            // } else {
-            //     // return [
-            //     //     print("object"),
-            //     //     ".",
-            //     //     print("property")
-            //     // ];
-            //     let property = print("property");
-            //     if (property === undefined) {
-            //         property = printDelimitedList(path, print, "property", "", "", {
-            //             delimiter: ",",
-            //             allowTrailingDelimiter: options.trailingComma === "all"
-            //         });
-            //     }
-            //     return [
-            //         print("object"),
-            //         ".",
-            //         group(indent(property))
-            //     ];
-            //     // return [
-            //     //     print("object"),
-            //     //     ".",
-            //     //     print("property")
-            //     // ];
-            // }
+            // return [
+            //     print("object"),
+            //     ".",
+            //     print("property")
+            // ];
+            if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
+                // this dot expression is part of a call expression, so add a line break
+                return concat([
+                    print("object"),
+                    softline,
+                    ".",
+                    print("property")
+                ]);
+            } else {
+                // return [
+                //     print("object"),
+                //     ".",
+                //     print("property")
+                // ];
+                let property = print("property");
+                if (property === undefined) {
+                    property = printDelimitedList(path, print, "property", "", "", {
+                        delimiter: ",",
+                        allowTrailingDelimiter: options.trailingComma === "all"
+                    });
+                }
+                return concat([
+                    print("object"),
+                    ".",
+                    group(indent(property))
+                ]);
+                // return [
+                //     print("object"),
+                //     ".",
+                //     print("property")
+                // ];
+            }
         }
         case "MemberIndexExpression": {
             let accessor = print("accessor");
@@ -367,38 +377,38 @@ export function print(path, options, print) {
                     allowTrailingDelimiter: options.trailingComma === "all"
                 });
             }
-            return [
+            return concat([
                 print("object"),
                 accessor,
                 group(indent(property)),
                 "]"
-            ];
+            ]);
         }
         case "StructExpression": {
             if (node.properties.length === 0) {
-                return printEmptyBlock(path, options, print);
+                return concat(printEmptyBlock(path, options, print));
             }
-            return printDelimitedList(path, print, "properties", "{", "}", {
+            return concat(printDelimitedList(path, print, "properties", "{", "}", {
                 delimiter: ",",
                 allowTrailingDelimiter: options.trailingComma === "all",
                 forceBreak: node.hasTrailingComma,
                 // TODO: decide whether to add bracket spacing for struct expressions
                 padding: ""
-            });
+            }));
         }
         case "Property": {
-            return [print("name"), ": ", print("value")];
+            return concat([print("name"), ": ", print("value")]);
         }
         case "ArrayExpression": {
             const allowTrailingComma = options.trailingComma === "all";
-            return printDelimitedList(path, print, "elements", "[", "]", {
+            return concat(printDelimitedList(path, print, "elements", "[", "]", {
                 delimiter: ",",
                 allowTrailingDelimiter: allowTrailingComma,
                 forceBreak: allowTrailingComma && node.hasTrailingComma
-            });
+            }));
         }
         case "EnumDeclaration": {
-            return [
+            return concat([
                 "enum ",
                 print("name"),
                 " ",
@@ -407,18 +417,18 @@ export function print(path, options, print) {
                     allowTrailingDelimiter: options.trailingComma === "all",
                     forceBreak: node.hasTrailingComma
                 })
-            ];
+            ]);
         }
         case "ReturnStatement": {
             if (node.argument) {
-                return ["return ", print("argument")];
+                return concat(["return ", print("argument")]);
             } else {
-                return "return";
+                return concat("return");
             }
         }
         case "ThrowStatement": {
             if (node.argument) {
-                return ["throw ", print("argument")];
+                return concat(["throw ", print("argument")]);
             } else {
                 return "throw";
             }
@@ -428,28 +438,28 @@ export function print(path, options, print) {
             return options.originalText.slice(node.start.index, node.end.index + 1);
         }
         case "RegionStatement": {
-            return ["#region", print("name")];
+            return concat(["#region", print("name")]);
         }
         case "EndRegionStatement": {
-            return ["#endregion", print("name")];
+            return concat(["#endregion", print("name")]);
         }
         case "DefineStatement": {
-            return ["#define", print("name")];
+            return concat(["#define", print("name")]);
         }
         case "DeleteStatement": {
-            return ["delete ", print("argument")];
+            return concat(["delete ", print("argument")]);
         }
         case "BreakStatement": {
-            return "break";
+            return concat("break");
         }
         case "ExitStatement": {
-            return "exit";
+            return concat("exit");
         }
         case "ContinueStatement": {
-            return "continue";
+            return concat("continue");
         }
         case "EmptyStatement": {
-            return "";
+            return concat("");
         }
         case "Literal": {  // TODO add option to allow missing trailing/leading zeroes
             let value = node.value;
@@ -459,16 +469,16 @@ export function print(path, options, print) {
             if (value.endsWith(".") && !value.endsWith("\"")) {
                 value = value + "0";  // fix decimals without a trailing 0
             }
-            return value;
+            return concat(value);
         }
         case "Identifier": {
-            return node.name;
+            return concat(node.name);
         }
         case "TemplateStringText": {
-            return node.value;
+            return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            return "undefined"; // TODO: Add plugin option to choose undefined or just empty comma
+            return concat("undefined"); // TODO: Add plugin option to choose undefined or just empty comma
         }
         case "NewExpression": {
             let argsPrinted;
@@ -480,12 +490,12 @@ export function print(path, options, print) {
                     allowTrailingDelimiter: options.trailingComma === "all"
                 })];
             }
-            return ["new ", print("expression"), ...argsPrinted];
+            return concat(["new ", print("expression"), ...argsPrinted]);
         }           
         case "EnumMember": {
-            return printSimpleDeclaration(
+            return concat(printSimpleDeclaration(
                 print("name"), print("initializer")
-            );
+            ));
         }
         case "CatchClause": {
             const parts = [];
@@ -496,7 +506,7 @@ export function print(path, options, print) {
             if (node.body) {
               parts.push(" ", printInBlock(path, options, print, "body"));
             }
-            return parts;
+            return concat(parts);
         }
         case "Finalizer": {
             const parts = [];
@@ -504,15 +514,15 @@ export function print(path, options, print) {
             if (node.body) {
                 parts.push(printInBlock(path, options, print, "body"));
             }
-            return parts;
+            return concat(parts);
         }
         case "TryStatement": {
-            return [
+            return concat([
                 "try ",
                 printInBlock(path, options, print, "block"),
                 print("handler"),
                 print("finalizer")
-            ];
+            ]);
         }
         case "TemplateStringExpression": {
             const parts = [];
@@ -525,7 +535,7 @@ export function print(path, options, print) {
                 }
             });
             parts.push("\"");
-            return parts;
+            return concat(parts);
         }        
         default:
             console.warn("Print.js:print encountered unhandled node type: " + node.type, node);
@@ -734,11 +744,52 @@ function printEmptyBlock(path, options, print) {
                 true,
                 (comment) => !comment.attachToBrace
             ),
+            hardline,
             "}"
         ];
     } else {
         return "{}";
     }
+}
+
+function needsParentheses(innerNode, outerNode) {
+    const precedence = {
+        "or": 0,
+        "and": 1,
+        "|": 2,
+        "xor": 3,
+        "&": 4,
+        "=": 5,
+        "<": 5,
+        ">": 5,
+        "<=": 5,
+        ">=": 5,
+        "<>": 5,
+        "+": 6,
+        "-": 6,
+        "*": 7,
+        "/": 7,
+        "mod": 7,
+        // ... add other operators and their precedence values as needed ...
+    };
+
+    // If innerNode or outerNode doesn't have an operator, no parentheses are needed.
+    if (!innerNode.operator || !outerNode.operator) {
+        return false;
+    }
+
+    // If the innerNode's operator has a lower precedence than the outerNode's operator, return true.
+    if (precedence[innerNode.operator] < precedence[outerNode.operator]) {
+        return true;
+    }
+
+    // If the innerNode's operator has the same precedence as the outerNode's operator 
+    // and the outer node is on the right side, return true to ensure left-associativity.
+    if (precedence[innerNode.operator] === precedence[outerNode.operator] && outerNode.left === innerNode) {
+        return true;
+    }
+
+    return false;
 }
 
 function isInLValueChain(path) {
