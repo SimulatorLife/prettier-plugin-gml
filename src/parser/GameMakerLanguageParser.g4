@@ -169,8 +169,8 @@ expressionSequence
     ;
 
 expressionOrFunction
-    : (expression | functionDeclaration)
-    | '(' expressionOrFunction ')'
+    : expression 
+    | functionDeclaration
     ;
 
 expression

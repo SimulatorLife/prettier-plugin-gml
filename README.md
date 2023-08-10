@@ -167,11 +167,14 @@ npm run test:plugin
 npm run test:parser
 ```
 
-## Generate JavaScript code from grammar files
-
-```
-antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageLexer.g4 && antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageParser.g4
-```
+## Generate code from grammar files via ANTLR
+1. Download and install ANTLR4: https://www.antlr.org/download.html
+2. ANTLR required Java, so install Java if you don't have it already: https://www.java.com/en/download/
+3. Add ANTLR to your PATH. 
+  * On Unix: ```export PATH=$PATH:/path/to/antlr/bin```
+  * On Windows, add the ANTLR's bin directory to the system's PATH using the Environment Variables settings
+4. Confirm installation: ```antlr -version```
+5. Generate the parser and lexer files: ```antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageLexer.g4 && antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageParser.g4```
 
 ## Useful VSCode extensions
 
