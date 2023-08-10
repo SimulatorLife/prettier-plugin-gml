@@ -88,9 +88,17 @@ npm install -g --save-exact prettier prettier-plugin-gml
 This will install Prettier and the Prettier GML plugin ONLY for a single Game Maker project. Open up a terminal in the directory of your Game Maker project and run the following commands:
 
 ```
-npm init
-npm install --save-dev --save-exact prettier prettier-plugin-gml
+npm config set script-shell "C:\\Program Files\\git\\bin\\bash.exe" && npm run install:recursive:windows
+bpm run install:recursive
 ```
+
+### Windows
+```bash
+npm config set script-shell "C:\\Program Files\\git\\bin\\bash.exe"
+npm run install:recursive
+npm run prettier:plugin --path=C:\Users\henry\Documents\colmesh
+```
+
 
 ## IMPORTANT NOTICE
 
