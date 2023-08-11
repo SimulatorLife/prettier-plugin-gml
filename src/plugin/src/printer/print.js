@@ -267,6 +267,8 @@ export function print(path, options, print) {
                 operator = "mod";
             } else if (operator === "^^") {
                 operator = "xor";
+            } else if (operator === "<>") {
+                operator = "!=";
             }
 
             return group([
