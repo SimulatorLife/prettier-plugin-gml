@@ -10,6 +10,14 @@ function Shape() constructor {
 		triangles = [];
 		ds_list_destroy(shapeList);
 	};
+
+	static setSolid = function(solid) {
+        if (solid) {
+            group |= cmGroupSolid; // Flag as solid
+        } else {
+            group &= ~cmGroupSolid; // Remove solid flag
+        }
+    };
 }
 
 function Circle(r) : Shape() constructor {
