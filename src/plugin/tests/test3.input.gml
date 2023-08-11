@@ -10,7 +10,7 @@ Almost done!
 #region Enemy damage
 
 var enemy = argument0; var damage = argument1
-with(enemy)
+with((enemy))
 {
 
 	  self.hp-=damage

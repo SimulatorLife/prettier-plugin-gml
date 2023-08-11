@@ -242,6 +242,14 @@ export function print(path, options, print) {
         case "VariableDeclarator": {
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
+        case "ParenthesizedExpression": {
+            const expressionNode = node.expression;
+            if (expressionNode.type === "ParenthesizedExpression") {
+                // If the inner expression is already parenthesized, don't add additional parentheses
+                return print("expression");
+            }
+            return concat(["(", print("expression"), ")"]);
+        }
         case "BinaryExpression": {
             let left = print("left");
             let operator = node.operator;
@@ -274,9 +282,7 @@ export function print(path, options, print) {
             return group([
                 left,
                 " ",
-                operator,
-                line,
-                right
+                group([operator, line, right]),
             ]);
         }
         case "UnaryExpression":
@@ -630,7 +636,6 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
             parts.push(separator);
         }
 
-
         if (index !== finalIndex) {
             parts.push(lineBreak);
         }
@@ -697,12 +702,16 @@ function docHasTrailingComment(doc) {
 
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
-    return [
-        keyword, " (",
-        group([indent([ifBreak(line), print(clauseKey)]), ifBreak(line)]),
-        ") ",
-        printInBlock(path, options, print, bodyKey)
-    ];
+    const clauseNode = path.getValue()[clauseKey];
+    let clauseDoc;
+
+    if (clauseNode.type === "ParenthesizedExpression") {
+        clauseDoc = print(clauseKey);
+    } else {
+        clauseDoc = concat(["(", group([indent([ifBreak(line), print(clauseKey)]), ifBreak(line)]), ")"]);
+    }
+
+    return concat([keyword, " ", clauseDoc, " ", printInBlock(path, options, print, bodyKey)]);
 }
 
 function printSimpleDeclaration(leftDoc, rightDoc) {
@@ -756,9 +765,12 @@ function printEmptyBlock(path, options, print) {
 
 function needsParentheses(innerNode, outerNode) {
     const precedence = {
-        "or": 0,
-        "and": 1,
+        "and": 0,
+        "&&": 0,
+        "or": 1,
+        "||": 1,
         "|": 2,
+        "^^": 3,
         "xor": 3,
         "&": 4,
         "=": 5,
@@ -767,12 +779,12 @@ function needsParentheses(innerNode, outerNode) {
         "<=": 5,
         ">=": 5,
         "<>": 5,
+        "!=": 5,
         "+": 6,
         "-": 6,
         "*": 7,
         "/": 7,
         "mod": 7,
-        // ... add other operators and their precedence values as needed ...
     };
 
     // If innerNode or outerNode doesn't have an operator, no parentheses are needed.
@@ -781,18 +793,26 @@ function needsParentheses(innerNode, outerNode) {
     }
 
     // If the innerNode's operator has a lower precedence than the outerNode's operator, return true.
-    if (precedence[innerNode.operator] < precedence[outerNode.operator]) {
+    if ((precedence[innerNode.operator] || 100) < (precedence[outerNode.operator] || 100)) {
         return true;
     }
 
     // If the innerNode's operator has the same precedence as the outerNode's operator 
     // and the outer node is on the right side, return true to ensure left-associativity.
-    if (precedence[innerNode.operator] === precedence[outerNode.operator] && outerNode.left === innerNode) {
+    if ((precedence[innerNode.operator] || 100) === (precedence[outerNode.operator] || 100) && 
+        outerNode.right === innerNode) {
+        return true;
+    }
+
+    // Specifically handle the case where the outer node is an equality check and the inner node is a binary expression
+    if ((outerNode.operator === "==" || outerNode.operator === "!=") && 
+        innerNode.type === "BinaryExpression") {
         return true;
     }
 
     return false;
 }
+
 
 function isInLValueChain(path) {
     const { node, parent } = path;
