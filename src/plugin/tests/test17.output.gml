@@ -1,0 +1,1 @@
+var myVal = (h < 0 or h > 1);

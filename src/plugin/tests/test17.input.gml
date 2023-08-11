@@ -1,0 +1,1 @@
+var myVal = (h < 0 || h > 1)

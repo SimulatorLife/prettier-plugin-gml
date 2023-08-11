@@ -258,14 +258,14 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	visitAdditiveExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
+	visitRelationalExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	visitRelationalExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
+	visitAdditiveExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
@@ -300,14 +300,14 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	visitVariableExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#NotExpression.
+	visitNotExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#NotExpression.
-	visitNotExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	visitVariableExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 

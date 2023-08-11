@@ -383,21 +383,21 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	enterAdditiveExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	exitAdditiveExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#RelationalExpression.
 	enterRelationalExpression(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
 	exitRelationalExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
+	enterAdditiveExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
+	exitAdditiveExpression(ctx) {
 	}
 
 
@@ -446,21 +446,21 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	enterVariableExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	exitVariableExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#NotExpression.
 	enterNotExpression(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#NotExpression.
 	exitNotExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	enterVariableExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	exitVariableExpression(ctx) {
 	}
 
 
