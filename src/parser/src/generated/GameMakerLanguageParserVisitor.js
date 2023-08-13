@@ -252,20 +252,8 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-	visitParenthesizedExpression(ctx) {
-	  return this.visitChildren(ctx);
-	}
-
-
-	// Visit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	visitRelationalExpression(ctx) {
-	  return this.visitChildren(ctx);
-	}
-
-
-	// Visit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	visitAdditiveExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
+	visitLogicalOrExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
@@ -276,38 +264,146 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#LogicalAndExpression.
-	visitLogicalAndExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalOrBaseExpression.
+	visitLogicalOrBaseExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#BitNotExpression.
-	visitBitNotExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalOrCombinedExpression.
+	visitLogicalOrCombinedExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#LiteralExpression.
-	visitLiteralExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalAndBaseExpression.
+	visitLogicalAndBaseExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
-	visitLogicalOrExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalAndCombinedExpression.
+	visitLogicalAndCombinedExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#NotExpression.
-	visitNotExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalXorCombinedExpression.
+	visitLogicalXorCombinedExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	visitVariableExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LogicalXorBaseExpression.
+	visitLogicalXorBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#EqualityBaseExpression.
+	visitEqualityBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#EqualityCombinedExpression.
+	visitEqualityCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#RelationalBaseExpression.
+	visitRelationalBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#RelationalCombinedExpression.
+	visitRelationalCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#AdditiveCombinedExpression.
+	visitAdditiveCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#AdditiveBaseExpression.
+	visitAdditiveBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#MultiplicativeBaseExpression.
+	visitMultiplicativeBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#MultiplicativeCombinedExpression.
+	visitMultiplicativeCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseShiftCombinedExpression.
+	visitBitwiseShiftCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseShiftBaseExpression.
+	visitBitwiseShiftBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseOrBaseExpression.
+	visitBitwiseOrBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseOrCombinedExpression.
+	visitBitwiseOrCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseXorBaseExpression.
+	visitBitwiseXorBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseXorCombinedExpression.
+	visitBitwiseXorCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseAndBaseExpression.
+	visitBitwiseAndBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#BitwiseAndCombinedExpression.
+	visitBitwiseAndCombinedExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#CoalesceBaseExpression.
+	visitCoalesceBaseExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#CoalesceCombinedExpression.
+	visitCoalesceCombinedExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
@@ -318,20 +414,20 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#BitAndExpression.
-	visitBitAndExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#BitNotExpression.
+	visitBitNotExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-	visitLogicalXorExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#NotExpression.
+	visitNotExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#BitOrExpression.
-	visitBitOrExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
+	visitParenthesizedExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
@@ -342,14 +438,8 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#EqualityExpression.
-	visitEqualityExpression(ctx) {
-	  return this.visitChildren(ctx);
-	}
-
-
-	// Visit a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
-	visitBitXOrExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	visitVariableExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 
@@ -360,20 +450,8 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
-	// Visit a parse tree produced by GameMakerLanguageParser#MultiplicativeExpression.
-	visitMultiplicativeExpression(ctx) {
-	  return this.visitChildren(ctx);
-	}
-
-
-	// Visit a parse tree produced by GameMakerLanguageParser#CoalesceExpression.
-	visitCoalesceExpression(ctx) {
-	  return this.visitChildren(ctx);
-	}
-
-
-	// Visit a parse tree produced by GameMakerLanguageParser#BitShiftExpression.
-	visitBitShiftExpression(ctx) {
+	// Visit a parse tree produced by GameMakerLanguageParser#LiteralExpression.
+	visitLiteralExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 

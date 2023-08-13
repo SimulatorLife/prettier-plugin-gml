@@ -203,6 +203,30 @@ function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
     return parts;
 }
 
+function postProcessJsDocComments(formattedCommentSection) {
+    const lines = formattedCommentSection.split("\n");
+
+    // Identify the @function line with parameters and its index
+    const functionLinePattern = /^\/\/\/ @function (\w+)\(([^)]*)\)/;
+    const functionLineIndex = lines.findIndex(line => functionLinePattern.test(line));
+    if (functionLineIndex === -1) return formattedCommentSection;
+
+    const functionMatch = lines[functionLineIndex].match(functionLinePattern);
+    const functionName = functionMatch[1];
+    const params = functionMatch[2].split(",").map(p => p.trim());
+
+    // Check if params are already defined in the subsequent lines
+    const hasParamDefinitions = params.every(param => lines.slice(functionLineIndex + 1).some(line => new RegExp(`@param.*\\b${param}\\b`).test(line)));
+    if (hasParamDefinitions) {
+        lines[functionLineIndex] = `/// @function ${functionName}`;
+    } else {
+        const newFunctionLine = `/// @function ${functionName}`;
+        const newParamLines = params.map(param => `/// @param ${param}`);
+        lines.splice(functionLineIndex, 1, newFunctionLine, ...newParamLines);
+    }
+
+    return lines.join("\n");
+}
 
 function handleCommentInEmptyBody(comment, text, options, ast, isLastComment) {
     if (

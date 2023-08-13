@@ -42,8 +42,16 @@ export function print(path, options, print) {
 
     if (typeof node === "string") {
         return concat(node);
+    } else if (Array.isArray(node)) {
+        return concat(path.map(print));
     }
+    
 
+    return printNode(node, path, options, print);
+
+}
+
+function printNode(node, path, options, print) {
     switch (node.type) {
         case "Program": {
             if (node.body.length === 0) {
@@ -255,14 +263,6 @@ export function print(path, options, print) {
             let operator = node.operator;
             let right = print("right");
 
-            // Check precedence
-            if (needsParentheses(node.left, node)) {
-                left = concat(["(", left, ")"]);
-            }
-            if (needsParentheses(node.right, node)) {
-                right = concat(["(", right, ")"]);
-            }
-
             // Check if the operator is division and the right-hand side is 2
             if (operator === "/" && node.right.value === "2") {
                 operator = "*";
@@ -279,10 +279,54 @@ export function print(path, options, print) {
                 operator = "!=";
             }
 
+            // Check precedence
+            // if (needsParentheses(node.left, node)) {
+            //     left = concat(["(", left, ")"]);
+            // }
+            // if (needsParentheses(node.right, node)) {
+            //     right = concat(["(", right, ")"]);
+            // }
+
+            // return group([
+            //     left,
+            //     " ",
+            //     group([operator, line, right]),
+            // ]);
+            // const formattedBinExp = formatBinaryExpression(node);
+            // if (needsParentheses(node.left, node)) {
+            //     left = concat(["(", left, ")"]);
+            // }
+            // if (needsParentheses(node.right, node)) {
+            //     right = concat(["(", right, ")"]);
+            // }
+
+            // if (parentOp && needsParentheses(node.operator, parentOp)) {
+            //     return group(["(", node.left, " ", node.operator, " ", node.right, ")"]);
+            // }
+            // return group([node.left, " ", node.operator, " ", node.right]);
+    
+            // return group(formattedBinExp);
+
+            // if (node.left.type == "BinaryExpression") {
+            //     return printNode(node.left, path, options, print);
+            // }
+
+            // if (node.right.type == "BinaryExpression") {
+            //     return printNode(node.right, path, options, print);
+            // }
+
+            // if (needsParentheses(node.left, node)) {
+            //     left = concat(["(", left, ")"]);
+            // }
+            
+            // if (needsParentheses(node.right, node)) {
+            //     right = concat(["(", right, ")"]);
+            // }
+            
             return group([
                 left,
                 " ",
-                group([operator, line, right]),
+                group([operator, line, right])
             ]);
         }
         case "UnaryExpression":
@@ -317,7 +361,7 @@ export function print(path, options, print) {
         
                 let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                    allowTrailingDelimiter: options.trailingComma === "all"
                 });
         
                 printedArgs = [conditionalGroup([optionA, optionB])];
@@ -509,10 +553,10 @@ export function print(path, options, print) {
             const parts = [];
             parts.push(" catch ");
             if (node.param) {
-              parts.push(["(", print("param"), ")"]);
+                parts.push(["(", print("param"), ")"]);
             }
             if (node.body) {
-              parts.push(" ", printInBlock(path, options, print, "body"));
+                parts.push(" ", printInBlock(path, options, print, "body"));
             }
             return concat(parts);
         }
@@ -548,6 +592,7 @@ export function print(path, options, print) {
         default:
             console.warn("Print.js:print encountered unhandled node type: " + node.type, node);
     }
+
 }
 
 function printDelimitedList(
@@ -763,56 +808,243 @@ function printEmptyBlock(path, options, print) {
     }
 }
 
-function needsParentheses(innerNode, outerNode) {
-    const precedence = {
-        "and": 0,
-        "&&": 0,
-        "or": 1,
-        "||": 1,
-        "|": 2,
-        "^^": 3,
-        "xor": 3,
-        "&": 4,
-        "=": 5,
-        "<": 5,
-        ">": 5,
-        "<=": 5,
-        ">=": 5,
-        "<>": 5,
-        "!=": 5,
-        "+": 6,
-        "-": 6,
-        "*": 7,
-        "/": 7,
-        "mod": 7,
-    };
+// function needsParentheses(innerNode, outerNode) {
+//     const precedence = {
+//         "and": 0,
+//         "&&": 0,
+//         "or": 1,
+//         "||": 1,
+//         "|": 2,
+//         "^^": 2,
+//         "xor": 2,
+//         "&": 3,
+//         "=": 4,
+//         "<": 4,
+//         ">": 4,
+//         "<=": 4,
+//         ">=": 4,
+//         "<>": 4,
+//         "!=": 4,
+//         "+": 5,
+//         "-": 5,
+//         "*": 6,
+//         "/": 6,
+//         "mod": 6
+//     };
 
-    // If innerNode or outerNode doesn't have an operator, no parentheses are needed.
-    if (!innerNode.operator || !outerNode.operator) {
+//     // If innerNode is not a BinaryExpression, it doesn't need parentheses
+//     if (innerNode.type !== "BinaryExpression") {
+//         return false;
+//     }
+
+//     const LOGICAL_OPERATORS = ["and", "&&", "or", "||", "|", "^^", "xor", "&"];
+//     const COMPARISON_OPERATORS = ["=", "<", ">", "<=", ">=", "<>", "!=", "=="];
+//     const ARITHMETIC_OPERATORS = ["+", "-", "*", "/", "mod", "div", "%"];
+
+//     if (ARITHMETIC_OPERATORS.includes(outerNode.operator) && COMPARISON_OPERATORS.includes(innerNode.operator)) {
+//         return false;
+//     }
+
+//     // Handling for Test 8: and outer, < inner
+//     // if (outerNode.operator === "and" && innerNode.operator === "<") {
+//     //     return false;
+//     // }
+
+//     const innerPrecedence = precedence[innerNode.operator] || 100;
+//     const outerPrecedence = precedence[outerNode.operator] || 100;
+
+//     // For arithmetic outer operators
+//     if (ARITHMETIC_OPERATORS.includes(outerNode.operator)) {
+//         if (innerPrecedence > outerPrecedence) {
+//             return true;
+//         }
+//         if (innerPrecedence === outerPrecedence && ["-", "/"].includes(outerNode.operator)) {
+//             return false;
+//         }
+//     }
+
+//     // For comparison outer operators
+//     if (COMPARISON_OPERATORS.includes(outerNode.operator)) {
+//         if (ARITHMETIC_OPERATORS.includes(innerNode.operator)) {
+//             return true;
+//         }
+//     }
+
+//     // For logical outer operators
+//     if (LOGICAL_OPERATORS.includes(outerNode.operator)) {
+//         if (COMPARISON_OPERATORS.includes(innerNode.operator) || LOGICAL_OPERATORS.includes(innerNode.operator)) {
+//             return true;
+//         }
+//         if (outerNode.operator === "and" && COMPARISON_OPERATORS.includes(innerNode.operator)) {
+//             return false;
+//         }
+//     }
+
+//     return false;
+// }
+
+// function needsParentheses(innerNode, outerNode) {
+//     const precedence = {
+//         "or": 1,
+//         "||": 1,
+//         "and": 2,
+//         "&&": 2,
+//         "==": 3,
+//         "=": 3,
+//         "<": 3,
+//         ">": 3,
+//         "+": 4,
+//         "-": 4,
+//         "*": 5,
+//         "/": 5
+//     };
+
+//     // If innerNode is not a BinaryExpression, it doesn't need parentheses
+//     if (innerNode.type !== "BinaryExpression") {
+//         return false;
+//     }
+
+//     const innerPrecedence = precedence[innerNode.operator] || 100;
+//     const outerPrecedence = precedence[outerNode.operator] || 100;
+
+//     // Handle cases where the two operators have different precedence
+//     if (innerPrecedence !== outerPrecedence) {
+//         if (innerNode.operator === "==" && outerPrecedence > innerPrecedence) {
+//             return true;
+//         }
+//         if ((innerNode.operator === "+" || innerNode.operator === "-") && 
+//             (outerNode.operator === "*" || outerNode.operator === "/")) {
+//             return true;  // Addition or subtraction inside multiplication or division
+//         }
+//         return innerPrecedence > outerPrecedence;
+//     }
+
+//     // Handle special cases where the two operators have the same precedence
+//     if (innerNode.operator === "-") {
+//         return true;  // Always use parentheses for sequential subtraction
+//     }
+//     if (innerNode.operator === "+" && outerNode.operator === "+") {
+//         return false;  // Don't use parentheses for sequential addition
+//     }
+//     if (innerNode.operator === "and" && outerNode.operator === "or") {
+//         return true;  // Use parentheses for 'and' followed by 'or'
+//     }
+
+//     return false;  // Default to not using parentheses
+// }
+
+// const precedence = {
+//     "and": 0,
+//     "&&": 0,
+//     "or": 1,
+//     "||": 1,
+//     "|": 2,
+//     "^^": 2,
+//     "xor": 2,
+//     "&": 3,
+//     "=": 4,
+//     "<": 4,
+//     ">": 4,
+//     "<=": 4,
+//     ">=": 4,
+//     "<>": 4,
+//     "!=": 4,
+//     "+": 5,
+//     "-": 5,
+//     "*": 6,
+//     "/": 6,
+//     "mod": 6
+// };
+const precedence = {
+    "or": 1,
+    "||": 1,
+    "and": 2,
+    "&&": 2,
+    "==": 3,
+    "!=": 3,
+    "<": 3,
+    ">": 3,
+    "<=": 3,
+    ">=": 3,
+    "+": 4,
+    "-": 4,
+    "*": 5,
+    "/": 5,
+    "mod": 5
+};
+
+const operators = {
+    "^": {
+        prec: 4,
+        assoc: "right"
+    },
+    "*": {
+        prec: 3,
+        assoc: "left"
+    },
+    "/": {
+        prec: 3,
+        assoc: "left"
+    },
+    "+": {
+        prec: 2,
+        assoc: "left"
+    },
+    "-": {
+        prec: 2,
+        assoc: "left"
+    }
+};
+
+// function needsParentheses(innerNode, outerNode) {
+//     if (!innerNode || innerNode.type !== "BinaryExpression") {
+//         return false;
+//     }
+    
+//     const innerPrecedence = precedence[innerNode.operator] || 0;
+//     const outerPrecedence = precedence[outerNode.operator] || 0;
+    
+//     if (innerPrecedence < outerPrecedence) {
+//         return true;
+//     } else if (innerPrecedence === outerPrecedence && innerNode.operator === '-') {
+//         return true;
+//     }
+
+//     return false;
+// }
+
+function needsParentheses(innerNode, outerNode) {
+    if (!innerNode || innerNode.type !== "BinaryExpression") {
         return false;
     }
 
-    // If the innerNode's operator has a lower precedence than the outerNode's operator, return true.
-    if ((precedence[innerNode.operator] || 100) < (precedence[outerNode.operator] || 100)) {
-        return true;
-    }
+    const innerPrecedence = precedence[innerNode.operator] || 0;
+    const outerPrecedence = precedence[outerNode.operator] || 0;
 
-    // If the innerNode's operator has the same precedence as the outerNode's operator 
-    // and the outer node is on the right side, return true to ensure left-associativity.
-    if ((precedence[innerNode.operator] || 100) === (precedence[outerNode.operator] || 100) && 
-        outerNode.right === innerNode) {
-        return true;
-    }
-
-    // Specifically handle the case where the outer node is an equality check and the inner node is a binary expression
-    if ((outerNode.operator === "==" || outerNode.operator === "!=") && 
-        innerNode.type === "BinaryExpression") {
-        return true;
-    }
-
-    return false;
+    // If the inner operation has equal or lesser precedence than the outer operation, 
+    // it needs parentheses.
+    return innerPrecedence <= outerPrecedence;
 }
 
+
+function formatBinaryExpression(path, parentOp = null) {
+    const node = path.getValue();
+
+    console.log(`Processing node type: ${node.type}, value: ${node.value || "N/A"}`);
+
+    if (!node || node.type !== "BinaryExpression") {
+        // return node.value ? [print("value")] : [];
+        return printNode(node, path);
+    }
+
+    // let left = formatExpression(node.left, node.operator);
+    // let right = formatExpression(node.right, node.operator);
+
+    if (parentOp && needsParentheses(node.operator, parentOp)) {
+        return ["(", node.left, " ", node.operator, " ", node.right, ")"];
+    }
+    return [node.left, " ", node.operator, " ", node.right];
+}
 
 function isInLValueChain(path) {
     const { node, parent } = path;

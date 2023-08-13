@@ -1,6 +1,6 @@
 // testRunner.js
 
-import prettier from 'prettier';
+import prettier from "prettier";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +18,7 @@ async function getFilesWithExtension(directory, extension) {
 }
 
 async function testFiles() {
+
     const inputFiles = await getFilesWithExtension(testsDirectory, ".input" + fileExt);
 
     if (inputFiles.length <= 0) {
@@ -51,7 +52,7 @@ async function testFiles() {
                 parser: "gml-parse"
             });
         } catch (e) {
-            console.error(`\tUnexpected error while formatting code`, e);
+            console.error("\tUnexpected error while formatting code", e);
             numFailedTests++;
             continue;
         }
@@ -94,6 +95,7 @@ async function testFiles() {
                     didCurrTestFail = true;
                     numFailedTests++;
                     console.error(`\tLine ${lineNum} does not match:`);
+                    console.error(`\tInput: ${inputCode.split("\n")[i] ? inputCode.split("\n")[i].trim() : "N/A"}`);
                     console.error(`\tExpected: ${expectedLine}`);
                     console.error(`\tReceived: ${formattedLine}`);
                 }
@@ -101,7 +103,7 @@ async function testFiles() {
         }
 
         if (didCurrTestFail) {
-            console.log(`\tFAILED`);
+            console.log("\tFAILED");
             if (outputFormattedCodeOnFailure) {
                 console.log(`\n\nFull formatted code for failed file '${inputFile}':\n\n`, formatted);
             }
@@ -109,7 +111,7 @@ async function testFiles() {
                 process.exit(1); // Exit with a failure code
             }
         } else {
-            console.log(`\tPASSED`);
+            console.log("\tPASSED");
         }
     }
 

@@ -175,27 +175,75 @@ expressionOrFunction
     ;
 
 expression
-    : '(' expression ')' # ParenthesizedExpression
-    | expression ('==' | Assign | NotEquals) expression # EqualityExpression
-    | expression ('<' | '>' | '<=' | '>=') expression # RelationalExpression
-    | expression Or expression # LogicalOrExpression
-    | expression And expression # LogicalAndExpression
-    | expression Xor expression # LogicalXorExpression
-    | expression ('+' | '-') expression # AdditiveExpression
-    | expression ('*' | '/' | Modulo | IntegerDivide) expression # MultiplicativeExpression
+    : exprLogicalOr '?' expression ':' expression # TernaryExpression
+    | exprLogicalOr # LogicalOrExpression
     | <assoc=right> '-' expression # UnaryMinusExpression
     | <assoc=right> '~' expression # BitNotExpression
     | <assoc=right> Not expression # NotExpression
-    | expression ('<<' | '>>') expression # BitShiftExpression
-    | expression '??' expression # CoalesceExpression
-    | expression '&' expression # BitAndExpression
-    | expression '|' expression # BitOrExpression
-    | expression '^' expression # BitXOrExpression
+    | '(' expression ')' # ParenthesizedExpression
     | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
     | lValueExpression # VariableExpression
     | callStatement # CallExpression
-    | expression '?' expression ':' expression # TernaryExpression
     | literal # LiteralExpression
+    ;
+
+exprLogicalOr
+    : exprLogicalAnd # LogicalOrBaseExpression
+    | exprLogicalOr Or exprLogicalAnd # LogicalOrCombinedExpression
+    ;
+
+exprLogicalAnd
+    : exprLogicalXor # LogicalAndBaseExpression
+    | exprLogicalAnd And exprLogicalXor # LogicalAndCombinedExpression
+    ;
+
+exprLogicalXor
+    : exprEquality # LogicalXorBaseExpression
+    | exprLogicalXor Xor exprEquality # LogicalXorCombinedExpression
+    ;
+
+exprEquality
+    : exprRelational # EqualityBaseExpression
+    | exprEquality ('==' | NotEquals) exprRelational # EqualityCombinedExpression
+    ;
+
+exprRelational
+    : exprAdditive # RelationalBaseExpression
+    | exprRelational ('<' | '>' | '<=' | '>=') exprAdditive # RelationalCombinedExpression
+    ;
+
+exprAdditive
+    : exprMultiplicative # AdditiveBaseExpression
+    | exprAdditive ('+' | '-') exprMultiplicative # AdditiveCombinedExpression
+    ;
+
+exprMultiplicative
+    : exprBitwiseShift # MultiplicativeBaseExpression
+    | exprMultiplicative ('*' | '/' | Modulo | IntegerDivide) exprBitwiseShift # MultiplicativeCombinedExpression
+    ;
+
+exprBitwiseShift
+    : exprBitwiseOr # BitwiseShiftBaseExpression
+    | exprBitwiseShift ('<<' | '>>') exprBitwiseOr # BitwiseShiftCombinedExpression
+    ;
+
+exprBitwiseOr
+    : exprBitwiseXor # BitwiseOrBaseExpression
+    | exprBitwiseOr '|' exprBitwiseXor # BitwiseOrCombinedExpression
+    ;
+
+exprBitwiseXor
+    : exprBitwiseAnd # BitwiseXorBaseExpression
+    | exprBitwiseXor '^' exprBitwiseAnd # BitwiseXorCombinedExpression
+    ;
+
+exprBitwiseAnd
+    : exprCoalesce # BitwiseAndBaseExpression
+    | exprBitwiseAnd '&' exprCoalesce # BitwiseAndCombinedExpression
+    ;
+
+exprCoalesce
+    : exprCoalesce '??' expression # CoalesceExpression
     ;
 
 callStatement

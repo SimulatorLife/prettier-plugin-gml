@@ -374,30 +374,12 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-	enterParenthesizedExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
+	enterLogicalOrExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
-	exitParenthesizedExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	enterRelationalExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	exitRelationalExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	enterAdditiveExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
-	exitAdditiveExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
+	exitLogicalOrExpression(ctx) {
 	}
 
 
@@ -410,57 +392,219 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#LogicalAndExpression.
-	enterLogicalAndExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalOrBaseExpression.
+	enterLogicalOrBaseExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#LogicalAndExpression.
-	exitLogicalAndExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#BitNotExpression.
-	enterBitNotExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#BitNotExpression.
-	exitBitNotExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalOrBaseExpression.
+	exitLogicalOrBaseExpression(ctx) {
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#LiteralExpression.
-	enterLiteralExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalOrCombinedExpression.
+	enterLogicalOrCombinedExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#LiteralExpression.
-	exitLiteralExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
-	enterLogicalOrExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
-	exitLogicalOrExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalOrCombinedExpression.
+	exitLogicalOrCombinedExpression(ctx) {
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#NotExpression.
-	enterNotExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalAndBaseExpression.
+	enterLogicalAndBaseExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#NotExpression.
-	exitNotExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalAndBaseExpression.
+	exitLogicalAndBaseExpression(ctx) {
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	enterVariableExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalAndCombinedExpression.
+	enterLogicalAndCombinedExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#VariableExpression.
-	exitVariableExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalAndCombinedExpression.
+	exitLogicalAndCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalXorCombinedExpression.
+	enterLogicalXorCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalXorCombinedExpression.
+	exitLogicalXorCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalXorBaseExpression.
+	enterLogicalXorBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalXorBaseExpression.
+	exitLogicalXorBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#EqualityBaseExpression.
+	enterEqualityBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#EqualityBaseExpression.
+	exitEqualityBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#EqualityCombinedExpression.
+	enterEqualityCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#EqualityCombinedExpression.
+	exitEqualityCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#RelationalBaseExpression.
+	enterRelationalBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#RelationalBaseExpression.
+	exitRelationalBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#RelationalCombinedExpression.
+	enterRelationalCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#RelationalCombinedExpression.
+	exitRelationalCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveCombinedExpression.
+	enterAdditiveCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveCombinedExpression.
+	exitAdditiveCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveBaseExpression.
+	enterAdditiveBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveBaseExpression.
+	exitAdditiveBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#MultiplicativeBaseExpression.
+	enterMultiplicativeBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#MultiplicativeBaseExpression.
+	exitMultiplicativeBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#MultiplicativeCombinedExpression.
+	enterMultiplicativeCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#MultiplicativeCombinedExpression.
+	exitMultiplicativeCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseShiftCombinedExpression.
+	enterBitwiseShiftCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseShiftCombinedExpression.
+	exitBitwiseShiftCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseShiftBaseExpression.
+	enterBitwiseShiftBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseShiftBaseExpression.
+	exitBitwiseShiftBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseOrBaseExpression.
+	enterBitwiseOrBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseOrBaseExpression.
+	exitBitwiseOrBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseOrCombinedExpression.
+	enterBitwiseOrCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseOrCombinedExpression.
+	exitBitwiseOrCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseXorBaseExpression.
+	enterBitwiseXorBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseXorBaseExpression.
+	exitBitwiseXorBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseXorCombinedExpression.
+	enterBitwiseXorCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseXorCombinedExpression.
+	exitBitwiseXorCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseAndBaseExpression.
+	enterBitwiseAndBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseAndBaseExpression.
+	exitBitwiseAndBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#BitwiseAndCombinedExpression.
+	enterBitwiseAndCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#BitwiseAndCombinedExpression.
+	exitBitwiseAndCombinedExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#CoalesceBaseExpression.
+	enterCoalesceBaseExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#CoalesceBaseExpression.
+	exitCoalesceBaseExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#CoalesceCombinedExpression.
+	enterCoalesceCombinedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#CoalesceCombinedExpression.
+	exitCoalesceCombinedExpression(ctx) {
 	}
 
 
@@ -473,30 +617,30 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#BitAndExpression.
-	enterBitAndExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#BitNotExpression.
+	enterBitNotExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#BitAndExpression.
-	exitBitAndExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-	enterLogicalXorExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-	exitLogicalXorExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#BitNotExpression.
+	exitBitNotExpression(ctx) {
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#BitOrExpression.
-	enterBitOrExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#NotExpression.
+	enterNotExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#BitOrExpression.
-	exitBitOrExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#NotExpression.
+	exitNotExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
+	enterParenthesizedExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
+	exitParenthesizedExpression(ctx) {
 	}
 
 
@@ -509,21 +653,12 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#EqualityExpression.
-	enterEqualityExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	enterVariableExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#EqualityExpression.
-	exitEqualityExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
-	enterBitXOrExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
-	exitBitXOrExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#VariableExpression.
+	exitVariableExpression(ctx) {
 	}
 
 
@@ -536,30 +671,12 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#MultiplicativeExpression.
-	enterMultiplicativeExpression(ctx) {
+	// Enter a parse tree produced by GameMakerLanguageParser#LiteralExpression.
+	enterLiteralExpression(ctx) {
 	}
 
-	// Exit a parse tree produced by GameMakerLanguageParser#MultiplicativeExpression.
-	exitMultiplicativeExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#CoalesceExpression.
-	enterCoalesceExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#CoalesceExpression.
-	exitCoalesceExpression(ctx) {
-	}
-
-
-	// Enter a parse tree produced by GameMakerLanguageParser#BitShiftExpression.
-	enterBitShiftExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#BitShiftExpression.
-	exitBitShiftExpression(ctx) {
+	// Exit a parse tree produced by GameMakerLanguageParser#LiteralExpression.
+	exitLiteralExpression(ctx) {
 	}
 
 
