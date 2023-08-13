@@ -61,12 +61,12 @@ const serializedATN = [4,1,114,714,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,
 16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,
 64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104,106,108,
 110,112,114,116,118,120,122,124,126,128,130,132,134,136,138,140,142,0,15,
-2,0,19,19,42,43,1,0,38,41,1,0,24,25,1,0,28,31,1,0,36,37,1,0,22,23,1,0,3,
-8,3,0,19,19,35,35,50,59,2,0,66,66,68,69,1,1,108,108,1,1,111,111,1,0,101,
-102,2,0,12,12,15,15,2,0,14,14,16,16,4,0,3,97,99,99,103,106,112,114,771,0,
-145,1,0,0,0,2,150,1,0,0,0,4,177,1,0,0,0,6,182,1,0,0,0,8,188,1,0,0,0,10,227,
-1,0,0,0,12,229,1,0,0,0,14,233,1,0,0,0,16,237,1,0,0,0,18,239,1,0,0,0,20,241,
-1,0,0,0,22,243,1,0,0,0,24,245,1,0,0,0,26,258,1,0,0,0,28,262,1,0,0,0,30,268,
+1,0,28,31,1,0,24,25,1,0,36,37,1,0,42,43,1,0,38,41,1,0,22,23,1,0,3,8,3,0,
+19,19,35,35,50,59,2,0,66,66,68,69,1,1,108,108,1,1,111,111,1,0,101,102,2,
+0,12,12,15,15,2,0,14,14,16,16,4,0,3,97,99,99,103,106,112,114,771,0,145,1,
+0,0,0,2,150,1,0,0,0,4,177,1,0,0,0,6,182,1,0,0,0,8,188,1,0,0,0,10,227,1,0,
+0,0,12,229,1,0,0,0,14,233,1,0,0,0,16,237,1,0,0,0,18,239,1,0,0,0,20,241,1,
+0,0,0,22,243,1,0,0,0,24,245,1,0,0,0,26,258,1,0,0,0,28,262,1,0,0,0,30,268,
 1,0,0,0,32,273,1,0,0,0,34,276,1,0,0,0,36,285,1,0,0,0,38,295,1,0,0,0,40,298,
 1,0,0,0,42,302,1,0,0,0,44,305,1,0,0,0,46,309,1,0,0,0,48,324,1,0,0,0,50,326,
 1,0,0,0,52,331,1,0,0,0,54,342,1,0,0,0,56,348,1,0,0,0,58,350,1,0,0,0,60,367,
@@ -149,20 +149,20 @@ const serializedATN = [4,1,114,714,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,
 0,0,0,383,65,1,0,0,0,384,382,1,0,0,0,385,388,3,68,34,0,386,388,3,108,54,
 0,387,385,1,0,0,0,387,386,1,0,0,0,388,67,1,0,0,0,389,390,6,34,-1,0,390,391,
 5,10,0,0,391,392,3,68,34,0,392,393,5,11,0,0,393,408,1,0,0,0,394,395,5,25,
-0,0,395,408,3,68,34,13,396,397,5,26,0,0,397,408,3,68,34,12,398,399,5,27,
-0,0,399,408,3,68,34,11,400,403,3,74,37,0,401,403,3,76,38,0,402,400,1,0,0,
+0,0,395,408,3,68,34,20,396,397,5,26,0,0,397,408,3,68,34,19,398,399,5,27,
+0,0,399,408,3,68,34,18,400,403,3,74,37,0,401,403,3,76,38,0,402,400,1,0,0,
 0,402,401,1,0,0,0,403,408,1,0,0,0,404,408,3,58,29,0,405,408,3,70,35,0,406,
 408,3,92,46,0,407,389,1,0,0,0,407,394,1,0,0,0,407,396,1,0,0,0,407,398,1,
 0,0,0,407,402,1,0,0,0,407,404,1,0,0,0,407,405,1,0,0,0,407,406,1,0,0,0,408,
-453,1,0,0,0,409,410,10,20,0,0,410,411,7,0,0,0,411,452,3,68,34,21,412,413,
-10,19,0,0,413,414,7,1,0,0,414,452,3,68,34,20,415,416,10,18,0,0,416,417,5,
-48,0,0,417,452,3,68,34,19,418,419,10,17,0,0,419,420,5,47,0,0,420,452,3,68,
-34,18,421,422,10,16,0,0,422,423,5,49,0,0,423,452,3,68,34,17,424,425,10,15,
-0,0,425,426,7,2,0,0,426,452,3,68,34,16,427,428,10,14,0,0,428,429,7,3,0,0,
-429,452,3,68,34,15,430,431,10,10,0,0,431,432,7,4,0,0,432,452,3,68,34,11,
+453,1,0,0,0,409,410,10,17,0,0,410,411,7,0,0,0,411,452,3,68,34,18,412,413,
+10,16,0,0,413,414,7,1,0,0,414,452,3,68,34,17,415,416,10,15,0,0,416,417,7,
+2,0,0,417,452,3,68,34,16,418,419,10,14,0,0,419,420,5,44,0,0,420,452,3,68,
+34,15,421,422,10,13,0,0,422,423,5,45,0,0,423,452,3,68,34,14,424,425,10,12,
+0,0,425,426,5,46,0,0,426,452,3,68,34,13,427,428,10,11,0,0,428,429,7,3,0,
+0,429,452,3,68,34,12,430,431,10,10,0,0,431,432,7,4,0,0,432,452,3,68,34,11,
 433,434,10,9,0,0,434,435,5,34,0,0,435,452,3,68,34,10,436,437,10,8,0,0,437,
-438,5,44,0,0,438,452,3,68,34,9,439,440,10,7,0,0,440,441,5,46,0,0,441,452,
-3,68,34,8,442,443,10,6,0,0,443,444,5,45,0,0,444,452,3,68,34,7,445,446,10,
+438,5,47,0,0,438,452,3,68,34,9,439,440,10,7,0,0,440,441,5,48,0,0,441,452,
+3,68,34,8,442,443,10,6,0,0,443,444,5,49,0,0,444,452,3,68,34,7,445,446,10,
 2,0,0,446,447,5,33,0,0,447,448,3,68,34,0,448,449,5,20,0,0,449,450,3,68,34,
 3,450,452,1,0,0,0,451,409,1,0,0,0,451,412,1,0,0,0,451,415,1,0,0,0,451,418,
 1,0,0,0,451,421,1,0,0,0,451,424,1,0,0,0,451,427,1,0,0,0,451,430,1,0,0,0,
@@ -351,19 +351,19 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
     expression_sempred(localctx, predIndex) {
     	switch(predIndex) {
     		case 0:
-    			return this.precpred(this._ctx, 20);
-    		case 1:
-    			return this.precpred(this._ctx, 19);
-    		case 2:
-    			return this.precpred(this._ctx, 18);
-    		case 3:
     			return this.precpred(this._ctx, 17);
-    		case 4:
+    		case 1:
     			return this.precpred(this._ctx, 16);
-    		case 5:
+    		case 2:
     			return this.precpred(this._ctx, 15);
-    		case 6:
+    		case 3:
     			return this.precpred(this._ctx, 14);
+    		case 4:
+    			return this.precpred(this._ctx, 13);
+    		case 5:
+    			return this.precpred(this._ctx, 12);
+    		case 6:
+    			return this.precpred(this._ctx, 11);
     		case 7:
     			return this.precpred(this._ctx, 10);
     		case 8:
@@ -1818,7 +1818,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.state = 394;
 	            this.match(GameMakerLanguageParser.Minus);
 	            this.state = 395;
-	            this.expression(13);
+	            this.expression(20);
 	            break;
 
 	        case 3:
@@ -1828,7 +1828,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.state = 396;
 	            this.match(GameMakerLanguageParser.BitNot);
 	            this.state = 397;
-	            this.expression(12);
+	            this.expression(19);
 	            break;
 
 	        case 4:
@@ -1838,7 +1838,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.state = 398;
 	            this.match(GameMakerLanguageParser.Not);
 	            this.state = 399;
-	            this.expression(11);
+	            this.expression(18);
 	            break;
 
 	        case 5:
@@ -1904,112 +1904,13 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                var la_ = this._interp.adaptivePredict(this._input,36,this._ctx);
 	                switch(la_) {
 	                case 1:
-	                    localctx = new EqualityExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new MultiplicativeExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 409;
-	                    if (!( this.precpred(this._ctx, 20))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 20)");
-	                    }
-	                    this.state = 410;
-	                    _la = this._input.LA(1);
-	                    if(!(((((_la - 19)) & ~0x1f) === 0 && ((1 << (_la - 19)) & 25165825) !== 0))) {
-	                    this._errHandler.recoverInline(this);
-	                    }
-	                    else {
-	                    	this._errHandler.reportMatch(this);
-	                        this.consume();
-	                    }
-	                    this.state = 411;
-	                    this.expression(21);
-	                    break;
-
-	                case 2:
-	                    localctx = new RelationalExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 412;
-	                    if (!( this.precpred(this._ctx, 19))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 19)");
-	                    }
-	                    this.state = 413;
-	                    _la = this._input.LA(1);
-	                    if(!(((((_la - 38)) & ~0x1f) === 0 && ((1 << (_la - 38)) & 15) !== 0))) {
-	                    this._errHandler.recoverInline(this);
-	                    }
-	                    else {
-	                    	this._errHandler.reportMatch(this);
-	                        this.consume();
-	                    }
-	                    this.state = 414;
-	                    this.expression(20);
-	                    break;
-
-	                case 3:
-	                    localctx = new LogicalOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 415;
-	                    if (!( this.precpred(this._ctx, 18))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 18)");
-	                    }
-	                    this.state = 416;
-	                    this.match(GameMakerLanguageParser.Or);
-	                    this.state = 417;
-	                    this.expression(19);
-	                    break;
-
-	                case 4:
-	                    localctx = new LogicalAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 418;
 	                    if (!( this.precpred(this._ctx, 17))) {
 	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 17)");
 	                    }
-	                    this.state = 419;
-	                    this.match(GameMakerLanguageParser.And);
-	                    this.state = 420;
-	                    this.expression(18);
-	                    break;
-
-	                case 5:
-	                    localctx = new LogicalXorExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 421;
-	                    if (!( this.precpred(this._ctx, 16))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 16)");
-	                    }
-	                    this.state = 422;
-	                    this.match(GameMakerLanguageParser.Xor);
-	                    this.state = 423;
-	                    this.expression(17);
-	                    break;
-
-	                case 6:
-	                    localctx = new AdditiveExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 424;
-	                    if (!( this.precpred(this._ctx, 15))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 15)");
-	                    }
-	                    this.state = 425;
-	                    _la = this._input.LA(1);
-	                    if(!(_la===24 || _la===25)) {
-	                    this._errHandler.recoverInline(this);
-	                    }
-	                    else {
-	                    	this._errHandler.reportMatch(this);
-	                        this.consume();
-	                    }
-	                    this.state = 426;
-	                    this.expression(16);
-	                    break;
-
-	                case 7:
-	                    localctx = new MultiplicativeExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
-	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
-	                    this.state = 427;
-	                    if (!( this.precpred(this._ctx, 14))) {
-	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 14)");
-	                    }
-	                    this.state = 428;
+	                    this.state = 410;
 	                    _la = this._input.LA(1);
 	                    if(!((((_la) & ~0x1f) === 0 && ((1 << _la) & 4026531840) !== 0))) {
 	                    this._errHandler.recoverInline(this);
@@ -2018,12 +1919,111 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    	this._errHandler.reportMatch(this);
 	                        this.consume();
 	                    }
-	                    this.state = 429;
+	                    this.state = 411;
+	                    this.expression(18);
+	                    break;
+
+	                case 2:
+	                    localctx = new AdditiveExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 412;
+	                    if (!( this.precpred(this._ctx, 16))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 16)");
+	                    }
+	                    this.state = 413;
+	                    _la = this._input.LA(1);
+	                    if(!(_la===24 || _la===25)) {
+	                    this._errHandler.recoverInline(this);
+	                    }
+	                    else {
+	                    	this._errHandler.reportMatch(this);
+	                        this.consume();
+	                    }
+	                    this.state = 414;
+	                    this.expression(17);
+	                    break;
+
+	                case 3:
+	                    localctx = new BitShiftExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 415;
+	                    if (!( this.precpred(this._ctx, 15))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 15)");
+	                    }
+	                    this.state = 416;
+	                    _la = this._input.LA(1);
+	                    if(!(_la===36 || _la===37)) {
+	                    this._errHandler.recoverInline(this);
+	                    }
+	                    else {
+	                    	this._errHandler.reportMatch(this);
+	                        this.consume();
+	                    }
+	                    this.state = 417;
+	                    this.expression(16);
+	                    break;
+
+	                case 4:
+	                    localctx = new BitAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 418;
+	                    if (!( this.precpred(this._ctx, 14))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 14)");
+	                    }
+	                    this.state = 419;
+	                    this.match(GameMakerLanguageParser.BitAnd);
+	                    this.state = 420;
 	                    this.expression(15);
 	                    break;
 
+	                case 5:
+	                    localctx = new BitXOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 421;
+	                    if (!( this.precpred(this._ctx, 13))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 13)");
+	                    }
+	                    this.state = 422;
+	                    this.match(GameMakerLanguageParser.BitXOr);
+	                    this.state = 423;
+	                    this.expression(14);
+	                    break;
+
+	                case 6:
+	                    localctx = new BitOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 424;
+	                    if (!( this.precpred(this._ctx, 12))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 12)");
+	                    }
+	                    this.state = 425;
+	                    this.match(GameMakerLanguageParser.BitOr);
+	                    this.state = 426;
+	                    this.expression(13);
+	                    break;
+
+	                case 7:
+	                    localctx = new EqualityExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
+	                    this.state = 427;
+	                    if (!( this.precpred(this._ctx, 11))) {
+	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 11)");
+	                    }
+	                    this.state = 428;
+	                    _la = this._input.LA(1);
+	                    if(!(_la===42 || _la===43)) {
+	                    this._errHandler.recoverInline(this);
+	                    }
+	                    else {
+	                    	this._errHandler.reportMatch(this);
+	                        this.consume();
+	                    }
+	                    this.state = 429;
+	                    this.expression(12);
+	                    break;
+
 	                case 8:
-	                    localctx = new BitShiftExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new RelationalExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 430;
 	                    if (!( this.precpred(this._ctx, 10))) {
@@ -2031,7 +2031,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    }
 	                    this.state = 431;
 	                    _la = this._input.LA(1);
-	                    if(!(_la===36 || _la===37)) {
+	                    if(!(((((_la - 38)) & ~0x1f) === 0 && ((1 << (_la - 38)) & 15) !== 0))) {
 	                    this._errHandler.recoverInline(this);
 	                    }
 	                    else {
@@ -2056,40 +2056,40 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 10:
-	                    localctx = new BitAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new LogicalAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 436;
 	                    if (!( this.precpred(this._ctx, 8))) {
 	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 8)");
 	                    }
 	                    this.state = 437;
-	                    this.match(GameMakerLanguageParser.BitAnd);
+	                    this.match(GameMakerLanguageParser.And);
 	                    this.state = 438;
 	                    this.expression(9);
 	                    break;
 
 	                case 11:
-	                    localctx = new BitOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new LogicalOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 439;
 	                    if (!( this.precpred(this._ctx, 7))) {
 	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 7)");
 	                    }
 	                    this.state = 440;
-	                    this.match(GameMakerLanguageParser.BitOr);
+	                    this.match(GameMakerLanguageParser.Or);
 	                    this.state = 441;
 	                    this.expression(8);
 	                    break;
 
 	                case 12:
-	                    localctx = new BitXOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new LogicalXorExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 442;
 	                    if (!( this.precpred(this._ctx, 6))) {
 	                        throw new antlr4.error.FailedPredicateException(this, "this.precpred(this._ctx, 6)");
 	                    }
 	                    this.state = 443;
-	                    this.match(GameMakerLanguageParser.BitXOr);
+	                    this.match(GameMakerLanguageParser.Xor);
 	                    this.state = 444;
 	                    this.expression(7);
 	                    break;
@@ -6146,6 +6146,57 @@ class ParenthesizedExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.ParenthesizedExpressionContext = ParenthesizedExpressionContext;
 
+class AdditiveExpressionContext extends ExpressionContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+	expression = function(i) {
+	    if(i===undefined) {
+	        i = null;
+	    }
+	    if(i===null) {
+	        return this.getTypedRuleContexts(ExpressionContext);
+	    } else {
+	        return this.getTypedRuleContext(ExpressionContext,i);
+	    }
+	};
+
+	Plus() {
+	    return this.getToken(GameMakerLanguageParser.Plus, 0);
+	};
+
+	Minus() {
+	    return this.getToken(GameMakerLanguageParser.Minus, 0);
+	};
+
+	enterRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.enterAdditiveExpression(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.exitAdditiveExpression(this);
+		}
+	}
+
+	accept(visitor) {
+	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
+	        return visitor.visitAdditiveExpression(this);
+	    } else {
+	        return visitor.visitChildren(this);
+	    }
+	}
+
+
+}
+
+GameMakerLanguageParser.AdditiveExpressionContext = AdditiveExpressionContext;
+
 class RelationalExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6204,57 +6255,6 @@ class RelationalExpressionContext extends ExpressionContext {
 }
 
 GameMakerLanguageParser.RelationalExpressionContext = RelationalExpressionContext;
-
-class AdditiveExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Plus() {
-	    return this.getToken(GameMakerLanguageParser.Plus, 0);
-	};
-
-	Minus() {
-	    return this.getToken(GameMakerLanguageParser.Minus, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterAdditiveExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitAdditiveExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitAdditiveExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.AdditiveExpressionContext = AdditiveExpressionContext;
 
 class TernaryExpressionContext extends ExpressionContext {
 
@@ -6640,53 +6640,6 @@ class BitAndExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.BitAndExpressionContext = BitAndExpressionContext;
 
-class LogicalXorExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Xor() {
-	    return this.getToken(GameMakerLanguageParser.Xor, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterLogicalXorExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitLogicalXorExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitLogicalXorExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.LogicalXorExpressionContext = LogicalXorExpressionContext;
-
 class BitOrExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6734,6 +6687,53 @@ class BitOrExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.BitOrExpressionContext = BitOrExpressionContext;
 
+class LogicalXorExpressionContext extends ExpressionContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+	expression = function(i) {
+	    if(i===undefined) {
+	        i = null;
+	    }
+	    if(i===null) {
+	        return this.getTypedRuleContexts(ExpressionContext);
+	    } else {
+	        return this.getTypedRuleContext(ExpressionContext,i);
+	    }
+	};
+
+	Xor() {
+	    return this.getToken(GameMakerLanguageParser.Xor, 0);
+	};
+
+	enterRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.enterLogicalXorExpression(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.exitLogicalXorExpression(this);
+		}
+	}
+
+	accept(visitor) {
+	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
+	        return visitor.visitLogicalXorExpression(this);
+	    } else {
+	        return visitor.visitChildren(this);
+	    }
+	}
+
+
+}
+
+GameMakerLanguageParser.LogicalXorExpressionContext = LogicalXorExpressionContext;
+
 class IncDecExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6773,61 +6773,6 @@ class IncDecExpressionContext extends ExpressionContext {
 }
 
 GameMakerLanguageParser.IncDecExpressionContext = IncDecExpressionContext;
-
-class EqualityExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Equals_() {
-	    return this.getToken(GameMakerLanguageParser.Equals_, 0);
-	};
-
-	Assign() {
-	    return this.getToken(GameMakerLanguageParser.Assign, 0);
-	};
-
-	NotEquals() {
-	    return this.getToken(GameMakerLanguageParser.NotEquals, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterEqualityExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitEqualityExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitEqualityExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.EqualityExpressionContext = EqualityExpressionContext;
 
 class BitXOrExpressionContext extends ExpressionContext {
 
@@ -6875,6 +6820,57 @@ class BitXOrExpressionContext extends ExpressionContext {
 }
 
 GameMakerLanguageParser.BitXOrExpressionContext = BitXOrExpressionContext;
+
+class EqualityExpressionContext extends ExpressionContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+	expression = function(i) {
+	    if(i===undefined) {
+	        i = null;
+	    }
+	    if(i===null) {
+	        return this.getTypedRuleContexts(ExpressionContext);
+	    } else {
+	        return this.getTypedRuleContext(ExpressionContext,i);
+	    }
+	};
+
+	Equals_() {
+	    return this.getToken(GameMakerLanguageParser.Equals_, 0);
+	};
+
+	NotEquals() {
+	    return this.getToken(GameMakerLanguageParser.NotEquals, 0);
+	};
+
+	enterRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.enterEqualityExpression(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.exitEqualityExpression(this);
+		}
+	}
+
+	accept(visitor) {
+	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
+	        return visitor.visitEqualityExpression(this);
+	    } else {
+	        return visitor.visitChildren(this);
+	    }
+	}
+
+
+}
+
+GameMakerLanguageParser.EqualityExpressionContext = EqualityExpressionContext;
 
 class CallExpressionContext extends ExpressionContext {
 

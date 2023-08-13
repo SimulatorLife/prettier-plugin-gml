@@ -256,12 +256,12 @@ export function print(path, options, print) {
             let right = print("right");
 
             // Check precedence
-            if (needsParentheses(node.left, node)) {
-                left = concat(["(", left, ")"]);
-            }
-            if (needsParentheses(node.right, node)) {
-                right = concat(["(", right, ")"]);
-            }
+            // if (needsParentheses(node.left, node)) {
+            //     left = concat(["(", left, ")"]);
+            // }
+            // if (needsParentheses(node.right, node)) {
+            //     right = concat(["(", right, ")"]);
+            // }
 
             // Check if the operator is division and the right-hand side is 2
             if (operator === "/" && node.right.value === "2") {
@@ -279,10 +279,17 @@ export function print(path, options, print) {
                 operator = "!=";
             }
 
+            // return group([
+            //     left,
+            //     " ",
+            //     group([operator, line, right]),
+            // ]);
             return group([
                 left,
                 " ",
-                group([operator, line, right]),
+                operator,
+                " ",
+                right
             ]);
         }
         case "UnaryExpression":
@@ -763,55 +770,115 @@ function printEmptyBlock(path, options, print) {
     }
 }
 
-function needsParentheses(innerNode, outerNode) {
-    const precedence = {
-        "and": 0,
-        "&&": 0,
-        "or": 1,
-        "||": 1,
-        "|": 2,
-        "^^": 3,
-        "xor": 3,
-        "&": 4,
-        "=": 5,
-        "<": 5,
-        ">": 5,
-        "<=": 5,
-        ">=": 5,
-        "<>": 5,
-        "!=": 5,
-        "+": 6,
-        "-": 6,
-        "*": 7,
-        "/": 7,
-        "mod": 7,
-    };
+const operators = {
+    "^": { prec: 4, assoc: "right" },
+    "*": { prec: 3, assoc: "left" },
+    "/": { prec: 3, assoc: "left" },
+    "+": { prec: 2, assoc: "left" },
+    "-": { prec: 2, assoc: "left" },
+    "&&": { prec: 1, assoc: "left" },
+    "and": { prec: 1, assoc: "left" },
+    "||": { prec: 0, assoc: "left" },
+    "or": { prec: 0, assoc: "left" },
+    "=": { prec: 6, assoc: "left" },
+    "==": { prec: 6, assoc: "left" },
+    "!=": { prec: 6, assoc: "left" },
+    "<>": { prec: 6, assoc: "left" },
+    ">": { prec: 8, assoc: "left" },
+    "<": { prec: 8, assoc: "left" }
+    // add other operators as needed
+};
 
-    // If innerNode or outerNode doesn't have an operator, no parentheses are needed.
-    if (!innerNode.operator || !outerNode.operator) {
-        return false;
-    }
+function needsParentheses(childOp, parentOp) {
+    if (!operators[childOp] || !operators[parentOp]) return false;
 
-    // If the innerNode's operator has a lower precedence than the outerNode's operator, return true.
-    if ((precedence[innerNode.operator] || 100) < (precedence[outerNode.operator] || 100)) {
+    const childPrec = operators[childOp].prec;
+    const parentPrec = operators[parentOp].prec;
+
+    if (childPrec < parentPrec) {
         return true;
+    } else if (childPrec === parentPrec) {
+        return operators[childOp].assoc === 'right';
     }
 
-    // If the innerNode's operator has the same precedence as the outerNode's operator 
-    // and the outer node is on the right side, return true to ensure left-associativity.
-    if ((precedence[innerNode.operator] || 100) === (precedence[outerNode.operator] || 100) && 
-        outerNode.right === innerNode) {
-        return true;
-    }
-
-    // Specifically handle the case where the outer node is an equality check and the inner node is a binary expression
-    if ((outerNode.operator === "==" || outerNode.operator === "!=") && 
-        innerNode.type === "BinaryExpression") {
-        return true;
-    }
-
-    return false;
+    return true;
 }
+
+// function needsParentheses(child, parent) {
+//     if (!child || !parent) return false;
+
+//     // If innerNode is not a BinaryExpression, it doesn't need parentheses
+//     if (child.type !== "BinaryExpression") {
+//         return false;
+//     }
+
+//     const childOp = operators[child];
+//     const parentOp = operators[parent];
+//     if (!childOp || !parentOp) {
+//         return false;
+//     }
+
+//     if (childOp.prec < parentOp.prec) {
+//         return true;
+//     } else if (childOp.prec === parentOp.prec) {
+//         if (childOp.assoc === "left" && parentOp.assoc === "left") {
+//             return true; // for cases like a - b - c
+//         } else if (childOp.assoc === "right" && parentOp.assoc === "right") {
+//             return true; // for cases with right associativity
+//         }
+//     }
+//     return true;
+// }
+
+// function needsParentheses(innerNode, outerNode) {
+//     const precedence = {
+//         "and": 0,
+//         "&&": 0,
+//         "or": 1,
+//         "||": 1,
+//         "|": 2,
+//         "^^": 3,
+//         "xor": 3,
+//         "&": 4,
+//         "=": 5,
+//         "<": 5,
+//         ">": 5,
+//         "<=": 5,
+//         ">=": 5,
+//         "<>": 5,
+//         "!=": 5,
+//         "+": 6,
+//         "-": 6,
+//         "*": 7,
+//         "/": 7,
+//         "mod": 7,
+//     };
+
+//     // If innerNode or outerNode doesn't have an operator, no parentheses are needed.
+//     if (!innerNode.operator || !outerNode.operator) {
+//         return false;
+//     }
+
+//     // If the innerNode's operator has a lower precedence than the outerNode's operator, return true.
+//     if ((precedence[innerNode.operator] || 100) < (precedence[outerNode.operator] || 100)) {
+//         return true;
+//     }
+
+//     // If the innerNode's operator has the same precedence as the outerNode's operator 
+//     // and the outer node is on the right side, return true to ensure left-associativity.
+//     if ((precedence[innerNode.operator] || 100) === (precedence[outerNode.operator] || 100) && 
+//         outerNode.right === innerNode) {
+//         return true;
+//     }
+
+//     // Specifically handle the case where the outer node is an equality check and the inner node is a binary expression
+//     if ((outerNode.operator === "==" || outerNode.operator === "!=") && 
+//         innerNode.type === "BinaryExpression") {
+//         return true;
+//     }
+
+//     return false;
+// }
 
 
 function isInLValueChain(path) {

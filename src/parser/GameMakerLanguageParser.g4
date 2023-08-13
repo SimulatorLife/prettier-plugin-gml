@@ -176,21 +176,21 @@ expressionOrFunction
 
 expression
     : '(' expression ')' # ParenthesizedExpression
-    | expression ('==' | Assign | NotEquals) expression # EqualityExpression
-    | expression ('<' | '>' | '<=' | '>=') expression # RelationalExpression
-    | expression Or expression # LogicalOrExpression
-    | expression And expression # LogicalAndExpression
-    | expression Xor expression # LogicalXorExpression
-    | expression ('+' | '-') expression # AdditiveExpression
-    | expression ('*' | '/' | Modulo | IntegerDivide) expression # MultiplicativeExpression
     | <assoc=right> '-' expression # UnaryMinusExpression
     | <assoc=right> '~' expression # BitNotExpression
     | <assoc=right> Not expression # NotExpression
+    | expression ('*' | '/' | Modulo | IntegerDivide) expression # MultiplicativeExpression
+    | expression ('+' | '-') expression # AdditiveExpression
     | expression ('<<' | '>>') expression # BitShiftExpression
-    | expression '??' expression # CoalesceExpression
     | expression '&' expression # BitAndExpression
-    | expression '|' expression # BitOrExpression
     | expression '^' expression # BitXOrExpression
+    | expression '|' expression # BitOrExpression
+    | expression ('==' | NotEquals) expression # EqualityExpression
+    | expression ('<' | '>' | '<=' | '>=') expression # RelationalExpression
+    | expression '??' expression # CoalesceExpression
+    | expression And expression # LogicalAndExpression
+    | expression Or expression # LogicalOrExpression
+    | expression Xor expression # LogicalXorExpression
     | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
     | lValueExpression # VariableExpression
     | callStatement # CallExpression

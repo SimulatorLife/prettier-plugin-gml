@@ -383,21 +383,21 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	enterRelationalExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
-	exitRelationalExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
 	enterAdditiveExpression(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
 	exitAdditiveExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#RelationalExpression.
+	enterRelationalExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
+	exitRelationalExpression(ctx) {
 	}
 
 
@@ -482,21 +482,21 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-	enterLogicalXorExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-	exitLogicalXorExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#BitOrExpression.
 	enterBitOrExpression(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#BitOrExpression.
 	exitBitOrExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
+	enterLogicalXorExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
+	exitLogicalXorExpression(ctx) {
 	}
 
 
@@ -509,21 +509,21 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
-	// Enter a parse tree produced by GameMakerLanguageParser#EqualityExpression.
-	enterEqualityExpression(ctx) {
-	}
-
-	// Exit a parse tree produced by GameMakerLanguageParser#EqualityExpression.
-	exitEqualityExpression(ctx) {
-	}
-
-
 	// Enter a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
 	enterBitXOrExpression(ctx) {
 	}
 
 	// Exit a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
 	exitBitXOrExpression(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#EqualityExpression.
+	enterEqualityExpression(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#EqualityExpression.
+	exitEqualityExpression(ctx) {
 	}
 
 

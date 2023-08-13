@@ -4,6 +4,53 @@ import { getLineBreakCount } from "./gml-parser.js";
 export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
     constructor(options) {
         super();
+        this.operatorStack = [];
+
+        this.operators = {
+            // Highest Precedence
+            '++': { prec: 15, assoc: 'right' },
+            '--': { prec: 15, assoc: 'right' },
+            '~': { prec: 14, assoc: 'right' },
+            '!': { prec: 14, assoc: 'right' },
+            // '-': { prec: 14, assoc: 'right' }, // Unary -
+            // '+': { prec: 14, assoc: 'right' }, // Unary +
+            '*': { prec: 13, assoc: 'left' },
+            '/': { prec: 13, assoc: 'left' },
+            'div': { prec: 13, assoc: 'left' },
+            '%': { prec: 13, assoc: 'left' },
+            'mod': { prec: 13, assoc: 'left' },
+            '+': { prec: 12, assoc: 'left' }, // Addition
+            '-': { prec: 12, assoc: 'left' }, // Subtraction
+            '<<': { prec: 11, assoc: 'left' },
+            '>>': { prec: 11, assoc: 'left' },
+            '<': { prec: 10, assoc: 'left' },
+            '<=': { prec: 10, assoc: 'left' },
+            '>': { prec: 10, assoc: 'left' },
+            '>=': { prec: 10, assoc: 'left' },
+            '==': { prec: 9, assoc: 'left' },
+            ':=': { prec: 9, assoc: 'left' }, // Equivalent to '=='
+            '!=': { prec: 9, assoc: 'left' },
+            '&': { prec: 8, assoc: 'left' },
+            '^': { prec: 7, assoc: 'left' },
+            '|': { prec: 6, assoc: 'left' },
+            '&&': { prec: 5, assoc: 'left' },
+            'and': { prec: 5, assoc: 'left' },
+            '||': { prec: 4, assoc: 'left' },
+            'or': { prec: 4, assoc: 'left' },
+            '??': { prec: 3, assoc: 'right' }, // Nullish coalescing
+            '=': { prec: 1, assoc: 'right' },
+            '*=': { prec: 1, assoc: 'right' },
+            '/=': { prec: 1, assoc: 'right' },
+            '%=': { prec: 1, assoc: 'right' },
+            '+=': { prec: 1, assoc: 'right' },
+            '-=': { prec: 1, assoc: 'right' },
+            '<<=': { prec: 1, assoc: 'right' },
+            '>>=': { prec: 1, assoc: 'right' },
+            '&=': { prec: 1, assoc: 'right' },
+            '^=': { prec: 1, assoc: 'right' },
+            '|=': { prec: 1, assoc: 'right' },
+            '??=': { prec: 1, assoc: 'right' } // Nullish coalescing assignment
+        };
     }
 
     // add context data to the node
@@ -22,6 +69,73 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
 
         return object;
+    }
+
+    // Method to determine if parentheses are required
+    // needsParentheses(innerNode, outerNode, isLeftOperand) {
+    //     if (!innerNode || !outerNode) return false;
+    //     if (innerNode.type !== "BinaryExpression" || outerNode.type !== "BinaryExpression") {
+    //         return false
+    //     }
+    //     const childOp = this.operators[innerNode.operator];
+    //     const currentOp = this.operators[outerNode.operator];
+    //     if (!childOp || !currentOp) return false;
+    //     if (childOp.prec < currentOp.prec) {
+    //         return true;
+    //     } else if (childOp.prec === currentOp.prec) {
+    //         // if (isLeftOperand && currentOp.assoc === "left") return true;
+    //         if (currentOp.assoc === "left") return true;
+    //         // if (!isLeftOperand && currentOp.assoc === "right") return true;
+    //     }
+    //     return false;
+    // }
+
+    // Method to determine if parentheses are required
+    needsParentheses(innerNode, outerOperator) {
+        if (!innerNode || !outerOperator) return false;
+        if (innerNode.type !== "BinaryExpression") return false;
+
+        if (innerNode.operator === "/") return true;
+
+        const childOp = this.operators[innerNode.operator];
+        const currentOp = this.operators[outerOperator];
+        if (!childOp || !currentOp) return false;
+
+        if (childOp.prec > currentOp.prec) {
+            return true;
+        } else if (childOp.prec === currentOp.prec) {
+            if (currentOp.assoc === "right") return true;
+        }
+        return false;
+    }
+
+    wrapInParentheses(ctx, innerNode, outerOpperator) {
+        if (this.needsParentheses(innerNode, outerOpperator)) {
+        // if (this.needsParentheses(innerNode, outerNode, isLeftOperand)) {
+            return this.astNode(ctx, {
+                type: "ParenthesizedExpression",
+                expression: innerNode
+            });
+        }
+        return innerNode;
+    }
+
+    // This method will be the primary method handling the binary expressions
+    handleBinaryExpression(ctx, operator) {
+    
+        let leftNode = this.visit(ctx.expression()[0]);
+        let rightNode = this.visit(ctx.expression()[1]);
+
+        // Wrap the right node if necessary
+        rightNode = this.wrapInParentheses(ctx, rightNode, operator);
+
+        // Create the BinaryExpression node
+        return this.astNode(ctx, {
+            type: "BinaryExpression",
+            operator: operator,
+            left: leftNode,
+            right: rightNode
+        });
     }
 
     hasTrailingComma(commaList, itemList) {
@@ -540,22 +654,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#LogicalAndExpression.
     visitLogicalAndExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "&&",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "&&");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#LogicalOrExpression.
     visitLogicalOrExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "||",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "||");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#NotExpression.
@@ -586,22 +690,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         } else {
             operator = "==";
         }
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, operator);
     }    
 
     // Visit a parse tree produced by GameMakerLanguageParser#BitXOrExpression.
     visitBitXOrExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "^",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "^");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#MultiplicativeExpression.
@@ -619,12 +713,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.IntegerDivide() != null) {
             operator = ctx.IntegerDivide().getText();
         }
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, operator);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#CallExpression.
@@ -641,12 +730,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.LeftShiftArithmetic() != null) {
             operator = ctx.LeftShiftArithmetic().getText();
         }
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, operator);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
@@ -657,21 +741,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         });
     }
 
-    // Visit a parse tree produced by GameMakerLanguageParser#AdditiveExpression.
     visitAdditiveExpression(ctx) {
-        let operator = null;
-        if (ctx.Plus() != null) {
-            operator = ctx.Plus().getText();
-        }
-        if (ctx.Minus() != null) {
-            operator = ctx.Minus().getText();
-        }
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        let operator = ctx.Plus() ? ctx.Plus().getText() : ctx.Minus().getText();
+        return this.handleBinaryExpression(ctx, operator);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#RelationalExpression.
@@ -689,12 +761,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.GreaterThanEquals() != null) {
             operator = ctx.GreaterThanEquals().getText();
         }
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, operator);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#incDecStatement.
@@ -756,22 +823,22 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         });
     }
 
-        // Visit a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
-        visitPreIncDecStatement(ctx) {
-            let operator = null;
-            if (ctx.PlusPlus() != null) {
-                operator = ctx.PlusPlus().getText();
-            }
-            if (ctx.MinusMinus() != null) {
-                operator = ctx.MinusMinus().getText();
-            }
-            return this.astNode(ctx, {
-                type: "IncDecStatement",
-                operator: operator,
-                prefix: true,
-                argument: this.visit(ctx.lValueExpression())
-            });
+    // Visit a parse tree produced by GameMakerLanguageParser#PreIncDecStatement.
+    visitPreIncDecStatement(ctx) {
+        let operator = null;
+        if (ctx.PlusPlus() != null) {
+            operator = ctx.PlusPlus().getText();
         }
+        if (ctx.MinusMinus() != null) {
+            operator = ctx.MinusMinus().getText();
+        }
+        return this.astNode(ctx, {
+            type: "IncDecStatement",
+            operator: operator,
+            prefix: true,
+            argument: this.visit(ctx.lValueExpression())
+        });
+    }
 
     // Visit a parse tree produced by GameMakerLanguageParser#PreIncDecExpression.
     visitPreIncDecExpression(ctx) {
@@ -840,52 +907,22 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#BitAndExpression.
     visitBitAndExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "&",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "&");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
     visitLogicalXorExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "^^",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
-    }
-
-    // Visit a parse tree produced by GameMakerLanguageParser#LogicalXorExpression.
-    visitLogicalXorExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "^^",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "^^");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#BitOrExpression.
     visitBitOrExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "|",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "|");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#CoalesceExpression.
     visitCoalesceExpression(ctx) {
-        return this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: "??",
-            left: this.visit(ctx.expression()[0]),
-            right: this.visit(ctx.expression()[1])
-        });
+        return this.handleBinaryExpression(ctx, "??");
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#callStatement.
