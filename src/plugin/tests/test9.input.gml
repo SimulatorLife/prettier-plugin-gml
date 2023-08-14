@@ -15,4 +15,3 @@ var op8 = true xor false;
 
 var op9 = 10 div 6;
 var op10 = 10 != 6;
-var op11 = 10 = 6;

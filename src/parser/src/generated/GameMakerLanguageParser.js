@@ -160,11 +160,11 @@ const serializedATN = [4,1,114,714,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,
 34,15,421,422,10,13,0,0,422,423,5,45,0,0,423,452,3,68,34,14,424,425,10,12,
 0,0,425,426,5,46,0,0,426,452,3,68,34,13,427,428,10,11,0,0,428,429,7,3,0,
 0,429,452,3,68,34,12,430,431,10,10,0,0,431,432,7,4,0,0,432,452,3,68,34,11,
-433,434,10,9,0,0,434,435,5,34,0,0,435,452,3,68,34,10,436,437,10,8,0,0,437,
+433,434,10,9,0,0,434,435,5,34,0,0,435,452,3,68,34,9,436,437,10,8,0,0,437,
 438,5,47,0,0,438,452,3,68,34,9,439,440,10,7,0,0,440,441,5,48,0,0,441,452,
 3,68,34,8,442,443,10,6,0,0,443,444,5,49,0,0,444,452,3,68,34,7,445,446,10,
 2,0,0,446,447,5,33,0,0,447,448,3,68,34,0,448,449,5,20,0,0,449,450,3,68,34,
-3,450,452,1,0,0,0,451,409,1,0,0,0,451,412,1,0,0,0,451,415,1,0,0,0,451,418,
+2,450,452,1,0,0,0,451,409,1,0,0,0,451,412,1,0,0,0,451,415,1,0,0,0,451,418,
 1,0,0,0,451,421,1,0,0,0,451,424,1,0,0,0,451,427,1,0,0,0,451,430,1,0,0,0,
 451,433,1,0,0,0,451,436,1,0,0,0,451,439,1,0,0,0,451,442,1,0,0,0,451,445,
 1,0,0,0,452,455,1,0,0,0,453,451,1,0,0,0,453,454,1,0,0,0,454,69,1,0,0,0,455,
@@ -260,10 +260,10 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
                             "':'", "'.'", "'++'", "'--'", "'+'", "'-'", 
                             "'~'", null, "'*'", "'/'", "'div'", null, "'**'", 
                             "'?'", "'??'", "'??='", "'>>'", "'<<'", "'<'", 
-                            "'>'", "'<='", "'>='", "'=='", null, "'&'", 
-                            "'^'", "'|'", null, null, null, "'*='", "'/='", 
-                            "'+='", "'-='", "'%='", "'<<='", "'>>='", "'&='", 
-                            "'^='", "'|='", "'#'", "'$'", "'@'", "'undefined'", 
+                            "'>'", "'<='", "'>='", null, null, "'&'", "'^'", 
+                            "'|'", null, null, null, "'*='", "'/='", "'+='", 
+                            "'-='", "'%='", "'<<='", "'>>='", "'&='", "'^='", 
+                            "'|='", "'#'", "'$'", "'@'", "'undefined'", 
                             "'noone'", null, null, null, null, null, "'break'", 
                             "'exit'", "'do'", "'case'", "'else'", "'new'", 
                             "'var'", "'globalvar'", "'catch'", "'finally'", 
@@ -285,7 +285,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
                              "Power", "QuestionMark", "NullCoalesce", "NullCoalescingAssign", 
                              "RightShiftArithmetic", "LeftShiftArithmetic", 
                              "LessThan", "MoreThan", "LessThanEquals", "GreaterThanEquals", 
-                             "Equals_", "NotEquals", "BitAnd", "BitXOr", 
+                             "Equals", "NotEquals", "BitAnd", "BitXOr", 
                              "BitOr", "And", "Or", "Xor", "MultiplyAssign", 
                              "DivideAssign", "PlusAssign", "MinusAssign", 
                              "ModulusAssign", "LeftShiftArithmeticAssign", 
@@ -1904,7 +1904,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                var la_ = this._interp.adaptivePredict(this._input,36,this._ctx);
 	                switch(la_) {
 	                case 1:
-	                    localctx = new MultiplicativeExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 409;
 	                    if (!( this.precpred(this._ctx, 17))) {
@@ -1924,7 +1924,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 2:
-	                    localctx = new AdditiveExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 412;
 	                    if (!( this.precpred(this._ctx, 16))) {
@@ -1944,7 +1944,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 3:
-	                    localctx = new BitShiftExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 415;
 	                    if (!( this.precpred(this._ctx, 15))) {
@@ -1964,7 +1964,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 4:
-	                    localctx = new BitAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 418;
 	                    if (!( this.precpred(this._ctx, 14))) {
@@ -1977,7 +1977,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 5:
-	                    localctx = new BitXOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 421;
 	                    if (!( this.precpred(this._ctx, 13))) {
@@ -1990,7 +1990,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 6:
-	                    localctx = new BitOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 424;
 	                    if (!( this.precpred(this._ctx, 12))) {
@@ -2003,7 +2003,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 7:
-	                    localctx = new EqualityExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 427;
 	                    if (!( this.precpred(this._ctx, 11))) {
@@ -2023,7 +2023,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 8:
-	                    localctx = new RelationalExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 430;
 	                    if (!( this.precpred(this._ctx, 10))) {
@@ -2043,7 +2043,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 9:
-	                    localctx = new CoalesceExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 433;
 	                    if (!( this.precpred(this._ctx, 9))) {
@@ -2052,11 +2052,11 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    this.state = 434;
 	                    this.match(GameMakerLanguageParser.NullCoalesce);
 	                    this.state = 435;
-	                    this.expression(10);
+	                    this.expression(9);
 	                    break;
 
 	                case 10:
-	                    localctx = new LogicalAndExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 436;
 	                    if (!( this.precpred(this._ctx, 8))) {
@@ -2069,7 +2069,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 11:
-	                    localctx = new LogicalOrExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 439;
 	                    if (!( this.precpred(this._ctx, 7))) {
@@ -2082,7 +2082,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    break;
 
 	                case 12:
-	                    localctx = new LogicalXorExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
+	                    localctx = new BinaryExpressionContext(this, new ExpressionContext(this, _parentctx, _parentState));
 	                    this.pushNewRecursionContext(localctx, _startState, GameMakerLanguageParser.RULE_expression);
 	                    this.state = 442;
 	                    if (!( this.precpred(this._ctx, 6))) {
@@ -2108,7 +2108,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	                    this.state = 448;
 	                    this.match(GameMakerLanguageParser.Colon);
 	                    this.state = 449;
-	                    this.expression(3);
+	                    this.expression(2);
 	                    break;
 
 	                } 
@@ -3695,7 +3695,7 @@ GameMakerLanguageParser.LessThan = 38;
 GameMakerLanguageParser.MoreThan = 39;
 GameMakerLanguageParser.LessThanEquals = 40;
 GameMakerLanguageParser.GreaterThanEquals = 41;
-GameMakerLanguageParser.Equals_ = 42;
+GameMakerLanguageParser.Equals = 42;
 GameMakerLanguageParser.NotEquals = 43;
 GameMakerLanguageParser.BitAnd = 44;
 GameMakerLanguageParser.BitXOr = 45;
@@ -6146,116 +6146,6 @@ class ParenthesizedExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.ParenthesizedExpressionContext = ParenthesizedExpressionContext;
 
-class AdditiveExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Plus() {
-	    return this.getToken(GameMakerLanguageParser.Plus, 0);
-	};
-
-	Minus() {
-	    return this.getToken(GameMakerLanguageParser.Minus, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterAdditiveExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitAdditiveExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitAdditiveExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.AdditiveExpressionContext = AdditiveExpressionContext;
-
-class RelationalExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	LessThan() {
-	    return this.getToken(GameMakerLanguageParser.LessThan, 0);
-	};
-
-	MoreThan() {
-	    return this.getToken(GameMakerLanguageParser.MoreThan, 0);
-	};
-
-	LessThanEquals() {
-	    return this.getToken(GameMakerLanguageParser.LessThanEquals, 0);
-	};
-
-	GreaterThanEquals() {
-	    return this.getToken(GameMakerLanguageParser.GreaterThanEquals, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterRelationalExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitRelationalExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitRelationalExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.RelationalExpressionContext = RelationalExpressionContext;
-
 class TernaryExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6307,43 +6197,36 @@ class TernaryExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.TernaryExpressionContext = TernaryExpressionContext;
 
-class LogicalAndExpressionContext extends ExpressionContext {
+class UnaryMinusExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
         super(parser);
         super.copyFrom(ctx);
     }
 
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
+	Minus() {
+	    return this.getToken(GameMakerLanguageParser.Minus, 0);
 	};
 
-	And() {
-	    return this.getToken(GameMakerLanguageParser.And, 0);
+	expression() {
+	    return this.getTypedRuleContext(ExpressionContext,0);
 	};
 
 	enterRule(listener) {
 	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterLogicalAndExpression(this);
+	        listener.enterUnaryMinusExpression(this);
 		}
 	}
 
 	exitRule(listener) {
 	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitLogicalAndExpression(this);
+	        listener.exitUnaryMinusExpression(this);
 		}
 	}
 
 	accept(visitor) {
 	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitLogicalAndExpression(this);
+	        return visitor.visitUnaryMinusExpression(this);
 	    } else {
 	        return visitor.visitChildren(this);
 	    }
@@ -6352,7 +6235,7 @@ class LogicalAndExpressionContext extends ExpressionContext {
 
 }
 
-GameMakerLanguageParser.LogicalAndExpressionContext = LogicalAndExpressionContext;
+GameMakerLanguageParser.UnaryMinusExpressionContext = UnaryMinusExpressionContext;
 
 class BitNotExpressionContext extends ExpressionContext {
 
@@ -6394,6 +6277,133 @@ class BitNotExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.BitNotExpressionContext = BitNotExpressionContext;
 
+class BinaryExpressionContext extends ExpressionContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+	expression = function(i) {
+	    if(i===undefined) {
+	        i = null;
+	    }
+	    if(i===null) {
+	        return this.getTypedRuleContexts(ExpressionContext);
+	    } else {
+	        return this.getTypedRuleContext(ExpressionContext,i);
+	    }
+	};
+
+	Multiply() {
+	    return this.getToken(GameMakerLanguageParser.Multiply, 0);
+	};
+
+	Divide() {
+	    return this.getToken(GameMakerLanguageParser.Divide, 0);
+	};
+
+	IntegerDivide() {
+	    return this.getToken(GameMakerLanguageParser.IntegerDivide, 0);
+	};
+
+	Modulo() {
+	    return this.getToken(GameMakerLanguageParser.Modulo, 0);
+	};
+
+	Plus() {
+	    return this.getToken(GameMakerLanguageParser.Plus, 0);
+	};
+
+	Minus() {
+	    return this.getToken(GameMakerLanguageParser.Minus, 0);
+	};
+
+	LeftShiftArithmetic() {
+	    return this.getToken(GameMakerLanguageParser.LeftShiftArithmetic, 0);
+	};
+
+	RightShiftArithmetic() {
+	    return this.getToken(GameMakerLanguageParser.RightShiftArithmetic, 0);
+	};
+
+	BitAnd() {
+	    return this.getToken(GameMakerLanguageParser.BitAnd, 0);
+	};
+
+	BitXOr() {
+	    return this.getToken(GameMakerLanguageParser.BitXOr, 0);
+	};
+
+	BitOr() {
+	    return this.getToken(GameMakerLanguageParser.BitOr, 0);
+	};
+
+	Equals() {
+	    return this.getToken(GameMakerLanguageParser.Equals, 0);
+	};
+
+	NotEquals() {
+	    return this.getToken(GameMakerLanguageParser.NotEquals, 0);
+	};
+
+	LessThan() {
+	    return this.getToken(GameMakerLanguageParser.LessThan, 0);
+	};
+
+	MoreThan() {
+	    return this.getToken(GameMakerLanguageParser.MoreThan, 0);
+	};
+
+	LessThanEquals() {
+	    return this.getToken(GameMakerLanguageParser.LessThanEquals, 0);
+	};
+
+	GreaterThanEquals() {
+	    return this.getToken(GameMakerLanguageParser.GreaterThanEquals, 0);
+	};
+
+	NullCoalesce() {
+	    return this.getToken(GameMakerLanguageParser.NullCoalesce, 0);
+	};
+
+	And() {
+	    return this.getToken(GameMakerLanguageParser.And, 0);
+	};
+
+	Or() {
+	    return this.getToken(GameMakerLanguageParser.Or, 0);
+	};
+
+	Xor() {
+	    return this.getToken(GameMakerLanguageParser.Xor, 0);
+	};
+
+	enterRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.enterBinaryExpression(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof GameMakerLanguageParserListener ) {
+	        listener.exitBinaryExpression(this);
+		}
+	}
+
+	accept(visitor) {
+	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
+	        return visitor.visitBinaryExpression(this);
+	    } else {
+	        return visitor.visitChildren(this);
+	    }
+	}
+
+
+}
+
+GameMakerLanguageParser.BinaryExpressionContext = BinaryExpressionContext;
+
 class LiteralExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6429,53 +6439,6 @@ class LiteralExpressionContext extends ExpressionContext {
 }
 
 GameMakerLanguageParser.LiteralExpressionContext = LiteralExpressionContext;
-
-class LogicalOrExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Or() {
-	    return this.getToken(GameMakerLanguageParser.Or, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterLogicalOrExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitLogicalOrExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitLogicalOrExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.LogicalOrExpressionContext = LogicalOrExpressionContext;
 
 class NotExpressionContext extends ExpressionContext {
 
@@ -6553,187 +6516,6 @@ class VariableExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.VariableExpressionContext = VariableExpressionContext;
 
-class UnaryMinusExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	Minus() {
-	    return this.getToken(GameMakerLanguageParser.Minus, 0);
-	};
-
-	expression() {
-	    return this.getTypedRuleContext(ExpressionContext,0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterUnaryMinusExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitUnaryMinusExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitUnaryMinusExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.UnaryMinusExpressionContext = UnaryMinusExpressionContext;
-
-class BitAndExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	BitAnd() {
-	    return this.getToken(GameMakerLanguageParser.BitAnd, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterBitAndExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitBitAndExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitBitAndExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.BitAndExpressionContext = BitAndExpressionContext;
-
-class BitOrExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	BitOr() {
-	    return this.getToken(GameMakerLanguageParser.BitOr, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterBitOrExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitBitOrExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitBitOrExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.BitOrExpressionContext = BitOrExpressionContext;
-
-class LogicalXorExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Xor() {
-	    return this.getToken(GameMakerLanguageParser.Xor, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterLogicalXorExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitLogicalXorExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitLogicalXorExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.LogicalXorExpressionContext = LogicalXorExpressionContext;
-
 class IncDecExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6774,104 +6556,6 @@ class IncDecExpressionContext extends ExpressionContext {
 
 GameMakerLanguageParser.IncDecExpressionContext = IncDecExpressionContext;
 
-class BitXOrExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	BitXOr() {
-	    return this.getToken(GameMakerLanguageParser.BitXOr, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterBitXOrExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitBitXOrExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitBitXOrExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.BitXOrExpressionContext = BitXOrExpressionContext;
-
-class EqualityExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Equals_() {
-	    return this.getToken(GameMakerLanguageParser.Equals_, 0);
-	};
-
-	NotEquals() {
-	    return this.getToken(GameMakerLanguageParser.NotEquals, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterEqualityExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitEqualityExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitEqualityExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.EqualityExpressionContext = EqualityExpressionContext;
-
 class CallExpressionContext extends ExpressionContext {
 
     constructor(parser, ctx) {
@@ -6907,163 +6591,6 @@ class CallExpressionContext extends ExpressionContext {
 }
 
 GameMakerLanguageParser.CallExpressionContext = CallExpressionContext;
-
-class MultiplicativeExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	Multiply() {
-	    return this.getToken(GameMakerLanguageParser.Multiply, 0);
-	};
-
-	Divide() {
-	    return this.getToken(GameMakerLanguageParser.Divide, 0);
-	};
-
-	Modulo() {
-	    return this.getToken(GameMakerLanguageParser.Modulo, 0);
-	};
-
-	IntegerDivide() {
-	    return this.getToken(GameMakerLanguageParser.IntegerDivide, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterMultiplicativeExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitMultiplicativeExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitMultiplicativeExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.MultiplicativeExpressionContext = MultiplicativeExpressionContext;
-
-class CoalesceExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	NullCoalesce() {
-	    return this.getToken(GameMakerLanguageParser.NullCoalesce, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterCoalesceExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitCoalesceExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitCoalesceExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.CoalesceExpressionContext = CoalesceExpressionContext;
-
-class BitShiftExpressionContext extends ExpressionContext {
-
-    constructor(parser, ctx) {
-        super(parser);
-        super.copyFrom(ctx);
-    }
-
-	expression = function(i) {
-	    if(i===undefined) {
-	        i = null;
-	    }
-	    if(i===null) {
-	        return this.getTypedRuleContexts(ExpressionContext);
-	    } else {
-	        return this.getTypedRuleContext(ExpressionContext,i);
-	    }
-	};
-
-	LeftShiftArithmetic() {
-	    return this.getToken(GameMakerLanguageParser.LeftShiftArithmetic, 0);
-	};
-
-	RightShiftArithmetic() {
-	    return this.getToken(GameMakerLanguageParser.RightShiftArithmetic, 0);
-	};
-
-	enterRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.enterBitShiftExpression(this);
-		}
-	}
-
-	exitRule(listener) {
-	    if(listener instanceof GameMakerLanguageParserListener ) {
-	        listener.exitBitShiftExpression(this);
-		}
-	}
-
-	accept(visitor) {
-	    if ( visitor instanceof GameMakerLanguageParserVisitor ) {
-	        return visitor.visitBitShiftExpression(this);
-	    } else {
-	        return visitor.visitChildren(this);
-	    }
-	}
-
-
-}
-
-GameMakerLanguageParser.BitShiftExpressionContext = BitShiftExpressionContext;
 
 class CallStatementContext extends antlr4.ParserRuleContext {
 
@@ -9256,8 +8783,8 @@ class MacroTokenContext extends antlr4.ParserRuleContext {
 	    return this.getToken(GameMakerLanguageParser.GreaterThanEquals, 0);
 	};
 
-	Equals_() {
-	    return this.getToken(GameMakerLanguageParser.Equals_, 0);
+	Equals() {
+	    return this.getToken(GameMakerLanguageParser.Equals, 0);
 	};
 
 	NotEquals() {

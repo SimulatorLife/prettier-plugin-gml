@@ -1,19 +1,25 @@
-var in1 = (h < 0 or h > 1);
+var myVal = (h < 0) or (h > 1);
 
-var in2 = 0.5 + 1 * (5 / 3);
+var myVal2 = 0.5 + ((1 * 5) / 3);
 
-var in3 = a + (b * c);
+var myVal3 = a + (b * c);
 
-var in4 = a + b + c;
+var myVal4 = (a + b) + c;
 
-var in5 = (a + b) * c;
+var myVal5 = (a + b) * c;
 
-var in6 = a && b || c
+var myVal6 = (a and b) or c;
 
-var in7 = (a > b) && (c < d);
+var myVal7 = (a > b) and (c < d);
 
-var in8 = a - b - c;
+var myVal8 = (a - b) - c;
 
-var in9 = a == b + c
+var myVal9 = a == (b + c);
 
-var in10 = a == (b + (c / 9));
+var myVal10 = a + (b * c);
+
+var myVal11 = (a and b) or (c and d);
+
+var myVal12 = (x * y) / z;
+
+var myVal13 = 3 - 2 ? "cool" : "not cool";

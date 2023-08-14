@@ -58,7 +58,7 @@ LessThan:                       '<';
 MoreThan:                       '>';
 LessThanEquals:                 '<=';
 GreaterThanEquals:              '>=';
-Equals_:                        '==';
+Equals:                         '==' | '=';
 NotEquals:                      '!=' | '<>';
 BitAnd:                         '&';
 BitXOr:                         '^';
