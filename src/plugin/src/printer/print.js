@@ -25,6 +25,7 @@ import {
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
+    isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement
 } from "./util.js";
 
@@ -638,7 +639,9 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
 
 // variation of printElements that handles semicolons and line breaks in a program or block
 function printStatements(path, options, print, childrenAttribute) {
-    let precedingBlankLineExists = true;
+    let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
+    let currentHadNewlineAddedBefore = false; // tracks newline added before the current node
+
     return path.map((childPath, index) => {
         const parts = [];
         const node = childPath.getValue();
@@ -646,12 +649,20 @@ function printStatements(path, options, print, childrenAttribute) {
         const printed = print();
         const semi = optionalSemicolon(node.type);
 
-        const addNewlinePadding = shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
-        if (addNewlinePadding && !precedingBlankLineExists) {
-            parts.push(hardline);
-        }
-        precedingBlankLineExists = false;
+        const currentNodeRequiresNewline = shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
+        // Reset flag for current node
+        currentHadNewlineAddedBefore = false;
+        
+        // Check if a newline should be added BEFORE the statement
+        if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
+            if (isTopLevel && !isPreviousLineEmpty(options.originalText, node.start.index)) {
+                parts.push(hardline);
+                currentHadNewlineAddedBefore = true;
+            }
+        }     
+
+        // Print the statement
         if (docHasTrailingComment(printed)) {
             printed.splice(printed.length - 1, 0, semi);
             parts.push(printed);
@@ -660,11 +671,17 @@ function printStatements(path, options, print, childrenAttribute) {
             parts.push(semi);
         }
 
+        // Reset flag for next iteration
+        previousNodeHadNewlineAddedAfter = false;
+
+        // Check if a newline should be added AFTER the statement
         if (!isLastStatement(childPath)) {
             parts.push(hardline);
-            if (isNextLineEmpty(options.originalText, node.end.index + 1)) {
+            if (currentNodeRequiresNewline && !isNextLineEmpty(options.originalText, node.end.index + 1)) {
                 parts.push(hardline);
-                precedingBlankLineExists = true;
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (isNextLineEmpty(options.originalText, node.end.index + 1)) {
+                parts.push(hardline);
             }
         } else if (isTopLevel) {
             parts.push(hardline);
