@@ -8,6 +8,7 @@ Almost done!
 #macro is_debug_mode true
 
 #region Enemy damage
+
 var enemy = argument0;
 var damage = argument1;
 with (enemy) {
@@ -30,11 +31,13 @@ function func_add(n1, n2) {
 var myTemplateString = $"5 plus 7 is {func_add(5, 7)}";
 show_debug_message(myTemplateString);
 
+
 /// @function func_sub(n1, n2)
 /// @description Subtract 2 numbers
 function func_sub(n1, n2) {
     return n1 - n2;
 }
+
 func_sub(0.5, 9);
 
 var testStringShouldNotHaveLeadingZero = ".5";
