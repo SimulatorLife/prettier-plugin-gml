@@ -371,13 +371,10 @@ export function print(path, options, print) {
             if (accessor.length > 1) {
                 accessor += " ";
             }
-            let property = print("property");
-            if (property === undefined) {
-                property = printDelimitedList(path, print, "property", "", "", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all"
-                });
-            }
+            let property = printDelimitedList(path, print, "property", "", "", {
+                delimiter: ",",
+                allowTrailingDelimiter: options.trailingComma === "all"
+            });            
             return concat([
                 print("object"),
                 accessor,

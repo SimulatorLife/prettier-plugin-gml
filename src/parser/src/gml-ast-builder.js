@@ -630,12 +630,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionSequence.
     visitExpressionSequence(ctx) {
-        let expressions = ctx.expression();
-        if (expressions.length === 1) {
-            return this.visit(expressions[0]);
-        } else {
-            return this.visit(expressions);
-        }
+        return ctx.expression().map(expr => this.visit(expr));
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionOrFunction.
