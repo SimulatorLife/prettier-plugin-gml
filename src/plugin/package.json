@@ -6,9 +6,9 @@
   },
   "scripts": {
     "test": "node ./tests/test-plugin.js",
-    "prettier:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
-    "example": "npm run prettier:raw --path=tests/test13.input.gml",
-    "prettier": "node prettier-wrapper.js $npm_config_path"
+    "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
+    "example": "npm run prettier:plugin:raw --path=tests/test17.input.gml",
+    "prettier:plugin": "node prettier-wrapper.js $npm_config_path"
   },
   "dependencies": {
     "gamemaker-language-parser": "file:../parser",

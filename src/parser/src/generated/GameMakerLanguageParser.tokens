@@ -39,7 +39,7 @@ LessThan=38
 MoreThan=39
 LessThanEquals=40
 GreaterThanEquals=41
-Equals_=42
+Equals=42
 NotEquals=43
 BitAnd=44
 BitXOr=45
@@ -146,7 +146,6 @@ TemplateStringText=114
 '>'=39
 '<='=40
 '>='=41
-'=='=42
 '&'=44
 '^'=45
 '|'=46

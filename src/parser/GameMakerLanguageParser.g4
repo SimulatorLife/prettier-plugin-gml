@@ -33,6 +33,7 @@ statement
     | incDecStatement
     | callStatement
     | functionDeclaration
+    | deleteStatement
     ) eos?
     ;
 
@@ -47,11 +48,11 @@ ifStatement
 iterationStatement
     : Do statement Until expression # DoStatement
     | While expression statement # WhileStatement
-    | For '('
-        (variableDeclarationList | assignmentExpression)? ';'
-        expression? ';'
+    | For OpenParen
+        (variableDeclarationList | assignmentExpression)? SemiColon
+        expression? SemiColon
         statement?
-    ')' statement # ForStatement
+    CloseParen statement # ForStatement
     | Repeat expression statement # RepeatStatement
     ;
 
@@ -88,11 +89,11 @@ caseClauses
     ;
 
 caseClause
-    : Case expression ':' statementList?
+    : Case expression Colon statementList?
     ;
 
 defaultClause
-    : Default ':' statementList?
+    : Default Colon statementList?
     ;
 
 throwStatement
@@ -104,7 +105,7 @@ tryStatement
     ;
 
 catchProduction
-    : Catch ('(' identifier? ')')? statement
+    : Catch (OpenParen identifier? CloseParen)? statement
     ;
 
 finallyProduction
@@ -124,7 +125,7 @@ assignmentExpression
     ;
 
 variableDeclarationList
-    : varModifier variableDeclaration (',' variableDeclaration)*
+    : varModifier variableDeclaration (Comma variableDeclaration)*
     ;
 
 varModifier
@@ -137,7 +138,7 @@ variableDeclaration
     ;
 
 globalVarStatement
-    : GlobalVar identifier (',' identifier)* SemiColon
+    : GlobalVar identifier (Comma identifier)* SemiColon
     ;
 
 newExpression
@@ -154,51 +155,47 @@ lValueExpression
     ;
 
 lValueChainOperator
-    : accessor expressionSequence ']' # MemberIndexLValue
-    | '.' identifier # MemberDotLValue
+    : accessor expressionSequence CloseBracket # MemberIndexLValue
+    | Dot identifier # MemberDotLValue
     | arguments # CallLValue
     ;
 
 lValueFinalOperator
-    : accessor expressionSequence ']' # MemberIndexLValueFinal
-    | '.' identifier # MemberDotLValueFinal
+    : accessor expressionSequence CloseBracket # MemberIndexLValueFinal
+    | Dot identifier # MemberDotLValueFinal
     ;
 
 expressionSequence
-    : expression (',' expression)*
+    : expression (Comma expression)*
     ;
 
 expressionOrFunction
-    : (expression | functionDeclaration)
-    | '(' expressionOrFunction ')'
+    : expression 
+    | functionDeclaration
     ;
 
 expression
-    : ( preIncDecExpression
-      | postIncDecExpression ) # IncDecExpression
+    : OpenParen expression CloseParen # ParenthesizedExpression
+    | <assoc=right> Minus expression # UnaryMinusExpression
+    | <assoc=right> BitNot expression # BitNotExpression
+    | <assoc=right> Not expression # NotExpression
+    | expression (Multiply | Divide | IntegerDivide | Modulo) expression # BinaryExpression
+    | expression (Plus | Minus) expression # BinaryExpression
+    | expression (LeftShiftArithmetic | RightShiftArithmetic) expression # BinaryExpression
+    | expression BitAnd expression # BinaryExpression
+    | expression BitXOr expression # BinaryExpression
+    | expression BitOr expression # BinaryExpression
+    | expression (Equals | NotEquals) expression # BinaryExpression
+    | expression (LessThan | MoreThan | LessThanEquals | GreaterThanEquals) expression # BinaryExpression
+    | <assoc=right> expression NullCoalesce expression # BinaryExpression
+    | expression And expression # BinaryExpression
+    | expression Or expression # BinaryExpression
+    | expression Xor expression # BinaryExpression
+    | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
     | lValueExpression # VariableExpression
     | callStatement # CallExpression
-
-    | <assoc=right> '-' expression # UnaryMinusExpression
-    | <assoc=right> '~' expression # BitNotExpression
-    | <assoc=right> Not expression # NotExpression
-
-    | expression ('*' | '/' | Modulo | IntegerDivide) expression # MultiplicativeExpression
-    | expression ('+' | '-') expression # AdditiveExpression
-    | expression '??' expression # CoalesceExpression
-    | expression ('<<' | '>>') expression # BitShiftExpression
-    | expression Or expression # LogicalOrExpression
-    | expression And expression # LogicalAndExpression
-    | expression Xor expression # LogicalXorExpression
-    | expression ('==' | Assign | NotEquals) expression # EqualityExpression
-    | expression ('<' | '>' | '<=' | '>=') expression # RelationalExpression
-    | expression '&' expression # BitAndExpression
-    | expression '|' expression # BitOrExpression
-    | expression '^' expression # BitXOrExpression
-
-    | expression '?' expression ':' expression # TernaryExpression
+    | <assoc=right> expression QuestionMark expression Colon expression # TernaryExpression
     | literal # LiteralExpression
-    | '(' expression ')' # ParenthesizedExpression
     ;
 
 callStatement
@@ -208,15 +205,15 @@ callStatement
 
 callableExpression
     : lValueExpression
-    | '(' (functionDeclaration | callableExpression) ')'
+    | OpenParen (functionDeclaration | callableExpression) CloseParen
     ;
 
 preIncDecExpression
-    : ('++' | '--') lValueExpression # PreIncDecStatement
+    : (PlusPlus | MinusMinus) lValueExpression # PreIncDecStatement
     ;
 
 postIncDecExpression
-    : lValueExpression ('++' | '--') # PostIncDecStatement
+    : lValueExpression (PlusPlus | MinusMinus) # PostIncDecStatement
     ;
 
 incDecStatement
@@ -234,13 +231,13 @@ accessor
     ;
 
 arguments
-    : '(' ')'
-    | '(' argumentList? trailingComma? ')'
+    : OpenParen CloseParen
+    | OpenParen argumentList? trailingComma? CloseParen
     ;
 
 argumentList
-    : ',' argument (',' argument)*
-    | argument ',' argument (',' argument)*
+    : Comma argument (Comma argument)*
+    | argument Comma argument (Comma argument)*
     | argument
     ;
 
@@ -251,21 +248,21 @@ argument
     ;
 
 trailingComma
-    : ',' 
+    : Comma
     ;
 
 assignmentOperator
-    : '*='
-    | '/='
-    | '%='
-    | '+='
-    | '-='
-    | '<<='
-    | '>>='
-    | '&='
-    | '^='
-    | '|='
-    | '??='
+    : MultiplyAssign
+    | DivideAssign
+    | ModulusAssign
+    | PlusAssign
+    | MinusAssign
+    | LeftShiftArithmeticAssign
+    | RightShiftArithmeticAssign
+    | BitAndAssign
+    | BitXorAssign
+    | BitOrAssign
+    | NullCoalescingAssign
     | Assign
     ;
 
@@ -294,19 +291,19 @@ templateStringAtom
     ;
 
 arrayLiteral
-    : '[' elementList ']'
+    : OpenBracket elementList CloseBracket
     ;
 
 elementList
-    : ','* expressionOrFunction? (','+ expressionOrFunction)* ','? // Yes, everything is optional
+    : Comma* expressionOrFunction? (Comma+ expressionOrFunction)* Comma? // Yes, everything is optional
     ;
 
 structLiteral
-    : openBlock (propertyAssignment (',' propertyAssignment)* ','?)? closeBlock
+    : openBlock (propertyAssignment (Comma propertyAssignment)* Comma?)? closeBlock
     ;
 
 propertyAssignment
-    : propertyIdentifier ':' expressionOrFunction
+    : propertyIdentifier Colon expressionOrFunction
     ;
 
 propertyIdentifier
@@ -318,11 +315,11 @@ functionDeclaration
     ;
 
 constructorClause
-    : (':' Identifier parameterList)? Constructor
+    : (Colon Identifier parameterList)? Constructor
     ;
 
 parameterList
-    : '(' (parameterArgument (',' parameterArgument)* ','?)? ')'
+    : OpenParen (parameterArgument (Comma parameterArgument)* Comma?)? CloseParen
     ;
 
 parameterArgument
@@ -338,7 +335,7 @@ enumeratorDeclaration
     ;
 
 enumeratorList
-    : enumerator (',' enumerator)* ','?
+    : enumerator (Comma enumerator)* Comma?
     ;
 
 enumerator
@@ -391,7 +388,7 @@ macroToken
     | Dot | PlusPlus | MinusMinus | Plus | Minus | BitNot | Not | Multiply | Divide
     | IntegerDivide | Modulo | Power | QuestionMark | NullCoalesce
     | NullCoalescingAssign | RightShiftArithmetic | LeftShiftArithmetic
-    | LessThan | MoreThan | LessThanEquals | GreaterThanEquals | Equals_ | NotEquals
+    | LessThan | MoreThan | LessThanEquals | GreaterThanEquals | Equals | NotEquals
     | BitAnd | BitXOr | BitOr | And | Or | Xor | MultiplyAssign | DivideAssign | PlusAssign
     | MinusAssign | ModulusAssign | LeftShiftArithmeticAssign | RightShiftArithmeticAssign
     | BitAndAssign | BitXorAssign | BitOrAssign | NumberSign | DollarSign | AtSign

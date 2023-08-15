@@ -69,6 +69,15 @@ function getNodeListProperty(node) {
     return Array.isArray(body) ? body : null;
 }
 
+function isPreviousLineEmpty(text, index) {
+    let idx = index - 1;
+    while (idx >= 0 && text[idx] !== '\n') {
+        idx--;
+    }
+    return idx >= 0 && text[idx - 1] === '\n';
+}
+
+
 function isNextLineEmpty(text, startIndex) {
     let oldIdx = null;
     let idx = startIndex;
@@ -102,16 +111,14 @@ function isAssignmentLikeExpression(nodeType) {
 function shouldAddNewlinesAroundStatement(node, options) {
     const nodeType = node?.type;
     if (!nodeType) { return false; }
-    if (
+    return (
         [
             "FunctionDeclaration",
             "ConstructorDeclaration",
+            "RegionStatement",
             "EndRegionStatement"
         ].includes(nodeType)
-    ) {
-        return true;
-    }
-    return false;
+    );
 }
 
 function hasComment(node) {
@@ -126,5 +133,6 @@ export {
     isAssignmentLikeExpression,
     hasComment,
     isNextLineEmpty,
+    isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement
 };

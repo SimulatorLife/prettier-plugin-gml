@@ -10,7 +10,7 @@ Almost done!
 #region Enemy damage
 
 var enemy = argument0; var damage = argument1
-with(enemy)
+with((enemy))
 {
 
 	  self.hp-=damage
@@ -25,6 +25,9 @@ with(enemy)
 function func_add(n1, n2) {
     return n1 + n2;
 }
+
+
+
 
 var myTemplateString = $"5 plus 7 is {func_add(5, 7)}";
 show_debug_message(myTemplateString);
