@@ -8,12 +8,20 @@ export default class GMLRefactoringListener extends GameMakerLanguageParserListe
     }
 
     // Utility function to transform string to snake_case
-    toSnakeCase(string) {
-        return string
+    // and prepend underscore if the prependUnderscore argument is true
+    toSnakeCase(string, prependUnderscore = false) {
+        let snakeCaseString = string
             .replace(/([A-Z])/g, ' $1')
             .trim()
             .toLowerCase()
             .replace(/[\s\W]+/g, '_');
+
+        // Prepend underscore if the prependUnderscore argument is true and the string doesn't start with one
+        if (prependUnderscore && snakeCaseString[0] !== '_') {
+            snakeCaseString = '_' + snakeCaseString;
+        }
+
+        return snakeCaseString;
     }
 
     // Utility function to transform string to PascalCase
