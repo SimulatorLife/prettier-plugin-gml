@@ -94,9 +94,16 @@ export function print(path, options, print) {
         }
         case "SwitchStatement": {
             const parts = [];
+            const discriminantNode = path.getValue().discriminant;
+            let discriminantDoc;
+            if (discriminantNode.type === "ParenthesizedExpression") {
+                discriminantDoc = print("discriminant")[1];
+            } else {
+                discriminantDoc = print("discriminant");
+            }
             parts.push([
                 "switch (",
-                group([indent([ifBreak(line), print("discriminant")]), ifBreak(line)]),
+                group([indent([ifBreak(line), discriminantDoc]), ifBreak(line)]),
                 ") "
             ]);
             if (node.cases.length === 0) {
