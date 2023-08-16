@@ -97,7 +97,7 @@ export function print(path, options, print) {
             const discriminantNode = path.getValue().discriminant;
             let discriminantDoc;
             if (discriminantNode.type === "ParenthesizedExpression") {
-                discriminantDoc = print("discriminant")[1];
+                discriminantDoc = path.call(print, "discriminant", "expression");
             } else {
                 discriminantDoc = print("discriminant");
             }
