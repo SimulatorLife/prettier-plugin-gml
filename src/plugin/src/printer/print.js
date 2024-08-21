@@ -633,7 +633,7 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
             parts.push(separator);
         }
 
-        if (index !== finalIndex) {
+        if (index !== finalIndex && ifBreak(lineBreak)) {
             parts.push(lineBreak);
         }
 

@@ -10,5 +10,5 @@ var op6 = 10 mod 2;
 var op7 = true xor false;
 var op8 = true xor false;
 
-var op9 = 10 div 6;
+var op9 = (10 div 6);
 var op10 = 10 != 6;
