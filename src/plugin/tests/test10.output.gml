@@ -1,3 +1,4 @@
+/// @function Shape
 function Shape() constructor {
     static print = function() {
         show_debug_message("I'm a shape");
