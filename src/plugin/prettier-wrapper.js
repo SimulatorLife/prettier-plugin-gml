@@ -10,7 +10,7 @@ const pluginPath = path.resolve(process.cwd(), path.join("src", "gml.js")); // G
 const ignorePath = path.resolve(process.cwd(), '.prettierignore'); // Gets the absolute path of the ignore file. This seems to be broken though...
 
 const options = {
-	parser: 'gml-parse', // You can adjust this based on your needs
+	parser: 'gml-parse',
 	plugins: [pluginPath],
 	loglevel: 'warn',
 	ignorePath: ignorePath,

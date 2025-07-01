@@ -100,20 +100,29 @@ const jsDocReplacements = {
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
     comment.printed = true;
+
     switch (comment.type) {
         case "CommentBlock": {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
+            const fullText = comment.leadingText || comment.raw || "";  // raw might be undefined in some parsers
+            const original = fullText || `//${comment.value}`;
             const trimmedValue = comment.value.trim();
 
-            // Loop through boilerplate comments and remove them
+            // Remove boilerplate comments
             for (const lineFragment of BOILERPLATE_COMMENTS) {
                 if (trimmedValue.includes(lineFragment)) {
                     // If the comment matches a boilerplate comment, skip it
                     console.log(`Removed boilerplate comment: ${lineFragment}`);
                     return "";
                 }
+            }
+
+            // Preserve more than four-slash comments like '/////'
+            const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
+            if (slashesMatch && slashesMatch[1].length > 4) {
+                return original.trim();  // preserve exact content
             }
 
             // Use regular expression to match any sequence starting with '/'

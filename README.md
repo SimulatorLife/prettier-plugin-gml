@@ -145,6 +145,8 @@ Or, run the development plugin version on a whole directory:
 
 ```
 npm run write --path=/Users/henrykirk/GameMakerStudio2/ColMesh
+
+node src/plugin/prettier-wrapper.js /Users/henrykirk/GameMakerStudio2/ColMesh
 ```
 
 ## Tests
