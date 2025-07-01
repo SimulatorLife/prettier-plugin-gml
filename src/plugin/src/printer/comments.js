@@ -5,6 +5,11 @@ const { addLeadingComment, addDanglingComment, addTrailingComment } = util;
 
 const { join, indent, hardline, dedent } = builders;
 
+const BOILERPLATE_COMMENTS = [
+    "Script assets have changed for v2.3.0",
+    "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
+];
+
 const handleComments = {
     ownLine(comment, text, options, ast, isLastComment) {
         return (
@@ -101,6 +106,16 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const trimmedValue = comment.value.trim();
+
+            // Loop through boilerplate comments and remove them
+            for (const lineFragment of BOILERPLATE_COMMENTS) {
+                if (trimmedValue.includes(lineFragment)) {
+                    // If the comment matches a boilerplate comment, skip it
+                    console.log(`Removed boilerplate comment: ${lineFragment}`);
+                    return "";
+                }
+            }
+
             // Use regular expression to match any sequence starting with '/'
             const regexPattern = /^\/+(\s*)@/;
             const match = trimmedValue.match(regexPattern);

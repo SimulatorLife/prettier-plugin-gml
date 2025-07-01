@@ -1,3 +1,7 @@
+// Script assets have changed for v2.3.0 see
+// https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information
+#macro GRASS_GRIDSIZE 5
+
 grid[#  _xInd,_yInd ]=100
 
 var curr_val = myStruct[$ "the_key"]

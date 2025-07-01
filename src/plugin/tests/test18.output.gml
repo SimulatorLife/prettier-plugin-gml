@@ -1,3 +1,5 @@
+#macro GRASS_GRIDSIZE 5
+
 grid[# _xInd, _yInd] = 100;
 
 var curr_val = myStruct[$ "the_key"];
