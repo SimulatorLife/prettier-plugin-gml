@@ -177,17 +177,23 @@ function formatLineComment(comment) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
+    const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
+    if (docLikeMatch) {
+        const remainder = docLikeMatch[1] ?? "";
+        if (remainder.startsWith("/")) {
+            // comments like "// comment" should stay as regular comments
+        } else {
+            let formatted = remainder.length > 0 ? `/// ${remainder}` : "///";
+            formatted = applyJsDocReplacements(formatted);
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
     const regexPattern = /^\/+(\s*)@/;
     const match = trimmedValue.match(regexPattern);
     if (match) {
         let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, " @");
-        formattedCommentLine = formattedCommentLine.replace(/\(\)\s*$/, "");
-
-        for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
-            const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
-            formattedCommentLine = formattedCommentLine.replace(regex, `$1${newWord}`);
-        }
-
+        formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
@@ -202,6 +208,19 @@ function applyInlinePadding(comment, formattedText) {
         formattedText.startsWith("//")
     ) {
         return " ".repeat(comment.inlinePadding) + formattedText;
+    }
+
+    return formattedText;
+}
+
+function applyJsDocReplacements(text) {
+    let formattedText = /@/i.test(text)
+        ? text.replace(/\(\)\s*$/, "")
+        : text;
+
+    for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
+        const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
+        formattedText = formattedText.replace(regex, `$1${newWord}`);
     }
 
     return formattedText;
