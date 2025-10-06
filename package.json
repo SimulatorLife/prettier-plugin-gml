@@ -36,6 +36,6 @@
     "example:plugin": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run example"
   },
   "devDependencies": {
-    "eslint": "^8.46.0"
+    "eslint": "^8.57.1"
   }
 }
