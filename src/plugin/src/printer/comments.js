@@ -11,6 +11,46 @@ const BOILERPLATE_COMMENTS = [
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ];
 
+function attachDanglingCommentToEmptyNode(comment, descriptors) {
+    const node = comment.enclosingNode;
+    if (!node) {
+        return false;
+    }
+
+    for (const { type, property } of descriptors) {
+        if (node.type !== type) {
+            continue;
+        }
+
+        const collection = node[property];
+        const isEmptyArray = Array.isArray(collection) && collection.length === 0;
+        const isCollectionMissing = collection == null;
+        if (isEmptyArray || isCollectionMissing) {
+            addDanglingComment(node, comment);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+const EMPTY_BODY_TARGETS = [
+    { type: "BlockStatement", property: "body" }
+];
+
+const EMPTY_PARENS_TARGETS = [
+    { type: "CallExpression", property: "arguments" },
+    { type: "ConstructorParentClause", property: "params" },
+    { type: "FunctionDeclaration", property: "params" },
+    { type: "ConstructorDeclaration", property: "params" }
+];
+
+const EMPTY_LITERAL_TARGETS = [
+    { type: "ArrayExpression", property: "elements" },
+    { type: "StructExpression", property: "properties" },
+    { type: "EnumDeclaration", property: "members" }
+];
+
 const handleComments = {
     ownLine(comment, text, options, ast, isLastComment) {
         return (
@@ -230,15 +270,7 @@ function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
 
 
 function handleCommentInEmptyBody(comment, text, options, ast, isLastComment) {
-    if (
-        comment.enclosingNode?.type === "BlockStatement" &&
-        comment.enclosingNode?.body.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    return false;
+    return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
 }
 
 // ignore macro comments because macros are printed exactly as-is
@@ -281,31 +313,12 @@ function handleCommentInEmptyParens(
     ast,
     isLastComment
 ) {
-    
+
     if (comment.leadingChar != "(" || comment.trailingChar != ")") {
         return false;
     }
 
-    if (
-        comment.enclosingNode?.type === "CallExpression" &&
-        comment.enclosingNode?.arguments.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    if (
-        (
-            comment.enclosingNode?.type === "ConstructorParentClause" ||
-            comment.enclosingNode?.type === "FunctionDeclaration" ||
-            comment.enclosingNode?.type === "ConstructorDeclaration"
-        ) && comment.enclosingNode?.params.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    return false;
+    return attachDanglingCommentToEmptyNode(comment, EMPTY_PARENS_TARGETS);
 }
 
 function handleCommentInEmptyLiteral(
@@ -315,31 +328,7 @@ function handleCommentInEmptyLiteral(
     ast,
     isLastComment
 ) {
-    if (
-        comment.enclosingNode?.type === "ArrayExpression" &&
-        comment.enclosingNode?.elements.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    if (
-        comment.enclosingNode?.type === "StructExpression" &&
-        comment.enclosingNode?.properties.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    if (
-        comment.enclosingNode?.type === "EnumDeclaration" &&
-        comment.enclosingNode?.members.length === 0
-    ) {
-        addDanglingComment(comment.enclosingNode, comment);
-        return true;
-    }
-
-    return false;
+    return attachDanglingCommentToEmptyNode(comment, EMPTY_LITERAL_TARGETS);
 }
 
 function handleOnlyComments(comment, text, options, ast, isLastComment) {
