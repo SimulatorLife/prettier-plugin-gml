@@ -1,5 +1,4 @@
 /// @function Shape
-
 function Shape() constructor {
     static print = function() {
         show_debug_message("I'm a shape");
@@ -22,6 +21,7 @@ function Shape() constructor {
     };
 }
 
+/// @function Circle
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
