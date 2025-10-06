@@ -10,7 +10,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/henrylkirk/prettier-plugin-gml.git"
+    "url": "git+https://github.com/SimulatorLife/prettier-plugin-gml.git"
   },
   "keywords": [
     "prettier",
