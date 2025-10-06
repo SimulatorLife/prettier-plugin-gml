@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "gamemaker-language-parser": "file:../parser",
-    "prettier": "^3.0.1"
+    "prettier": "^3.6.2"
   }
 }
