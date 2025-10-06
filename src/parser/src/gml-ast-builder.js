@@ -5,6 +5,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     constructor(options) {
         super();
         this.operatorStack = [];
+        this.globalIdentifiers = new Set();
 
         this.operators = {
             // Highest Precedence
@@ -537,11 +538,25 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#globalVarStatement.
     visitGlobalVarStatement(ctx) {
-        return this.astNode(ctx, {
-            type: "GlobalVarStatement",
-            kind: "globalvar",
-            declarations: this.visit(ctx.identifier())
+        const identifiers = ctx.identifier().map((identifierCtx) => {
+            const identifier = this.visit(identifierCtx);
+            if (identifier && identifier.type === "Identifier" && identifier.name) {
+                identifier.isGlobalIdentifier = true;
+                this.globalIdentifiers.add(identifier.name);
+            }
+            return identifier;
         });
+
+        if (identifiers.length > 0) {
+            // Ensure that any future references to these identifiers are marked as global.
+            identifiers
+                .filter((identifier) => identifier && identifier.name)
+                .forEach((identifier) => {
+                    this.globalIdentifiers.add(identifier.name);
+                });
+        }
+
+        return null;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#LValueExpression.
@@ -1115,10 +1130,15 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#identifier.
     visitIdentifier(ctx) {
-        return this.astNode(ctx, {
+        const name = ctx.getText();
+        const node = this.astNode(ctx, {
             type: "Identifier",
-            name: ctx.getText()
+            name: name
         });
+        if (this.globalIdentifiers.has(name)) {
+            node.isGlobalIdentifier = true;
+        }
+        return node;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#enumeratorDeclaration.
