@@ -1,0 +1,42 @@
+name: Codex 30 – Project Organization
+
+on:
+  schedule:
+    - cron: "25 5 * * *" # daily at 05:25 UTC
+    - cron: "35 23 * * *" # additional daily run at 23:35 UTC to cover late-evening gap
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Project Organization Sweep"
+      pr_body: "Seed PR for Codex to relocate one function, module, or asset to a more coherent home and tidy references."
+      prompt: >
+        Perform a focused organization pass. Locate one function, module, or file/asset that
+        currently lives in an ill-fitting directory or file (e.g., UI helper in core
+        logic, event utilities outside `src/events`, math helpers outside `src/math`).
+        Justify why the current placement is suboptimal, then move it to the more
+        logical location.
+
+        Requirements:
+          • Update all imports/exports so the project builds and tests still pass.
+          • Maintain architectural boundaries—keep simulation logic, UI, grid, and shared
+            utilities separated.
+          • When moving code, ensure barrel files/index exports remain consistent, update
+            documentation and comments referencing the old location, and adjust tests or
+            fixtures.
+          • Include a short summary in the commit message explaining the original location, the
+            new location, and the rationale.
+          • If no valid candidate is found, document why in the commit message and propose a
+            future reorganization plan rather than submitting a no-op PR.
+
+        Avoid pure renames with no location change, avoid wide-scope refactors, and do
+        not introduce new dependencies. Keep the change narrowly focused but complete for
+        the chosen item.

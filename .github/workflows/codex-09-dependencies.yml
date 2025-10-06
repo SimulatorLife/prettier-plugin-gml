@@ -1,0 +1,27 @@
+name: Codex 09 – Dependency Hygiene
+on:
+  schedule:
+    - cron: "0 5,17 * * *" # twice daily at 05:00, 17:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Dependency Hygiene"
+      pr_body: "Seed PR for Codex to streamline runtime and dev dependencies."
+      prompt: >
+        Audit package.json (and the lockfile) for outdated, unused, or redundant
+        dependencies. Remove packages that are no longer referenced, collapse duplicate
+        entries, align semver ranges with project policy, and upgrade to supported
+        versions when it is safe. Replace deprecated APIs with their modern
+        equivalents, adjust imports/usages accordingly, and document notable version
+        jumps in the commit message. Skip tooling/config changes—those live in the
+        configuration workflow. Keep the diff tight, avoid introducing new heavy
+        dependencies, and ensure builds/tests still succeed after the cleanup.
