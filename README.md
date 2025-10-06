@@ -1,6 +1,4 @@
-# GameMaker Language Parser
-
-A parser and Prettier plugin for GameMaker Language (GML) implemented in Antlr4.
+# Prettier Plugin for GameMaker Language
 
 <p align="center">
   <a href="https://github.com/henrylkirk/prettier-plugin-gml/issues">
@@ -8,176 +6,244 @@ A parser and Prettier plugin for GameMaker Language (GML) implemented in Antlr4.
   </a>
 </p>
 
-## Prettier GML Plugin
+A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
+plugin bundles an ANTLR-powered parser for `.gml` sources so that your scripts, objects, and shaders can share the same
+consistent formatting workflow as the rest of your project.
 
-- [Overview](#overview)
-  - [Example](#example)
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Global Install](#global-install)
-  - [Local Install](#local-install)
+> ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
+
+## Table of contents
+
+- [Quick start](#quick-start)
+  - [Requirements](#requirements)
+  - [Install in a project](#install-in-a-project)
+  - [Format your code](#format-your-code)
 - [Usage](#usage)
-  - [⚠️IMPORTANT NOTICE⚠️](#important-notice)
-  - [VS Code](#vs-code)
-  - [Command Line](#command-line)
+  - [Command line](#command-line)
+  - [Visual Studio Code](#visual-studio-code)
+  - [Configuration reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
+  - [Repository layout](#repository-layout)
+  - [Set up the workspace](#set-up-the-workspace)
+  - [Test the plugin and parser](#test-the-plugin-and-parser)
+  - [Regenerate the parser grammar](#regenerate-the-parser-grammar)
+  - [Handy development commands](#handy-development-commands)
+- [Useful VS Code extensions](#useful-vs-code-extensions)
 
-## Overview
+## Quick start
 
-This plugin enhances [Prettier](https://prettier.io/), a tool for automatically formatting your code in an opinionated way. This adds Game Maker Language (.gml file) support in the context of Game Maker Studio.
+### Requirements
 
-This repo uses the GmlSpec.xml found in /Users/Shared/GameMakerStudio2/Cache/runtimes/runtime-2022.6.1.40/GmlSpec.xml
+- Node.js **16.13** or newer (Prettier 3.x requirement). The latest LTS release is recommended.
+- npm (ships with Node.js). Confirm availability with:
 
-## Example
+  ```bash
+  node -v
+  npm -v
+  ```
 
-### Before
+### Install in a project
 
+1. Install Prettier and the plugin as development dependencies in your GameMaker project directory:
+
+   ```bash
+   npm install --save-dev prettier prettier-plugin-gml
+   ```
+
+2. Tell Prettier to load the plugin by creating (or updating) a `.prettierrc` file:
+
+   ```json
+   {
+     "plugins": ["prettier-plugin-gml"],
+     "overrides": [
+       {
+         "files": "*.gml",
+         "options": {
+           "parser": "gml-parse"
+         }
+       }
+     ]
+   }
+   ```
+
+   Prettier will now apply the bundled defaults (`tabWidth: 4`, `semi: true`, `printWidth: 120`) when it encounters `.gml`
+   files. Adjust these in your config if you need different formatting conventions.
+
+### Format your code
+
+Run Prettier from your project directory once or wire it into your build scripts:
+
+```bash
+npx prettier --write "**/*.gml"
 ```
+
+Before | After
+------ | -----
+```gml
 var enemy = argument0; var damage = argument1
 
 with(enemy)
 {
-
-	  self.hp-=damage
-	if(self.hp<=0){instance_destroy(self)}
+          self.hp-=damage
+        if(self.hp<=0){instance_destroy(self)}
 }
-```
-
-### After
-
-```
+``` | ```gml
 var enemy = argument0;
 var damage = argument1;
 
 with (enemy) {
-  self.hp -= damage;
-  if (self.hp <= 0) {
-    instance_destroy(self);
-  }
+    self.hp -= damage;
+    if (self.hp <= 0) {
+        instance_destroy(self);
+    }
 }
 ```
 
-## Installation
+### Optional: global install
 
-Install the prequisites, then follow either the global or local install below.
+Prefer a machine-wide setup? Install the packages globally and call `prettier` from anywhere:
 
-## Prerequisites
-
-Node and npm must be installed. They can be installed together from here: https://nodejs.org/
-
-You can then verify that Node and npm have been installed correctly by entering the following commands into any terminal such as Powershell:
-
-```
-node -v
-npm -v
-```
-
-If you see a version number for each of them, success! Otherwise, try uninstalling your current version of Node and reinstall it.
-
-## Global Install
-
-This will install Prettier and the Prettier GML plugin globally on your machine, meaning it can be used for all of your projects.
-
-```
-npm install -g --save-exact prettier prettier-plugin-gml
-```
-
-## Local Install
-
-This will install Prettier and the Prettier GML plugin ONLY for a single Game Maker project. Open up a terminal in the directory of your Game Maker project and run the following commands:
-
-```
-npm config set script-shell "C:\\Program Files\\git\\bin\\bash.exe" && npm run install:recursive:windows
-bpm run install:recursive
-```
-
-### Windows
 ```bash
-npm config set script-shell "C:\\Program Files\\git\\bin\\bash.exe"
-npm run install:recursive
-npm run prettier:plugin --path=C:\Users\henry\Documents\colmesh
+npm install --global --save-exact prettier prettier-plugin-gml
+prettier --write "**/*.gml" --plugin=prettier-plugin-gml
 ```
 
+Keep in mind that globally installed Prettier will attempt to format every supported file type that you open.
 
-## IMPORTANT NOTICE
+## Usage
 
-This extension is still experimental, please be sure to commit your code into version control or have a backup before using this! There may be uncaught bugs that have the potential to delete code. If using VS Code, this is fixable with an "undo" command after saving.
+### Command line
 
-## VS Code
+- Format the current directory:
 
-Prettier integrates directly into VS Code! Once you have done the above setup, just install the "Prettier" and "GML Support" VS Code extensions. You may need to enable "editor.formatOnSave" in your VS Code preferences, and now when you save a GML file it should automatically format itself!
+  ```bash
+  npx prettier --write . --plugin=prettier-plugin-gml
+  ```
 
-**WARNING**: If you followed the global install, this will cause Prettier to start formatting all files you open with VS Code that are supported with Prettier (such as HTML, JS, and CSS files).
+- Check formatting without writing changes:
 
-## Command Line
+  ```bash
+  npx prettier --check "rooms/**/*.gml" --plugin=prettier-plugin-gml
+  ```
 
-To use without VS Code, simply follow the installation above and open up a terminal in the directory of your Game Maker project. Then just run
+- Target a single file for quick experiments:
 
+  ```bash
+  npx prettier --write scripts/player_attack.gml --plugin=prettier-plugin-gml
+  ```
+
+### Visual Studio Code
+
+1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
+2. Install a GML language service (for example [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)).
+3. Ensure Prettier finds the plugin by adding it to your workspace `package.json` or by using the global installation above.
+4. Enable format-on-save (either globally or per-workspace):
+
+   ```json
+   {
+     "editor.formatOnSave": true,
+     "[gml]": {
+       "editor.defaultFormatter": "esbenp.prettier-vscode"
+     }
+   }
+   ```
+
+Prettier will now automatically reformat `.gml` files whenever you save.
+
+### Configuration reference
+
+The plugin exposes the standard Prettier options. You can override the defaults by updating your `.prettierrc`:
+
+```json
+{
+  "plugins": ["prettier-plugin-gml"],
+  "printWidth": 100,
+  "tabWidth": 2,
+  "semi": true
+}
 ```
-prettier --write .
-```
 
-For more advanced configurations, the Prettier docs have fantastic explanations of the command line options: https://prettier.io/docs/en/cli.html
+If you maintain separate Prettier settings for other languages, prefer `overrides` to keep `.gml` behaviour isolated.
 
 ## Troubleshooting
 
-- One of the most common fixes may be to simply reinstall Node and npm from https://nodejs.org/
-- If your Node and/or npm versions are very old (<12 or <6.14 respectively), uninstall and reinstall them with more up to date versions
-- If you cannot find an answer to your issue after carefully reading through the installation and usage instructions, file an issue [right here!](https://github.com/henrylkirk/prettier-plugin-gml/issues)
+- Double-check that Node and npm are up to date. Prettier 3 requires at least Node 16.13.
+- If Prettier cannot find the plugin, confirm it is listed in either your local `package.json` dependencies or globally installed
+  via `npm list -g --depth=0`.
+- Remove and reinstall the packages when in doubt:
+
+  ```bash
+  npm uninstall prettier prettier-plugin-gml
+  npm install --save-dev prettier prettier-plugin-gml
+  ```
+
+- Still stuck? [Open an issue](https://github.com/henrylkirk/prettier-plugin-gml/issues) with reproduction details.
 
 ## Development
 
-Create a new folder and add a sample GML file to it. Inside that folder, git clone this repository. Then run
+### Repository layout
 
 ```
-npm init
-npm install --save-dev prettier
+prettier-plugin-gml/
+├─ src/parser/   # ANTLR grammar, generated parser, and parser tests
+├─ src/plugin/   # Prettier plugin source, printer, and plugin tests
+├─ recursive-install.mjs  # Helper to install nested package dependencies
+└─ set-config-values.mjs  # Utility that shares path configuration between scripts
 ```
 
-Once changes are made, the plugin can be tested with:
+### Set up the workspace
 
-```
-npx prettier --plugin .\prettier-plugin-gml\ .\TEST.gml
-```
-
-Or, run the development plugin version on a whole directory:
-
-```
-npm run write --path=/Users/henrykirk/GameMakerStudio2/ColMesh
-
-node src/plugin/prettier-wrapper.js /Users/henrykirk/GameMakerStudio2/ColMesh
+```bash
+git clone https://github.com/henrylkirk/prettier-plugin-gml.git
+cd prettier-plugin-gml
+npm install
+npm run install:recursive
 ```
 
-## Tests
+The recursive install script walks through the repository and installs dependencies for each package (parser and plugin).
 
-### Run all the tests for both the parser and the Prettier plugin
+### Test the plugin and parser
 
+Run every test suite from the repository root:
+
+```bash
+npm test
 ```
-npm run test
-```
 
-### Run Prettier plugin tests
+Run an individual suite when iterating on a component:
 
-```
+```bash
 npm run test:plugin
-```
-
-### Run parser tests
-
-```
 npm run test:parser
 ```
 
-## Generate code from grammar files via ANTLR
-1. Download and install ANTLR4: https://www.antlr.org/download.html
-2. ANTLR required Java, so install Java if you don't have it already: https://www.java.com/en/download/
-3. Add ANTLR to your PATH. 
-  * On Unix: ```export PATH=$PATH:/path/to/antlr/bin```
-  * On Windows, add the ANTLR's bin directory to the system's PATH using the Environment Variables settings
-4. Confirm installation: ```antlr -version```
-5. Generate the parser and lexer files: ```antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageLexer.g4 && antlr4 -Dlanguage=JavaScript -visitor -o ../src GameMakerLanguageParser.g4```
+### Regenerate the parser grammar
 
-## Useful VSCode extensions
+Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then execute the helper script:
 
-- ANTLR4 Grammar Syntax Support
+```bash
+npm run antlr
+```
+
+This command re-generates the parser and lexer inside `src/parser/src/generated` based on the `.g4` grammar files.
+
+### Handy development commands
+
+- Format a fixture with the development version of the plugin:
+
+  ```bash
+  npm run example:plugin
+  ```
+
+- Manually invoke the raw Prettier CLI with the local plugin:
+
+  ```bash
+  npm --prefix src/plugin run prettier:plugin --path=tests/test14.input.gml
+  ```
+
+## Useful VS Code extensions
+
+- [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
+- [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
+
