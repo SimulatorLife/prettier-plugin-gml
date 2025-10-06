@@ -21,6 +21,14 @@ on:
         required: false
         type: string
         default: "main"
+      author_name:
+        required: false
+        type: string
+        default: ""         # e.g., "Your Name"
+      author_email:
+        required: false
+        type: string
+        default: ""         # e.g., "you@example.com" or "username@users.noreply.github.com"
     outputs:
       pr_number:
         value: ${{ jobs.open_and_ping.outputs.pr_number }}
@@ -55,25 +63,31 @@ jobs:
         env:
           GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
 
-      - name: Checkout
+      - name: Checkout (with your token so pushes are yours)
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.base_branch }}
           fetch-depth: 0
+          token: ${{ secrets.GH_USER_TOKEN }}
 
       - name: Create empty commit on new branch (from latest base)
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Prefer user-provided identity; otherwise leave Git defaults (will still push with your PAT)
+          if [ -n "${AUTHOR_NAME}" ]; then git config user.name  "${AUTHOR_NAME}"; fi
+          if [ -n "${AUTHOR_EMAIL}" ]; then git config user.email "${AUTHOR_EMAIL}"; fi
 
-          # Ensure we're up to date and branch from the current base tip
           git fetch origin "$BASE_BRANCH"
           git switch -c "$BRANCH_NAME" "origin/$BASE_BRANCH"
 
           git commit --allow-empty -m "${{ inputs.pr_title }}"
           git push -u origin "$BRANCH_NAME"
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+          AUTHOR_NAME: ${{ inputs.author_name }}
+          AUTHOR_EMAIL: ${{ inputs.author_email }}
 
-      - name: Open PR
+      - name: Open PR (authored by your user)
         id: pr
         uses: actions/github-script@v7
         env:
@@ -94,12 +108,13 @@ jobs:
               body:  process.env.PR_BODY || undefined,
               maintainer_can_modify: true,
             });
-            core.setOutput('number', pr.number.toString());
+            core.setOutput('number', String(pr.number));
             core.setOutput('head_sha', pr.head.sha);
 
-      - name: (Optional) Label the PR
+      - name: (Optional) Label the PR (as your user)
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
             try {
               await github.rest.issues.addLabels({
@@ -112,7 +127,7 @@ jobs:
               core.info('Label add skipped: ' + e.message);
             }
 
-      - name: Comment to trigger Codex (instruction-first, with push reminder)
+      - name: Comment to trigger Codex (as your user)
         uses: actions/github-script@v7
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
@@ -151,6 +166,4 @@ jobs:
               "```"
             ].join("\n");
 
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: prNumber, body
-            });
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
