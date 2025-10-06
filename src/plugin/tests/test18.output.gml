@@ -6,6 +6,10 @@ var curr_val = myStruct[$ "the_key"];
 
 myArray[@ 3] = 9999;
 
+///--------------------------------------------------------------
+/// eAIState
+///--------------------------------------------------------------
+
 enum eAIState {
 	idle,			// no AI direction currently
 	wander,			// pathfind/steer to random points in room

@@ -25,101 +25,108 @@ async function testFiles() {
         process.exit(1);
     }
 
-    var numFailedTests = 0;
+    let numFailedTests = 0;
+    let numPassedTests = 0;
+    let totalLineMismatches = 0;
     for (let inputFile of inputFiles) {
-        console.log(`Testing file '${inputFile}'...`);
+        console.log(`\n=== Testing file: '${inputFile}' ===`);
 
         const baseName = inputFile.slice(0, -4); // remove '.gml' extension
         const outputFile = baseName.replace(".input", ".output") + fileExt;
 
         const inputCode = await fs.promises.readFile(path.join(testsDirectory, inputFile), fileEncoding);
         if (typeof inputCode !== "string") {
-            console.error(`\tUnexpected type for input code. Expected string but got ${typeof inputCode}`);
+            console.error(`  [ERROR] Unexpected type for input code. Expected string but got ${typeof inputCode}`);
             process.exit(1);
         }
 
-        var expectedOutput = await fs.promises.readFile(path.join(testsDirectory, outputFile), fileEncoding);
+        let expectedOutput = await fs.promises.readFile(path.join(testsDirectory, outputFile), fileEncoding);
         if (typeof expectedOutput !== "string") {
-            console.error(`\tUnexpected type for expected output. Expected string but got ${typeof expectedOutput}`);
+            console.error(`  [ERROR] Unexpected type for expected output. Expected string but got ${typeof expectedOutput}`);
             process.exit(1);
         }
 
-        var formatted = "";
+        let formatted = "";
         try {
             formatted = await prettier.format(inputCode, {
                 plugins: [path.join(currentDirectory, "../src/gml.js")],
                 parser: "gml-parse"
             });
         } catch (e) {
-            console.error(`\tUnexpected error while formatting code`, e);
+            console.error(`  [ERROR] Unexpected error while formatting code`, e);
             numFailedTests++;
             continue;
         }
 
         if (typeof formatted !== "string") {
-            console.error(`\tUnexpected type for formatted code. Expected string but got ${typeof formatted}`);
+            console.error(`  [ERROR] Unexpected type for formatted code. Expected string but got ${typeof formatted}`);
             process.exit(1);
         } else if (formatted.trim() === "") {
-            console.error("\tUnexpected empty string for formatted code.");
+            console.error("  [ERROR] Unexpected empty string for formatted code.");
             process.exit(1);
         }
 
         formatted = formatted.trim();
         expectedOutput = expectedOutput.trim();
 
-        var didCurrTestFail = false;
+        let didCurrTestFail = false;
+        let lineMismatches = 0;
         if (formatted !== expectedOutput) {
-
             const formattedLines = formatted.split("\n");
             const expectedLines = expectedOutput.split("\n");
 
             for (let i = 0; i < Math.max(formattedLines.length, expectedLines.length); i++) {
-                var expectedLine = expectedLines[i];
-                var formattedLine = formattedLines[i];
+                let expectedLine = expectedLines[i];
+                let formattedLine = formattedLines[i];
                 const lineNum = i + 1;
 
                 if (expectedLine === undefined) {
-                    console.error(`\tExpected line ${lineNum} does not exist`);
+                    console.error(`    [FAIL] Expected line ${lineNum} does not exist`);
                 } else {
                     expectedLine = expectedLine.trim();
                 }
-      
+
                 if (formattedLine === undefined) {
-                    console.error("\tReceived line does not exist");
+                    console.error(`    [FAIL] Received line does not exist`);
                 } else {
                     formattedLine = formattedLine.trim();
                 }
-        
+
                 if (formattedLine !== expectedLine) {
                     didCurrTestFail = true;
-                    numFailedTests++;
-                    console.error(`\tLine ${lineNum} does not match:`);
-                    console.error(`\tExpected: ${expectedLine}`);
-                    console.error(`\tReceived: ${formattedLine}`);
+                    lineMismatches++;
+                    console.error(`    [FAIL] Line ${lineNum} does not match:`);
+                    console.error(`      Expected: ${expectedLine}`);
+                    console.error(`      Received: ${formattedLine}`);
                 }
             }
         }
 
         if (didCurrTestFail) {
-            console.log(`\tFAILED`);
+            numFailedTests++;
+            totalLineMismatches += lineMismatches;
+            console.log(`  [RESULT] FAILED (${lineMismatches} line${lineMismatches !== 1 ? 's' : ''} mismatched)`);
             if (outputFormattedCodeOnFailure) {
-                console.log(`\n\nFull formatted code for failed file '${inputFile}':\n\n`, formatted);
+                console.log(`\n  Full formatted code for failed file '${inputFile}':\n\n${formatted}\n`);
             }
             if (failFast) {
                 process.exit(1); // Exit with a failure code
             }
         } else {
-            console.log(`\tPASSED`);
+            numPassedTests++;
+            console.log(`  [RESULT] PASSED`);
         }
     }
 
+    console.log("\n====================");
     if (numFailedTests > 0) {
-        console.error(`\n\n${numFailedTests}/${inputFiles.length} tests failed!`);
+        console.error(`\nSUMMARY: ${numFailedTests}/${inputFiles.length} test${numFailedTests !== 1 ? 's' : ''} FAILED, ${numPassedTests} PASSED.`);
+        console.error(`Total line mismatches: ${totalLineMismatches}`);
         process.exit(1); // Exit with a failure code
+    } else {
+        console.log(`\nSUMMARY: All ${inputFiles.length} tests PASSED!`);
+        process.exit(0); // Exit with a success code
     }
-
-    console.log(`\n\nAll ${inputFiles.length} tests passed!`);
-    process.exit(0); // Exit with a success code
 }
 
 testFiles();
