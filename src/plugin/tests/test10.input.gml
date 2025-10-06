@@ -1,6 +1,7 @@
 /// @function Shape
 
-function Shape() constructor {
+function Shape(color = undefined) constructor {
+	self.color = color;
 	static print = function() {show_debug_message("I'm a shape")}
 
 		//// @func freeze()

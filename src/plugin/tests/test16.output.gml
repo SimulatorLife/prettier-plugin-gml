@@ -1,3 +1,3 @@
-if ((a == getValue()) == true) {
+if (a == getValue()) {
 	// TODO
 }

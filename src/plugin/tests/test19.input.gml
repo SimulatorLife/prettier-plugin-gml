@@ -1,4 +1,4 @@
-function choose_profile(settings, fallback){
+function choose_profile(settings, fallback = undefined){
 var config=settings??global.default_settings
 var themeCandidate=config.theme_override??fallback.theme_override;
 var finalTheme=themeCandidate??global.theme_defaults
