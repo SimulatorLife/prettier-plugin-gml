@@ -140,6 +140,53 @@ export function print(path, options, print) {
             ]);
         }
         case "ForStatement": {
+            const hoistInfo = getArrayLengthHoistInfo(path.getValue());
+            if (hoistInfo) {
+                const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } = buildArrayLengthDocs(
+                    path,
+                    print,
+                    hoistInfo
+                );
+
+                const initDoc = path.getValue().init ? print("init") : "";
+                const updateDoc = path.getValue().update ? print("update") : "";
+                const testDoc = concat([
+                    iteratorDoc,
+                    " ",
+                    path.getValue().test.operator,
+                    " ",
+                    cachedLengthName
+                ]);
+
+                return concat([
+                    group([
+                        "var ",
+                        cachedLengthName,
+                        " = ",
+                        arrayLengthCallDoc,
+                        ";"
+                    ]),
+                    hardline,
+                    "for (",
+                    group([
+                        indent([
+                            ifBreak(line),
+                            concat([
+                                initDoc,
+                                ";",
+                                line,
+                                testDoc,
+                                ";",
+                                line,
+                                updateDoc
+                            ])
+                        ])
+                    ]),
+                    ") ",
+                    printInBlock(path, options, print, "body")
+                ]);
+            }
+
             return concat([
                 "for (",
                 group([
@@ -151,7 +198,7 @@ export function print(path, options, print) {
                 ") ",
                 printInBlock(path, options, print, "body")
             ]);
-        }        
+        }
         case "DoUntilStatement": {
             return concat([
                 "do ",
@@ -325,7 +372,7 @@ export function print(path, options, print) {
             return group([
                 left,
                 " ",
-                group([operator, line, right]),
+                group([operator, line, right])
             ]);
         }
         case "UnaryExpression":
@@ -360,7 +407,7 @@ export function print(path, options, print) {
         
                 let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                    allowTrailingDelimiter: options.trailingComma === "all"
                 });
         
                 printedArgs = [conditionalGroup([optionA, optionB])];
@@ -572,10 +619,10 @@ export function print(path, options, print) {
             const parts = [];
             parts.push(" catch ");
             if (node.param) {
-              parts.push(["(", print("param"), ")"]);
+                parts.push(["(", print("param"), ")"]);
             }
             if (node.body) {
-              parts.push(" ", printInBlock(path, options, print, "body"));
+                parts.push(" ", printInBlock(path, options, print, "body"));
             }
             return concat(parts);
         }
@@ -1267,6 +1314,92 @@ function printWithoutExtraParens(path, print, ...keys) {
         (childPath) => unwrapParenthesizedExpression(childPath, print),
         ...keys
     );
+}
+
+function getArrayLengthHoistInfo(node) {
+    if (!node || node.type !== "ForStatement") {
+        return null;
+    }
+
+    const test = node.test;
+    if (!test || test.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (!test.operator || !["<", "<="].includes(test.operator)) {
+        return null;
+    }
+
+    const callExpression = test.right;
+    if (!callExpression || callExpression.type !== "CallExpression") {
+        return null;
+    }
+
+    const callee = callExpression.object;
+    if (!callee || callee.type !== "Identifier") {
+        return null;
+    }
+
+    const functionName = (callee.name || "").toLowerCase();
+    if (functionName !== "array_length") {
+        return null;
+    }
+
+    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
+    if (args.length !== 1) {
+        return null;
+    }
+
+    const arrayIdentifier = args[0];
+    if (!arrayIdentifier || arrayIdentifier.type !== "Identifier" || !arrayIdentifier.name) {
+        return null;
+    }
+
+    const iterator = test.left;
+    if (!iterator || iterator.type !== "Identifier" || !iterator.name) {
+        return null;
+    }
+
+    const update = node.update;
+    if (!update) {
+        return null;
+    }
+
+    if (update.type === "IncDecStatement") {
+        const argument = update.argument;
+        if (!argument || argument.type !== "Identifier" || argument.name !== iterator.name) {
+            return null;
+        }
+    } else if (update.type === "AssignmentExpression") {
+        const left = update.left;
+        if (!left || left.type !== "Identifier" || left.name !== iterator.name) {
+            return null;
+        }
+
+        const allowedOperators = new Set(["+=", "-="]);
+        if (!allowedOperators.has(update.operator)) {
+            return null;
+        }
+    } else {
+        return null;
+    }
+
+    return {
+        iteratorName: iterator.name,
+        arrayIdentifierName: arrayIdentifier.name
+    };
+}
+
+function buildArrayLengthDocs(path, print, hoistInfo) {
+    const cachedLengthName = `${hoistInfo.arrayIdentifierName}_len`;
+    const arrayLengthCallDoc = printWithoutExtraParens(path, print, "test", "right");
+    const iteratorDoc = printWithoutExtraParens(path, print, "test", "left");
+
+    return {
+        cachedLengthName,
+        arrayLengthCallDoc,
+        iteratorDoc
+    };
 }
 
 function unwrapParenthesizedExpression(childPath, print) {
