@@ -51,74 +51,65 @@ const EMPTY_LITERAL_TARGETS = [
     { type: "EnumDeclaration", property: "members" }
 ];
 
+const OWN_LINE_COMMENT_HANDLERS = [
+    handleCommentInEmptyBody,
+    handleCommentInEmptyParens,
+    handleOnlyComments
+];
+
+const END_OF_LINE_COMMENT_HANDLERS = [
+    handleOnlyComments,
+    handleCommentAttachedToOpenBrace,
+    handleCommentInEmptyParens,
+    handleMacroComments
+];
+
+const REMAINING_COMMENT_HANDLERS = [
+    handleOnlyComments,
+    handleCommentAttachedToOpenBrace,
+    handleCommentInEmptyParens,
+    handleCommentInEmptyLiteral,
+    handleMacroComments
+];
+
+function runCommentHandlers(handlers, comment, text, options, ast, isLastComment) {
+    for (const handler of handlers) {
+        if (handler(comment, text, options, ast, isLastComment)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 const handleComments = {
     ownLine(comment, text, options, ast, isLastComment) {
-        return (
-            handleCommentInEmptyBody(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleCommentInEmptyParens(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleOnlyComments(comment, text, options, ast, isLastComment) ||
-            false
+        return runCommentHandlers(
+            OWN_LINE_COMMENT_HANDLERS,
+            comment,
+            text,
+            options,
+            ast,
+            isLastComment
         );
     },
     endOfLine(comment, text, options, ast, isLastComment) {
-        return (
-            handleOnlyComments(comment, text, options, ast, isLastComment) ||
-            handleCommentAttachedToOpenBrace(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleCommentInEmptyParens(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleMacroComments(comment) ||
-            false
+        return runCommentHandlers(
+            END_OF_LINE_COMMENT_HANDLERS,
+            comment,
+            text,
+            options,
+            ast,
+            isLastComment
         );
     },
     remaining(comment, text, options, ast, isLastComment) {
-        return (
-            handleOnlyComments(comment, text, options, ast, isLastComment) ||
-            handleCommentAttachedToOpenBrace(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleCommentInEmptyParens(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleCommentInEmptyLiteral(
-                comment,
-                text,
-                options,
-                ast,
-                isLastComment
-            ) ||
-            handleMacroComments(comment) ||
-            false
+        return runCommentHandlers(
+            REMAINING_COMMENT_HANDLERS,
+            comment,
+            text,
+            options,
+            ast,
+            isLastComment
         );
     }
 };
