@@ -1,0 +1,29 @@
+name: Codex 10 – Core Documentation Refresh
+on:
+  schedule:
+    - cron: "50 5,17 * * *" # twice daily at 05:50, 17:50 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Core Documentation Refresh"
+      pr_body: "Seed PR for Codex to align primary documentation with current behaviour atop main."
+      prompt: >
+        Focus on the project's primary documentation surfaces—README, docs/ guides,
+        CHANGELOG entries, onboarding notes, and any top-level usage instructions—to
+        ensure they accurately reflect the current architecture, features, and
+        contributor workflow. Tighten quick-start steps, configuration references, and
+        narrative explanations so new contributors and curious players can ramp up
+        without wading through stale details. Expand or prune sections only where doing
+        so improves accuracy, remove outdated callouts, and cross-link related guides
+        when it boosts discoverability. Leave inline comments, docstrings, and API
+        reference tidy-ups to their dedicated workflow. Keep edits practical, concise,
+        and easy to review so the documentation remains welcoming and trustworthy.

@@ -1,0 +1,144 @@
+name: Codex – Open PR and Ping
+
+on:
+  workflow_call:
+    inputs:
+      pr_title:
+        required: true
+        type: string
+      pr_body:
+        required: false
+        type: string
+        default: ""
+      prompt:
+        required: true
+        type: string
+      branch_prefix:
+        required: false
+        type: string
+        default: "codex"
+      base_branch:
+        required: false
+        type: string
+        default: "main"
+    outputs:
+      pr_number:
+        value: ${{ jobs.open_and_ping.outputs.pr_number }}
+      branch:
+        value: ${{ jobs.open_and_ping.outputs.branch }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  open_and_ping:
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr.outputs.number }}
+      branch: ${{ env.BRANCH_NAME }}
+    env:
+      BASE_BRANCH: ${{ inputs.base_branch }}
+      BRANCH_NAME: ${{ inputs.branch_prefix }}/task-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_branch }}
+          fetch-depth: 0
+
+      - name: Create empty commit on new branch (from latest base)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Ensure we're up to date and branch from the current base tip
+          git fetch origin "$BASE_BRANCH"
+          git switch -c "$BRANCH_NAME" "origin/$BASE_BRANCH"
+
+          git commit --allow-empty -m "${{ inputs.pr_title }}"
+          git push -u origin "$BRANCH_NAME"
+
+      - name: Open PR
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          PR_TITLE: ${{ inputs.pr_title }}
+          PR_BODY: ${{ inputs.pr_body }}
+          PROMPT: ${{ inputs.prompt }}
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: process.env.PR_TITLE,
+              head:  process.env.BRANCH_NAME,
+              base:  process.env.BASE_BRANCH,
+              body:  process.env.PR_BODY || undefined,
+              maintainer_can_modify: true,
+            });
+            core.setOutput('number', pr.number.toString());
+            core.setOutput('head_sha', pr.head.sha);
+
+      - name: (Optional) Label the PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number('${{ steps.pr.outputs.number }}'),
+                labels: ['codex'],
+              });
+            } catch (e) {
+              core.info('Label add skipped: ' + e.message);
+            }
+
+      - name: Comment to trigger Codex (instruction-first, with push reminder)
+        uses: actions/github-script@v7
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          PROMPT: ${{ inputs.prompt }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            const owner  = context.repo.owner;
+            const repo   = context.repo.repo;
+            const branch = process.env.BRANCH_NAME;
+
+            const instruction = "Begin by surveying the entire codebase before narrowing to this task.";
+            const body = [
+              `@codex ${instruction} ${process.env.PROMPT} Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage.`,
+              "",
+              `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
+              "",
+              "```bash",
+              `git config user.name  "codex-bot"`,
+              `git config user.email "codex@example.com"`,
+              `git -c credential.helper= \\`,
+              `    -c 'credential.helper=store --file .git/codex-cred' \\`,
+              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${branch}"`,
+              "```",
+              "Here is some additional context for your task:",
+              "```yaml",
+              "codex_task:",
+              `  branch: "${branch}"`,
+              `  pr_number: ${prNumber}`,
+              `  base: "${process.env.BASE_BRANCH}"`,
+              `  head_sha: "${process.env.HEAD_SHA}"`,
+              "```"
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber, body
+            });
