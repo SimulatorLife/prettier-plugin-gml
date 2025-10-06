@@ -1,7 +1,7 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
-const { addLeadingComment, addDanglingComment, addTrailingComment } = util;
+const { addDanglingComment, addTrailingComment } = util;
 
 const { join, indent, hardline, dedent } = builders;
 
@@ -106,50 +106,64 @@ function printComment(commentPath, options) {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
-            const fullText = comment.leadingText || comment.raw || "";  // raw might be undefined in some parsers
-            const original = fullText || `//${comment.value}`;
-            const trimmedValue = comment.value.trim();
-
-            // Remove boilerplate comments
-            for (const lineFragment of BOILERPLATE_COMMENTS) {
-                if (trimmedValue.includes(lineFragment)) {
-                    // If the comment matches a boilerplate comment, skip it
-                    console.log(`Removed boilerplate comment: ${lineFragment}`);
-                    return "";
-                }
-            }
-
-            // Preserve more than four-slash comments like '/////'
-            const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-            if (slashesMatch && slashesMatch[1].length > 4) {
-                return original.trim();  // preserve exact content
-            }
-
-            // Use regular expression to match any sequence starting with '/'
-            const regexPattern = /^\/+(\s*)@/;
-            const match = trimmedValue.match(regexPattern);
-            if (match) {  // JSDoc comment
-                // Replace '/' (and any spaces after it) with ' ' and prepend with '///'
-                let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, " @");
-                
-                // Check for empty parentheses at the end of the comment line and remove them
-                formattedCommentLine = formattedCommentLine.replace(/\(\)\s*$/, "");
-
-                // Loop through each replacement and apply it
-                for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
-                    const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
-                    formattedCommentLine = formattedCommentLine.replace(regex, `$1${newWord}`);
-                }
-
-                return formattedCommentLine;
-            } else {
-                return "// " + trimmedValue;
-            }
+            return formatLineComment(comment);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
         }
     }
+}
+
+function formatLineComment(comment) {
+    const fullText = comment.leadingText || comment.raw || "";
+    const original = fullText || `//${comment.value}`;
+    const trimmedOriginal = original.trim();
+    const trimmedValue = comment.value.trim();
+
+    for (const lineFragment of BOILERPLATE_COMMENTS) {
+        if (trimmedValue.includes(lineFragment)) {
+            console.log(`Removed boilerplate comment: ${lineFragment}`);
+            return "";
+        }
+    }
+
+    const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
+    if (slashesMatch && slashesMatch[1].length > 4) {
+        return applyInlinePadding(comment, original.trim());
+    }
+
+    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+        return applyInlinePadding(comment, trimmedOriginal);
+    }
+
+    const regexPattern = /^\/+(\s*)@/;
+    const match = trimmedValue.match(regexPattern);
+    if (match) {
+        let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, " @");
+        formattedCommentLine = formattedCommentLine.replace(/\(\)\s*$/, "");
+
+        for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
+            const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
+            formattedCommentLine = formattedCommentLine.replace(regex, `$1${newWord}`);
+        }
+
+        return applyInlinePadding(comment, formattedCommentLine);
+    }
+
+    return applyInlinePadding(comment, "// " + trimmedValue);
+}
+
+function applyInlinePadding(comment, formattedText) {
+    if (
+        comment &&
+        typeof comment.inlinePadding === "number" &&
+        comment.inlinePadding > 0 &&
+        formattedText.startsWith("//")
+    ) {
+        return " ".repeat(comment.inlinePadding) + formattedText;
+    }
+
+    return formattedText;
 }
 
 function printDanglingComments(path, options, sameIndent, filter) {
@@ -344,6 +358,24 @@ function handleCommentInEmptyLiteral(
 function handleOnlyComments(comment, text, options, ast, isLastComment) {
     const { enclosingNode, followingNode } = comment;
 
+    if (
+        followingNode &&
+        typeof followingNode === "object" &&
+        comment.type === "CommentLine" &&
+        (followingNode.type === "FunctionDeclaration" || followingNode.type === "ConstructorDeclaration")
+    ) {
+        const formatted = formatLineComment(comment);
+
+        if (formatted && formatted.startsWith("///")) {
+            comment.printed = true;
+            if (!followingNode.docComments) {
+                followingNode.docComments = [];
+            }
+            followingNode.docComments.push(comment);
+            return true;
+        }
+    }
+
     if (ast && ast.body && ast.body.length === 0) {
         addDanglingComment(ast, comment);
         return true;
@@ -380,5 +412,6 @@ export {
     printDanglingComments,
     printDanglingCommentsAsGroup,
     handleComments,
-    printComment
+    printComment,
+    formatLineComment
 };
