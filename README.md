@@ -7,8 +7,8 @@
 </p>
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
-plugin bundles an ANTLR-powered parser for `.gml` sources so that your scripts, objects, and shaders can share the same
-consistent formatting workflow as the rest of your project. It is published on npm as
+monorepo pairs a custom ANTLR-powered parser with a Prettier printer so that scripts, objects, and shaders share the same
+consistent formatting workflow as the rest of your project. The plugin is published on npm as
 [`prettier-plugin-gamemaker`](https://www.npmjs.com/package/prettier-plugin-gamemaker).
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
@@ -17,10 +17,10 @@ consistent formatting workflow as the rest of your project. It is published on n
 
 - [Quick start](#quick-start)
   - [Requirements](#requirements)
-  - [Install in a project](#install-in-a-project)
-  - [Format your code](#format-your-code)
+  - [Install](#install)
+  - [Format code](#format-code)
   - [Optional: global install](#optional-global-install)
-- [Usage](#usage)
+- [Usage tips](#usage-tips)
   - [Command line](#command-line)
   - [Visual Studio Code](#visual-studio-code)
   - [Configuration reference](#configuration-reference)
@@ -37,7 +37,7 @@ consistent formatting workflow as the rest of your project. It is published on n
 
 ### Requirements
 
-- Node.js **16.13** or newer (Prettier 3.x requirement). Node 18 LTS or newer is recommended.
+- Node.js **16.13** or newer (required by Prettier 3.x). Node 18 LTS or newer keeps pace with current releases.
 - npm (ships with Node.js). Confirm availability with:
 
   ```bash
@@ -45,15 +45,16 @@ consistent formatting workflow as the rest of your project. It is published on n
   npm -v
   ```
 
-### Install in a project
+### Install
 
-1. Install Prettier and the plugin as development dependencies in your GameMaker project directory:
+1. Add Prettier and the plugin to your GameMaker project:
 
    ```bash
    npm install --save-dev prettier prettier-plugin-gamemaker
    ```
 
-2. Tell Prettier to load the plugin by creating (or updating) a `.prettierrc` file. Prettier 3 automatically discovers local plugins, but adding an explicit override ensures `.gml` files use the GameMaker parser:
+2. Prettier 3 automatically loads local plugins. Add an explicit override if you want to pin `.gml` files to the bundled
+   parser or customise options per language:
 
    ```json
    {
@@ -68,12 +69,12 @@ consistent formatting workflow as the rest of your project. It is published on n
    }
    ```
 
-   Prettier will now apply the bundled defaults (`tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`) when it encounters `.gml`
-   files. Adjust these in your config if you need different formatting conventions.
+   The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, and `printWidth: 120`. Override these values in
+   your configuration to match your team conventions.
 
-### Format your code
+### Format code
 
-Run Prettier from your project directory once or wire it into your build scripts:
+Run Prettier from your project directory or wire it into your build scripts:
 
 ```bash
 npx prettier --write "**/*.gml"
@@ -110,9 +111,9 @@ npm install --global --save-exact prettier prettier-plugin-gamemaker
 prettier --write "**/*.gml" --plugin=prettier-plugin-gamemaker
 ```
 
-Keep in mind that globally installed Prettier will attempt to format every supported file type that you open.
+Global installs skip your project `node_modules`, so keep versions in sync to avoid inconsistent formatting.
 
-## Usage
+## Usage tips
 
 ### Command line
 
@@ -134,11 +135,13 @@ Keep in mind that globally installed Prettier will attempt to format every suppo
   npx prettier --write scripts/player_attack.gml
   ```
 
+See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options.
+
 ### Visual Studio Code
 
 1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
 2. Install a GML language service (for example [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)).
-3. Ensure Prettier finds the plugin by adding `prettier-plugin-gamemaker` to your workspace `package.json` (or by using the global installation above).
+3. Ensure the workspace `package.json` lists `prettier-plugin-gamemaker` so the extension downloads the parser alongside Prettier.
 4. Enable format-on-save (either globally or per-workspace):
 
    ```json
@@ -154,7 +157,7 @@ Prettier will now automatically reformat `.gml` files whenever you save.
 
 ### Configuration reference
 
-The plugin exposes the standard Prettier options. You can override the defaults by updating your `.prettierrc`:
+The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` files so other languages stay unaffected:
 
 ```json
 {
@@ -171,13 +174,12 @@ The plugin exposes the standard Prettier options. You can override the defaults 
 }
 ```
 
-If you maintain separate Prettier settings for other languages, prefer `overrides` to keep `.gml` behaviour isolated.
+Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
 
 ## Troubleshooting
 
-- Double-check that Node and npm are up to date. Prettier 3 requires at least Node 16.13.
-- If Prettier cannot find the plugin, confirm it is listed in either your local `package.json` dependencies or globally installed
-  via `npm list -g --depth=0`.
+- Confirm Node and npm meet the version requirements. Prettier 3 needs at least Node 16.13.
+- If Prettier cannot find the plugin, ensure it appears in your local `package.json` or is installed globally (`npm list -g --depth=0`).
 - Remove and reinstall the packages when in doubt:
 
   ```bash
@@ -199,6 +201,9 @@ prettier-plugin-gml/
 ├─ recursive-install.mjs  # Helper to install nested package dependencies
 └─ set-config-values.mjs  # Utility that shares path configuration between scripts
 ```
+
+The root package exposes scripts that forward into the parser and plugin workspaces so you can drive everything from a single
+terminal session.
 
 ### Set up the workspace
 
