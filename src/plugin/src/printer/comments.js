@@ -197,6 +197,15 @@ function formatLineComment(comment) {
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
+    const isInlineComment = comment && typeof comment.inlinePadding === "number";
+    const sentences = !isInlineComment ? splitCommentIntoSentences(trimmedValue) : [trimmedValue];
+    if (sentences.length > 1) {
+        const formattedSentences = sentences.map((sentence) =>
+            applyInlinePadding(comment, `// ${sentence}`)
+        );
+        return formattedSentences.join("\n");
+    }
+
     return applyInlinePadding(comment, "// " + trimmedValue);
 }
 
@@ -224,6 +233,19 @@ function applyJsDocReplacements(text) {
     }
 
     return formattedText;
+}
+
+function splitCommentIntoSentences(text) {
+    if (!text || !text.includes(". ")) {
+        return [text];
+    }
+
+    const splitPattern = /(?<=\.)\s+(?=[A-Z])/g;
+    const segments = text.split(splitPattern)
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+
+    return segments.length > 0 ? segments : [text];
 }
 
 function printDanglingComments(path, options, sameIndent, filter) {
