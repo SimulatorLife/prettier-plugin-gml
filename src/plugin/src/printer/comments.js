@@ -1,5 +1,6 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
+import { getLineBreakCount } from "../../../shared/line-breaks.js";
 
 const { addLeadingComment, addDanglingComment, addTrailingComment } = util;
 
@@ -362,18 +363,15 @@ function handleOnlyComments(comment, text, options, ast, isLastComment) {
     return false;
 }
 
-function getLineBreakCount(text) {
-    return text.split(/[\r\n\u2028\u2029]/).length - 1;
-}
-
 // note: this preserves non-standard whitespaces!
 function whitespaceToDoc(text) {
     const lines = text.split(/[\r\n\u2028\u2029]/);
-    if (lines.length === 1) {
+
+    if (getLineBreakCount(text) === 0) {
         return lines[0];
-    } else {
-        return join(hardline, lines);
     }
+
+    return join(hardline, lines);
 }
 
 export {
