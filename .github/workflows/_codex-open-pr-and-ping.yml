@@ -24,11 +24,11 @@ on:
       author_name:
         required: false
         type: string
-        default: ""         # e.g., "Your Name"
+        default: "henrylkirk"         # e.g., "Your Name"
       author_email:
         required: false
         type: string
-        default: ""         # e.g., "you@example.com" or "username@users.noreply.github.com"
+        default: "henry@the-kirks.com"         # e.g., "you@example.com" or "username@users.noreply.github.com"
     outputs:
       pr_number:
         value: ${{ jobs.open_and_ping.outputs.pr_number }}
