@@ -190,10 +190,15 @@ export function print(path, options, print) {
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 
-            if (docCommentDocs.length === 0) {
-                const syntheticDoc = getSyntheticDocComment(node, options);
-                if (syntheticDoc) {
-                    docCommentDocs = [syntheticDoc];
+            const syntheticDoc = getSyntheticDocComment(node, options);
+            if (syntheticDoc) {
+                const hasFunctionTag = docCommentDocs.some((doc) => /@function\b/i.test(doc));
+                if (!hasFunctionTag) {
+                    if (docCommentDocs.length > 0) {
+                        docCommentDocs = [...docCommentDocs, "", syntheticDoc];
+                    } else {
+                        docCommentDocs = [syntheticDoc];
+                    }
                 }
             }
 
@@ -251,9 +256,14 @@ export function print(path, options, print) {
             return concat(printSimpleDeclaration(print("left"), print("right")));
         }
         case "AssignmentExpression": {
+            const padding = node.operator === "=" && typeof node._alignAssignmentPadding === "number"
+                ? Math.max(0, node._alignAssignmentPadding)
+                : 0;
+            const spacing = " ".repeat(padding + 1);
+
             return group([
                 group(print("left")),
-                " ",
+                spacing,
                 node.operator,
                 " ",
                 group(print("right"))
@@ -284,6 +294,17 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
+
+            const leftIsUndefined = isUndefinedLiteral(node.left);
+            const rightIsUndefined = isUndefinedLiteral(node.right);
+
+            if ((operator === "==" || operator === "!=") && (leftIsUndefined || rightIsUndefined)) {
+                const expressionDoc = leftIsUndefined
+                    ? printWithoutExtraParens(path, print, "right")
+                    : printWithoutExtraParens(path, print, "left");
+                const prefix = operator === "!=" ? "!is_undefined(" : "is_undefined(";
+                return group([prefix, expressionDoc, ")"]);
+            }
 
             // Check if the operator is division and the right-hand side is 2
             if (operator === "/" && node.right.value === "2") {
@@ -690,12 +711,17 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
     let currentHadNewlineAddedBefore = false; // tracks newline added before the current node
 
+    const parentNode = path.getValue();
+    if (parentNode && Array.isArray(parentNode[childrenAttribute])) {
+        applyAssignmentAlignment(parentNode[childrenAttribute]);
+    }
+
     return path.map((childPath, index) => {
         const parts = [];
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
-        const semi = optionalSemicolon(node.type);
+        let semi = optionalSemicolon(node.type);
         const startProp = node?.start;
         const endProp = node?.end;
         const fallbackStart = typeof startProp === "number"
@@ -731,6 +757,15 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
+        const syntheticDocComment = getSyntheticDocCommentForStaticVariable(node, options);
+        if (syntheticDocComment) {
+            parts.push(syntheticDocComment);
+            parts.push(hardline);
+            if (node._suppressSemicolon) {
+                semi = "";
+            }
+        }
+
         // Print the statement
         if (docHasTrailingComment(printed)) {
             printed.splice(printed.length - 1, 0, semi);
@@ -758,6 +793,88 @@ function printStatements(path, options, print, childrenAttribute) {
 
         return parts;
     }, childrenAttribute);
+}
+
+function applyAssignmentAlignment(statements) {
+    let currentGroup = [];
+
+    const flushGroup = () => {
+        if (currentGroup.length <= 1) {
+            currentGroup.forEach((node) => {
+                node._alignAssignmentPadding = 0;
+            });
+        } else {
+            const maxLength = Math.max(
+                ...currentGroup.map((node) => node.left.name.length)
+            );
+            currentGroup.forEach((node) => {
+                node._alignAssignmentPadding = maxLength - node.left.name.length;
+            });
+        }
+        currentGroup = [];
+    };
+
+    for (const statement of statements) {
+        if (isSimpleAssignment(statement)) {
+            currentGroup.push(statement);
+        } else {
+            flushGroup();
+        }
+    }
+
+    flushGroup();
+}
+
+function isSimpleAssignment(node) {
+    return !!(
+        node &&
+        node.type === "AssignmentExpression" &&
+        node.operator === "=" &&
+        node.left &&
+        node.left.type === "Identifier" &&
+        typeof node.left.name === "string"
+    );
+}
+
+function getSyntheticDocCommentForStaticVariable(node, options) {
+    if (!node || node.type !== "VariableDeclaration" || node.kind !== "static") {
+        return null;
+    }
+
+    if (!options?.originalText || !options.originalText.includes("///")) {
+        return null;
+    }
+
+    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
+        return null;
+    }
+
+    const declarator = node.declarations[0];
+    if (!declarator || declarator.id?.type !== "Identifier") {
+        return null;
+    }
+
+    if (declarator.init?.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    if (declarator.init.docComments && declarator.init.docComments.length > 0) {
+        return null;
+    }
+
+    if (node.comments && node.comments.length > 0) {
+        return null;
+    }
+
+    const name = declarator.id.name;
+    const normalizedName = typeof name === "string" ? name.replace(/^_+/, "") : name;
+
+    if (!normalizedName || !/^[A-Z]/.test(normalizedName)) {
+        return null;
+    }
+
+    node._suppressSemicolon = true;
+    return `/// @function ${name}`;
 }
 
 function hasCommentImmediatelyBefore(text, index) {
@@ -801,15 +918,13 @@ function getSyntheticDocComment(node, options) {
         return null;
     }
 
-    if (node.docComments && node.docComments.length > 0) {
-        return null;
-    }
-
     if (node.type !== "ConstructorDeclaration") {
         return null;
     }
 
-    if (!/^[A-Z]/.test(name)) {
+    const normalizedName = typeof name === "string" ? name.replace(/^_+/, "") : name;
+
+    if (!normalizedName || !/^[A-Z]/.test(normalizedName)) {
         return null;
     }
 
@@ -885,6 +1000,15 @@ function unwrapParenthesizedExpression(childPath, print) {
     return print();
 }
 
+function isUndefinedLiteral(node) {
+    return !!(
+        node &&
+        node.type === "Literal" &&
+        typeof node.value === "string" &&
+        node.value.toLowerCase() === "undefined"
+    );
+}
+
 function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
@@ -900,6 +1024,20 @@ function wrapInClauseParens(path, print, clauseKey) {
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
+    const node = path.getValue();
+    const bodyNode = node?.[bodyKey];
+
+    if (bodyNode && bodyNode.type === "ReturnStatement") {
+        return group([
+            keyword,
+            " ",
+            clauseDoc,
+            " { ",
+            print(bodyKey),
+            optionalSemicolon(bodyNode.type),
+            " }"
+        ]);
+    }
 
     return concat([keyword, " ", clauseDoc, " ", printInBlock(path, options, print, bodyKey)]);
 }
