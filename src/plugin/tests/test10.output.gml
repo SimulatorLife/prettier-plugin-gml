@@ -29,7 +29,7 @@ function Shape(color = undefined) constructor {
 }
 
 /// @function Circle
-/// @param r
+/// @param {real} r -  The radius of the circle
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
@@ -38,3 +38,10 @@ var myCircle = new Circle(10);
 var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
+
+/// @param {real} [r1=1] - The horizontal radius of the oval
+/// @param [r2=1]
+function Oval(r1 = 1, r2 = 1) : Shape() constructor {
+	self.r1 = r1
+	self.r2 = r2
+	 }

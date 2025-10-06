@@ -38,5 +38,9 @@ function __ChatterboxBufferBatch() constructor {
             buffer_delete(__inBuffer);
             __inBuffer = undefined;
         }
+
+        if (is_undefined(__inBuffer)) {
+            __destroyed = true;
+        }
     }
 }
