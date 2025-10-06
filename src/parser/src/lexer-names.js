@@ -1,4 +1,6 @@
-import { default as Lexer } from "./GameMakerLanguageLexer.js";
+// Centralizes access to the generated lexer's literal token names so parser- and
+// printer-level utilities can import them from a parser-focused location.
+import { default as Lexer } from "./generated/GameMakerLanguageLexer.js";
 
 export const MULTI_LINE_COMMENT = Lexer.literalNames[Lexer.MultiLineComment];
 export const SINGLE_LINE_COMMENT = Lexer.literalNames[Lexer.SingleLineComment];
