@@ -12,7 +12,8 @@ do {
     }
 } until (value >= limit)
 
-for (var i = 0; i < array_length(arr); i++) {
+var arr_len = array_length(arr);
+for (var i = 0; i < arr_len; i++) {
     var current = arr[i];
     if (current < 0) {
         continue;
