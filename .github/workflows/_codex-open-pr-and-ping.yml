@@ -43,6 +43,18 @@ jobs:
       BRANCH_NAME: ${{ inputs.branch_prefix }}/task-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Validate GH_USER_TOKEN
+        run: |
+          set -e
+          test -n "${GH_USER_TOKEN}" || { echo "GH_USER_TOKEN is empty"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${GH_USER_TOKEN}" https://api.github.com/user)
+          if [ "$code" != "200" ]; then
+            echo "Token cannot access /user (HTTP $code). Check scopes, repo access, and SSO."; exit 1;
+          fi
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
