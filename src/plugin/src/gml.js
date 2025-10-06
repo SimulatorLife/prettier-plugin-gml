@@ -20,8 +20,33 @@ export const parsers = {
             simplifyLocations: false
         }),
         astFormat: "gml-ast",
-        locStart: (node) => node.start.index,
-        locEnd: (node) => node.end.index + 1
+        locStart: (node) => {
+            if (!node) {
+                return 0;
+            }
+            if (typeof node.start === "number") {
+                return node.start;
+            }
+            if (node.start && typeof node.start.index === "number") {
+                return node.start.index;
+            }
+            return 0;
+        },
+        locEnd: (node) => {
+            if (!node) {
+                return 0;
+            }
+            const endIndex = typeof node.end === "number"
+                ? node.end
+                : (node.end && typeof node.end.index === "number" ? node.end.index : undefined);
+            if (typeof endIndex === "number") {
+                return endIndex + 1;
+            }
+            const startIndex = typeof node.start === "number"
+                ? node.start
+                : (node.start && typeof node.start.index === "number" ? node.start.index : 0);
+            return startIndex;
+        }
     }
 };
 

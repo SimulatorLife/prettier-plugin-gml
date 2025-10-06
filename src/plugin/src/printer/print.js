@@ -31,7 +31,8 @@ import {
 
 import {
     printDanglingComments,
-    printDanglingCommentsAsGroup
+    printDanglingCommentsAsGroup,
+    formatLineComment
 } from "./comments.js";
 
 export function print(path, options, print) {
@@ -172,6 +173,38 @@ export function print(path, options, print) {
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
             const parts = [];
+
+            let docCommentDocs = [];
+            let needsLeadingBlankLine = false;
+
+            if (Array.isArray(node.docComments) && node.docComments.length > 0) {
+                const firstDocComment = node.docComments[0];
+                if (firstDocComment && typeof firstDocComment.leadingWS === "string") {
+                    const blankLinePattern = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
+                    if (blankLinePattern.test(firstDocComment.leadingWS)) {
+                        needsLeadingBlankLine = true;
+                    }
+                }
+                docCommentDocs = node.docComments
+                    .map((comment) => formatLineComment(comment))
+                    .filter((text) => typeof text === "string" && text.trim() !== "");
+            }
+
+            if (docCommentDocs.length === 0) {
+                const syntheticDoc = getSyntheticDocComment(node, options);
+                if (syntheticDoc) {
+                    docCommentDocs = [syntheticDoc];
+                }
+            }
+
+            if (docCommentDocs.length > 0) {
+                if (needsLeadingBlankLine) {
+                    parts.push(hardline);
+                }
+                parts.push(join(hardline, docCommentDocs));
+                parts.push(hardline);
+            }
+
             parts.push(["function", node.id ? " " : "", print("id")]);
 
             if (node.params.length > 0) {
@@ -402,6 +435,18 @@ export function print(path, options, print) {
             }));
         }
         case "EnumDeclaration": {
+            if (Array.isArray(node.members) && node.members.length > 0) {
+                const nameLengths = node.members.map((member) => {
+                    const name = getNodeName(member.name);
+                    return name ? name.length : 0;
+                });
+                const maxNameLength = Math.max(...nameLengths);
+                node.members.forEach((member, index) => {
+                    member._commentColumnTarget = maxNameLength + 2;
+                    member._hasTrailingComma = index !== node.members.length - 1;
+                    member._nameLengthForAlignment = nameLengths[index];
+                });
+            }
             return concat([
                 "enum ",
                 print("name"),
@@ -485,8 +530,18 @@ export function print(path, options, print) {
                 })];
             }
             return concat(["new ", print("expression"), ...argsPrinted]);
-        }           
+        }
         case "EnumMember": {
+            if (Array.isArray(node.comments) && node.comments.length > 0) {
+                const baseLength = (node._nameLengthForAlignment || 0) + (node._hasTrailingComma ? 1 : 0);
+                const targetColumn = node._commentColumnTarget || 0;
+                const padding = Math.max(targetColumn - baseLength - 1, 0);
+                node.comments.forEach((comment) => {
+                    if (comment && (comment.trailing || comment.placement === "endOfLine")) {
+                        comment.inlinePadding = padding;
+                    }
+                });
+            }
             return concat(printSimpleDeclaration(
                 print("name"), print("initializer")
             ));
@@ -641,19 +696,40 @@ function printStatements(path, options, print, childrenAttribute) {
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
         const semi = optionalSemicolon(node.type);
+        const startProp = node?.start;
+        const endProp = node?.end;
+        const fallbackStart = typeof startProp === "number"
+            ? startProp
+            : (typeof startProp?.index === "number" ? startProp.index : 0);
+        const fallbackEnd = typeof endProp === "number"
+            ? endProp
+            : (typeof endProp?.index === "number" ? endProp.index : fallbackStart);
+        const nodeStartIndex = typeof options.locStart === "function"
+            ? options.locStart(node)
+            : fallbackStart;
+        const nodeEndIndex = typeof options.locEnd === "function"
+            ? options.locEnd(node) - 1
+            : fallbackEnd;
 
         const currentNodeRequiresNewline = shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
         // Reset flag for current node
         currentHadNewlineAddedBefore = false;
-        
+
         // Check if a newline should be added BEFORE the statement
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
-            if (isTopLevel && !isPreviousLineEmpty(options.originalText, node.start.index)) {
+            const hasLeadingComment = isTopLevel
+                ? hasCommentImmediatelyBefore(options.originalText, nodeStartIndex)
+                : false;
+
+            if (isTopLevel &&
+                !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
+                !hasLeadingComment
+            ) {
                 parts.push(hardline);
                 currentHadNewlineAddedBefore = true;
             }
-        }     
+        }
 
         // Print the statement
         if (docHasTrailingComment(printed)) {
@@ -670,10 +746,10 @@ function printStatements(path, options, print, childrenAttribute) {
         // Check if a newline should be added AFTER the statement
         if (!isLastStatement(childPath)) {
             parts.push(hardline);
-            if (currentNodeRequiresNewline && !isNextLineEmpty(options.originalText, node.end.index + 1)) {
+            if (currentNodeRequiresNewline && !isNextLineEmpty(options.originalText, nodeEndIndex + 1)) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
-            } else if (isNextLineEmpty(options.originalText, node.end.index + 1)) {
+            } else if (isNextLineEmpty(options.originalText, nodeEndIndex + 1)) {
                 parts.push(hardline);
             }
         } else if (isTopLevel) {
@@ -682,6 +758,94 @@ function printStatements(path, options, print, childrenAttribute) {
 
         return parts;
     }, childrenAttribute);
+}
+
+function hasCommentImmediatelyBefore(text, index) {
+    if (!text || typeof index !== "number") {
+        return false;
+    }
+
+    let cursor = index - 1;
+
+    while (cursor >= 0 && /[\t \r\n]/.test(text[cursor])) {
+        cursor--;
+    }
+
+    if (cursor < 0) {
+        return false;
+    }
+
+    const lineEnd = cursor + 1;
+    while (cursor >= 0 && text[cursor] !== "\n" && text[cursor] !== "\r") {
+        cursor--;
+    }
+
+    const line = text.slice(cursor + 1, lineEnd).trim();
+
+    if (line === "") {
+        return false;
+    }
+
+    return (
+        line.startsWith("//") ||
+        line.startsWith("/*") ||
+        line.startsWith("///") ||
+        line.startsWith("*") ||
+        line.endsWith("*/")
+    );
+}
+
+function getSyntheticDocComment(node, options) {
+    const name = getNodeName(node);
+    if (!name) {
+        return null;
+    }
+
+    if (node.docComments && node.docComments.length > 0) {
+        return null;
+    }
+
+    if (node.type !== "ConstructorDeclaration") {
+        return null;
+    }
+
+    if (!/^[A-Z]/.test(name)) {
+        return null;
+    }
+
+    if (!options?.originalText || !options.originalText.includes("///")) {
+        return null;
+    }
+
+    return `/// @function ${name}`;
+}
+
+function getNodeName(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.id !== undefined) {
+        return getIdentifierText(node.id);
+    }
+
+    return getIdentifierText(node);
+}
+
+function getIdentifierText(identifier) {
+    if (!identifier) {
+        return null;
+    }
+
+    if (typeof identifier === "string") {
+        return identifier;
+    }
+
+    if (typeof identifier.name === "string") {
+        return identifier.name;
+    }
+
+    return null;
 }
 
 function docHasTrailingComment(doc) {
