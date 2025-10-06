@@ -94,16 +94,10 @@ export function print(path, options, print) {
         }
         case "SwitchStatement": {
             const parts = [];
-            const discriminantNode = path.getValue().discriminant;
-            let discriminantDoc;
-            if (discriminantNode.type === "ParenthesizedExpression") {
-                discriminantDoc = path.call(print, "discriminant", "expression");
-            } else {
-                discriminantDoc = print("discriminant");
-            }
+            const discriminantDoc = printWithoutExtraParens(path, print, "discriminant");
             parts.push([
                 "switch (",
-                group([indent([ifBreak(line), discriminantDoc]), ifBreak(line)]),
+                buildClauseGroup(discriminantDoc),
                 ") "
             ]);
             if (node.cases.length === 0) {
@@ -162,7 +156,7 @@ export function print(path, options, print) {
                 "do ",
                 printInBlock(path, options, print, "body"),
                 " until (",
-                group([indent([ifBreak(line), print("test")]), ifBreak(line)]),
+                buildClauseGroup(printWithoutExtraParens(path, print, "test")),
                 ") "
             ]);
         }
@@ -251,12 +245,7 @@ export function print(path, options, print) {
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
         case "ParenthesizedExpression": {
-            const expressionNode = node.expression;
-            if (expressionNode.type === "ParenthesizedExpression") {
-                // If the inner expression is already parenthesized, don't add additional parentheses
-                return print("expression");
-            }
-            return concat(["(", print("expression"), ")"]);
+            return concat(["(", printWithoutExtraParens(path, print, "expression"), ")"]);
         }
         case "BinaryExpression": {
             let left = print("left");
@@ -713,16 +702,40 @@ function docHasTrailingComment(doc) {
     return false;
 }
 
+function printWithoutExtraParens(path, print, ...keys) {
+    return path.call(
+        (childPath) => unwrapParenthesizedExpression(childPath, print),
+        ...keys
+    );
+}
+
+function unwrapParenthesizedExpression(childPath, print) {
+    const childNode = childPath.getValue();
+    if (childNode?.type === "ParenthesizedExpression") {
+        return childPath.call(
+            (innerPath) => unwrapParenthesizedExpression(innerPath, print),
+            "expression"
+        );
+    }
+
+    return print();
+}
+
+function buildClauseGroup(doc) {
+    return group([indent([ifBreak(line), doc]), ifBreak(line)]);
+}
+
+function wrapInClauseParens(path, print, clauseKey) {
+    return concat([
+        "(",
+        buildClauseGroup(printWithoutExtraParens(path, print, clauseKey)),
+        ")"
+    ]);
+}
+
 // prints any statement that matches the structure [keyword, clause, statement]
 function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
-    const clauseNode = path.getValue()[clauseKey];
-    let clauseDoc;
-
-    if (clauseNode.type === "ParenthesizedExpression") {
-        clauseDoc = print(clauseKey);
-    } else {
-        clauseDoc = concat(["(", group([indent([ifBreak(line), print(clauseKey)]), ifBreak(line)]), ")"]);
-    }
+    const clauseDoc = wrapInClauseParens(path, print, clauseKey);
 
     return concat([keyword, " ", clauseDoc, " ", printInBlock(path, options, print, bodyKey)]);
 }
