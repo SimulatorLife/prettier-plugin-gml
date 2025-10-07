@@ -1,3 +1,7 @@
+/// @function convert_trig
+/// @param angleDeg
+/// @param ratioY
+/// @param ratioX
 function convert_trig(angleDeg, ratioY, ratioX) {
     var sin_radians = dsin(angleDeg);
     var cos_radians = dcos(angleDeg + 90);
