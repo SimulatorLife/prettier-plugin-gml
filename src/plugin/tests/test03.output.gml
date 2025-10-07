@@ -31,7 +31,6 @@ function func_add(n1, n2) {
 var myTemplateString = $"5 plus 7 is {func_add(5, 7)}";
 show_debug_message(myTemplateString);
 
-
 /// @function func_sub
 /// @param n1
 /// @param n2
