@@ -30,6 +30,7 @@ function bool_with_extra(condition) {
     } else {
         return false;
     }
+}
 
 function iterate_structures(list, map, grid) {
 for(var i=0;i<ds_list_size(list);i++){show_debug_message(list[|i]);}

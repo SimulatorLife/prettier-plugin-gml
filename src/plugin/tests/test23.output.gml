@@ -1,11 +1,18 @@
+/// @function bool_passthrough
+/// @param condition
 function bool_passthrough(condition) {
     return condition;
 }
 
+/// @function bool_negated
+/// @param a
+/// @param b
 function bool_negated(a, b) {
     return !(a and b);
 }
 
+/// @function bool_with_comment
+/// @param condition
 function bool_with_comment(condition) {
     if (condition) {
         // comment should stop simplification
@@ -15,13 +22,21 @@ function bool_with_comment(condition) {
     }
 }
 
+/// @function bool_with_extra
+/// @param condition
 function bool_with_extra(condition) {
     if (condition) {
         return true;
         condition += 1;
     } else {
         return false;
+    }
+}
 
+/// @function iterate_structures
+/// @param list
+/// @param map
+/// @param grid
 function iterate_structures(list, map, grid) {
     var list_size = ds_list_size(list);
     for (var i = 0; i < list_size; i++) {
