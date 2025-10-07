@@ -40,6 +40,7 @@ var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
+/// @function Oval
 /// @param {real} [r1=1] - The horizontal radius of the oval
 /// @param [r2=1]
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
