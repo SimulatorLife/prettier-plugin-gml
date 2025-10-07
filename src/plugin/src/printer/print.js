@@ -29,6 +29,11 @@ import {
     shouldAddNewlinesAroundStatement,
     hasComment
 } from "./util.js";
+import {
+    SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
+    buildCachedSizeVariableName,
+    getArrayLengthHoistInfo
+} from "./optimizations/loop-size-hoisting.js";
 
 import {
     printDanglingComments,
@@ -1906,14 +1911,6 @@ function printWithoutExtraParens(path, print, ...keys) {
     );
 }
 
-const SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
-    ["array_length", "len"],
-    ["ds_list_size", "size"],
-    ["ds_map_size", "size"],
-    ["ds_grid_width", "width"],
-    ["ds_grid_height", "height"],
-]);
-
 const RADIAN_TRIG_TO_DEGREE = new Map([
     ["sin", "dsin"],
     ["cos", "dcos"],
@@ -1937,83 +1934,6 @@ const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
     ["arctan2", { name: "darctan2", expectedArgs: 2 }],
 ]);
 
-function getArrayLengthHoistInfo(node, sizeFunctionSuffixes = SIZE_RETRIEVAL_FUNCTION_SUFFIXES) {
-    if (!node || node.type !== "ForStatement") {
-        return null;
-    }
-
-    const test = node.test;
-    if (!test || test.type !== "BinaryExpression") {
-        return null;
-    }
-
-    if (!test.operator || !["<", "<="].includes(test.operator)) {
-        return null;
-    }
-
-    const callExpression = test.right;
-    if (!callExpression || callExpression.type !== "CallExpression") {
-        return null;
-    }
-
-    const callee = callExpression.object;
-    if (!callee || callee.type !== "Identifier") {
-        return null;
-    }
-
-    const functionName = (callee.name || "").toLowerCase();
-    const cachedSuffix = sizeFunctionSuffixes.get(functionName);
-    if (!cachedSuffix) {
-        return null;
-    }
-
-    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
-    if (args.length !== 1) {
-        return null;
-    }
-
-    const arrayIdentifier = args[0];
-    const arrayIdentifierName = getIdentifierText(arrayIdentifier);
-    if (!arrayIdentifier || !arrayIdentifierName) {
-        return null;
-    }
-
-    const iterator = test.left;
-    if (!iterator || iterator.type !== "Identifier" || !iterator.name) {
-        return null;
-    }
-
-    const update = node.update;
-    if (!update) {
-        return null;
-    }
-
-    if (update.type === "IncDecStatement") {
-        const argument = update.argument;
-        if (!argument || argument.type !== "Identifier" || argument.name !== iterator.name) {
-            return null;
-        }
-    } else if (update.type === "AssignmentExpression") {
-        const left = update.left;
-        if (!left || left.type !== "Identifier" || left.name !== iterator.name) {
-            return null;
-        }
-
-        const allowedOperators = new Set(["+=", "-="]);
-        if (!allowedOperators.has(update.operator)) {
-            return null;
-        }
-    } else {
-        return null;
-    }
-
-    return {
-        iteratorName: iterator.name,
-        sizeIdentifierName: arrayIdentifierName,
-        cachedLengthSuffix: cachedSuffix
-    };
-}
-
 function buildArrayLengthDocs(path, print, hoistInfo) {
     const cachedLengthName = buildCachedSizeVariableName(
         hoistInfo.sizeIdentifierName,
@@ -2027,20 +1947,6 @@ function buildArrayLengthDocs(path, print, hoistInfo) {
         arrayLengthCallDoc,
         iteratorDoc
     };
-}
-
-function buildCachedSizeVariableName(baseName, suffix) {
-    const normalizedSuffix = suffix || "len";
-
-    if (!baseName) {
-        return `cached_${normalizedSuffix}`;
-    }
-
-    if (baseName.endsWith(`_${normalizedSuffix}`)) {
-        return baseName;
-    }
-
-    return `${baseName}_${normalizedSuffix}`;
 }
 
 function unwrapParenthesizedExpression(childPath, print) {
