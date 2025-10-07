@@ -6,9 +6,9 @@
   </a>
 </p>
 
-A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
-monorepo bundles three packages—a hand-written ANTLR parser, the Prettier plugin, and shared utilities—so scripts, objects, and
-shaders all benefit from the same formatter. The plugin is published on npm as
+A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
+repository houses the parser, printer, and shared helpers in one workspace so scripts, objects, and shaders all benefit from the
+same formatter. The plugin is published on npm as
 [`prettier-plugin-gamemaker`](https://www.npmjs.com/package/prettier-plugin-gamemaker).
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
@@ -39,7 +39,7 @@ shaders all benefit from the same formatter. The plugin is published on npm as
 
 ### Requirements
 
-- Node.js **16.13** or newer (required by Prettier 3.x). Node 18 LTS or newer keeps pace with current releases.
+- Node.js **14.21.3** or newer (required by Prettier 3). Node 18 LTS or newer keeps pace with current releases.
 - npm (ships with Node.js). Confirm availability with:
 
   ```bash
@@ -213,7 +213,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 ## Troubleshooting
 
-- Confirm Node and npm meet the version requirements. Prettier 3 needs at least Node 16.13.
+- Confirm Node and npm meet the version requirements. Prettier 3 needs at least Node 14.21.3.
 - If Prettier cannot find the plugin, ensure it appears in your local `package.json` or is installed globally (`npm list -g --depth=0`).
 - Remove and reinstall the packages when in doubt:
 
@@ -227,11 +227,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 ## Architecture overview
 
 - `src/parser/` — ANTLR grammar files, generated parser, and parser tests.
-- `src/plugin/` — Prettier printer, comment handling, and plugin-specific tests.
+- `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, and plugin-specific tests.
 - `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
 
 Helper scripts in the repository root (`recursive-install.mjs`, `set-config-values.mjs`) allow you to run package commands from
-a single terminal session.
+a single terminal session and keep the parser and plugin packages in sync.
 
 ## Development
 
@@ -275,6 +275,12 @@ npm run test:plugin
 npm run test:parser
 ```
 
+Lint the JavaScript sources before submitting a change:
+
+```bash
+npm run lint
+```
+
 The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
 flags such as watch mode or filtering individual tests:
 
@@ -282,6 +288,9 @@ flags such as watch mode or filtering individual tests:
 npm --prefix src/plugin run test -- --watch
 npm --prefix src/parser run test -- --watch
 ```
+
+Fixtures under `src/plugin/tests` capture golden formatter output. Update them only when intentionally changing the emitted
+code and include the corresponding rationale in your pull request.
 
 ### Regenerate the parser grammar
 
