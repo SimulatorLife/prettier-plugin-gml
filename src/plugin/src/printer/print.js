@@ -908,7 +908,7 @@ function applyAssignmentAlignment(statements) {
     let currentGroup = [];
 
     const flushGroup = () => {
-        if (currentGroup.length <= 1) {
+        if (currentGroup.length <= 2) {
             currentGroup.forEach((node) => {
                 node._alignAssignmentPadding = 0;
             });
