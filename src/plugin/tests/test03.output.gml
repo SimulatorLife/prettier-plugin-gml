@@ -21,8 +21,8 @@ with (enemy) {
 #endregion
 
 /// @function func_add
-/// @param {Real} n1
-/// @param {Real} n2
+/// @param {real} n1
+/// @param {real} n2
 /// @description Add 2 numbers
 function func_add(n1, n2) {
     return n1 + n2;
@@ -32,7 +32,9 @@ var myTemplateString = $"5 plus 7 is {func_add(5, 7)}";
 show_debug_message(myTemplateString);
 
 
-/// @function func_sub(n1, n2)
+/// @function func_sub
+/// @param n1
+/// @param n2
 /// @description Subtract 2 numbers
 function func_sub(n1, n2) {
     return n1 - n2;

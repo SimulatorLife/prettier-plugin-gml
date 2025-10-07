@@ -25,6 +25,13 @@ for (var i = 0; i < arr_len; i++) {
     total += current;
 }
 
+var arr2 = [1, 2, 3, 4, 5];
+
+var i = 0;
+repeat (array_length(arr2)) {
+    show_debug_message(arr2[i++]);
+}
+
 #define INCREMENT(_v) ((_v)+1)
 do {
     value = INCREMENT(value);
