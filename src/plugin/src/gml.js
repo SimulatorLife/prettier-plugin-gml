@@ -5,6 +5,28 @@ import { consolidateStructAssignments } from "./ast-transforms/consolidate-struc
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
 
+function getLocationIndex(node, key) {
+    if (!node) {
+        return undefined;
+    }
+    const location = node[key];
+    if (typeof location === "number") {
+        return location;
+    }
+    if (location && typeof location.index === "number") {
+        return location.index;
+    }
+    return undefined;
+}
+
+function getStartIndex(node) {
+    return getLocationIndex(node, "start");
+}
+
+function getEndIndex(node) {
+    return getLocationIndex(node, "end");
+}
+
 export const languages = [
     {
         name: "GameMaker Language",
@@ -25,31 +47,16 @@ export const parsers = {
         },
         astFormat: "gml-ast",
         locStart: (node) => {
-            if (!node) {
-                return 0;
-            }
-            if (typeof node.start === "number") {
-                return node.start;
-            }
-            if (node.start && typeof node.start.index === "number") {
-                return node.start.index;
-            }
-            return 0;
+            const startIndex = getStartIndex(node);
+            return typeof startIndex === "number" ? startIndex : 0;
         },
         locEnd: (node) => {
-            if (!node) {
-                return 0;
-            }
-            const endIndex = typeof node.end === "number"
-                ? node.end
-                : (node.end && typeof node.end.index === "number" ? node.end.index : undefined);
+            const endIndex = getEndIndex(node);
             if (typeof endIndex === "number") {
                 return endIndex + 1;
             }
-            const startIndex = typeof node.start === "number"
-                ? node.start
-                : (node.start && typeof node.start.index === "number" ? node.start.index : 0);
-            return startIndex;
+            const startIndex = getStartIndex(node);
+            return typeof startIndex === "number" ? startIndex : 0;
         }
     }
 };
