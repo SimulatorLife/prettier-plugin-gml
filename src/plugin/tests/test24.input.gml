@@ -1,3 +1,4 @@
+/// @function make_struct(value)
 function make_struct(value) {
 var foo = {};
 foo.alpha = 1;
