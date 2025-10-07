@@ -58,6 +58,14 @@ export const options = {
         default: true,
         description: "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
     },
+    arrayLengthHoistFunctionSuffixes: {
+        since: "0.0.0",
+        type: "string",
+        category: "gml",
+        default: "",
+        description:
+            "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
+    },
     lineCommentBannerMinimumSlashes: {
         since: "0.0.0",
         type: "int",
@@ -75,6 +83,7 @@ export const defaultOptions = {
     trailingComma: "none",
     printWidth: 120,
     optimizeArrayLengthLoops: true,
+    arrayLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5
 };
 

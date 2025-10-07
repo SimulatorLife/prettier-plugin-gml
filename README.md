@@ -219,6 +219,13 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization
   is undesirable for your project.
 
+- `arrayLengthHoistFunctionSuffixes` (default: empty string)
+
+  Override the suffix that the cached loop variable receives for specific size-retrieval functions, or disable hoisting for a
+  function entirely. Provide a comma-separated list of `function_name=suffix` pairs (e.g. `array_length=len,ds_queue_size=count`)
+  — `function_name:suffix` also works if you prefer colons. Use `-` in place of a suffix to remove a function from the optimization
+  list (e.g. `array_length=-`).
+
 ## Troubleshooting
 
 - Confirm Node and npm meet the version requirements. The workspace requires Node.js 18.18.0+, 20.9.0+, or 21.1.0+.
