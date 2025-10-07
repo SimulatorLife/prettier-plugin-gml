@@ -160,6 +160,12 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
+    if (comment?._structPropertyTrailing) {
+        if (comment._structPropertyHandled) {
+            return "";
+        }
+        comment._structPropertyHandled = true;
+    }
     comment.printed = true;
 
     switch (comment.type) {
