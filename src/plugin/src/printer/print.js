@@ -1150,12 +1150,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     if (paramNode.type === "Identifier") {
-        const name = getIdentifierText(paramNode);
+        const rawName = getIdentifierText(paramNode);
+        const name = normalizeDocMetadataName(rawName);
         return name ? { name, optional: false } : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
-        const name = getIdentifierText(paramNode.left);
+        const rawName = getIdentifierText(paramNode.left);
+        const name = normalizeDocMetadataName(rawName);
         if (!name) {
             return null;
         }
@@ -1174,7 +1176,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         return null;
     }
 
-    const fallbackName = getIdentifierText(paramNode);
+    const rawFallbackName = getIdentifierText(paramNode);
+    const fallbackName = normalizeDocMetadataName(rawFallbackName);
     return fallbackName ? { name: fallbackName, optional: false } : null;
 }
 
@@ -1557,6 +1560,15 @@ function getIdentifierText(identifier) {
     }
 
     return null;
+}
+
+function normalizeDocMetadataName(name) {
+    if (typeof name !== "string") {
+        return name;
+    }
+
+    const normalized = name.replace(/^_+/, "").replace(/_+$/, "");
+    return normalized.length > 0 ? normalized : name;
 }
 
 function docHasTrailingComment(doc) {
