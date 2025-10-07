@@ -26,7 +26,8 @@ import {
     optionalSemicolon,
     isNextLineEmpty,
     isPreviousLineEmpty,
-    shouldAddNewlinesAroundStatement
+    shouldAddNewlinesAroundStatement,
+    hasComment
 } from "./util.js";
 
 import {
@@ -77,6 +78,10 @@ export function print(path, options, print) {
             ]);
         }
         case "IfStatement": {
+            const simplifiedReturn = printBooleanReturnIf(path, print);
+            if (simplifiedReturn) {
+                return simplifiedReturn;
+            }
             const parts = [];
             parts.push(
                 printSingleClauseStatement(path, options, print, "if", "test", "consequent")
@@ -145,7 +150,7 @@ export function print(path, options, print) {
             const shouldHoistArrayLength =
                 options?.optimizeArrayLengthLoops ?? true;
             const hoistInfo = shouldHoistArrayLength
-                ? getArrayLengthHoistInfo(path.getValue())
+                ? getArrayLengthHoistInfo(path.getValue(), SIZE_RETRIEVAL_FUNCTION_SUFFIXES)
                 : null;
             if (hoistInfo) {
                 const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } = buildArrayLengthDocs(
@@ -1190,6 +1195,82 @@ function shouldOmitDefaultValueForParameter(path) {
     return parent.type === "FunctionDeclaration";
 }
 
+function printBooleanReturnIf(path, print) {
+    const node = path.getValue();
+    if (
+        !node ||
+        node.type !== "IfStatement" ||
+        !node.consequent ||
+        !node.alternate ||
+        hasComment(node)
+    ) {
+        return null;
+    }
+
+    const consequentReturn = getBooleanReturnBranch(node.consequent);
+    const alternateReturn = getBooleanReturnBranch(node.alternate);
+
+    if (!consequentReturn || !alternateReturn) {
+        return null;
+    }
+
+    if (consequentReturn.value === alternateReturn.value) {
+        return null;
+    }
+
+    const conditionDoc = printWithoutExtraParens(path, print, "test");
+    const conditionNode = node.test;
+
+    const argumentDoc = consequentReturn.value === "true"
+        ? conditionDoc
+        : negateExpressionDoc(conditionDoc, conditionNode);
+
+    return concat([
+        "return ",
+        argumentDoc,
+        optionalSemicolon("ReturnStatement")
+    ]);
+}
+
+function getBooleanReturnBranch(branchNode) {
+    if (!branchNode || hasComment(branchNode)) {
+        return null;
+    }
+
+    if (branchNode.type === "BlockStatement") {
+        const statements = Array.isArray(branchNode.body) ? branchNode.body : [];
+        if (statements.length !== 1) {
+            return null;
+        }
+
+        const [onlyStatement] = statements;
+        if (hasComment(onlyStatement) || onlyStatement.type !== "ReturnStatement") {
+            return null;
+        }
+
+        return getBooleanReturnStatementInfo(onlyStatement);
+    }
+
+    if (branchNode.type === "ReturnStatement") {
+        return getBooleanReturnStatementInfo(branchNode);
+    }
+
+    return null;
+}
+
+function getBooleanReturnStatementInfo(returnNode) {
+    if (!returnNode || hasComment(returnNode)) {
+        return null;
+    }
+
+    const argument = returnNode.argument;
+    if (!argument || hasComment(argument) || !isBooleanLiteral(argument)) {
+        return null;
+    }
+
+    return { value: argument.value.toLowerCase() };
+}
+
 function simplifyBooleanBinaryExpression(path, print, node) {
     if (!node) {
         return null;
@@ -1677,7 +1758,15 @@ function printWithoutExtraParens(path, print, ...keys) {
     );
 }
 
-function getArrayLengthHoistInfo(node) {
+const SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
+    ["array_length", "len"],
+    ["ds_list_size", "size"],
+    ["ds_map_size", "size"],
+    ["ds_grid_width", "width"],
+    ["ds_grid_height", "height"],
+]);
+
+function getArrayLengthHoistInfo(node, sizeFunctionSuffixes = SIZE_RETRIEVAL_FUNCTION_SUFFIXES) {
     if (!node || node.type !== "ForStatement") {
         return null;
     }
@@ -1702,7 +1791,8 @@ function getArrayLengthHoistInfo(node) {
     }
 
     const functionName = (callee.name || "").toLowerCase();
-    if (functionName !== "array_length") {
+    const cachedSuffix = sizeFunctionSuffixes.get(functionName);
+    if (!cachedSuffix) {
         return null;
     }
 
@@ -1712,7 +1802,8 @@ function getArrayLengthHoistInfo(node) {
     }
 
     const arrayIdentifier = args[0];
-    if (!arrayIdentifier || arrayIdentifier.type !== "Identifier" || !arrayIdentifier.name) {
+    const arrayIdentifierName = getIdentifierText(arrayIdentifier);
+    if (!arrayIdentifier || !arrayIdentifierName) {
         return null;
     }
 
@@ -1747,12 +1838,16 @@ function getArrayLengthHoistInfo(node) {
 
     return {
         iteratorName: iterator.name,
-        arrayIdentifierName: arrayIdentifier.name
+        sizeIdentifierName: arrayIdentifierName,
+        cachedLengthSuffix: cachedSuffix
     };
 }
 
 function buildArrayLengthDocs(path, print, hoistInfo) {
-    const cachedLengthName = `${hoistInfo.arrayIdentifierName}_len`;
+    const cachedLengthName = buildCachedSizeVariableName(
+        hoistInfo.sizeIdentifierName,
+        hoistInfo.cachedLengthSuffix
+    );
     const arrayLengthCallDoc = printWithoutExtraParens(path, print, "test", "right");
     const iteratorDoc = printWithoutExtraParens(path, print, "test", "left");
 
@@ -1761,6 +1856,20 @@ function buildArrayLengthDocs(path, print, hoistInfo) {
         arrayLengthCallDoc,
         iteratorDoc
     };
+}
+
+function buildCachedSizeVariableName(baseName, suffix) {
+    const normalizedSuffix = suffix || "len";
+
+    if (!baseName) {
+        return `cached_${normalizedSuffix}`;
+    }
+
+    if (baseName.endsWith(`_${normalizedSuffix}`)) {
+        return baseName;
+    }
+
+    return `${baseName}_${normalizedSuffix}`;
 }
 
 function unwrapParenthesizedExpression(childPath, print) {
