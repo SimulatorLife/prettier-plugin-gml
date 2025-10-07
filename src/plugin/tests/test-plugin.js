@@ -33,6 +33,7 @@ async function testFiles() {
 
         const baseName = inputFile.slice(0, -4); // remove '.gml' extension
         const outputFile = baseName.replace(".input", ".output") + fileExt;
+        const optionsFile = baseName.replace(".input", ".options") + ".json";
 
         const inputCode = await fs.promises.readFile(path.join(testsDirectory, inputFile), fileEncoding);
         if (typeof inputCode !== "string") {
@@ -48,9 +49,17 @@ async function testFiles() {
 
         let formatted = "";
         try {
+            let customOptions = {};
+            const optionsPath = path.join(testsDirectory, optionsFile);
+            if (fs.existsSync(optionsPath)) {
+                const optionsContents = await fs.promises.readFile(optionsPath, fileEncoding);
+                customOptions = JSON.parse(optionsContents);
+            }
+
             formatted = await prettier.format(inputCode, {
                 plugins: [path.join(currentDirectory, "../src/gml.js")],
-                parser: "gml-parse"
+                parser: "gml-parse",
+                ...customOptions
             });
         } catch (e) {
             console.error(`  [ERROR] Unexpected error while formatting code`, e);

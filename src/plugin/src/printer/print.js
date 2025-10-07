@@ -140,7 +140,11 @@ export function print(path, options, print) {
             ]);
         }
         case "ForStatement": {
-            const hoistInfo = getArrayLengthHoistInfo(path.getValue());
+            const shouldHoistArrayLength =
+                options?.optimizeArrayLengthLoops ?? true;
+            const hoistInfo = shouldHoistArrayLength
+                ? getArrayLengthHoistInfo(path.getValue())
+                : null;
             if (hoistInfo) {
                 const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } = buildArrayLengthDocs(
                     path,
