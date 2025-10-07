@@ -221,7 +221,8 @@ export function print(path, options, print) {
                 printInBlock(path, options, print, "body"),
                 " until (",
                 buildClauseGroup(printWithoutExtraParens(path, print, "test")),
-                ") "
+                ")",
+                ";"
             ]);
         }
         case "WhileStatement": {
