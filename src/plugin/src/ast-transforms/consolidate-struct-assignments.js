@@ -118,8 +118,35 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
             break;
         }
 
+        const nextStatement = statements[cursor + 1];
+        const nextStart = getNodeStartIndex(nextStatement);
+        const attachableComments = tracker.takeBetween(
+            end,
+            nextStart ?? Number.POSITIVE_INFINITY,
+            (comment) => isAttachableTrailingComment(comment, statement)
+        );
+
+        if (attachableComments.length > 0) {
+            property.comments = Array.isArray(property.comments) ? property.comments : [];
+            for (const comment of attachableComments) {
+                comment.enclosingNode = property;
+                comment.precedingNode = property;
+                comment.followingNode = property;
+                comment.leading = false;
+                comment.trailing = true;
+                comment.placement = "endOfLine";
+                comment._structPropertyTrailing = true;
+                comment._structPropertyHandled = false;
+                property.comments.push(comment);
+            }
+            const lastComment = attachableComments[attachableComments.length - 1];
+            const commentEnd = getNodeEndIndex(lastComment);
+            lastEnd = commentEnd != null ? commentEnd : end;
+        } else {
+            lastEnd = end;
+        }
+
         properties.push(property);
-        lastEnd = end;
         cursor++;
     }
 
@@ -323,6 +350,53 @@ function cloneLocation(location) {
     return { ...location };
 }
 
+function getNodeEndLine(node) {
+    if (!isNode(node)) {
+        return null;
+    }
+    const end = node.end;
+    if (isNode(end) && typeof end.line === "number") {
+        return end.line;
+    }
+    const start = node.start;
+    if (isNode(start) && typeof start.line === "number") {
+        return start.line;
+    }
+    return null;
+}
+
+function isAttachableTrailingComment(comment, statement) {
+    if (!isNode(comment) || comment.type !== "CommentLine") {
+        return false;
+    }
+
+    const commentStart = comment.start;
+    if (!isNode(commentStart) || typeof commentStart.line !== "number") {
+        return false;
+    }
+
+    const statementEndLine = getNodeEndLine(statement);
+    if (typeof statementEndLine !== "number") {
+        return false;
+    }
+
+    if (commentStart.line !== statementEndLine) {
+        return false;
+    }
+
+    const commentStartIndex = getNodeStartIndex(comment);
+    const statementEndIndex = getNodeEndIndex(statement);
+    if (
+        typeof commentStartIndex === "number" &&
+        typeof statementEndIndex === "number" &&
+        commentStartIndex <= statementEndIndex
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 function getNodeStartIndex(node) {
     if (!isNode(node)) {
         return null;
@@ -356,34 +430,65 @@ function isNode(value) {
 
 class CommentTracker {
     constructor(comments) {
-        this.positions = comments
-            .map(getNodeStartIndex)
-            .filter((index) => typeof index === "number")
-            .sort((a, b) => a - b);
+        this.entries = comments
+            .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
+            .filter((entry) => typeof entry.index === "number")
+            .sort((a, b) => a.index - b.index);
     }
 
     hasBetween(left, right) {
-        if (!this.positions.length || left == null || right == null || left >= right) {
+        if (!this.entries.length || left == null || right == null || left >= right) {
             return false;
         }
         const index = this.firstGreaterThan(left);
-        return index < this.positions.length && this.positions[index] < right;
+        return index < this.entries.length && this.entries[index].index < right;
     }
 
     hasAfter(position) {
-        if (!this.positions.length || position == null) {
+        if (!this.entries.length || position == null) {
             return false;
         }
         const index = this.firstGreaterThan(position);
-        return index < this.positions.length;
+        return index < this.entries.length;
+    }
+
+    takeBetween(left, right, predicate) {
+        if (!this.entries.length || left == null) {
+            return [];
+        }
+
+        const upperBound = right == null ? Number.POSITIVE_INFINITY : right;
+        if (left >= upperBound) {
+            return [];
+        }
+
+        const results = [];
+        let index = this.firstGreaterThan(left);
+
+        while (index < this.entries.length) {
+            const entry = this.entries[index];
+            if (entry.index >= upperBound) {
+                break;
+            }
+
+            if (!predicate || predicate(entry.comment)) {
+                results.push(entry.comment);
+                this.entries.splice(index, 1);
+                continue;
+            }
+
+            index++;
+        }
+
+        return results;
     }
 
     firstGreaterThan(target) {
         let low = 0;
-        let high = this.positions.length - 1;
+        let high = this.entries.length - 1;
         while (low <= high) {
             const mid = (low + high) >> 1;
-            if (this.positions[mid] <= target) {
+            if (this.entries[mid].index <= target) {
                 low = mid + 1;
             } else {
                 high = mid - 1;

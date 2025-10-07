@@ -133,6 +133,12 @@ const jsDocReplacements = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
+    if (comment?._structPropertyTrailing) {
+        if (comment._structPropertyHandled) {
+            return "";
+        }
+        comment._structPropertyHandled = true;
+    }
     comment.printed = true;
 
     switch (comment.type) {
