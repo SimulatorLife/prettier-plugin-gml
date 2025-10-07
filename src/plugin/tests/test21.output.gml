@@ -10,7 +10,7 @@ do {
     if (value > limit) {
         throw "Exceeded";
     }
-} until (value >= limit)
+} until (value >= limit);
 
 var arr_len = array_length(arr);
 for (var i = 0; i < arr_len; i++) {
@@ -39,6 +39,6 @@ do {
         value = limit * limit;
         throw "Square limit";
     }
-} until (value > (limit * limit))
+} until (value > (limit * limit));
 
 return total;
