@@ -1,6 +1,7 @@
 // gml.js
 
 import GMLParser from "../../parser/src/gml-parser.js";
+import { consolidateStructAssignments } from "./ast-transforms/consolidate-struct-assignments.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
 
@@ -15,10 +16,13 @@ export const languages = [
 
 export const parsers = {
     "gml-parse": {
-        parse: text => GMLParser.parse(text, {
-            getLocations: true,
-            simplifyLocations: false
-        }),
+        parse: text => {
+            const ast = GMLParser.parse(text, {
+                getLocations: true,
+                simplifyLocations: false
+            });
+            return consolidateStructAssignments(ast);
+        },
         astFormat: "gml-ast",
         locStart: (node) => {
             if (!node) {
