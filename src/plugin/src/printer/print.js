@@ -30,9 +30,9 @@ import {
     hasComment
 } from "./util.js";
 import {
-    SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
-    getArrayLengthHoistInfo
+    getArrayLengthHoistInfo,
+    getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 
 import {
@@ -158,8 +158,11 @@ export function print(path, options, print) {
         case "ForStatement": {
             const shouldHoistArrayLength =
                 options?.optimizeArrayLengthLoops ?? true;
+            const sizeFunctionSuffixes = shouldHoistArrayLength
+                ? getSizeRetrievalFunctionSuffixes(options)
+                : undefined;
             const hoistInfo = shouldHoistArrayLength
-                ? getArrayLengthHoistInfo(path.getValue(), SIZE_RETRIEVAL_FUNCTION_SUFFIXES)
+                ? getArrayLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
                 : null;
             if (hoistInfo) {
                 const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } = buildArrayLengthDocs(
