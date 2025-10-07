@@ -173,8 +173,22 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
+function isCommentNode(node) {
+    return (
+        node &&
+        typeof node === "object" &&
+        (node.type === "CommentBlock" || node.type === "CommentLine")
+    );
+}
+
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
+    if (!isCommentNode(comment)) {
+        if (comment && typeof comment === "object") {
+            comment.printed = true;
+        }
+        return "";
+    }
     if (comment?._structPropertyTrailing) {
         if (comment._structPropertyHandled) {
             return "";
@@ -335,17 +349,23 @@ function collectDanglingComments(path, filter) {
     const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
+        if (!isCommentNode(comment)) {
+            return;
+        }
         if (
             comment &&
             !comment.leading &&
             !comment.trailing &&
             (!filter || filter(comment))
         ) {
-            entries.push({ commentPath, comment });
+            entries.push({
+                commentIndex: commentPath.getName(),
+                comment
+            });
         }
     }, "comments");
 
-    return { entries, totalCount: node.comments.length };
+    return { entries, totalCount: entries.length };
 }
 
 function printDanglingComments(path, options, sameIndent, filter) {
@@ -354,11 +374,17 @@ function printDanglingComments(path, options, sameIndent, filter) {
         return "";
     }
 
-    return entries.map(({ commentPath, comment }) => (
-        comment.attachToBrace
-            ? [" ", printComment(commentPath, options)]
-            : [printComment(commentPath, options)]
-    ));
+    return entries.map(({ commentIndex, comment }) => {
+        const printedComment = path.call(
+            (commentPath) => printComment(commentPath, options),
+            "comments",
+            commentIndex
+        );
+
+        return comment.attachToBrace
+            ? [" ", printedComment]
+            : [printedComment];
+    });
 }
 
 // print dangling comments and preserve the whitespace around the comments.
@@ -373,11 +399,16 @@ function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
     let i = 0;
     const finalIndex = totalCount - 1;
 
-    for (const { commentPath, comment } of entries) {
+    for (const { commentIndex, comment } of entries) {
         if (i === 0) {
             parts.push(whitespaceToDoc(comment.leadingWS));
         }
-        parts.push([printComment(commentPath, options)]);
+        const printedComment = path.call(
+            (commentPath) => printComment(commentPath, options),
+            "comments",
+            commentIndex
+        );
+        parts.push([printedComment]);
         if (i !== finalIndex) {
             let wsDoc = whitespaceToDoc(comment.trailingWS);
             // enforce at least one space between comments
@@ -513,5 +544,6 @@ export {
     printComment,
     formatLineComment,
     getLineCommentBannerMinimum,
-    normalizeDocCommentTypeAnnotations
+    normalizeDocCommentTypeAnnotations,
+    isCommentNode
 };

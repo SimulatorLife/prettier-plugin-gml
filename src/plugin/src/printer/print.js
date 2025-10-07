@@ -40,7 +40,8 @@ import {
     printDanglingCommentsAsGroup,
     formatLineComment,
     getLineCommentBannerMinimum,
-    normalizeDocCommentTypeAnnotations
+    normalizeDocCommentTypeAnnotations,
+    isCommentNode
 } from "./comments.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 
@@ -2219,7 +2220,10 @@ function printEmptyParens(path, options, print) {
 // prints an empty block with dangling comments
 function printEmptyBlock(path, options, print) {
     const node = path.getValue();
-    if (node?.comments?.length > 0) {
+    const comments = Array.isArray(node?.comments) ? node.comments : [];
+    const hasPrintableComments = comments.some(isCommentNode);
+
+    if (hasPrintableComments) {
         // an empty block with comments
         return [
             "{",
