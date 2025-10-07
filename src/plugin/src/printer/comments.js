@@ -57,17 +57,19 @@ const OWN_LINE_COMMENT_HANDLERS = [
     handleOnlyComments
 ];
 
-const END_OF_LINE_COMMENT_HANDLERS = [
+const COMMON_COMMENT_HANDLERS = [
     handleOnlyComments,
     handleCommentAttachedToOpenBrace,
-    handleCommentInEmptyParens,
+    handleCommentInEmptyParens
+];
+
+const END_OF_LINE_COMMENT_HANDLERS = [
+    ...COMMON_COMMENT_HANDLERS,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
-    handleOnlyComments,
-    handleCommentAttachedToOpenBrace,
-    handleCommentInEmptyParens,
+    ...COMMON_COMMENT_HANDLERS,
     handleCommentInEmptyLiteral,
     handleMacroComments
 ];
