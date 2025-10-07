@@ -1205,18 +1205,26 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         }
 
         const defaultIsUndefined = isUndefinedLiteral(paramNode.right);
-        const shouldOmitDefault =
+        const signatureOmitsUndefinedDefault =
             defaultIsUndefined && shouldOmitUndefinedDefaultForFunctionNode(functionNode);
+        const isConstructorLike =
+            functionNode?.type === "ConstructorDeclaration" ||
+            functionNode?.type === "ConstructorParentClause";
 
-        const defaultText = !shouldOmitDefault
+        const shouldIncludeDefaultText =
+            !defaultIsUndefined || (!signatureOmitsUndefinedDefault && !isConstructorLike);
+
+        const defaultText = shouldIncludeDefaultText
             ? getSourceTextForNode(paramNode.right, options)
             : null;
+
         const docName = defaultText ? `${name}=${defaultText}` : name;
+
+        const optional = defaultIsUndefined ? !signatureOmitsUndefinedDefault : true;
+
         return {
             name: docName,
-            optional: shouldOmitDefault
-                ? functionNode?.type === "ConstructorDeclaration"
-                : true
+            optional
         };
     }
 
@@ -1236,22 +1244,22 @@ function shouldOmitDefaultValueForParameter(path) {
         return false;
     }
 
-    if (!isUndefinedLiteral(node.right)) {
+    if (!isUndefinedLiteral(node.right) || typeof path.getParentNode !== "function") {
         return false;
     }
 
-    const parent = path.getParentNode();
-    if (!parent) {
-        return false;
-    }
+    let depth = 0;
+    while (true) {
+        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!ancestor) {
+            break;
+        }
 
-    if (shouldOmitUndefinedDefaultForFunctionNode(parent)) {
-        return true;
-    }
+        if (shouldOmitUndefinedDefaultForFunctionNode(ancestor)) {
+            return true;
+        }
 
-    const grandParent = typeof path.getParentNode === "function" ? path.getParentNode(1) : null;
-    if (grandParent && shouldOmitUndefinedDefaultForFunctionNode(grandParent)) {
-        return true;
+        depth += 1;
     }
 
     return false;
@@ -1262,10 +1270,14 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
         return false;
     }
 
-    return (
+    if (
         functionNode.type === "ConstructorDeclaration" ||
         functionNode.type === "ConstructorParentClause"
-    );
+    ) {
+        return false;
+    }
+
+    return functionNode.type === "FunctionDeclaration";
 }
 
 function printBooleanReturnIf(path, print) {
