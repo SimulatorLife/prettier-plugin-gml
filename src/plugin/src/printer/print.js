@@ -1642,7 +1642,10 @@ function preprocessFunctionArgumentDefaults(path) {
 
     const statementsToRemove = new Set();
 
-    for (const statement of body.body) {
+    const statements = body.body;
+
+    for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
+        const statement = statements[statementIndex];
         const match = matchArgumentCountFallbackStatement(statement);
         if (!match) {
             continue;
@@ -1674,6 +1677,18 @@ function preprocessFunctionArgumentDefaults(path) {
 
         statementsToRemove.add(match.statementNode);
         paramInfoByName.delete(match.targetName);
+
+        if (statement?.type === "IfStatement") {
+            const redundantVar = findRedundantVarDeclarationBefore(
+                statements,
+                statementIndex,
+                match.targetName
+            );
+
+            if (redundantVar) {
+                statementsToRemove.add(redundantVar);
+            }
+        }
     }
 
     if (statementsToRemove.size === 0) {
@@ -1805,6 +1820,60 @@ function matchArgumentCountFallbackFromIfStatement(node) {
     };
 }
 
+function findRedundantVarDeclarationBefore(statements, currentIndex, targetName) {
+    if (!Array.isArray(statements) || currentIndex <= 0) {
+        return null;
+    }
+
+    const candidate = statements[currentIndex - 1];
+
+    if (!isStandaloneVarDeclarationForTarget(candidate, targetName)) {
+        return null;
+    }
+
+    return candidate;
+}
+
+function isStandaloneVarDeclarationForTarget(node, targetName) {
+    if (!node || node.type !== "VariableDeclaration") {
+        return false;
+    }
+
+    if (node.kind !== "var") {
+        return false;
+    }
+
+    if (hasComment(node)) {
+        return false;
+    }
+
+    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
+        return false;
+    }
+
+    const declarator = node.declarations[0];
+
+    if (!declarator || declarator.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    if (hasComment(declarator)) {
+        return false;
+    }
+
+    const declaratorName = getIdentifierText(declarator.id);
+
+    if (!declaratorName || declaratorName !== targetName) {
+        return false;
+    }
+
+    if (declarator.init && !isUndefinedLiteral(declarator.init)) {
+        return false;
+    }
+
+    return true;
+}
+
 function extractAssignmentFromStatement(statement) {
     if (!statement) {
         return null;
@@ -1873,10 +1942,34 @@ function parseArgumentIndexValue(node) {
         return null;
     }
 
-    if (node.type === "Literal" && typeof node.value === "string") {
-        const numeric = Number.parseInt(node.value, 10);
-        if (!Number.isNaN(numeric)) {
-            return numeric;
+    if (node.type === "ParenthesizedExpression") {
+        return parseArgumentIndexValue(node.expression);
+    }
+
+    if (node.type === "UnaryExpression") {
+        if (node.operator !== "+" && node.operator !== "-") {
+            return null;
+        }
+
+        const argumentValue = parseArgumentIndexValue(node.argument);
+
+        if (argumentValue === null) {
+            return null;
+        }
+
+        return node.operator === "-" ? -argumentValue : argumentValue;
+    }
+
+    if (node.type === "Literal") {
+        if (typeof node.value === "number" && Number.isInteger(node.value)) {
+            return node.value;
+        }
+
+        if (typeof node.value === "string") {
+            const numeric = Number.parseInt(node.value, 10);
+            if (!Number.isNaN(numeric)) {
+                return numeric;
+            }
         }
     }
 
