@@ -5,12 +5,16 @@
     "root_path": "."
   },
   "scripts": {
-    "test": "node ./tests/test-plugin.js",
+    "test": "mocha \"tests/**/*.test.js\"",
     "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
     "example": "npm run prettier:plugin:raw --path=tests/test14.input.gml",
     "prettier:plugin": "node prettier-wrapper.js $npm_config_path"
   },
   "dependencies": {
+    "antlr4": "^4.13.2",
     "prettier": "^3.6.2"
+  },
+  "devDependencies": {
+    "mocha": "^10.8.2"
   }
 }
