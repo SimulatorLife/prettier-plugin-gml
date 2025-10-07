@@ -39,7 +39,7 @@ same formatter. The plugin is published on npm as
 
 ### Requirements
 
-- Node.js **14.21.3** or newer (required by Prettier 3). Node 18 LTS or newer keeps pace with current releases.
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository ships with an `.nvmrc` file—run `nvm use` to switch to the expected runtime.
 - npm (ships with Node.js). Confirm availability with:
 
   ```bash
@@ -213,7 +213,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 ## Troubleshooting
 
-- Confirm Node and npm meet the version requirements. Prettier 3 needs at least Node 14.21.3.
+- Confirm Node and npm meet the version requirements. The workspace requires Node.js 18.18.0+, 20.9.0+, or 21.1.0+.
 - If Prettier cannot find the plugin, ensure it appears in your local `package.json` or is installed globally (`npm list -g --depth=0`).
 - Remove and reinstall the packages when in doubt:
 
@@ -253,6 +253,7 @@ See [Architecture overview](#architecture-overview) for more detail about each p
 ```bash
 git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
 cd prettier-plugin-gml
+nvm use # optional but recommended; aligns with the .nvmrc version
 npm install
 npm run install:recursive
 ```

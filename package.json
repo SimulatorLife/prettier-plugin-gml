@@ -24,6 +24,9 @@
     "formatter"
   ],
   "author": "Two Scoop Studio",
+  "engines": {
+    "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+  },
   "scripts": {
     "install:recursive": "node recursive-install.mjs",
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules project_structure.txt",
