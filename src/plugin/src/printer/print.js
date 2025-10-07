@@ -177,6 +177,11 @@ export function print(path, options, print) {
                     cachedLengthName
                 ]);
 
+                const needsHoistedSeparator = shouldInsertHoistedLoopSeparator(
+                    path,
+                    options
+                );
+
                 return concat([
                     group([
                         "var ",
@@ -202,7 +207,8 @@ export function print(path, options, print) {
                         ])
                     ]),
                     ") ",
-                    printInBlock(path, options, print, "body")
+                    printInBlock(path, options, print, "body"),
+                    needsHoistedSeparator ? hardline : ""
                 ]);
             }
 
@@ -1605,6 +1611,47 @@ function shouldGenerateSyntheticDocForFunction(path) {
     return Array.isArray(node.params) && node.params.some((param) => {
         return param?.type === "DefaultParameter";
     });
+}
+
+function shouldInsertHoistedLoopSeparator(path, options) {
+    if (!path || typeof path.getValue !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "ForStatement") {
+        return false;
+    }
+
+    if (typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent) {
+        return false;
+    }
+
+    for (const key of Object.keys(parent)) {
+        const value = parent[key];
+        if (!Array.isArray(value)) {
+            continue;
+        }
+
+        const index = value.indexOf(node);
+        if (index === -1) {
+            continue;
+        }
+
+        const nextNode = value[index + 1];
+        if (!nextNode || nextNode.type !== "ForStatement") {
+            return false;
+        }
+
+        return options?.optimizeArrayLengthLoops ?? true;
+    }
+
+    return false;
 }
 
 function hasExistingDocComment(node) {
