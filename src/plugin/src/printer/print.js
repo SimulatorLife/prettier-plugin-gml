@@ -1168,12 +1168,18 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         }
 
         const defaultIsUndefined = isUndefinedLiteral(paramNode.right);
-        const shouldOmitDefault = defaultIsUndefined && functionNode?.type === "FunctionDeclaration";
-        const defaultText = !shouldOmitDefault ? getSourceTextForNode(paramNode.right, options) : null;
+        const shouldOmitDefault =
+            defaultIsUndefined && shouldOmitUndefinedDefaultForFunctionNode(functionNode);
+
+        const defaultText = !shouldOmitDefault
+            ? getSourceTextForNode(paramNode.right, options)
+            : null;
         const docName = defaultText ? `${name}=${defaultText}` : name;
         return {
             name: docName,
-            optional: !shouldOmitDefault
+            optional: shouldOmitDefault
+                ? functionNode?.type === "ConstructorDeclaration"
+                : true
         };
     }
 
@@ -1201,7 +1207,27 @@ function shouldOmitDefaultValueForParameter(path) {
         return false;
     }
 
-    return parent.type === "FunctionDeclaration";
+    if (shouldOmitUndefinedDefaultForFunctionNode(parent)) {
+        return true;
+    }
+
+    const grandParent = typeof path.getParentNode === "function" ? path.getParentNode(1) : null;
+    if (grandParent && shouldOmitUndefinedDefaultForFunctionNode(grandParent)) {
+        return true;
+    }
+
+    return false;
+}
+
+function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
+    if (!functionNode || !functionNode.type) {
+        return false;
+    }
+
+    return (
+        functionNode.type === "ConstructorDeclaration" ||
+        functionNode.type === "ConstructorParentClause"
+    );
 }
 
 function printBooleanReturnIf(path, print) {
