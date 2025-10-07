@@ -1,0 +1,26 @@
+name: Codex 22 – Bug Fix
+on:
+  schedule:
+    - cron: "0 */3 * * *" # every 3 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Bug Fix"
+      pr_body: "Seed PR for Codex to diagnose and fix a single bug."
+      prompt: >
+        Audit the codebase to identify one reproducible bug that impacts users, core
+        functionality, performance, usability, etc. Confirm 
+        the issue with a clear and reliable reproduction, then implement the smallest 
+        safe fix that resolves it without introducing regressions or altering unrelated 
+        behavior. Strengthen coverage by adding or improving automated tests to lock in 
+        the fix. Keep the change set minimal, focused, and easy to review—deliver one 
+        end-to-end, reliable bug fix rather than broad rewrites.

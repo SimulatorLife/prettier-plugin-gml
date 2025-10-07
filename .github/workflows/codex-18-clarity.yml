@@ -1,0 +1,28 @@
+name: Codex 18 – Control-Flow Clarity
+on:
+  schedule:
+    - cron: "10 1,7,13,19 * * *" # four times daily at 01:10, 07:10, 13:10, 19:10 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Control-Flow Clarity"
+      pr_body: "Seed PR for Codex to simplify control flow while preserving behaviour."
+      prompt: >
+        Locate a bite-sized logic path (function, reducer, effect handler, or small
+        module) where the control flow is harder to read than it needs to be, and
+        streamline it without changing behaviour. Favour guard clauses, early returns,
+        or extracted helpers to flatten nesting, eliminate duplicated branches, and make
+        intent immediately obvious. Keep naming/formatting tweaks to the style workflow;
+        here the mission is to untangle logic so future contributors can follow it at a
+        glance. Ship one concrete improvement, keep the diff minimal and well-tested,
+        and note the before/after reasoning in the commit message so reviewers see the
+        clarity win.

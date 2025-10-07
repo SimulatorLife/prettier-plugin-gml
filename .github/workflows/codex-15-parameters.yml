@@ -1,0 +1,22 @@
+name: Codex 15 – Parameter Flexibility
+on:
+  schedule:
+    - cron: "20 8,20 * * *" # twice daily at 08:20, 20:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Parameter Flexibility"
+      pr_body: "Seed PR for Codex to refactor a rigid constant into a configurable parameter."
+      prompt: >
+        Search for hardcoded constants or magic numbers that could instead be configuration/parameters.
+        Refactor one meaningful value into a configurable parameter. Integrate it
+        cleanly with existing systems to reduce rigidity and make the codebase more flexible.
