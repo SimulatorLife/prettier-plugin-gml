@@ -1,0 +1,28 @@
+name: Codex 06 – Decouple Architecture
+on:
+  schedule:
+    - cron: "30 2,14 * * *" # twice daily at 02:30, 14:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Decouple Architecture"
+      pr_body: "Seed PR for Codex to implement the intended architecture-decoupling refactor."
+      prompt: >
+        Review the architecture and select ONE overly coupled area (a module cluster,
+        package, or dependency cycle) that, if refactored, will materially improve
+        modularity. Briefly justify the choice, then decouple that area by separating
+        concerns, reducing circular dependencies, and introducing clearer boundaries
+        (interfaces/facades) only where necessary—avoid over-engineering. Update
+        imports/usages accordingly, keep the diff small and behavior-preserving, and run
+        formatters/linters/tests to ensure no regressions. The goal for this run is a
+        focused, maintainable restructuring that supports future growth while reducing
+        technical debt.

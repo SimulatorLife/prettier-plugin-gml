@@ -1,0 +1,26 @@
+name: Codex 37 – Helper Substitution
+on:
+  schedule:
+    - cron: "15 2,14 * * *" # twice daily at 02:15, 14:15 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Helper Substitution"
+      pr_body: "Seed PR for Codex to replace manual logic with existing helpers atop current master."
+      prompt: >
+        Identify code that reimplements behaviour already provided by a shared helper or
+        well-supported platform API (serialization, cloning, range checks, deep merges,
+        randomization, etc.). Refactor the chosen spot to use the established helper or a
+        modern built-in, removing the bespoke implementation while preserving behaviour
+        and performance expectations. Adjust imports/exports as needed, add concise tests
+        if the helper path is under-covered, and explain the before/after in the commit
+        message so the rationale is obvious.

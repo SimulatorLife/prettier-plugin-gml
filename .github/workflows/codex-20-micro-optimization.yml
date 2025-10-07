@@ -1,0 +1,34 @@
+name: Codex 20 – Targeted Micro-Optimization
+on:
+  schedule:
+    - cron: "50 */3 * * *" # every three hours at 50 minutes past the hour UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Targeted Micro-Optimization"
+      pr_body: "Seed PR for Codex to implement a localized, measurable micro-optimization atop current master."
+      prompt: >
+        Identify and optimize one specific micro-hot path (a tight loop, inner
+        render/update step, or small utility on a critical code path) and deliver at
+        least one measurable, behavior-preserving micro-optimization. You may not
+        respond with “no issues found”—if no obvious optimization exists, choose the
+        most plausible hotspot and apply a singular, safe, minimal improvement. Keep the
+        blast radius tiny: no architectural rewrites, no API/interface changes, no new
+        dependencies. Prefer straightforward optimizations such as reducing allocations,
+        tightening iteration, avoiding repeated lookups inside loops, hoisting
+        constants, caching small computed values, replacing polymorphic branches with
+        predictable ones, simplifying data shapes, reducing string concatenations/JSON
+        operations, collapsing nested conditionals into guard clauses, or
+        short-circuiting common cases. In your commit message, include a small
+        before/after measurement (micro-benchmark, timing probe, or deterministic
+        counter) to show impact. Ensure the diff is small, readable, and well-commented;
+        never sacrifice clarity for cleverness.

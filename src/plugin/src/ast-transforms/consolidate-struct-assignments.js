@@ -1,3 +1,7 @@
+import { util as prettierUtil } from "prettier";
+
+const { addTrailingComment } = prettierUtil;
+
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
 const VARIABLE_DECLARATOR = "VariableDeclarator";
@@ -14,6 +18,7 @@ export function consolidateStructAssignments(ast) {
 
     const tracker = new CommentTracker(Array.isArray(ast.comments) ? ast.comments : []);
     visit(ast, tracker);
+    tracker.removeConsumedComments();
     return ast;
 }
 
@@ -82,7 +87,7 @@ function consolidateBlock(statements, tracker) {
         }
 
         structNode.properties = collected.properties;
-        structNode.hasTrailingComma = false;
+        structNode.hasTrailingComma = collected.shouldForceBreak;
 
         statements.splice(index + 1, collected.count);
     }
@@ -92,6 +97,8 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const properties = [];
     let cursor = startIndex;
     let lastEnd = previousEnd;
+    let previousStatement = null;
+    let lastProperty = null;
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
@@ -105,7 +112,13 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
             break;
         }
 
-        if (tracker.hasBetween(lastEnd, start)) {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: start,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
             break;
         }
 
@@ -147,6 +160,8 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
         }
 
         properties.push(property);
+        previousStatement = statement;
+        lastProperty = property;
         cursor++;
     }
 
@@ -157,16 +172,37 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const nextStatement = statements[cursor];
     if (nextStatement) {
         const nextStart = getNodeStartIndex(nextStatement);
-        if (tracker.hasBetween(lastEnd, nextStart)) {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: nextStart,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
             return null;
         }
-    } else if (tracker.hasAfter(lastEnd)) {
-        return null;
+    } else {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: Number.POSITIVE_INFINITY,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
+            return null;
+        }
+
+        if (tracker.hasAfter(lastEnd)) {
+            return null;
+        }
     }
+
+    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
 
     return {
         properties,
-        count: properties.length
+        count: properties.length,
+        shouldForceBreak
     };
 }
 
@@ -263,74 +299,156 @@ function buildPropertyFromAssignment(assignment, identifierName) {
         return null;
     }
 
-    const left = assignment.left;
+    const propertyAccess = getStructPropertyAccess(assignment.left, identifierName);
+    if (!propertyAccess) {
+        return null;
+    }
+
+    const propertyKey = getPropertyKeyInfo(propertyAccess.propertyNode);
+    const propertyName = buildPropertyNameNode(propertyKey);
+    if (!propertyName) {
+        return null;
+    }
+
+    return {
+        type: "Property",
+        name: propertyName,
+        value: assignment.right,
+        start: cloneLocation(
+            getPreferredLocation(propertyAccess.propertyStart, assignment.start)
+        ),
+        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+    };
+}
+
+function getStructPropertyAccess(left, identifierName) {
     if (!isNode(left)) {
         return null;
     }
 
-    if (left.type === MEMBER_DOT_EXPRESSION && isIdentifierRoot(left.object, identifierName)) {
-        const propertyName = getPropertyNameFromDot(left.property);
-        if (!propertyName) {
-            return null;
-        }
+    if (!isIdentifierRoot(left.object, identifierName)) {
+        return null;
+    }
 
+    if (left.type === MEMBER_DOT_EXPRESSION && isNode(left.property)) {
         return {
-            type: "Property",
-            name: propertyName,
-            value: assignment.right,
-            start: cloneLocation(getPreferredLocation(left.property?.start, assignment.start)),
-            end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+            propertyNode: left.property,
+            propertyStart: left.property?.start
         };
     }
 
-    if (left.type === MEMBER_INDEX_EXPRESSION && isIdentifierRoot(left.object, identifierName)) {
+    if (left.type === MEMBER_INDEX_EXPRESSION) {
         if (!Array.isArray(left.property) || left.property.length !== 1) {
             return null;
         }
 
-        const propertyName = getPropertyNameFromIndex(left.property[0]);
-        if (!propertyName) {
+        const [propertyNode] = left.property;
+        if (!isNode(propertyNode)) {
             return null;
         }
 
         return {
-            type: "Property",
-            name: propertyName,
-            value: assignment.right,
-            start: cloneLocation(getPreferredLocation(left.property[0]?.start, assignment.start)),
-            end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+            propertyNode,
+            propertyStart: propertyNode?.start
         };
     }
 
     return null;
 }
 
-function getPropertyNameFromDot(property) {
-    if (!isNode(property)) {
+function getPropertyKeyInfo(propertyNode) {
+    if (!isNode(propertyNode)) {
         return null;
     }
 
-    if (property.type === IDENTIFIER && typeof property.name === "string") {
-        return property.name;
+    if (propertyNode.type === IDENTIFIER && typeof propertyNode.name === "string") {
+        return {
+            identifierName: propertyNode.name,
+            raw: propertyNode.name,
+            start: propertyNode.start,
+            end: propertyNode.end
+        };
     }
 
-    if (property.type === LITERAL && typeof property.value === "string") {
-        return property.value;
+    if (propertyNode.type === LITERAL && typeof propertyNode.value === "string") {
+        const unquoted = stripStringQuotes(propertyNode.value);
+        return {
+            identifierName: unquoted,
+            raw: propertyNode.value,
+            start: propertyNode.start,
+            end: propertyNode.end
+        };
     }
 
     return null;
 }
 
-function getPropertyNameFromIndex(propertyExpr) {
-    if (!isNode(propertyExpr)) {
+function buildPropertyNameNode(propertyKey) {
+    if (!propertyKey) {
         return null;
     }
 
-    if (propertyExpr.type === LITERAL && typeof propertyExpr.value === "string") {
-        return propertyExpr.value;
+    const identifierName = propertyKey.identifierName;
+    if (identifierName && isIdentifierSafe(identifierName)) {
+        return {
+            type: IDENTIFIER,
+            name: identifierName,
+            start: cloneLocation(propertyKey.start),
+            end: cloneLocation(propertyKey.end)
+        };
+    }
+
+    if (typeof propertyKey.raw === "string") {
+        return {
+            type: LITERAL,
+            value: propertyKey.raw,
+            start: cloneLocation(propertyKey.start),
+            end: cloneLocation(propertyKey.end)
+        };
     }
 
     return null;
+}
+
+function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement, precedingProperty }) {
+    const commentEntries = tracker.getEntriesBetween(left, right);
+    if (commentEntries.length === 0) {
+        return true;
+    }
+
+    if (!precedingStatement) {
+        return false;
+    }
+
+    const expectedLine = getNodeEndLine(precedingStatement);
+    if (typeof expectedLine !== "number") {
+        return false;
+    }
+
+    for (const entry of commentEntries) {
+        const comment = entry.comment;
+        if (!comment || comment.type !== "CommentLine") {
+            return false;
+        }
+
+        const commentLine = getNodeStartLine(comment);
+        if (commentLine !== expectedLine) {
+            return false;
+        }
+
+        if (comment.leadingChar === ";") {
+            comment.leadingChar = ",";
+        }
+
+        if (precedingProperty) {
+            const commentTarget = precedingProperty.value ?? precedingProperty;
+            addTrailingComment(commentTarget, comment);
+            precedingProperty._hasTrailingInlineComment = true;
+        }
+    }
+
+    tracker.consumeEntries(commentEntries);
+    return true;
 }
 
 function getPreferredLocation(primary, fallback) {
@@ -397,6 +515,26 @@ function isAttachableTrailingComment(comment, statement) {
     return true;
 }
 
+function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value[value.length - 1];
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
+}
+
+const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function isIdentifierSafe(name) {
+    return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
+}
+
 function getNodeStartIndex(node) {
     if (!isNode(node)) {
         return null;
@@ -409,6 +547,18 @@ function getNodeEndIndex(node) {
         return null;
     }
     return extractIndex(node.end);
+}
+
+function getNodeStartLine(node) {
+    if (!isNode(node)) {
+        return null;
+    }
+
+    if (node.start && typeof node.start.line === "number") {
+        return node.start.line;
+    }
+
+    return null;
 }
 
 function extractIndex(location) {
@@ -440,8 +590,18 @@ class CommentTracker {
         if (!this.entries.length || left == null || right == null || left >= right) {
             return false;
         }
-        const index = this.firstGreaterThan(left);
-        return index < this.entries.length && this.entries[index].index < right;
+        let index = this.firstGreaterThan(left);
+        while (index < this.entries.length) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                return false;
+            }
+            if (!entry.consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
     }
 
     hasAfter(position) {
@@ -449,7 +609,13 @@ class CommentTracker {
             return false;
         }
         const index = this.firstGreaterThan(position);
-        return index < this.entries.length;
+        while (index < this.entries.length) {
+            if (!this.entries[index].consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
     }
 
     takeBetween(left, right, predicate) {
@@ -481,6 +647,13 @@ class CommentTracker {
         }
 
         return results;
+        while (index < this.entries.length) {
+            if (!this.entries[index].consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
     }
 
     firstGreaterThan(target) {
@@ -495,5 +668,53 @@ class CommentTracker {
             }
         }
         return low;
+    }
+
+    getEntriesBetween(left, right) {
+        if (!this.entries.length || left == null || right == null || left >= right) {
+            return [];
+        }
+
+        const startIndex = this.firstGreaterThan(left);
+        const collected = [];
+
+        for (let index = startIndex; index < this.entries.length; index++) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                break;
+            }
+            if (!entry.consumed) {
+                collected.push(entry);
+            }
+        }
+
+        return collected;
+    }
+
+    consumeEntries(entries) {
+        for (const entry of entries) {
+            entry.consumed = true;
+            if (entry.comment) {
+                entry.comment._removedByConsolidation = true;
+            }
+        }
+    }
+
+    removeConsumedComments() {
+        if (!Array.isArray(this.comments) || this.comments.length === 0) {
+            return;
+        }
+
+        let writeIndex = 0;
+        for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
+            const comment = this.comments[readIndex];
+            if (comment && comment._removedByConsolidation) {
+                continue;
+            }
+            this.comments[writeIndex] = comment;
+            writeIndex++;
+        }
+
+        this.comments.length = writeIndex;
     }
 }

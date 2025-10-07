@@ -1,0 +1,29 @@
+name: Codex 23 – Config Improvement
+on:
+  schedule:
+    - cron: "20 0,12 * * *" # twice daily at 00:20, 12:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Config Improvement"
+      pr_body: "Seed PR for Codex to refactor and improve a configuration surface."
+      prompt: >
+        Select one configuration surface that improves build, lint, or CI ergonomics
+        without touching application logic. Candidates include npm scripts, lint/format
+        configs, EditorConfig, TypeScript/Babel settings, Browserslist/engines fields,
+        bundler options, or CI workflows that orchestrate tests and checks. Deliver one
+        concrete upgrade such as clarifying npm script names, wiring a missing lint
+        check, aligning ESLint and Prettier to avoid conflicts, enhancing/adding 
+        missing package.json metadata, tightening CI triggers, or documenting environment 
+        expectations. Leave dependency version churn to the dedicated dependency workflow. 
+        Keep the change small, reversible, and thoroughly justified in the commit message 
+        so reviewers understand the before/after impact.
