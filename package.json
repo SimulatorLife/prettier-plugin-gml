@@ -31,7 +31,7 @@
     "test": "npm run test:parser && npm run test:plugin",
     "test:parser": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_parser_path && npm run test",
     "prettier": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run prettier:plugin --path=$npm_config_path",
-    "test:plugin": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run test",
+    "test:plugin": "node set-config-values.mjs && npm ci --prefix $npm_package_config_root_path/$npm_package_config_plugin_path && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run test",
     "antlr": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_parser_path && npm run antlr",
     "example:plugin": "node set-config-values.mjs && cd $npm_package_config_root_path/$npm_package_config_plugin_path && npm run example"
   },
