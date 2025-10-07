@@ -238,8 +238,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 - `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, and plugin-specific tests.
 - `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
 
-Helper scripts in the repository root (`recursive-install.mjs`, `set-config-values.mjs`) allow you to run package commands from
-a single terminal session and keep the parser and plugin packages in sync.
+The repository is configured as an npm workspace so the root `node_modules` folder manages dependencies for both the parser and the plugin packages.
 
 ## Development
 
@@ -250,11 +249,10 @@ prettier-plugin-gml/
 ├─ src/parser/   # ANTLR grammar, generated parser, and parser tests
 ├─ src/plugin/   # Prettier plugin source, printer, and plugin tests
 ├─ src/shared/   # Helpers shared between the parser and the plugin
-├─ recursive-install.mjs  # Helper to install nested package dependencies
-└─ set-config-values.mjs  # Utility that shares path configuration between scripts
+└─ package.json        # Workspace manifest with scripts and shared tooling
 ```
 
-See [Architecture overview](#architecture-overview) for more detail about each package and the helper scripts.
+See [Architecture overview](#architecture-overview) for more detail about each package.
 
 ### Set up the workspace
 
@@ -263,11 +261,9 @@ git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
 cd prettier-plugin-gml
 nvm use # optional but recommended; aligns with the .nvmrc version
 npm install
-npm run install:recursive
 ```
 
-The recursive install script walks through the repository and installs dependencies for each package (parser and plugin). Use
-`npm --prefix src/plugin install` or `npm --prefix src/parser install` when you only need to refresh a single package.
+The workspace definition installs the root tooling plus the parser and plugin package dependencies in a single `npm install` run. Use `npm install --workspace src/plugin` or `npm install --workspace src/parser` when you only need to refresh a single package.
 
 ### Test the plugin and parser
 
@@ -294,8 +290,8 @@ The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use t
 flags such as watch mode or filtering individual tests:
 
 ```bash
-npm --prefix src/plugin run test -- --watch
-npm --prefix src/parser run test -- --watch
+npm run test --workspace src/plugin -- --watch
+npm run test --workspace src/parser -- --watch
 ```
 
 Fixtures under `src/plugin/tests` capture golden formatter output. Update them only when intentionally changing the emitted
@@ -303,7 +299,7 @@ code and include the corresponding rationale in your pull request.
 
 ### Regenerate the parser grammar
 
-Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then execute the helper script:
+Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run the generator:
 
 ```bash
 npm run antlr
