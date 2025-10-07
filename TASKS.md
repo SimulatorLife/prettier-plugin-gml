@@ -2,6 +2,12 @@
 
 The following gaps surfaced while running `npm run test:plugin` from the repository root.
 
+:::task-stub{title="Install ANTLR runtime before executing plugin tests"}
+1. Update the plugin test harness (e.g., `npm run test:plugin` script or supporting setup scripts) so the `src/parser` package installs its dependencies—particularly `antlr4`—before the Mocha fixtures execute.
+2. Ensure the parser runtime is resolved from `src/parser/src/gml-parser.js` without relying on the plugin's own `node_modules` tree so the formatter can import the generated parser.
+3. Re-run `npm run test:plugin` from the repository root to confirm the fixtures progress beyond the current `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'antlr4'` failure.
+:::
+
 :::task-stub{title="Emit synthetic doc comments for undocumented top-level functions"}
 1. Update `shouldGenerateSyntheticDocForFunction` in `src/plugin/src/printer/print.js` so ordinary program-level `FunctionDeclaration`s without doc comments emit synthetic docs (see failures in `test23.output.gml`, `test24.output.gml`, `test25.output.gml`).
 2. Ensure the merge logic in `mergeSyntheticDocComments` still avoids duplicating tags when real doc comments are present.
