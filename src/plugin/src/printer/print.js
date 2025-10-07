@@ -1710,37 +1710,14 @@ function preprocessFunctionArgumentDefaults(path) {
 
     node._hasProcessedArgumentCountDefaults = true;
 
-    if (!Array.isArray(node.params) || node.params.length === 0) {
-        return;
-    }
-
     const body = node.body;
     if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body) || body.body.length === 0) {
         return;
     }
 
-    const paramInfoByName = new Map();
-    node.params.forEach((param, index) => {
-        if (!param || param.type !== "Identifier") {
-            return;
-        }
-
-        const name = getIdentifierText(param);
-        if (!name) {
-            return;
-        }
-
-        paramInfoByName.set(name, { index, param });
-    });
-
-    if (paramInfoByName.size === 0) {
-        return;
-    }
-
-    const statementsToRemove = new Set();
-
     const statements = body.body;
 
+    const matches = [];
     for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
         const statement = statements[statementIndex];
         const match = matchArgumentCountFallbackStatement(statement);
@@ -1748,12 +1725,105 @@ function preprocessFunctionArgumentDefaults(path) {
             continue;
         }
 
-        const paramInfo = paramInfoByName.get(match.targetName);
-        if (!paramInfo) {
+        matches.push({
+            ...match,
+            statementIndex
+        });
+    }
+
+    if (matches.length === 0) {
+        return;
+    }
+
+    matches.sort((a, b) => {
+        if (a.argumentIndex !== b.argumentIndex) {
+            return a.argumentIndex - b.argumentIndex;
+        }
+
+        return a.statementIndex - b.statementIndex;
+    });
+
+    const params = Array.isArray(node.params) ? node.params : [];
+    if (!Array.isArray(node.params)) {
+        node.params = params;
+    }
+
+    const paramInfoByName = new Map();
+    params.forEach((param, index) => {
+        const identifier = getIdentifierFromParameter(param);
+        if (!identifier) {
+            return;
+        }
+
+        const name = getIdentifierText(identifier);
+        if (!name) {
+            return;
+        }
+
+        paramInfoByName.set(name, { index, identifier });
+    });
+
+    const statementsToRemove = new Set();
+
+    let appliedChanges = false;
+
+    const ensureParameterInfoForMatch = (match) => {
+        if (!match) {
+            return null;
+        }
+
+        const { targetName, argumentIndex } = match;
+
+        if (argumentIndex == null || argumentIndex < 0) {
+            return null;
+        }
+
+        const existingInfo = paramInfoByName.get(targetName);
+        if (existingInfo) {
+            if (existingInfo.index === argumentIndex) {
+                return existingInfo;
+            }
+            return null;
+        }
+
+        if (argumentIndex > params.length) {
+            return null;
+        }
+
+        if (argumentIndex === params.length) {
+            const newIdentifier = {
+                type: "Identifier",
+                name: targetName
+            };
+            params.push(newIdentifier);
+            const info = { index: argumentIndex, identifier: newIdentifier };
+            paramInfoByName.set(targetName, info);
+            return info;
+        }
+
+        const paramAtIndex = params[argumentIndex];
+        const identifier = getIdentifierFromParameter(paramAtIndex);
+        if (!identifier) {
+            return null;
+        }
+
+        const identifierName = getIdentifierText(identifier);
+        if (!identifierName || identifierName !== targetName) {
+            return null;
+        }
+
+        const info = { index: argumentIndex, identifier };
+        paramInfoByName.set(targetName, info);
+        return info;
+    };
+
+    for (const match of matches) {
+        if (!match) {
             continue;
         }
 
-        if (match.argumentIndex !== paramInfo.index) {
+        const paramInfo = ensureParameterInfoForMatch(match);
+        if (!paramInfo) {
             continue;
         }
 
@@ -1766,19 +1836,25 @@ function preprocessFunctionArgumentDefaults(path) {
             continue;
         }
 
+        const identifier = paramInfo.identifier;
+        if (!identifier || identifier.type !== "Identifier") {
+            continue;
+        }
+
         node.params[paramInfo.index] = {
             type: "DefaultParameter",
-            left: currentParam,
+            left: identifier,
             right: match.fallbackExpression
         };
 
         statementsToRemove.add(match.statementNode);
         paramInfoByName.delete(match.targetName);
+        appliedChanges = true;
 
-        if (statement?.type === "IfStatement") {
+        if (match.statementNode?.type === "IfStatement") {
             const redundantVar = findRedundantVarDeclarationBefore(
                 statements,
-                statementIndex,
+                match.statementIndex,
                 match.targetName
             );
 
@@ -1788,11 +1864,27 @@ function preprocessFunctionArgumentDefaults(path) {
         }
     }
 
-    if (statementsToRemove.size === 0) {
+    if (!appliedChanges || statementsToRemove.size === 0) {
         return;
     }
 
     body.body = body.body.filter((statement) => !statementsToRemove.has(statement));
+}
+
+function getIdentifierFromParameter(param) {
+    if (!param) {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+        return param.left;
+    }
+
+    return null;
 }
 
 function matchArgumentCountFallbackStatement(statement) {
