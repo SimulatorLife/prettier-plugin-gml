@@ -239,6 +239,14 @@ npm run test:plugin
 npm run test:parser
 ```
 
+The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
+flags such as watch mode or filtering individual tests:
+
+```bash
+npm --prefix src/plugin run test -- --watch
+npm --prefix src/parser run test -- --watch
+```
+
 ### Regenerate the parser grammar
 
 Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then execute the helper script:

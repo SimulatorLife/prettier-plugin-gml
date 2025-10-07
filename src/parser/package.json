@@ -6,8 +6,11 @@
   "dependencies": {
     "antlr4": "^4.13.2"
   },
+  "devDependencies": {
+    "mocha": "^10.8.2"
+  },
   "scripts": {
-    "test": "node ./tests/test-parser.js",
+    "test": "mocha \"tests/**/*.test.js\"",
     "antlr": "antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageLexer.g4 && antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageParser.g4"
   }
 }
