@@ -2,7 +2,7 @@
 // This logic analyses the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
-const SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
+const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
     ["ds_list_size", "size"],
     ["ds_map_size", "size"],
@@ -10,7 +10,77 @@ const SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_grid_height", "height"],
 ]);
 
-function getArrayLengthHoistInfo(node, sizeFunctionSuffixes = SIZE_RETRIEVAL_FUNCTION_SUFFIXES) {
+const ARRAY_LENGTH_SUFFIX_CACHE = Symbol.for("prettier-plugin-gml.arrayLengthHoistFunctionSuffixes");
+
+function getSizeRetrievalFunctionSuffixes(options) {
+    if (options && options[ARRAY_LENGTH_SUFFIX_CACHE]) {
+        return options[ARRAY_LENGTH_SUFFIX_CACHE];
+    }
+
+    const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+        options?.arrayLengthHoistFunctionSuffixes
+    );
+
+    const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+    for (const [functionName, suffix] of overrides) {
+        if (suffix === null) {
+            merged.delete(functionName);
+        } else {
+            merged.set(functionName, suffix);
+        }
+    }
+
+    if (options) {
+        try {
+            Object.defineProperty(options, ARRAY_LENGTH_SUFFIX_CACHE, {
+                value: merged,
+                configurable: false,
+                enumerable: false,
+                writable: false
+            });
+        } catch {
+            // Ignore environments where options is frozen.
+        }
+    }
+
+    return merged;
+}
+
+function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
+    if (typeof rawValue !== "string") {
+        return new Map();
+    }
+
+    const overrides = new Map();
+    const entries = rawValue
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+
+    for (const entry of entries) {
+        const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
+        const normalizedName = rawName?.trim().toLowerCase();
+        if (!normalizedName) {
+            continue;
+        }
+
+        const trimmedSuffix = rawSuffix.trim();
+        if (trimmedSuffix === "-") {
+            overrides.set(normalizedName, null);
+            continue;
+        }
+
+        const normalizedSuffix = trimmedSuffix.length > 0 ? trimmedSuffix : "len";
+        overrides.set(normalizedName, normalizedSuffix);
+    }
+
+    return overrides;
+}
+
+function getArrayLengthHoistInfo(
+    node,
+    sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
+) {
     if (!node || node.type !== "ForStatement") {
         return null;
     }
@@ -148,7 +218,8 @@ function getIdentifierText(node) {
 }
 
 export {
-    SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
+    DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
-    getArrayLengthHoistInfo
+    getArrayLengthHoistInfo,
+    getSizeRetrievalFunctionSuffixes
 };
