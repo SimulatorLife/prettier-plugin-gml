@@ -239,7 +239,14 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
         if (remainder.startsWith("/")) {
             // comments like "// comment" should stay as regular comments
         } else {
-            let formatted = remainder.length > 0 ? `/// ${remainder}` : "///";
+            const remainderHasWordCharacters = /\w/.test(remainder);
+            const separator = remainder.length === 0
+                ? ""
+                : remainderHasWordCharacters
+                    ? " "
+                    : "";
+
+            let formatted = `///${separator}${remainder}`;
             formatted = applyJsDocReplacements(formatted);
             return applyInlinePadding(comment, formatted);
         }
