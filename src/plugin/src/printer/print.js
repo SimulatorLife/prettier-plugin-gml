@@ -41,6 +41,7 @@ import {
     formatLineComment,
     normalizeDocCommentTypeAnnotations
 } from "./comments.js";
+import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 
 export function print(path, options, print) {
     const node = path.getValue();
@@ -1179,31 +1180,6 @@ function getSourceTextForNode(node, options) {
     }
 
     return options.originalText.slice(startIndex, endIndex).trim();
-}
-
-function getNodeStartIndex(node) {
-    if (typeof node?.start === "number") {
-        return node.start;
-    }
-
-    if (node?.start && typeof node.start.index === "number") {
-        return node.start.index;
-    }
-
-    return null;
-}
-
-function getNodeEndIndex(node) {
-    if (typeof node?.end === "number") {
-        return node.end + 1;
-    }
-
-    if (node?.end && typeof node.end.index === "number") {
-        return node.end.index + 1;
-    }
-
-    const startIndex = getNodeStartIndex(node);
-    return typeof startIndex === "number" ? startIndex : null;
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
