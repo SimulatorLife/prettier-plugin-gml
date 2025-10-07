@@ -18,7 +18,7 @@ function trailing_comment() {
 
 function dynamic_index(value) {
     var obj = {};
-    obj["static"] = value;
-    obj[get_key()] = value;
+    obj[$ "static_key"] = value;
+    obj[$ get_key()] = value;
     return obj;
 }
