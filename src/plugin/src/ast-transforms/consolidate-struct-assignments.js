@@ -242,7 +242,8 @@ function buildPropertyFromAssignment(assignment, identifierName) {
     }
 
     if (left.type === MEMBER_DOT_EXPRESSION && isIdentifierRoot(left.object, identifierName)) {
-        const propertyName = getPropertyNameFromDot(left.property);
+        const propertyKey = getPropertyKeyInfo(left.property);
+        const propertyName = buildPropertyNameNode(propertyKey);
         if (!propertyName) {
             return null;
         }
@@ -261,7 +262,8 @@ function buildPropertyFromAssignment(assignment, identifierName) {
             return null;
         }
 
-        const propertyName = getPropertyNameFromIndex(left.property[0]);
+        const propertyKey = getPropertyKeyInfo(left.property[0]);
+        const propertyName = buildPropertyNameNode(propertyKey);
         if (!propertyName) {
             return null;
         }
@@ -278,29 +280,55 @@ function buildPropertyFromAssignment(assignment, identifierName) {
     return null;
 }
 
-function getPropertyNameFromDot(property) {
-    if (!isNode(property)) {
+function getPropertyKeyInfo(propertyNode) {
+    if (!isNode(propertyNode)) {
         return null;
     }
 
-    if (property.type === IDENTIFIER && typeof property.name === "string") {
-        return property.name;
+    if (propertyNode.type === IDENTIFIER && typeof propertyNode.name === "string") {
+        return {
+            identifierName: propertyNode.name,
+            raw: propertyNode.name,
+            start: propertyNode.start,
+            end: propertyNode.end
+        };
     }
 
-    if (property.type === LITERAL && typeof property.value === "string") {
-        return property.value;
+    if (propertyNode.type === LITERAL && typeof propertyNode.value === "string") {
+        const unquoted = stripStringQuotes(propertyNode.value);
+        return {
+            identifierName: unquoted,
+            raw: propertyNode.value,
+            start: propertyNode.start,
+            end: propertyNode.end
+        };
     }
 
     return null;
 }
 
-function getPropertyNameFromIndex(propertyExpr) {
-    if (!isNode(propertyExpr)) {
+function buildPropertyNameNode(propertyKey) {
+    if (!propertyKey) {
         return null;
     }
 
-    if (propertyExpr.type === LITERAL && typeof propertyExpr.value === "string") {
-        return propertyExpr.value;
+    const identifierName = propertyKey.identifierName;
+    if (identifierName && isIdentifierSafe(identifierName)) {
+        return {
+            type: IDENTIFIER,
+            name: identifierName,
+            start: cloneLocation(propertyKey.start),
+            end: cloneLocation(propertyKey.end)
+        };
+    }
+
+    if (typeof propertyKey.raw === "string") {
+        return {
+            type: LITERAL,
+            value: propertyKey.raw,
+            start: cloneLocation(propertyKey.start),
+            end: cloneLocation(propertyKey.end)
+        };
     }
 
     return null;
@@ -321,6 +349,26 @@ function cloneLocation(location) {
         return location ?? null;
     }
     return { ...location };
+}
+
+function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value[value.length - 1];
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
+}
+
+const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function isIdentifierSafe(name) {
+    return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
 }
 
 function getNodeStartIndex(node) {
