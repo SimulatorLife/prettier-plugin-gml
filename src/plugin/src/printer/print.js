@@ -1020,17 +1020,63 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         return syntheticLines;
     }
 
-    const lastLine = existingDocLines[existingDocLines.length - 1];
-    const needsSeparator =
-        typeof lastLine === "string" &&
-        lastLine.trim() !== "" &&
-        !/^\/\/\/\s*@function\b/i.test(lastLine.trim());
+    const isFunctionLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+    const isParamLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
-    if (needsSeparator) {
-        return [...existingDocLines, "", ...syntheticLines];
+    const functionLines = syntheticLines.filter(isFunctionLine);
+    const otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+
+    let mergedLines = existingDocLines.slice();
+
+    if (functionLines.length > 0) {
+        const firstParamIndex = mergedLines.findIndex(isParamLine);
+
+        const insertionIndex =
+            firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
+        const precedingLine =
+            insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+
+        const needsSeparatorBeforeFunction =
+            typeof precedingLine === "string" &&
+            precedingLine.trim() !== "" &&
+            !isFunctionLine(precedingLine);
+
+        if (needsSeparatorBeforeFunction) {
+            mergedLines = [
+                ...mergedLines.slice(0, insertionIndex),
+                "",
+                ...mergedLines.slice(insertionIndex)
+            ];
+        }
+
+        const insertAt = needsSeparatorBeforeFunction
+            ? insertionIndex + 1
+            : insertionIndex;
+
+        mergedLines = [
+            ...mergedLines.slice(0, insertAt),
+            ...functionLines,
+            ...mergedLines.slice(insertAt)
+        ];
     }
 
-    return [...existingDocLines, ...syntheticLines];
+    if (otherLines.length === 0) {
+        return mergedLines;
+    }
+
+    const lastLine = mergedLines.length > 0 ? mergedLines[mergedLines.length - 1] : null;
+    const needsSeparatorBeforeOthers =
+        typeof lastLine === "string" &&
+        lastLine.trim() !== "" &&
+        !isFunctionLine(lastLine);
+
+    if (needsSeparatorBeforeOthers) {
+        mergedLines = [...mergedLines, ""];
+    }
+
+    return [...mergedLines, ...otherLines];
 }
 
 function computeSyntheticFunctionDocLines(node, existingDocLines, options, overrides = {}) {
@@ -1095,7 +1141,16 @@ function parseDocCommentMetadata(line) {
     const remainder = match[2].trim();
 
     if (tag === "param") {
-        const paramMatch = remainder.match(/^(\[[^\]]+\]|[^\s]+)/);
+        let paramSection = remainder;
+
+        if (paramSection.startsWith("{")) {
+            const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
+            if (typeMatch) {
+                paramSection = typeMatch[1] ?? "";
+            }
+        }
+
+        const paramMatch = paramSection.match(/^(\[[^\]]+\]|[^\s]+)/);
         const name = paramMatch ? paramMatch[1] : null;
         return { tag, name };
     }
