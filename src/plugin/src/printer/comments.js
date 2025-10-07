@@ -295,7 +295,23 @@ function applyJsDocReplacements(text) {
         formattedText = formattedText.replace(regex, `$1${newWord}`);
     }
 
+    formattedText = stripTrailingFunctionParameters(formattedText);
+
     return normalizeDocCommentTypeAnnotations(formattedText);
+}
+
+const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
+
+function stripTrailingFunctionParameters(text) {
+    if (typeof text !== "string" || !/@function\b/i.test(text)) {
+        return text;
+    }
+
+    return text.replace(
+        FUNCTION_SIGNATURE_PATTERN,
+        (match, linePrefix, functionPrefix) =>
+            `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
+    );
 }
 
 function normalizeDocCommentTypeAnnotations(text) {
