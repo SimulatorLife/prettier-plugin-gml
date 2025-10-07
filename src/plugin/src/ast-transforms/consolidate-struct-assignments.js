@@ -1,4 +1,5 @@
 import { util as prettierUtil } from "prettier";
+import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = prettierUtil;
 
@@ -535,20 +536,6 @@ function isIdentifierSafe(name) {
     return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
 }
 
-function getNodeStartIndex(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-    return extractIndex(node.start);
-}
-
-function getNodeEndIndex(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-    return extractIndex(node.end);
-}
-
 function getNodeStartLine(node) {
     if (!isNode(node)) {
         return null;
@@ -558,19 +545,6 @@ function getNodeStartLine(node) {
         return node.start.line;
     }
 
-    return null;
-}
-
-function extractIndex(location) {
-    if (location == null) {
-        return null;
-    }
-    if (typeof location === "number") {
-        return location;
-    }
-    if (typeof location.index === "number") {
-        return location.index;
-    }
     return null;
 }
 

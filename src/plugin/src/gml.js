@@ -4,28 +4,7 @@ import GMLParser from "../../parser/src/gml-parser.js";
 import { consolidateStructAssignments } from "./ast-transforms/consolidate-struct-assignments.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
-
-function getLocationIndex(node, key) {
-    if (!node) {
-        return undefined;
-    }
-    const location = node[key];
-    if (typeof location === "number") {
-        return location;
-    }
-    if (location && typeof location.index === "number") {
-        return location.index;
-    }
-    return undefined;
-}
-
-function getStartIndex(node) {
-    return getLocationIndex(node, "start");
-}
-
-function getEndIndex(node) {
-    return getLocationIndex(node, "end");
-}
+import { getStartIndex, getEndIndex } from "../../shared/ast-locations.js";
 
 export const languages = [
     {
