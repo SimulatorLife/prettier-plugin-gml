@@ -1156,13 +1156,15 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
     if (paramNode.type === "Identifier") {
         const rawName = getIdentifierText(paramNode);
-        const name = normalizeDocMetadataName(rawName);
+        const sanitizedName = stripSyntheticParameterSentinels(rawName);
+        const name = normalizeDocMetadataName(sanitizedName);
         return name ? { name, optional: false } : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
         const rawName = getIdentifierText(paramNode.left);
-        const name = normalizeDocMetadataName(rawName);
+        const sanitizedName = stripSyntheticParameterSentinels(rawName);
+        const name = normalizeDocMetadataName(sanitizedName);
         if (!name) {
             return null;
         }
@@ -1182,7 +1184,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     const rawFallbackName = getIdentifierText(paramNode);
-    const fallbackName = normalizeDocMetadataName(rawFallbackName);
+    const sanitizedFallbackName = stripSyntheticParameterSentinels(rawFallbackName);
+    const fallbackName = normalizeDocMetadataName(sanitizedFallbackName);
     return fallbackName ? { name: fallbackName, optional: false } : null;
 }
 
@@ -1572,13 +1575,29 @@ function getIdentifierText(identifier) {
     return null;
 }
 
+function stripSyntheticParameterSentinels(name) {
+    if (typeof name !== "string") {
+        return name;
+    }
+
+    // GameMaker constructors commonly prefix private parameters with underscores
+    // (e.g., `_value`, `__foo__`) or similar characters like `$`. These sentinels
+    // should not appear in generated documentation metadata, so remove them from
+    // the beginning and end of the identifier while leaving the core name intact.
+    let sanitized = name;
+    sanitized = sanitized.replace(/^[_$]+/, "");
+    sanitized = sanitized.replace(/[_$]+$/, "");
+
+    return sanitized.length > 0 ? sanitized : name;
+}
+
 function normalizeDocMetadataName(name) {
     if (typeof name !== "string") {
         return name;
     }
 
-    const normalized = name.replace(/^_+/, "").replace(/_+$/, "");
-    return normalized.length > 0 ? normalized : name;
+    const sanitized = stripSyntheticParameterSentinels(name);
+    return sanitized.length > 0 ? sanitized : name;
 }
 
 function docHasTrailingComment(doc) {
