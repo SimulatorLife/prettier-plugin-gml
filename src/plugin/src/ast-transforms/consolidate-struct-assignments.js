@@ -272,44 +272,57 @@ function buildPropertyFromAssignment(assignment, identifierName) {
         return null;
     }
 
-    const left = assignment.left;
+    const propertyAccess = getStructPropertyAccess(assignment.left, identifierName);
+    if (!propertyAccess) {
+        return null;
+    }
+
+    const propertyKey = getPropertyKeyInfo(propertyAccess.propertyNode);
+    const propertyName = buildPropertyNameNode(propertyKey);
+    if (!propertyName) {
+        return null;
+    }
+
+    return {
+        type: "Property",
+        name: propertyName,
+        value: assignment.right,
+        start: cloneLocation(
+            getPreferredLocation(propertyAccess.propertyStart, assignment.start)
+        ),
+        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+    };
+}
+
+function getStructPropertyAccess(left, identifierName) {
     if (!isNode(left)) {
         return null;
     }
 
-    if (left.type === MEMBER_DOT_EXPRESSION && isIdentifierRoot(left.object, identifierName)) {
-        const propertyKey = getPropertyKeyInfo(left.property);
-        const propertyName = buildPropertyNameNode(propertyKey);
-        if (!propertyName) {
-            return null;
-        }
+    if (!isIdentifierRoot(left.object, identifierName)) {
+        return null;
+    }
 
+    if (left.type === MEMBER_DOT_EXPRESSION && isNode(left.property)) {
         return {
-            type: "Property",
-            name: propertyName,
-            value: assignment.right,
-            start: cloneLocation(getPreferredLocation(left.property?.start, assignment.start)),
-            end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+            propertyNode: left.property,
+            propertyStart: left.property?.start
         };
     }
 
-    if (left.type === MEMBER_INDEX_EXPRESSION && isIdentifierRoot(left.object, identifierName)) {
+    if (left.type === MEMBER_INDEX_EXPRESSION) {
         if (!Array.isArray(left.property) || left.property.length !== 1) {
             return null;
         }
 
-        const propertyKey = getPropertyKeyInfo(left.property[0]);
-        const propertyName = buildPropertyNameNode(propertyKey);
-        if (!propertyName) {
+        const [propertyNode] = left.property;
+        if (!isNode(propertyNode)) {
             return null;
         }
 
         return {
-            type: "Property",
-            name: propertyName,
-            value: assignment.right,
-            start: cloneLocation(getPreferredLocation(left.property[0]?.start, assignment.start)),
-            end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+            propertyNode,
+            propertyStart: propertyNode?.start
         };
     }
 
