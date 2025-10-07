@@ -131,6 +131,33 @@ const jsDocReplacements = {
     // Add more replacements here as needed
 };
 
+const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
+    Object.entries({
+        void: "undefined",
+        undefined: "undefined",
+        real: "real",
+        bool: "bool",
+        boolean: "bool",
+        string: "string",
+        array: "array",
+        struct: "struct",
+        enum: "enum",
+        pointer: "pointer",
+        method: "method",
+        asset: "asset",
+        any: "any",
+        var: "var",
+        int64: "int64",
+        int32: "int32",
+        int16: "int16",
+        int8: "int8",
+        uint64: "uint64",
+        uint32: "uint32",
+        uint16: "uint16",
+        uint8: "uint8"
+    })
+);
+
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
     comment.printed = true;
@@ -225,7 +252,29 @@ function applyJsDocReplacements(text) {
         formattedText = formattedText.replace(regex, `$1${newWord}`);
     }
 
-    return formattedText;
+    return normalizeDocCommentTypeAnnotations(formattedText);
+}
+
+function normalizeDocCommentTypeAnnotations(text) {
+    if (typeof text !== "string" || text.indexOf("{") === -1) {
+        return text;
+    }
+
+    return text.replace(/\{([^}]+)\}/g, (match, typeText) => {
+        const normalized = normalizeGameMakerType(typeText);
+        return `{${normalized}}`;
+    });
+}
+
+function normalizeGameMakerType(typeText) {
+    if (typeof typeText !== "string") {
+        return typeText;
+    }
+
+    return typeText.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (identifier) => {
+        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(identifier.toLowerCase());
+        return normalized ?? identifier;
+    });
 }
 
 function splitCommentIntoSentences(text) {
@@ -425,5 +474,6 @@ export {
     printDanglingCommentsAsGroup,
     handleComments,
     printComment,
-    formatLineComment
+    formatLineComment,
+    normalizeDocCommentTypeAnnotations
 };

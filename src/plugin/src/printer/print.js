@@ -38,7 +38,8 @@ import {
 import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
-    formatLineComment
+    formatLineComment,
+    normalizeDocCommentTypeAnnotations
 } from "./comments.js";
 
 export function print(path, options, print) {
@@ -1076,7 +1077,7 @@ function computeSyntheticFunctionDocLines(node, existingDocLines, options, overr
         lines.push(`/// @param ${docName}`);
     }
 
-    return lines;
+    return lines.map((line) => normalizeDocCommentTypeAnnotations(line));
 }
 
 function parseDocCommentMetadata(line) {
