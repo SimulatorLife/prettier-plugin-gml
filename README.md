@@ -7,8 +7,8 @@
 </p>
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
-monorepo pairs a custom ANTLR-powered parser with a Prettier printer so that scripts, objects, and shaders share the same
-consistent formatting workflow as the rest of your project. The plugin is published on npm as
+monorepo bundles three packages—a hand-written ANTLR parser, the Prettier plugin, and shared utilities—so scripts, objects, and
+shaders all benefit from the same formatter. The plugin is published on npm as
 [`prettier-plugin-gamemaker`](https://www.npmjs.com/package/prettier-plugin-gamemaker).
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
@@ -20,11 +20,13 @@ consistent formatting workflow as the rest of your project. The plugin is publis
   - [Install](#install)
   - [Format code](#format-code)
   - [Optional: global install](#optional-global-install)
+  - [Validate your setup](#validate-your-setup)
 - [Usage tips](#usage-tips)
   - [Command line](#command-line)
   - [Visual Studio Code](#visual-studio-code)
   - [Configuration reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
+- [Architecture overview](#architecture-overview)
 - [Development](#development)
   - [Repository layout](#repository-layout)
   - [Set up the workspace](#set-up-the-workspace)
@@ -69,8 +71,17 @@ consistent formatting workflow as the rest of your project. The plugin is publis
    }
    ```
 
-   The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, and `printWidth: 120`. Override these values in
-   your configuration to match your team conventions.
+   The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
+   `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
+
+3. Keep the package up to date alongside Prettier:
+
+   ```bash
+   npm outdated prettier prettier-plugin-gamemaker
+   npm update prettier prettier-plugin-gamemaker
+   ```
+
+   Re-running `npm install` after a GameMaker update helps ensure the parser matches the latest language features.
 
 ### Format code
 
@@ -113,6 +124,20 @@ prettier --write "**/*.gml" --plugin=prettier-plugin-gamemaker
 
 Global installs skip your project `node_modules`, so keep versions in sync to avoid inconsistent formatting.
 
+### Validate your setup
+
+- Confirm Prettier sees the plugin:
+
+  ```bash
+  npx prettier --support-info | grep gml-parse
+  ```
+
+- Lint before committing to catch syntax errors early:
+
+  ```bash
+  npx prettier --check "**/*.gml"
+  ```
+
 ## Usage tips
 
 ### Command line
@@ -135,7 +160,8 @@ Global installs skip your project `node_modules`, so keep versions in sync to av
   npx prettier --write scripts/player_attack.gml
   ```
 
-See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options.
+See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options, and the
+[npm package page](https://www.npmjs.com/package/prettier-plugin-gamemaker) for release notes.
 
 ### Visual Studio Code
 
@@ -174,7 +200,8 @@ The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` fi
 }
 ```
 
-Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
+Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list. See
+[`TASKS.md`](./TASKS.md) for open formatter improvements you can help with.
 
 #### Plugin-specific options
 
@@ -197,6 +224,15 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
 
+## Architecture overview
+
+- `src/parser/` — ANTLR grammar files, generated parser, and parser tests.
+- `src/plugin/` — Prettier printer, comment handling, and plugin-specific tests.
+- `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
+
+Helper scripts in the repository root (`recursive-install.mjs`, `set-config-values.mjs`) allow you to run package commands from
+a single terminal session.
+
 ## Development
 
 ### Repository layout
@@ -210,8 +246,7 @@ prettier-plugin-gml/
 └─ set-config-values.mjs  # Utility that shares path configuration between scripts
 ```
 
-The root package exposes scripts that forward into the parser and plugin workspaces so you can drive everything from a single
-terminal session.
+See [Architecture overview](#architecture-overview) for more detail about each package and the helper scripts.
 
 ### Set up the workspace
 
@@ -222,7 +257,8 @@ npm install
 npm run install:recursive
 ```
 
-The recursive install script walks through the repository and installs dependencies for each package (parser and plugin).
+The recursive install script walks through the repository and installs dependencies for each package (parser and plugin). Use
+`npm --prefix src/plugin install` or `npm --prefix src/parser install` when you only need to refresh a single package.
 
 ### Test the plugin and parser
 
@@ -255,7 +291,8 @@ Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then execute th
 npm run antlr
 ```
 
-This command re-generates the parser and lexer inside `src/parser/src/generated` based on the `.g4` grammar files.
+This command re-generates the parser and lexer inside `src/parser/src/generated` based on the `.g4` grammar files. The script
+expects the `antlr` CLI in your `PATH`.
 
 ### Handy development commands
 
