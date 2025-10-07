@@ -32,19 +32,23 @@ function statementShouldEndWithSemicolon(path) {
     return nodeTypeNeedsSemicolon(node.type);
 }
 
+// Using a Set avoids re-allocating the list for every membership check when
+// these helpers run inside tight printer loops.
+const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
+    "CallExpression",
+    "AssignmentExpression",
+    "GlobalVarStatement",
+    "ReturnStatement",
+    "BreakStatement",
+    "ContinueStatement",
+    "ExitStatement",
+    "ThrowStatement",
+    "IncDecStatement",
+    "VariableDeclaration"
+]);
+
 function nodeTypeNeedsSemicolon(type) {
-    return [
-        "CallExpression",
-        "AssignmentExpression",
-        "GlobalVarStatement",
-        "ReturnStatement",
-        "BreakStatement",
-        "ContinueStatement",
-        "ExitStatement",
-        "ThrowStatement",
-        "IncDecStatement",
-        "VariableDeclaration"
-    ].includes(type);
+    return NODE_TYPES_REQUIRING_SEMICOLON.has(type);
 }
 
 function isLastStatement(path) {
