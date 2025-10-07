@@ -26,7 +26,8 @@ import {
     optionalSemicolon,
     isNextLineEmpty,
     isPreviousLineEmpty,
-    shouldAddNewlinesAroundStatement
+    shouldAddNewlinesAroundStatement,
+    hasComment
 } from "./util.js";
 
 import {
@@ -75,6 +76,10 @@ export function print(path, options, print) {
             ]);
         }
         case "IfStatement": {
+            const simplifiedReturn = printBooleanReturnIf(path, print);
+            if (simplifiedReturn) {
+                return simplifiedReturn;
+            }
             const parts = [];
             parts.push(
                 printSingleClauseStatement(path, options, print, "if", "test", "consequent")
@@ -1136,6 +1141,82 @@ function shouldOmitDefaultValueForParameter(path) {
     }
 
     return parent.type === "FunctionDeclaration";
+}
+
+function printBooleanReturnIf(path, print) {
+    const node = path.getValue();
+    if (
+        !node ||
+        node.type !== "IfStatement" ||
+        !node.consequent ||
+        !node.alternate ||
+        hasComment(node)
+    ) {
+        return null;
+    }
+
+    const consequentReturn = getBooleanReturnBranch(node.consequent);
+    const alternateReturn = getBooleanReturnBranch(node.alternate);
+
+    if (!consequentReturn || !alternateReturn) {
+        return null;
+    }
+
+    if (consequentReturn.value === alternateReturn.value) {
+        return null;
+    }
+
+    const conditionDoc = printWithoutExtraParens(path, print, "test");
+    const conditionNode = node.test;
+
+    const argumentDoc = consequentReturn.value === "true"
+        ? conditionDoc
+        : negateExpressionDoc(conditionDoc, conditionNode);
+
+    return concat([
+        "return ",
+        argumentDoc,
+        optionalSemicolon("ReturnStatement")
+    ]);
+}
+
+function getBooleanReturnBranch(branchNode) {
+    if (!branchNode || hasComment(branchNode)) {
+        return null;
+    }
+
+    if (branchNode.type === "BlockStatement") {
+        const statements = Array.isArray(branchNode.body) ? branchNode.body : [];
+        if (statements.length !== 1) {
+            return null;
+        }
+
+        const [onlyStatement] = statements;
+        if (hasComment(onlyStatement) || onlyStatement.type !== "ReturnStatement") {
+            return null;
+        }
+
+        return getBooleanReturnStatementInfo(onlyStatement);
+    }
+
+    if (branchNode.type === "ReturnStatement") {
+        return getBooleanReturnStatementInfo(branchNode);
+    }
+
+    return null;
+}
+
+function getBooleanReturnStatementInfo(returnNode) {
+    if (!returnNode || hasComment(returnNode)) {
+        return null;
+    }
+
+    const argument = returnNode.argument;
+    if (!argument || hasComment(argument) || !isBooleanLiteral(argument)) {
+        return null;
+    }
+
+    return { value: argument.value.toLowerCase() };
 }
 
 function simplifyBooleanBinaryExpression(path, print, node) {
