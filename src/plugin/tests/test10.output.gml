@@ -9,6 +9,7 @@ function Shape(color = undefined) constructor {
     };
 
     /// @function freeze
+    /// @returns {undefined}
     static freeze = function() {
         // This will delete any geometry info contained within the mesh itself.
         // It will not delete any geometry added to a ColMesh.
