@@ -1594,13 +1594,31 @@ function shouldGenerateSyntheticDocForFunction(path) {
         return false;
     }
 
-    const hasDocComments = Array.isArray(node.docComments) && node.docComments.length > 0;
-    if (!hasDocComments) {
+    if (!hasExistingDocComment(node)) {
         return true;
     }
 
     return Array.isArray(node.params) && node.params.some((param) => {
         return param?.type === "DefaultParameter";
+    });
+}
+
+function hasExistingDocComment(node) {
+    if (!node) {
+        return false;
+    }
+
+    if (!Array.isArray(node.docComments) || node.docComments.length === 0) {
+        return false;
+    }
+
+    return node.docComments.some((comment) => {
+        const formatted = formatLineComment(comment);
+        if (typeof formatted !== "string") {
+            return false;
+        }
+
+        return formatted.trim().startsWith("///");
     });
 }
 
