@@ -57,6 +57,15 @@ export const options = {
         category: "gml",
         default: true,
         description: "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
+    },
+    lineCommentBannerMinimumSlashes: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 5,
+        range: { start: 1, end: Infinity },
+        description:
+            "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim."
     }
 };
 
@@ -65,6 +74,7 @@ export const defaultOptions = {
     semi: true,
     trailingComma: "none",
     printWidth: 120,
-    optimizeArrayLengthLoops: true
+    optimizeArrayLengthLoops: true,
+    lineCommentBannerMinimumSlashes: 5
 };
 

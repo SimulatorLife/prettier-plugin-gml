@@ -39,6 +39,7 @@ import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
     formatLineComment,
+    getLineCommentBannerMinimum,
     normalizeDocCommentTypeAnnotations
 } from "./comments.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
@@ -241,6 +242,7 @@ export function print(path, options, print) {
             const parts = [];
 
             let docCommentDocs = [];
+            const bannerMinimum = getLineCommentBannerMinimum(options);
             let needsLeadingBlankLine = false;
 
             if (Array.isArray(node.docComments) && node.docComments.length > 0) {
@@ -252,7 +254,7 @@ export function print(path, options, print) {
                     }
                 }
                 docCommentDocs = node.docComments
-                    .map((comment) => formatLineComment(comment))
+                    .map((comment) => formatLineComment(comment, bannerMinimum))
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 

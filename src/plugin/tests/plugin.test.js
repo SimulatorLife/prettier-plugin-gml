@@ -19,6 +19,31 @@ async function readFixture(filePath) {
   return contents.trim();
 }
 
+async function tryLoadOptions(baseName) {
+  const optionsFile = `${baseName}.options.json`;
+  const optionsPath = path.join(currentDirectory, optionsFile);
+
+  try {
+    const contents = await fs.readFile(optionsPath, fileEncoding);
+    if (!contents) {
+      return null;
+    }
+
+    const parsed = JSON.parse(contents);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;
+    }
+
+    throw error;
+  }
+
+  return null;
+}
+
 async function loadTestCases() {
   const entries = await fs.readdir(currentDirectory);
   const inputFiles = entries
@@ -41,15 +66,18 @@ async function loadTestCases() {
         throw new TypeError(`Expected fixture '${inputPath}' to be read as a string.`);
       }
 
-      return { baseName, inputSource: rawInput, expectedOutput };
+      const options = await tryLoadOptions(baseName);
+
+      return { baseName, inputSource: rawInput, expectedOutput, options };
     })
   );
 }
 
-async function formatWithPlugin(source) {
+async function formatWithPlugin(source, overrides) {
   const formatted = await prettier.format(source, {
     plugins: [pluginPath],
     parser: 'gml-parse',
+    ...(overrides ?? {}),
   });
 
   if (typeof formatted !== 'string') {
@@ -62,9 +90,9 @@ async function formatWithPlugin(source) {
 const testCases = await loadTestCases();
 
 describe('Prettier GameMaker plugin fixtures', () => {
-  for (const { baseName, inputSource, expectedOutput } of testCases) {
+  for (const { baseName, inputSource, expectedOutput, options } of testCases) {
     it(`formats ${baseName}`, async () => {
-      const formatted = await formatWithPlugin(inputSource);
+      const formatted = await formatWithPlugin(inputSource, options);
       const expected = expectedOutput.trim();
 
       if (formatted === expected) {

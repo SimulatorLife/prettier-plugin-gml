@@ -6,10 +6,25 @@ const { addDanglingComment, addTrailingComment } = util;
 
 const { join, indent, hardline, dedent } = builders;
 
+const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
+
 const BOILERPLATE_COMMENTS = [
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ];
+
+function getLineCommentBannerMinimum(options) {
+    const configuredValue = options?.lineCommentBannerMinimumSlashes;
+
+    if (typeof configuredValue === "number" && Number.isFinite(configuredValue)) {
+        const normalized = Math.floor(configuredValue);
+        if (normalized > 0) {
+            return normalized;
+        }
+    }
+
+    return DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES;
+}
 
 function attachDanglingCommentToEmptyNode(comment, descriptors) {
     const node = comment.enclosingNode;
@@ -173,7 +188,15 @@ function printComment(commentPath, options) {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
-            return formatLineComment(comment);
+            const bannerMinimum = getLineCommentBannerMinimum(options);
+            const rawText = comment.leadingText || comment.raw || `//${comment.value}`;
+            const bannerMatch = rawText.match(/^\s*(\/\/+)/);
+
+            if (bannerMatch && bannerMatch[1].length >= bannerMinimum) {
+                return applyInlinePadding(comment, rawText.trim());
+            }
+
+            return formatLineComment(comment, bannerMinimum);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
@@ -181,11 +204,14 @@ function printComment(commentPath, options) {
     }
 }
 
-function formatLineComment(comment) {
+function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES) {
     const fullText = comment.leadingText || comment.raw || "";
     const original = fullText || `//${comment.value}`;
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
+
+    const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
+    const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
 
     for (const lineFragment of BOILERPLATE_COMMENTS) {
         if (trimmedValue.includes(lineFragment)) {
@@ -195,11 +221,15 @@ function formatLineComment(comment) {
     }
 
     const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-    if (slashesMatch && slashesMatch[1].length > 4) {
+    if (slashesMatch && slashesMatch[1].length >= bannerMinimumSlashes) {
         return applyInlinePadding(comment, original.trim());
     }
 
-    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+    if (
+        trimmedOriginal.startsWith("///") &&
+        !trimmedOriginal.includes("@") &&
+        leadingSlashCount >= bannerMinimumSlashes
+    ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
@@ -434,7 +464,8 @@ function handleOnlyComments(comment, text, options, ast, isLastComment) {
         comment.type === "CommentLine" &&
         (followingNode.type === "FunctionDeclaration" || followingNode.type === "ConstructorDeclaration")
     ) {
-        const formatted = formatLineComment(comment);
+        const bannerMinimum = getLineCommentBannerMinimum(options);
+        const formatted = formatLineComment(comment, bannerMinimum);
 
         if (formatted && formatted.startsWith("///")) {
             comment.printed = true;
@@ -481,5 +512,6 @@ export {
     handleComments,
     printComment,
     formatLineComment,
+    getLineCommentBannerMinimum,
     normalizeDocCommentTypeAnnotations
 };
