@@ -263,7 +263,10 @@ export function print(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
-                if (needsLeadingBlankLine) {
+                const suppressLeadingBlank =
+                    docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
+
+                if (needsLeadingBlankLine && !suppressLeadingBlank) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs));
@@ -1031,42 +1034,115 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
     const functionLines = syntheticLines.filter(isFunctionLine);
     const otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
 
-    let mergedLines = existingDocLines.slice();
-
-    if (functionLines.length > 0) {
-        const firstParamIndex = mergedLines.findIndex(isParamLine);
-
-        const insertionIndex =
-            firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
-        const precedingLine =
-            insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
-
-        const needsSeparatorBeforeFunction =
-            typeof precedingLine === "string" &&
-            precedingLine.trim() !== "" &&
-            !isFunctionLine(precedingLine);
-
-        if (needsSeparatorBeforeFunction) {
-            mergedLines = [
-                ...mergedLines.slice(0, insertionIndex),
-                "",
-                ...mergedLines.slice(insertionIndex)
-            ];
+    const getParamCanonicalName = (line) => {
+        const metadata = parseDocCommentMetadata(line);
+        if (!metadata || metadata.tag !== "param") {
+            return null;
         }
 
-        const insertAt = needsSeparatorBeforeFunction
-            ? insertionIndex + 1
-            : insertionIndex;
+        let name = metadata.name;
+        if (typeof name !== "string") {
+            return null;
+        }
 
-        mergedLines = [
-            ...mergedLines.slice(0, insertAt),
-            ...functionLines,
-            ...mergedLines.slice(insertAt)
-        ];
+        let trimmed = name.trim();
+        const bracketMatch = trimmed.match(/^\[(.*)]$/);
+        if (bracketMatch) {
+            trimmed = bracketMatch[1] ?? "";
+        }
+
+        const equalsIndex = trimmed.indexOf("=");
+        if (equalsIndex !== -1) {
+            trimmed = trimmed.slice(0, equalsIndex);
+        }
+
+        const normalized = normalizeDocMetadataName(trimmed.trim());
+        return normalized && normalized.length > 0 ? normalized : null;
+    };
+
+    let mergedLines = existingDocLines.slice();
+    let removedAnyLine = false;
+
+    if (functionLines.length > 0) {
+        const existingFunctionIndices = mergedLines
+            .map((line, index) => (isFunctionLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingFunctionIndices.length > 0) {
+            const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
+            mergedLines = mergedLines.slice();
+
+            for (let i = duplicateIndices.length - 1; i >= 0; i--) {
+                mergedLines.splice(duplicateIndices[i], 1);
+                removedAnyLine = true;
+            }
+
+            mergedLines.splice(firstIndex, 1, ...functionLines);
+            removedAnyLine = true;
+        } else {
+            const firstParamIndex = mergedLines.findIndex(isParamLine);
+
+            const insertionIndex =
+                firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
+            const precedingLine =
+                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+
+            const needsSeparatorBeforeFunction =
+                typeof precedingLine === "string" &&
+                precedingLine.trim() !== "" &&
+                !isFunctionLine(precedingLine);
+
+            if (needsSeparatorBeforeFunction) {
+                mergedLines = [
+                    ...mergedLines.slice(0, insertionIndex),
+                    "",
+                    ...mergedLines.slice(insertionIndex)
+                ];
+            }
+
+            const insertAt = needsSeparatorBeforeFunction
+                ? insertionIndex + 1
+                : insertionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertAt),
+                ...functionLines,
+                ...mergedLines.slice(insertAt)
+            ];
+        }
     }
 
     if (otherLines.length === 0) {
+        if (removedAnyLine) {
+            mergedLines._suppressLeadingBlank = true;
+        }
+
         return mergedLines;
+    }
+
+    const syntheticParamNames = new Set(
+        otherLines
+            .map((line) => getParamCanonicalName(line))
+            .filter((name) => typeof name === "string" && name.length > 0)
+    );
+
+    if (syntheticParamNames.size > 0) {
+        const beforeLength = mergedLines.length;
+        mergedLines = mergedLines.filter((line) => {
+            if (!isParamLine(line)) {
+                return true;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            if (!canonical) {
+                return false;
+            }
+
+            return !syntheticParamNames.has(canonical);
+        });
+        if (mergedLines.length !== beforeLength) {
+            removedAnyLine = true;
+        }
     }
 
     const lastLine = mergedLines.length > 0 ? mergedLines[mergedLines.length - 1] : null;
@@ -1079,7 +1155,12 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         mergedLines = [...mergedLines, ""];
     }
 
-    return [...mergedLines, ...otherLines];
+    const result = [...mergedLines, ...otherLines];
+    if (removedAnyLine) {
+        result._suppressLeadingBlank = true;
+    }
+
+    return result;
 }
 
 function computeSyntheticFunctionDocLines(node, existingDocLines, options, overrides = {}) {
@@ -1093,7 +1174,12 @@ function computeSyntheticFunctionDocLines(node, existingDocLines, options, overr
             .filter((meta) => meta)
         : [];
 
-    const hasFunctionTag = metadata.some((meta) => meta.tag === "function");
+    const hasFunctionTag = metadata.some(
+        (meta) =>
+            meta.tag === "function" &&
+            typeof meta.name === "string" &&
+            meta.name.trim().length > 0
+    );
     const documentedParams = new Set(
         metadata
             .filter((meta) => meta.tag === "param")
