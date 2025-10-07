@@ -395,8 +395,9 @@ export function print(path, options, print) {
                 return concat([print("argument"), node.operator]);
             }
         case "CallExpression": {
+            applyTrigonometricFunctionSimplification(path);
             let printedArgs = [];
-        
+
             if (node.arguments.length === 0) {
                 printedArgs = [printEmptyParens(path, print, options)];
             } else if (
@@ -1305,6 +1306,136 @@ function simplifyBooleanBinaryExpression(path, print, node) {
         : expressionDoc;
 }
 
+function applyTrigonometricFunctionSimplification(path) {
+    const node = path.getValue();
+    if (!node || node.type !== "CallExpression") {
+        return;
+    }
+
+    simplifyTrigonometricCall(node);
+}
+
+function simplifyTrigonometricCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (hasComment(node)) {
+        return false;
+    }
+
+    const identifierName = getIdentifierText(node.object);
+    if (!identifierName) {
+        return false;
+    }
+
+    const normalizedName = identifierName.toLowerCase();
+
+    if (applyInnerDegreeWrapperConversion(node, normalizedName)) {
+        return true;
+    }
+
+    if (normalizedName === "degtorad") {
+        return applyOuterTrigConversion(node, DEGREE_TO_RADIAN_CONVERSIONS);
+    }
+
+    if (normalizedName === "radtodeg") {
+        return applyOuterTrigConversion(node, RADIAN_TO_DEGREE_CONVERSIONS);
+    }
+
+    return false;
+}
+
+function applyInnerDegreeWrapperConversion(node, functionName) {
+    const mapping = RADIAN_TRIG_TO_DEGREE.get(functionName);
+    if (!mapping) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    if (args.length !== 1) {
+        return false;
+    }
+
+    const [firstArg] = args;
+    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+        return false;
+    }
+
+    if (hasComment(firstArg)) {
+        return false;
+    }
+
+    const wrappedArgs = Array.isArray(firstArg.arguments) ? firstArg.arguments : [];
+    if (wrappedArgs.length !== 1) {
+        return false;
+    }
+
+    updateCallExpressionNameAndArgs(node, mapping, wrappedArgs);
+    return true;
+}
+
+function applyOuterTrigConversion(node, conversionMap) {
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    if (args.length !== 1) {
+        return false;
+    }
+
+    const [firstArg] = args;
+    if (!firstArg || firstArg.type !== "CallExpression") {
+        return false;
+    }
+
+    if (hasComment(firstArg)) {
+        return false;
+    }
+
+    const innerName = getIdentifierText(firstArg.object);
+    if (!innerName) {
+        return false;
+    }
+
+    const mapping = conversionMap.get(innerName.toLowerCase());
+    if (!mapping) {
+        return false;
+    }
+
+    const innerArgs = Array.isArray(firstArg.arguments) ? firstArg.arguments : [];
+    if (typeof mapping.expectedArgs === "number" && innerArgs.length !== mapping.expectedArgs) {
+        return false;
+    }
+
+    updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
+    return true;
+}
+
+function isCallExpressionWithName(node, name) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const identifierName = getIdentifierText(node.object);
+    if (!identifierName) {
+        return false;
+    }
+
+    return identifierName.toLowerCase() === name;
+}
+
+function updateCallExpressionNameAndArgs(node, newName, newArgs) {
+    if (!node || node.type !== "CallExpression") {
+        return;
+    }
+
+    if (!node.object || node.object.type !== "Identifier") {
+        node.object = { type: "Identifier", name: newName };
+    } else {
+        node.object.name = newName;
+    }
+
+    node.arguments = Array.isArray(newArgs) ? [...newArgs] : [];
+}
+
 function negateExpressionDoc(expressionDoc, expressionNode) {
     if (needsParensForNegation(expressionNode)) {
         return group(["!", "(", expressionDoc, ")"]);
@@ -1764,6 +1895,29 @@ const SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_map_size", "size"],
     ["ds_grid_width", "width"],
     ["ds_grid_height", "height"],
+]);
+
+const RADIAN_TRIG_TO_DEGREE = new Map([
+    ["sin", "dsin"],
+    ["cos", "dcos"],
+    ["tan", "dtan"],
+]);
+
+const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
+    ["dsin", { name: "sin", expectedArgs: 1 }],
+    ["dcos", { name: "cos", expectedArgs: 1 }],
+    ["dtan", { name: "tan", expectedArgs: 1 }],
+    ["darcsin", { name: "arcsin", expectedArgs: 1 }],
+    ["darccos", { name: "arccos", expectedArgs: 1 }],
+    ["darctan", { name: "arctan", expectedArgs: 1 }],
+    ["darctan2", { name: "arctan2", expectedArgs: 2 }],
+]);
+
+const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
+    ["arcsin", { name: "darcsin", expectedArgs: 1 }],
+    ["arccos", { name: "darccos", expectedArgs: 1 }],
+    ["arctan", { name: "darctan", expectedArgs: 1 }],
+    ["arctan2", { name: "darctan2", expectedArgs: 2 }],
 ]);
 
 function getArrayLengthHoistInfo(node, sizeFunctionSuffixes = SIZE_RETRIEVAL_FUNCTION_SUFFIXES) {
