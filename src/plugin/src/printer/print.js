@@ -1526,6 +1526,11 @@ function shouldGenerateSyntheticDocForFunction(path) {
         return false;
     }
 
+    const hasDocComments = Array.isArray(node.docComments) && node.docComments.length > 0;
+    if (!hasDocComments) {
+        return true;
+    }
+
     return Array.isArray(node.params) && node.params.some((param) => {
         return param?.type === "DefaultParameter";
     });
