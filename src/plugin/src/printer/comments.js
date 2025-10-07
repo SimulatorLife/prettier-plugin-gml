@@ -239,14 +239,13 @@ function splitCommentIntoSentences(text) {
     return segments.length > 0 ? segments : [text];
 }
 
-function printDanglingComments(path, options, sameIndent, filter) {
-    const parts = [];
+function collectDanglingComments(path, filter) {
     const node = path.getValue();
-
     if (!node || !node.comments) {
-        return "";
+        return { entries: [], totalCount: 0 };
     }
 
+    const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
         if (
@@ -255,60 +254,52 @@ function printDanglingComments(path, options, sameIndent, filter) {
             !comment.trailing &&
             (!filter || filter(comment))
         ) {
-            if (comment.attachToBrace) {
-                parts.push([" ", printComment(commentPath, options)]);
-            } else {
-                parts.push([printComment(commentPath, options)]);
-            }
+            entries.push({ commentPath, comment });
         }
     }, "comments");
 
-    if (parts.length === 0) {
+    return { entries, totalCount: node.comments.length };
+}
+
+function printDanglingComments(path, options, sameIndent, filter) {
+    const { entries } = collectDanglingComments(path, filter);
+    if (entries.length === 0) {
         return "";
     }
 
-    return parts;
+    return entries.map(({ commentPath, comment }) => (
+        comment.attachToBrace
+            ? [" ", printComment(commentPath, options)]
+            : [printComment(commentPath, options)]
+    ));
 }
 
 // print dangling comments and preserve the whitespace around the comments.
 // this function behaves similarly to the default comment algorithm.
 function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
-    const parts = [];
-    const node = path.getValue();
-
-    if (!node || !node.comments) {
+    const { entries, totalCount } = collectDanglingComments(path, filter);
+    if (entries.length === 0) {
         return "";
     }
 
+    const parts = [];
     let i = 0;
-    const finalIndex = node.comments.length - 1;
+    const finalIndex = totalCount - 1;
 
-    path.each((commentPath) => {
-        const comment = commentPath.getValue();
-        if (
-            comment &&
-            !comment.leading &&
-            !comment.trailing &&
-            (!filter || filter(comment))
-        ) {
-            if (i === 0) {
-                parts.push(whitespaceToDoc(comment.leadingWS));
-            }
-            parts.push([printComment(commentPath, options)]);
-            if (i !== finalIndex) {
-                let wsDoc = whitespaceToDoc(comment.trailingWS);
-                // enforce at least one space between comments
-                if (wsDoc === "") {
-                    wsDoc = " ";
-                }
-                parts.push(wsDoc);
-            }
-            i += 1;
+    for (const { commentPath, comment } of entries) {
+        if (i === 0) {
+            parts.push(whitespaceToDoc(comment.leadingWS));
         }
-    }, "comments");
-
-    if (parts.length === 0) {
-        return "";
+        parts.push([printComment(commentPath, options)]);
+        if (i !== finalIndex) {
+            let wsDoc = whitespaceToDoc(comment.trailingWS);
+            // enforce at least one space between comments
+            if (wsDoc === "") {
+                wsDoc = " ";
+            }
+            parts.push(wsDoc);
+        }
+        i += 1;
     }
 
     return parts;

@@ -176,6 +176,14 @@ The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` fi
 
 Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
 
+#### Plugin-specific options
+
+- `optimizeArrayLengthLoops` (default: `true`)
+
+  Hoists calls to `array_length(...)` out of matching `for` loop conditions and stores the result in a cached variable
+  (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization
+  is undesirable for your project.
+
 ## Troubleshooting
 
 - Confirm Node and npm meet the version requirements. Prettier 3 needs at least Node 16.13.

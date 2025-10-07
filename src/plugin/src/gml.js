@@ -1,6 +1,7 @@
 // gml.js
 
 import GMLParser from "../../parser/src/gml-parser.js";
+import { consolidateStructAssignments } from "./ast-transforms/consolidate-struct-assignments.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
 
@@ -15,10 +16,13 @@ export const languages = [
 
 export const parsers = {
     "gml-parse": {
-        parse: text => GMLParser.parse(text, {
-            getLocations: true,
-            simplifyLocations: false
-        }),
+        parse: text => {
+            const ast = GMLParser.parse(text, {
+                getLocations: true,
+                simplifyLocations: false
+            });
+            return consolidateStructAssignments(ast);
+        },
         astFormat: "gml-ast",
         locStart: (node) => {
             if (!node) {
@@ -60,9 +64,21 @@ export const printers = {
     }
 };
 
+export const options = {
+    optimizeArrayLengthLoops: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description: "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
+    }
+};
+
 export const defaultOptions = {
     tabWidth: 4,
     semi: true,
     trailingComma: "none",
-    printWidth: 120
+    printWidth: 120,
+    optimizeArrayLengthLoops: true
 };
+
