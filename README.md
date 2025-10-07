@@ -263,7 +263,7 @@ nvm use # optional but recommended; aligns with the .nvmrc version
 npm install
 ```
 
-The workspace definition installs the root tooling plus the parser and plugin package dependencies in a single `npm install` run. Use `npm install --workspace src/plugin` or `npm install --workspace src/parser` when you only need to refresh a single package.
+The workspace definition installs the root tooling plus the parser and plugin package dependencies in a single `npm install` run. This includes the shared [Mocha](https://mochajs.org/) binary so the parser and plugin test suites work out of the box. Use `npm install --workspace src/plugin` or `npm install --workspace src/parser` when you only need to refresh a single package.
 
 ### Test the plugin and parser
 
