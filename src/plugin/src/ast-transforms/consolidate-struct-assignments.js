@@ -1,3 +1,7 @@
+import { util as prettierUtil } from "prettier";
+
+const { addTrailingComment } = prettierUtil;
+
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
 const VARIABLE_DECLARATOR = "VariableDeclarator";
@@ -14,6 +18,7 @@ export function consolidateStructAssignments(ast) {
 
     const tracker = new CommentTracker(Array.isArray(ast.comments) ? ast.comments : []);
     visit(ast, tracker);
+    tracker.removeConsumedComments();
     return ast;
 }
 
@@ -82,7 +87,7 @@ function consolidateBlock(statements, tracker) {
         }
 
         structNode.properties = collected.properties;
-        structNode.hasTrailingComma = false;
+        structNode.hasTrailingComma = collected.shouldForceBreak;
 
         statements.splice(index + 1, collected.count);
     }
@@ -92,6 +97,8 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const properties = [];
     let cursor = startIndex;
     let lastEnd = previousEnd;
+    let previousStatement = null;
+    let lastProperty = null;
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
@@ -105,7 +112,13 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
             break;
         }
 
-        if (tracker.hasBetween(lastEnd, start)) {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: start,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
             break;
         }
 
@@ -120,6 +133,8 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
 
         properties.push(property);
         lastEnd = end;
+        previousStatement = statement;
+        lastProperty = property;
         cursor++;
     }
 
@@ -130,16 +145,37 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const nextStatement = statements[cursor];
     if (nextStatement) {
         const nextStart = getNodeStartIndex(nextStatement);
-        if (tracker.hasBetween(lastEnd, nextStart)) {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: nextStart,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
             return null;
         }
-    } else if (tracker.hasAfter(lastEnd)) {
-        return null;
+    } else {
+        if (!allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: Number.POSITIVE_INFINITY,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty
+        })) {
+            return null;
+        }
+
+        if (tracker.hasAfter(lastEnd)) {
+            return null;
+        }
     }
+
+    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
 
     return {
         properties,
-        count: properties.length
+        count: properties.length,
+        shouldForceBreak
     };
 }
 
@@ -334,6 +370,47 @@ function buildPropertyNameNode(propertyKey) {
     return null;
 }
 
+function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement, precedingProperty }) {
+    const commentEntries = tracker.getEntriesBetween(left, right);
+    if (commentEntries.length === 0) {
+        return true;
+    }
+
+    if (!precedingStatement) {
+        return false;
+    }
+
+    const expectedLine = getNodeEndLine(precedingStatement);
+    if (typeof expectedLine !== "number") {
+        return false;
+    }
+
+    for (const entry of commentEntries) {
+        const comment = entry.comment;
+        if (!comment || comment.type !== "CommentLine") {
+            return false;
+        }
+
+        const commentLine = getNodeStartLine(comment);
+        if (commentLine !== expectedLine) {
+            return false;
+        }
+
+        if (comment.leadingChar === ";") {
+            comment.leadingChar = ",";
+        }
+
+        if (precedingProperty) {
+            const commentTarget = precedingProperty.value ?? precedingProperty;
+            addTrailingComment(commentTarget, comment);
+            precedingProperty._hasTrailingInlineComment = true;
+        }
+    }
+
+    tracker.consumeEntries(commentEntries);
+    return true;
+}
+
 function getPreferredLocation(primary, fallback) {
     if (isNode(primary)) {
         return primary;
@@ -385,6 +462,30 @@ function getNodeEndIndex(node) {
     return extractIndex(node.end);
 }
 
+function getNodeStartLine(node) {
+    if (!isNode(node)) {
+        return null;
+    }
+
+    if (node.start && typeof node.start.line === "number") {
+        return node.start.line;
+    }
+
+    return null;
+}
+
+function getNodeEndLine(node) {
+    if (!isNode(node)) {
+        return null;
+    }
+
+    if (node.end && typeof node.end.line === "number") {
+        return node.end.line;
+    }
+
+    return null;
+}
+
 function extractIndex(location) {
     if (location == null) {
         return null;
@@ -404,39 +505,109 @@ function isNode(value) {
 
 class CommentTracker {
     constructor(comments) {
-        this.positions = comments
-            .map(getNodeStartIndex)
-            .filter((index) => typeof index === "number")
-            .sort((a, b) => a - b);
-    }
+        this.comments = comments;
+        this.entries = comments
+            .map((comment) => {
+                const index = getNodeStartIndex(comment);
+                return typeof index === "number"
+                    ? { index, comment, consumed: false }
+                    : null;
+            })
+            .filter((entry) => entry !== null)
+            .sort((a, b) => a.index - b.index);
+}
 
     hasBetween(left, right) {
-        if (!this.positions.length || left == null || right == null || left >= right) {
+        if (!this.entries.length || left == null || right == null || left >= right) {
             return false;
         }
-        const index = this.firstGreaterThan(left);
-        return index < this.positions.length && this.positions[index] < right;
+        let index = this.firstGreaterThan(left);
+        while (index < this.entries.length) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                return false;
+            }
+            if (!entry.consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
     }
 
     hasAfter(position) {
-        if (!this.positions.length || position == null) {
+        if (!this.entries.length || position == null) {
             return false;
         }
         const index = this.firstGreaterThan(position);
-        return index < this.positions.length;
+        while (index < this.entries.length) {
+            if (!this.entries[index].consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
     }
 
     firstGreaterThan(target) {
         let low = 0;
-        let high = this.positions.length - 1;
+        let high = this.entries.length - 1;
         while (low <= high) {
             const mid = (low + high) >> 1;
-            if (this.positions[mid] <= target) {
+            if (this.entries[mid].index <= target) {
                 low = mid + 1;
             } else {
                 high = mid - 1;
             }
         }
         return low;
+    }
+
+    getEntriesBetween(left, right) {
+        if (!this.entries.length || left == null || right == null || left >= right) {
+            return [];
+        }
+
+        const startIndex = this.firstGreaterThan(left);
+        const collected = [];
+
+        for (let index = startIndex; index < this.entries.length; index++) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                break;
+            }
+            if (!entry.consumed) {
+                collected.push(entry);
+            }
+        }
+
+        return collected;
+    }
+
+    consumeEntries(entries) {
+        for (const entry of entries) {
+            entry.consumed = true;
+            if (entry.comment) {
+                entry.comment._removedByConsolidation = true;
+            }
+        }
+    }
+
+    removeConsumedComments() {
+        if (!Array.isArray(this.comments) || this.comments.length === 0) {
+            return;
+        }
+
+        let writeIndex = 0;
+        for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
+            const comment = this.comments[readIndex];
+            if (comment && comment._removedByConsolidation) {
+                continue;
+            }
+            this.comments[writeIndex] = comment;
+            writeIndex++;
+        }
+
+        this.comments.length = writeIndex;
     }
 }
