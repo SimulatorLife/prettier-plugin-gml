@@ -1,0 +1,30 @@
+name: Codex 04 – Style Consistency Pass
+on:
+  schedule:
+    - cron: "40 1 * * *" # 01:40 UTC
+    - cron: "20 5 * * *" # 05:20 UTC
+    - cron: "40 13 * * *" # 13:40 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Style Consistency Pass"
+      pr_body: "Seed PR for Codex to normalize naming and formatting conventions."
+      prompt: >
+        Pick a focused area (module, component, helper, or small file cluster) where
+        mechanical style has drifted—think indentation, spacing, casing, import/order
+        conventions, filename alignment, or mismatched naming patterns—and bring it back
+        to project standards. Normalize identifiers, comment tone/format, file headers, 
+        etc. to match established conventions, and lean on tools like Prettier/ESLint 
+        settings where possible/applicable. Avoid touching control flow or behavioural 
+        logic; those tweaks live in a separate workflow. Always ship at least one 
+        tangible correction, keep the diff small and reviewable, and ensure 
+        linters/tests still pass after the tidy-up.
