@@ -1,2 +1,4 @@
+/// @description Test for banner comment slash-count
+
 ///////// Banner comment
 var value = 1;
