@@ -39,7 +39,15 @@ same formatter. The plugin is published on npm as
 
 ### Requirements
 
-- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository ships with an `.nvmrc` file—run `nvm use` to switch to the expected runtime.
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). 
+- The repository ships with an `.nvmrc` file. Install nvm using commands:
+````bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+````
+- Then run `nvm install && nvm use` to switch to the expected runtime.
 - npm (ships with Node.js). Confirm availability with:
 
   ```bash
