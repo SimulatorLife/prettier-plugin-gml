@@ -8,10 +8,13 @@
  * @param {string} text - The text to inspect.
  * @returns {number} The count of recognised line break characters.
  */
+const LINE_BREAK_PATTERN = /\r\n|[\r\n\u2028\u2029]/g;
+
 export function getLineBreakCount(text) {
     if (typeof text !== "string" || text.length === 0) {
         return 0;
     }
 
-    return text.split(/[\r\n\u2028\u2029]/).length - 1;
+    const matches = text.match(LINE_BREAK_PATTERN);
+    return matches ? matches.length : 0;
 }

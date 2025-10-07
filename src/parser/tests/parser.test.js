@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'mocha';
 
 import GMLParser from '../src/gml-parser.js';
+import { getLineBreakCount } from '../../shared/line-breaks.js';
 
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, 'input');
@@ -110,6 +111,35 @@ describe('GameMaker parser fixtures', () => {
       hasLocationInformation(astWithoutLocations),
       false,
       'AST unexpectedly contains location metadata when getLocations is false.'
+    );
+  });
+
+  it('counts CRLF sequences as a single line break', () => {
+    assert.strictEqual(
+      getLineBreakCount('\r\n'),
+      1,
+      'Expected CRLF sequences to count as a single line break.'
+    );
+  });
+
+  it('tracks comment locations correctly when using CRLF', () => {
+    const source = '/*first\r\nsecond*/';
+    const ast = GMLParser.parse(source, {
+      getComments: true,
+      getLocations: true,
+      simplifyLocations: false,
+    });
+
+    assert.ok(ast, 'Parser returned no AST when parsing CRLF comment source.');
+    assert.ok(Array.isArray(ast.comments), 'Expected parser to return comments array.');
+    const [comment] = ast.comments;
+
+    assert.ok(comment, 'Expected at least one comment to be returned.');
+    assert.strictEqual(comment.start.line, 1, 'Comment start line should be unaffected by CRLF.');
+    assert.strictEqual(
+      comment.end.line,
+      2,
+      'Comment end line should advance by a single line for a CRLF sequence.'
     );
   });
 });
