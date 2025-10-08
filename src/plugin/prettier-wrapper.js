@@ -3,10 +3,48 @@ import path from "path";
 import process from "process";
 import fs from "fs";
 import util from "util";
+import { fileURLToPath } from "url";
 
-const targetPath = process.argv[2];
-const pluginPath = path.resolve(process.cwd(), path.join("src", "gml.js"));
-const ignorePath = path.resolve(process.cwd(), ".prettierignore");
+const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
+const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
+const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
+
+const [, , ...cliArgs] = process.argv;
+
+function resolveTargetPath(args) {
+    if (args.length === 0) {
+        return null;
+    }
+
+    for (let index = 0; index < args.length; index += 1) {
+        const arg = args[index];
+
+        if (!arg.startsWith("--")) {
+            return arg;
+        }
+
+        if (arg === "--path" && index + 1 < args.length) {
+            return args[index + 1];
+        }
+
+        if (arg.startsWith("--path=")) {
+            return arg.slice("--path=".length);
+        }
+    }
+
+    return null;
+}
+
+const targetPathInput = resolveTargetPath(cliArgs);
+
+if (!targetPathInput) {
+    console.error(
+        "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project"
+    );
+    process.exit(1);
+}
+
+const targetPath = path.resolve(process.cwd(), targetPathInput);
 
 /**
  * Prettier configuration shared by all formatted GameMaker Language files.
@@ -26,6 +64,18 @@ const writeFile = util.promisify(fs.writeFile);
 const stat = util.promisify(fs.stat);
 
 var numSkippedFiles = 0;
+
+async function ensureDirectoryExists(directory) {
+    try {
+        const directoryStats = await stat(directory);
+        if (!directoryStats.isDirectory()) {
+            throw new Error(`${directory} is not a directory`);
+        }
+    } catch (error) {
+        console.error(`Unable to access ${directory}: ${error.message}`);
+        process.exit(1);
+    }
+}
 
 async function processDirectory(directory) {
     const files = await readdir(directory);
@@ -53,5 +103,6 @@ async function processFile(filePath) {
     }
 }
 
+await ensureDirectoryExists(targetPath);
 await processDirectory(targetPath);
 console.debug(`Skipped ${numSkippedFiles} files`);

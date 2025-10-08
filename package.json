@@ -37,7 +37,8 @@
     "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
     "test": "npm run test:parser && npm run test:plugin",
     "test:parser": "cd src/parser && npm test",
-    "prettier": "cd src/plugin && npm run prettier:plugin --path=$npm_config_path",
+    "format:gml": "node ./src/plugin/prettier-wrapper.js",
+    "prettier": "npm run format:gml --",
     "test:plugin": "cd src/plugin && npm test",
     "antlr": "cd src/parser && npm run antlr",
     "example:plugin": "cd src/plugin && npm run example"
