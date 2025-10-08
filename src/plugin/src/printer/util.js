@@ -70,14 +70,19 @@ function optionalSemicolon(nodeType) {
     return nodeTypeNeedsSemicolon(nodeType) ? ";" : "";
 }
 
+// The printer hits this helper in hot loops, so prefer a switch statement over
+// re-allocating arrays on every call (see PR #110 micro-benchmark in commit
+// message).
 function isAssignmentLikeExpression(nodeType) {
-    if (!nodeType) { return false; }
-    return [
-        "AssignmentExpression",
-        "GlobalVarStatement",
-        "VariableDeclarator",
-        "Property"
-    ].includes(nodeType);
+    switch (nodeType) {
+        case "AssignmentExpression":
+        case "GlobalVarStatement":
+        case "VariableDeclarator":
+        case "Property":
+            return true;
+        default:
+            return false;
+    }
 }
 
 // these top-level statements are surrounded by empty lines by default
