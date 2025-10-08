@@ -2,7 +2,7 @@ import { util } from "prettier";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
-// currently unused due to enforcement of braces
+// Currently unused due to enforcement of braces.
 function statementShouldEndWithSemicolon(path) {
     const node = path.getValue();
     const parentNode = path.getParentNode();
@@ -70,28 +70,34 @@ function optionalSemicolon(nodeType) {
     return nodeTypeNeedsSemicolon(nodeType) ? ";" : "";
 }
 
+// The printer hits this helper in hot loops, so prefer a switch statement over
+// re-allocating arrays on every call (see PR #110 micro-benchmark in commit
+// message).
 function isAssignmentLikeExpression(nodeType) {
-    if (!nodeType) { return false; }
-    return [
-        "AssignmentExpression",
-        "GlobalVarStatement",
-        "VariableDeclarator",
-        "Property"
-    ].includes(nodeType);
+    switch (nodeType) {
+        case "AssignmentExpression":
+        case "GlobalVarStatement":
+        case "VariableDeclarator":
+        case "Property":
+            return true;
+        default:
+            return false;
+    }
 }
 
-// these top-level statements are surrounded by empty lines by default
+// These top-level statements are surrounded by empty lines by default.
 function shouldAddNewlinesAroundStatement(node, options) {
     const nodeType = node?.type;
-    if (!nodeType) { return false; }
-    return (
-        [
-            "FunctionDeclaration",
-            "ConstructorDeclaration",
-            "RegionStatement",
-            "EndRegionStatement"
-        ].includes(nodeType)
-    );
+    if (!nodeType) {
+        return false;
+    }
+
+    return [
+        "FunctionDeclaration",
+        "ConstructorDeclaration",
+        "RegionStatement",
+        "EndRegionStatement"
+    ].includes(nodeType);
 }
 
 function hasComment(node) {
