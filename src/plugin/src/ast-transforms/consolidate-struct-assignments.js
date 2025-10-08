@@ -611,23 +611,16 @@ class CommentTracker {
                 break;
             }
 
-            if (!predicate || predicate(entry.comment)) {
-                results.push(entry.comment);
-                this.entries.splice(index, 1);
+            if (predicate && !predicate(entry.comment)) {
+                index += 1;
                 continue;
             }
 
-            index++;
+            results.push(entry.comment);
+            this.entries.splice(index, 1);
         }
 
         return results;
-        while (index < this.entries.length) {
-            if (!this.entries[index].consumed) {
-                return true;
-            }
-            index++;
-        }
-        return false;
     }
 
     firstGreaterThan(target) {
