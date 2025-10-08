@@ -421,55 +421,90 @@ export function print(path, options, print) {
             applyTrigonometricFunctionSimplification(path);
             let printedArgs = [];
 
+            const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
+                ? options.maxParamsPerLine
+                : 0;
+            const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+
+            const callbackArguments = node.arguments.filter(
+                (argument) => argument?.type === "FunctionDeclaration"
+            );
+
+            const shouldForceBreakArguments =
+                (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
+                callbackArguments.length > 1;
+
             if (node.arguments.length === 0) {
                 printedArgs = [printEmptyParens(path, print, options)];
             } else if (
                 [node.arguments[0], node.arguments[node.arguments.length - 1]].some(
                     (node) =>
-                        node.type === "FunctionDeclaration" ||
-                        node.type === "StructExpression"
+                        node?.type === "FunctionDeclaration" ||
+                        node?.type === "StructExpression"
                 )
             ) {
                 // treat this function like it has a callback
-                let optionA = printDelimitedList(path, print, "arguments", "(", ")", {
+                const inlineArguments = printDelimitedList(path, print, "arguments", "(", ")", {
                     addIndent: false,
                     forceInline: true,
                     delimiter: ",",
                     allowTrailingDelimiter: options.trailingComma === "all",
                     leadingNewline: false,
-                    trailingNewline: false
+                    trailingNewline: false,
+                    maxElementsPerLine: elementsPerLineLimit
                 });
-        
-                let optionB = printDelimitedList(path, print, "arguments", "(", ")", {
+
+                const multilineArguments = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all"
+                    allowTrailingDelimiter: options.trailingComma === "all",
+                    forceBreak: shouldForceBreakArguments,
+                    maxElementsPerLine: elementsPerLineLimit
                 });
-        
-                printedArgs = [conditionalGroup([optionA, optionB])];
+
+                if (shouldForceBreakArguments) {
+                    printedArgs = [concat([breakParent, multilineArguments])];
+                } else {
+                    printedArgs = [conditionalGroup([inlineArguments, multilineArguments])];
+                }
             } else {
-                printedArgs = [printDelimitedList(path, print, "arguments", "(", ")", {
+                const callArguments = printDelimitedList(path, print, "arguments", "(", ")", {
                     delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all"
-                })];
+                    allowTrailingDelimiter: options.trailingComma === "all",
+                    forceBreak: shouldForceBreakArguments,
+                    maxElementsPerLine: elementsPerLineLimit
+                });
+
+                printedArgs = shouldForceBreakArguments
+                    ? [concat([breakParent, callArguments])]
+                    : [callArguments];
             }
-        
+
             if (isInLValueChain(path)) {
                 return concat([print("object"), ...printedArgs]);
             } else {
                 return group([indent(print("object")), ...printedArgs]);
             }
-        }                     
+        }
         case "MemberDotExpression": {
-            // return [
-            //     print("object"),
-            //     ".",
-            //     print("property")
-            // ];
             if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
-                // this dot expression is part of a call expression, so add a line break
+                const objectNode = path.getValue()?.object;
+                const shouldAllowBreakBeforeDot =
+                    objectNode &&
+                    (objectNode.type === "CallExpression" ||
+                        objectNode.type === "MemberDotExpression" ||
+                        objectNode.type === "MemberIndexExpression");
+
+                if (shouldAllowBreakBeforeDot) {
+                    return concat([
+                        print("object"),
+                        softline,
+                        ".",
+                        print("property")
+                    ]);
+                }
+
                 return concat([
                     print("object"),
-                    softline,
                     ".",
                     print("property")
                 ]);
@@ -710,7 +745,8 @@ function printDelimitedList(
         padding = "",
         addIndent = true,
         groupId = undefined,
-        forceInline = false
+        forceInline = false,
+        maxElementsPerLine = Infinity
     } = delimiterOptions
 ) {
     const lineBreak = forceBreak ? hardline : line;
@@ -718,7 +754,7 @@ function printDelimitedList(
 
     const innerDoc = [
         ifBreak(leadingNewline ? lineBreak : "", padding),
-        printElements(path, print, listKey, delimiter, lineBreak)
+        printElements(path, print, listKey, delimiter, lineBreak, maxElementsPerLine)
     ];
 
     const groupElements = [
@@ -732,7 +768,7 @@ function printDelimitedList(
     const groupElementsNoBreak = [
         startChar,
         padding,
-        printElements(path, print, listKey, delimiter, " "),
+        printElements(path, print, listKey, delimiter, " ", maxElementsPerLine),
         padding,
         endChar
     ];
@@ -765,9 +801,17 @@ function printInBlock(path, options, print, expressionKey) {
 
 // print a delimited sequence of elements
 // handles the case where a trailing comment follows a delimiter
-function printElements(path, print, listKey, delimiter, lineBreak) {
+function printElements(
+    path,
+    print,
+    listKey,
+    delimiter,
+    lineBreak,
+    maxElementsPerLine = Infinity
+) {
     const node = path.getValue();
     const finalIndex = node[listKey].length - 1;
+    let itemsSinceLastBreak = 0;
     return path.map((childPath, index) => {
         const parts = [];
         const printed = print();
@@ -781,12 +825,40 @@ function printElements(path, print, listKey, delimiter, lineBreak) {
             parts.push(separator);
         }
 
-        if (index !== finalIndex && ifBreak(lineBreak)) {
-            parts.push(lineBreak);
+        if (index !== finalIndex) {
+            const hasLimit = Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
+            itemsSinceLastBreak += 1;
+            if (hasLimit) {
+                const childNode = childPath.getValue();
+                const shouldBreakAfter =
+                    isComplexArgumentNode(childNode) ||
+                    itemsSinceLastBreak >= maxElementsPerLine;
+
+                if (shouldBreakAfter) {
+                    parts.push(lineBreak);
+                    itemsSinceLastBreak = 0;
+                } else {
+                    parts.push(" ");
+                }
+            } else {
+                parts.push(lineBreak);
+            }
         }
 
         return parts;
     }, listKey);
+}
+
+function isComplexArgumentNode(node) {
+    if (!node || typeof node.type !== "string") {
+        return false;
+    }
+
+    return (
+        node.type === "CallExpression" ||
+        node.type === "FunctionDeclaration" ||
+        node.type === "StructExpression"
+    );
 }
 
 // variation of printElements that handles semicolons and line breaks in a program or block
