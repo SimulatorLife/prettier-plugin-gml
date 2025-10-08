@@ -57,13 +57,21 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 
 ### Install
 
-1. Add Prettier and the plugin to your GameMaker project:
+1. Change into the root folder of the GameMaker project you want to format (the directory that contains your `.yyp` file).
+
+   > 💡 **Do not run the install command from this repository or another shared tooling folder.** Prettier only loads plugins
+   > that are installed next to the project you are formatting.
+
+2. Add Prettier and the plugin to your GameMaker project:
 
    ```bash
    npm install --save-dev prettier prettier-plugin-gamemaker
    ```
 
-2. Prettier 3 automatically loads local plugins. Add an explicit override if you want to pin `.gml` files to the bundled
+   If your project does not have a `package.json` yet, `npm` will create one for you. Keep the generated `node_modules`
+   folder next to your project so `npx prettier` can find the plugin later.
+
+3. Prettier 3 automatically loads local plugins. Add an explicit override if you want to pin `.gml` files to the bundled
    parser or customise options per language:
 
    ```json
@@ -82,7 +90,7 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
 
-3. Keep the package up to date alongside Prettier:
+4. Keep the package up to date alongside Prettier:
 
    ```bash
    npm outdated prettier prettier-plugin-gamemaker
@@ -93,7 +101,7 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 
 ### Format code
 
-Run Prettier from your project directory or wire it into your build scripts:
+Run Prettier from the same project directory where you installed the packages, or wire it into your build scripts:
 
 ```bash
 npx prettier --write "**/*.gml"
@@ -241,6 +249,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   npm uninstall prettier prettier-plugin-gamemaker
   npm install --save-dev prettier prettier-plugin-gamemaker
   ```
+
+- Seeing `No parser could be inferred for file ...`? Run `npm install --save-dev prettier prettier-plugin-gamemaker` from the
+  same folder that holds your GameMaker project files, then rerun Prettier from that directory so it can discover the plugin.
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
 
