@@ -346,6 +346,10 @@ export function print(path, options, print) {
             ]);
         }
         case "GlobalVarStatement":
+            if (!(options?.preserveGlobalVarStatements ?? true)) {
+                return "";
+            }
+        // fall through to shared declaration printing logic
         case "VariableDeclaration": {
             let decls = [];
             if (node.declarations.length > 1) {
@@ -902,6 +906,13 @@ function printStatements(path, options, print, childrenAttribute) {
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
+        const shouldSkipGlobalVar =
+            node?.type === "GlobalVarStatement" &&
+            printed === "" &&
+            !(options?.preserveGlobalVarStatements ?? true);
+        if (shouldSkipGlobalVar) {
+            return [];
+        }
         let semi = optionalSemicolon(node.type);
         const startProp = node?.start;
         const endProp = node?.end;

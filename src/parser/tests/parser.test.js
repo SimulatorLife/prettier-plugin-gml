@@ -170,4 +170,29 @@ describe('GameMaker parser fixtures', () => {
       'Member expression start should include the object portion.'
     );
   });
+
+  it('retains global variable declarations in the AST', () => {
+    const source = 'globalvar foo, bar;\nfoo = 1;\n';
+    const ast = parseFixture(source);
+
+    assert.ok(ast, 'Parser returned no AST when parsing globalvar source.');
+    const [globalVar] = ast.body;
+
+    assert.ok(globalVar, 'Expected a globalvar statement to be present.');
+    assert.strictEqual(
+      globalVar.type,
+      'GlobalVarStatement',
+      'Expected a GlobalVarStatement node in the AST.'
+    );
+    assert.strictEqual(globalVar.kind, 'globalvar', 'GlobalVarStatement should preserve its kind.');
+    assert.ok(
+      Array.isArray(globalVar.declarations),
+      'GlobalVarStatement should expose declarations.'
+    );
+    assert.strictEqual(globalVar.declarations.length, 2, 'Expected two global declarations.');
+    const declarationNames = globalVar.declarations.map((declaration) => {
+      return declaration?.id?.name;
+    });
+    assert.deepEqual(declarationNames, ['foo', 'bar'], 'Global declarations should retain their names.');
+  });
 });

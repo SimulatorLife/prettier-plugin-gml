@@ -278,6 +278,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   the option to keep individual assignment statements instead of collapsing them into `{property: value}` expressions.
 
 - `allowSingleLineIfStatements` (default: `true`)
+- `preserveGlobalVarStatements` (default: `true`)
 
   Keeps short `if` statements such as `if (condition) { return; }` on a single line. Set the option to `false` if you prefer
   the formatter to always expand the consequent across multiple lines.
