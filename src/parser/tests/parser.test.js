@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it } from 'mocha';
 
-import GMLParser from '../src/gml-parser.js';
+import GMLParser from '../gml-parser.js';
 import { getLineBreakCount } from '../../shared/line-breaks.js';
 import { getNodeStartIndex } from '../../shared/ast-locations.js';
 
