@@ -7,6 +7,7 @@ import { describe, it } from 'mocha';
 
 import GMLParser from '../src/gml-parser.js';
 import { getLineBreakCount } from '../../shared/line-breaks.js';
+import { getNodeStartIndex } from '../../shared/ast-locations.js';
 
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, 'input');
@@ -140,6 +141,33 @@ describe('GameMaker parser fixtures', () => {
       comment.end.line,
       2,
       'Comment end line should advance by a single line for a CRLF sequence.'
+    );
+  });
+
+  it('captures the full range of member access expressions', () => {
+    const source = 'function demo(arg = namespace.value) {\n  return arg;\n}\n';
+    const ast = parseFixture(source, {
+      options: { getLocations: true, simplifyLocations: false },
+    });
+
+    assert.ok(ast, 'Parser returned no AST when parsing member access source.');
+    const [fn] = ast.body;
+    assert.ok(fn && fn.type === 'FunctionDeclaration', 'Expected a function declaration.');
+
+    const [param] = fn.params;
+    assert.ok(param && param.type === 'DefaultParameter', 'Expected a default parameter.');
+    const memberExpression = param.right;
+    assert.ok(
+      memberExpression && memberExpression.type === 'MemberDotExpression',
+      'Expected a member access default value.'
+    );
+
+    const expectedStart = source.indexOf('namespace');
+    assert.ok(expectedStart >= 0, 'Unable to locate member expression start in source.');
+    assert.strictEqual(
+      getNodeStartIndex(memberExpression),
+      expectedStart,
+      'Member expression start should include the object portion.'
     );
   });
 });

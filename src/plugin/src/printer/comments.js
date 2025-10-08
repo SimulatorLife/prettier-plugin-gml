@@ -152,7 +152,7 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
         undefined: "undefined",
         real: "real",
         bool: "bool",
-        boolean: "bool",
+        boolean: "boolean",
         string: "string",
         array: "array",
         struct: "struct",
@@ -239,6 +239,7 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     const original = fullText || `//${comment.value}`;
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
+    const rawValue = typeof comment.value === "string" ? comment.value : "";
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
@@ -299,7 +300,49 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
         return formattedSentences.join("\n");
     }
 
+    const leadingWhitespaceMatch = rawValue.match(/^\s*/);
+    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
+    const valueWithoutTrailingWhitespace = rawValue.replace(/\s+$/, "");
+    const coreValue = valueWithoutTrailingWhitespace.slice(leadingWhitespace.length).trim();
+
+    if (coreValue.length > 0 && (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))) {
+        return applyInlinePadding(comment, `//${leadingWhitespace}${coreValue}`);
+    }
+
     return applyInlinePadding(comment, "// " + trimmedValue);
+}
+
+function looksLikeCommentedOutCode(text) {
+    if (typeof text !== "string") {
+        return false;
+    }
+
+    const trimmed = text.trim();
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    if (/^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i.test(trimmed)) {
+        return true;
+    }
+
+    if (/^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/.test(trimmed)) {
+        return true;
+    }
+
+    if (/^[{}()[\].]/.test(trimmed)) {
+        return true;
+    }
+
+    if (/^#/.test(trimmed)) {
+        return true;
+    }
+
+    if (/^@/.test(trimmed)) {
+        return true;
+    }
+
+    return false;
 }
 
 function applyInlinePadding(comment, formattedText) {

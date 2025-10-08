@@ -61,7 +61,7 @@ export function print(path, options, print) {
     switch (node.type) {
         case "Program": {
             if (node.body.length === 0) {
-                return concat(printDanglingComments(path, options, true));
+                return concat(printDanglingCommentsAsGroup(path, options, true));
             }
             return concat(printStatements(path, options, print, "body"));
         }
@@ -562,6 +562,11 @@ export function print(path, options, print) {
             }));
         }
         case "Property": {
+            const originalPrefix = getStructPropertyPrefix(node, options);
+            if (originalPrefix) {
+                return concat([originalPrefix, print("value")]);
+            }
+
             return concat([print("name"), ": ", print("value")]);
         }
         case "ArrayExpression": {
@@ -1257,14 +1262,6 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         otherLines = normalizedOtherLines;
     }
 
-    if (otherLines.length === 0) {
-        if (removedAnyLine) {
-            mergedLines._suppressLeadingBlank = true;
-        }
-
-        return mergedLines;
-    }
-
     const syntheticParamNames = new Set(
         otherLines
             .map((line) => getParamCanonicalName(line))
@@ -1326,30 +1323,21 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         ...mergedLines.slice(insertionIndex)
     ];
 
-    const functionDocs = [];
     const paramDocsByCanonical = new Map();
-    const otherDocs = [];
 
     for (const line of result) {
-        if (!line || typeof line !== "string") {
-            otherDocs.push(line);
+        if (typeof line !== "string") {
             continue;
         }
 
-        if (isFunctionLine(line)) {
-            functionDocs.push(line);
+        if (!isParamLine(line)) {
             continue;
         }
 
-        if (isParamLine(line)) {
-            const canonical = getParamCanonicalName(line);
-            if (canonical) {
-                paramDocsByCanonical.set(canonical, line);
-                continue;
-            }
+        const canonical = getParamCanonicalName(line);
+        if (canonical) {
+            paramDocsByCanonical.set(canonical, line);
         }
-
-        otherDocs.push(line);
     }
 
     const orderedParamDocs = [];
@@ -1370,11 +1358,26 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         orderedParamDocs.push(doc);
     }
 
-    result = [
-        ...functionDocs,
-        ...orderedParamDocs,
-        ...otherDocs
-    ];
+    const finalDocs = [];
+    let insertedParams = false;
+
+    for (const line of result) {
+        if (typeof line === "string" && isParamLine(line)) {
+            if (!insertedParams && orderedParamDocs.length > 0) {
+                finalDocs.push(...orderedParamDocs);
+                insertedParams = true;
+            }
+            continue;
+        }
+
+        finalDocs.push(line);
+    }
+
+    if (!insertedParams && orderedParamDocs.length > 0) {
+        finalDocs.push(...orderedParamDocs);
+    }
+
+    result = finalDocs;
 
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
@@ -1537,6 +1540,40 @@ function getSourceTextForNode(node, options) {
     }
 
     return options.originalText.slice(startIndex, endIndex).trim();
+}
+
+function getStructPropertyPrefix(node, options) {
+    if (!node || !options || typeof options.originalText !== "string") {
+        return null;
+    }
+
+    const propertyStart = getNodeStartIndex(node);
+    const valueStart = getNodeStartIndex(node?.value);
+
+    if (
+        typeof propertyStart !== "number" ||
+        typeof valueStart !== "number" ||
+        valueStart <= propertyStart
+    ) {
+        return null;
+    }
+
+    const prefix = options.originalText.slice(propertyStart, valueStart);
+    if (prefix.length === 0 || prefix.indexOf(":") === -1) {
+        return null;
+    }
+
+    const colonIndex = prefix.indexOf(":");
+    const beforeColon = prefix.slice(0, colonIndex);
+    const afterColon = prefix.slice(colonIndex + 1);
+    const hasWhitespaceBefore = /\s$/.test(beforeColon);
+    const hasWhitespaceAfter = /^\s/.test(afterColon);
+
+    if (!hasWhitespaceBefore && !hasWhitespaceAfter) {
+        return null;
+    }
+
+    return prefix;
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
