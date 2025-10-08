@@ -798,10 +798,6 @@ function printStatements(path, options, print, childrenAttribute) {
     const parentOfParent = typeof path.getParentNode === "function"
         ? path.getParentNode()
         : null;
-    const inConstructorBody =
-        parentNode?.type === "BlockStatement" &&
-        parentOfParent?.type === "ConstructorDeclaration" &&
-        childrenAttribute === "body";
     const statements = parentNode && Array.isArray(parentNode[childrenAttribute])
         ? parentNode[childrenAttribute]
         : null;
@@ -879,10 +875,8 @@ function printStatements(path, options, print, childrenAttribute) {
         const shouldOmitSemicolon =
             semi === ";" &&
             !hasTerminatingSemicolon &&
-            (
-                (syntheticDocComment && isLastStatement(childPath)) ||
-                (inConstructorBody && shouldPreserveConstructorAssignmentSemicolon(node, statements, index))
-            );
+            syntheticDocComment &&
+            isLastStatement(childPath);
 
         if (shouldOmitSemicolon) {
             semi = "";
@@ -919,47 +913,6 @@ function printStatements(path, options, print, childrenAttribute) {
 
         return parts;
     }, childrenAttribute);
-}
-
-function shouldPreserveConstructorAssignmentSemicolon(node, statements, index) {
-    if (!node || node.type !== "AssignmentExpression") {
-        return false;
-    }
-
-    const left = node.left ?? null;
-    if (!left || typeof left !== "object") {
-        return false;
-    }
-
-    const isMemberAssignment =
-        left.type === "MemberDotExpression" || left.type === "MemberIndexExpression";
-
-    if (!isMemberAssignment) {
-        return false;
-    }
-
-    if (!Array.isArray(statements) || typeof index !== "number") {
-        return false;
-    }
-
-    const hasAdjacentMemberAssignment = (offset) => {
-        const neighbor = statements[index + offset];
-        if (!neighbor || neighbor.type !== "AssignmentExpression") {
-            return false;
-        }
-
-        const neighborLeft = neighbor.left ?? null;
-        if (!neighborLeft || typeof neighborLeft !== "object") {
-            return false;
-        }
-
-        return (
-            neighborLeft.type === "MemberDotExpression" ||
-            neighborLeft.type === "MemberIndexExpression"
-        );
-    };
-
-    return hasAdjacentMemberAssignment(-1) || hasAdjacentMemberAssignment(1);
 }
 
 function applyAssignmentAlignment(statements) {
