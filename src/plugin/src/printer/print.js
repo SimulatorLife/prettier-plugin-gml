@@ -134,7 +134,7 @@ export function print(path, options, print) {
         case "SwitchCase": {
             const caseText = node.test !== null ? "case " : "default";
             const parts = [[hardline, caseText, print("test"), ":"]];
-            if (node.consequent !== null) {
+            if (Array.isArray(node.body) && node.body.length > 0) {
                 parts.push([
                     indent([
                         hardline,
