@@ -268,7 +268,7 @@ export function print(path, options, print) {
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 
-            if (shouldGenerateSyntheticDocForFunction(path)) {
+            if (shouldGenerateSyntheticDocForFunction(path, options)) {
                 docCommentDocs = mergeSyntheticDocComments(node, docCommentDocs, options);
             }
 
@@ -1130,47 +1130,119 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         return mergedLines;
     }
 
-    const syntheticParamNames = new Set(
+    const syntheticParamMap = new Map(
         otherLines
-            .map((line) => getParamCanonicalName(line))
-            .filter((name) => typeof name === "string" && name.length > 0)
+            .filter(isParamLine)
+            .map((line) => {
+                const canonical = getParamCanonicalName(line);
+                return canonical ? [canonical, line] : null;
+            })
+            .filter(Boolean)
     );
 
-    if (syntheticParamNames.size > 0) {
-        const beforeLength = mergedLines.length;
-        mergedLines = mergedLines.filter((line) => {
+    if (syntheticParamMap.size > 0) {
+        mergedLines = mergedLines.map((line) => {
             if (!isParamLine(line)) {
-                return true;
+                return line;
             }
 
             const canonical = getParamCanonicalName(line);
             if (!canonical) {
-                return false;
+                return line;
             }
 
-            return !syntheticParamNames.has(canonical);
+            const synthetic = syntheticParamMap.get(canonical);
+            if (!synthetic) {
+                return line;
+            }
+
+            const merged = mergeParamDocLines(line, synthetic);
+            syntheticParamMap.delete(canonical);
+            if (merged !== line) {
+                removedAnyLine = true;
+            }
+            return merged;
         });
-        if (mergedLines.length !== beforeLength) {
-            removedAnyLine = true;
+    }
+
+    const syntheticParamLines = [...syntheticParamMap.values()];
+    const remainingSyntheticLines = otherLines.filter((line) => !isParamLine(line));
+
+    if (syntheticParamLines.length > 0) {
+        const insertionIndex = (() => {
+            const firstNonParamIndex = mergedLines.findIndex((line) =>
+                typeof line === "string" &&
+                !isFunctionLine(line) &&
+                !isParamLine(line)
+            );
+            if (firstNonParamIndex === -1) {
+                return mergedLines.length;
+            }
+            return firstNonParamIndex;
+        })();
+
+        mergedLines = [
+            ...mergedLines.slice(0, insertionIndex),
+            ...syntheticParamLines,
+            ...mergedLines.slice(insertionIndex)
+        ];
+    }
+
+    let result = mergedLines;
+
+    if (remainingSyntheticLines.length > 0) {
+        const lastLine = result.length > 0 ? result[result.length - 1] : null;
+        const needsSeparatorBeforeOthers =
+            typeof lastLine === "string" &&
+            lastLine.trim() !== "" &&
+            !isFunctionLine(lastLine) &&
+            !isParamLine(lastLine);
+
+        if (needsSeparatorBeforeOthers) {
+            result = [...result, ""];
         }
+
+        result = [...result, ...remainingSyntheticLines];
     }
 
-    const lastLine = mergedLines.length > 0 ? mergedLines[mergedLines.length - 1] : null;
-    const needsSeparatorBeforeOthers =
-        typeof lastLine === "string" &&
-        lastLine.trim() !== "" &&
-        !isFunctionLine(lastLine);
-
-    if (needsSeparatorBeforeOthers) {
-        mergedLines = [...mergedLines, ""];
-    }
-
-    const result = [...mergedLines, ...otherLines];
     if (removedAnyLine) {
         result._suppressLeadingBlank = true;
     }
 
     return result;
+}
+
+function mergeParamDocLines(existingLine, syntheticLine) {
+    if (typeof existingLine !== "string") {
+        return syntheticLine;
+    }
+
+    if (typeof syntheticLine !== "string") {
+        return existingLine;
+    }
+
+    const syntheticMeta = parseDocCommentMetadata(syntheticLine);
+    if (!syntheticMeta || syntheticMeta.tag !== "param" || !syntheticMeta.name) {
+        return existingLine;
+    }
+
+    const pattern = /(\s*\/\/\/\s*@param)(\s*(?:\{[^}]+\}\s*)?)(\[[^\]]+\]|[^\s]+)(.*)$/i;
+    const match = existingLine.match(pattern);
+    if (!match) {
+        return syntheticLine;
+    }
+
+    const [, prefix, typeSegment = "", , remainder = ""] = match;
+    const hasType = typeSegment.length > 0;
+    const hasTrailingSpace = hasType && /\s$/.test(typeSegment);
+    const separator = hasType
+        ? hasTrailingSpace
+            ? ""
+            : " "
+        : " ";
+
+    const mergedLine = `${prefix}${typeSegment}${separator}${syntheticMeta.name}${remainder}`;
+    return normalizeDocCommentTypeAnnotations(mergedLine);
 }
 
 function computeSyntheticFunctionDocLines(node, existingDocLines, options, overrides = {}) {
@@ -1691,7 +1763,7 @@ function shouldPrefixGlobalIdentifier(path) {
     return true;
 }
 
-function shouldGenerateSyntheticDocForFunction(path) {
+function shouldGenerateSyntheticDocForFunction(path, options) {
     const node = path.getValue();
     const parent = path.getParentNode();
     if (!node || !parent || parent.type !== "Program") {
@@ -1710,9 +1782,24 @@ function shouldGenerateSyntheticDocForFunction(path) {
         return true;
     }
 
-    return Array.isArray(node.params) && node.params.some((param) => {
-        return param?.type === "DefaultParameter";
-    });
+    if (!Array.isArray(node.params) || node.params.length === 0) {
+        return false;
+    }
+
+    const bannerMinimum = getLineCommentBannerMinimum(options);
+    const existingDocLines = Array.isArray(node.docComments)
+        ? node.docComments
+            .map((comment) => formatLineComment(comment, bannerMinimum))
+            .filter((text) => typeof text === "string" && text.trim() !== "")
+        : [];
+
+    const syntheticLines = computeSyntheticFunctionDocLines(
+        node,
+        existingDocLines,
+        options
+    );
+
+    return syntheticLines.length > 0;
 }
 
 function shouldInsertHoistedLoopSeparator(path, options) {

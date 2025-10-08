@@ -224,6 +224,26 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
 
+    const docCommentMatch = trimmedOriginal.match(/^(\/{3,})(.*)$/);
+    if (docCommentMatch) {
+        const slashPrefix = docCommentMatch[1];
+        const remainder = docCommentMatch[2] ?? "";
+        const trimmedRemainder = remainder.trimStart();
+
+        if (trimmedRemainder.includes("@")) {
+            const normalizedPrefix = slashPrefix.length > 3 ? "///" : slashPrefix;
+            const needsSpace =
+                trimmedRemainder.length > 0 && !trimmedRemainder.startsWith(" ");
+            const docBody = needsSpace
+                ? ` ${trimmedRemainder}`
+                : trimmedRemainder;
+
+            let formatted = `${normalizedPrefix}${docBody}`;
+            formatted = applyJsDocReplacements(formatted);
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
 
@@ -523,6 +543,8 @@ function handleOnlyComments(comment, text, options, ast, isLastComment) {
 
         if (formatted && formatted.startsWith("///")) {
             comment.printed = true;
+            comment.leadingWS = "";
+            comment.trailingWS = comment.trailingWS ?? "";
             if (!followingNode.docComments) {
                 followingNode.docComments = [];
             }
