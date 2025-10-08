@@ -12,6 +12,10 @@ function parse(text, options) {
         simplifyLocations: false
     });
 
+    if (!ast || typeof ast !== "object") {
+        throw new Error("GameMaker parser returned no AST for the provided source.");
+    }
+
     if (options?.condenseStructAssignments ?? true) {
         return consolidateStructAssignments(ast);
     }

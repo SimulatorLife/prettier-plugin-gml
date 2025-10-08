@@ -45,8 +45,12 @@ export default class GMLParser {
         try {
             var tree = parser.program();
         } catch (error) {
-            console.error(error);
-            return null;
+            if (error) {
+                const normalisedError =
+                    error instanceof Error ? error : new Error(String(error));
+                throw normalisedError;
+            }
+            throw new Error("Unknown syntax error while parsing GML source.");
         }
 
         if (this.options.getComments) {

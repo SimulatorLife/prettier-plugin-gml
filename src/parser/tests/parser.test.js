@@ -84,12 +84,17 @@ describe('GameMaker parser fixtures', () => {
     it(`parses ${fixtureName}`, async () => {
       const source = await readFixture(fixtureName);
       const shouldFail = expectedFailures.has(fixtureName);
-      const ast = parseFixture(source, { suppressErrors: shouldFail });
 
       if (shouldFail) {
-        assert.strictEqual(ast, null, `Parser unexpectedly produced an AST for ${fixtureName}.`);
+        assert.throws(
+          () => parseFixture(source, { suppressErrors: true }),
+          /Syntax Error/,
+          `Parser unexpectedly produced an AST for ${fixtureName}.`
+        );
         return;
       }
+
+      const ast = parseFixture(source);
 
       assert.ok(ast, `Parser returned no AST for ${fixtureName}.`);
       assert.strictEqual(ast.type, 'Program', `Unexpected root node type for ${fixtureName}.`);
