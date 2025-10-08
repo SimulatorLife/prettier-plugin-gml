@@ -5,8 +5,8 @@ function bool_passthrough(condition) {
 }
 
 /// @function bool_negated
-/// @param a
-/// @param b
+/// @param {boolean} a - The first boolean
+/// @param {boolean} b - The second boolean
 function bool_negated(a, b) {
     return !(a and b);
 }
