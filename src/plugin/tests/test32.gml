@@ -1,3 +1,5 @@
+/// @description States
+
 // Define states
 states.add_state(
     "opening",
@@ -31,3 +33,9 @@ states.add_state(
         time_source_stop(ts_spray_coins); // stop this time source
     }
 );
+
+//global.rain_controller.draw();
+//if (room == rm_island) {
+//	//global.spart_controller.draw();
+//}
+//global.part_controller.draw();

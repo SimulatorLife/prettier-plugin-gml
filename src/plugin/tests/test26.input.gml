@@ -4,7 +4,7 @@ function greet() {
         return greeting + ", " + name;
 }
 
-var message1 = greet();
+var message1 = greet();;;
 var message2 = greet("Alice");
 var message3 = greet("Bob", "Howdy");
 var message4 = greet("Chaz");
