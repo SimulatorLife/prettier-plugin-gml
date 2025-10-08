@@ -472,7 +472,7 @@ function cloneLocation(location) {
     if (!isNode(location)) {
         return location ?? null;
     }
-    return { ...location };
+    return structuredClone(location);
 }
 
 function getNodeEndLine(node) {
