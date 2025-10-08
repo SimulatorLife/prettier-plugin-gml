@@ -235,8 +235,7 @@ The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` fi
 }
 ```
 
-Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list. See
-[`TASKS.md`](./TASKS.md) for open formatter improvements you can help with.
+Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
 
 #### Plugin-specific options
 
