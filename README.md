@@ -277,6 +277,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Merges consecutive property assignments on the same struct into a single struct literal when it is safe to do so. Disable
   the option to keep individual assignment statements instead of collapsing them into `{property: value}` expressions.
 
+- `allowSingleLineIfStatements` (default: `true`)
+
+  Keeps short `if` statements such as `if (condition) { return; }` on a single line. Set the option to `false` if you prefer
+  the formatter to always expand the consequent across multiple lines.
+
 - `arrayLengthHoistFunctionSuffixes` (default: empty string)
 
   Override the suffix that the cached loop variable receives for specific size-retrieval functions, or disable hoisting for a
