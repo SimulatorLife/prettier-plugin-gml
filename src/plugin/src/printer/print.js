@@ -905,7 +905,7 @@ function printStatements(path, options, print, childrenAttribute) {
         ? parentNode[childrenAttribute]
         : null;
     if (statements) {
-        applyAssignmentAlignment(statements);
+        applyAssignmentAlignment(statements, options);
     }
 
     const syntheticDocByNode = new Map();
@@ -1024,11 +1024,19 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-function applyAssignmentAlignment(statements) {
+function applyAssignmentAlignment(statements, options) {
+    const minGroupSize = getAssignmentAlignmentMinimum(options);
     let currentGroup = [];
 
     const flushGroup = () => {
-        if (currentGroup.length <= 2) {
+        if (currentGroup.length === 0) {
+            currentGroup = [];
+            return;
+        }
+
+        const shouldAlign = minGroupSize > 0 && currentGroup.length >= minGroupSize;
+
+        if (!shouldAlign) {
             currentGroup.forEach((node) => {
                 node._alignAssignmentPadding = 0;
             });
@@ -1052,6 +1060,20 @@ function applyAssignmentAlignment(statements) {
     }
 
     flushGroup();
+}
+
+function getAssignmentAlignmentMinimum(options) {
+    const rawValue = options?.alignAssignmentsMinGroupSize;
+    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+        return 3;
+    }
+
+    const normalized = Math.floor(rawValue);
+    if (normalized <= 0) {
+        return 0;
+    }
+
+    return normalized;
 }
 
 function isSimpleAssignment(node) {

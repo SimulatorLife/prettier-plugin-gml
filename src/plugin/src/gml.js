@@ -87,6 +87,15 @@ export const options = {
         description:
             "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling.",
     },
+    alignAssignmentsMinGroupSize: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 3,
+        range: { start: 0, end: Infinity },
+        description:
+            "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely.",
+    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
@@ -108,6 +117,7 @@ export const defaultOptions = {
     arrayLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
+    alignAssignmentsMinGroupSize: 3,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
     preserveGlobalVarStatements: true

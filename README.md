@@ -309,6 +309,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   — `function_name:suffix` also works if you prefer colons. Use `-` in place of a suffix to remove a function from the optimization
   list (e.g. `array_length=-`).
 
+- `alignAssignmentsMinGroupSize` (default: `3`)
+
+  Aligns the `=` operator across consecutive simple assignments once at least this many statements appear back-to-back. Increase
+  the value to require larger groups before alignment happens, or set it to `0` to disable the alignment pass entirely.
+
 - `lineCommentBannerMinimumSlashes` (default: `5`)
 
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
