@@ -178,4 +178,40 @@ describe('Prettier GameMaker plugin fixtures', () => {
       }
     });
   }
+
+  it("preserves 'globalvar' declarations by default", async () => {
+    const source = [
+      'globalvar foo, bar;',
+      'foo = 1;',
+      'bar = 2;',
+      '',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+      /globalvar foo, bar;/.test(formatted),
+      "Expected formatted output to retain the 'globalvar' declaration."
+    );
+    assert.ok(
+      /global\.foo = 1;/.test(formatted) && /global\.bar = 2;/.test(formatted),
+      "Expected formatter to continue prefixing global assignments."
+    );
+  });
+
+  it("can elide 'globalvar' declarations when disabled", async () => {
+    const source = [
+      'globalvar foo, bar;',
+      'foo = 1;',
+      'bar = 2;',
+      '',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source, { preserveGlobalVarStatements: false });
+
+    assert.ok(
+      !/globalvar\s+foo,\s*bar;/.test(formatted),
+      "Expected formatter to omit 'globalvar' declarations when disabled."
+    );
+  });
 });

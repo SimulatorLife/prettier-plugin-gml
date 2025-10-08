@@ -282,6 +282,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Keeps short `if` statements such as `if (condition) { return; }` on a single line. Set the option to `false` if you prefer
   the formatter to always expand the consequent across multiple lines.
 
+- `preserveGlobalVarStatements` (default: `true`)
+
+  Keeps `globalvar` declarations in the formatted output while still prefixing subsequent assignments with `global.`. Set the
+  option to `false` if you prefer to omit the declarations entirely.
+
 - `arrayLengthHoistFunctionSuffixes` (default: empty string)
 
   Override the suffix that the cached loop variable receives for specific size-retrieval functions, or disable hoisting for a

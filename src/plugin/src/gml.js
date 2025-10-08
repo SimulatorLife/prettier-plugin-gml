@@ -62,6 +62,13 @@ export const options = {
         description:
             "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines.",
     },
+    preserveGlobalVarStatements: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description: "Preserve 'globalvar' declarations instead of eliding them during formatting.",
+    },
     lineCommentBannerMinimumSlashes: {
         since: "0.0.0",
         type: "int",
@@ -102,6 +109,7 @@ export const defaultOptions = {
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
     maxParamsPerLine: 0,
-    allowSingleLineIfStatements: true
+    allowSingleLineIfStatements: true,
+    preserveGlobalVarStatements: true
 };
 
