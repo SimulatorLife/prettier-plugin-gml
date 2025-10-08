@@ -538,25 +538,45 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#globalVarStatement.
     visitGlobalVarStatement(ctx) {
-        const identifiers = ctx.identifier().map((identifierCtx) => {
-            const identifier = this.visit(identifierCtx);
-            if (identifier && identifier.type === "Identifier" && identifier.name) {
-                identifier.isGlobalIdentifier = true;
-                this.globalIdentifiers.add(identifier.name);
-            }
-            return identifier;
-        });
+        const identifierContexts = ctx.identifier();
 
-        if (identifiers.length > 0) {
-            // Ensure that any future references to these identifiers are marked as global.
-            identifiers
-                .filter((identifier) => identifier && identifier.name)
-                .forEach((identifier) => {
+        const declarations = identifierContexts
+            .map((identifierCtx) => {
+                const identifier = this.visit(identifierCtx);
+
+                if (identifier && identifier.type === "Identifier" && identifier.name) {
+                    identifier.isGlobalIdentifier = true;
                     this.globalIdentifiers.add(identifier.name);
+                }
+
+                if (!identifier) {
+                    return null;
+                }
+
+                return this.astNode(identifierCtx, {
+                    type: "VariableDeclarator",
+                    id: identifier,
+                    init: null
                 });
+            })
+            .filter((declarator) => declarator !== null);
+
+        if (declarations.length === 0) {
+            return null;
         }
 
-        return null;
+        declarations
+            .map((declarator) => declarator?.id)
+            .filter((identifier) => identifier && identifier.name)
+            .forEach((identifier) => {
+                this.globalIdentifiers.add(identifier.name);
+            });
+
+        return this.astNode(ctx, {
+            type: "GlobalVarStatement",
+            declarations,
+            kind: "globalvar"
+        });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#LValueExpression.
