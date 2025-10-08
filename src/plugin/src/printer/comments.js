@@ -206,8 +206,24 @@ function printComment(commentPath, options) {
             const rawText = comment.leadingText || comment.raw || `//${comment.value}`;
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
-            if (bannerMatch && bannerMatch[1].length >= bannerMinimum) {
-                return applyInlinePadding(comment, rawText.trim());
+            if (bannerMatch) {
+                const slashRun = bannerMatch[1];
+                const slashCount = slashRun.length;
+                if (slashCount >= bannerMinimum) {
+                    return applyInlinePadding(comment, rawText.trim());
+                }
+
+                const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
+                const remainderTrimmed = remainder.trimStart();
+                if (
+                    slashCount >= 4 &&
+                    bannerMinimum > slashCount &&
+                    remainderTrimmed.length > 0 &&
+                    !remainderTrimmed.startsWith("@")
+                ) {
+                    const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
+                    return applyInlinePadding(comment, padded.trimEnd());
+                }
             }
 
             return formatLineComment(comment, bannerMinimum);

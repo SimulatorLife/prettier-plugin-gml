@@ -268,7 +268,7 @@ export function print(path, options, print) {
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 
-            if (shouldGenerateSyntheticDocForFunction(path)) {
+            if (shouldGenerateSyntheticDocForFunction(path, docCommentDocs, options)) {
                 docCommentDocs = mergeSyntheticDocComments(node, docCommentDocs, options);
             }
 
@@ -795,6 +795,13 @@ function printStatements(path, options, print, childrenAttribute) {
     let currentHadNewlineAddedBefore = false; // tracks newline added before the current node
 
     const parentNode = path.getValue();
+    const parentOfParent = typeof path.getParentNode === "function"
+        ? path.getParentNode()
+        : null;
+    const inConstructorBody =
+        parentNode?.type === "BlockStatement" &&
+        parentOfParent?.type === "ConstructorDeclaration" &&
+        childrenAttribute === "body";
     const statements = parentNode && Array.isArray(parentNode[childrenAttribute])
         ? parentNode[childrenAttribute]
         : null;
@@ -857,18 +864,28 @@ function printStatements(path, options, print, childrenAttribute) {
         if (syntheticDocComment) {
             parts.push(syntheticDocComment);
             parts.push(hardline);
-            const originalText = options.originalText || "";
-            let hasTerminatingSemicolon = originalText[nodeEndIndex] === ";";
-            if (!hasTerminatingSemicolon) {
-                let cursor = nodeEndIndex + 1;
-                while (cursor < originalText.length && /\s/.test(originalText[cursor])) {
-                    cursor++;
-                }
-                hasTerminatingSemicolon = originalText[cursor] === ";";
+        }
+
+        const originalText = options.originalText || "";
+        let hasTerminatingSemicolon = originalText[nodeEndIndex] === ";";
+        if (!hasTerminatingSemicolon) {
+            let cursor = nodeEndIndex + 1;
+            while (cursor < originalText.length && /\s/.test(originalText[cursor])) {
+                cursor++;
             }
-            if (!hasTerminatingSemicolon && isLastStatement(childPath)) {
-                semi = "";
-            }
+            hasTerminatingSemicolon = originalText[cursor] === ";";
+        }
+
+        const shouldOmitSemicolon =
+            semi === ";" &&
+            !hasTerminatingSemicolon &&
+            (
+                (syntheticDocComment && isLastStatement(childPath)) ||
+                (inConstructorBody && shouldPreserveConstructorAssignmentSemicolon(node, statements, index))
+            );
+
+        if (shouldOmitSemicolon) {
+            semi = "";
         }
 
         // Print the statement
@@ -902,6 +919,47 @@ function printStatements(path, options, print, childrenAttribute) {
 
         return parts;
     }, childrenAttribute);
+}
+
+function shouldPreserveConstructorAssignmentSemicolon(node, statements, index) {
+    if (!node || node.type !== "AssignmentExpression") {
+        return false;
+    }
+
+    const left = node.left ?? null;
+    if (!left || typeof left !== "object") {
+        return false;
+    }
+
+    const isMemberAssignment =
+        left.type === "MemberDotExpression" || left.type === "MemberIndexExpression";
+
+    if (!isMemberAssignment) {
+        return false;
+    }
+
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return false;
+    }
+
+    const hasAdjacentMemberAssignment = (offset) => {
+        const neighbor = statements[index + offset];
+        if (!neighbor || neighbor.type !== "AssignmentExpression") {
+            return false;
+        }
+
+        const neighborLeft = neighbor.left ?? null;
+        if (!neighborLeft || typeof neighborLeft !== "object") {
+            return false;
+        }
+
+        return (
+            neighborLeft.type === "MemberDotExpression" ||
+            neighborLeft.type === "MemberIndexExpression"
+        );
+    };
+
+    return hasAdjacentMemberAssignment(-1) || hasAdjacentMemberAssignment(1);
 }
 
 function applyAssignmentAlignment(statements) {
@@ -1042,7 +1100,7 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
     const functionLines = syntheticLines.filter(isFunctionLine);
-    const otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
 
     const getParamCanonicalName = (line) => {
         const metadata = parseDocCommentMetadata(line);
@@ -1050,24 +1108,7 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
             return null;
         }
 
-        let name = metadata.name;
-        if (typeof name !== "string") {
-            return null;
-        }
-
-        let trimmed = name.trim();
-        const bracketMatch = trimmed.match(/^\[(.*)]$/);
-        if (bracketMatch) {
-            trimmed = bracketMatch[1] ?? "";
-        }
-
-        const equalsIndex = trimmed.indexOf("=");
-        if (equalsIndex !== -1) {
-            trimmed = trimmed.slice(0, equalsIndex);
-        }
-
-        const normalized = normalizeDocMetadataName(trimmed.trim());
-        return normalized && normalized.length > 0 ? normalized : null;
+        return getCanonicalParamNameFromText(metadata.name);
     };
 
     let mergedLines = existingDocLines.slice();
@@ -1119,7 +1160,44 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
             ];
+            removedAnyLine = true;
         }
+    }
+
+    const paramLineIndices = new Map();
+    mergedLines.forEach((line, index) => {
+        if (!isParamLine(line)) {
+            return;
+        }
+
+        const canonical = getParamCanonicalName(line);
+        if (canonical) {
+            paramLineIndices.set(canonical, index);
+        }
+    });
+
+    if (otherLines.length > 0) {
+        const normalizedOtherLines = [];
+
+        for (const line of otherLines) {
+            const metadata = parseDocCommentMetadata(line);
+            const canonical = getParamCanonicalName(line);
+
+            if (canonical && paramLineIndices.has(canonical) && metadata?.name) {
+                const lineIndex = paramLineIndices.get(canonical);
+                const existingLine = mergedLines[lineIndex];
+                const updatedLine = updateParamLineWithDocName(existingLine, metadata.name);
+                if (updatedLine !== existingLine) {
+                    mergedLines[lineIndex] = updatedLine;
+                    removedAnyLine = true;
+                }
+                continue;
+            }
+
+            normalizedOtherLines.push(line);
+        }
+
+        otherLines = normalizedOtherLines;
     }
 
     if (otherLines.length === 0) {
@@ -1155,22 +1233,137 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         }
     }
 
-    const lastLine = mergedLines.length > 0 ? mergedLines[mergedLines.length - 1] : null;
-    const needsSeparatorBeforeOthers =
-        typeof lastLine === "string" &&
-        lastLine.trim() !== "" &&
-        !isFunctionLine(lastLine);
+    const findLastFunctionIndex = () => {
+        for (let index = mergedLines.length - 1; index >= 0; index -= 1) {
+            if (isFunctionLine(mergedLines[index])) {
+                return index;
+            }
+        }
+        return -1;
+    };
 
-    if (needsSeparatorBeforeOthers) {
-        mergedLines = [...mergedLines, ""];
+    const lastFunctionIndex = findLastFunctionIndex();
+    let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
+
+    if (lastFunctionIndex === -1) {
+        while (
+            insertionIndex < mergedLines.length &&
+            typeof mergedLines[insertionIndex] === "string" &&
+            mergedLines[insertionIndex].trim() === ""
+        ) {
+            insertionIndex += 1;
+        }
     }
 
-    const result = [...mergedLines, ...otherLines];
-    if (removedAnyLine) {
+    while (
+        insertionIndex < mergedLines.length &&
+        typeof mergedLines[insertionIndex] === "string" &&
+        isParamLine(mergedLines[insertionIndex])
+    ) {
+        insertionIndex += 1;
+    }
+
+    let result = [
+        ...mergedLines.slice(0, insertionIndex),
+        ...otherLines,
+        ...mergedLines.slice(insertionIndex)
+    ];
+
+    const functionDocs = [];
+    const paramDocsByCanonical = new Map();
+    const otherDocs = [];
+
+    for (const line of result) {
+        if (!line || typeof line !== "string") {
+            otherDocs.push(line);
+            continue;
+        }
+
+        if (isFunctionLine(line)) {
+            functionDocs.push(line);
+            continue;
+        }
+
+        if (isParamLine(line)) {
+            const canonical = getParamCanonicalName(line);
+            if (canonical) {
+                paramDocsByCanonical.set(canonical, line);
+                continue;
+            }
+        }
+
+        otherDocs.push(line);
+    }
+
+    const orderedParamDocs = [];
+    if (Array.isArray(node.params)) {
+        for (const param of node.params) {
+            const paramInfo = getParameterDocInfo(param, node, options);
+            const canonical = paramInfo?.name
+                ? getCanonicalParamNameFromText(paramInfo.name)
+                : null;
+            if (canonical && paramDocsByCanonical.has(canonical)) {
+                orderedParamDocs.push(paramDocsByCanonical.get(canonical));
+                paramDocsByCanonical.delete(canonical);
+            }
+        }
+    }
+
+    for (const doc of paramDocsByCanonical.values()) {
+        orderedParamDocs.push(doc);
+    }
+
+    result = [
+        ...functionDocs,
+        ...orderedParamDocs,
+        ...otherDocs
+    ];
+
+    if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
     }
 
     return result;
+}
+
+function getCanonicalParamNameFromText(name) {
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    let trimmed = name.trim();
+    const bracketMatch = trimmed.match(/^\[([^\]]+)]$/);
+    if (bracketMatch) {
+        trimmed = bracketMatch[1] ?? "";
+    }
+
+    const equalsIndex = trimmed.indexOf("=");
+    if (equalsIndex !== -1) {
+        trimmed = trimmed.slice(0, equalsIndex);
+    }
+
+    const normalized = normalizeDocMetadataName(trimmed.trim());
+    return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function updateParamLineWithDocName(line, newDocName) {
+    if (typeof line !== "string" || typeof newDocName !== "string") {
+        return line;
+    }
+
+    const prefixMatch = line.match(/^(\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)/i);
+    if (!prefixMatch) {
+        return `/// @param ${newDocName}`;
+    }
+
+    const prefix = prefixMatch[0];
+    const remainder = line.slice(prefix.length);
+    if (remainder.length === 0) {
+        return `${prefix}${newDocName}`;
+    }
+
+    const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
+    return `${prefix}${updatedRemainder}`;
 }
 
 function computeSyntheticFunctionDocLines(node, existingDocLines, options, overrides = {}) {
@@ -1190,12 +1383,20 @@ function computeSyntheticFunctionDocLines(node, existingDocLines, options, overr
             typeof meta.name === "string" &&
             meta.name.trim().length > 0
     );
-    const documentedParams = new Set(
-        metadata
-            .filter((meta) => meta.tag === "param")
-            .map((meta) => meta.name)
-            .filter((name) => typeof name === "string" && name.length > 0)
-    );
+    const documentedParamNames = new Set();
+
+    for (const meta of metadata) {
+        if (meta.tag !== "param") {
+            continue;
+        }
+
+        const rawName = typeof meta.name === "string" ? meta.name : null;
+        if (!rawName) {
+            continue;
+        }
+
+        documentedParamNames.add(rawName);
+    }
 
     const lines = [];
     const overrideName = overrides?.nameOverride;
@@ -1215,10 +1416,11 @@ function computeSyntheticFunctionDocLines(node, existingDocLines, options, overr
             continue;
         }
         const docName = paramInfo.optional ? `[${paramInfo.name}]` : paramInfo.name;
-        if (documentedParams.has(docName)) {
+        const canonicalName = getCanonicalParamNameFromText(docName);
+        if (documentedParamNames.has(docName)) {
             continue;
         }
-        documentedParams.add(docName);
+        documentedParamNames.add(docName);
         lines.push(`/// @param ${docName}`);
     }
 
@@ -1691,7 +1893,7 @@ function shouldPrefixGlobalIdentifier(path) {
     return true;
 }
 
-function shouldGenerateSyntheticDocForFunction(path) {
+function shouldGenerateSyntheticDocForFunction(path, existingDocLines, options) {
     const node = path.getValue();
     const parent = path.getParentNode();
     if (!node || !parent || parent.type !== "Program") {
@@ -1706,7 +1908,13 @@ function shouldGenerateSyntheticDocForFunction(path) {
         return false;
     }
 
-    if (!hasExistingDocComment(node)) {
+    const syntheticLines = computeSyntheticFunctionDocLines(
+        node,
+        existingDocLines,
+        options
+    );
+
+    if (syntheticLines.length > 0) {
         return true;
     }
 
@@ -1754,25 +1962,6 @@ function shouldInsertHoistedLoopSeparator(path, options) {
     }
 
     return false;
-}
-
-function hasExistingDocComment(node) {
-    if (!node) {
-        return false;
-    }
-
-    if (!Array.isArray(node.docComments) || node.docComments.length === 0) {
-        return false;
-    }
-
-    return node.docComments.some((comment) => {
-        const formatted = formatLineComment(comment);
-        if (typeof formatted !== "string") {
-            return false;
-        }
-
-        return formatted.trim().startsWith("///");
-    });
 }
 
 function getNodeName(node) {
