@@ -267,18 +267,11 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
-        if (remainder.startsWith("/")) {
-            // comments like "// comment" should stay as regular comments
-        } else {
-            const remainderHasWordCharacters = /\w/.test(remainder);
-            const separator = remainder.length === 0
-                ? ""
-                : remainderHasWordCharacters
-                    ? " "
-                    : "";
-
-            let formatted = `///${separator}${remainder}`;
-            formatted = applyJsDocReplacements(formatted);
+        // comments like "// comment" should stay as regular comments, so bail out when the
+        // remainder begins with another slash
+        if (!remainder.startsWith("/")) {
+            const shouldInsertSpace = remainder.length > 0 && /\w/.test(remainder);
+            const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${remainder}`);
             return applyInlinePadding(comment, formatted);
         }
     }
