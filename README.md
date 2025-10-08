@@ -18,6 +18,7 @@ same formatter. The plugin is not yet published on npm; install it straight from
   - [Requirements](#requirements)
   - [Install](#install)
   - [Format code](#format-code)
+  - [Format with a local clone](#format-with-a-local-clone)
   - [Optional: global install](#optional-global-install)
   - [Validate your setup](#validate-your-setup)
 - [Usage tips](#usage-tips)
@@ -64,8 +65,12 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 2. Add Prettier, the plugin, and the parser runtime to your GameMaker project:
 
    ```bash
-   npm install --save-dev prettier antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
+   npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
    ```
+
+   - Quoting the dependency strings prevents shells such as `zsh` from treating the `^` character as a glob.
+   - If `npm` reports an `EBADENGINE` warning or refuses to install, upgrade to a supported Node.js release (18.18.0+, 20.9.0+, or
+     21.1.0+). `nvm install --lts` is an easy way to pull the latest compatible runtime.
 
    If your project does not have a `package.json` yet, `npm` will create one for you. Keep the generated `node_modules`
    folder next to your project so the Git-based install remains discoverable. The Git dependency will appear in
@@ -146,17 +151,39 @@ with (enemy) {
 }
 ```
 
+### Format with a local clone
+
+If you already have this repository cloned, you can run the bundled formatter against any GameMaker project without installing
+additional dependencies alongside that project:
+
+1. Install the workspace dependencies once:
+
+   ```bash
+   npm install
+   ```
+
+2. Format your GameMaker project by passing its directory to the helper script:
+
+   ```bash
+   npm run format:gml -- --path "/absolute/path/to/MyGameProject"
+   ```
+
+   The path can be absolute or relative to this repository. The script loads Prettier and the plugin from the clone, writes
+   formatted output back to the target project, and leaves that project’s `package.json` untouched.
+
 ### Optional: global install
 
 Prefer a machine-wide setup? Install the packages globally and call `prettier` from anywhere:
 
 ```bash
-npm install --global --save-exact prettier antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
+npm install --global --save-exact prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
 prettier --plugin="$(npm root -g)/root/src/plugin/src/gml.js" --write "**/*.gml"
 ```
 
 Global installs skip your project `node_modules`, so keep versions in sync to avoid inconsistent formatting. Substitute the
-Windows or macOS equivalent of `$(npm root -g)` if your shell does not support command substitution.
+Windows or macOS equivalent of `$(npm root -g)` if your shell does not support command substitution. If the global install fails
+with an `ENOTDIR` error mentioning `node_modules/root`, clear any stale `root` entries created by previous attempts and rerun the
+command.
 
 ### Validate your setup
 
@@ -265,11 +292,12 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
   ```bash
   npm uninstall prettier antlr4 root
-  npm install --save-dev prettier antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
+  npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
   ```
 
 - Seeing `No parser could be inferred for file ...`? Ensure you installed the plugin from the GameMaker project directory and
   pass the plugin path to the CLI (for example `--plugin=./node_modules/root/src/plugin/src/gml.js`).
+- Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
 
