@@ -84,7 +84,7 @@ async function processDirectory(directory) {
         const stats = await stat(filePath);
         if (stats.isDirectory()) {
             await processDirectory(filePath);
-        } else if (path.extname(filePath) === ".gml") {
+        } else if (path.extname(filePath).toLowerCase() === ".gml") {
             await processFile(filePath);
         } else {
             skippedFileCount += 1;
