@@ -63,7 +63,7 @@ const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const stat = util.promisify(fs.stat);
 
-var numSkippedFiles = 0;
+let skippedFileCount = 0;
 
 async function ensureDirectoryExists(directory) {
     try {
@@ -87,7 +87,7 @@ async function processDirectory(directory) {
         } else if (path.extname(filePath) === ".gml") {
             await processFile(filePath);
         } else {
-            numSkippedFiles++;
+            skippedFileCount += 1;
         }
     }
 }
@@ -105,4 +105,4 @@ async function processFile(filePath) {
 
 await ensureDirectoryExists(targetPath);
 await processDirectory(targetPath);
-console.debug(`Skipped ${numSkippedFiles} files`);
+console.debug(`Skipped ${skippedFileCount} files`);
