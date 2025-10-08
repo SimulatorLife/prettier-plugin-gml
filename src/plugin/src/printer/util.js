@@ -2,7 +2,7 @@ import { util } from "prettier";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
-// currently unused due to enforcement of braces
+// Currently unused due to enforcement of braces.
 function statementShouldEndWithSemicolon(path) {
     const node = path.getValue();
     const parentNode = path.getParentNode();
@@ -85,18 +85,19 @@ function isAssignmentLikeExpression(nodeType) {
     }
 }
 
-// these top-level statements are surrounded by empty lines by default
+// These top-level statements are surrounded by empty lines by default.
 function shouldAddNewlinesAroundStatement(node, options) {
     const nodeType = node?.type;
-    if (!nodeType) { return false; }
-    return (
-        [
-            "FunctionDeclaration",
-            "ConstructorDeclaration",
-            "RegionStatement",
-            "EndRegionStatement"
-        ].includes(nodeType)
-    );
+    if (!nodeType) {
+        return false;
+    }
+
+    return [
+        "FunctionDeclaration",
+        "ConstructorDeclaration",
+        "RegionStatement",
+        "EndRegionStatement"
+    ].includes(nodeType);
 }
 
 function hasComment(node) {
