@@ -892,6 +892,11 @@ function printStatements(path, options, print, childrenAttribute) {
         }
     }
 
+    // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
+    const locStart = typeof options.locStart === "function" ? options.locStart : null;
+    const locEnd = typeof options.locEnd === "function" ? options.locEnd : null;
+    const originalTextCache = options.originalText;
+
     return path.map((childPath, index) => {
         const parts = [];
         const node = childPath.getValue();
@@ -906,12 +911,8 @@ function printStatements(path, options, print, childrenAttribute) {
         const fallbackEnd = typeof endProp === "number"
             ? endProp
             : (typeof endProp?.index === "number" ? endProp.index : fallbackStart);
-        const nodeStartIndex = typeof options.locStart === "function"
-            ? options.locStart(node)
-            : fallbackStart;
-        const nodeEndIndex = typeof options.locEnd === "function"
-            ? options.locEnd(node) - 1
-            : fallbackEnd;
+        const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+        const nodeEndIndex = locEnd ? locEnd(node) - 1 : fallbackEnd;
 
         const currentNodeRequiresNewline = shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
@@ -921,7 +922,7 @@ function printStatements(path, options, print, childrenAttribute) {
         // Check if a newline should be added BEFORE the statement
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
             const hasLeadingComment = isTopLevel
-                ? hasCommentImmediatelyBefore(options.originalText, nodeStartIndex)
+                ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
                 : false;
 
             if (isTopLevel &&
@@ -939,14 +940,14 @@ function printStatements(path, options, print, childrenAttribute) {
             parts.push(hardline);
         }
 
-        const originalText = options.originalText || "";
-        let hasTerminatingSemicolon = originalText[nodeEndIndex] === ";";
+        const textForSemicolons = originalTextCache || "";
+        let hasTerminatingSemicolon = textForSemicolons[nodeEndIndex] === ";";
         if (!hasTerminatingSemicolon) {
             let cursor = nodeEndIndex + 1;
-            while (cursor < originalText.length && /\s/.test(originalText[cursor])) {
+            while (cursor < textForSemicolons.length && /\s/.test(textForSemicolons[cursor])) {
                 cursor++;
             }
-            hasTerminatingSemicolon = originalText[cursor] === ";";
+            hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
         const shouldOmitSemicolon =
