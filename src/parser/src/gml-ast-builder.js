@@ -540,7 +540,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitGlobalVarStatement(ctx) {
         const identifierContexts = ctx.identifier();
 
-        const declarators = identifierContexts
+        const declarations = identifierContexts
             .map((identifierCtx) => {
                 const identifier = this.visit(identifierCtx);
 
@@ -561,18 +561,20 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             })
             .filter((declarator) => declarator !== null);
 
-        if (declarators.length > 0) {
-            declarators
-                .map((declarator) => declarator?.id)
-                .filter((identifier) => identifier && identifier.name)
-                .forEach((identifier) => {
-                    this.globalIdentifiers.add(identifier.name);
-                });
+        if (declarations.length === 0) {
+            return null;
         }
+
+        declarations
+            .map((declarator) => declarator?.id)
+            .filter((identifier) => identifier && identifier.name)
+            .forEach((identifier) => {
+                this.globalIdentifiers.add(identifier.name);
+            });
 
         return this.astNode(ctx, {
             type: "GlobalVarStatement",
-            declarations: declarators,
+            declarations,
             kind: "globalvar"
         });
     }

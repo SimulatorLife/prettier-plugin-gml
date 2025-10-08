@@ -171,28 +171,22 @@ describe('GameMaker parser fixtures', () => {
     );
   });
 
-  it('retains global variable declarations in the AST', () => {
+  it("retains 'globalvar' declarations in the AST", () => {
     const source = 'globalvar foo, bar;\nfoo = 1;\n';
-    const ast = parseFixture(source);
+    const ast = parseFixture(source, { options: { getLocations: true } });
 
     assert.ok(ast, 'Parser returned no AST when parsing globalvar source.');
-    const [globalVar] = ast.body;
+    const [statement] = ast.body;
 
-    assert.ok(globalVar, 'Expected a globalvar statement to be present.');
-    assert.strictEqual(
-      globalVar.type,
-      'GlobalVarStatement',
-      'Expected a GlobalVarStatement node in the AST.'
+    assert.ok(statement, 'Expected a globalvar statement to be present.');
+    assert.strictEqual(statement.type, 'GlobalVarStatement', 'Expected a GlobalVarStatement node in the AST.');
+    assert.strictEqual(statement.kind, 'globalvar', "GlobalVarStatement should preserve the 'globalvar' keyword.");
+    assert.ok(Array.isArray(statement.declarations), 'GlobalVarStatement should expose declarations.');
+    assert.strictEqual(statement.declarations.length, 2, 'Expected two global declarations.');
+    assert.deepStrictEqual(
+      statement.declarations.map((declaration) => declaration?.id?.name),
+      ['foo', 'bar'],
+      'Global declarations should retain their names.'
     );
-    assert.strictEqual(globalVar.kind, 'globalvar', 'GlobalVarStatement should preserve its kind.');
-    assert.ok(
-      Array.isArray(globalVar.declarations),
-      'GlobalVarStatement should expose declarations.'
-    );
-    assert.strictEqual(globalVar.declarations.length, 2, 'Expected two global declarations.');
-    const declarationNames = globalVar.declarations.map((declaration) => {
-      return declaration?.id?.name;
-    });
-    assert.deepEqual(declarationNames, ['foo', 'bar'], 'Global declarations should retain their names.');
   });
 });

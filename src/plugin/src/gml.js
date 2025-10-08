@@ -67,8 +67,7 @@ export const options = {
         type: "boolean",
         category: "gml",
         default: true,
-        description:
-            "Preserve globalvar declarations instead of omitting them.",
+        description: "Preserve 'globalvar' declarations instead of eliding them during formatting.",
     },
     lineCommentBannerMinimumSlashes: {
         since: "0.0.0",

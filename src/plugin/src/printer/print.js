@@ -345,11 +345,27 @@ export function print(path, options, print) {
                 group(print("right"))
             ]);
         }
-        case "GlobalVarStatement":
-            if (!(options?.preserveGlobalVarStatements ?? true)) {
-                return "";
+        case "GlobalVarStatement": {
+            if (options?.preserveGlobalVarStatements === false) {
+                return null;
             }
-        // fall through to shared declaration printing logic
+
+            let decls = [];
+            if (node.declarations.length > 1) {
+                decls = printDelimitedList(path, print, "declarations", "", "", {
+                    delimiter: ",",
+                    allowTrailingDelimiter: options.trailingComma === "all",
+                    leadingNewline: false,
+                    trailingNewline: false
+                });
+            } else {
+                decls = path.map(print, "declarations");
+            }
+
+            const keyword = typeof node.kind === "string" ? node.kind : "globalvar";
+
+            return concat([keyword, " ", decls]);
+        }
         case "VariableDeclaration": {
             let decls = [];
             if (node.declarations.length > 1) {
@@ -906,13 +922,11 @@ function printStatements(path, options, print, childrenAttribute) {
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
-        const shouldSkipGlobalVar =
-            node?.type === "GlobalVarStatement" &&
-            printed === "" &&
-            !(options?.preserveGlobalVarStatements ?? true);
-        if (shouldSkipGlobalVar) {
+
+        if (printed == null) {
             return [];
         }
+
         let semi = optionalSemicolon(node.type);
         const startProp = node?.start;
         const endProp = node?.end;
