@@ -8,7 +8,9 @@
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
 repository houses the parser, printer, and shared helpers in one workspace so scripts, objects, and shaders all benefit from the
-same formatter. The plugin is not yet published on npm; install it straight from GitHub using the instructions below.
+same formatter. The plugin is not yet published on npm; install it straight from GitHub using the instructions below. The
+formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier needs an explicit path to
+load it when you install from Git.
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
 
@@ -39,15 +41,18 @@ same formatter. The plugin is not yet published on npm; install it straight from
 
 ### Requirements
 
-- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). 
-- The repository ships with an `.nvmrc` file. Install nvm using commands:
-````bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository ships with an `.nvmrc` file if you
+  prefer `nvm` to manage the runtime:
 
-export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-````
-- Then run `nvm install && nvm use` to switch to the expected runtime.
+  ````bash
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  nvm install
+  nvm use
+  ````
+
 - npm (ships with Node.js). Confirm availability with:
 
   ```bash
@@ -79,21 +84,23 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Add a convenience script to your
    `package.json` so you consistently point Prettier at the bundled plugin entry:
 
-   ```jsonc
-   {
-     "scripts": {
-       "format:gml": "prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write \"**/*.gml\""
-     }
-   }
-   ```
+    ```jsonc
+    {
+      "scripts": {
+        "format:gml": "prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write \"**/*.gml\""
+      }
+    }
+    ```
 
-   Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language:
+    Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language. Including
+    the plugin in your Prettier configuration keeps editor integrations working even when the CLI script is not used:
 
-   ```json
-   {
-     "overrides": [
-       {
-         "files": "*.gml",
+    ```json
+    {
+      "plugins": ["./node_modules/root/src/plugin/src/gml.js"],
+      "overrides": [
+        {
+          "files": "*.gml",
          "options": {
            "parser": "gml-parse"
          }
@@ -102,8 +109,8 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
    }
    ```
 
-   The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-   `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
+    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
+    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -116,8 +123,8 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 
 ### Format code
 
-Run Prettier from the same project directory where you installed the packages, or wire it into your build scripts. With the
-script above you can run:
+Run Prettier from the same project directory where you installed the packages, or wire it into your build scripts. The
+package exposes Prettier 3’s standard CLI entry points, so the script above lets you run:
 
 ```bash
 npm run format:gml
@@ -168,8 +175,10 @@ additional dependencies alongside that project:
    npm run format:gml -- --path "/absolute/path/to/MyGameProject"
    ```
 
-   The path can be absolute or relative to this repository. The script loads Prettier and the plugin from the clone, writes
-   formatted output back to the target project, and leaves that project’s `package.json` untouched.
+    The path can be absolute or relative to this repository. The script loads Prettier and the plugin from the clone, writes
+    formatted output back to the target project, and leaves that project’s `package.json` untouched. The wrapper mirrors the
+    CLI behaviour (`--path` or a positional path argument) and logs any skipped non-GML files so you can confirm only `.gml`
+    sources were ignored.
 
 ### Optional: global install
 
@@ -203,7 +212,7 @@ command.
 
 ### Command line
 
-- Format the current directory (auto-discovers the plugin):
+- Format the current directory with an explicit plugin path:
 
   ```bash
   npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write .
@@ -249,6 +258,7 @@ The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` fi
 
 ```json
 {
+  "plugins": ["./node_modules/root/src/plugin/src/gml.js"],
   "overrides": [
     {
       "files": "*.gml",
@@ -278,7 +288,6 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   the option to keep individual assignment statements instead of collapsing them into `{property: value}` expressions.
 
 - `allowSingleLineIfStatements` (default: `true`)
-- `preserveGlobalVarStatements` (default: `true`)
 
   Keeps short `if` statements such as `if (condition) { return; }` on a single line. Set the option to `false` if you prefer
   the formatter to always expand the consequent across multiple lines.
@@ -287,6 +296,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
   Keeps `globalvar` declarations in the formatted output while still prefixing subsequent assignments with `global.`. Set the
   option to `false` if you prefer to omit the declarations entirely.
+
+- `maxParamsPerLine` (default: `0`)
+
+  Forces function call arguments to wrap once the provided count is exceeded. Set the option to `0` to keep the original
+  layout when the formatter does not need to reflow the arguments.
 
 - `arrayLengthHoistFunctionSuffixes` (default: empty string)
 
@@ -304,6 +318,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
   Automatically pad banner comments up to the minimum slash count when they already start with at least this many `/` characters.
   Lower the number to aggressively promote comments to banners, or set it to `0` to disable padding entirely.
+
+All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.config.cjs`, or the `prettier` key inside
+`package.json`). Consult the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for syntax details.
 
 ## Troubleshooting
 
@@ -325,8 +342,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 ## Architecture overview
 
 - `src/parser/` — ANTLR grammar files, generated parser, and parser tests.
-- `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, and plugin-specific tests.
+- `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, the CLI wrapper, and plugin-specific tests.
 - `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
+- `docs/` — Planning and reference notes such as the [reserved identifier harvesting plan](docs/reserved-identifiers-plan.md).
 
 The repository is configured as an npm workspace so the root `node_modules` folder manages dependencies for both the parser and the plugin packages.
 
@@ -337,8 +355,9 @@ The repository is configured as an npm workspace so the root `node_modules` fold
 ```
 prettier-plugin-gml/
 ├─ src/parser/   # ANTLR grammar, generated parser, and parser tests
-├─ src/plugin/   # Prettier plugin source, printer, and plugin tests
+├─ src/plugin/   # Prettier plugin source, printer, CLI wrapper, and plugin tests
 ├─ src/shared/   # Helpers shared between the parser and the plugin
+├─ docs/         # Design notes (e.g. reserved identifier harvesting plan)
 └─ package.json        # Workspace manifest with scripts and shared tooling
 ```
 
