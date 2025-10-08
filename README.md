@@ -6,11 +6,10 @@
   </a>
 </p>
 
-A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
-repository houses the parser, printer, and shared helpers in one workspace so scripts, objects, and shaders all benefit from the
-same formatter. The plugin is not yet published on npm; install it straight from GitHub using the instructions below. The
-formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier needs an explicit path to
-load it when you install from Git.
+A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
+workspace bundles the parser, Prettier plugin, and CLI wrapper so scripts, objects, and shaders all share the same formatter.
+Because the package is not yet published on npm, install it straight from GitHub using the steps below and point Prettier at the
+bundled plugin entry when you run it from your project.
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
 
@@ -110,7 +109,9 @@ load it when you install from Git.
    ```
 
     The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
+    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. See
+    [Configuration reference](#configuration-reference) for every plugin-specific option and default. Head over to
+    [Visual Studio Code](#visual-studio-code) once the dependency is installed if you want format-on-save support.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -135,6 +136,8 @@ Prefer the raw CLI? Pass the plugin path explicitly:
 ```bash
 npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write "**/*.gml"
 ```
+
+See [Command line](#command-line) for additional invocation examples.
 
 Before | After
 ------ | -----
@@ -169,7 +172,8 @@ additional dependencies alongside that project:
    npm install
    ```
 
-2. Format your GameMaker project by passing its directory to the helper script:
+2. Format your GameMaker project by passing its directory to the helper script (a thin wrapper around
+   `src/plugin/prettier-wrapper.js`):
 
    ```bash
    npm run format:gml -- --path "/absolute/path/to/MyGameProject"
@@ -192,7 +196,7 @@ prettier --plugin="$(npm root -g)/root/src/plugin/src/gml.js" --write "**/*.gml"
 Global installs skip your project `node_modules`, so keep versions in sync to avoid inconsistent formatting. Substitute the
 Windows or macOS equivalent of `$(npm root -g)` if your shell does not support command substitution. If the global install fails
 with an `ENOTDIR` error mentioning `node_modules/root`, clear any stale `root` entries created by previous attempts and rerun the
-command.
+command. The global path works with the commands listed under [Command line](#command-line) as well.
 
 ### Validate your setup
 
@@ -335,6 +339,8 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
 
 - Seeing `No parser could be inferred for file ...`? Ensure you installed the plugin from the GameMaker project directory and
   pass the plugin path to the CLI (for example `--plugin=./node_modules/root/src/plugin/src/gml.js`).
+- If you copy scripts between repositories, confirm your `package.json` still points to
+  `./node_modules/root/src/plugin/src/gml.js` so the formatter can load the bundled plugin.
 - Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
