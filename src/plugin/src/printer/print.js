@@ -1155,6 +1155,22 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         }
     }
 
+    const isDescriptionLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@description\b/i.test(line.trim());
+    const areOtherLinesOnlyParams =
+        otherLines.length > 0 && otherLines.every((line) => isParamLine(line));
+
+    if (areOtherLinesOnlyParams) {
+        const descriptionIndex = mergedLines.findIndex(isDescriptionLine);
+        if (descriptionIndex !== -1) {
+            const before = mergedLines.slice(0, descriptionIndex);
+            const after = mergedLines.slice(descriptionIndex);
+            const combined = [...before, ...otherLines, ...after];
+            combined._suppressLeadingBlank = true;
+            return combined;
+        }
+    }
+
     const lastLine = mergedLines.length > 0 ? mergedLines[mergedLines.length - 1] : null;
     const needsSeparatorBeforeOthers =
         typeof lastLine === "string" &&
@@ -1708,6 +1724,22 @@ function shouldGenerateSyntheticDocForFunction(path) {
 
     if (!hasExistingDocComment(node)) {
         return true;
+    }
+
+    if (Array.isArray(node.params) && node.params.length > 0) {
+        const docLines = Array.isArray(node.docComments)
+            ? node.docComments
+                .map((comment) => formatLineComment(comment))
+                .filter((text) => typeof text === "string" && text.trim() !== "")
+            : [];
+
+        const hasParamDoc = docLines.some((line) =>
+            typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim())
+        );
+
+        if (!hasParamDoc) {
+            return true;
+        }
     }
 
     return Array.isArray(node.params) && node.params.some((param) => {

@@ -247,6 +247,19 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
+    const docTagMatch = trimmedOriginal.match(/^\/\/{2,3}(.*)$/);
+    if (docTagMatch) {
+        const afterSlashes = docTagMatch[1] ?? "";
+        const trimmedAfterSlashes = afterSlashes.trimStart();
+
+        if (trimmedAfterSlashes.startsWith("@")) {
+            const needsSeparator = trimmedAfterSlashes.length > 0;
+            let formatted = `///${needsSeparator ? " " : ""}${trimmedAfterSlashes}`;
+            formatted = applyJsDocReplacements(formatted);
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
     const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
