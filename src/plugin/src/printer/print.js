@@ -1196,13 +1196,26 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
 
-    const getParamCanonicalName = (line) => {
-        const metadata = parseDocCommentMetadata(line);
-        if (!metadata || metadata.tag !== "param") {
+    // Cache canonical names so we only parse each doc comment line at most once.
+    const paramCanonicalNameCache = new Map();
+    const getParamCanonicalName = (line, metadata) => {
+        if (typeof line !== "string") {
             return null;
         }
 
-        return getCanonicalParamNameFromText(metadata.name);
+        if (paramCanonicalNameCache.has(line)) {
+            return paramCanonicalNameCache.get(line);
+        }
+
+        const docMetadata =
+            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+        const canonical =
+            docMetadata?.tag === "param"
+                ? getCanonicalParamNameFromText(docMetadata.name)
+                : null;
+
+        paramCanonicalNameCache.set(line, canonical);
+        return canonical;
     };
 
     let mergedLines = existingDocLines.slice();
@@ -1275,7 +1288,7 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
 
         for (const line of otherLines) {
             const metadata = parseDocCommentMetadata(line);
-            const canonical = getParamCanonicalName(line);
+            const canonical = getParamCanonicalName(line, metadata);
 
             if (canonical && paramLineIndices.has(canonical) && metadata?.name) {
                 const lineIndex = paramLineIndices.get(canonical);
