@@ -426,30 +426,36 @@ function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement
         return false;
     }
 
-    for (const entry of commentEntries) {
-        const comment = entry.comment;
-        if (!comment || comment.type !== "CommentLine") {
-            return false;
-        }
+    if (commentEntries.some(({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine))) {
+        return false;
+    }
 
-        const commentLine = getNodeStartLine(comment);
-        if (commentLine !== expectedLine) {
-            return false;
-        }
+    const commentTarget = precedingProperty ? precedingProperty.value ?? precedingProperty : null;
 
+    for (const { comment } of commentEntries) {
         if (comment.leadingChar === ";") {
             comment.leadingChar = ",";
         }
 
-        if (precedingProperty) {
-            const commentTarget = precedingProperty.value ?? precedingProperty;
+        if (commentTarget) {
             addTrailingComment(commentTarget, comment);
-            precedingProperty._hasTrailingInlineComment = true;
         }
+    }
+
+    if (commentTarget) {
+        precedingProperty._hasTrailingInlineComment = true;
     }
 
     tracker.consumeEntries(commentEntries);
     return true;
+}
+
+function isTrailingLineCommentOnLine(comment, expectedLine) {
+    if (!comment || comment.type !== "CommentLine") {
+        return false;
+    }
+
+    return getNodeStartLine(comment) === expectedLine;
 }
 
 function getPreferredLocation(primary, fallback) {
