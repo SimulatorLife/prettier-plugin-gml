@@ -17,12 +17,15 @@ export const languages = [
 
 export const parsers = {
     "gml-parse": {
-        parse: text => {
+        parse: (text, _parsers, options) => {
             const ast = GMLParser.parse(text, {
                 getLocations: true,
                 simplifyLocations: false
             });
-            return consolidateStructAssignments(ast);
+            if (options?.condenseStructAssignments ?? true) {
+                return consolidateStructAssignments(ast);
+            }
+            return ast;
         },
         astFormat: "gml-ast",
         locStart: (node) => {
@@ -58,6 +61,14 @@ export const options = {
         default: true,
         description: "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
     },
+    condenseStructAssignments: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description:
+            "Condense consecutive struct property assignments into a single struct literal when possible."
+    },
     arrayLengthHoistFunctionSuffixes: {
         since: "0.0.0",
         type: "string",
@@ -83,6 +94,7 @@ export const defaultOptions = {
     trailingComma: "none",
     printWidth: 120,
     optimizeArrayLengthLoops: true,
+    condenseStructAssignments: true,
     arrayLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5
 };
