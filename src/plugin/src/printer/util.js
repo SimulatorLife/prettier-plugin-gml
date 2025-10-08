@@ -1,13 +1,6 @@
 import { util } from "prettier";
 
-const {
-    skipNewline,
-    skipSpaces,
-    skipToLineEnd,
-    skipInlineComment,
-    skipTrailingComment,
-    hasNewline
-} = util;
+const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // currently unused due to enforcement of braces
 function statementShouldEndWithSemicolon(path) {
@@ -71,30 +64,6 @@ function getParentNodeListProperty(path) {
 function getNodeListProperty(node) {
     const body = node.body;
     return Array.isArray(body) ? body : null;
-}
-
-function isPreviousLineEmpty(text, index) {
-    let idx = index - 1;
-    while (idx >= 0 && text[idx] !== '\n') {
-        idx--;
-    }
-    return idx >= 0 && text[idx - 1] === '\n';
-}
-
-
-function isNextLineEmpty(text, startIndex) {
-    let oldIdx = null;
-    let idx = startIndex;
-    while (idx !== oldIdx) {
-        // We need to skip all the potential trailing inline comments
-        oldIdx = idx;
-        idx = skipToLineEnd(text, idx);
-        idx = skipInlineComment(text, idx);
-        idx = skipSpaces(text, idx);
-    }
-    idx = skipTrailingComment(text, idx);
-    idx = skipNewline(text, idx);
-    return idx !== false && hasNewline(text, idx);
 }
 
 function optionalSemicolon(nodeType) {
