@@ -1,10 +1,8 @@
 // gml.js
 
-import GMLParser from "../../parser/src/gml-parser.js";
-import { consolidateStructAssignments } from "./ast-transforms/consolidate-struct-assignments.js";
+import { gmlParserAdapter } from "./parsers/gml-parser-adapter.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
-import { getStartIndex, getEndIndex } from "../../shared/ast-locations.js";
 
 export const languages = [
     {
@@ -17,29 +15,8 @@ export const languages = [
 
 export const parsers = {
     "gml-parse": {
-        parse: (text, _parsers, options) => {
-            const ast = GMLParser.parse(text, {
-                getLocations: true,
-                simplifyLocations: false
-            });
-            if (options?.condenseStructAssignments ?? true) {
-                return consolidateStructAssignments(ast);
-            }
-            return ast;
-        },
-        astFormat: "gml-ast",
-        locStart: (node) => {
-            const startIndex = getStartIndex(node);
-            return typeof startIndex === "number" ? startIndex : 0;
-        },
-        locEnd: (node) => {
-            const endIndex = getEndIndex(node);
-            if (typeof endIndex === "number") {
-                return endIndex + 1;
-            }
-            const startIndex = getStartIndex(node);
-            return typeof startIndex === "number" ? startIndex : 0;
-        }
+        ...gmlParserAdapter,
+        parse: (text, _parsers, options) => gmlParserAdapter.parse(text, options)
     }
 };
 
