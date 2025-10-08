@@ -7,23 +7,44 @@ const { addDanglingComment, addTrailingComment } = util;
 const { join, indent, hardline, dedent } = builders;
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
+const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
 
 const BOILERPLATE_COMMENTS = [
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ];
 
-function getLineCommentBannerMinimum(options) {
-    const configuredValue = options?.lineCommentBannerMinimumSlashes;
+function coercePositiveIntegerOption(value, defaultValue, { zeroReplacement } = {}) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        const normalized = Math.floor(value);
 
-    if (typeof configuredValue === "number" && Number.isFinite(configuredValue)) {
-        const normalized = Math.floor(configuredValue);
         if (normalized > 0) {
             return normalized;
         }
+
+        if (zeroReplacement !== undefined && normalized <= 0) {
+            return zeroReplacement;
+        }
     }
 
-    return DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES;
+    return defaultValue;
+}
+
+function getLineCommentBannerMinimum(options) {
+    return coercePositiveIntegerOption(
+        options?.lineCommentBannerMinimumSlashes,
+        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+    );
+}
+
+function getLineCommentBannerAutofillThreshold(options) {
+    return coercePositiveIntegerOption(
+        options?.lineCommentBannerAutofillThreshold,
+        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+        {
+            zeroReplacement: Number.POSITIVE_INFINITY
+        }
+    );
 }
 
 function attachDanglingCommentToEmptyNode(comment, descriptors) {
@@ -203,6 +224,7 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const bannerMinimum = getLineCommentBannerMinimum(options);
+            const bannerAutofillThreshold = getLineCommentBannerAutofillThreshold(options);
             const rawText = comment.leadingText || comment.raw || `//${comment.value}`;
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
@@ -216,7 +238,7 @@ function printComment(commentPath, options) {
                 const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
                 const remainderTrimmed = remainder.trimStart();
                 if (
-                    slashCount >= 4 &&
+                    slashCount >= bannerAutofillThreshold &&
                     bannerMinimum > slashCount &&
                     remainderTrimmed.length > 0 &&
                     !remainderTrimmed.startsWith("@")
