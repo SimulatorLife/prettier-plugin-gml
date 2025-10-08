@@ -234,9 +234,22 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
         }
     }
 
-    const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-    if (slashesMatch && slashesMatch[1].length >= bannerMinimumSlashes) {
-        return applyInlinePadding(comment, original.trim());
+    const valueSlashMatch = trimmedValue.match(/^\/+/);
+    const valueSlashCount = valueSlashMatch ? valueSlashMatch[0].length : 0;
+    const computedFromValue = valueSlashCount > 0 ? 2 + valueSlashCount : leadingSlashCount;
+    const totalSlashCount = Math.max(leadingSlashCount, computedFromValue);
+    const docCandidate = trimmedValue.replace(/^\/+/, "").trimStart();
+    const looksLikeDocComment = docCandidate.startsWith("@");
+    const meetsBannerDetectionThreshold =
+        totalSlashCount >= DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES;
+
+    if (!looksLikeDocComment && meetsBannerDetectionThreshold) {
+        const targetSlashCount = Math.max(totalSlashCount, bannerMinimumSlashes);
+        const remainder = trimmedValue.slice(valueSlashCount);
+        const needsSpace = remainder.length > 0 && !/^\s/.test(remainder);
+        const normalizedRemainder = needsSpace ? ` ${remainder}` : remainder;
+        const bannerText = `${"/".repeat(targetSlashCount)}${normalizedRemainder}`;
+        return applyInlinePadding(comment, bannerText);
     }
 
     if (
