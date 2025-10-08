@@ -27,3 +27,9 @@ enum eStates {
 }
 
 var currState = eStates.STATE_IDLE;
+
+/// @function changeState
+/// @param [newState=eStates.STATE_IDLE]
+function changeState(newState = eStates.STATE_IDLE) {
+	currState = newState;
+}

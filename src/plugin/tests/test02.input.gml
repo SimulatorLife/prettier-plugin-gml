@@ -33,3 +33,7 @@ var halfWidth = myWidth / 2;
 
 
 var currState = eStates.STATE_IDLE;
+
+function changeState(newState = eStates.STATE_IDLE) {
+	currState = newState;
+}
