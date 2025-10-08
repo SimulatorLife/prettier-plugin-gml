@@ -46,14 +46,66 @@ async function tryLoadOptions(baseName) {
 
 async function loadTestCases() {
   const entries = await fs.readdir(currentDirectory);
-  const inputFiles = entries
-    .filter((file) => file.endsWith(`.input${fixtureExtension}`))
-    .sort();
+  const caseMap = new Map();
+
+  for (const entry of entries) {
+    if (!entry.endsWith(fixtureExtension)) {
+      continue;
+    }
+
+    if (entry.endsWith(`.input${fixtureExtension}`)) {
+      const baseName = entry.replace(`.input${fixtureExtension}`, '');
+      const existing = caseMap.get(baseName) ?? {};
+      caseMap.set(baseName, { ...existing, inputFile: entry });
+      continue;
+    }
+
+    if (entry.endsWith(`.output${fixtureExtension}`)) {
+      const baseName = entry.replace(`.output${fixtureExtension}`, '');
+      const existing = caseMap.get(baseName) ?? {};
+      caseMap.set(baseName, { ...existing, outputFile: entry });
+      continue;
+    }
+
+    const baseName = entry.replace(fixtureExtension, '');
+    const existing = caseMap.get(baseName) ?? {};
+    caseMap.set(baseName, { ...existing, singleFile: entry });
+  }
+
+  const sortedBaseNames = [...caseMap.keys()].sort();
 
   return Promise.all(
-    inputFiles.map(async (inputFile) => {
-      const baseName = inputFile.replace(`.input${fixtureExtension}`, '');
-      const outputFile = `${baseName}.output${fixtureExtension}`;
+    sortedBaseNames.map(async (baseName) => {
+      const { inputFile, outputFile, singleFile } = caseMap.get(baseName);
+
+      if (singleFile && (inputFile || outputFile)) {
+        throw new Error(
+          `Fixture '${baseName}' has both standalone and input/output files. Please keep only one style.`
+        );
+      }
+
+      if (singleFile) {
+        const singlePath = path.join(currentDirectory, singleFile);
+        const [rawInput, expectedOutput] = await Promise.all([
+          fs.readFile(singlePath, fileEncoding),
+          readFixture(singlePath),
+        ]);
+
+        if (typeof rawInput !== 'string') {
+          throw new TypeError(`Expected fixture '${singlePath}' to be read as a string.`);
+        }
+
+        const options = await tryLoadOptions(baseName);
+
+        return { baseName, inputSource: rawInput, expectedOutput, options };
+      }
+
+      if (!inputFile || !outputFile) {
+        throw new Error(
+          `Fixture '${baseName}' is missing its ${inputFile ? 'output' : 'input'} file.`
+        );
+      }
+
       const inputPath = path.join(currentDirectory, inputFile);
       const outputPath = path.join(currentDirectory, outputFile);
 
