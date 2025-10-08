@@ -14,32 +14,37 @@ const BOILERPLATE_COMMENTS = [
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ];
 
-function getLineCommentBannerMinimum(options) {
-    const configuredValue = options?.lineCommentBannerMinimumSlashes;
+function coercePositiveIntegerOption(value, defaultValue, { zeroReplacement } = {}) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        const normalized = Math.floor(value);
 
-    if (typeof configuredValue === "number" && Number.isFinite(configuredValue)) {
-        const normalized = Math.floor(configuredValue);
         if (normalized > 0) {
             return normalized;
         }
+
+        if (zeroReplacement !== undefined && normalized <= 0) {
+            return zeroReplacement;
+        }
     }
 
-    return DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES;
+    return defaultValue;
+}
+
+function getLineCommentBannerMinimum(options) {
+    return coercePositiveIntegerOption(
+        options?.lineCommentBannerMinimumSlashes,
+        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+    );
 }
 
 function getLineCommentBannerAutofillThreshold(options) {
-    const configuredValue = options?.lineCommentBannerAutofillThreshold;
-
-    if (typeof configuredValue === "number" && Number.isFinite(configuredValue)) {
-        const normalized = Math.floor(configuredValue);
-        if (normalized > 0) {
-            return normalized;
+    return coercePositiveIntegerOption(
+        options?.lineCommentBannerAutofillThreshold,
+        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+        {
+            zeroReplacement: Number.POSITIVE_INFINITY
         }
-
-        return Number.POSITIVE_INFINITY;
-    }
-
-    return DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD;
+    );
 }
 
 function attachDanglingCommentToEmptyNode(comment, descriptors) {
