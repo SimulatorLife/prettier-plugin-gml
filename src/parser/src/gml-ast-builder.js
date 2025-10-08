@@ -54,6 +54,30 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         };
     }
 
+    // Utility helper that replaces long chains of null checks when visiting
+    // optional child contexts. It walks the provided list in order and visits
+    // the first available child, mirroring the previous conditional logic
+    // without repeating the "if child != null" scaffolding each time.
+    visitFirstChild(ctx, methodNames) {
+        if (!ctx || !Array.isArray(methodNames)) {
+            return null;
+        }
+
+        for (const methodName of methodNames) {
+            const getter = ctx[methodName];
+            if (typeof getter !== "function") {
+                continue;
+            }
+
+            const child = getter.call(ctx);
+            if (child != null) {
+                return this.visit(child);
+            }
+        }
+
+        return null;
+    }
+
     // add context data to the node
     astNode(ctx, object) {
         object.start = { line: ctx.start.line, index: ctx.start.start };
@@ -182,71 +206,29 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#statement.
     visitStatement(ctx) {
-        if (ctx.block() != null) {
-            return this.visit(ctx.block());
-        }
-        if (ctx.ifStatement() != null) {
-            return this.visit(ctx.ifStatement());
-        }
-        if (ctx.variableDeclarationList() != null) {
-            return this.visit(ctx.variableDeclarationList());
-        }
-        if (ctx.assignmentExpression() != null) {
-            return this.visit(ctx.assignmentExpression());
-        }
-        if (ctx.callStatement() != null) {
-            return this.visit(ctx.callStatement());
-        }
-        if (ctx.iterationStatement() != null) {
-            return this.visit(ctx.iterationStatement());
-        }
-        if (ctx.functionDeclaration() != null) {
-            return this.visit(ctx.functionDeclaration());
-        }
-        if (ctx.switchStatement() != null) {
-            return this.visit(ctx.switchStatement());
-        }
-        if (ctx.enumeratorDeclaration() != null) {
-            return this.visit(ctx.enumeratorDeclaration());
-        }
-        if (ctx.incDecStatement() != null) {
-            return this.visit(ctx.incDecStatement());
-        }
-        if (ctx.returnStatement() != null) {
-            return this.visit(ctx.returnStatement());
-        }
-        if (ctx.exitStatement() != null) {
-            return this.visit(ctx.exitStatement());
-        }
-        if (ctx.withStatement() != null) {
-            return this.visit(ctx.withStatement());
-        }
-        if (ctx.continueStatement() != null) {
-            return this.visit(ctx.continueStatement());
-        }
-        if (ctx.breakStatement() != null) {
-            return this.visit(ctx.breakStatement());
-        }
-        if (ctx.throwStatement() != null) {
-            return this.visit(ctx.throwStatement());
-        }
-        if (ctx.tryStatement() != null) {
-            return this.visit(ctx.tryStatement());
-        }
-
-        if (ctx.globalVarStatement() != null) {
-            return this.visit(ctx.globalVarStatement());
-        }
-        if (ctx.macroStatement() != null) {
-            return this.visit(ctx.macroStatement());
-        }
-        if (ctx.defineStatement() != null) {
-            return this.visit(ctx.defineStatement());
-        }
-        if (ctx.regionStatement() != null) {
-            return this.visit(ctx.regionStatement());
-        }
-        return null;
+        return this.visitFirstChild(ctx, [
+            "block",
+            "ifStatement",
+            "variableDeclarationList",
+            "assignmentExpression",
+            "callStatement",
+            "iterationStatement",
+            "functionDeclaration",
+            "switchStatement",
+            "enumeratorDeclaration",
+            "incDecStatement",
+            "returnStatement",
+            "exitStatement",
+            "withStatement",
+            "continueStatement",
+            "breakStatement",
+            "throwStatement",
+            "tryStatement",
+            "globalVarStatement",
+            "macroStatement",
+            "defineStatement",
+            "regionStatement"
+        ]);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#block.
@@ -652,15 +634,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#callableExpression.
     visitCallableExpression(ctx) {
-        if (ctx.lValueExpression() != null) {
-            return this.visit(ctx.lValueExpression());
-        }
-        if (ctx.functionDeclaration() != null) {
-            return this.visit(ctx.functionDeclaration());
-        }
-        if (ctx.callableExpression() != null) {
-            return this.visit(ctx.callableExpression());
-        }
+        return this.visitFirstChild(ctx, [
+            "lValueExpression",
+            "functionDeclaration",
+            "callableExpression"
+        ]);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionSequence.
@@ -670,15 +648,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionOrFunction.
     visitExpressionOrFunction(ctx) {
-        if (ctx.expression() != null) {
-            return this.visit(ctx.expression());
-        }
-        if (ctx.functionDeclaration() != null) {
-            return this.visit(ctx.functionDeclaration());
-        }
-        if (ctx.expressionOrFunction() != null) {
-            return this.visit(ctx.expressionOrFunction());
-        }
+        return this.visitFirstChild(ctx, [
+            "expression",
+            "functionDeclaration",
+            "expressionOrFunction"
+        ]);
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#TernaryExpression.
