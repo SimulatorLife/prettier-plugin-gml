@@ -2593,8 +2593,9 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const node = path.getValue();
     const bodyNode = node?.[bodyKey];
+    const allowSingleLineIfStatements = options?.allowSingleLineIfStatements ?? true;
 
-    if (bodyNode && bodyNode.type === "ReturnStatement") {
+    if (allowSingleLineIfStatements && bodyNode && bodyNode.type === "ReturnStatement") {
         return group([
             keyword,
             " ",

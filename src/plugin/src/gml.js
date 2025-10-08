@@ -54,6 +54,14 @@ export const options = {
         description:
             "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
     },
+    allowSingleLineIfStatements: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description:
+            "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines.",
+    },
     lineCommentBannerMinimumSlashes: {
         since: "0.0.0",
         type: "int",
@@ -73,6 +81,7 @@ export const defaultOptions = {
     optimizeArrayLengthLoops: true,
     condenseStructAssignments: true,
     arrayLengthHoistFunctionSuffixes: "",
+    allowSingleLineIfStatements: true,
     lineCommentBannerMinimumSlashes: 5
 };
 
