@@ -823,11 +823,23 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#MemberDotExpression.
     visitMemberDotExpression(ctx) {
-        return this.astNode(ctx, {
+        const object = this.visit(ctx.expression()[0]);
+        const property = this.visit(ctx.expression()[1]);
+        const node = this.astNode(ctx, {
             type: "MemberDotExpression",
-            object: this.visit(ctx.expression()[0]),
-            property: this.visit(ctx.expression()[1])
+            object,
+            property
         });
+
+        if (object?.start && typeof object.start.index === "number") {
+            node.start = node.start || {};
+            node.start.index = object.start.index;
+            if (typeof object.start.line === "number") {
+                node.start.line = object.start.line;
+            }
+        }
+
+        return node;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#MemberIndexExpression.

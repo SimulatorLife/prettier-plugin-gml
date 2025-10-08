@@ -21,6 +21,24 @@ function getLocationIndex(node, key) {
 }
 
 function getStartIndex(node) {
+    if (!node) {
+        return undefined;
+    }
+
+    if (node.type === "MemberDotExpression" && node.object) {
+        const objectStart = getStartIndex(node.object);
+        if (typeof objectStart === "number") {
+            return objectStart;
+        }
+    }
+
+    if (node.type === "MemberIndexExpression" && node.object) {
+        const objectStart = getStartIndex(node.object);
+        if (typeof objectStart === "number") {
+            return objectStart;
+        }
+    }
+
     return getLocationIndex(node, "start");
 }
 
