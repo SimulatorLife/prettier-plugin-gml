@@ -69,7 +69,16 @@ export const options = {
         default: 5,
         range: { start: 1, end: Infinity },
         description:
-            "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim."
+            "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim.",
+    },
+    maxParamsPerLine: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 0,
+        range: { start: 0, end: Infinity },
+        description:
+            "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable.",
     }
 };
 
@@ -81,7 +90,8 @@ export const defaultOptions = {
     optimizeArrayLengthLoops: true,
     condenseStructAssignments: true,
     arrayLengthHoistFunctionSuffixes: "",
-    allowSingleLineIfStatements: true,
-    lineCommentBannerMinimumSlashes: 5
+    lineCommentBannerMinimumSlashes: 5,
+    maxParamsPerLine: 0,
+    allowSingleLineIfStatements: true
 };
 
