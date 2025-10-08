@@ -1044,6 +1044,17 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     return concat([hardline, join(hardline, syntheticLines)]);
 }
 
+function isInlineWhitespace(charCode) {
+    // These checks are intentionally tiny and branchless to avoid regex
+    // allocations when scanning large source files inside tight loops.
+    return (
+        charCode === 9 || // tab
+        charCode === 10 || // line feed
+        charCode === 13 || // carriage return
+        charCode === 32 // space
+    );
+}
+
 function hasCommentImmediatelyBefore(text, index) {
     if (!text || typeof index !== "number") {
         return false;
@@ -1051,7 +1062,7 @@ function hasCommentImmediatelyBefore(text, index) {
 
     let cursor = index - 1;
 
-    while (cursor >= 0 && /[\t \r\n]/.test(text[cursor])) {
+    while (cursor >= 0 && isInlineWhitespace(text.charCodeAt(cursor))) {
         cursor--;
     }
 
@@ -1059,24 +1070,45 @@ function hasCommentImmediatelyBefore(text, index) {
         return false;
     }
 
-    const lineEnd = cursor + 1;
-    while (cursor >= 0 && text[cursor] !== "\n" && text[cursor] !== "\r") {
+    const lineEndExclusive = cursor + 1;
+    while (cursor >= 0) {
+        const charCode = text.charCodeAt(cursor);
+        if (charCode === 10 || charCode === 13) {
+            break;
+        }
         cursor--;
     }
 
-    const line = text.slice(cursor + 1, lineEnd).trim();
+    let lineStart = cursor + 1;
+    while (lineStart < lineEndExclusive && isInlineWhitespace(text.charCodeAt(lineStart))) {
+        lineStart++;
+    }
 
-    if (line === "") {
+    if (lineStart >= lineEndExclusive) {
         return false;
     }
 
-    return (
-        line.startsWith("//") ||
-        line.startsWith("/*") ||
-        line.startsWith("///") ||
-        line.startsWith("*") ||
-        line.endsWith("*/")
-    );
+    let lineEnd = lineEndExclusive - 1;
+    while (lineEnd >= lineStart && isInlineWhitespace(text.charCodeAt(lineEnd))) {
+        lineEnd--;
+    }
+
+    if (lineEnd < lineStart) {
+        return false;
+    }
+
+    const first = text.charCodeAt(lineStart);
+    const second = lineStart + 1 <= lineEnd ? text.charCodeAt(lineStart + 1) : -1;
+
+    if (first === 47) { // '/'
+        if (second === 47 || second === 42) { // '/', '*'
+            return true;
+        }
+    } else if (first === 42) { // '*'
+        return true;
+    }
+
+    return lineEnd >= lineStart + 1 && text.charCodeAt(lineEnd) === 47 && text.charCodeAt(lineEnd - 1) === 42;
 }
 
 function mergeSyntheticDocComments(node, existingDocLines, options) {
