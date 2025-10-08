@@ -289,6 +289,16 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   — `function_name:suffix` also works if you prefer colons. Use `-` in place of a suffix to remove a function from the optimization
   list (e.g. `array_length=-`).
 
+- `lineCommentBannerMinimumSlashes` (default: `5`)
+
+  Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
+  project prefers shorter banners, or raise it to require a longer prefix before a comment is treated as a banner.
+
+- `lineCommentBannerAutofillThreshold` (default: `4`)
+
+  Automatically pad banner comments up to the minimum slash count when they already start with at least this many `/` characters.
+  Lower the number to aggressively promote comments to banners, or set it to `0` to disable padding entirely.
+
 ## Troubleshooting
 
 - Confirm Node and npm meet the version requirements. The workspace requires Node.js 18.18.0+, 20.9.0+, or 21.1.0+.

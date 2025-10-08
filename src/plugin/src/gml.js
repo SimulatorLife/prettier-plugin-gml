@@ -71,6 +71,15 @@ export const options = {
         description:
             "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim.",
     },
+    lineCommentBannerAutofillThreshold: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 4,
+        range: { start: 0, end: Infinity },
+        description:
+            "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling.",
+    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
@@ -91,6 +100,7 @@ export const defaultOptions = {
     condenseStructAssignments: true,
     arrayLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5,
+    lineCommentBannerAutofillThreshold: 4,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true
 };
