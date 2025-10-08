@@ -41,6 +41,7 @@
     "prettier": "npm run format:gml --",
     "test:plugin": "cd src/plugin && npm test",
     "antlr": "cd src/parser && npm run antlr",
+    "build:gml-identifiers": "node ./scripts/generate-gml-identifiers.mjs",
     "example:plugin": "cd src/plugin && npm run example"
   },
   "devDependencies": {
