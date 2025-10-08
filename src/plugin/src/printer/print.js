@@ -35,14 +35,13 @@ import {
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 
+import { printDanglingComments, printDanglingCommentsAsGroup } from "./comments.js";
 import {
-    printDanglingComments,
-    printDanglingCommentsAsGroup,
     formatLineComment,
     getLineCommentBannerMinimum,
     normalizeDocCommentTypeAnnotations,
     isCommentNode
-} from "./comments.js";
+} from "./comment-utils.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 
 export function print(path, options, print) {
