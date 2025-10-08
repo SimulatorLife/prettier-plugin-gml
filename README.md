@@ -219,6 +219,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization
   is undesirable for your project.
 
+- `condenseStructAssignments` (default: `true`)
+
+  Merges consecutive property assignments on the same struct into a single struct literal when it is safe to do so. Disable
+  the option to keep individual assignment statements instead of collapsing them into `{property: value}` expressions.
+
 - `arrayLengthHoistFunctionSuffixes` (default: empty string)
 
   Override the suffix that the cached loop variable receives for specific size-retrieval functions, or disable hoisting for a
