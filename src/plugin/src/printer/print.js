@@ -406,8 +406,15 @@ export function print(path, options, print) {
                 return booleanSimplification;
             }
 
-            // Check if the operator is division and the right-hand side is 2
-            if (operator === "/" && node.right.value === "2") {
+            const canConvertDivisionToHalf =
+                operator === "/" &&
+                node?.right?.type === "Literal" &&
+                node.right.value === "2" &&
+                !hasComment(node) &&
+                !hasComment(node.left) &&
+                !hasComment(node.right);
+
+            if (canConvertDivisionToHalf) {
                 operator = "*";
                 right = "0.5";
             } else if (operator === "&&") { // TODO add option to specify if we want 'and' or '&&'
