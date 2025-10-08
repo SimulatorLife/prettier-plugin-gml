@@ -133,7 +133,8 @@ export function print(path, options, print) {
         case "SwitchCase": {
             const caseText = node.test !== null ? "case " : "default";
             const parts = [[hardline, caseText, print("test"), ":"]];
-            if (node.consequent !== null) {
+            const caseBody = node.body;
+            if (Array.isArray(caseBody) && caseBody.length > 0) {
                 parts.push([
                     indent([
                         hardline,
@@ -344,7 +345,27 @@ export function print(path, options, print) {
                 group(print("right"))
             ]);
         }
-        case "GlobalVarStatement":
+        case "GlobalVarStatement": {
+            if (options?.preserveGlobalVarStatements === false) {
+                return null;
+            }
+
+            let decls = [];
+            if (node.declarations.length > 1) {
+                decls = printDelimitedList(path, print, "declarations", "", "", {
+                    delimiter: ",",
+                    allowTrailingDelimiter: options.trailingComma === "all",
+                    leadingNewline: false,
+                    trailingNewline: false
+                });
+            } else {
+                decls = path.map(print, "declarations");
+            }
+
+            const keyword = typeof node.kind === "string" ? node.kind : "globalvar";
+
+            return concat([keyword, " ", decls]);
+        }
         case "VariableDeclaration": {
             let decls = [];
             if (node.declarations.length > 1) {
@@ -386,8 +407,15 @@ export function print(path, options, print) {
                 return booleanSimplification;
             }
 
-            // Check if the operator is division and the right-hand side is 2
-            if (operator === "/" && node.right.value === "2") {
+            const canConvertDivisionToHalf =
+                operator === "/" &&
+                node?.right?.type === "Literal" &&
+                node.right.value === "2" &&
+                !hasComment(node) &&
+                !hasComment(node.left) &&
+                !hasComment(node.right);
+
+            if (canConvertDivisionToHalf) {
                 operator = "*";
                 right = "0.5";
             } else if (operator === "&&") { // TODO add option to specify if we want 'and' or '&&'
@@ -878,7 +906,7 @@ function printStatements(path, options, print, childrenAttribute) {
         ? parentNode[childrenAttribute]
         : null;
     if (statements) {
-        applyAssignmentAlignment(statements);
+        applyAssignmentAlignment(statements, options);
     }
 
     const syntheticDocByNode = new Map();
@@ -901,6 +929,11 @@ function printStatements(path, options, print, childrenAttribute) {
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
+
+        if (printed == null) {
+            return [];
+        }
+
         let semi = optionalSemicolon(node.type);
         const startProp = node?.start;
         const endProp = node?.end;
@@ -992,11 +1025,19 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-function applyAssignmentAlignment(statements) {
+function applyAssignmentAlignment(statements, options) {
+    const minGroupSize = getAssignmentAlignmentMinimum(options);
     let currentGroup = [];
 
     const flushGroup = () => {
-        if (currentGroup.length <= 2) {
+        if (currentGroup.length === 0) {
+            currentGroup = [];
+            return;
+        }
+
+        const shouldAlign = minGroupSize > 0 && currentGroup.length >= minGroupSize;
+
+        if (!shouldAlign) {
             currentGroup.forEach((node) => {
                 node._alignAssignmentPadding = 0;
             });
@@ -1020,6 +1061,20 @@ function applyAssignmentAlignment(statements) {
     }
 
     flushGroup();
+}
+
+function getAssignmentAlignmentMinimum(options) {
+    const rawValue = options?.alignAssignmentsMinGroupSize;
+    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+        return 3;
+    }
+
+    const normalized = Math.floor(rawValue);
+    if (normalized <= 0) {
+        return 0;
+    }
+
+    return normalized;
 }
 
 function isSimpleAssignment(node) {
@@ -1164,13 +1219,26 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
 
-    const getParamCanonicalName = (line) => {
-        const metadata = parseDocCommentMetadata(line);
-        if (!metadata || metadata.tag !== "param") {
+    // Cache canonical names so we only parse each doc comment line at most once.
+    const paramCanonicalNameCache = new Map();
+    const getParamCanonicalName = (line, metadata) => {
+        if (typeof line !== "string") {
             return null;
         }
 
-        return getCanonicalParamNameFromText(metadata.name);
+        if (paramCanonicalNameCache.has(line)) {
+            return paramCanonicalNameCache.get(line);
+        }
+
+        const docMetadata =
+            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+        const canonical =
+            docMetadata?.tag === "param"
+                ? getCanonicalParamNameFromText(docMetadata.name)
+                : null;
+
+        paramCanonicalNameCache.set(line, canonical);
+        return canonical;
     };
 
     let mergedLines = existingDocLines.slice();
@@ -1243,7 +1311,7 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
 
         for (const line of otherLines) {
             const metadata = parseDocCommentMetadata(line);
-            const canonical = getParamCanonicalName(line);
+            const canonical = getParamCanonicalName(line, metadata);
 
             if (canonical && paramLineIndices.has(canonical) && metadata?.name) {
                 const lineIndex = paramLineIndices.get(canonical);

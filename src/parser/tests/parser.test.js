@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it } from 'mocha';
 
-import GMLParser from '../src/gml-parser.js';
+import GMLParser from '../gml-parser.js';
 import { getLineBreakCount } from '../../shared/line-breaks.js';
 import { getNodeStartIndex } from '../../shared/ast-locations.js';
 
@@ -168,6 +168,25 @@ describe('GameMaker parser fixtures', () => {
       getNodeStartIndex(memberExpression),
       expectedStart,
       'Member expression start should include the object portion.'
+    );
+  });
+
+  it("retains 'globalvar' declarations in the AST", () => {
+    const source = 'globalvar foo, bar;\nfoo = 1;\n';
+    const ast = parseFixture(source, { options: { getLocations: true } });
+
+    assert.ok(ast, 'Parser returned no AST when parsing globalvar source.');
+    const [statement] = ast.body;
+
+    assert.ok(statement, 'Expected a globalvar statement to be present.');
+    assert.strictEqual(statement.type, 'GlobalVarStatement', 'Expected a GlobalVarStatement node in the AST.');
+    assert.strictEqual(statement.kind, 'globalvar', "GlobalVarStatement should preserve the 'globalvar' keyword.");
+    assert.ok(Array.isArray(statement.declarations), 'GlobalVarStatement should expose declarations.');
+    assert.strictEqual(statement.declarations.length, 2, 'Expected two global declarations.');
+    assert.deepStrictEqual(
+      statement.declarations.map((declaration) => declaration?.id?.name),
+      ['foo', 'bar'],
+      'Global declarations should retain their names.'
     );
   });
 });

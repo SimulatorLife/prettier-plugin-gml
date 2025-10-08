@@ -103,17 +103,33 @@ export default class GMLParser {
         let prevSignificantChar = "";
         let foundFirstSignificantToken = false;
 
-        for (
-            let token = lexer.nextToken();
-            !reachedEOF;
-            token = lexer.nextToken()
-        ) {
-            if (token.type === GameMakerLanguageLexer.EOF) {
+        const {
+            EOF,
+            SingleLineComment,
+            MultiLineComment,
+            WhiteSpaces,
+            LineTerminator
+        } = GameMakerLanguageLexer;
+
+        const markTopCommentIfNeeded = () => {
+            if (!foundFirstSignificantToken && prevComment) {
+                prevComment.isTopComment = true;
+                foundFirstSignificantToken = true;
+            }
+        };
+
+        while (!reachedEOF) {
+            const token = lexer.nextToken();
+
+            if (token.type === EOF) {
                 reachedEOF = true;
                 if (finalComment) {
                     finalComment.isBottomComment = true;
                 }
-            } else if (token.type == GameMakerLanguageLexer.SingleLineComment) {
+                continue;
+            }
+
+            if (token.type === SingleLineComment) {
                 let node = {
                     type: "CommentLine",
                     value: token.text.replace(/^[\/][\/]/, ""),
@@ -131,8 +147,11 @@ export default class GMLParser {
                 finalComment = node;
                 prevWS = "";
                 this.comments.push(node);
+                markTopCommentIfNeeded();
+                continue;
+            }
 
-            } else if (token.type == GameMakerLanguageLexer.MultiLineComment) {
+            if (token.type === MultiLineComment) {
                 let node = {
                     type: "CommentBlock",
                     value: token.text.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
@@ -151,10 +170,12 @@ export default class GMLParser {
                 finalComment = node;
                 prevWS = "";
                 this.comments.push(node);
+                markTopCommentIfNeeded();
+                continue;
+            }
 
-            } else if (token.type === GameMakerLanguageLexer.WhiteSpaces
-                || token.type === GameMakerLanguageLexer.LineTerminator) {
-                const isNewline = token.type === GameMakerLanguageLexer.LineTerminator;
+            if (token.type === WhiteSpaces || token.type === LineTerminator) {
+                const isNewline = token.type === LineTerminator;
                 let node = {
                     type: "Whitespace",
                     value: token.text,
@@ -172,22 +193,17 @@ export default class GMLParser {
                 }
                 prevComment = null;
                 prevWS += token.text;
-
-            } else {
-                // significant token
-                foundFirstSignificantToken = true;
-                if (prevComment !== null) {
-                    prevComment.trailingChar = token.text.slice(0);
-                }
-                prevComment = null;
-                prevWS = "";
-                prevSignificantChar = token.text.slice(-1);
+                continue;
             }
 
-            if (!foundFirstSignificantToken && prevComment) {
-                prevComment.isTopComment = true;
-                foundFirstSignificantToken = true;
+            // significant token
+            foundFirstSignificantToken = true;
+            if (prevComment !== null) {
+                prevComment.trailingChar = token.text.slice(0);
             }
+            prevComment = null;
+            prevWS = "";
+            prevSignificantChar = token.text.slice(-1);
         }
     }
 
