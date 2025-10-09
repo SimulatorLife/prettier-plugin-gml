@@ -173,16 +173,26 @@ function createBlock($, node) {
     type = "code";
   }
 
-  const html = $.html(node)?.trim() ?? "";
-  const text = extractText($node, { preserveLineBreaks: type === "code" || type === "list" });
+  const preserveLineBreaks = type === "code" || type === "list";
+  const text = extractText($node, { preserveLineBreaks });
 
-  if (!html && !text) {
+  if (!text && type !== "list") {
     return null;
   }
 
-  const block = { type, html, text };
+  const block = { type, text };
   if (tagName === "h4" || tagName === "h5") {
     block.level = Number(tagName.substring(1));
+  }
+  if (type === "list") {
+    block.items = $node
+      .children("li")
+      .map((_, item) => extractText($(item), { preserveLineBreaks: false }))
+      .get()
+      .filter(Boolean);
+    if (!block.items.length && !text) {
+      return null;
+    }
   }
   return block;
 }
@@ -228,6 +238,20 @@ function collectBlocksAfter($, element, { stopTags = [] } = {}) {
   return blocks;
 }
 
+function normaliseTextBlock(block) {
+  if (!block) {
+    return null;
+  }
+  if (block.type === "list" && Array.isArray(block.items) && block.items.length > 0) {
+    return block.items.join("\n").trim() || null;
+  }
+  return block.text?.trim() || null;
+}
+
+function joinSections(parts) {
+  return parts.map((part) => part.trim()).filter(Boolean).join("\n\n") || null;
+}
+
 function parseDiagnostics(html) {
   const $ = load(html);
   const diagnostics = [];
@@ -239,10 +263,74 @@ function parseDiagnostics(html) {
     }
     const [, id, title] = match;
     const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+
+    const exampleHeadingIndex = blocks.findIndex((block) => block.type === "heading" && /example/i.test(block.text ?? ""));
+    const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+
+    let trailingStart = blocks.length;
+    if (exampleHeadingIndex >= 0) {
+      trailingStart = exampleHeadingIndex + 1;
+    } else if (firstCodeIndex >= 0) {
+      trailingStart = firstCodeIndex;
+    }
+
+    const descriptionBlocks = blocks.slice(0, trailingStart);
+    const trailingBlocks = blocks.slice(trailingStart);
+
+    const descriptionParts = [];
+    const correctionParts = [];
+    let badExample = null;
+    let goodExample = null;
+
+    for (const block of descriptionBlocks) {
+      if (block.type === "heading") {
+        continue;
+      }
+      const text = normaliseTextBlock(block);
+      if (text) {
+        descriptionParts.push(text);
+      }
+    }
+
+    for (const block of trailingBlocks) {
+      if (block.type === "heading") {
+        continue;
+      }
+      if (block.type === "code") {
+        const codeText = normaliseTextBlock(block);
+        if (!codeText) {
+          continue;
+        }
+        if (!badExample) {
+          badExample = codeText;
+        } else if (!goodExample) {
+          goodExample = codeText;
+        } else {
+          goodExample = `${goodExample}\n\n${codeText}`.trim();
+        }
+        continue;
+      }
+      const text = normaliseTextBlock(block);
+      if (!text) {
+        continue;
+      }
+      if (!badExample) {
+        descriptionParts.push(text);
+      } else {
+        correctionParts.push(text);
+      }
+    }
+
+    const description = joinSections(descriptionParts);
+    const correction = joinSections(correctionParts);
+
     diagnostics.push({
       id,
       title: title.trim(),
-      blocks,
+      description,
+      badExample,
+      goodExample,
+      correction,
     });
   });
   return diagnostics;
@@ -364,9 +452,8 @@ function parseBaseTypeTable($, table) {
     }
     const name = extractText(cells.eq(0), { preserveLineBreaks: false });
     const specifierExamples = splitCellLines(cells.eq(1));
-    const specifierHtml = cells.eq(1).html()?.trim() ?? "";
     const description = extractText(cells.eq(2), { preserveLineBreaks: false });
-    baseTypes.push({ name, specifierExamples, specifierHtml, description });
+    baseTypes.push({ name, specifierExamples, description });
   });
   return baseTypes;
 }
