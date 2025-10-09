@@ -234,6 +234,49 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("re-enables blending flagged by GM2048 and records metadata", () => {
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            "draw_text(0, 0, \"Hello!\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [disableCall, resetCall, drawCall] = ast.body ?? [];
+
+        assert.ok(disableCall);
+        assert.ok(resetCall);
+        assert.ok(drawCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
+
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.strictEqual(args.length > 0, true);
+        assert.strictEqual(args[0]?.type, "Literal");
+        assert.strictEqual(args[0]?.value, "true");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2048 = appliedDiagnostics.find((entry) => entry.id === "GM2048");
+
+        assert.ok(gm2048, "Expected GM2048 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2048.automatic, true);
+        assert.strictEqual(gm2048.target, "gpu_set_blendenable");
+        assert.ok(gm2048.range);
+
+        const resetMetadata = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetMetadata.some((entry) => entry.id === "GM2048"),
+            true,
+            "Expected GM2048 metadata to be recorded on the inserted reset call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
