@@ -20,7 +20,7 @@ export default class GameMakerParseErrorListener extends antlr4.error.ErrorListe
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
 
-        if (currentRule == "closeBlock") {
+        if (currentRule === "closeBlock") {
             const openBraceToken = parser._ctx.parentCtx.openBlock().start;
             if (stack[1] === "block") {
                 throw (
@@ -30,28 +30,28 @@ export default class GameMakerParseErrorListener extends antlr4.error.ErrorListe
             }
         }
 
-        if (currentRule == "expression") {
+        if (currentRule === "expression") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
                 `unexpected ${wrongSymbol} in expression`
             );
         }
 
-        if (currentRule == "statement") {
+        if (currentRule === "statement") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
                 `unexpected ${wrongSymbol}`
             );
         }
 
-        if (currentRule == "lValueExpression" && stack[1] == "incDecStatement") {
+        if (currentRule === "lValueExpression" && stack[1] === "incDecStatement") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
                 "++, -- can only be used on a variable-addressing expression"
             );
         }
 
-        // *refuses to elaborate further*
+        // Fallback to a generic syntax error when no specific rule matches.
         if (currentRule === "program") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
@@ -59,7 +59,7 @@ export default class GameMakerParseErrorListener extends antlr4.error.ErrorListe
             );
         }
 
-        if (currentRule == "parameterList") {
+        if (currentRule === "parameterList") {
             throw (
                 `Syntax Error (line ${line}, column ${column}): ` +
                 `unexpected ${wrongSymbol} in function parameters, expected an identifier`
