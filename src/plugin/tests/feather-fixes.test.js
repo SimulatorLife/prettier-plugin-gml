@@ -169,4 +169,47 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("removes redeclared global functions flagged by GM1064 and records metadata", () => {
+        const source = [
+            "function make_game() {",
+            "    show_debug_message(\"first\");",
+            "}",
+            "",
+            "function make_game() {",
+            "    show_debug_message(\"second\");",
+            "}",
+            "",
+            "function keep() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(programBody.length, 2, "Expected duplicate declaration to be removed.");
+
+        const [remainingFunction] = programBody;
+        assert.ok(remainingFunction);
+        assert.strictEqual(remainingFunction.type, "FunctionDeclaration");
+        assert.strictEqual(remainingFunction.id, "make_game");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm1064 = appliedDiagnostics.find((entry) => entry.id === "GM1064");
+
+        assert.ok(gm1064, "Expected GM1064 metadata to be recorded on the AST.");
+        assert.strictEqual(gm1064.automatic, true);
+        assert.strictEqual(gm1064.target, "make_game");
+        assert.ok(gm1064.range);
+
+        const functionDiagnostics = remainingFunction._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(functionDiagnostics.some((entry) => entry.id === "GM1064"), true);
+    });
 });

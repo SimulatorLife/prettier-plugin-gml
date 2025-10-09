@@ -152,6 +152,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1064") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeRedeclaredGlobalFunctions({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -421,6 +434,67 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     };
 
     visit(ast, null, null);
+
+    return fixes;
+}
+
+function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const body = Array.isArray(ast.body) ? ast.body : null;
+
+    if (!body || body.length === 0) {
+        return [];
+    }
+
+    const seenDeclarations = new Map();
+    const fixes = [];
+
+    for (let index = 0; index < body.length; ) {
+        const node = body[index];
+
+        if (!node || node.type !== "FunctionDeclaration") {
+            index += 1;
+            continue;
+        }
+
+        const functionId = typeof node.id === "string" ? node.id : null;
+
+        if (!functionId) {
+            index += 1;
+            continue;
+        }
+
+        const originalDeclaration = seenDeclarations.get(functionId);
+
+        if (!originalDeclaration) {
+            seenDeclarations.set(functionId, node);
+            index += 1;
+            continue;
+        }
+
+        const range = {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        };
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: functionId,
+            range
+        });
+
+        if (fixDetail) {
+            fixes.push(fixDetail);
+
+            if (originalDeclaration && typeof originalDeclaration === "object") {
+                attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
+            }
+        }
+
+        body.splice(index, 1);
+    }
 
     return fixes;
 }
