@@ -130,4 +130,43 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("records duplicate semicolon fixes for GM1033", () => {
+        const source = [
+            "var value = 1;;",
+            "var other = 2;",
+            "",
+            "function demo() {",
+            "    ;;",
+            "    var local = 3;;",
+            "    switch (local) {",
+            "        case 1:;;",
+            "            break;",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const metadata = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+
+        const gm1033Fixes = metadata.filter((entry) => entry.id === "GM1033");
+
+        assert.ok(gm1033Fixes.length > 0, "Expected duplicate semicolons to be detected.");
+
+        for (const fix of gm1033Fixes) {
+            assert.strictEqual(
+                typeof fix.range?.start === "number" && typeof fix.range?.end === "number",
+                true,
+                "Expected each GM1033 fix to include a range."
+            );
+        }
+    });
 });
