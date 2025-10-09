@@ -132,12 +132,24 @@ describe('Prettier wrapper CLI', () => {
       const targetFile = path.join(tempDirectory, 'script.gml');
       await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
 
-      const symlinkPath = path.join(tempDirectory, 'loop');
+      const directorySymlinkPath = path.join(tempDirectory, 'loop');
+      const fileSymlinkPath = path.join(tempDirectory, 'script-link.gml');
 
       let shouldSkip = false;
 
       try {
-        await fs.symlink(tempDirectory, symlinkPath, 'dir');
+        const symlinkType = process.platform === 'win32' ? 'junction' : 'dir';
+        await fs.symlink(tempDirectory, directorySymlinkPath, symlinkType);
+      } catch (error) {
+        if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
+          shouldSkip = true;
+        } else {
+          throw error;
+        }
+      }
+
+      try {
+        await fs.symlink(targetFile, fileSymlinkPath);
       } catch (error) {
         if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
           shouldSkip = true;
@@ -153,8 +165,13 @@ describe('Prettier wrapper CLI', () => {
       const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);
 
       assert.ok(
-        stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
-        'Expected wrapper output to report skipped symbolic links'
+        stdout.includes(`Skipping ${directorySymlinkPath} (symbolic link to directory)`),
+        'Expected wrapper output to report skipped directory symbolic links'
+      );
+
+      assert.ok(
+        stdout.includes(`Formatted ${fileSymlinkPath}`),
+        'Expected wrapper to format files reachable through symbolic links'
       );
 
       const formatted = await fs.readFile(targetFile, 'utf8');

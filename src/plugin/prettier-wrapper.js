@@ -191,7 +191,32 @@ async function processDirectory(directory) {
         const stats = await lstat(filePath);
 
         if (stats.isSymbolicLink()) {
-            console.log(`Skipping ${filePath} (symbolic link)`);
+            let targetStats;
+
+            try {
+                targetStats = await stat(filePath);
+            } catch (error) {
+                console.log(`Skipping ${filePath} (unresolvable symbolic link)`);
+                skippedFileCount += 1;
+                continue;
+            }
+
+            if (targetStats.isDirectory()) {
+                console.log(`Skipping ${filePath} (symbolic link to directory)`);
+                skippedFileCount += 1;
+                continue;
+            }
+
+            if (targetStats.isFile()) {
+                if (shouldFormatFile(filePath)) {
+                    await processFile(filePath);
+                } else {
+                    skippedFileCount += 1;
+                }
+                continue;
+            }
+
+            console.log(`Skipping ${filePath} (symbolic link to unsupported target)`);
             skippedFileCount += 1;
             continue;
         }
