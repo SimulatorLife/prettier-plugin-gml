@@ -125,6 +125,28 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('respects .prettierignore entries in ancestor directories when formatting a subdirectory', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const nestedDirectory = path.join(tempDirectory, 'nested');
+      await fs.mkdir(nestedDirectory);
+
+      const targetFile = path.join(nestedDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'nested/script.gml\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, nestedDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var    a=1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('skips symbolic links to avoid infinite directory traversal loops', async function () {
     const tempDirectory = await createTemporaryDirectory();
 

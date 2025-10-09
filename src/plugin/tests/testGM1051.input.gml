@@ -1,3 +1,8 @@
+#macro FOO_SIMPLE 1;
+#macro BAR_SIMPLE (value + 1);
+
+var answer_simple = FOO_SIMPLE + BAR_SIMPLE;
+
 #macro FOO(value) (value + 1); // increments input
 #macro BAR script_call();/* block comment ; sentinel */
 #macro BAZ array_pop(stack); /* multi-line
