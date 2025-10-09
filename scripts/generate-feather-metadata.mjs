@@ -145,6 +145,62 @@ async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
   return content;
 }
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normaliseMultilineText(text) {
+  if (!text) {
+    return null;
+  }
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim());
+  const cleaned = [];
+  for (const line of lines) {
+    if (!line) {
+      if (cleaned.length && cleaned[cleaned.length - 1] !== "") {
+        cleaned.push("");
+      }
+    } else {
+      cleaned.push(line);
+    }
+  }
+  return cleaned.join("\n").trim();
+}
+
+function extractTable($, $node) {
+  const headers = [];
+  const rows = [];
+  $node.find("tr").each((rowIndex, row) => {
+    const cells = $(row).children("th, td");
+    const values = cells
+      .map((_, cell) => {
+        const $cell = $(cell);
+        const lines = splitCellLines($cell);
+        if (!lines.length) {
+          return null;
+        }
+        return lines.join("\n");
+      })
+      .get();
+    const hasContent = values.some((value) => value && value.trim());
+    if (!hasContent) {
+      return;
+    }
+    if (rowIndex === 0 && $(row).find("th").length > 0) {
+      headers.push(
+        ...values
+          .map((value) => normaliseMultilineText(value))
+          .filter((value) => Boolean(value))
+      );
+      return;
+    }
+    rows.push(values.map((value) => normaliseMultilineText(value) ?? null));
+  });
+  return { headers, rows };
+}
+
 function createBlock($, node) {
   if (node.type !== "tag") {
     return null;
@@ -193,6 +249,9 @@ function createBlock($, node) {
     if (!block.items.length && !text) {
       return null;
     }
+  }
+  if (type === "table") {
+    block.table = extractTable($, $node);
   }
   return block;
 }
@@ -246,6 +305,64 @@ function normaliseTextBlock(block) {
     return block.items.join("\n").trim() || null;
   }
   return block.text?.trim() || null;
+}
+
+function normaliseContent(blocks) {
+  const content = {
+    paragraphs: [],
+    notes: [],
+    codeExamples: [],
+    lists: [],
+    headings: [],
+    tables: [],
+  };
+  for (const block of blocks) {
+    if (!block) {
+      continue;
+    }
+    if (block.type === "code") {
+      if (block.text) {
+        content.codeExamples.push(block.text);
+      }
+      continue;
+    }
+    if (block.type === "note") {
+      const note = normaliseMultilineText(block.text ?? "");
+      if (note) {
+        content.notes.push(note);
+      }
+      continue;
+    }
+    if (block.type === "list") {
+      const items = Array.isArray(block.items)
+        ? block.items
+            .map((item) => normaliseMultilineText(item))
+            .filter(Boolean)
+        : [];
+      if (items.length) {
+        content.lists.push(items);
+      }
+      continue;
+    }
+    if (block.type === "table") {
+      if (block.table) {
+        content.tables.push(block.table);
+      }
+      continue;
+    }
+    if (block.type === "heading") {
+      const heading = normaliseMultilineText(block.text ?? "");
+      if (heading) {
+        content.headings.push(heading);
+      }
+      continue;
+    }
+    const paragraph = normaliseMultilineText(block.text ?? "");
+    if (paragraph) {
+      content.paragraphs.push(paragraph);
+    }
+  }
+  return content;
 }
 
 function joinSections(parts) {
@@ -336,26 +453,28 @@ function parseDiagnostics(html) {
   return diagnostics;
 }
 
-function getFirstParagraphTexts(blocks) {
-  return blocks.filter((block) => block.type === "paragraph").map((block) => block.text).filter(Boolean);
-}
-
 function parseNamingRules(html) {
   const $ = load(html);
   const heading = $("h2#s4").first();
   if (heading.length === 0) {
     return {
+      overview: null,
       notes: [],
       namingStyleOptions: [],
       supportsPrefix: false,
       supportsSuffix: false,
       supportsPreserveUnderscores: false,
+      ruleSections: [],
     };
   }
 
   const blocks = collectBlocksAfter($, heading.get(0), { stopTags: ["h2"] });
-  const notes = getFirstParagraphTexts(blocks);
-  const requiresMessage = notes.find((note) => note.includes("GM2017")) ? "GM2017" : null;
+  const content = normaliseContent(blocks);
+  const overview = joinSections(content.paragraphs);
+  const notes = content.notes;
+  const requiresMessage = (overview && overview.includes("GM2017")) || notes.find((note) => note.includes("GM2017"))
+    ? "GM2017"
+    : null;
 
   const mainList = heading.nextAll("ul").first();
   let namingStyleOptions = [];
@@ -364,6 +483,7 @@ function parseNamingRules(html) {
   let supportsPrefix = false;
   let supportsSuffix = false;
   let supportsPreserveUnderscores = false;
+  const ruleSections = [];
 
   if (mainList.length > 0) {
     mainList.find("li > strong").each((_, strongEl) => {
@@ -386,18 +506,45 @@ function parseNamingRules(html) {
         supportsPreserveUnderscores = true;
       }
     });
+
+    mainList.children("li").each((_, item) => {
+      const $item = $(item);
+      const title = $item.children("strong").first().text().replace(/\u00a0/g, " ").trim() || null;
+      const description = extractText($item, { preserveLineBreaks: true });
+      let normalisedDescription = normaliseMultilineText(description ?? "");
+      if (title && normalisedDescription) {
+        const prefixPattern = new RegExp(`^${escapeRegex(title)}\s*:?\s*`, "i");
+        normalisedDescription = normalisedDescription.replace(prefixPattern, "");
+        normalisedDescription = normalisedDescription.trim();
+      }
+      const nestedList = $item.find("ul").first();
+      let options = [];
+      if (nestedList.length) {
+        options = nestedList
+          .children("li")
+          .map((__, option) => normaliseMultilineText(extractText($(option), { preserveLineBreaks: false })))
+          .get()
+          .filter(Boolean);
+      }
+      ruleSections.push({
+        title: title || null,
+        description: normalisedDescription || null,
+        options,
+      });
+    });
   }
 
   return {
+    overview,
     notes,
     requiresMessage,
-    identifierBlocklist,
-    identifierRuleSummary,
-    namingStyleOptions,
+    identifierBlocklist: normaliseMultilineText(identifierBlocklist),
+    identifierRuleSummary: normaliseMultilineText(identifierRuleSummary),
+    namingStyleOptions: namingStyleOptions.map((option) => normaliseMultilineText(option)).filter(Boolean),
     supportsPrefix,
     supportsSuffix,
     supportsPreserveUnderscores,
-    rawBlocks: blocks,
+    ruleSections,
   };
 }
 
@@ -419,10 +566,16 @@ function parseDirectiveSections(html) {
     }
     const blocks = collectBlocksAfter($, element, { stopTags: ["h2"] });
     const id = $(element).attr("id") || slugify(title);
+    const content = normaliseContent(blocks);
     sections.push({
       id,
       title,
-      blocks,
+      description: joinSections(content.paragraphs) || null,
+      notes: content.notes,
+      codeExamples: content.codeExamples,
+      lists: content.lists,
+      subheadings: content.headings,
+      tables: content.tables,
     });
   });
   return sections;
@@ -521,6 +674,7 @@ function parseTypeSystem(html) {
       node = node.nextSibling;
     }
   }
+  const introContent = normaliseContent(introBlocks);
 
   const tables = $("table");
   const baseTypeTable = tables.eq(0);
@@ -530,6 +684,9 @@ function parseTypeSystem(html) {
     .map((_, element) => createBlock($, element))
     .get()
     .filter(Boolean);
+  const notes = noteBlocks
+    .map((block) => normaliseMultilineText(block.text ?? ""))
+    .filter(Boolean);
 
   const specifierSections = [];
   $("h3").each((_, element) => {
@@ -538,10 +695,14 @@ function parseTypeSystem(html) {
       return;
     }
     const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+    const content = normaliseContent(blocks);
     specifierSections.push({
       id: $(element).attr("id") || slugify(title),
       title,
-      blocks,
+      description: joinSections(content.paragraphs) || null,
+      notes: content.notes,
+      codeExamples: content.codeExamples,
+      lists: content.lists,
     });
   });
 
@@ -554,13 +715,27 @@ function parseTypeSystem(html) {
     typeValidation = parseTypeValidationTable($, validationTable);
   }
 
+  const typeValidationContent = normaliseContent(typeValidationBlocks);
+
   return {
-    introBlocks,
-    baseTypes,
-    noteBlocks,
+    overview: joinSections(introContent.paragraphs) || null,
+    overviewNotes: introContent.notes,
+    baseTypes: baseTypes.map((type) => ({
+      name: type.name,
+      specifierExamples: type.specifierExamples.map((example) => normaliseMultilineText(example)).filter(Boolean),
+      description: normaliseMultilineText(type.description),
+    })),
+    notes,
     specifierSections,
-    typeValidation,
-    typeValidationBlocks,
+    typeValidation: typeValidation
+      ? {
+          description: joinSections(typeValidationContent.paragraphs) || null,
+          notes: typeValidationContent.notes,
+          codeExamples: typeValidationContent.codeExamples,
+          lists: typeValidationContent.lists,
+          table: typeValidation,
+        }
+      : null,
   };
 }
 

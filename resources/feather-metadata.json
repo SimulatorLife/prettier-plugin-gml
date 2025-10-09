@@ -2,7 +2,7 @@
   "meta": {
     "manualRef": "develop",
     "commitSha": "8539feb61e46005516b03efbe470fae1abfdbdc7",
-    "generatedAt": "2025-10-09T02:48:21.456Z",
+    "generatedAt": "2025-10-09T03:03:21.089Z",
     "source": "YoYoGames/GameMaker-Manual",
     "manualPaths": {
       "diagnostics": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
@@ -865,194 +865,146 @@
     {
       "id": "general",
       "title": "General",
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "A Feather directive has the following syntax:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather command parameters [in PATH]"
-        },
-        {
-          "type": "paragraph",
-          "text": "It is a regular script comment that starts with Feather, followed by the command and its parameters. Optionally, it may take a path to a script, object or group in The Asset Browser to which the directive is applied."
-        }
-      ]
+      "description": "A Feather directive has the following syntax:\n\nIt is a regular script comment that starts with Feather, followed by the command and its parameters. Optionally, it may take a path to a script, object or group in The Asset Browser to which the directive is applied.",
+      "notes": [],
+      "codeExamples": [
+        "// Feather command parameters [in PATH]"
+      ],
+      "lists": [],
+      "subheadings": [],
+      "tables": []
     },
     {
       "id": "ignoring-feather-rules",
       "title": "Ignoring Feather Rules",
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Specific feather rules can be ignored using the directive Feather ignore or Feather disable:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather ignore  GM1010\n\n    // Feather disable GM1010"
-        },
-        {
-          "type": "paragraph",
-          "text": "For example, consider the following piece of code:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather ignore GM1010\n\n    result = 5 + \"5\";"
-        },
-        {
-          "type": "paragraph",
-          "text": "With Strict Type mode enabled, Feather normally shows a \"GM1010 - Cannot perform '+' operation between types 'real' and 'string' message. With the directive above, Feather will ignore messages of this type, in that particular script."
-        },
-        {
-          "type": "paragraph",
-          "text": "The directive only affects lines after the comment itself, so any statements before the comment will still show warnings."
-        },
-        {
-          "type": "html",
-          "text": "Ignoring Once"
-        },
-        {
-          "type": "paragraph",
-          "text": "The GM message can be ignored only once by adding once:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather ignore once GM1010"
-        },
-        {
-          "type": "paragraph",
-          "text": "This command makes Feather ignore the first occurrence of this type of message but not the ones that come after that:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather ignore once GM1010\n\n    result = 5 + \"5\";    // ignored\n\n    result = 6 + \"6\";    // error"
-        },
-        {
-          "type": "html",
-          "text": "Restoring"
-        },
-        {
-          "type": "paragraph",
-          "text": "Finally, you can re-enable the GM message using restore / enable:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather restore GM1010\n\n    // Feather enable  GM1010"
-        }
-      ]
+      "description": "Specific feather rules can be ignored using the directive Feather ignore or Feather disable:\n\nFor example, consider the following piece of code:\n\nWith Strict Type mode enabled, Feather normally shows a \"GM1010 - Cannot perform '+' operation between types 'real' and 'string' message. With the directive above, Feather will ignore messages of this type, in that particular script.\n\nThe directive only affects lines after the comment itself, so any statements before the comment will still show warnings.\n\nIgnoring Once\n\nThe GM message can be ignored only once by adding once:\n\nThis command makes Feather ignore the first occurrence of this type of message but not the ones that come after that:\n\nRestoring\n\nFinally, you can re-enable the GM message using restore / enable:",
+      "notes": [],
+      "codeExamples": [
+        "// Feather ignore  GM1010\n\n    // Feather disable GM1010",
+        "// Feather ignore GM1010\n\n    result = 5 + \"5\";",
+        "// Feather ignore once GM1010",
+        "// Feather ignore once GM1010\n\n    result = 5 + \"5\";    // ignored\n\n    result = 6 + \"6\";    // error",
+        "// Feather restore GM1010\n\n    // Feather enable  GM1010"
+      ],
+      "lists": [],
+      "subheadings": [],
+      "tables": []
     },
     {
       "id": "profiles",
       "title": "Profiles",
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "This directive sets the profile for the script:"
-        },
-        {
-          "type": "code",
-          "text": "// Feather use syntax-errors\n\n    // Feather use type-errors\n\n    // Feather use all\n\n    // Feather use none"
-        },
-        {
-          "type": "note",
-          "text": "This Feather directive corresponds to the Profile preference in the Feather Preferences."
-        }
-      ]
+      "description": "This directive sets the profile for the script:",
+      "notes": [
+        "This Feather directive corresponds to the Profile preference in the Feather Preferences."
+      ],
+      "codeExamples": [
+        "// Feather use syntax-errors\n\n    // Feather use type-errors\n\n    // Feather use all\n\n    // Feather use none"
+      ],
+      "lists": [],
+      "subheadings": [],
+      "tables": []
     },
     {
       "id": "type-validation-mode",
       "title": "Type Validation Mode",
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "This directive sets the type validation mode to use from either strict or relaxed:"
-        },
-        {
-          "type": "code",
-          "text": "/// Feather use strict\n\n    /// Feather use relaxed"
-        },
-        {
-          "type": "note",
-          "text": "This Feather directive corresponds to the Strict Type mode preference in the Feather Preferences."
-        }
-      ]
+      "description": "This directive sets the type validation mode to use from either strict or relaxed:",
+      "notes": [
+        "This Feather directive corresponds to the Strict Type mode preference in the Feather Preferences."
+      ],
+      "codeExamples": [
+        "/// Feather use strict\n\n    /// Feather use relaxed"
+      ],
+      "lists": [],
+      "subheadings": [],
+      "tables": []
     },
     {
       "id": "combined-directives",
       "title": "Combined Directives",
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "You can also set the profile and type validation mode in a single line:"
-        },
-        {
-          "type": "code",
-          "text": "/// Feather use all, strict"
-        },
-        {
-          "type": "paragraph",
-          "text": "The above comment will make Feather look for All errors and use Strict Type mode."
-        }
-      ]
+      "description": "You can also set the profile and type validation mode in a single line:\n\nThe above comment will make Feather look for All errors and use Strict Type mode.",
+      "notes": [],
+      "codeExamples": [
+        "/// Feather use all, strict"
+      ],
+      "lists": [],
+      "subheadings": [],
+      "tables": []
     },
     {
       "id": "path",
       "title": "Path",
-      "blocks": [
+      "description": "Optionally you can provide a path using the in directive to apply a Feather directive to a specific script, object or group in The Asset Browser. This can be placed in the main script of an external library of functions, though you can place it in any other script, e.g. a blank \"FeatherConfig\" script.\n\nYou can use the following special symbols in your paths:\n\nThis way you can define paths to assets in the Asset Browser, for example:\n\nExamples:",
+      "notes": [
+        "Having numerous rules using paths may cause performance issues, the exception being paths set specifically to * alone.",
+        "No consistent result is guaranteed if you have two directives that enable and disable a Feather message on the same path."
+      ],
+      "codeExamples": [],
+      "lists": [
+        [
+          "/ - When used in the beginning of a path, points to the root of the Asset Browser",
+          ". - When used in the beginning of a path, points to the current script's folder",
+          "* is a wildcard that matches everything inside the preceding directory"
+        ]
+      ],
+      "subheadings": [],
+      "tables": [
         {
-          "type": "paragraph",
-          "text": "Optionally you can provide a path using the in directive to apply a Feather directive to a specific script, object or group in The Asset Browser. This can be placed in the main script of an external library of functions, though you can place it in any other script, e.g. a blank \"FeatherConfig\" script."
-        },
-        {
-          "type": "note",
-          "text": "Having numerous rules using paths may cause performance issues, the exception being paths set specifically to * alone."
-        },
-        {
-          "type": "paragraph",
-          "text": "You can use the following special symbols in your paths:"
-        },
-        {
-          "type": "list",
-          "text": "/ - When used in the beginning of a path, points to the root of the Asset Browser\n    . - When used in the beginning of a path, points to the current script's folder\n    * is a wildcard that matches everything inside the preceding directory",
-          "items": [
-            "/ - When used in the beginning of a path, points to the root of the Asset Browser",
-            ". - When used in the beginning of a path, points to the current script's folder",
-            "* is a wildcard that matches everything inside the preceding directory"
+          "headers": [
+            "Path",
+            "Applies To"
+          ],
+          "rows": [
+            [
+              "/Scripts/*",
+              "All assets in /Scripts"
+            ],
+            [
+              "/*",
+              "All assets"
+            ],
+            [
+              "./*",
+              "All assets in the current folder and subfolders"
+            ],
+            [
+              "/Foo/Bar/obj_manager",
+              "obj_manager in the /Foo/Bar folder"
+            ]
           ]
         },
         {
-          "type": "paragraph",
-          "text": "This way you can define paths to assets in the Asset Browser, for example:"
-        },
-        {
-          "type": "table",
-          "text": "Path Applies To /Scripts/* All assets in /Scripts /* All assets ./* All assets in the current folder and subfolders /Foo/Bar/obj_manager obj_manager in the /Foo/Bar folder"
-        },
-        {
-          "type": "paragraph",
-          "text": "Examples:"
-        },
-        {
-          "type": "table",
-          "text": "Directive Effect // Feather ignore GM2017 in * Ignores all Naming Rule violations in the whole project // Feather ignore GM1064 in ./* Ignores GM1064 in the current folder and all subfolders // Feather use type-errors in /Objects/System/* Sets the profile to type-errors in specifically the Objects/System folder // Feather use all in /Objects/System/obj_controller Sets the profile to all in obj_controller"
-        },
-        {
-          "type": "note",
-          "text": "No consistent result is guaranteed if you have two directives that enable and disable a Feather message on the same path."
+          "headers": [
+            "Directive",
+            "Effect"
+          ],
+          "rows": [
+            [
+              "// Feather ignore GM2017 in *",
+              "Ignores all Naming Rule violations in the whole project"
+            ],
+            [
+              "// Feather ignore GM1064 in ./*",
+              "Ignores GM1064 in the current folder and all subfolders"
+            ],
+            [
+              "// Feather use type-errors in /Objects/System/*",
+              "Sets the profile to type-errors in specifically the Objects/System folder"
+            ],
+            [
+              "// Feather use all in /Objects/System/obj_controller",
+              "Sets the profile to all in obj_controller"
+            ]
+          ]
         }
       ]
     }
   ],
   "namingRules": {
-    "notes": [
-      "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here.",
-      "The GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\").",
-      "The settings in this section are as follows:"
-    ],
+    "overview": "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here.\n\nThe GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\").\n\nThe settings in this section are as follows:",
+    "notes": [],
     "requiresMessage": "GM2017",
-    "identifierBlocklist": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\n\n\n      For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\n\n\n      In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
-    "identifierRuleSummary": "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\n\n\n      Each naming rule drop-down has the following options:\n\n        Naming Style: Choose the naming style for the identifier. Your options are:\n\n            Unconstrained: No formatting is forced on this type of identifier.\n            UpperCamelCase: MyHealth, ObjGrappleHook\n            lowerCamelCase: myHealth, objGrappleHook\n            ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\n            all_lower: my_health, obj_grapple_hook\n\n\n        Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\n        Suffix: Text that should appear after the identifier name.\n        Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\n\n\n          With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
+    "identifierBlocklist": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\nFor example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\nIn that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
+    "identifierRuleSummary": "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\nEach naming rule drop-down has the following options:\n\nNaming Style: Choose the naming style for the identifier. Your options are:\n\nUnconstrained: No formatting is forced on this type of identifier.\nUpperCamelCase: MyHealth, ObjGrappleHook\nlowerCamelCase: myHealth, objGrappleHook\nALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\nall_lower: my_health, obj_grapple_hook\n\nPrefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\nSuffix: Text that should appear after the identifier name.\nPreserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\nWith this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
     "namingStyleOptions": [
       "Unconstrained: No formatting is forced on this type of identifier.",
       "UpperCamelCase: MyHealth, ObjGrappleHook",
@@ -1063,47 +1015,28 @@
     "supportsPrefix": true,
     "supportsSuffix": true,
     "supportsPreserveUnderscores": true,
-    "rawBlocks": [
+    "ruleSections": [
       {
-        "type": "paragraph",
-        "text": "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here."
+        "title": "Identifier Blocklist",
+        "description": "This is a space-separated list of identifiers that will be ignored for all naming rules.\n\nFor example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\nIn that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
+        "options": []
       },
       {
-        "type": "paragraph",
-        "text": "The GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\")."
-      },
-      {
-        "type": "paragraph",
-        "text": "The settings in this section are as follows:"
-      },
-      {
-        "type": "list",
-        "text": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\n\n\n      For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\n\n\n      In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.\n\n    <identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\n\n\n      Each naming rule drop-down has the following options:\n\n        Naming Style: Choose the naming style for the identifier. Your options are:\n\n            Unconstrained: No formatting is forced on this type of identifier.\n            UpperCamelCase: MyHealth, ObjGrappleHook\n            lowerCamelCase: myHealth, objGrappleHook\n            ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\n            all_lower: my_health, obj_grapple_hook\n\n\n        Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\n        Suffix: Text that should appear after the identifier name.\n        Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\n\n\n          With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
-        "items": [
-          "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules. For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix. In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
-          "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc. Each naming rule drop-down has the following options: Naming Style: Choose the naming style for the identifier. Your options are: Unconstrained: No formatting is forced on this type of identifier. UpperCamelCase: MyHealth, ObjGrappleHook lowerCamelCase: myHealth, objGrappleHook ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK all_lower: my_health, obj_grapple_hook Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences. Suffix: Text that should appear after the identifier name. Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions. With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are."
+        "title": "<identifier> Naming Rule",
+        "description": "You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\nEach naming rule drop-down has the following options:\n\nNaming Style: Choose the naming style for the identifier. Your options are:\n\nUnconstrained: No formatting is forced on this type of identifier.\nUpperCamelCase: MyHealth, ObjGrappleHook\nlowerCamelCase: myHealth, objGrappleHook\nALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\nall_lower: my_health, obj_grapple_hook\n\nPrefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\nSuffix: Text that should appear after the identifier name.\nPreserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\nWith this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
+        "options": [
+          "Naming Style: Choose the naming style for the identifier. Your options are: Unconstrained: No formatting is forced on this type of identifier. UpperCamelCase: MyHealth, ObjGrappleHook lowerCamelCase: myHealth, objGrappleHook ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK all_lower: my_health, obj_grapple_hook",
+          "Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.",
+          "Suffix: Text that should appear after the identifier name.",
+          "Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions. With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are."
         ]
       }
     ]
   },
   "typeSystem": {
-    "introBlocks": [
-      {
-        "type": "paragraph",
-        "text": "Feather uses data types to provide smart syntax-checking when writing code, ensuring you don't use the wrong data type for a variable or function parameter."
-      },
-      {
-        "type": "paragraph",
-        "text": "It also allows you to specify the data types for the parameters and return values of your own script functions, using JSDoc comments."
-      },
-      {
-        "type": "paragraph",
-        "text": "The @param and @return JSDoc tags allow you specify any one of the following types:"
-      },
-      {
-        "type": "note",
-        "text": "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not."
-      }
+    "overview": "Feather uses data types to provide smart syntax-checking when writing code, ensuring you don't use the wrong data type for a variable or function parameter.\n\nIt also allows you to specify the data types for the parameters and return values of your own script functions, using JSDoc comments.\n\nThe @param and @return JSDoc tags allow you specify any one of the following types:",
+    "overviewNotes": [
+      "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not."
     ],
     "baseTypes": [
       {
@@ -1215,383 +1148,353 @@
         "description": "Any data type"
       }
     ],
-    "noteBlocks": [
-      {
-        "type": "note",
-        "text": "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not."
-      },
-      {
-        "type": "note",
-        "text": "NOTE * The Specifier Examples column lists some example specifiers, but not all of them. For example, there may be more possible types under the Id, Asset, and Constant groups, which are not listed here."
-      }
+    "notes": [
+      "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not.",
+      "NOTE * The Specifier Examples column lists some example specifiers, but not all of them. For example, there may be more possible types under the Id, Asset, and Constant groups, which are not listed here."
     ],
     "specifierSections": [
       {
         "id": "specifiers",
         "title": "Specifiers",
-        "blocks": [
-          {
-            "type": "paragraph",
-            "text": "A specifier is added after the base data type using a dot ., to specify the exact type of data in that group."
-          },
-          {
-            "type": "paragraph",
-            "text": "Types such as Id.DsList, Asset.GMObject, and Constant.Color use specifiers. Constructors are specified through the syntax Struct.{ConstructorName}. For example:"
-          },
-          {
-            "type": "code",
-            "text": "function Person() constructor\n\n    {\n\n\n\n    }\n\n\n\n    /// @param {Struct.Person} _person\n\n    function do_business(_person)\n\n    {\n\n\n\n    }"
-          }
-        ]
+        "description": "A specifier is added after the base data type using a dot ., to specify the exact type of data in that group.\n\nTypes such as Id.DsList, Asset.GMObject, and Constant.Color use specifiers. Constructors are specified through the syntax Struct.{ConstructorName}. For example:",
+        "notes": [],
+        "codeExamples": [
+          "function Person() constructor\n\n    {\n\n\n\n    }\n\n\n\n    /// @param {Struct.Person} _person\n\n    function do_business(_person)\n\n    {\n\n\n\n    }"
+        ],
+        "lists": []
       },
       {
         "id": "collection-types",
         "title": "Collection Types",
-        "blocks": [
-          {
-            "type": "paragraph",
-            "text": "Types such as Array and Id.DsList, which are data structures that contain multiple values, are able to specify a single data type for all of their contents."
-          },
-          {
-            "type": "paragraph",
-            "text": "This is done using Collection Types, which are appended to the type using angle brackets <>."
-          },
-          {
-            "type": "paragraph",
-            "text": "For example, an array containing strings would be Array<String>, and a DS List, containing an Array, containing Reals, would be Id.DsList<Array<Real>>."
-          }
-        ]
+        "description": "Types such as Array and Id.DsList, which are data structures that contain multiple values, are able to specify a single data type for all of their contents.\n\nThis is done using Collection Types, which are appended to the type using angle brackets <>.\n\nFor example, an array containing strings would be Array<String>, and a DS List, containing an Array, containing Reals, would be Id.DsList<Array<Real>>.",
+        "notes": [],
+        "codeExamples": [],
+        "lists": []
       },
       {
         "id": "multiple-types",
         "title": "Multiple Types",
-        "blocks": [
-          {
-            "type": "paragraph",
-            "text": "Multiple data types can also be listed, separated by a comma ,. For example String,Array<String>, Id.Instance,Asset.GMObject, etc."
-          }
-        ]
+        "description": "Multiple data types can also be listed, separated by a comma ,. For example String,Array<String>, Id.Instance,Asset.GMObject, etc.",
+        "notes": [],
+        "codeExamples": [],
+        "lists": []
       }
     ],
     "typeValidation": {
-      "columns": [
-        "Undefined",
-        "String",
-        "Real",
-        "Bool",
-        "Array",
-        "Pointer",
-        "Function",
-        "Struct"
-      ],
-      "rows": [
-        {
-          "from": "Undefined",
-          "results": {
-            "Undefined": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Bool": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Struct": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
+      "description": "The table below shows what happens if you pass a value of a certain type (rows) into a parameter requiring a data type (column).\n\nFor example, specifying undefined (first row) for a parameter requiring a string (second column) results in an error.",
+      "notes": [],
+      "codeExamples": [],
+      "lists": [],
+      "table": {
+        "columns": [
+          "Undefined",
+          "String",
+          "Real",
+          "Bool",
+          "Array",
+          "Pointer",
+          "Function",
+          "Struct"
+        ],
+        "rows": [
+          {
+            "from": "Undefined",
+            "results": {
+              "Undefined": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Bool": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Struct": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              }
+            }
+          },
+          {
+            "from": "String",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Real": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Bool": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              },
+              "Struct": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              }
+            }
+          },
+          {
+            "from": "Real",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              },
+              "Real": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Bool": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Struct": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              }
+            }
+          },
+          {
+            "from": "Bool",
+            "results": {
+              "Undefined": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Bool": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              },
+              "Function": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              },
+              "Struct": {
+                "outcome": "Warning",
+                "style": "background-color: #605B32"
+              }
+            }
+          },
+          {
+            "from": "Array",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Bool": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Array": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Struct": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              }
+            }
+          },
+          {
+            "from": "Pointer",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Bool": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Function": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Struct": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              }
+            }
+          },
+          {
+            "from": "Function",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Bool": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Allowed",
+                "style": null
+              },
+              "Struct": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              }
+            }
+          },
+          {
+            "from": "Struct",
+            "results": {
+              "Undefined": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "String": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Real": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Bool": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Array": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Pointer": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Function": {
+                "outcome": "Error",
+                "style": "background-color: #452F2F"
+              },
+              "Struct": {
+                "outcome": "Allowed",
+                "style": null
+              }
             }
           }
-        },
-        {
-          "from": "String",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Real": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Bool": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            },
-            "Struct": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            }
-          }
-        },
-        {
-          "from": "Real",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            },
-            "Real": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Bool": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Struct": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            }
-          }
-        },
-        {
-          "from": "Bool",
-          "results": {
-            "Undefined": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Bool": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            },
-            "Function": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            },
-            "Struct": {
-              "outcome": "Warning",
-              "style": "background-color: #605B32"
-            }
-          }
-        },
-        {
-          "from": "Array",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Bool": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Array": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Struct": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            }
-          }
-        },
-        {
-          "from": "Pointer",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Bool": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Function": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Struct": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            }
-          }
-        },
-        {
-          "from": "Function",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Bool": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Allowed",
-              "style": null
-            },
-            "Struct": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            }
-          }
-        },
-        {
-          "from": "Struct",
-          "results": {
-            "Undefined": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "String": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Real": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Bool": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Array": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Pointer": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Function": {
-              "outcome": "Error",
-              "style": "background-color: #452F2F"
-            },
-            "Struct": {
-              "outcome": "Allowed",
-              "style": null
-            }
-          }
-        }
-      ]
-    },
-    "typeValidationBlocks": [
-      {
-        "type": "paragraph",
-        "text": "The table below shows what happens if you pass a value of a certain type (rows) into a parameter requiring a data type (column)."
-      },
-      {
-        "type": "paragraph",
-        "text": "For example, specifying undefined (first row) for a parameter requiring a string (second column) results in an error."
+        ]
       }
-    ]
+    }
   }
 }
