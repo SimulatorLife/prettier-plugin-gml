@@ -1,0 +1,3738 @@
+{
+  "meta": {
+    "manualRef": "8539feb61e46005516b03efbe470fae1abfdbdc7",
+    "commitSha": "8539feb61e46005516b03efbe470fae1abfdbdc7",
+    "generatedAt": "2025-10-09T02:39:30.291Z",
+    "source": "YoYoGames/GameMaker-Manual",
+    "manualPaths": {
+      "diagnostics": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
+      "directives": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
+      "naming": "Manual/contents/Setting_Up_And_Version_Information/IDE_Preferences/Feather_Settings.htm",
+      "typeSystem": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
+    }
+  },
+  "diagnostics": [
+    {
+      "id": "GM1000",
+      "title": "No enclosing loop from which to break.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The keyword break must be used inside the body of a loop statement such as while, for, repeat, or with."
+        },
+        {
+          "type": "paragraph",
+          "text": "Usage outside of a loop statement is not possible and results in a Compile Error."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _items = get_items();\n\n    var i = 0;\n\n    repeat (array_length(_items))\n\n    {\n\n        var _item = _items[i++];\n\n        if (_item == undefined)\n\n            break; // Good!\n\n        // ... Some logic here ...\n\n    }\n\n    break; // GM1000 - No loop to break from."
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this error requires identifying where the break statement was intended to go and moving it to the correct location. In the above example there was no loop to break from and thus the fix is to simply remove the last break statement."
+        }
+      ]
+    },
+    {
+      "id": "GM1001",
+      "title": "No enclosing loop from which to continue.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The keyword continue must be used inside the body of a loop statement such as while, for, repeat, or with."
+        },
+        {
+          "type": "paragraph",
+          "text": "Usage outside of a loop statement is not possible and results in a Compile Error."
+        },
+        {
+          "type": "code",
+          "text": "var _items = get_items();\n\n    var i = 0;\n\n    repeat (array_length(_items))\n\n    {\n\n        var _item = _items[i++];\n\n        if (_item == undefined)\n\n            continue; // Good!\n\n        // ... Some logic here ...\n\n    }\n\n    continue; // GM1001 - No loop to continue from."
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this error requires identifying where the continue statement was intended to go and moving it to the correct location. In the above example there was no loop to continue from and thus the fix is to simply remove the last continue statement."
+        }
+      ]
+    },
+    {
+      "id": "GM1002",
+      "title": "globalvar does not support inline initializers.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "When using globalvar's you must split the declaration and initialization of its value. This is in contrast to local variables which can be declared and initialized in the same statement (e.g. var _width = 100;)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Attempting to initialize a globalvar inline in this manner is invalid syntax and results in a Compile Error."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "globalvar gameManager = new GameManager(); // GM1002 - globalvar does not support inline initializers."
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this error requires splitting the declaration and initialization statements. The above example can be fixed by rewriting it as so:"
+        },
+        {
+          "type": "code",
+          "text": "globalvar gameManager;\n\n    gameManager = new GameManager();"
+        }
+      ]
+    },
+    {
+      "id": "GM1003",
+      "title": "Enum assignment must be integer assignment.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "When declaring the members of an enum you can assign specific integer values to the members. You cannot assign any other type of value to these members however. Attempting to do so will result in a Compile Error."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT\n\n    {\n\n        UNKNOWN = -1, // Good!\n\n        BANANA,\n\n        ORANGE,\n\n        APPLE = \"apple\" // GM1003 - Enum assignment must be integer assignment.\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this error requires changing the assigned value to an integer in some way. If your code requires a value type other than Real for some reason then you may want to investigate using macros instead."
+        },
+        {
+          "type": "code",
+          "text": "// Approach 1\n\n    enum FRUIT\n\n    {\n\n        UNKNOWN = -1, // Good!\n\n        BANANA,\n\n        ORANGE,\n\n        APPLE = 10 // Good!\n\n    }\n\n\n\n    // Approach 2\n\n    #macro FRUIT_UNKNOWN     -1\n\n    #macro FRUIT_BANANA     0\n\n    #macro FRUIT_ORANGE     1\n\n    #macro FRUIT_APPLE     \"apple\""
+        }
+      ]
+    },
+    {
+      "id": "GM1004",
+      "title": "The enum value 'ENUM MEMBER NAME' has already been previously defined in the enum 'ENUM NAME'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Enum members must be uniquely named, duplicate names will result in a Compile Error."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT\n\n    {\n\n        APPLE, // Good!\n\n        APPLE, // GM1004 The enum value 'APPLE' has already been previously defined in the enum 'FRUIT'\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Typically, this error is the result of a typo of oversight. Removing the duplicate declaration will fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT\n\n    {\n\n        APPLE, // Good!\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1005",
+      "title": "Argument must be provided.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A function's parameter is required, yet an argument was not passed. While some parameters are optional (denoted with [square brackets]), most are required. When no argument is passed to these parameters, a compile error occurs."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "draw_set_color(); // GM1005 - Argument must be provided."
+        },
+        {
+          "type": "paragraph",
+          "text": "Typically, this error is the result of an oversight. Providing the missing argument will fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "draw_set_color(c_black); // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1006",
+      "title": "The enum 'ENUM NAME' has already been previously declared.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Enums must be uniquely named, duplicate names will result in a compile error."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT {\n\n        APPLE,\n\n        ORANGE,\n\n        BLUEBERRY\n\n    }\n\n    enum FRUIT // GM1006 - The enum 'FRUIT' has already been previously declared.\n\n    {\n\n        APPLE,\n\n        ORANGE,\n\n        CHERRY\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Typically, this error is the result of an oversight. Removing the duplicate declaration, merging members of applicable will fix the issue. If the enums are intended to be different but names conflict, consider a different name for the new enum."
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT\n\n    {\n\n        APPLE,\n\n        ORANGE,\n\n        BLUEBERRY,\n\n        CHERRY\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1007",
+      "title": "Left-hand side of an assignment must be a variable.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The assignment operator = requires that the left-hand side of the statement be a variable. Constants, and other non-variables cannot be logically assigned to. E.g. 1 = 2 is not a mathematically valid statement."
+        },
+        {
+          "type": "paragraph",
+          "text": "A variable assignment stores the value on the right-hand side of the = sign somewhere in the computer's memory and makes it accessible in code through the name that you write on the left. If the variable already exists, the assignment will replace its contents with the new value on the right-hand side. Instances, structs, functions, constants and asset IDs are all non-variables and cannot be assigned to. You can, however, assign a value to one of the variables of an instance, struct or function."
+        },
+        {
+          "type": "paragraph",
+          "text": "For more info on variable assignment see Variables And Variable Scope."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _foo = 1234;\n\n    _foo = 4321; // Good!\n\n\n\n    function get_random_item()\n\n    {\n\n        return\n\n        {\n\n            name: \"Sword\"\n\n        };\n\n    }\n\n\n\n    get_random_item() = \"Shield\"; // GM1007 - Left-hand side of an assignment must be a variable"
+        },
+        {
+          "type": "paragraph",
+          "text": "Typically, this error is the result of a typo or oversight. Sometimes it's the result of a misunderstanding of how data flows through a program. If this is the case, take a step back and think about what you're trying to communicate to the CPU."
+        },
+        {
+          "type": "code",
+          "text": "var _foo = 1234;\n\n    _foo = 4321; // Good!\n\n\n\n    function get_random_item()\n\n    {\n\n        return\n\n        {\n\n            name: \"Sword\"\n\n        };\n\n    }\n\n\n\n    get_random_item() = { name: \"Shield\" }; // Bad! Return values are not variables\n\n    get_random_item().name = \"Shield\"; // Good!\n\n    vk_space = vk_tab; // Bad! Constants are not variables and cannot change"
+        }
+      ]
+    },
+    {
+      "id": "GM1008",
+      "title": "The variable 'BUILT-IN VARIABLE' is readonly and cannot be assigned to.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Attempting to assign a value to a read-only built-in variable is not allowed. These variables can be read and assigned to other variables or used in expressions, but cannot have their value directly modified."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "working_directory = @\"PlayerData\"; // Bad! working_directory is readonly\n\n    var _file = file_find_first(working_directory + @\"\\Screenshots\\*.png\", fa_archive);\n\n    // ..."
+        },
+        {
+          "type": "paragraph",
+          "text": "Since read-only variables cannot be directly assigned to the fix will depend on what your intention with setting the variable is. In the above example, we intend to find all the files in a directory \"PlayerData\\Screenshots\\\" relative to our working_directory. For this we can just use a local variable instead."
+        },
+        {
+          "type": "code",
+          "text": "var _playerdata_directory = working_directory + @\"PlayerData\";\n\n    var _file = file_find_first(_playerdata_directory + @\"\\Screenshots\\*.png\", fa_archive);\n\n    // ..."
+        }
+      ]
+    },
+    {
+      "id": "GM1009",
+      "title": "Operation OPERATOR between types 'TYPE' and 'TYPE' may result in unexpected behavior or an error during runtime.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This indicates that the specified operation, while valid, may not have the result or behaviour that is expected. You may see this when adding reals to constant or asset types; which is an abuse of these types. Constant values are intended to be used in very specific ways, and asset IDs are not safely modifiable."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// Find all *.doc files that are readonly archives\n\n    var _attribs = fa_readonly + fa_archive; // Warn!\n\n    var _filename = file_find_first(\"/User Content/*.doc\", _attribs);\n\n\n\n    // Go to the next room\n\n    room_goto(room + 1); // Warn!"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the above example we have 2 problems: Adding constants that are meant to be flags, and adding 1 to the current room ID to find the next room. The tricky bit is that this code might just work! But it's brittle and unrelated changes to the Runner or even your Game Project might break this code! Why?"
+        },
+        {
+          "type": "paragraph",
+          "text": "Bitfield Constants"
+        },
+        {
+          "type": "paragraph",
+          "text": "When it comes to constants used as bit field flags you should use the Bitwise OR operation | instead of the Arithmetic Add operation +. If we were to consider fa_readonly as 0b0001 and fa_archive as 0b0010 and we added (0b0001 + 0b0010 = 0b0011) these two together we would get the same result as if we or'd the values (0b0001 | 0b0010 = 0b0011). However, if for some reason the value of fa_readonly changed to be 0b0011 with two set bits instead of one (perhaps it's a mask field, or represents two other values together) then we will suddenly end up with an incorrect value and our code will stop working. (0b0011 + 0b0001 = 0b0100, and 0b0011 | 0b0001 = 0b0011)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Mutating Asset IDs"
+        },
+        {
+          "type": "paragraph",
+          "text": "Assets such as Rooms, Sprites and Objects are assigned an ordinal index number when your game is compiled. Which means that each asset is given a unique number that increments by 1 from 0. This may lead you to believe that if you wanted to get the next or previous room, for example, you can simply add or subtract 1 from the current room. However, the order that the rooms are in is different from the asset ID, perhaps you created the rooms out of order and then rearranged them, perhaps the method by which the compiler determines the asset IDs changes. In either of these instances your code would break. Instead you should use functions provided by the Runner for these specific tasks."
+        },
+        {
+          "type": "code",
+          "text": "// Find all *.doc files that are readonly archives\n\n    var _attribs = fa_readonly | fa_archive; // Good!\n\n    var _filename = file_find_first(\"/User Content/*.doc\", _attribs);\n\n\n\n    // Go to the next room\n\n    room_goto_next(); // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1010",
+      "title": "Cannot perform OPERATOR operation between types 'TYPE' and 'TYPE'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This indicates that the specified operation is invalid in such a way that no result can be produced and instead result in either a runtime or compile time error. You may see this error between some type and undefined or unset. If Feather is unable to determine the type of a variable (or the variable is genuinely unset) then this error will appear."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _item1 = { price: 10 };\n\n    var _item2 = { price: 20 };\n\n    var _diff = _item2 - _item1; // Error!\n\n    var _a, _b = 1234;\n\n    var _c = _a + _b; // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "This will require rewriting your code such that the intention is conveyed in valid operations. In the above example we intended to get the difference in price between 2 items. We can instead subtract the price variables, which are of type Real, instead of the structs themselves."
+        },
+        {
+          "type": "code",
+          "text": "var _item1 = { price: 10 };\n\n    var _item2 = { price: 20 };\n\n    var _diff = _item2.price - _item1.price; // Good!\n\n    var _a = 4321, _b = 1234;\n\n    var _c = _a + _b; // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1011",
+      "title": "Implicit cast of type 'TYPE' to 'Bool' may result in unexpected behavior or an error during runtime.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A common shorthand for if statement conditionals is to exclude the == false or == true from a boolean logic comparison. In GML doing so implicitly casts the conditional to a Boolean and compares it to true. Some types cannot be converted to Boolean and will result in a runtime error. The type Unset is special and indicates that you've declared a variable but never assigned a value to it, no operation is valid on Unset."
+        },
+        {
+          "type": "paragraph",
+          "text": "See: if / else and Conditional Operators"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _a = true;\n\n    var _b = 1234;\n\n    var _c = [];\n\n    var _d;\n\n    if (_a) { } // Good!\n\n    if (_b) { } // Good!\n\n    if (_c) { } // Error!\n\n    if (_d) { } // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "The solution is typically to be explicit about your comparisons."
+        },
+        {
+          "type": "list",
+          "text": "String, Array, Function, Struct, Id, Asset, Constant – != undefined\n    Bool – == true, or implicit cast still valid\n    Real – > 0, or implicit cast still valid (though discouraged)\n    Unset – Assign a value to it!"
+        },
+        {
+          "type": "code",
+          "text": "var _a = true;\n\n    var _b = 1234;\n\n    var _c = [];\n\n    var _d;\n\n    if (_a == true) { } // Good!\n\n    if (_a) { } // Good!\n\n    if (_b > 0) { } // Good!\n\n    if (_b) { } // Good!\n\n    if (_c != undefined) { } // Good!\n\n    _d = true; // Assign a value to change from Unset\n\n    if (_d) { } // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1012",
+      "title": "Malformed variable addressing expression.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The dot operator is used to access a variable that exists in another scope. These dot operators can be chained together or exist alone, in either occurrence this is known in GML as a \"variable addressing expression\", as it is an expression that gives a variable's address. Usually the left-hand side of this expression is a variable or constant containing an Object Asset, Instance ID, or Struct. Other types cannot be on the left-hand side because they do not contain variables."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _a = { name: \"GameMaker\" };\n\n    var _b = _a.name; // Good!\n\n    var _c = obj_manager.name; // Good!\n\n    var _d = \"name\".length; // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this error depends on what is on the left-hand side of the expression. You likely intended to reference a variable from an Object Asset, Instance, or Struct but either typo'd the name or your variable contains a different type than was expected."
+        },
+        {
+          "type": "code",
+          "text": "var _d = string_length(\"name\"); // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1013",
+      "title": "Reference to variable 'IDENTIFIER' which has not been previously declared in 'IDENTIFIER'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This error indicates that the specified variable cannot be found in the referenced scope."
+        },
+        {
+          "type": "paragraph",
+          "text": "This could indicate that:"
+        },
+        {
+          "type": "code",
+          "text": "// Create event\n\n    var atk = 1;\n\n    if (atk < 50) {    // Error! 'atk' is a local variable in Create\n\n        with (other) {\n\n            hp -= atk; // Error! 'atk' is in the original scope!\n\n        }\n\n\n\n        attack *= 2;   // Error! Typo'd 'atk' as 'attack'\n\n    }\n\n\n\n    // Script - Item\n\n    function Item(_name, _value) constructor {\n\n        name = _name;\n\n        value = _value;\n\n    }\n\n\n\n    // Create - objInventory\n\n    hp = 100;\n\n    items = [];\n\n    var _sword = new Item(\"Sword\", 10);\n\n    array_push(items, _sword);\n\n    var _shield = new Item(\"Shield\", 10);\n\n    _shield.defense = 10;\n\n    array_push(items, _shield);\n\n\n\n    // Collision - par_mob\n\n    var _dmg = other.dmg;\n\n    var _len = array_length(items);\n\n    for (var i = 0; i < _len; ++i) {\n\n        var _item = items[i];\n\n        _dmg -= _item.defense; // Error! 'defense' is conditionally defined\n\n    }\n\n\n\n    hp -= max(0, _dmg);"
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this issue depends on which of the aforementioned conditions applies to your situation."
+        },
+        {
+          "type": "code",
+          "text": "// Create event\n\n    atk = 1; // Fix! Make this an instance variable by removing 'var'\n\n    // Collision - par_mob\n\n    if (atk < 50) { // Good!\n\n        with (other) {\n\n            hp -= other.atk; // Fix! Reference 'other.atk'\n\n        }\n\n\n\n        atk *= 2; // Fix! Rename to 'atk'\n\n    }\n\n\n\n    // Script - Item\n\n    function Item(_name, _value) constructor {\n\n        name = _name;\n\n        value = _value;\n\n        defense = 0; // Possible Fix! Declare a default value\n\n    }\n\n\n\n    // Create - objInventory\n\n    hp = 100;\n\n    items = [];\n\n    var _sword = new Item(\"Sword\", 10);\n\n    array_push(items, _sword);\n\n    var _shield = new Item(\"Shield\", 10);\n\n    _shield.defense = 10;\n\n    array_push(items, _shield);\n\n\n\n    // Collision - par_mob\n\n    var _dmg = other.dmg;\n\n    var _len = array_length(items);\n\n    for (var i = 0; i < _len; ++i) {\n\n        var _item = items[i];\n\n        _dmg -= _item.defense; // Fix! 'defense' has default value\n\n        // Or Possible Fix! Check variable exists (not as recommended)\n\n        if (struct_exists(_item, \"defense\")) {\n\n            _dmg -= _item.defense; // Feather knows this variable exists now\n\n        }\n\n    }\n\n\n\n    hp -= max(0, _dmg);"
+        }
+      ]
+    },
+    {
+      "id": "GM1014",
+      "title": "The enum 'ENUM' does not contain the value 'IDENTIFIER'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This error is raised when an Enum Member is referenced which does not exist."
+        },
+        {
+          "type": "paragraph",
+          "text": "This could indicate that:"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT {\n\n        NONE,\n\n        ORANGE,\n\n        APPLE,\n\n        CANTALOUPE,\n\n        SIZEOF\n\n    }\n\n    var _best_fruit = FRUIT.KIWI; // Error! KIWI is not defined\n\n    var _underrated_fruit = FRUIT.CANALOPE; // Error! CANTALOUPE is typo'd"
+        },
+        {
+          "type": "paragraph",
+          "text": "Correcting this issue depends on which of the aforementioned conditions applies to your situation."
+        },
+        {
+          "type": "code",
+          "text": "enum FRUIT {\n\n        NONE,\n\n        ORANGE,\n\n        APPLE,\n\n        CANTALOUPE,\n\n        KIWI, // Fix! Define KIWI\n\n        SIZEOF\n\n    }\n\n    var _best_fruit = FRUIT.KIWI; // Good!\n\n    var _underrated_fruit = FRUIT.CANTALOUPE; // Fix! No longer typo'd"
+        }
+      ]
+    },
+    {
+      "id": "GM1015",
+      "title": "Cannot divide or modulo expression by 0.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This error is raised when you directly divide or modulo by 0."
+        },
+        {
+          "type": "paragraph",
+          "text": "Note: GM1015 is NOT raised if 0 is stored in a variable and then you divide by that variable; Feather does not track the individual values of variables, only the types of variables."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _hp = 100;\n\n    _hp /= 0; // Error! Cannot divide by 0\n\n    _hp %= 0; // Error! Cannot modulo by 0"
+        },
+        {
+          "type": "paragraph",
+          "text": "The solution is to use any number other than 0."
+        },
+        {
+          "type": "code",
+          "text": "var _hp = 100;\n\n    _hp /= 100; // Good!\n\n    _hp %= 100; // Good!"
+        }
+      ]
+    },
+    {
+      "id": "GM1016",
+      "title": "A boolean literal was unexpected at this time.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that a boolean value (true or false) has appeared outside of a conditional or expression. Typically you would only see these kinds of values used in if statements and friends."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "true; // Error! A lone true without a conditional"
+        },
+        {
+          "type": "paragraph",
+          "text": "Use boolean values in a way that the compiler understands. For example:"
+        },
+        {
+          "type": "code",
+          "text": "var _a = true; // Good! Right-hand side is an expression\n\n    var _b = true ? 1 : 0; // Good! Right-hand side is an expression\n\n    if (true) {\n\n        // Good! Appears inside a conditional\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1017",
+      "title": "The function 'FUNCTION NAME' is deprecated and usage is discouraged.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you are using either a built-in function or user-defined function that is deprecated. Deprecation means that while the function, variable, or feature is still available for usage that it is planned to be removed in the future. Typically when something is deprecated a superior approach exists and is intended to be used instead. You should research what the alternative is and use that instead to avoid your code from breaking when you update GameMaker to newer versions."
+        },
+        {
+          "type": "paragraph",
+          "text": "Note that user-defined functions can also be marked as deprecated using the @deprecated tag."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// @deprecated\n\n    function make_game() {\n\n        // Deprecated in favour of writing more code to do that same thing!\n\n    }\n\n\n\n    username = get_string(\"Username:\", \"\"); // Suggestion!\n\n    make_game(); // Suggestion!"
+        },
+        {
+          "type": "paragraph",
+          "text": "Find the alternative functions or approach to use, and refactor your code to do that instead."
+        },
+        {
+          "type": "code",
+          "text": "username = get_string_async(\"Username:\", \"\"); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1019",
+      "title": "The function 'FUNCTION NAME' takes no more than NUMBER arguments but NUMBER are provided.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when more arguments are passed to a function than that function takes, including optional parameters (if they exist)."
+        },
+        {
+          "type": "paragraph",
+          "text": "There are essentially two reasons you might run into this problem:"
+        },
+        {
+          "type": "list",
+          "text": "You're nesting function calls and missed a closing parenthesis )\n    You have miscounted your arguments"
+        },
+        {
+          "type": "paragraph",
+          "text": "The solution to fixing either of these is to refactor your code to reflect your actual intentions."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _dmg = clamp(lerp(dmg1, dmg2, 0.5, 0, 100)); // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the above example we have accidentally put the closing parenthesis for lerp in the wrong place."
+        },
+        {
+          "type": "code",
+          "text": "var _dmg = clamp(lerp(dmg1, dmg2, 0.5), 0, 100); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1020",
+      "title": "The function 'FUNCTION NAME' takes no less than NUMBER arguments but NUMBER are provided.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when less arguments are passed to a function than that function takes."
+        },
+        {
+          "type": "paragraph",
+          "text": "Possible causes can be:"
+        },
+        {
+          "type": "list",
+          "text": "You're nesting function calls and missed a closing parenthesis )\n    You have miscounted your arguments"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _dmg = clamp(lerp(dmg1, dmg2), 0.5, 0, 100); // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "The closing parenthesis for lerp is in the wrong place. Placing it after the 0.5 value instead fixes the error."
+        },
+        {
+          "type": "code",
+          "text": "var _dmg = clamp(lerp(dmg1, dmg2, 0.5), 0, 100); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1021",
+      "title": "The function or script 'FUNCTION/SCRIPT NAME' does not exist.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when a call to a non-existent script or function is made. This may be shown if you typo the function name, or have deleted the function."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function make_game(_genre) { /* ... */ }\n\n    make_gaem(\"RPG\"); // GM1021\n\n    var _x = clam(x, 0, 100); // GM1021"
+        },
+        {
+          "type": "paragraph",
+          "text": "Correct any typos, and ensure the functions you're trying to call exist."
+        },
+        {
+          "type": "code",
+          "text": "function make_game(_genre) { /* ... */ }\n\n    make_game(\"RPG\"); // Fix!\n\n    var _x = clamp(x, 0, 100); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1022",
+      "title": "An assignment was expected at this time.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when a variable name is written as the left-hand side of an assignment and isn't followed by the assignment operator =."
+        },
+        {
+          "type": "paragraph",
+          "text": "Note that this does not apply to the var statement, as var a; suffices as a declaration."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "username                                // Error!\n\n    // OR\n\n    username;                               // Error!"
+        },
+        {
+          "type": "paragraph",
+          "text": "An identifier cannot stand on its own in a statement. The issue can be fixed by using it in an assignment or by calling it as a function (in case it refers to a valid script function)."
+        },
+        {
+          "type": "code",
+          "text": "username = get_string(\"Username:\", \"\"); // Valid Assignment!\n\n    username(); // Function Call is also possible"
+        }
+      ]
+    },
+    {
+      "id": "GM1023",
+      "title": "The constant 'BUILT-IN CONSTANT' is deprecated and usage is discouraged.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you're using a built-in constant that is deprecated."
+        },
+        {
+          "type": "paragraph",
+          "text": "Deprecation means that while the constant is still available for usage, it is planned to be removed in the future. Typically when something is deprecated a superior approach exists and is intended to be used instead. You should research what the alternative is and use that instead to avoid your code from breaking when you update GameMaker to newer versions."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "if (os_type == os_win32) { // GM1023 - Constant 'os_win32' is deprecated\n\n        global.config = 0;\n\n    }\n\n    else if (os_type == os_macosx) {\n\n        global.config = 1;\n\n        global.config = 2;\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Depending on the constant, a replacement may be available. Check the manual to see if the page mentions this replacement. For the above example, the modern constant is os_windows (as to not imply a difference between detection of 32-bit and 64-bit Windows)."
+        },
+        {
+          "type": "code",
+          "text": "if (os_type == os_windows) {\n\n        global.config = 0;\n\n    }\n\n    else if (os_type == os_macosx) {\n\n        global.config = 1;\n\n        global.config = 2;\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1024",
+      "title": "The built-in variable 'BUILT-IN VARIABLE' is deprecated and usage is discouraged.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you're using a built-in variable that is deprecated."
+        },
+        {
+          "type": "paragraph",
+          "text": "Deprecation means that while the variable is still available for usage, it is planned to be removed in the future. Typically when something is deprecated a superior approach exists and is intended to be used instead. You should research what the alternative is and use that instead to avoid your code from breaking when you update GameMaker to newer versions."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    score = 0;\n\n\n\n    /// Step Event\n\n    var _ins = instance_position(mouse_x, mouse_y, obj_balloon);\n\n    if (_ins != noone)\n\n    {\n\n        score++;\n\n        instance_destroy(_ins);\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Replace the variable with a custom variable or a macro, depending on what works best in the specific case."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    points = 0;\n\n\n\n    /// Step Event\n\n    var _ins = instance_position(mouse_x, mouse_y, obj_balloon);\n\n    if (_ins != noone)\n\n    {\n\n        points++;\n\n        instance_destroy(_ins);\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1025",
+      "title": "A number literal was unexpected at this time.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you use a number literal outside of an expression where it cannot be used. It can occur when:"
+        },
+        {
+          "type": "list",
+          "text": "A number literal is on its own in a statement\n    A number literal is used as the left-hand side of an assignment"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "#AEF033 // Error! Lone number literal\n\n    // OR:\n\n    #AEF033; // Error! Lone number literal\n\n    // OR:\n\n    0xFFDE31 = \"value\"; // Error! Left-hand side is not a variable"
+        },
+        {
+          "type": "paragraph",
+          "text": "The number literal has to be used as a function parameter or as the right-hand side of an assignment."
+        },
+        {
+          "type": "code",
+          "text": "colour = #AEF033;"
+        }
+      ]
+    },
+    {
+      "id": "GM1026",
+      "title": "Left-hand side of postfix expression must be a variable.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you use a postfix increment (var++) or decrement operator (var--) on something that is not a variable. More precisely, it must be possible to assign to that which you'd normally write on the left-hand side of the equivalent equation:"
+        },
+        {
+          "type": "code",
+          "text": "vari = vari + 1;    // Equivalent of vari++; - Variable can be written to and so can go on the left-hand side\n\n\n\n    pi = pi + 1;      // Equivalent of pi++; - Constant cannot be written to so cannot go on left-hand side"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "pi++;    // GM1026 Cannot increment a constant\n\n    // OR:\n\n    show_debug_message--; // GM1026 Cannot decrement a function name"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example, pi is a constant and cannot be changed by definition. show_debug_message() is a function and is not a number which can be incremented/decremented. If you want to perform these operations you must first ensure the value is assigned to a variable."
+        },
+        {
+          "type": "code",
+          "text": "var _pi = pi;\n\n    _pi++;"
+        }
+      ]
+    },
+    {
+      "id": "GM1027",
+      "title": "A string literal was unexpected at this time.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when a string literal exists outside of a valid expression."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "\"this is a string\" // GM1027! A lone string!"
+        },
+        {
+          "type": "paragraph",
+          "text": "The string literal should be assigned to a variable, or compared to a variable, or passed as an argument to a function call."
+        },
+        {
+          "type": "code",
+          "text": "text = \"this is a string\";\n\n    if (text == \"this is a string\")\n\n    {\n\n        show_debug_message(\"this is a string\");\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1028",
+      "title": "Accessor is intended for type of 'TYPE' but 'TYPE' appears instead.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you address an element of a data structure using the accessor syntax and don't use the right operator for the data structure's type. Each type of data structure has its own accessor symbol that is used with it. See Accessors for the full list."
+        },
+        {
+          "type": "paragraph",
+          "text": "Possible causes of this error can be:"
+        },
+        {
+          "type": "list",
+          "text": "You've accidentally used the wrong accessor for the type of data structure you're accessing.\n    You forgot the accessor symbol. In this case the lookup is interpreted as an array lookup."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "lst_instances = ds_list_create();\n\n    if (instance_place_list(x, y, obj_enemy, lst_instances, true))\n\n    {\n\n        var _ins = lst_instances[? 0]; // GM1028! Wrong accessor\n\n        show_debug_message($\"The closest instance is {real(_ins)}.\");\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, a DS list is populated with instances of an object obj_enemy. When there are any instances in the list, the first one is accessed. The pipe character | is for accessing DS lists, however the list is incorrectly accessed with a ?, which is for DS maps. Changing the operator fixes the issue by addressing the data structure using the correct accessor."
+        },
+        {
+          "type": "code",
+          "text": "lst_instances = ds_list_create();\n\n    if (instance_place_list(x, y, obj_enemy, lst_instances, true))\n\n    {\n\n        var _ins = lst_instances[| 0]; // Good!\n\n        show_debug_message($\"The closest instance is {real(_ins)}.\");\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1029",
+      "title": "Potentially dangerous or unintended implicit cast from 'TYPE' to 'TYPE'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you pass an argument to a function parameter whose type differs from the type expected, but can and will be converted to the expected. While legal, this tends to be unfavourable code as the runtime does its best guess as to how the data should be converted which may lead to unexpected bugs or errors. For example, passing the string \"1234\" to draw_sprite()'s 3rd parameter x is legal, the runtime will convert the String to the Real of the same value. However, if the string value could not convert to a type Real value then you would encounter a runtime error. The cast is implicit since the runtime does it for you instead of you calling the real() built-in function, and it's dangerous because it may or may not crash at runtime depending on how sanitary you keep your data."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _x = \"1234\";\n\n    var _y = \"4321\";\n\n    draw_sprite(sprite_index, image_index, _x, _y); // GM1029"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix for this message is to either make the cast explicit using one of the built-in functions (e.g. string, real, etc.) or to rewrite the code so that you do not depend on the dangerous usage of that data type."
+        },
+        {
+          "type": "code",
+          "text": "var _x = 1234;\n\n    var _y = y;\n\n    draw_sprite(sprite_index, image_index, _x, real(_y)); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1030",
+      "title": "The identifier 'NAME' is reserved and cannot be used as a variable or macro name.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Some identifier names are reserved by the compiler and runtime and cannot be used in local or static variable declarations or in macro declarations. Keep in mind that in Constructor Function scopes some built-in variables are actually available for usage since they do not resolve to a built-in in those places. These tend to be built-in variables that modify some property of an Object such as sprite_index, or x and y."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var image_index = 1; // GM1030\n\n    function SpriteData() constructor {\n\n        var image_index = 1; // Good!\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix is to find another, non-conflicting name to use for your variable instead."
+        },
+        {
+          "type": "code",
+          "text": "var _image_index = 1; // Fix!\n\n    function SpriteData() constructor {\n\n         var image_index = 1; // Good!\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1031",
+      "title": "The name 'IDENTIFIER' is an asset or constant and cannot be assigned to.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you try to assign a value to an asset or a constant. Assets and constants cannot be changed and are meant to be used stand alone on the right-hand side of statements, in conditionals, or in expressions."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "obj_control = 75; // GM1035! Cannot assign value to Asset type\n\n    pi = 1.618; // GM1035! Cannot assign value to constant"
+        },
+        {
+          "type": "paragraph",
+          "text": "Depending on the intention, either the name of the variable to be assigned to can be changed or the asset or constant should be moved to the right-hand side of the assignment."
+        },
+        {
+          "type": "code",
+          "text": "control = 75;\n\n    value = pi;"
+        }
+      ]
+    },
+    {
+      "id": "GM1032",
+      "title": "No references to arguments INDEX, … but references argument INDEX",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when referencing an argument in a function via the argument0..argument15 built-in variables, and one or more indices have been skipped. While the arguments may be referenced in any order all indices 0..n must be referenced at least once; where n is the number of arguments in your function. If the code changes so that it no longer accesses e.g. argument0, all other arguments need to be changed; argument1 becomes argument0, argument2 becomes argument1, etc."
+        },
+        {
+          "type": "paragraph",
+          "text": "See: argument"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function args() {\n\n        var _x = argument0;\n\n        var _y = argument2; // GM1032! Missing reference to argument1\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Replace the argument# variable with the first unused argument# variable."
+        },
+        {
+          "type": "code",
+          "text": "function args() {\n\n        var _x = argument0;\n\n        var _y = argument1; // Fix!\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1033",
+      "title": "Possibly unintended or misplaced semicolon.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when there is a semicolon in the code that might be unnecessary at that position."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _a = 3434;;"
+        },
+        {
+          "type": "paragraph",
+          "text": "The double semicolon is not needed and can be removed."
+        },
+        {
+          "type": "code",
+          "text": "var _a = 3434;"
+        }
+      ]
+    },
+    {
+      "id": "GM1034",
+      "title": "Argument cannot be referenced outside of script or function.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that one of the built-in variables argument0 - argument15 or the built-in variable argument (argument[0], argument[1], etc.) has been referenced outside of the scope of a function or script. These built-in variables are only legal inside functions, i.e. inside the opening and closing curly braces."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function args()\n\n    {\n\n\n\n    }\n\n    var _first_parameter = argument[0];\n\n    var _second_parameter = argument[1];"
+        },
+        {
+          "type": "paragraph",
+          "text": "In this case the reference of the built-in variables is intended, they should be moved inside the curly braces. If the references aren't intended to be used, they should be removed."
+        },
+        {
+          "type": "code",
+          "text": "function args()\n\n    {\n\n        var _first_parameter = argument[0];\n\n        var _second_parameter = argument[1];\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1035",
+      "title": "Return type differs from previously established return type.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when your JSDoc differs from the type returned in code or if Feather determines that you've returned multiple different non-compatible types from the same function. A non-compatible type would be something like Real, and String both being returned from the same function. Where something like Real, and Undefined might be compatible since undefined is commonly used to indicate no result. Returning different types of data is sometimes a valid strategy but it is typically dangerous since consuming code may assume that only one type of data will be returned, which may result in runtime errors or strange behaviour in the calling code."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// @returns {real}\n\n    function get_random_number() {\n\n        return \"1\"; // GM1035!\n\n    }\n\n    function get_random_number2() { // no JSDoc here\n\n        if (irandom(100) < 50)\n\n            return 0; // Return type is established here as 'Real'\n\n        return \"1\"; // GM1035!\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix for this is to either update your JSDoc accordingly, or to rewrite your code to ensure that the same type is returned from all return statements."
+        },
+        {
+          "type": "code",
+          "text": "/// @returns {string}\n\n    function get_random_number() {\n\n        return \"1\"; // Fixed! But maybe rename the function!\n\n    }\n\n    function get_random_number2() { // no JSDoc here\n\n        if (irandom(100) < 50)\n\n            return 0; // Return type is established here as 'Real'\n\n        return 1; // Fix!\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1036",
+      "title": "Array cannot be indexed in this way.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown if you index into an array with either 0 indices, or too many indices for the dimensionality of the array. Keep in mind that the 2D array syntax is deprecated in favour of staggered array indexing."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function choose2d() {\n\n        var _x = irandom(argument_count);\n\n        var _y = irandom(argument_count);\n\n        return argument[_x, _y]; // GM1036! argument array is not 2d\n\n    }\n\n    var _arr = [ 1, 2, 3, 4 ];\n\n    var _idx = _arr[]; // GM1036!"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix for this issue is to either provide the index, or to rethink how you're accessing the array."
+        },
+        {
+          "type": "code",
+          "text": "function choose2d(_arr) {\n\n        var _x = irandom(array_height_2d(_arr));\n\n        var _y = irandom(array_length_2d(_arr));\n\n        return _arr[_x, _y]; // Fix! Keep in mind this syntax is deprecated\n\n    }\n\n    var _arr = [ 1, 2, 3, 4 ];\n\n    var _idx = _arr[0]; // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1038",
+      "title": "Macro with this name has been previously declared.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you defined a macro with the same name before, somewhere in your code. Project-wide search (Ctrl+Alt+F) can be useful in this case to check how many occurrences of the macro are in your project. Look for #macro <macro_name> to find all definitions of this macro."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Script Asset: Debug\n\n    #macro dbg show_debug_message\n\n\n\n    /// Script Asset: Utility\n\n    #macro dbg show_debug_message"
+        },
+        {
+          "type": "paragraph",
+          "text": "Remove all duplicate macro definitions until there is one left."
+        },
+        {
+          "type": "code",
+          "text": "/// Script Asset: Debug\n\n    #macro dbg show_debug_message"
+        }
+      ]
+    },
+    {
+      "id": "GM1040",
+      "title": "argument# and argument[#] referencing cannot be mixed.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that the argument array variable and argument0 - argument15 variables are used together in a function. The former is used in functions that support a variable number of arguments, the latter is used when you know the number of arguments in advance. In any function, you should only ever use one of the two."
+        },
+        {
+          "type": "paragraph",
+          "text": "See: argument"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function func()\n\n    {\n\n       var _a = argument0;\n\n       var _b = argument[1];\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Change all argument[n]/argumentn variables to the same type of referencing, depending on what's needed in the function."
+        },
+        {
+          "type": "code",
+          "text": "function func()\n\n    {\n\n       var _a = argument0;\n\n       var _b = argument1;\n\n    }\n\n    // OR:\n\n    function func()\n\n    {\n\n       var _a = argument[0];\n\n       var _b = argument[1];\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1041",
+      "title": "The type 'TYPE' appears where the type 'TYPE' is expected.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you pass an argument to a function call's parameter of a different type. For example, passing a Id.Instance to a String parameter."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _inst = instance_create_depth(x, y, -100, \"obj_player\"); // GM1041!"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix is to determine what the correct type to pass to the parameter is, and rewrite your code accordingly."
+        },
+        {
+          "type": "code",
+          "text": "var _inst = instance_create_depth(x, y, -100, obj_player); // Fix!"
+        }
+      ]
+    },
+    {
+      "id": "GM1042",
+      "title": "Parameter name 'PARAMETER' differs from 'PARAMETER' specified in jsdoc.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when there is a difference between a function's parameter name in the JSDoc and its corresponding parameter name in the argument list. This could have a couple of causes:"
+        },
+        {
+          "type": "list",
+          "text": "There is a typo in the variable name in the JSDoc or in the argument list.\n    You renamed the parameter name in the argument list but not in the JSDoc or vice versa."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// @func sum(_v1, _v2);\n\n    /// @desc This function returns the sum of two 3-component vectors\n\n    /// @arg {Array<Real>} _v1 The first vector\n\n    /// @arg {Array<Real>} _v2 The second vector\n\n    function sum(_v, _v2)\n\n    {\n\n        return [\n\n            _v1[0] + _v2[0],\n\n            _v1[1] + _v2[1],\n\n            _v1[2] + _v2[2]\n\n        ];\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "To fix this issue you need to change the incorrectly named variable to the correct one to make sure both names correspond."
+        },
+        {
+          "type": "code",
+          "text": "/// @func sum(_v1, _v2);\n\n    /// @desc This function returns the sum of two 3-component vectors\n\n    /// @arg {Array<Real>} _v1 The first vector\n\n    /// @arg {Array<Real>} _v2 The second vector\n\n    function sum(_v1, _v2)\n\n    {\n\n        return [\n\n            _v1[0] + _v2[0],\n\n            _v1[1] + _v2[1],\n\n            _v1[2] + _v2[2]\n\n        ];\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1043",
+      "title": "Potentially unintentional type reassignment from '{0}' to '{1}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you assign a new value to an existing variable and the type of the new value is different from the type that the variable currently holds."
+        },
+        {
+          "type": "paragraph",
+          "text": "This may not cause any issues, though it could make it more difficult to interpret your GML code correctly when you use the same variable name multiple times."
+        },
+        {
+          "type": "paragraph",
+          "text": "It is good practice to keep the data type that you store in a variable constant, even though GameMaker doesn't enforce this in any way."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// Store a real number in my_var\n\n    my_var = 5;\n\n\n\n    // Next store a string in my_var\n\n    my_var = \"I'm a string\";  // type reassignment!"
+        },
+        {
+          "type": "paragraph",
+          "text": "This issue can be fixed in multiple ways, it depends on what you're trying to do in your code. If the string has a different purpose in your code you could store it in a different variable with an appropriate name."
+        },
+        {
+          "type": "code",
+          "text": "// Store a real number in my_var\n\n    my_var = 5;\n\n\n\n    // Store a new real number in my_var\n\n    my_var = 100;\n\n\n\n    // Store a string in a new variable my_string\n\n    my_string = \"I'm a string\";"
+        }
+      ]
+    },
+    {
+      "id": "GM1044",
+      "title": "Constant is expected to be one of the following: {0}",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown whenever one constant from a group of constants is expected as an argument and you've provided a value that's not in that group. Examples of these groups of constants are the Mouse Button Constants, the Game Speed Constants and the Primitive Type Constants. A constant from another group or a real number may accidentally work but it is not good practice to use them. Using the right constant in the right place helps increase the readability of your code."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// Example 1\n\n    if mouse_check_button_pressed(mb_midle)\n\n    {\n\n    }\n\n\n\n    // Example 2\n\n    if mouse_check_button_pressed(vk_left)\n\n    {\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "If this was caused by a typo, then fixing the typo fixes it. In other cases the constant needs to be changed to a valid one."
+        },
+        {
+          "type": "code",
+          "text": "// Example 1\n\n    if mouse_check_button_pressed(mb_middle)\n\n    {\n\n    }\n\n\n\n    // Example 2\n\n    if mouse_check_button_pressed(mb_left)\n\n    {\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1045",
+      "title": "Type '{0}' differs from type '{1}' specified in jsdoc.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when Feather detects that the type of a variable in your code doesn't correspond to the type the JSDoc says that variable should be."
+        },
+        {
+          "type": "paragraph",
+          "text": "This can happen when you write the JSDoc already, but decide to change the code afterwards. In that case, the JSDoc will no longer be up to date and needs to be changed to reflect the changes."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// @func return_something()\n\n    /// @desc This function returns something\n\n    ///\n\n    /// @returns {Id.Instance} A new instance\n\n    ///\n\n    function return_something()\n\n    {\n\n        return \"something\";\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above the JSDoc says the function returns an instance ID, but the code actually returns a string. If this is the intent, the type in the JSDoc needs to be changed to String to reflect that. If not, the code needs to be changed so it returns an instance."
+        },
+        {
+          "type": "code",
+          "text": "/// @func return_something()\n\n    /// @desc This function returns something\n\n    ///\n\n    /// @returns {String} The string \"something\"\n\n    ///\n\n    function return_something()\n\n    {\n\n        return \"something\";\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1050",
+      "title": "The identifier '{0}' is declared as a local variable and cannot be accessed in this way.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you attempt to access a local variable (defined with the var keyword) using the dot operator. The dot operator accesses a different scope, though local variables are already in the current scope."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    var _condition = false;\n\n    if (self._condition)    // Error! Variable is local...\n\n    {\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "A local (or temporary) variable should always be used without a prefix that refers to a scope. The scope of local variables is always the current block of code."
+        },
+        {
+          "type": "code",
+          "text": "var _condition = false;\n\n    if (_condition)\n\n    {\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1051",
+      "title": "Macro expressions should not be terminated with a ';' semicolon.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you end a macro definition with a semicolon. Macros can go anywhere in your code and are replaced by their value. Any semicolons in the macro's value are also inserted and may end up in places where they cause a syntax error."
+        },
+        {
+          "type": "paragraph",
+          "text": "See the section on Macros on the Constants page for more info."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "randomise();\n\n\n\n    #macro NEW_COLOR make_color_rgb(random(255), random(255), random(255));\n\n\n\n    draw_primitive_begin(pr_trianglelist);\n\n\n\n    repeat(3)\n\n    {\n\n        draw_vertex_color(random(room_width), random(room_height), NEW_COLOR, 1);    // Issue!\n\n    }\n\n\n\n    draw_primitive_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "Inserting the macro into the function call leads to a semicolon being inserted right after the third argument. This is incorrect, since this semicolon marks the end of the statement while the function call still needs an additional parameter and also has to be closed with a parenthesis. Removing the semicolon at the end of the macro fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "// The semicolon that gets inserted as part of the macro causes a syntax error:\n\n    // draw_vertex_color(random(room_width), random(room_height), make_color_rgb(random(255), random(255), random(255));, 1);\n\n    randomise();\n\n\n\n    #macro NEW_COLOR make_color_rgb(random(255), random(255), random(255))\n\n\n\n    draw_primitive_begin(pr_trianglelist);\n\n\n\n    repeat(3)\n\n    {\n\n        draw_vertex_color(random(room_width), random(room_height), NEW_COLOR, 1);    // Fixed!\n\n    }\n\n\n\n    draw_primitive_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM1052",
+      "title": "The delete operator can only act on a variable of type 'struct'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The new and delete operators are specifically for use with structs. Instances are destroyed using instance_destroy(), arrays are garbage-collected once they're no longer referenced and other resource types have their own functions to handle deleting/freeing them (a *_destroy or *_free function)."
+        },
+        {
+          "type": "code",
+          "text": "values = [2, 403, 202, 303, 773, 573];\n\n    delete values;"
+        },
+        {
+          "type": "paragraph",
+          "text": "To fix this the appropriate function or method should be used which, for arrays, is setting the variable to undefined."
+        },
+        {
+          "type": "code",
+          "text": "values = undefined;"
+        }
+      ]
+    },
+    {
+      "id": "GM1054",
+      "title": "Cannot inherit from non-existent function '{0}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when the constructor that a constructor is inheriting from doesn't exist. Possible causes are:"
+        },
+        {
+          "type": "list",
+          "text": "The constructor to inherit from still needs to be defined.\n    The function must be marked as a constructor by adding the constructor keyword.\n    There is a typo in the inherited constructor name."
+        },
+        {
+          "type": "paragraph",
+          "text": "See: Structs & Constructors"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function vec2() : vec()\n\n    {\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The code example above attempts to create an inherited constructor function, but some things are missing. First, the constructor to inherit from, vec, isn't defined yet. Second, the function isn't marked as a constructor with the constructor keyword. To fix the error the parent constructor should be defined and the constructor keyword be added to both."
+        },
+        {
+          "type": "code",
+          "text": "function vec() constructor {}\n\n    function vec2() : vec() constructor\n\n    {\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1055",
+      "title": "Cannot mix argument# and named parameters.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've used one of the argumentn variables while the function parameters are defined as named parameters. For every function either one or the other should be used."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function func(_a, _b, _c) {\n\n        show_debug_message($\"{argument0}, {argument1}, {argument2}\");\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above the parameters are already defined as named parameters. Replacing the occurrences of argument0 - argument2 in the function body fixes this issue. argument0 is replaced with _a, argument1 is replaced with _b and argument2 is replaced with _c. So every argument is replaced with the named argument at the corresponding index."
+        },
+        {
+          "type": "code",
+          "text": "function func(_a, _b, _c) {\n\n        show_debug_message($\"{_a}, {_b}, {_c}\");\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1056",
+      "title": "Bad practice to declare non-optional parameter after an optional parameter.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you list optional parameters before non-optional parameters. As a consequence, in order to use the default value of those optional parameters it's necessary to omit the argument. All optional parameters should go at the end of the parameter list."
+        },
+        {
+          "type": "paragraph",
+          "text": "See the section on Optional Arguments on the Script Functions And Variables page."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function func(arg1, arg2, arg3=7, arg4)\n\n    {\n\n    }\n\n    func(4, 5, , 8);  // the third parameter has to be omitted to use the default value"
+        },
+        {
+          "type": "paragraph",
+          "text": "This can be fixed by changing the order of the function parameters such that all optional parameters and their default values go at the end of the parameter list."
+        },
+        {
+          "type": "code",
+          "text": "function func(arg1, arg2, arg4, arg3=7)\n\n    {\n\n    }\n\n    func(4, 5, 8);"
+        }
+      ]
+    },
+    {
+      "id": "GM1058",
+      "title": "Cannot 'new' the identifier '{0}' as it is not a constructor function.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you try to call the new operator with a valid function name that's not marked as a constructor."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function item()\n\n    {\n\n    }\n\n    sword = new item();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In order to fix this error the constructor keyword must be added to the function definition."
+        },
+        {
+          "type": "code",
+          "text": "function item() constructor\n\n    {\n\n    }\n\n    sword = new item();"
+        }
+      ]
+    },
+    {
+      "id": "GM1059",
+      "title": "The parameter '{0}' has been previously declared.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when the same parameter name occurs multiple times in a function's parameter list."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "function func(_param1, _param2, _param1)\n\n    {\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "Depending on what is intended, the parameter should either be removed or renamed."
+        },
+        {
+          "type": "code",
+          "text": "// Option 1: Remove double\n\n    function func(_param1, _param2)\n\n    {\n\n    }\n\n    // Option 2: Rename the parameter\n\n    function func(_param1, _param2, _param3)\n\n    {\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1060",
+      "title": "Dangerous call to variable of type '{0}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Shown when you try to call something that is not a function."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "my_function = 100;\n\n    my_function();\n\n    my_function = pi;\n\n    my_function();"
+        }
+      ]
+    },
+    {
+      "id": "GM1062",
+      "title": "Malformed type '{0}' in jsdoc.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that Feather is unable to parse a parameter or return type in the function's JSDoc. The supported syntax is given on the Feather Data Types page."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// @function func(_param1, _param2, _param3)\n\n    /// @desc This function does something\n\n    /// @param {Array[String} _param1 This is parameter 1\n\n    /// @param {String Array[String]} _param2 This is parameter 2\n\n    /// @param {Id Instance} _param3 This is parameter 3\n\n    function func(_param1, _param2, _param3)\n\n    {\n\n        show_debug_message(\"The parameters are: {0}, {1} and {2}\", _param1, _param2, _param3);\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The JSDoc types in the code example above can be corrected as follows:"
+        },
+        {
+          "type": "code",
+          "text": "/// @function func(_param1, _param2, _param3)\n\n    /// @desc This function does something\n\n    /// @param {Array[String]} _param1 This is parameter 1\n\n    /// @param {String,Array[String]} _param2 This is parameter 2\n\n    /// @param {Id.Instance} _param3 This is parameter 3\n\n    function func(_param1, _param2, _param3)\n\n    {\n\n        show_debug_message(\"The parameters are: {0}, {1} and {2}\", _param1, _param2, _param3);\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1063",
+      "title": "Ternary may yield differing types '{0}' and '{1}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when a ternary operator returns a type of value in the true case that's different from the type in the false case or vice versa. As a consequence, the variable that's assigned to may receive a different type, depending on the outcome of the condition."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    tex = (texture_defined) ? sprite_get_texture(sprite_index, 0) : -1;\n\n\n\n    /// Draw Event\n\n    vertex_submit(vb, pr_trianglelist, tex);"
+        },
+        {
+          "type": "paragraph",
+          "text": "This can be fixed by explicitly converting the type returned in one of the cases to the type of the other case."
+        }
+      ]
+    },
+    {
+      "id": "GM1064",
+      "title": "Redeclaration of global function '{0}' originally declared in '{1}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've already declared a global function with the same name in another script asset."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Script1\n\n    function make_game()\n\n    {\n\n    }\n\n\n\n    /// Script2\n\n    function make_game()\n\n    {\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "One of the function definitions should be removed so that only one remains in the global namespace. If you want to create two functions with the same name then it is possible to create them as static functions within two different functions. The functions in which you define the static functions then act as a namespace."
+        },
+        {
+          "type": "code",
+          "text": "/// Script1\n\n    function make_game()\n\n    {\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM1100",
+      "title": "Syntax Error",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates a general syntax error in your code. Syntax errors cover a range of possible errors related to the syntax of your code."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _this * something;\n\n    = 48;"
+        }
+      ]
+    },
+    {
+      "id": "GM2000",
+      "title": "Not all code paths call gpu_set_blendmode(bm_normal) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you change the blend mode to a value different from bm_normal with a call to gpu_set_blendmode but don't change it back to bm_normal afterwards. After drawing something with a different blend mode it is important to set blending back to normal so everything that's drawn after it is drawn correctly."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_blendmode(bm_add);\n\n    draw_self();\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, $\"Score: {score}\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "The code in the example intends to draw an instance with added blending in its normal Draw event and some text with normal blending in its Draw GUI event. However, no call to reset the blend mode back to bm_normal is made in the Draw event and so the text in the Draw GUI event is also drawn using additive blending. Another call to gpu_set_blendmode needs to be added at the end of the Draw event to reset the blending back to bm_normal."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_blendmode(bm_add);\n\n    draw_self();\n\n    gpu_set_blendmode(bm_normal);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, $\"Score: {score}\");"
+        }
+      ]
+    },
+    {
+      "id": "GM2003",
+      "title": "Not all code paths call shader_reset() before end of script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This error is shown when a call to the function shader_reset is missing after drawing using a custom shader (set with shader_set). When the shader isn't set back to the default shader after drawing using a custom shader, everything that's drawn after that is also drawn using that shader."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    shader_set(sh_fancy_lighting);\n\n    vertex_submit(vb_my_world_model, pr_trianglelist, -1);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"World 1\");  // Also drawn using sh_fancy_lighting"
+        },
+        {
+          "type": "paragraph",
+          "text": "The call to shader_set should be accompanied with a call to shader_reset."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    shader_set(sh_fancy_lighting);\n\n    vertex_submit(vb_my_world_model, pr_trianglelist, -1);\n\n    shader_reset();\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"World 1\");"
+        }
+      ]
+    },
+    {
+      "id": "GM2004",
+      "title": "This for statement does not use its index and can be written as a repeat statement instead.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that the for statement has a loop counter that is never used, e.g. to index an array. When the number of iterations is known in advance and doesn't depend on a condition the for loop doesn't need a counter and can be replaced by a repeat statement."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "randomise();\n\n    var _num_elements = 20;\n\n    array = [];\n\n\n\n    for(var i = 0;i < _num_elements;i++)\n\n    {\n\n        array_push(array, irandom(100));\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The for loop in the example code above doesn't use its index. In this specific situation, the function used (array_push()) automatically appends to the end of the array so the index doesn't have to be provided explicitly."
+        },
+        {
+          "type": "code",
+          "text": "randomise();\n\n    var _num_elements = 20;\n\n    array = [];\n\n\n\n    repeat(_num_elements)\n\n    {\n\n        array_push(array, irandom(100));\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2005",
+      "title": "Not all code paths call surface_reset_target() before end of script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This error indicates that you changed the draw target with a call to surface_set_target but haven't set it back with a call to surface_reset_target in all situations."
+        },
+        {
+          "type": "paragraph",
+          "text": "See: Surfaces"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    if (!surface_exists(sf_canvas))\n\n    {\n\n        sf_canvas = surface_create(512, 512);\n\n    }\n\n\n\n    surface_set_target(sf_canvas);\n\n    draw_clear_alpha(c_white, 0);\n\n    draw_rectangle(4, 4, 40, 40);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example code above the drawing target is still set to sf_canvas after the block of code has executed. Further draw commands will also draw to this surface. A call to surface_reset_target() is needed at the end to reset the drawing target."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    if (!surface_exists(sf_canvas))\n\n    {\n\n        sf_canvas = surface_create(512, 512);\n\n    }\n\n\n\n    surface_set_target(sf_canvas);\n\n    draw_clear_alpha(c_white, 0);\n\n    draw_rectangle(4, 4, 40, 40);\n\n    surface_reset_target();"
+        }
+      ]
+    },
+    {
+      "id": "GM2007",
+      "title": "var expression should be terminated with a ';' (semicolon.)",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that a semicolon ; is missing at the end of a var statement. Local variables can be declared without immediately assigning them a value, but this declaration needs to be terminated with a semicolon."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var a"
+        },
+        {
+          "type": "paragraph",
+          "text": "A semicolon needs to be added at the end of the statement to fix this."
+        },
+        {
+          "type": "code",
+          "text": "var a;"
+        }
+      ]
+    },
+    {
+      "id": "GM2008",
+      "title": "Opening another vertex batch before closing a previous vertex batch.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you start another vertex batch with a call to vertex_begin before having called vertex_end for the current batch. Every call to vertex_begin() must be followed by a call to vertex_end() before a next call to vertex_begin()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "vertex_begin(vb, format);\n\n\n\n    // vertex_position_3d(...)\n\n    // vertex_color(...)\n\n    // vertex_texcoord(...)\n\n    // etc.\n\n    vertex_begin(vb, format);    // Error!\n\n\n\n    // vertex_position_3d(...)\n\n    // vertex_color(...)\n\n    // vertex_texcoord(...)\n\n    // etc.\n\n    vertex_end(vb);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example above two calls to vertex_begin() follow each other without a call to vertex_end() between them. Adding a call to vertex_end() in between fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "vertex_begin(vb, format);\n\n    // vertex_position_3d(...)\n\n    // vertex_color(...)\n\n    // vertex_texcoord(...)\n\n    // etc.\n\n    vertex_end(vb);              // End the current one first!\n\n\n\n    vertex_begin(vb, format);    // Only then start a new one!\n\n    // vertex_position_3d(...)\n\n    // vertex_color(...)\n\n    // vertex_texcoord(...)\n\n    // etc.\n\n    vertex_end(vb);"
+        }
+      ]
+    },
+    {
+      "id": "GM2009",
+      "title": "Closing a vertex batch without opening a vertex batch.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you close a vertex batch with a call to vertex_end before starting the batch with a call to vertex_begin. You first need to start the vertex batch with a call to vertex_begin(), then add vertex data according to the vertex format for the desired number of vertices and finally close the batch with a call to vertex_end()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "vertex_end(vb);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example code above a vertex batch is closed using vertex_end() without ever being opened. The fix is to add a call to vertex_begin() and add data for the vertices before the call to vertex_end()."
+        },
+        {
+          "type": "code",
+          "text": "vertex_begin(vb, format);\n\n    // vertex_position_3d(...)\n\n    // vertex_color(...)\n\n    // vertex_texcoord(...)\n\n    // etc.\n\n    vertex_end(vb);"
+        }
+      ]
+    },
+    {
+      "id": "GM2010",
+      "title": "The function '{0}' cannot be called outside of a vertex_begin()/vertex_end() block.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you're attempting to call a function that writes vertex data outside of vertex_begin / vertex_end. Vertex data can only be added after first calling vertex_begin() and before calling vertex_end()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    format = vertex_format_end();\n\n    vb = vertex_create_buffer();\n\n\n\n    vertex_begin(vb, format);\n\n    vertex_end(vb);\n\n    vertex_position_3d(vb, x, y, 0);\n\n    vertex_position_3d(vb, x + 100, y, 0);\n\n    vertex_position_3d(vb, x, y + 100, 0);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, the function calls to write positions to the vertex buffer come after vertex_end(). To fix this they need to be moved between vertex_begin() and vertex_end()."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    format = vertex_format_end();\n\n    vb = vertex_create_buffer();\n\n\n\n    vertex_begin(vb, format);\n\n    vertex_position_3d(vb, x, y, 0);\n\n    vertex_position_3d(vb, x + 100, y, 0);\n\n    vertex_position_3d(vb, x, y + 100, 0);\n\n    vertex_end(vb);"
+        }
+      ]
+    },
+    {
+      "id": "GM2011",
+      "title": "Not all code paths call vertex_end() before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you started writing vertex data to a vertex buffer but haven't properly finished writing the data with a closing call to vertex_end. Every call to vertex_begin should be accompanied by a call to vertex_end. To write data to a vertex buffer you should do the following:"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vb = vertex_create_buffer();\n\n    vertex_begin(vb, format);\n\n    vertex_position_3d(vb, 0, 0, 0);\n\n    vertex_colour(vb, c_white, 1);\n\n    // Etc.\n\n\n\n    /// Draw Event\n\n    vertex_submit(vb, pr_pointlist, -1);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, the vertex buffer isn't properly finished because a call to vertex_end() is missing. This needs to be added to fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vb = vertex_create_buffer();\n\n    vertex_begin(vb, format);\n\n    vertex_position_3d(vb, 0, 0, 0);\n\n    vertex_colour(vb, c_white, 1);\n\n    // Etc.\n\n    vertex_end(vb);\n\n\n\n    /// Draw Event\n\n    vertex_submit(vb, pr_pointlist, -1);"
+        }
+      ]
+    },
+    {
+      "id": "GM2012",
+      "title": "Opening another vertex format before closing a previous vertex format.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you begin a new vertex format with vertex_format_begin before finishing the previous one with a call to vertex_format_end. A vertex format must always be closed before starting a new one."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    format1 = vertex_format_end();\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_texcoord();\n\n    format2 = vertex_format_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example code above, one vertex format definition is nested inside another one. As a result, a vertex format is being defined while another one's definition hasn't finished. To fix this, all vertex formats should be defined one after the other:"
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    format1 = vertex_format_end();\n\n\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_texcoord();\n\n    format2 = vertex_format_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2013",
+      "title": "Closing a vertex format without opening a vertex format.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you close a vertex format with vertex_format_end without first having called vertex_format_begin."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    format = vertex_format_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "The code example above closes the vertex format without ever having started it with a call to vertex_format_begin(). The vertex format should be opened with a call to this function and at least one vertex attribute should be added to it using one of the vertex_format_add_* functions."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    format = vertex_format_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2014",
+      "title": "The function '{0}' cannot be called outside of a vertex_format_begin()/vertex_format_end() block.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The vertex_format_add_* functions can only be called between a call to vertex_format_begin and vertex_format_end. The function vertex_format_begin() starts the vertex format, calls to vertex_format_add_* define the vertex format's attributes and the function vertex_format_end() ends the definition of the vertex format and returns it."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_colour();\n\n    vertex_format_add_texcoord();\n\n    vertex_format_begin();\n\n    format = vertex_format_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, the vertex_format_add_* functions are called before the call to vertex_format_begin() that begins the actual definition of a vertex format. These functions always go between vertex_format_begin() and vertex_format_end(). Moving the call to vertex_format_begin() before the first vertex_format_add_* call fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_colour();\n\n    vertex_format_add_texcoord();\n\n    format = vertex_format_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2015",
+      "title": "Not all code paths call vertex_format_end() before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you started the definition of a vertex format with vertex_format_begin but haven't finished it with a call to vertex_format_end. The call to vertex_format_end() returns the actual vertex format."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_colour();\n\n    vertex_format_add_texcoord();"
+        },
+        {
+          "type": "paragraph",
+          "text": "A vertex format definition isn't complete without a call to vertex_format_end() that returns the format. This needs to be added to fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    vertex_format_begin();\n\n    vertex_format_add_position_3d();\n\n    vertex_format_add_colour();\n\n    vertex_format_add_texcoord();\n\n    format = vertex_format_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2016",
+      "title": "Instance variable '{0}' declared outside of Create event, declare with 'var' or move to Create event.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you declare an instance variable outside of the Create event. Instance variables should always be created in the Create event to guarantee that you'll be able to access them in all other events."
+        },
+        {
+          "type": "paragraph",
+          "text": "When you don't define instance variables in the Create event, you might at one point run into a situation where that variable doesn't exist yet. For example, when you first define the instance variable in the Step event and only use it in the Step event, this won't cause problems. Though when you later decide to add a Begin Step event to the object and attempt to access the variable there, an error will be thrown when your game runs. This is because Begin Step events run before Step events and the first Step event hasn't run yet when the first Begin Step event runs."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    ammo_initialised = false;\n\n\n\n    /// Begin Step Event\n\n\n\n    /// Step Event\n\n    if (!ammo_initialised)\n\n    {\n\n        ammo = 0;\n\n        ammo_initialised = true;\n\n    }\n\n    var _ins_ammo = instance_place(x, y, obj_ammo);\n\n    if (_ins_ammo != noone)\n\n    {\n\n        // Collect ammo\n\n        ammo++;\n\n        instance_destroy(_ins_ammo);\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "This issue is fixed by moving the declaration of the variable to the object's Create event."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    ammo = 0;\n\n\n\n    /// Begin Step Event\n\n    // Do something with ammo here\n\n\n\n    /// Step Event\n\n    var _ins_ammo = instance_place(x, y, obj_ammo);\n\n    if (_ins_ammo != noone)\n\n    {\n\n        // Collect ammo\n\n        ammo++;\n\n        instance_destroy(_ins_ammo);\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2017",
+      "title": "Inconsistent naming. Recommended name is '{0}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when Feather encounters a name in your code that's not named according to the naming rules as defined under Feather Settings > Naming Rules. The names can be asset names, names of variables in a particular scope (local, instance, etc.) as well as function, constructor, enum and macro names."
+        },
+        {
+          "type": "paragraph",
+          "text": "Note that Feather will check against your own naming rules when you customise them in the Feather Preferences."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var s = sprSprite;\n\n    enum size\n\n    {\n\n        small,\n\n        medium,\n\n        large\n\n    }\n\n\n\n    function Show()\n\n    {\n\n        show_debug_message(\"Here it is!\");\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "The code in the example above contains a few names that aren't named according to Feather's default naming rules. To make them consistent with these rules, the code should be changed to the following:"
+        },
+        {
+          "type": "code",
+          "text": "var _s = spr_sprite;\n\n    enum SIZE\n\n    {\n\n        SMALL,\n\n        MEDIUM,\n\n        LARGE\n\n    }\n\n\n\n    function show()\n\n    {\n\n        show_debug_message(\"Here it is!\");\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2019",
+      "title": "Not all code paths call draw_set_valign(fa_top) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This warning message indicates that you changed the vertical text alignment to a value different from the default (fa_top) but haven't changed it back afterwards."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw GUI Begin Event\n\n    draw_set_valign(fa_bottom);\n\n    draw_text(5, room_height-5, \"In the bottom-left corner\");\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"In the top-left corner\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the above code example, the vertical text alignment is set to bottom-aligned and some text is drawn in the Draw GUI Begin event. The text alignment isn't reset to fa_top, however, which causes text in the Draw GUI Event that follows it to be drawn mostly offscreen. This is because it is drawn bottom-aligned at a position in the top-left corner of the window. Resetting the vertical text alignment back to fa_top fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw GUI Begin Event\n\n    draw_set_valign(fa_bottom);\n\n    draw_text(5, room_height-5, \"In the bottom-left corner\");\n\n    draw_set_valign(fa_top);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"In the top-left corner\");"
+        }
+      ]
+    },
+    {
+      "id": "GM2020",
+      "title": "all cannot be referenced in this way.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you attempt to reference the keyword all in the dot operator. The keyword all can be used in a with statement to indicate that it should loop through all instances, but it cannot be used with the dot operator to change a variable in all instances at the same time."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "all.x = 200;"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fix for this issue is to use the keyword all in a with statement."
+        },
+        {
+          "type": "code",
+          "text": "with (all)\n\n    {\n\n        x = 200;\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2022",
+      "title": "Return value of a pure function is not being used.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've called a pure function, which doesn't change anything and only returns a value, without using its return value. The return value can be used by assigning it to a variable, using it in an expression or by passing it as a parameter in a function call."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "variable_get_hash(\"member\");\n\n    choose(\"a\", \"b\", \"c\");\n\n    make_colour_rgb(255, 255, 0);"
+        },
+        {
+          "type": "paragraph",
+          "text": "The return value needs be used in the code in order to fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "var _hash = variable_get_hash(\"member\");\n\n    if (choose(\"a\", \"b\", \"c\") == \"a\") { show_debug_message(\"Good choice!\"); }\n\n    draw_set_colour(make_colour_rgb(255, 255, 0));"
+        }
+      ]
+    },
+    {
+      "id": "GM2023",
+      "title": "Evaluation order of function calls in argument list not guaranteed between platforms.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when there are multiple function calls in the argument list when calling a function. When a function is called, the arguments are not necessarily initialised in the order they're defined in the argument list. As a consequence, when the arguments contain function calls, those function calls may not execute in the order you'd expect. In some specific cases, such as when a function reads data sequentially, this can give unexpected results."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));\n\n    /// z will be x, y will be y, x will be z\n\n    /// since the buffer_read's are called in order last to first"
+        },
+        {
+          "type": "paragraph",
+          "text": "To make sure the assignments are done in the correct order you call the functions and assign the result of each of them to a temporary variable before calling the actual function. Then call the actual function and pass the temporary variables as the arguments."
+        },
+        {
+          "type": "code",
+          "text": "var _x = buffer_read(buff, buffer_f32);\n\n    var _y = buffer_read(buff, buffer_f32);\n\n    var _z = buffer_read(buff, buffer_f32);\n\n    vertex_position_3d(vb, _x, _y, _z);"
+        }
+      ]
+    },
+    {
+      "id": "GM2025",
+      "title": "Reference to non-existent event '{0}'.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Shown when a user event is called but that user event does not exist in the object."
+        }
+      ]
+    },
+    {
+      "id": "GM2026",
+      "title": "Not all code paths call draw_set_halign(fa_left) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you changed the horizontal text alignment to a value different from the default (fa_left) but haven't changed it back afterwards."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw GUI Begin Event\n\n    draw_set_halign(fa_right);\n\n    draw_text(room_width-5, 5, \"In the top-right corner\");\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"In the top-left corner\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example code above, the horizontal text alignment is set to right-aligned and some text is drawn in the Draw GUI Begin event. However, the text alignment isn't reset to fa_left, which causes text in the Draw GUI Event that follows it to be drawn mostly offscreen. This is because it is drawn right-aligned at a position in the top-left corner of the window. Resetting the horizontal text alignment back to fa_left fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw GUI Begin Event\n\n    draw_set_halign(fa_right);\n\n    draw_text(room_width-5, 5, \"In the top-right corner\");\n\n    draw_set_halign(fa_left);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"In the top-left corner\");"
+        }
+      ]
+    },
+    {
+      "id": "GM2027",
+      "title": "Opening another primitive before closing a previous primitive.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you open another primitive using draw_primitive_begin without closing the current primitive with a call to draw_primitive_end."
+        },
+        {
+          "type": "paragraph",
+          "text": "A primitive is always drawn with a call to draw_primitive_begin(), followed by multiple calls to one of the draw_vertex* functions and finally a call to draw_primitive_end()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_primitive_begin(pr_linestrip);\n\n    draw_vertex(0, 0);\n\n    draw_vertex(10, 0);\n\n    draw_vertex(0, 10);\n\n    draw_primitive_begin(pr_linestrip);\n\n    draw_vertex(10, 0);\n\n    draw_vertex(20, 0);\n\n    draw_vertex(10, 10);\n\n    draw_primitive_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "The first primitive is missing a draw_primitive_end() call after the calls to draw_vertex(). Adding it fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_primitive_begin(pr_linestrip);\n\n    draw_vertex(0, 0);\n\n    draw_vertex(10, 0);\n\n    draw_vertex(0, 10);\n\n    draw_primitive_end();\n\n\n\n    draw_primitive_begin(pr_linestrip);\n\n    draw_vertex(10, 0);\n\n    draw_vertex(20, 0);\n\n    draw_vertex(10, 10);\n\n    draw_primitive_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2028",
+      "title": "Closing a primitive without opening a primitive.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you made a call to draw_primitive_end to close a primitive, but haven't opened a primitive first with a call to draw_primitive_begin."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_primitive_end();  // Which primitive to close?"
+        },
+        {
+          "type": "paragraph",
+          "text": "Calling draw_primitive_begin() before draw_primitive_end() fixes this issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_primitive_begin(pr_linelist);\n\n\n\n    // draw_vertex, draw_vertex_colour, etc.\n\n\n\n    draw_primitive_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2029",
+      "title": "The function '{0}' cannot be called outside of a draw_primitive_begin()/draw_primitive_end() block.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you use one of the draw_vertex* functions outside of draw_primitive_begin / draw_primitive_end. These functions add vertices when drawing a primitive and only do something when called between draw_primitive_begin() and draw_primitive_end()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_vertex(room_width/4, room_height/4);\n\n    draw_vertex(room_width/2, room_height/4);\n\n    draw_vertex(room_width/4, room_height/2);\n\n    draw_primitive_begin(pr_trianglelist);\n\n    draw_primitive_end();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example, the calls to draw_vertex() need to be moved between the calls to draw_primitive_begin() and draw_primitive_end()."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_primitive_begin(pr_trianglelist);\n\n    draw_vertex(room_width/4, room_height/4);\n\n    draw_vertex(room_width/2, room_height/4);\n\n    draw_vertex(room_width/4, room_height/2);\n\n    draw_primitive_end();"
+        }
+      ]
+    },
+    {
+      "id": "GM2030",
+      "title": "Not all code paths call draw_primitive_end() before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that a call to draw_primitive_end is missing in at least one place in your code. This can happen when you draw, for example, different vertices based on an if-else condition and you added the call to draw_primitive_end() to the if case, but not to the else case."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    var _condition = (irandom(100) < 50);\n\n    draw_primitive_begin(pr_linelist);\n\n\n\n    if (_condition)\n\n    {\n\n        // draw_vertex, draw_vertex_colour, etc.\n\n        draw_primitive_end();\n\n    }\n\n    else\n\n    {\n\n        // draw_vertex, draw_vertex_colour, etc.\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the example above one of two possible code paths is followed, where each draws a different shape. The if case ends with a call to draw_primitive_end(), though the else case is missing that call. Adding it to the else case is one possible fix, though the clean and more robust way to fix the issue is to move it outside of the if-else statement."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    var _condition = (irandom(100) < 50);\n\n    draw_primitive_begin(pr_linelist);\n\n\n\n    if (_condition)\n\n    {\n\n        // draw_vertex, draw_vertex_colour, etc.\n\n    }\n\n    else\n\n    {\n\n        // draw_vertex, draw_vertex_colour, etc.\n\n    }\n\n\n\n    draw_primitive_end();  // Call no longer depends on if-else condition!"
+        }
+      ]
+    },
+    {
+      "id": "GM2031",
+      "title": "Opening another File Find before closing a previous File Find.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you start another File Find with file_find_first without closing the previous one with file_find_close. You can only perform one File Find at a time and one needs to be closed before another can be opened."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "var _look_for_description = true;\n\n    var _file = file_find_first(\"/game_data/*.bin\", fa_none);\n\n    if (_look_for_description)\n\n    {\n\n        _file2 = file_find_first(\"/game_data/*.json\", fa_none);\n\n    }\n\n\n\n    file_find_close();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above a second file find is started with file_find_first() before the current file find is properly closed if a variable _look_for_description is set to true. To properly fix the issue the first file find needs to be closed before the if statement is checked and the second file find needs to be closed inside the true case of the if statement (at the same level as the call to file_find_first())."
+        },
+        {
+          "type": "code",
+          "text": "var _look_for_description = true;\n\n    var _file = file_find_first(\"/game_data/*.bin\", fa_none);\n\n    file_find_close();\n\n    if (_look_for_description)\n\n    {\n\n        _file2 = file_find_first(\"/game_data/*.json\", fa_none);\n\n        file_find_close();\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2032",
+      "title": "Closing a File Find without opening a File Find.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you call file_find_close when no File Find is currently open (i.e. no call to file_find_first was made)."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "file_find_close();"
+        },
+        {
+          "type": "paragraph",
+          "text": "A call to file_find_first() should be added if the intention is to do a File Find."
+        },
+        {
+          "type": "code",
+          "text": "file_find_first(\"*.json\", fa_none);\n\n    file_find_close();"
+        }
+      ]
+    },
+    {
+      "id": "GM2033",
+      "title": "The function '{0}' cannot be called outside of a file_find_first()/file_find_close() block.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that the given function can only go between a call to file_find_first and a call to file_find_close."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "fnames = [];\n\n    var _fname = file_find_first(\"*.txt\", fa_none);\n\n\n\n    while(_fname != \"\")\n\n    {\n\n        array_push(fnames, _fname);\n\n        _fname = file_find_next();\n\n    }\n\n\n\n    file_find_close();\n\n    file_find_next();"
+        },
+        {
+          "type": "paragraph",
+          "text": "The second file_find_next() is called outside of the calls to file_find_first() and file_find_close(). It needs to be removed to fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "fnames = [];\n\n    var _fname = file_find_first(\"*.txt\", fa_none);\n\n\n\n    while(_fname != \"\")\n\n    {\n\n        array_push(fnames, _fname);\n\n        _fname = file_find_next();\n\n    }\n\n\n\n    file_find_close();"
+        }
+      ]
+    },
+    {
+      "id": "GM2034",
+      "title": "Not all code paths call file_find_close() before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that a call to file_find_close may not be encountered. Ideally, the call to file_find_close() should occur in the same scope as the call to file_find_first()."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "fnames = [];\n\n    var _fname = file_find_first(\"*.txt\", fa_none);\n\n    while(_fname != \"\")\n\n    {\n\n        array_push(fnames, _fname);\n\n        _fname = file_find_next();\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example, a call to file_find_close() is missing. This needs to be added to fix the issue."
+        },
+        {
+          "type": "code",
+          "text": "fnames = [];\n\n    var _fname = file_find_first(\"*.txt\", fa_none);\n\n    while(_fname != \"\")\n\n    {\n\n        array_push(fnames, _fname);\n\n        _fname = file_find_next();\n\n    }\n\n    file_find_close();"
+        }
+      ]
+    },
+    {
+      "id": "GM2035",
+      "title": "Not all code paths call gpu_pop_state() before end of script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that there are situations where gpu_pop_state isn't called, depending on your game's logic. This can occur when you have logic in your code where, for example, the if case contains a call to gpu_pop_state but the else case doesn't. Depending on whether the expression inside the if statement evaluates to true or false the function may not get called."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw End Event\n\n    gpu_push_state();\n\n    gpu_set_blendmode(bm_add);\n\n    if (show_name)\n\n    {\n\n        draw_text(x, y, name);\n\n        gpu_pop_state();\n\n    }\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, $\"Instances: {instance_count}\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example, the GPU's current state is pushed onto the stack and the blend mode is then changed to bm_add. The GPU's state is then set back to the previous one, but only if an instance variable is true. This has consequences for the subsequent Draw GUI Event. The call to gpu_pop_state needs to be moved out of the if statement so it always executes."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw End Event\n\n    gpu_push_state();\n\n    gpu_set_blendmode(bm_add);\n\n    if (show_name)\n\n    {\n\n        draw_text(x, y, name);\n\n    }\n\n    gpu_pop_state();\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, $\"Instances: {instance_count}\");  // All good!"
+        }
+      ]
+    },
+    {
+      "id": "GM2039",
+      "title": "Call to execute a global script resource like a function is deprecated.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you call a script asset as a function. A script asset is not meant to be executed directly as a function. While the behaviour is still included in GameMaker, it is only there to support legacy code."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// my_function\n\n    show_debug_message(\"my_function calling!\");  // Function call. Debug message is shown already!\n\n\n\n    /// Create Event\n\n    my_function();                               // Debug message is shown again!"
+        },
+        {
+          "type": "paragraph",
+          "text": "If a script asset contains code that should be its own function, this code should be moved inside a new function definition inside the script. The new function gets the name of the script asset and the script asset can be renamed to a descriptive name that describes well what it contains (a group of functions, a collection of (global) variables, a collection of macros, etc.)."
+        },
+        {
+          "type": "code",
+          "text": "/// Functions (Script Asset)\n\n    function my_function()\n\n    {\n\n        show_debug_message(\"my_function calling!\");  // Function call as part of function definition. Nothing is shown (yet)!\n\n    }\n\n\n\n    /// Create Event\n\n    my_function();                                   // Actual function call, debug message is shown (only) at the intented time!"
+        }
+      ]
+    },
+    {
+      "id": "GM2040",
+      "title": "Call to event_inherited() in object with no parent event.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you call the function event_inherited in an object that either has no parent object or that has no ancestor in its parent-child hierarchy that defines the event."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// obj_parent\n\n    // No Room Start event\n\n\n\n    /// obj_child.Room_Start\n\n    event_inherited();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example, an object obj_child has an object obj_parent as its parent object. The parent object doesn't define a Room Start event yet the child object does and calls event_inherited(). The call to event_inherited() can be removed, or it can be commented out in case the event might get added later in the parent object."
+        },
+        {
+          "type": "code",
+          "text": "/// obj_parent\n\n    // No Room Start event\n\n\n\n    /// obj_child.Room_Start\n\n    event_inherited();"
+        }
+      ]
+    },
+    {
+      "id": "GM2042",
+      "title": "Inconsistent stack depth for gpu_push_state()/gpu_pop_state() blocks. All branches should call these functions an equal number of times.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that gpu_push_state is called a different number of times than gpu_pop_state. Every call to gpu_push_state must be accompanied by a call to gpu_pop_state."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    // Situation 1\n\n    gpu_push_state();\n\n    gpu_push_state();\n\n    // draw something\n\n    gpu_pop_state();\n\n\n\n    // Situation 2\n\n    gpu_push_state();\n\n    // draw_something\n\n    gpu_pop_state();\n\n    gpu_pop_state();"
+        },
+        {
+          "type": "paragraph",
+          "text": "Every call to gpu_push_state in the code above must have a corresponding call to gpu_pop_state. Assuming that two stack pushes were meant in the first case and a single stack push in the second case, the code can be fixed as follows:"
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    // Situation 1\n\n    gpu_push_state();\n\n    gpu_push_state();\n\n    // draw something\n\n    gpu_pop_state();\n\n    gpu_pop_state();\n\n\n\n    // Situation 2\n\n    gpu_push_state();\n\n    // draw_something\n\n    gpu_pop_state();"
+        }
+      ]
+    },
+    {
+      "id": "GM2043",
+      "title": "Attempting to access the local variable '{0}' outside of the scope it was defined in.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This warning is shown when you access a local variable either before it's defined or after it's gone out of scope."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// Attempt to access before it's defined\n\n    // Didn't come across variable definition yet\n\n    i = 0;\n\n    var i = 34;\n\n\n\n    // Attempting to access after the variable's gone out of scope\n\n    if (something_occurred)\n\n    {\n\n        // Variable is defined inside curly braces,\n\n        // remains \"in scope\" between these curly braces\n\n        var _msg = \"Something happened!\";\n\n    }\n\n\n\n    // Variable went out of scope after the closing curly brace\n\n    _msg = \"test\";"
+        },
+        {
+          "type": "paragraph",
+          "text": "You should make sure to always define local variables before accessing them. In case of the if statement the variable can simply be declared before the if so it stays in scope the entire time and can also be accessed from within the if statement."
+        },
+        {
+          "type": "code",
+          "text": "// Fix for access before it's defined\n\n    var i = 0;\n\n    i = 34;\n\n\n\n    // Fix for access after the variable's gone out of scope\n\n    var _msg;\n\n    if (something_occurred)\n\n    {\n\n        // Variable can be accessed and modified from within if\n\n        _msg = \"Something happened!\";\n\n    }\n\n\n\n    // Variable is still in scope now\n\n    _msg = \"test\";"
+        }
+      ]
+    },
+    {
+      "id": "GM2044",
+      "title": "Local variable '{0}' is already declared.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you declare a local variable with the same name as a local variable that already exists."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "// Situation 1: declared again\n\n    var i = 0;\n\n    var _num_elements = 20;\n\n    array = array_create(_num_elements);\n\n    repeat(_num_elements)\n\n    {\n\n        array[i--] = irandom(100);\n\n    }\n\n    var i = 0;\n\n\n\n    // Situation 2: redeclared in a nested loop\n\n    for(var i = 0;i < 50;i++)\n\n    {\n\n        for(var i = 0;i < 50;i++)\n\n        {\n\n\n\n        }\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the above example two situations are shown. In the first situation the local variable is declared and used in a repeat loop. After that, it is redeclared. In this case, it suffices to keep only the first declaration and change the other one to an assignment since the variable already exists at that point. In the second situation the same variable name is accidentally used for both loop counters in a nested for loop. This will cause the variable to increment not only in the outer loop but also in the inner loop. To fix this, the inner loop counter variable should be renamed."
+        },
+        {
+          "type": "code",
+          "text": "// Situation 1: declared again\n\n    var i = 0;\n\n    var _num_elements = 20;\n\n    array = array_create(_num_elements);\n\n    repeat(_num_elements)\n\n    {\n\n        array[i--] = irandom(100);\n\n    }\n\n    i = 0;\n\n\n\n    // Situation 2: redeclared in a nested loop\n\n    for(var i = 0;i < 50;i++)\n\n    {\n\n        for(var j = 0;j < 50;j++)\n\n        {\n\n\n\n        }\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2046",
+      "title": "Inconsistent stack depth for surface_set_target()/surface_reset_target() blocks. All branches should call these functions the same number of times.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've set the draw target to a surface more times than you've reset it back to the previous target. Every change to the draw target must be accompanied by a change back to the previous draw target. If you miss a call to surface_reset_target this may cause certain things to be drawn to a different surface."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    sf = -1;\n\n\n\n    /// Draw Event\n\n    if (!surface_exists(sf))\n\n    {\n\n        sf = surface_create(128, 128);\n\n    }\n\n    surface_set_target(sf);\n\n    draw_clear_alpha(c_blue, 1);\n\n    draw_circle(50, 50, 20, false);\n\n    vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, a surface is created and drawn to in the Draw event. The surface is set as the drawing target but the drawing target isn't reset properly. A vertex buffer is then submitted with the surface texture used as the texture. However, the drawing target is still set to the surface itself and the vertex buffer will be rendered to the surface."
+        },
+        {
+          "type": "paragraph",
+          "text": "Adding a call to surface_reset_target() after drawing to the surface fixes the issue."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    sf = -1;\n\n\n\n    /// Draw Event\n\n    if (!surface_exists(sf))\n\n    {\n\n        sf = surface_create(128, 128);\n\n    }\n\n    surface_set_target(sf);\n\n    draw_clear_alpha(c_blue, 1);\n\n    draw_circle(50, 50, 20, false);\n\n    surface_reset_target();\n\n    vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));"
+        }
+      ]
+    },
+    {
+      "id": "GM2047",
+      "title": "Unreachable code.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when a part of your code cannot be reached in any way because the logic always prevents it from happening. For example, when the expression inside an if statement always evaluates to false, the code inside that if statement will never be executed."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "if (false)\n\n    {\n\n        // Unreachable code\n\n    }"
+        },
+        {
+          "type": "paragraph",
+          "text": "To fix this you should change the expression so that there are cases where it can evaluate to true and the code inside the if case executes."
+        },
+        {
+          "type": "code",
+          "text": "if (choose(true, false))\n\n    {\n\n        // Code executed if 'true'\n\n    }"
+        }
+      ]
+    },
+    {
+      "id": "GM2048",
+      "title": "Not all code paths call gpu_set_blendenable(true) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that gpu_set_blendenable(true) isn't called in all possible cases after you disable blending with gpu_set_blendenable(false). This can occur when you have logic in your code where, for example, the if case contains a call to gpu_set_blendenable(true) but the else case doesn't. Depending on whether the expression inside the if statement evaluates to true or false, the function may not get called and blending won't be enabled again for subsequent drawing."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_blendenable(false);\n\n    vertex_submit(vb, pr_trianglelist, tex);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"Hello!\");  // Text isn't drawn correctly"
+        },
+        {
+          "type": "paragraph",
+          "text": "To fix this issue you need to re-enable alpha blending with another call to gpu_set_blendenable."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_blendenable(false);\n\n    vertex_submit(vb, pr_trianglelist, tex);\n\n    gpu_set_blendenable(true);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"Hello!\");  // Text is drawn correctly again"
+        }
+      ]
+    },
+    {
+      "id": "GM2049",
+      "title": "Not all code paths call gpu_set_zfunc(cmpfunc_lessequal) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the function for z-testing but haven't set it back to the default cmpfunc_lessequal again. When depth testing is enabled with a call to gpu_set_ztestenable(true), by default a pixel that's written to the depth buffer is considered closer when its z value is less or equal (cmpfunc_lessequal) than the current depth value for that pixel."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_ztestenable(true);\n\n    gpu_set_zfunc(cmpfunc_greater);\n\n    vertex_submit(vb, pr_trianglelist, tex);\n\n    gpu_set_ztestenable(false);"
+        },
+        {
+          "type": "paragraph",
+          "text": "The comparison function used for z-testing needs to be properly reset to cmpfunc_lessequal in another call to gpu_set_zfunc."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_ztestenable(true);\n\n    gpu_set_zfunc(cmpfunc_greater);\n\n    vertex_submit(vb, pr_trianglelist, tex);\n\n    gpu_set_zfunc(cmpfunc_lessequal);\n\n    gpu_set_ztestenable(false);"
+        }
+      ]
+    },
+    {
+      "id": "GM2050",
+      "title": "Not all code paths call gpu_set_fog(false, c_black, 0, 1) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the GPU fog settings with a call to gpu_set_fog, but haven't reset them to the default fog settings afterwards. GPU fog is disabled by default."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_fog(true, c_aqua, 0, 1000);\n\n    draw_self();"
+        },
+        {
+          "type": "paragraph",
+          "text": "The fog needs to be disabled after drawing with fog enabled in order not to affect subsequent draw commands."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_fog(true, c_aqua, 0, 1000);\n\n    draw_self();\n\n    gpu_set_fog(false, c_black, 0, 1);"
+        }
+      ]
+    },
+    {
+      "id": "GM2051",
+      "title": "Not all code paths call gpu_set_cullmode(cull_noculling) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the cullmode using a call to gpu_set_cullmode, but haven't reset it to cull_noculling afterwards. When culling is enabled, the GPU will not draw the backside of triangles based on the winding order of the vertices, which is either clockwise or counter-clockwise."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_cullmode(cull_clockwise);\n\n    shader_set(sh_lighting);\n\n    vertex_submit(vb_static_geometry, pr_trianglelist, -1);\n\n    shader_reset();\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"World 1\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "In order to fix this issue the cullmode needs to be properly reset to cull_noculling or to the value that it had before."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_cullmode(cull_clockwise);\n\n    // OR\n\n    // var _cm = gpu_get_cullmode();\n\n    // gpu_set_cullmode(cull_clockwise);\n\n\n\n    shader_set(sh_lighting);\n\n    vertex_submit(vb_static_geometry, pr_trianglelist, -1);\n\n    shader_reset();\n\n\n\n    gpu_set_cullmode(cull_noculling);\n\n    // OR\n\n    // gpu_set_cullmode(_cm);\n\n\n\n    /// Draw GUI Event\n\n    draw_text(5, 5, \"World 1\");"
+        }
+      ]
+    },
+    {
+      "id": "GM2052",
+      "title": "Not all code paths call gpu_set_colourwriteenable(true, true, true, true) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've disabled writing to at least one colour channel but haven't re-enabled writing to all colour channels afterwards."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_colourwriteenable(true, true, true, false);\n\n    draw_sprite(sprite_index, 0, x, y);"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above writing to the alpha channel is disabled for all draw calls that follow the call to gpu_set_colourwriteenable. No call to gpu_set_colourwriteenable() is made to reset this, however. Because of this, subsequent draw commands will also not write to the alpha channel. Another call to gpu_set_colourwriteenable() is needed to fix this, which restores writing to all colour channels."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_colourwriteenable(true, true, true, false);\n\n    draw_sprite(sprite_index, 0, x, y);\n\n    gpu_set_colourwriteenable(true, true, true, true);"
+        }
+      ]
+    },
+    {
+      "id": "GM2053",
+      "title": "Not all code paths call gpu_set_alphatestenable(false) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've enabled alpha testing but haven't disabled it again afterwards."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_alphatestenable(true);\n\n    draw_self();"
+        },
+        {
+          "type": "paragraph",
+          "text": "To fix this you should disable alpha testing after drawing everything that needs to be drawn with alpha testing enabled."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_alphatestenable(true);\n\n    draw_self();\n\n    gpu_set_alphatestenable(false);"
+        }
+      ]
+    },
+    {
+      "id": "GM2054",
+      "title": "Not all code paths call gpu_set_alphatestref(0) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the alpha test ref value from the default value of 0 (using gpu_set_alphatestref) but haven't changed it back to 0 afterwards."
+        },
+        {
+          "type": "paragraph",
+          "text": "Note that the alpha test ref value is only used when alpha testing is enabled using gpu_set_alphatestenable."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_alphatestenable(true);\n\n    gpu_set_alphatestref(127);\n\n    draw_sprite(sprite_index, 0, x, y);"
+        },
+        {
+          "type": "paragraph",
+          "text": "The alpha test ref value should be reset back to 0 to prevent subsequent draw commands from being affected."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    gpu_set_alphatestenable(true);\n\n    gpu_set_alphatestref(127);\n\n    draw_sprite(sprite_index, 0, x, y);\n\n    gpu_set_alphatestref(0);\n\n    gpu_set_alphatestenable(false);"
+        }
+      ]
+    },
+    {
+      "id": "GM2055",
+      "title": "Not all code paths call gpu_set_texfilter(false) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the texture filter setting to true but haven't changed it back to false afterwards. By default, texture filtering is set to disabled for all texture samplers."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    tex = sprite_get_texture(spr_texpage, 0);\n\n\n\n    /// Draw Event\n\n    gpu_set_texfilter(true);\n\n    vertex_submit(vb_world, pr_trianglelist, tex);"
+        },
+        {
+          "type": "paragraph",
+          "text": "After the call to gpu_set_texfilter and all draw commands that follow it you need to reset texture filtering to false, the default setting."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    tex = sprite_get_texture(spr_texpage, 0);\n\n\n\n    /// Draw Event\n\n    gpu_set_texfilter(true);\n\n    vertex_submit(vb_world, pr_trianglelist, tex);\n\n    gpu_set_texfilter(false);"
+        }
+      ]
+    },
+    {
+      "id": "GM2056",
+      "title": "Not all code paths call gpu_set_texrepeat(false) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the texture repeat setting to true but haven't changed it back to false afterwards. By default, texture repeating is set to disabled for all texture samplers."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    tex = sprite_get_texture(spr_texpage, 0);\n\n\n\n    /// Draw Event\n\n    gpu_set_texrepeat(true);\n\n    vertex_submit(vb_world, pr_trianglelist, tex);"
+        },
+        {
+          "type": "paragraph",
+          "text": "After the call to gpu_set_texrepeat and all draw commands that follow it you should reset the texture repeat to false, the default setting."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    tex = sprite_get_texture(spr_texpage, 0);\n\n\n\n    /// Draw Event\n\n    gpu_set_texrepeat(true);\n\n    vertex_submit(vb_world, pr_trianglelist, tex);\n\n    gpu_set_texrepeat(false);"
+        }
+      ]
+    },
+    {
+      "id": "GM2061",
+      "title": "Opportunity to use nullish coalesce operator.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Shows when you are trying to check if an expression is undefined, and then applying a different value in that case:"
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "array = modify_array(array);\n\n    if (array == undefined) array = [];"
+        },
+        {
+          "type": "paragraph",
+          "text": "For this, the nullish operator can be used:"
+        },
+        {
+          "type": "code",
+          "text": "array = modify_array(array) ?? [];"
+        },
+        {
+          "type": "paragraph",
+          "text": "To keep a variable unchanged if the RHS expression is undefined, use this:"
+        },
+        {
+          "type": "code",
+          "text": "array ??= modify_array(array);"
+        }
+      ]
+    },
+    {
+      "id": "GM2062",
+      "title": "Not all code paths call draw_set_colour(c_white) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the draw colour to a colour that's different from c_white but haven't changed it back to c_white afterwards."
+        },
+        {
+          "type": "paragraph",
+          "text": "The draw colour is the colour that's used to blend the sprite with. A colour of c_white essentially multiplies all of the sprite's pixels' colours by 1, resulting in no change."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_set_colour(c_red);\n\n    draw_text(5, 5, \"Hello!\");"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, the draw colour used for drawing is set to c_red but isn't set back to c_white afterwards. This causes all subsequent draw commands to draw with that same draw colour."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_set_colour(c_red);\n\n    draw_text(5, 5, \"Hello!\");\n\n    draw_set_colour(c_white);"
+        }
+      ]
+    },
+    {
+      "id": "GM2063",
+      "title": "Not all code paths call draw_set_alpha(1) before the end of the script.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message indicates that you've changed the draw alpha to a value different from 1 using draw_set_alpha but haven't changed it back to 1."
+        },
+        {
+          "type": "paragraph",
+          "text": "The alpha value is the value that's used for blending each pixel of the sprite (the source) with the destination pixel."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_set_alpha(0.5);\n\n    draw_self();"
+        },
+        {
+          "type": "paragraph",
+          "text": "In the code example above, the alpha value used for drawing is set to 0.5 but isn't set back to 1 afterwards. This causes all subsequent draw commands to draw with that same alpha value."
+        },
+        {
+          "type": "code",
+          "text": "/// Draw Event\n\n    draw_set_alpha(0.5);\n\n    draw_self();\n\n    draw_set_alpha(1);"
+        }
+      ]
+    },
+    {
+      "id": "GM2064",
+      "title": "Variable '{0}' does not exist in object's Variable Definitions.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This message is shown when you create a new instance of an object using one of the instance_create_* functions and attempt to access variables that aren't defined in the object's Variable Definitions when assigning to the optional variable struct."
+        },
+        {
+          "type": "paragraph",
+          "text": "In the variable struct you can access variables from any scope, though in instance scope the only variables that exist at this point are the ones defined in the Variable Definitions."
+        },
+        {
+          "type": "paragraph",
+          "text": "Important: object variables don't belong to the object but are initialised in every new instance created from that object. The first point in your code where you can access these variables is the var struct."
+        },
+        {
+          "type": "heading",
+          "text": "Example",
+          "level": 4
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    ins_companion = instance_create_layer(x, y, layer, obj_companion, {\n\n        intro_message: message\n\n    });\n\n\n\n    // The message variable does not exist"
+        },
+        {
+          "type": "paragraph",
+          "text": "Variables can only be accessed when they've first been defined. In the example above, the object doesn't have any variables defined but an attempt is made to access an instance variable named message. In order to fix this, the variable has to be defined in the object variables."
+        },
+        {
+          "type": "code",
+          "text": "/// Create Event\n\n    ins_companion = instance_create_layer(x, y, layer, obj_companion, {\n\n        intro_message: message\n\n    });"
+        }
+      ]
+    }
+  ],
+  "directives": [
+    {
+      "id": "general",
+      "title": "General",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "A Feather directive has the following syntax:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather command parameters [in PATH]"
+        },
+        {
+          "type": "paragraph",
+          "text": "It is a regular script comment that starts with Feather, followed by the command and its parameters. Optionally, it may take a path to a script, object or group in The Asset Browser to which the directive is applied."
+        }
+      ]
+    },
+    {
+      "id": "ignoring-feather-rules",
+      "title": "Ignoring Feather Rules",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Specific feather rules can be ignored using the directive Feather ignore or Feather disable:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather ignore  GM1010\n\n    // Feather disable GM1010"
+        },
+        {
+          "type": "paragraph",
+          "text": "For example, consider the following piece of code:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather ignore GM1010\n\n    result = 5 + \"5\";"
+        },
+        {
+          "type": "paragraph",
+          "text": "With Strict Type mode enabled, Feather normally shows a \"GM1010 - Cannot perform '+' operation between types 'real' and 'string' message. With the directive above, Feather will ignore messages of this type, in that particular script."
+        },
+        {
+          "type": "paragraph",
+          "text": "The directive only affects lines after the comment itself, so any statements before the comment will still show warnings."
+        },
+        {
+          "type": "html",
+          "text": "Ignoring Once"
+        },
+        {
+          "type": "paragraph",
+          "text": "The GM message can be ignored only once by adding once:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather ignore once GM1010"
+        },
+        {
+          "type": "paragraph",
+          "text": "This command makes Feather ignore the first occurrence of this type of message but not the ones that come after that:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather ignore once GM1010\n\n    result = 5 + \"5\";    // ignored\n\n    result = 6 + \"6\";    // error"
+        },
+        {
+          "type": "html",
+          "text": "Restoring"
+        },
+        {
+          "type": "paragraph",
+          "text": "Finally, you can re-enable the GM message using restore / enable:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather restore GM1010\n\n    // Feather enable  GM1010"
+        }
+      ]
+    },
+    {
+      "id": "profiles",
+      "title": "Profiles",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This directive sets the profile for the script:"
+        },
+        {
+          "type": "code",
+          "text": "// Feather use syntax-errors\n\n    // Feather use type-errors\n\n    // Feather use all\n\n    // Feather use none"
+        },
+        {
+          "type": "note",
+          "text": "This Feather directive corresponds to the Profile preference in the Feather Preferences."
+        }
+      ]
+    },
+    {
+      "id": "type-validation-mode",
+      "title": "Type Validation Mode",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "This directive sets the type validation mode to use from either strict or relaxed:"
+        },
+        {
+          "type": "code",
+          "text": "/// Feather use strict\n\n    /// Feather use relaxed"
+        },
+        {
+          "type": "note",
+          "text": "This Feather directive corresponds to the Strict Type mode preference in the Feather Preferences."
+        }
+      ]
+    },
+    {
+      "id": "combined-directives",
+      "title": "Combined Directives",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "You can also set the profile and type validation mode in a single line:"
+        },
+        {
+          "type": "code",
+          "text": "/// Feather use all, strict"
+        },
+        {
+          "type": "paragraph",
+          "text": "The above comment will make Feather look for All errors and use Strict Type mode."
+        }
+      ]
+    },
+    {
+      "id": "path",
+      "title": "Path",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Optionally you can provide a path using the in directive to apply a Feather directive to a specific script, object or group in The Asset Browser. This can be placed in the main script of an external library of functions, though you can place it in any other script, e.g. a blank \"FeatherConfig\" script."
+        },
+        {
+          "type": "note",
+          "text": "Having numerous rules using paths may cause performance issues, the exception being paths set specifically to * alone."
+        },
+        {
+          "type": "paragraph",
+          "text": "You can use the following special symbols in your paths:"
+        },
+        {
+          "type": "list",
+          "text": "/ - When used in the beginning of a path, points to the root of the Asset Browser\n    . - When used in the beginning of a path, points to the current script's folder\n    * is a wildcard that matches everything inside the preceding directory"
+        },
+        {
+          "type": "paragraph",
+          "text": "This way you can define paths to assets in the Asset Browser, for example:"
+        },
+        {
+          "type": "table",
+          "text": "Path Applies To /Scripts/* All assets in /Scripts /* All assets ./* All assets in the current folder and subfolders /Foo/Bar/obj_manager obj_manager in the /Foo/Bar folder"
+        },
+        {
+          "type": "paragraph",
+          "text": "Examples:"
+        },
+        {
+          "type": "table",
+          "text": "Directive Effect // Feather ignore GM2017 in * Ignores all Naming Rule violations in the whole project // Feather ignore GM1064 in ./* Ignores GM1064 in the current folder and all subfolders // Feather use type-errors in /Objects/System/* Sets the profile to type-errors in specifically the Objects/System folder // Feather use all in /Objects/System/obj_controller Sets the profile to all in obj_controller"
+        },
+        {
+          "type": "note",
+          "text": "No consistent result is guaranteed if you have two directives that enable and disable a Feather message on the same path."
+        }
+      ]
+    }
+  ],
+  "namingRules": {
+    "notes": [
+      "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here.",
+      "The GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\").",
+      "The settings in this section are as follows:"
+    ],
+    "requiresMessage": "GM2017",
+    "identifierBlocklist": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\n\n\n      For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\n\n\n      In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
+    "identifierRuleSummary": "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\n\n\n      Each naming rule drop-down has the following options:\n\n        Naming Style: Choose the naming style for the identifier. Your options are:\n\n            Unconstrained: No formatting is forced on this type of identifier.\n            UpperCamelCase: MyHealth, ObjGrappleHook\n            lowerCamelCase: myHealth, objGrappleHook\n            ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\n            all_lower: my_health, obj_grapple_hook\n\n\n        Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\n        Suffix: Text that should appear after the identifier name.\n        Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\n\n\n          With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
+    "namingStyleOptions": [
+      "Unconstrained: No formatting is forced on this type of identifier.",
+      "UpperCamelCase: MyHealth, ObjGrappleHook",
+      "lowerCamelCase: myHealth, objGrappleHook",
+      "ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK",
+      "all_lower: my_health, obj_grapple_hook"
+    ],
+    "supportsPrefix": true,
+    "supportsSuffix": true,
+    "supportsPreserveUnderscores": true,
+    "rawBlocks": [
+      {
+        "type": "paragraph",
+        "text": "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here."
+      },
+      {
+        "type": "paragraph",
+        "text": "The GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\")."
+      },
+      {
+        "type": "paragraph",
+        "text": "The settings in this section are as follows:"
+      },
+      {
+        "type": "list",
+        "text": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\n\n\n      For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\n\n\n      In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.\n\n    <identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\n\n\n      Each naming rule drop-down has the following options:\n\n        Naming Style: Choose the naming style for the identifier. Your options are:\n\n            Unconstrained: No formatting is forced on this type of identifier.\n            UpperCamelCase: MyHealth, ObjGrappleHook\n            lowerCamelCase: myHealth, objGrappleHook\n            ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\n            all_lower: my_health, obj_grapple_hook\n\n\n        Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\n        Suffix: Text that should appear after the identifier name.\n        Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\n\n\n          With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are."
+      }
+    ]
+  },
+  "typeSystem": {
+    "introBlocks": [
+      {
+        "type": "paragraph",
+        "text": "Feather uses data types to provide smart syntax-checking when writing code, ensuring you don't use the wrong data type for a variable or function parameter."
+      },
+      {
+        "type": "paragraph",
+        "text": "It also allows you to specify the data types for the parameters and return values of your own script functions, using JSDoc comments."
+      },
+      {
+        "type": "paragraph",
+        "text": "The @param and @return JSDoc tags allow you specify any one of the following types:"
+      },
+      {
+        "type": "note",
+        "text": "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not."
+      }
+    ],
+    "baseTypes": [
+      {
+        "name": "Real",
+        "specifierExamples": [
+          "N/A"
+        ],
+        "description": "A real number"
+      },
+      {
+        "name": "Bool",
+        "specifierExamples": [
+          "N/A"
+        ],
+        "description": "A boolean"
+      },
+      {
+        "name": "String",
+        "specifierExamples": [
+          "N/A"
+        ],
+        "description": "A string"
+      },
+      {
+        "name": "Array",
+        "specifierExamples": [
+          "Default - Array",
+          "..."
+        ],
+        "description": "An array, may include specifiers"
+      },
+      {
+        "name": "Pointer",
+        "specifierExamples": [
+          "Default - Pointer",
+          "..."
+        ],
+        "description": "A pointer, may include specifiers"
+      },
+      {
+        "name": "Function",
+        "specifierExamples": [
+          "Default - Function",
+          "..."
+        ],
+        "description": "A function, may include specifiers"
+      },
+      {
+        "name": "Struct",
+        "specifierExamples": [
+          "Default - Struct",
+          "..."
+        ],
+        "description": "A struct, may include specifiers (such as constructors)"
+      },
+      {
+        "name": "Id",
+        "specifierExamples": [
+          ".Instance - Object Instance",
+          ".DsList - DS List",
+          ".DsMap - DS Map",
+          ".DsGrid - DS Grid",
+          ".DsStack - DS Stack",
+          ".DsPriority - DS Priority",
+          ".DsQueue - DS Queue",
+          "..."
+        ],
+        "description": "An ID, requires specifiers"
+      },
+      {
+        "name": "Asset",
+        "specifierExamples": [
+          ".GMAnimCurve - Animation Curve Asset",
+          ".GMObject - Object Asset",
+          ".GMAudioGroup - Audio Group ID",
+          ".GMFont - Font Asset",
+          ".GMPath - Path Asset",
+          ".GMScript - Script Asset",
+          ".GMShader - Shader Asset",
+          ".GMSound - Sound Asset",
+          ".GMTimeline - Timeline Asset",
+          ".GMRoom - Room Asset",
+          ".GMSequence - Sequence Asset",
+          ".GMSprite - Sprite Asset",
+          ".GMTileSet - Tile Set Asset",
+          "..."
+        ],
+        "description": "An asset, requires specifiers"
+      },
+      {
+        "name": "Constant",
+        "specifierExamples": [
+          ".Colour - Colour",
+          ".HAlign - Horizontal Alignment Constant",
+          ".VAlign - Vertical Alignment Constant",
+          ".Cursor - Cursor Constant",
+          ".EventType - Event Type Constant",
+          ".EventNumber - Event Number Constant",
+          ".PrimitiveType - Primitive Type Constant",
+          "..."
+        ],
+        "description": "A constant, requires specifiers"
+      },
+      {
+        "name": "Any",
+        "specifierExamples": [
+          "N/A"
+        ],
+        "description": "Any data type"
+      }
+    ],
+    "noteBlocks": [
+      {
+        "type": "note",
+        "text": "NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not."
+      },
+      {
+        "type": "note",
+        "text": "NOTE * The Specifier Examples column lists some example specifiers, but not all of them. For example, there may be more possible types under the Id, Asset, and Constant groups, which are not listed here."
+      }
+    ],
+    "specifierSections": [
+      {
+        "id": "specifiers",
+        "title": "Specifiers",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "A specifier is added after the base data type using a dot ., to specify the exact type of data in that group."
+          },
+          {
+            "type": "paragraph",
+            "text": "Types such as Id.DsList, Asset.GMObject, and Constant.Color use specifiers. Constructors are specified through the syntax Struct.{ConstructorName}. For example:"
+          },
+          {
+            "type": "code",
+            "text": "function Person() constructor\n\n    {\n\n\n\n    }\n\n\n\n    /// @param {Struct.Person} _person\n\n    function do_business(_person)\n\n    {\n\n\n\n    }"
+          }
+        ]
+      },
+      {
+        "id": "collection-types",
+        "title": "Collection Types",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "Types such as Array and Id.DsList, which are data structures that contain multiple values, are able to specify a single data type for all of their contents."
+          },
+          {
+            "type": "paragraph",
+            "text": "This is done using Collection Types, which are appended to the type using angle brackets <>."
+          },
+          {
+            "type": "paragraph",
+            "text": "For example, an array containing strings would be Array<String>, and a DS List, containing an Array, containing Reals, would be Id.DsList<Array<Real>>."
+          }
+        ]
+      },
+      {
+        "id": "multiple-types",
+        "title": "Multiple Types",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "text": "Multiple data types can also be listed, separated by a comma ,. For example String,Array<String>, Id.Instance,Asset.GMObject, etc."
+          }
+        ]
+      }
+    ],
+    "typeValidation": {
+      "columns": [
+        "Undefined",
+        "String",
+        "Real",
+        "Bool",
+        "Array",
+        "Pointer",
+        "Function",
+        "Struct"
+      ],
+      "rows": [
+        {
+          "from": "Undefined",
+          "results": {
+            "Undefined": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Bool": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Struct": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            }
+          }
+        },
+        {
+          "from": "String",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Real": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Bool": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            },
+            "Struct": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            }
+          }
+        },
+        {
+          "from": "Real",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            },
+            "Real": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Bool": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Struct": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            }
+          }
+        },
+        {
+          "from": "Bool",
+          "results": {
+            "Undefined": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Bool": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            },
+            "Function": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            },
+            "Struct": {
+              "outcome": "Warning",
+              "style": "background-color: #605B32"
+            }
+          }
+        },
+        {
+          "from": "Array",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Bool": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Array": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Struct": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            }
+          }
+        },
+        {
+          "from": "Pointer",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Bool": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Function": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Struct": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            }
+          }
+        },
+        {
+          "from": "Function",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Bool": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Allowed",
+              "style": null
+            },
+            "Struct": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            }
+          }
+        },
+        {
+          "from": "Struct",
+          "results": {
+            "Undefined": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "String": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Real": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Bool": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Array": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Pointer": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Function": {
+              "outcome": "Error",
+              "style": "background-color: #452F2F"
+            },
+            "Struct": {
+              "outcome": "Allowed",
+              "style": null
+            }
+          }
+        }
+      ]
+    },
+    "typeValidationBlocks": [
+      {
+        "type": "paragraph",
+        "text": "The table below shows what happens if you pass a value of a certain type (rows) into a parameter requiring a data type (column)."
+      },
+      {
+        "type": "paragraph",
+        "text": "For example, specifying undefined (first row) for a parameter requiring a string (second column) results in an error."
+      }
+    ]
+  }
+}
