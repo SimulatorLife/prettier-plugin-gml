@@ -64,6 +64,23 @@ const writeFile = util.promisify(fs.writeFile);
 const stat = util.promisify(fs.stat);
 
 let skippedFileCount = 0;
+let projectIgnorePath = null;
+
+async function resolveProjectIgnorePath(directory) {
+    const candidate = path.join(directory, ".prettierignore");
+
+    try {
+        const candidateStats = await stat(candidate);
+
+        if (candidateStats.isFile()) {
+            return candidate;
+        }
+    } catch {
+        // Ignore missing files.
+    }
+
+    return null;
+}
 
 async function ensureDirectoryExists(directory) {
     try {
@@ -126,8 +143,24 @@ async function resolveFormattingOptions(filePath) {
 
 async function processFile(filePath) {
     try {
-        const data = await readFile(filePath, "utf8");
         const formattingOptions = await resolveFormattingOptions(filePath);
+        const ignorePaths = projectIgnorePath
+            ? [ignorePath, projectIgnorePath]
+            : [ignorePath];
+        const uniqueIgnorePaths = [...new Set(ignorePaths)];
+        const fileInfo = await prettier.getFileInfo(filePath, {
+            ignorePath:
+                uniqueIgnorePaths.length === 1 ? uniqueIgnorePaths[0] : uniqueIgnorePaths,
+            plugins: formattingOptions.plugins,
+            resolveConfig: true
+        });
+
+        if (fileInfo.ignored) {
+            console.log(`Skipping ${filePath} (ignored)`);
+            return;
+        }
+
+        const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
@@ -137,5 +170,6 @@ async function processFile(filePath) {
 }
 
 await ensureDirectoryExists(targetPath);
+projectIgnorePath = await resolveProjectIgnorePath(targetPath);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);

@@ -60,4 +60,23 @@ describe('Prettier wrapper CLI', () => {
       await fs.rm(tempDirectory, { recursive: true, force: true });
     }
   });
+
+  it('respects ignore rules from .prettierignore', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'script.gml\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var    a=1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
 });
