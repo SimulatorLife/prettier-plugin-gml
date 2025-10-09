@@ -112,6 +112,7 @@ const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const stat = util.promisify(fs.stat);
 const lstat = util.promisify(fs.lstat);
+const realpath = util.promisify(fs.realpath);
 
 let skippedFileCount = 0;
 let projectIgnorePath = null;
@@ -225,6 +226,7 @@ async function processDirectory(directory) {
     for (const file of files) {
         const filePath = path.join(directory, file);
         let stats = await lstat(filePath);
+        let resolvedSymlinkPath = null;
 
         if (stats.isSymbolicLink()) {
             let targetStats;
@@ -257,6 +259,16 @@ async function processDirectory(directory) {
                 continue;
             }
 
+            try {
+                resolvedSymlinkPath = await realpath(filePath);
+            } catch (error) {
+                console.warn(
+                    `Skipping ${filePath} (unable to resolve symbolic link target path: ${error?.message ?? "unknown error"})`
+                );
+                skippedFileCount += 1;
+                continue;
+            }
+
             stats = targetStats;
         }
 
@@ -265,7 +277,10 @@ async function processDirectory(directory) {
                 continue;
             }
             await processDirectory(filePath);
-        } else if (shouldFormatFile(filePath)) {
+        } else if (
+            shouldFormatFile(filePath) ||
+            (resolvedSymlinkPath !== null && shouldFormatFile(resolvedSymlinkPath))
+        ) {
             await processFile(filePath);
         } else {
             skippedFileCount += 1;

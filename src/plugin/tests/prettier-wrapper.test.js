@@ -257,9 +257,10 @@ describe('Prettier wrapper CLI', () => {
 
   it('formats symlinked files whose targets use different extensions', async function () {
     const tempDirectory = await createTemporaryDirectory();
+    const externalDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'gml-prettier-external-'));
 
     try {
-      const actualFile = path.join(tempDirectory, 'script.txt');
+      const actualFile = path.join(externalDirectory, 'script.txt');
       await fs.writeFile(actualFile, 'var    a=1;\n', 'utf8');
 
       const symlinkPath = path.join(tempDirectory, 'script.gml');
@@ -293,6 +294,52 @@ describe('Prettier wrapper CLI', () => {
       assert.equal(formattedViaLink, 'var a = 1;\n');
     } finally {
       await fs.rm(tempDirectory, { recursive: true, force: true });
+      await fs.rm(externalDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('formats symlinked files even when the link path lacks an extension', async function () {
+    const tempDirectory = await createTemporaryDirectory();
+    const externalDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'gml-prettier-external-'));
+
+    try {
+      const actualFile = path.join(externalDirectory, 'script.gml');
+      await fs.writeFile(actualFile, 'var    a=1;\n', 'utf8');
+
+      const symlinkPath = path.join(tempDirectory, 'script-link');
+
+      let shouldSkip = false;
+
+      try {
+        if (fileSymlinkType) {
+          await fs.symlink(actualFile, symlinkPath, fileSymlinkType);
+        } else {
+          await fs.symlink(actualFile, symlinkPath);
+        }
+      } catch (error) {
+        if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
+          shouldSkip = true;
+        } else {
+          throw error;
+        }
+      }
+
+      if (shouldSkip) {
+        this.skip();
+      }
+
+      const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      assert.ok(
+        stdout.includes(`Formatted ${symlinkPath}`),
+        'Expected wrapper to format the file through the extensionless symbolic link'
+      );
+
+      const formattedActual = await fs.readFile(actualFile, 'utf8');
+      assert.equal(formattedActual, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+      await fs.rm(externalDirectory, { recursive: true, force: true });
     }
   });
 
