@@ -979,8 +979,12 @@ function printStatements(path, options, print, childrenAttribute) {
         const textForSemicolons = originalTextCache || "";
         let hasTerminatingSemicolon = textForSemicolons[nodeEndIndex] === ";";
         if (!hasTerminatingSemicolon) {
+            const textLength = textForSemicolons.length;
             let cursor = nodeEndIndex + 1;
-            while (cursor < textForSemicolons.length && /\s/.test(textForSemicolons[cursor])) {
+            while (
+                cursor < textLength &&
+                isSkippableSemicolonWhitespace(textForSemicolons.charCodeAt(cursor))
+            ) {
                 cursor++;
             }
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
@@ -1131,6 +1135,25 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     }
 
     return concat([hardline, join(hardline, syntheticLines)]);
+}
+
+function isSkippableSemicolonWhitespace(charCode) {
+    // Mirrors the range of characters matched by /\s/ without incurring the
+    // per-iteration RegExp machinery cost.
+    switch (charCode) {
+        case 9: // tab
+        case 10: // line feed
+        case 11: // vertical tab
+        case 12: // form feed
+        case 13: // carriage return
+        case 32: // space
+        case 160: // non-breaking space
+        case 0x2028: // line separator
+        case 0x2029: // paragraph separator
+            return true;
+        default:
+            return false;
+    }
 }
 
 function isInlineWhitespace(charCode) {
