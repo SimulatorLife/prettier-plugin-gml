@@ -130,4 +130,102 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("makes implicit bool casts explicit for known non-bool types", () => {
+        const source = [
+            "var array_value = [];",
+            "var string_value = \"demo\";",
+            "var struct_value = { value: 1 };",
+            "var function_value = function () {",
+            "    return 1;",
+            "};",
+            "var bool_value = true;",
+            "var number_value = 42;",
+            "",
+            "if (array_value) {",
+            "    array_value[0] = 1;",
+            "}",
+            "",
+            "if (string_value) {",
+            "    show_debug_message(string_value);",
+            "}",
+            "",
+            "if (struct_value) {",
+            "    show_debug_message(struct_value.value);",
+            "}",
+            "",
+            "if (function_value) {",
+            "    function_value();",
+            "}",
+            "",
+            "if (bool_value) {",
+            "    show_debug_message(bool_value);",
+            "}",
+            "",
+            "if (number_value) {",
+            "    show_debug_message(number_value);",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        const conditionals = statements.filter((statement) => statement?.type === "IfStatement");
+        assert.strictEqual(conditionals.length, 6);
+        const [ifArray, ifString, ifStruct, ifFunction, ifBool, ifNumber] = conditionals;
+
+        assertBinaryConditional(ifArray, "array_value");
+        assertBinaryConditional(ifString, "string_value");
+        assertBinaryConditional(ifStruct, "struct_value");
+        assertBinaryConditional(ifFunction, "function_value");
+
+        assertIdentifierConditional(ifBool, "bool_value");
+        assertIdentifierConditional(ifNumber, "number_value");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        const gm1011Fixes = ast._appliedFeatherDiagnostics.filter((entry) => entry.id === "GM1011");
+        assert.strictEqual(gm1011Fixes.length >= 4, true);
+
+        function assertBinaryConditional(statement, expectedTarget) {
+            assert.ok(statement);
+            const test = unwrapTestExpression(statement.test);
+            assert.ok(test);
+            assert.strictEqual(test.type, "BinaryExpression");
+            assert.strictEqual(test.operator, "!=");
+            assert.ok(test.left);
+            assert.strictEqual(test.left.type, "Identifier");
+            assert.strictEqual(test.left.name, expectedTarget);
+            assert.ok(test.right);
+            assert.strictEqual(test.right.type, "Literal");
+            assert.strictEqual(test.right.value, "undefined");
+
+            const fixes = statement._appliedFeatherDiagnostics;
+            assert.ok(Array.isArray(fixes));
+            assert.strictEqual(fixes.length, 1);
+            assert.strictEqual(fixes[0].id, "GM1011");
+            assert.strictEqual(fixes[0].target, expectedTarget);
+        }
+
+        function assertIdentifierConditional(statement, expectedTarget) {
+            assert.ok(statement);
+            const test = unwrapTestExpression(statement.test);
+            assert.ok(test);
+            assert.strictEqual(test.type, "Identifier");
+            assert.strictEqual(test.name, expectedTarget);
+            assert.strictEqual(statement._appliedFeatherDiagnostics, undefined);
+        }
+
+        function unwrapTestExpression(test) {
+            if (!test || typeof test !== "object") {
+                return null;
+            }
+
+            return test.type === "ParenthesizedExpression" ? test.expression : test;
+        }
+    });
 });
