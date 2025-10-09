@@ -619,7 +619,7 @@ class CommentTracker {
         if (!this.entries.length || position == null) {
             return false;
         }
-        const index = this.firstGreaterThan(position);
+        let index = this.firstGreaterThan(position);
         while (index < this.entries.length) {
             if (!this.entries[index].consumed) {
                 return true;
