@@ -93,6 +93,44 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("replaces argument references with named parameters and records metadata", () => {
+        const source = [
+            "function example(_foo, _bar) {",
+            "    return argument0 + argument1;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [fn] = ast.body ?? [];
+        assert.ok(fn);
+
+        const statements = fn.body?.body ?? [];
+        const [returnStatement] = statements;
+        assert.ok(returnStatement);
+
+        const expression = returnStatement.argument;
+        assert.ok(expression);
+        assert.strictEqual(expression.left?.name, "_foo");
+        assert.strictEqual(expression.right?.name, "_bar");
+
+        const functionFixes = fn._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(functionFixes));
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.id === "GM1055"),
+            true,
+            "Expected function to record GM1055 fix metadata."
+        );
+
+        const recordedIds = new Set((ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id));
+        assert.strictEqual(recordedIds.has("GM1055"), true);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

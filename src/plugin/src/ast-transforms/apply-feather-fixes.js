@@ -113,6 +113,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1055") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = replaceFunctionArgumentReferencesWithNamedParameters({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -464,6 +480,275 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function replaceFunctionArgumentReferencesWithNamedParameters({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(node)) {
+            const functionFixes = replaceArgumentReferencesInFunction(node, diagnostic);
+
+            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+                fixes.push(...functionFixes);
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function replaceArgumentReferencesInFunction(node, diagnostic) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    const params = Array.isArray(node.params) ? node.params : [];
+
+    if (params.length === 0) {
+        return [];
+    }
+
+    if (!node.body || typeof node.body !== "object") {
+        return [];
+    }
+
+    const replacements = new Map();
+    let hasNamedParameters = false;
+
+    params.forEach((param, index) => {
+        const identifier = extractParameterIdentifier(param);
+
+        if (!identifier || typeof identifier.name !== "string") {
+            return;
+        }
+
+        const argumentKey = `argument${index}`;
+
+        replacements.set(argumentKey, identifier);
+
+        if (identifier.name !== argumentKey) {
+            hasNamedParameters = true;
+        }
+    });
+
+    if (!hasNamedParameters || replacements.size === 0) {
+        return [];
+    }
+
+    let replacedIdentifier = false;
+
+    const visit = (current, parent, property) => {
+        if (!current) {
+            return;
+        }
+
+        if (Array.isArray(current)) {
+            for (let index = 0; index < current.length; index += 1) {
+                visit(current[index], current, index);
+            }
+            return;
+        }
+
+        if (typeof current !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(current)) {
+            return;
+        }
+
+        if (current.type === "Identifier" && typeof current.name === "string") {
+            const replacementParameter = replacements.get(current.name);
+
+            if (!replacementParameter) {
+                return;
+            }
+
+            if (replacementParameter.name === current.name) {
+                return;
+            }
+
+            if (!parent || (typeof property !== "string" && typeof property !== "number")) {
+                return;
+            }
+
+            if (shouldSkipIdentifierReplacement(parent, property)) {
+                return;
+            }
+
+            const replacement = createIdentifierFromParameter(replacementParameter, current);
+
+            if (!replacement) {
+                return;
+            }
+
+            parent[property] = replacement;
+            replacedIdentifier = true;
+            return;
+        }
+
+        for (const [key, value] of Object.entries(current)) {
+            if (value && typeof value === "object") {
+                visit(value, current, key);
+            }
+        }
+    };
+
+    visit(node.body, node, "body");
+
+    if (!replacedIdentifier) {
+        return [];
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getFunctionNodeName(node),
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return [];
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return [fixDetail];
+}
+
+function extractParameterIdentifier(param) {
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(param, "left")) {
+        return extractParameterIdentifier(param.left);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(param, "argument")) {
+        return extractParameterIdentifier(param.argument);
+    }
+
+    return null;
+}
+
+function createIdentifierFromParameter(parameter, template) {
+    if (!parameter || parameter.type !== "Identifier") {
+        return null;
+    }
+
+    if (!template || template.type !== "Identifier") {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name: parameter.name
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        identifier.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        identifier.end = cloneLocation(template.end);
+    }
+
+    copyCommentMetadata(template, identifier);
+
+    return identifier;
+}
+
+function getFunctionNodeName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (typeof node.id === "string") {
+        return node.id;
+    }
+
+    if (node.id && typeof node.id === "object" && typeof node.id.name === "string") {
+        return node.id.name;
+    }
+
+    if (node.key && typeof node.key === "object" && typeof node.key.name === "string") {
+        return node.key.name;
+    }
+
+    return null;
+}
+
+function shouldSkipIdentifierReplacement(parent, property) {
+    if (!parent || typeof parent !== "object") {
+        return false;
+    }
+
+    if (
+        (parent.type === "FunctionDeclaration" || parent.type === "FunctionExpression") &&
+        property === "id"
+    ) {
+        return true;
+    }
+
+    if (parent.type === "MethodDefinition" && property === "key") {
+        return true;
+    }
+
+    if (parent.type === "VariableDeclarator" && property === "id") {
+        return true;
+    }
+
+    if (parent.type === "MemberDotExpression" && property === "property") {
+        return true;
+    }
+
+    return false;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        node.type === "FunctionDeclaration" ||
+        node.type === "FunctionExpression" ||
+        node.type === "ConstructorDeclaration"
+    );
 }
 
 function cloneIdentifier(node) {
