@@ -32,6 +32,7 @@ import {
 import {
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
+    getIdentifierText,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import { getIdentifierText } from "../../../shared/identifier-text.js";
