@@ -169,4 +169,56 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("resets draw colour flagged by GM2062 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "draw_set_colour(c_red);",
+            "draw_text(5, 5, \"Hello!\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length, 2);
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length, 3);
+
+        const [initialCall, resetCall, drawTextCall] = ast.body;
+
+        assert.strictEqual(isCallExpressionWithName(initialCall, "draw_set_colour"), true);
+        assert.strictEqual(isCallExpressionWithName(resetCall, "draw_set_colour"), true);
+        assert.strictEqual(isCallExpressionWithName(drawTextCall, "draw_text"), true);
+
+        const resetArgs = Array.isArray(resetCall?.arguments) ? resetCall.arguments : [];
+        assert.strictEqual(resetArgs.length > 0, true);
+        assert.strictEqual(resetArgs[0]?.type, "Identifier");
+        assert.strictEqual(resetArgs[0]?.name, "c_white");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2062 = appliedDiagnostics.find((entry) => entry.id === "GM2062");
+
+        assert.ok(gm2062, "Expected GM2062 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2062.automatic, true);
+        assert.strictEqual(gm2062.target, "draw_set_colour");
+        assert.ok(gm2062.range);
+
+        const resetDiagnostics = resetCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(resetDiagnostics.some((entry) => entry.id === "GM2062"), true);
+    });
 });
+
+function isCallExpressionWithName(node, name) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return node.object?.type === "Identifier" && node.object?.name === name;
+}

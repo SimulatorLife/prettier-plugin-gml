@@ -152,6 +152,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2062") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureDrawColourIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -479,6 +492,100 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureDrawColourIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureDrawColourResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureDrawColourResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!isDrawSetColourCall(node)) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isIdentifierWithName(args[0], "c_white")) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isDrawSetColourResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createDrawSetColourResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -668,6 +775,62 @@ function createAlphaTestRefResetCall(template) {
         type: "CallExpression",
         object: identifier,
         arguments: [literalZero]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function isDrawSetColourCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_set_colour");
+}
+
+function isDrawSetColourResetCall(node) {
+    if (!isDrawSetColourCall(node)) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isIdentifierWithName(args[0], "c_white");
+}
+
+function createDrawSetColourResetCall(template) {
+    if (!isDrawSetColourCall(template)) {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const colourIdentifier = createIdentifier("c_white", template.arguments?.[0]);
+
+    if (!colourIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [colourIdentifier]
     };
 
     if (Object.prototype.hasOwnProperty.call(template, "start")) {
