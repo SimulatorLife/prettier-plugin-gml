@@ -413,6 +413,10 @@ function extractAssignmentFromStatement(statement) {
         return null;
     }
 
+    if (statement.type === "AssignmentExpression") {
+        return statement;
+    }
+
     if (statement.type === "BlockStatement") {
         if (!Array.isArray(statement.body) || statement.body.length !== 1) {
             return null;
@@ -441,7 +445,15 @@ function extractAssignmentFromStatement(statement) {
 }
 
 function parseArgumentCountGuard(node) {
-    if (!node || node.type !== "BinaryExpression") {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return parseArgumentCountGuard(node.expression);
+    }
+
+    if (node.type !== "BinaryExpression") {
         return null;
     }
 

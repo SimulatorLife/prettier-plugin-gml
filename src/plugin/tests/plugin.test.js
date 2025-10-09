@@ -199,6 +199,28 @@ describe('Prettier GameMaker plugin fixtures', () => {
     );
   });
 
+  it('converts argument_count fallback conditionals into default parameters', async () => {
+    const source = [
+      'function example(arg) {',
+      '    if (argument_count > 0) {',
+      '        arg = argument[0];',
+      '    } else {',
+      '        arg = "default";',
+      '    }',
+      '}',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source);
+
+    const expected = [
+      '/// @function example',
+      '/// @param [arg="default"]',
+      'function example(arg = "default") {}',
+    ].join('\n');
+
+    assert.strictEqual(formatted, expected);
+  });
+
   it("can elide 'globalvar' declarations when disabled", async () => {
     const source = [
       'globalvar foo, bar;',
