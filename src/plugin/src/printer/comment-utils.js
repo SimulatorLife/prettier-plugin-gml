@@ -60,7 +60,7 @@ function getLineCommentBannerAutofillThreshold(options) {
     );
 }
 
-const jsDocReplacements = {
+const JSDOC_REPLACEMENTS = {
     "@func": "@function",
     "@method": "@function",
     "@yield": "@returns",
@@ -78,7 +78,7 @@ const jsDocReplacements = {
 // Cache the replacement rules so applyJsDocReplacements avoids constructing
 // new RegExp instances on every invocation. The helper is on a hot path while
 // formatting doc-style comments.
-const JSDOC_REPLACEMENT_RULES = Object.entries(jsDocReplacements).map(
+const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     ([oldWord, newWord]) => ({
         regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
         replacement: newWord
