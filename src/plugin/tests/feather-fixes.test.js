@@ -169,4 +169,68 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
+        const source = [
+            "draw_primitive_begin(pr_linelist);",
+            "",
+            "if (should_draw)",
+            "{",
+            "    draw_primitive_end();",
+            "}",
+            "else",
+            "{",
+            "    draw_vertex(0, 0);",
+            "}",
+            "",
+            "draw_text(0, 0, \"done\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const statements = ast.body ?? [];
+        assert.strictEqual(statements.length >= 3, true);
+
+        const conditional = statements[1];
+        assert.ok(conditional?.type === "IfStatement");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [beginCall, fixedConditional, trailingCall] = ast.body ?? [];
+        assert.ok(isCallExpression(beginCall));
+        assert.ok(fixedConditional?.type === "IfStatement");
+        assert.ok(isCallExpression(trailingCall));
+        assert.strictEqual(trailingCall.object?.name, "draw_primitive_end");
+
+        const consequentBody = fixedConditional.consequent?.body ?? [];
+        const alternateBody = fixedConditional.alternate?.body ?? [];
+
+        assert.strictEqual(consequentBody.some(isDrawPrimitiveEndName), false);
+        assert.strictEqual(alternateBody.some(isDrawPrimitiveEndName), false);
+
+        const conditionalDiagnostics = trailingCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            conditionalDiagnostics.some((entry) => entry.id === "GM2030"),
+            true,
+            "Expected GM2030 metadata to be recorded on the lifted call."
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2030"),
+            true,
+            "Expected GM2030 metadata to be recorded on the program node."
+        );
+    });
 });
+
+function isCallExpression(node) {
+    return !!node && node.type === "CallExpression";
+}
+
+function isDrawPrimitiveEndName(node) {
+    return isCallExpression(node) && node.object?.name === "draw_primitive_end";
+}
