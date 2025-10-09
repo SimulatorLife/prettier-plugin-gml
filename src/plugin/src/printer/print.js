@@ -292,8 +292,7 @@ export function print(path, options, print) {
 
             if (node.params.length > 0) {
                 parts.push(
-                    printDelimitedList(path, print, "params", "(", ")", {
-                        delimiter: ",",
+                    printCommaSeparatedList(path, print, "params", "(", ")", options, {
                         allowTrailingDelimiter: false
                     })
                 );
@@ -316,10 +315,7 @@ export function print(path, options, print) {
         case "ConstructorParentClause": {
             let params;
             if (node.params.length > 0) {
-                params = printDelimitedList(path, print, "params", "(", ")", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all"
-                });
+                params = printCommaSeparatedList(path, print, "params", "(", ")", options);
             } else {
                 params = printEmptyParens(path, print, options);
             }
@@ -357,9 +353,7 @@ export function print(path, options, print) {
 
             let decls = [];
             if (node.declarations.length > 1) {
-                decls = printDelimitedList(path, print, "declarations", "", "", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                     leadingNewline: false,
                     trailingNewline: false
                 });
@@ -374,9 +368,7 @@ export function print(path, options, print) {
         case "VariableDeclaration": {
             let decls = [];
             if (node.declarations.length > 1) {
-                decls = printDelimitedList(path, print, "declarations", "", "", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
                     leadingNewline: false,
                     trailingNewline: false
                 });
@@ -476,19 +468,15 @@ export function print(path, options, print) {
                 )
             ) {
                 // treat this function like it has a callback
-                const inlineArguments = printDelimitedList(path, print, "arguments", "(", ")", {
+                const inlineArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
                     addIndent: false,
                     forceInline: true,
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
                     leadingNewline: false,
                     trailingNewline: false,
                     maxElementsPerLine: elementsPerLineLimit
                 });
 
-                const multilineArguments = printDelimitedList(path, print, "arguments", "(", ")", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                const multilineArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
                     forceBreak: shouldForceBreakArguments,
                     maxElementsPerLine: elementsPerLineLimit
                 });
@@ -499,9 +487,7 @@ export function print(path, options, print) {
                     printedArgs = [conditionalGroup([inlineArguments, multilineArguments])];
                 }
             } else {
-                const callArguments = printDelimitedList(path, print, "arguments", "(", ")", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                const callArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
                     forceBreak: shouldForceBreakArguments,
                     maxElementsPerLine: elementsPerLineLimit
                 });
@@ -548,10 +534,7 @@ export function print(path, options, print) {
                 // ];
                 let property = print("property");
                 if (property === undefined) {
-                    property = printDelimitedList(path, print, "property", "", "", {
-                        delimiter: ",",
-                        allowTrailingDelimiter: options.trailingComma === "all"
-                    });
+                    property = printCommaSeparatedList(path, print, "property", "", "", options);
                 }
                 return concat([
                     print("object"),
@@ -570,10 +553,7 @@ export function print(path, options, print) {
             if (accessor.length > 1) {
                 accessor += " ";
             }
-            let property = printDelimitedList(path, print, "property", "", "", {
-                delimiter: ",",
-                allowTrailingDelimiter: options.trailingComma === "all"
-            });            
+            let property = printCommaSeparatedList(path, print, "property", "", "", options);
             return concat([
                 print("object"),
                 accessor,
@@ -585,9 +565,7 @@ export function print(path, options, print) {
             if (node.properties.length === 0) {
                 return concat(printEmptyBlock(path, options, print));
             }
-            return concat(printDelimitedList(path, print, "properties", "{", "}", {
-                delimiter: ",",
-                allowTrailingDelimiter: options.trailingComma === "all",
+            return concat(printCommaSeparatedList(path, print, "properties", "{", "}", options, {
                 forceBreak: node.hasTrailingComma,
                 // TODO: decide whether to add bracket spacing for struct expressions
                 padding: ""
@@ -602,9 +580,8 @@ export function print(path, options, print) {
             return concat([print("name"), ": ", print("value")]);
         }
         case "ArrayExpression": {
-            const allowTrailingComma = options.trailingComma === "all";
-            return concat(printDelimitedList(path, print, "elements", "[", "]", {
-                delimiter: ",",
+            const allowTrailingComma = shouldAllowTrailingComma(options);
+            return concat(printCommaSeparatedList(path, print, "elements", "[", "]", options, {
                 allowTrailingDelimiter: allowTrailingComma,
                 forceBreak: allowTrailingComma && node.hasTrailingComma
             }));
@@ -626,9 +603,7 @@ export function print(path, options, print) {
                 "enum ",
                 print("name"),
                 " ",
-                printDelimitedList(path, print, "members", "{", "}", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all",
+                printCommaSeparatedList(path, print, "members", "{", "}", options, {
                     forceBreak: node.hasTrailingComma
                 })
             ]);
@@ -703,10 +678,7 @@ export function print(path, options, print) {
             if (node.arguments.length === 0) {
                 argsPrinted = [printEmptyParens(path, print, options)];
             } else {
-                argsPrinted = [printDelimitedList(path, print, "arguments", "(", ")", {
-                    delimiter: ",",
-                    allowTrailingDelimiter: options.trailingComma === "all"
-                })];
+                argsPrinted = [printCommaSeparatedList(path, print, "arguments", "(", ")", options)];
             }
             return concat(["new ", print("expression"), ...argsPrinted]);
         }
@@ -818,6 +790,23 @@ function printDelimitedList(
     } else {
         return group(groupElements, { groupId });
     }
+}
+
+function shouldAllowTrailingComma(options) {
+    return options?.trailingComma === "all";
+}
+
+function printCommaSeparatedList(path, print, listKey, startChar, endChar, options, overrides = {}) {
+    const allowTrailingDelimiter =
+        overrides.allowTrailingDelimiter !== undefined
+            ? overrides.allowTrailingDelimiter
+            : shouldAllowTrailingComma(options);
+
+    return printDelimitedList(path, print, listKey, startChar, endChar, {
+        delimiter: ",",
+        ...overrides,
+        allowTrailingDelimiter
+    });
 }
 
 // wrap a statement in a block if it's not already a block
