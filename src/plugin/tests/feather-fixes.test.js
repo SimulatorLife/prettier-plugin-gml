@@ -93,6 +93,37 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("reassigns overflow arguments from nested calls", () => {
+        const source = "var _dmg = clamp(lerp(dmg1, dmg2, 0.5, 0, 100));";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const declaration = ast.body?.[0];
+        assert.ok(declaration);
+
+        const initializer = declaration.declarations?.[0]?.init;
+        assert.ok(initializer);
+        assert.strictEqual(initializer.type, "CallExpression");
+
+        const lerpCall = initializer.arguments?.[0];
+        assert.ok(lerpCall);
+        assert.strictEqual(lerpCall.type, "CallExpression");
+        assert.strictEqual(lerpCall.arguments?.length, 3);
+
+        assert.strictEqual(initializer.arguments?.length, 3);
+        assert.strictEqual(initializer.arguments?.[1]?.type, "Literal");
+        assert.strictEqual(initializer.arguments?.[2]?.type, "Literal");
+
+        const lerpFixes = lerpCall._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(lerpFixes));
+        assert.ok(lerpFixes.some((entry) => entry.id === "GM1019"));
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

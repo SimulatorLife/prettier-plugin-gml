@@ -96,6 +96,26 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1019") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast }) => {
+                    const fixes = normalizeNestedFunctionArgumentBoundaries({
+                        ast,
+                        diagnostic
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -464,6 +484,158 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function normalizeNestedFunctionArgumentBoundaries({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index]);
+            }
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = enforceCallArgumentBoundaries({
+                callExpression: node,
+                diagnostic
+            });
+
+            if (Array.isArray(fix) && fix.length > 0) {
+                fixes.push(...fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function enforceCallArgumentBoundaries({ callExpression, diagnostic }) {
+    if (!callExpression || callExpression.type !== "CallExpression") {
+        return [];
+    }
+
+    const outerArguments = Array.isArray(callExpression.arguments)
+        ? callExpression.arguments
+        : [];
+
+    if (outerArguments.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < outerArguments.length; index += 1) {
+        const argument = outerArguments[index];
+
+        if (!argument || argument.type !== "CallExpression") {
+            continue;
+        }
+
+        const innerArguments = Array.isArray(argument.arguments) ? argument.arguments : [];
+
+        if (innerArguments.length <= 3) {
+            continue;
+        }
+
+        const movableArguments = collectRelocatableArguments(innerArguments);
+
+        if (movableArguments.length === 0) {
+            continue;
+        }
+
+        innerArguments.splice(innerArguments.length - movableArguments.length);
+        callExpression.arguments.splice(index + 1, 0, ...movableArguments);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: argument.object?.name ?? null,
+            range: {
+                start: getNodeStartIndex(argument),
+                end: getNodeEndIndex(callExpression)
+            }
+        });
+
+        if (fixDetail) {
+            attachFeatherFixMetadata(argument, [fixDetail]);
+            attachFeatherFixMetadata(callExpression, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+
+        index += movableArguments.length;
+    }
+
+    if (fixes.length === 0) {
+        return [];
+    }
+
+    return fixes;
+}
+
+function collectRelocatableArguments(innerArguments) {
+    if (!Array.isArray(innerArguments) || innerArguments.length <= 3) {
+        return [];
+    }
+
+    const movable = [];
+    const minimumArity = 3;
+
+    for (let index = innerArguments.length - 1; index >= minimumArity; index -= 1) {
+        const candidate = innerArguments[index];
+
+        if (!isMovableExpression(candidate)) {
+            break;
+        }
+
+        movable.unshift(candidate);
+    }
+
+    const expectedCount = innerArguments.length - minimumArity;
+
+    if (movable.length !== expectedCount) {
+        return [];
+    }
+
+    return movable;
+}
+
+function isMovableExpression(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    switch (node.type) {
+        case "Identifier":
+        case "Literal":
+        case "CallExpression":
+        case "BinaryExpression":
+        case "UnaryExpression":
+        case "ConditionalExpression":
+        case "MemberDotExpression":
+        case "MemberIndexExpression":
+        case "ParenthesizedExpression":
+        case "TemplateLiteral":
+            return true;
+        default:
+            return false;
+    }
 }
 
 function cloneIdentifier(node) {
