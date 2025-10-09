@@ -145,6 +145,62 @@ async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
   return content;
 }
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normaliseMultilineText(text) {
+  if (!text) {
+    return null;
+  }
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim());
+  const cleaned = [];
+  for (const line of lines) {
+    if (!line) {
+      if (cleaned.length && cleaned[cleaned.length - 1] !== "") {
+        cleaned.push("");
+      }
+    } else {
+      cleaned.push(line);
+    }
+  }
+  return cleaned.join("\n").trim();
+}
+
+function extractTable($, $node) {
+  const headers = [];
+  const rows = [];
+  $node.find("tr").each((rowIndex, row) => {
+    const cells = $(row).children("th, td");
+    const values = cells
+      .map((_, cell) => {
+        const $cell = $(cell);
+        const lines = splitCellLines($cell);
+        if (!lines.length) {
+          return null;
+        }
+        return lines.join("\n");
+      })
+      .get();
+    const hasContent = values.some((value) => value && value.trim());
+    if (!hasContent) {
+      return;
+    }
+    if (rowIndex === 0 && $(row).find("th").length > 0) {
+      headers.push(
+        ...values
+          .map((value) => normaliseMultilineText(value))
+          .filter((value) => Boolean(value))
+      );
+      return;
+    }
+    rows.push(values.map((value) => normaliseMultilineText(value) ?? null));
+  });
+  return { headers, rows };
+}
+
 function createBlock($, node) {
   if (node.type !== "tag") {
     return null;
@@ -173,16 +229,29 @@ function createBlock($, node) {
     type = "code";
   }
 
-  const html = $.html(node)?.trim() ?? "";
-  const text = extractText($node, { preserveLineBreaks: type === "code" || type === "list" });
+  const preserveLineBreaks = type === "code" || type === "list";
+  const text = extractText($node, { preserveLineBreaks });
 
-  if (!html && !text) {
+  if (!text && type !== "list") {
     return null;
   }
 
-  const block = { type, html, text };
+  const block = { type, text };
   if (tagName === "h4" || tagName === "h5") {
     block.level = Number(tagName.substring(1));
+  }
+  if (type === "list") {
+    block.items = $node
+      .children("li")
+      .map((_, item) => extractText($(item), { preserveLineBreaks: false }))
+      .get()
+      .filter(Boolean);
+    if (!block.items.length && !text) {
+      return null;
+    }
+  }
+  if (type === "table") {
+    block.table = extractTable($, $node);
   }
   return block;
 }
@@ -228,6 +297,78 @@ function collectBlocksAfter($, element, { stopTags = [] } = {}) {
   return blocks;
 }
 
+function normaliseTextBlock(block) {
+  if (!block) {
+    return null;
+  }
+  if (block.type === "list" && Array.isArray(block.items) && block.items.length > 0) {
+    return block.items.join("\n").trim() || null;
+  }
+  return block.text?.trim() || null;
+}
+
+function normaliseContent(blocks) {
+  const content = {
+    paragraphs: [],
+    notes: [],
+    codeExamples: [],
+    lists: [],
+    headings: [],
+    tables: [],
+  };
+  for (const block of blocks) {
+    if (!block) {
+      continue;
+    }
+    if (block.type === "code") {
+      if (block.text) {
+        content.codeExamples.push(block.text);
+      }
+      continue;
+    }
+    if (block.type === "note") {
+      const note = normaliseMultilineText(block.text ?? "");
+      if (note) {
+        content.notes.push(note);
+      }
+      continue;
+    }
+    if (block.type === "list") {
+      const items = Array.isArray(block.items)
+        ? block.items
+            .map((item) => normaliseMultilineText(item))
+            .filter(Boolean)
+        : [];
+      if (items.length) {
+        content.lists.push(items);
+      }
+      continue;
+    }
+    if (block.type === "table") {
+      if (block.table) {
+        content.tables.push(block.table);
+      }
+      continue;
+    }
+    if (block.type === "heading") {
+      const heading = normaliseMultilineText(block.text ?? "");
+      if (heading) {
+        content.headings.push(heading);
+      }
+      continue;
+    }
+    const paragraph = normaliseMultilineText(block.text ?? "");
+    if (paragraph) {
+      content.paragraphs.push(paragraph);
+    }
+  }
+  return content;
+}
+
+function joinSections(parts) {
+  return parts.map((part) => part.trim()).filter(Boolean).join("\n\n") || null;
+}
+
 function parseDiagnostics(html) {
   const $ = load(html);
   const diagnostics = [];
@@ -239,17 +380,77 @@ function parseDiagnostics(html) {
     }
     const [, id, title] = match;
     const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+
+    const exampleHeadingIndex = blocks.findIndex((block) => block.type === "heading" && /example/i.test(block.text ?? ""));
+    const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+
+    let trailingStart = blocks.length;
+    if (exampleHeadingIndex >= 0) {
+      trailingStart = exampleHeadingIndex + 1;
+    } else if (firstCodeIndex >= 0) {
+      trailingStart = firstCodeIndex;
+    }
+
+    const descriptionBlocks = blocks.slice(0, trailingStart);
+    const trailingBlocks = blocks.slice(trailingStart);
+
+    const descriptionParts = [];
+    const correctionParts = [];
+    let badExample = null;
+    let goodExample = null;
+
+    for (const block of descriptionBlocks) {
+      if (block.type === "heading") {
+        continue;
+      }
+      const text = normaliseTextBlock(block);
+      if (text) {
+        descriptionParts.push(text);
+      }
+    }
+
+    for (const block of trailingBlocks) {
+      if (block.type === "heading") {
+        continue;
+      }
+      if (block.type === "code") {
+        const codeText = normaliseTextBlock(block);
+        if (!codeText) {
+          continue;
+        }
+        if (!badExample) {
+          badExample = codeText;
+        } else if (!goodExample) {
+          goodExample = codeText;
+        } else {
+          goodExample = `${goodExample}\n\n${codeText}`.trim();
+        }
+        continue;
+      }
+      const text = normaliseTextBlock(block);
+      if (!text) {
+        continue;
+      }
+      if (!badExample) {
+        descriptionParts.push(text);
+      } else {
+        correctionParts.push(text);
+      }
+    }
+
+    const description = joinSections(descriptionParts);
+    const correction = joinSections(correctionParts);
+
     diagnostics.push({
       id,
       title: title.trim(),
-      blocks,
+      description,
+      badExample,
+      goodExample,
+      correction,
     });
   });
   return diagnostics;
-}
-
-function getFirstParagraphTexts(blocks) {
-  return blocks.filter((block) => block.type === "paragraph").map((block) => block.text).filter(Boolean);
 }
 
 function parseNamingRules(html) {
@@ -257,17 +458,23 @@ function parseNamingRules(html) {
   const heading = $("h2#s4").first();
   if (heading.length === 0) {
     return {
+      overview: null,
       notes: [],
       namingStyleOptions: [],
       supportsPrefix: false,
       supportsSuffix: false,
       supportsPreserveUnderscores: false,
+      ruleSections: [],
     };
   }
 
   const blocks = collectBlocksAfter($, heading.get(0), { stopTags: ["h2"] });
-  const notes = getFirstParagraphTexts(blocks);
-  const requiresMessage = notes.find((note) => note.includes("GM2017")) ? "GM2017" : null;
+  const content = normaliseContent(blocks);
+  const overview = joinSections(content.paragraphs);
+  const notes = content.notes;
+  const requiresMessage = (overview && overview.includes("GM2017")) || notes.find((note) => note.includes("GM2017"))
+    ? "GM2017"
+    : null;
 
   const mainList = heading.nextAll("ul").first();
   let namingStyleOptions = [];
@@ -276,6 +483,7 @@ function parseNamingRules(html) {
   let supportsPrefix = false;
   let supportsSuffix = false;
   let supportsPreserveUnderscores = false;
+  const ruleSections = [];
 
   if (mainList.length > 0) {
     mainList.find("li > strong").each((_, strongEl) => {
@@ -298,18 +506,45 @@ function parseNamingRules(html) {
         supportsPreserveUnderscores = true;
       }
     });
+
+    mainList.children("li").each((_, item) => {
+      const $item = $(item);
+      const title = $item.children("strong").first().text().replace(/\u00a0/g, " ").trim() || null;
+      const description = extractText($item, { preserveLineBreaks: true });
+      let normalisedDescription = normaliseMultilineText(description ?? "");
+      if (title && normalisedDescription) {
+        const prefixPattern = new RegExp(`^${escapeRegex(title)}\s*:?\s*`, "i");
+        normalisedDescription = normalisedDescription.replace(prefixPattern, "");
+        normalisedDescription = normalisedDescription.trim();
+      }
+      const nestedList = $item.find("ul").first();
+      let options = [];
+      if (nestedList.length) {
+        options = nestedList
+          .children("li")
+          .map((__, option) => normaliseMultilineText(extractText($(option), { preserveLineBreaks: false })))
+          .get()
+          .filter(Boolean);
+      }
+      ruleSections.push({
+        title: title || null,
+        description: normalisedDescription || null,
+        options,
+      });
+    });
   }
 
   return {
+    overview,
     notes,
     requiresMessage,
-    identifierBlocklist,
-    identifierRuleSummary,
-    namingStyleOptions,
+    identifierBlocklist: normaliseMultilineText(identifierBlocklist),
+    identifierRuleSummary: normaliseMultilineText(identifierRuleSummary),
+    namingStyleOptions: namingStyleOptions.map((option) => normaliseMultilineText(option)).filter(Boolean),
     supportsPrefix,
     supportsSuffix,
     supportsPreserveUnderscores,
-    rawBlocks: blocks,
+    ruleSections,
   };
 }
 
@@ -331,10 +566,16 @@ function parseDirectiveSections(html) {
     }
     const blocks = collectBlocksAfter($, element, { stopTags: ["h2"] });
     const id = $(element).attr("id") || slugify(title);
+    const content = normaliseContent(blocks);
     sections.push({
       id,
       title,
-      blocks,
+      description: joinSections(content.paragraphs) || null,
+      notes: content.notes,
+      codeExamples: content.codeExamples,
+      lists: content.lists,
+      subheadings: content.headings,
+      tables: content.tables,
     });
   });
   return sections;
@@ -364,9 +605,8 @@ function parseBaseTypeTable($, table) {
     }
     const name = extractText(cells.eq(0), { preserveLineBreaks: false });
     const specifierExamples = splitCellLines(cells.eq(1));
-    const specifierHtml = cells.eq(1).html()?.trim() ?? "";
     const description = extractText(cells.eq(2), { preserveLineBreaks: false });
-    baseTypes.push({ name, specifierExamples, specifierHtml, description });
+    baseTypes.push({ name, specifierExamples, description });
   });
   return baseTypes;
 }
@@ -434,6 +674,7 @@ function parseTypeSystem(html) {
       node = node.nextSibling;
     }
   }
+  const introContent = normaliseContent(introBlocks);
 
   const tables = $("table");
   const baseTypeTable = tables.eq(0);
@@ -443,6 +684,9 @@ function parseTypeSystem(html) {
     .map((_, element) => createBlock($, element))
     .get()
     .filter(Boolean);
+  const notes = noteBlocks
+    .map((block) => normaliseMultilineText(block.text ?? ""))
+    .filter(Boolean);
 
   const specifierSections = [];
   $("h3").each((_, element) => {
@@ -451,10 +695,14 @@ function parseTypeSystem(html) {
       return;
     }
     const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+    const content = normaliseContent(blocks);
     specifierSections.push({
       id: $(element).attr("id") || slugify(title),
       title,
-      blocks,
+      description: joinSections(content.paragraphs) || null,
+      notes: content.notes,
+      codeExamples: content.codeExamples,
+      lists: content.lists,
     });
   });
 
@@ -467,13 +715,27 @@ function parseTypeSystem(html) {
     typeValidation = parseTypeValidationTable($, validationTable);
   }
 
+  const typeValidationContent = normaliseContent(typeValidationBlocks);
+
   return {
-    introBlocks,
-    baseTypes,
-    noteBlocks,
+    overview: joinSections(introContent.paragraphs) || null,
+    overviewNotes: introContent.notes,
+    baseTypes: baseTypes.map((type) => ({
+      name: type.name,
+      specifierExamples: type.specifierExamples.map((example) => normaliseMultilineText(example)).filter(Boolean),
+      description: normaliseMultilineText(type.description),
+    })),
+    notes,
     specifierSections,
-    typeValidation,
-    typeValidationBlocks,
+    typeValidation: typeValidation
+      ? {
+          description: joinSections(typeValidationContent.paragraphs) || null,
+          notes: typeValidationContent.notes,
+          codeExamples: typeValidationContent.codeExamples,
+          lists: typeValidationContent.lists,
+          table: typeValidation,
+        }
+      : null,
   };
 }
 
