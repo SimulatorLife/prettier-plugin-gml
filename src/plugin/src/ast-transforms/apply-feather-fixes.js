@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1050") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertLocalVariableScopeAccess({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -246,6 +259,114 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     }
 
     attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function convertLocalVariableScopeAccess({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const scopeMap = collectLocalVariableScopes(ast);
+
+    if (!(scopeMap instanceof WeakMap)) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberDotExpression") {
+            const scope = scopeMap.get(node) ?? null;
+            const fix = normalizeLocalVariableAccess(node, parent, property, {
+                diagnostic,
+                scope
+            });
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function normalizeLocalVariableAccess(node, parent, property, { diagnostic, scope }) {
+    if (!parent || !diagnostic || !scope) {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node?.object, "self")) {
+        return null;
+    }
+
+    const propertyIdentifier = node.property;
+
+    if (!propertyIdentifier || propertyIdentifier.type !== "Identifier") {
+        return null;
+    }
+
+    const localName = propertyIdentifier.name;
+
+    if (!localName || !scope.locals?.has(localName)) {
+        return null;
+    }
+
+    const replacement = cloneIdentifier(propertyIdentifier);
+
+    if (!replacement) {
+        return null;
+    }
+
+    copyCommentMetadata(node, replacement);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: localName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (Array.isArray(parent) && typeof property === "number") {
+        parent[property] = replacement;
+    } else if (typeof property === "string" && parent && typeof parent === "object") {
+        parent[property] = replacement;
+    } else {
+        return null;
+    }
+
+    attachFeatherFixMetadata(replacement, [fixDetail]);
 
     return fixDetail;
 }
@@ -517,6 +638,111 @@ function isIdentifierWithName(node, name) {
     }
 
     return node.name === name;
+}
+
+function collectLocalVariableScopes(ast) {
+    const scopeMap = new WeakMap();
+    const scopeStack = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        const shouldEnterScope = isLocalVariableScopeNode(node);
+
+        if (shouldEnterScope) {
+            const parentScope = scopeStack.length > 0 ? scopeStack[scopeStack.length - 1] : null;
+            const scope = createScope(parentScope);
+            scopeStack.push(scope);
+
+            if (Array.isArray(node.params)) {
+                for (const param of node.params) {
+                    const name = getIdentifierName(param);
+                    if (name) {
+                        scope.locals.add(name);
+                    }
+                }
+            }
+        }
+
+        const currentScope = scopeStack.length > 0 ? scopeStack[scopeStack.length - 1] : null;
+
+        if (currentScope) {
+            scopeMap.set(node, currentScope);
+        }
+
+        if (node.type === "VariableDeclaration" && node.kind === "var") {
+            const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+
+            for (const declarator of declarations) {
+                const name = getIdentifierName(declarator?.id);
+                if (name) {
+                    currentScope?.locals.add(name);
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+
+        if (shouldEnterScope) {
+            scopeStack.pop();
+        }
+    };
+
+    visit(ast);
+
+    return scopeMap;
+}
+
+function isLocalVariableScopeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    const { type } = node;
+
+    if (type === "Program" || type === "ConstructorDeclaration") {
+        return true;
+    }
+
+    if (typeof type === "string" && type.includes("Function") && Object.prototype.hasOwnProperty.call(node, "body")) {
+        return true;
+    }
+
+    return false;
+}
+
+function createScope(parent = null) {
+    return {
+        parent,
+        locals: new Set()
+    };
+}
+
+function getIdentifierName(node) {
+    if (!node || node.type !== "Identifier") {
+        return null;
+    }
+
+    const { name } = node;
+
+    return typeof name === "string" && name.length > 0 ? name : null;
 }
 
 function isLiteralZero(node) {
