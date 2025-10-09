@@ -169,4 +169,85 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
+        const topLevelLiteral = {
+            type: "ExpressionStatement",
+            expression: {
+                type: "Literal",
+                value: "true",
+                start: { index: 0 },
+                end: { index: 3 }
+            },
+            start: { index: 0 },
+            end: { index: 4 }
+        };
+
+        const nestedLiteral = {
+            type: "ExpressionStatement",
+            expression: {
+                type: "Literal",
+                value: "false",
+                start: { index: 18 },
+                end: { index: 22 }
+            },
+            start: { index: 18 },
+            end: { index: 24 }
+        };
+
+        const ast = {
+            type: "Program",
+            body: [
+                topLevelLiteral,
+                {
+                    type: "IfStatement",
+                    test: {
+                        type: "Literal",
+                        value: "true",
+                        start: { index: 10 },
+                        end: { index: 13 }
+                    },
+                    consequent: {
+                        type: "BlockStatement",
+                        body: [nestedLiteral],
+                        start: { index: 16 },
+                        end: { index: 25 }
+                    },
+                    alternate: null,
+                    start: { index: 6 },
+                    end: { index: 25 }
+                }
+            ],
+            start: { index: 0 },
+            end: { index: 25 }
+        };
+
+        applyFeatherFixes(ast, { sourceText: "true;\nif (true) { false; }" });
+
+        assert.strictEqual(ast.body.length, 1, "Expected stray boolean literal to be removed from the program body.");
+
+        const [ifStatement] = ast.body;
+        assert.ok(ifStatement);
+        assert.strictEqual(
+            Array.isArray(ifStatement.consequent?.body) ? ifStatement.consequent.body.length : -1,
+            0,
+            "Expected stray boolean literal to be removed from block statements."
+        );
+
+        const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const rootGM1016 = rootDiagnostics.filter((entry) => entry.id === "GM1016");
+        assert.strictEqual(rootGM1016.length, 2, "Expected GM1016 metadata to be recorded for each removed statement.");
+
+        const blockDiagnostics = ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            blockDiagnostics.some((entry) => entry.id === "GM1016"),
+            true,
+            "Expected GM1016 metadata to be attached to the containing block."
+        );
+
+        for (const entry of rootGM1016) {
+            assert.strictEqual(entry.automatic, true, "GM1016 fixes should be marked as automatic.");
+            assert.ok(entry.range, "GM1016 fixes should capture the removed node's range.");
+        }
+    });
 });
