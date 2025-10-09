@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1063") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -466,6 +479,95 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "TernaryExpression") {
+            const fix = harmonizeTexturePointerTernary(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
+    if (!node || node.type !== "TernaryExpression") {
+        return null;
+    }
+
+    if (!parent || parent.type !== "AssignmentExpression" || property !== "right") {
+        return null;
+    }
+
+    if (!isSpriteGetTextureCall(node.consequent)) {
+        return null;
+    }
+
+    const alternate = node.alternate;
+
+    if (!isNegativeOneLiteral(alternate)) {
+        return null;
+    }
+
+    const pointerIdentifier = createIdentifier("pointer_null", alternate);
+
+    if (!pointerIdentifier) {
+        return null;
+    }
+
+    copyCommentMetadata(alternate, pointerIdentifier);
+    node.alternate = pointerIdentifier;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: isIdentifier(parent.left) ? parent.left.name : null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
 function cloneIdentifier(node) {
     if (!node || node.type !== "Identifier") {
         return null;
@@ -517,6 +619,10 @@ function isIdentifierWithName(node, name) {
     }
 
     return node.name === name;
+}
+
+function isIdentifier(node) {
+    return !!node && node.type === "Identifier";
 }
 
 function isLiteralZero(node) {
@@ -594,6 +700,59 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+function createIdentifier(name, template) {
+    if (!name) {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+    }
+
+    return identifier;
+}
+
+function isSpriteGetTextureCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "sprite_get_texture");
+}
+
+function isNegativeOneLiteral(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Literal") {
+        return node.value === "-1" || node.value === -1;
+    }
+
+    if (node.type === "UnaryExpression" && node.operator === "-" && node.prefix) {
+        const argument = node.argument;
+
+        if (!argument || argument.type !== "Literal") {
+            return false;
+        }
+
+        return argument.value === "1" || argument.value === 1;
+    }
+
+    return false;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
