@@ -152,6 +152,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2047") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeUnreachableConditionalBranches({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -276,7 +289,7 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
+            for (let index = node.length - 1; index >= 0; index -= 1) {
                 visit(node[index], node, index);
             }
             return;
@@ -394,7 +407,7 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
+            for (let index = node.length - 1; index >= 0; index -= 1) {
                 visit(node[index], node, index);
             }
             return;
@@ -477,6 +490,79 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function removeUnreachableConditionalBranches({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = node.length - 1; index >= 0; index -= 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "IfStatement") {
+            const constantValue = evaluateStaticBoolean(node.test);
+
+            if (constantValue === true) {
+                const replacements = flattenStatementList(node.consequent);
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: null,
+                    range: {
+                        start: getNodeStartIndex(node),
+                        end: getNodeEndIndex(node)
+                    }
+                });
+
+                if (fixDetail && replaceNodeInParent(parent, property, replacements, node)) {
+                    fixes.push(fixDetail);
+                    attachFeatherFixMetadata(node, [fixDetail]);
+                    return;
+                }
+            }
+
+            if (constantValue === false) {
+                const replacements = flattenStatementList(node.alternate);
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: null,
+                    range: {
+                        start: getNodeStartIndex(node),
+                        end: getNodeEndIndex(node)
+                    }
+                });
+
+                if (fixDetail && replaceNodeInParent(parent, property, replacements, node)) {
+                    fixes.push(fixDetail);
+                    attachFeatherFixMetadata(node, [fixDetail]);
+                    return;
+                }
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
 }
 
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
@@ -723,6 +809,115 @@ function createIdentifier(name, template) {
     }
 
     return identifier;
+}
+
+function flattenStatementList(node) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    if (node.type === "BlockStatement") {
+        const statements = Array.isArray(node.body) ? node.body : [];
+        return statements.slice();
+    }
+
+    return [node];
+}
+
+function evaluateStaticBoolean(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (Array.isArray(node)) {
+        return null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return evaluateStaticBoolean(node.expression);
+    }
+
+    if (node.type === "UnaryExpression" && node.prefix && node.operator === "!") {
+        const value = evaluateStaticBoolean(node.argument);
+        return typeof value === "boolean" ? !value : null;
+    }
+
+    if (node.type === "Literal") {
+        const value = node.value;
+
+        if (value === true || value === "true" || value === 1 || value === "1") {
+            return true;
+        }
+
+        if (value === false || value === "false" || value === 0 || value === "0") {
+            return false;
+        }
+
+        return null;
+    }
+
+    if (isIdentifier(node)) {
+        if (node.name === "true") {
+            return true;
+        }
+
+        if (node.name === "false") {
+            return false;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
+function replaceNodeInParent(parent, property, replacements, template) {
+    if (!replacements) {
+        return false;
+    }
+
+    const replacementList = Array.isArray(replacements) ? replacements : [replacements];
+
+    if (Array.isArray(parent) && typeof property === "number") {
+        parent.splice(property, 1, ...replacementList);
+        return true;
+    }
+
+    if (parent && typeof parent === "object" && typeof property === "string") {
+        if (replacementList.length === 0) {
+            parent[property] = null;
+            return true;
+        }
+
+        if (replacementList.length === 1) {
+            parent[property] = replacementList[0];
+            return true;
+        }
+
+        parent[property] = wrapStatementsInBlock(replacementList, template);
+        return true;
+    }
+
+    return false;
+}
+
+function wrapStatementsInBlock(statements, template) {
+    const block = {
+        type: "BlockStatement",
+        body: Array.isArray(statements) ? statements.slice() : []
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            block.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            block.end = cloneLocation(template.end);
+        }
+    }
+
+    return block;
 }
 
 function isSpriteGetTextureCall(node) {
