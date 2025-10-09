@@ -319,6 +319,12 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
   project prefers shorter banners, or raise it to require a longer prefix before a comment is treated as a banner.
 
+- `applyFeatherFixes` (default: `false`)
+
+  Enables opt-in auto-fixes that leverage the bundled GameMaker Feather metadata. When enabled the formatter removes the
+  trailing semicolon from `#macro` declarations, satisfying the GM1051 diagnostic in the official Feather catalogue while
+  preserving all existing spacing inside the macro body.
+
 - `lineCommentBannerAutofillThreshold` (default: `4`)
 
   Automatically pad banner comments up to the minimum slash count when they already start with at least this many `/` characters.
