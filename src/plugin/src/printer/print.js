@@ -594,8 +594,9 @@ export function print(path, options, print) {
                     return name ? name.length : 0;
                 });
                 const maxNameLength = Math.max(...nameLengths);
+                const commentPadding = getEnumTrailingCommentPadding(options);
                 node.members.forEach((member, index) => {
-                    member._commentColumnTarget = maxNameLength + 2;
+                    member._commentColumnTarget = maxNameLength + commentPadding;
                     member._hasTrailingComma = index !== node.members.length - 1;
                     member._nameLengthForAlignment = nameLengths[index];
                 });
@@ -1073,6 +1074,24 @@ function getAssignmentAlignmentMinimum(options) {
 
     const normalized = Math.floor(rawValue);
     if (normalized <= 0) {
+        return 0;
+    }
+
+    return normalized;
+}
+
+const DEFAULT_ENUM_TRAILING_COMMENT_PADDING = 2;
+
+function getEnumTrailingCommentPadding(options) {
+    const rawValue = options?.enumTrailingCommentPadding;
+
+    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+        return DEFAULT_ENUM_TRAILING_COMMENT_PADDING;
+    }
+
+    const normalized = Math.floor(rawValue);
+
+    if (normalized < 0) {
         return 0;
     }
 

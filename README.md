@@ -324,6 +324,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Aligns the `=` operator across consecutive simple assignments once at least this many statements appear back-to-back. Increase
   the value to require larger groups before alignment happens, or set it to `0` to disable the alignment pass entirely.
 
+- `enumTrailingCommentPadding` (default: `2`)
+
+  Controls how many spaces appear between the longest enum member name and any trailing end-of-line comments. Raise the value to
+  push comments further right, or set it to `0` to keep comments close to the member names.
+
 - `lineCommentBannerMinimumSlashes` (default: `5`)
 
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your

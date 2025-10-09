@@ -96,6 +96,15 @@ export const options = {
         description:
             "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely.",
     },
+    enumTrailingCommentPadding: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 2,
+        range: { start: 0, end: Infinity },
+        description:
+            "Spaces inserted between the longest enum member name and trailing comments. Increase to push comments further right or set to 0 to minimize padding.",
+    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
@@ -126,6 +135,7 @@ export const defaultOptions = {
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
     alignAssignmentsMinGroupSize: 3,
+    enumTrailingCommentPadding: 2,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
     preserveGlobalVarStatements: true,
