@@ -114,6 +114,7 @@ const stat = util.promisify(fs.stat);
 
 let skippedFileCount = 0;
 let projectIgnorePath = null;
+let encounteredFormattingError = false;
 
 function getIgnorePathOptions() {
     const ignoreCandidates = [ignorePath, projectIgnorePath].filter(Boolean);
@@ -252,6 +253,7 @@ async function processFile(filePath) {
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (err) {
+        encounteredFormattingError = true;
         console.error(err);
     }
 }
@@ -260,3 +262,6 @@ await ensureDirectoryExists(targetPath);
 projectIgnorePath = await resolveProjectIgnorePath(targetPath);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);
+if (encounteredFormattingError) {
+    process.exitCode = 1;
+}

@@ -124,4 +124,27 @@ describe('Prettier wrapper CLI', () => {
       await fs.rm(tempDirectory, { recursive: true, force: true });
     }
   });
+
+  it('exits with a non-zero status when formatting fails', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'if (\n', 'utf8');
+
+      try {
+        await execFileAsync('node', [wrapperPath, tempDirectory]);
+        assert.fail('Expected the wrapper to exit with a non-zero status code');
+      } catch (error) {
+        assert.ok(error, 'Expected an error to be thrown for a failing format');
+        assert.equal(error.code, 1, 'Expected a non-zero exit code when formatting fails');
+        assert.ok(
+          /Syntax Error/.test(error.stderr),
+          'Expected stderr to include the formatting error message'
+        );
+      }
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
 });
