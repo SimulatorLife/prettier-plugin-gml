@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1016") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeBooleanLiteralStatements({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -226,6 +239,108 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     visit(ast);
 
     return fixes;
+}
+
+function removeBooleanLiteralStatements({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const arrayOwners = new WeakMap();
+
+    const visitNode = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                arrayOwners.set(value, node);
+                visitArray(value);
+                continue;
+            }
+
+            visitNode(value);
+        }
+    };
+
+    const visitArray = (array) => {
+        if (!Array.isArray(array)) {
+            return;
+        }
+
+        for (let index = 0; index < array.length; index += 1) {
+            const item = array[index];
+
+            if (item && typeof item === "object" && item.type === "ExpressionStatement") {
+                const fix = removeBooleanLiteralExpression(item, array, index);
+
+                if (fix) {
+                    const owner = arrayOwners.get(array) ?? ast;
+                    if (owner !== ast) {
+                        attachFeatherFixMetadata(owner, [fix]);
+                    }
+                    fixes.push(fix);
+                    array.splice(index, 1);
+                    index -= 1;
+                    continue;
+                }
+            }
+
+            visitNode(item);
+        }
+    };
+
+    function removeBooleanLiteralExpression(node, parentArray = null, index = -1) {
+        if (!parentArray || !Array.isArray(parentArray) || index < 0) {
+            return null;
+        }
+
+        const expression = node.expression;
+
+        if (!isBooleanLiteral(expression)) {
+            return null;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: null,
+            range: {
+                start: getNodeStartIndex(node),
+                end: getNodeEndIndex(node)
+            }
+        });
+
+        if (!fixDetail) {
+            return null;
+        }
+
+        return fixDetail;
+    }
+
+    visitNode(ast);
+
+    if (fixes.length === 0) {
+        return [];
+    }
+
+    return fixes;
+}
+
+function isBooleanLiteral(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type !== "Literal") {
+        return false;
+    }
+
+    return node.value === true || node.value === false || node.value === "true" || node.value === "false";
 }
 
 function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
