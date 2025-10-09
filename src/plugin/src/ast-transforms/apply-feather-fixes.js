@@ -139,6 +139,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2039") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertScriptAssetExecutionsToFunctions({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -379,6 +392,72 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(withStatement, [fixDetail]);
 
     return fixDetail;
+}
+
+function convertScriptAssetExecutionsToFunctions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const programBody = Array.isArray(ast.body) ? ast.body : null;
+
+    if (!programBody || programBody.length === 0) {
+        return [];
+    }
+
+    if (programBody.some((node) => node?.type === "FunctionDeclaration")) {
+        return [];
+    }
+
+    const scriptName = inferScriptAssetName(ast);
+
+    if (!scriptName) {
+        return [];
+    }
+
+    const statements = programBody.slice();
+
+    if (statements.length === 0) {
+        return [];
+    }
+
+    const { firstNode, lastNode } = getBoundaryNodes(statements, ast);
+
+    const blockStatement = {
+        type: "BlockStatement",
+        body: statements,
+        start: cloneLocation(firstNode?.start ?? ast.start),
+        end: cloneLocation(lastNode?.end ?? ast.end)
+    };
+
+    const functionDeclaration = {
+        type: "FunctionDeclaration",
+        id: scriptName,
+        params: [],
+        body: blockStatement,
+        hasTrailingComma: false,
+        start: cloneLocation(blockStatement.start ?? ast.start),
+        end: cloneLocation(blockStatement.end ?? ast.end)
+    };
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: scriptName,
+        range: {
+            start: getNodeStartIndex(functionDeclaration),
+            end: getNodeEndIndex(functionDeclaration)
+        }
+    });
+
+    if (!fixDetail) {
+        return [];
+    }
+
+    programBody.length = 0;
+    programBody.push(functionDeclaration);
+
+    attachFeatherFixMetadata(functionDeclaration, [fixDetail]);
+
+    return [fixDetail];
 }
 
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
@@ -753,6 +832,106 @@ function isNegativeOneLiteral(node) {
     }
 
     return false;
+}
+
+function getBoundaryNodes(nodes, fallback) {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+        return { firstNode: null, lastNode: null };
+    }
+
+    let firstNode = null;
+    let lastNode = null;
+
+    for (const node of nodes) {
+        if (!firstNode && node && typeof node === "object") {
+            firstNode = node;
+        }
+
+        if (node && typeof node === "object") {
+            lastNode = node;
+        }
+    }
+
+    if (!firstNode && fallback && typeof fallback === "object") {
+        firstNode = fallback;
+    }
+
+    if (!lastNode) {
+        lastNode = firstNode ?? (typeof fallback === "object" ? fallback : null);
+    }
+
+    return { firstNode, lastNode };
+}
+
+function inferScriptAssetName(ast) {
+    if (!ast || typeof ast !== "object") {
+        return null;
+    }
+
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    for (const comment of comments) {
+        if (!comment || typeof comment !== "object") {
+            continue;
+        }
+
+        const isTopLevelComment =
+            comment.isTopComment === true ||
+            (comment.leadingChar === "" && (!comment.start || comment.start.line === 1));
+
+        if (!isTopLevelComment) {
+            continue;
+        }
+
+        const name = extractScriptAssetNameFromComment(comment);
+
+        if (name) {
+            return name;
+        }
+    }
+
+    return null;
+}
+
+function extractScriptAssetNameFromComment(comment) {
+    if (!comment || typeof comment.value !== "string") {
+        return null;
+    }
+
+    let text = comment.value;
+
+    if (typeof text !== "string" || text.length === 0) {
+        return null;
+    }
+
+    text = text.replace(/^\s+/, "");
+    text = text.replace(/^\/+/, "");
+    text = text.trim();
+
+    if (text.length === 0) {
+        return null;
+    }
+
+    const match = text.match(/^(?:@function\s+)?([A-Za-z_][A-Za-z0-9_]*)$/);
+
+    if (!match) {
+        return null;
+    }
+
+    const [, candidate] = match;
+
+    if (!isValidGmlIdentifier(candidate)) {
+        return null;
+    }
+
+    return candidate;
+}
+
+function isValidGmlIdentifier(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {

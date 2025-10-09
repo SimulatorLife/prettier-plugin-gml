@@ -169,4 +169,47 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("wraps script asset bodies flagged by GM2039 into functions and records metadata", () => {
+        const source = [
+            "/// my_function",
+            "",
+            "show_debug_message(\"my_function calling!\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [functionDeclaration] = ast.body ?? [];
+
+        assert.ok(functionDeclaration);
+        assert.strictEqual(functionDeclaration.type, "FunctionDeclaration");
+        assert.strictEqual(functionDeclaration.id, "my_function");
+
+        const block = functionDeclaration.body;
+        assert.ok(block);
+        assert.strictEqual(block.type, "BlockStatement");
+        assert.ok(Array.isArray(block.body));
+        assert.strictEqual(block.body.length, 1);
+        assert.strictEqual(block.body[0]?.type, "CallExpression");
+
+        const declarationDiagnostics = functionDeclaration._appliedFeatherDiagnostics ?? [];
+        const gm2039 = declarationDiagnostics.find((entry) => entry.id === "GM2039");
+
+        assert.ok(gm2039, "Expected GM2039 metadata to be recorded on the function declaration.");
+        assert.strictEqual(gm2039.automatic, true);
+        assert.strictEqual(gm2039.target, "my_function");
+
+        const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            programDiagnostics.some((entry) => entry.id === "GM2039"),
+            true,
+            "Expected GM2039 metadata to be recorded on the root AST node."
+        );
+    });
 });
