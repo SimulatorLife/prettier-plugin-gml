@@ -7,7 +7,8 @@ import GMLParser from "gamemaker-language-parser";
 import { getFeatherMetadata } from "../../shared/feather/metadata.js";
 import {
     applyFeatherFixes,
-    getFeatherDiagnosticFixers
+    getFeatherDiagnosticFixers,
+    preprocessSourceForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
 describe("Feather diagnostic fixer registry", () => {
@@ -316,6 +317,55 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
 
+    it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
+        const source = [
+            "var _this * something;",
+            "",
+            "    = 48;"
+        ].join("\n");
+
+        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+
+        assert.notStrictEqual(sourceText, source, "Expected GM1100 preprocessor to modify the source text.");
+        assert.ok(metadata?.GM1100?.length > 0, "Expected GM1100 metadata to be recorded by the preprocessor.");
+
+        const ast = GMLParser.parse(sourceText, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, {
+            sourceText,
+            preprocessedFixMetadata: metadata
+        });
+
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
+        const [declaration, statement] = statements;
+
+        assert.ok(declaration);
+        assert.strictEqual(declaration.type, "VariableDeclaration");
+        assert.strictEqual(Array.isArray(declaration.declarations), true);
+        assert.ok(statement);
+
+        const declarationFixes = declaration._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(declarationFixes.some((entry) => entry.id === "GM1100"), true);
+
+        const expressionFixes = (statement?._appliedFeatherDiagnostics ?? [])
+            .concat(statement?.expression?._appliedFeatherDiagnostics ?? []);
+        assert.strictEqual(expressionFixes.some((entry) => entry.id === "GM1100"), true);
+
+        const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm1100Entries = programDiagnostics.filter((entry) => entry.id === "GM1100");
+
+        assert.ok(gm1100Entries.length >= 1, "Expected GM1100 metadata to be recorded on the program node.");
+
+        for (const entry of gm1100Entries) {
+            assert.strictEqual(entry.automatic, true);
+            assert.strictEqual(entry.title, "Syntax Error");
+            assert.strictEqual(entry.description?.includes("syntax error"), true);
+        }
+    });
+  
     it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
         const topLevelLiteral = {
             type: "ExpressionStatement",
