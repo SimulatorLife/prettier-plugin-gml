@@ -1,7 +1,9 @@
-// Normalizes any identifier-like AST node to a simple string.
-// Shared between the printer and supporting transforms to avoid duplicating
-// node-shape guards.
-
+/**
+ * Normalizes identifier-like values—including raw strings, plain objects with a
+ * `name` property, and relevant AST nodes—into a comparable string. Shared
+ * between the printer and supporting transforms so callers can hand the helper
+ * whatever node shape they encounter without reimplementing guards.
+ */
 function getIdentifierText(node) {
     if (!node) {
         return null;
