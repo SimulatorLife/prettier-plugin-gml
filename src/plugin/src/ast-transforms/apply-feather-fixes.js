@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2028") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -381,6 +394,118 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property, context = { arrayOwner: null, arrayKey: null }) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            const arrayKey = typeof property === "string" ? property : context.arrayKey;
+            const nextContext = { arrayOwner: parent, arrayKey };
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index, nextContext);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        const { arrayOwner, arrayKey } = context;
+
+        if (
+            Array.isArray(parent) &&
+            typeof property === "number" &&
+            isStatementArrayContext({ arrayOwner, arrayKey }) &&
+            isPrimitiveEndCall(node)
+        ) {
+            const fix = ensurePrimitiveBeginBeforeEnd({
+                statements: parent,
+                index: property,
+                endCall: node,
+                diagnostic
+            });
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key, context);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensurePrimitiveBeginBeforeEnd({ statements, index, endCall, diagnostic }) {
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return null;
+    }
+
+    if (!endCall || !isPrimitiveEndCall(endCall)) {
+        return null;
+    }
+
+    let unmatchedBegins = 0;
+
+    for (let position = 0; position < index; position += 1) {
+        const statement = statements[position];
+
+        if (isPrimitiveBeginCall(statement)) {
+            unmatchedBegins += 1;
+            continue;
+        }
+
+        if (isPrimitiveEndCall(statement) && unmatchedBegins > 0) {
+            unmatchedBegins -= 1;
+        }
+    }
+
+    if (unmatchedBegins > 0) {
+        return null;
+    }
+
+    const beginCall = createPrimitiveBeginCall(endCall);
+
+    if (!beginCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: endCall?.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(endCall),
+            end: getNodeEndIndex(endCall)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    statements.splice(index, 0, beginCall);
+    attachFeatherFixMetadata(beginCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -625,6 +750,22 @@ function isIdentifier(node) {
     return !!node && node.type === "Identifier";
 }
 
+function isPrimitiveBeginCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_primitive_begin");
+}
+
+function isPrimitiveEndCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_primitive_end");
+}
+
 function isLiteralZero(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -677,6 +818,30 @@ function createAlphaTestRefResetCall(template) {
     if (Object.prototype.hasOwnProperty.call(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
+
+    return callExpression;
+}
+
+function createPrimitiveBeginCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: createIdentifier("draw_primitive_begin", template.object),
+        arguments: [createIdentifier("pr_linelist")]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.start ?? template.end);
+    }
+
+    callExpression.arguments = callExpression.arguments.filter(Boolean);
 
     return callExpression;
 }
@@ -753,6 +918,21 @@ function isNegativeOneLiteral(node) {
     }
 
     return false;
+}
+
+function isStatementArrayContext(context) {
+    if (!context || typeof context !== "object") {
+        return false;
+    }
+
+    const arrayKey = context.arrayKey;
+    const ownerType = context.arrayOwner?.type;
+
+    if (arrayKey !== "body") {
+        return false;
+    }
+
+    return ownerType === "Program" || ownerType === "BlockStatement" || ownerType === "SwitchCase";
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
