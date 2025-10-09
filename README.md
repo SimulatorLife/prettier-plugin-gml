@@ -7,8 +7,9 @@
 </p>
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
-repository houses the parser, printer, and shared helpers in one workspace so scripts, objects, and shaders all benefit from the
-same formatter. The plugin is not yet published on npm; install it straight from GitHub using the instructions below. The
+repository houses the parser, printer, generated metadata, and shared helpers in one workspace so scripts, objects, and shaders
+all benefit from the same formatter. The plugin is not yet published on npm; install it straight from GitHub using the
+instructions below. The
 formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier needs an explicit path to
 load it when you install from Git.
 
@@ -33,6 +34,7 @@ load it when you install from Git.
   - [Repository layout](#repository-layout)
   - [Set up the workspace](#set-up-the-workspace)
   - [Test the plugin and parser](#test-the-plugin-and-parser)
+  - [Regenerate metadata snapshots](#regenerate-metadata-snapshots)
   - [Regenerate the parser grammar](#regenerate-the-parser-grammar)
   - [Handy development commands](#handy-development-commands)
 - [Useful VS Code extensions](#useful-vs-code-extensions)
@@ -82,7 +84,7 @@ load it when you install from Git.
    `node_modules/root` (the name defined in this repository’s workspace manifest).
 
 3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Add a convenience script to your
-   `package.json` so you consistently point Prettier at the bundled plugin entry:
+   `package.json` so you consistently point Prettier at the bundled plugin entry (`node_modules/root/src/plugin/src/gml.js`):
 
     ```jsonc
     {
@@ -101,16 +103,24 @@ load it when you install from Git.
       "overrides": [
         {
           "files": "*.gml",
-         "options": {
-           "parser": "gml-parse"
-         }
-       }
-     ]
-   }
-   ```
+          "options": {
+            "parser": "gml-parse"
+          }
+        }
+      ]
+    }
+    ```
 
     The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
+    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. If you prefer a
+    single entry point, call the bundled wrapper instead of wiring Prettier manually:
+
+    ```bash
+    node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+    ```
+
+    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every `.gml`
+    file under the provided path.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -349,6 +359,8 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
 - `src/parser/` — ANTLR grammar files, generated parser, and parser tests.
 - `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, the CLI wrapper, and plugin-specific tests.
 - `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
+- `resources/` — Generated data files that power formatter heuristics (for example `gml-identifiers.json` and
+  `feather-metadata.json`).
 - `docs/` — Planning and reference notes such as the [reserved identifier harvesting plan](docs/reserved-identifiers-plan.md).
 
 The repository is configured as an npm workspace so the root `node_modules` folder manages dependencies for both the parser and the plugin packages.
@@ -362,6 +374,7 @@ prettier-plugin-gml/
 ├─ src/parser/   # ANTLR grammar, generated parser, and parser tests
 ├─ src/plugin/   # Prettier plugin source, printer, CLI wrapper, and plugin tests
 ├─ src/shared/   # Helpers shared between the parser and the plugin
+├─ resources/    # Generated metadata consumed by the formatter
 ├─ docs/         # Design notes (e.g. reserved identifier harvesting plan)
 └─ package.json        # Workspace manifest with scripts and shared tooling
 ```
@@ -410,6 +423,19 @@ npm run test --workspace src/parser -- --watch
 
 Fixtures under `src/plugin/tests` capture golden formatter output. Update them only when intentionally changing the emitted
 code and include the corresponding rationale in your pull request.
+
+### Regenerate metadata snapshots
+
+The formatter relies on generated metadata stored under `resources/` to make naming, diagnostic, and language-aware decisions.
+Refresh the datasets whenever YoYo Games updates the manual or when you tweak the scrapers:
+
+```bash
+npm run build:gml-identifiers
+npm run build:feather-metadata
+```
+
+Both commands accept `--ref <branch|tag|commit>` to target a specific manual revision and `--force-refresh` to bypass the cached
+downloads stored in `scripts/cache/manual/`.
 
 ### Regenerate the parser grammar
 

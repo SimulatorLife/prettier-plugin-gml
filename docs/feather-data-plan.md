@@ -3,7 +3,7 @@
 ## Goals and scope
 - Mirror the approach used for `gml-identifiers.json` by scraping first-party GameMaker sources instead of maintaining hand-written lint metadata.
 - Capture the rules that affect formatter output: message catalogue (GM* diagnostics), naming-style presets, suppress/override directives, and Feather's type taxonomy.
-- Produce a machine-readable artefact (e.g. `resources/feather-rules.json`) that can be regenerated against any GameMaker release tag and consumed by future formatting heuristics.
+- Produce a machine-readable artefact (stored as `resources/feather-metadata.json`) that can be regenerated against any GameMaker release tag and consumed by future formatting heuristics.
 
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
@@ -31,7 +31,7 @@
    - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
    - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRef`, `commitSha`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
 5. **Tooling integration**
-   - Add a new script (e.g. `scripts/generate-feather-metadata.mjs`) that shares CLI ergonomics with the identifier generator. Wire it into `package.json` scripts for easy regeneration and future CI checks.
+   - Ship `scripts/generate-feather-metadata.mjs`, sharing CLI ergonomics with the identifier generator and exposing it via `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
    - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
 
 ## Open questions / future research
