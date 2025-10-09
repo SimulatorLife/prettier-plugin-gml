@@ -131,6 +131,46 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("ensures vertex format definitions are closed and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "vertex_format_begin();",
+            "",
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_add_texcoord();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const insertedCall = body[body.length - 1];
+
+        assert.ok(insertedCall);
+        assert.strictEqual(insertedCall.type, "CallExpression");
+        assert.strictEqual(insertedCall.object?.name, "vertex_format_end");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2015 = appliedDiagnostics.find((entry) => entry.id === "GM2015");
+
+        assert.ok(gm2015, "Expected GM2015 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2015.automatic, true);
+        assert.ok(gm2015.range);
+
+        const nodeDiagnostics = insertedCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            nodeDiagnostics.some((entry) => entry.id === "GM2015"),
+            true,
+            "Expected GM2015 metadata to be attached to the inserted call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
