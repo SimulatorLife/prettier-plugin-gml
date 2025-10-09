@@ -113,6 +113,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2008") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = closeOpenVertexBatches({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -261,6 +274,93 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function closeOpenVertexBatches({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            if (isStatementList(parent, property)) {
+                const statementFixes = ensureVertexBatchesClosed(node, diagnostic);
+
+                if (Array.isArray(statementFixes) && statementFixes.length > 0) {
+                    fixes.push(...statementFixes);
+                }
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureVertexBatchesClosed(statements, diagnostic) {
+    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+        return [];
+    }
+
+    const fixes = [];
+    let lastBeginCall = null;
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (isVertexBeginCall(statement)) {
+            if (lastBeginCall) {
+                const vertexEndCall = createVertexEndCall(lastBeginCall);
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: getVertexBatchTarget(lastBeginCall),
+                    range: {
+                        start: getNodeStartIndex(lastBeginCall),
+                        end: getNodeEndIndex(lastBeginCall)
+                    }
+                });
+
+                if (vertexEndCall && fixDetail) {
+                    statements.splice(index, 0, vertexEndCall);
+                    attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
+                    fixes.push(fixDetail);
+                    index += 1;
+                }
+
+                lastBeginCall = null;
+            }
+
+            lastBeginCall = statement;
+            continue;
+        }
+
+        if (isVertexEndCall(statement)) {
+            lastBeginCall = null;
+        }
+    }
+
+    return fixes;
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
@@ -750,6 +850,112 @@ function isNegativeOneLiteral(node) {
         }
 
         return argument.value === "1" || argument.value === 1;
+    }
+
+    return false;
+}
+
+function isVertexBeginCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "vertex_begin");
+}
+
+function isVertexEndCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "vertex_end");
+}
+
+function getVertexBatchTarget(callExpression) {
+    if (!callExpression || callExpression.type !== "CallExpression") {
+        return null;
+    }
+
+    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
+
+    if (args.length > 0) {
+        const firstArg = args[0];
+
+        if (isIdentifier(firstArg)) {
+            return firstArg.name ?? null;
+        }
+    }
+
+    return callExpression.object?.name ?? null;
+}
+
+function createVertexEndCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = createIdentifier("vertex_end", template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (Array.isArray(template.arguments) && template.arguments.length > 0) {
+        const clonedArgument = cloneAstNode(template.arguments[0]);
+
+        if (clonedArgument) {
+            callExpression.arguments.push(clonedArgument);
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function cloneAstNode(node) {
+    if (!node || typeof node !== "object") {
+        return node;
+    }
+
+    if (typeof structuredClone === "function") {
+        try {
+            return structuredClone(node);
+        } catch (error) {
+            // Fallback to JSON cloning below.
+        }
+    }
+
+    try {
+        return JSON.parse(JSON.stringify(node));
+    } catch (error) {
+        return null;
+    }
+}
+
+function isStatementList(parent, property) {
+    if (!parent || typeof property !== "string") {
+        return false;
+    }
+
+    if (property === "body") {
+        return ["Program", "BlockStatement", "WithStatement", "FunctionDeclaration"].includes(parent.type);
+    }
+
+    if (property === "consequent" && parent.type === "SwitchCase") {
+        return true;
     }
 
     return false;
