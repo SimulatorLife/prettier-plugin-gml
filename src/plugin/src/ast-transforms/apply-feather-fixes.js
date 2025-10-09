@@ -8,11 +8,119 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
+export function preprocessSourceForFeatherFixes(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return {
+            sourceText,
+            metadata: null
+        };
+    }
+
+    const gm1100Metadata = [];
+    const sanitizedParts = [];
+    const newlinePattern = /\r?\n/g;
+    let lastIndex = 0;
+    let lineNumber = 1;
+    let pendingGM1100Context = null;
+
+    const processLine = (line) => {
+        const indentationMatch = line.match(/^\s*/);
+        const indentation = indentationMatch ? indentationMatch[0] : "";
+        const trimmed = line.trim();
+
+        if (trimmed.length === 0) {
+            return { line, context: pendingGM1100Context };
+        }
+
+        const varMatch = line.match(/^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+
+        if (varMatch) {
+            const identifier = varMatch[1];
+            const starIndex = line.indexOf("*", varMatch[0].length);
+
+            if (starIndex !== -1) {
+                const sanitizedLine = `${line.slice(0, starIndex)}=${line.slice(starIndex + 1)}`;
+
+                gm1100Metadata.push({
+                    type: "declaration",
+                    line: lineNumber,
+                    identifier
+                });
+
+                return {
+                    line: sanitizedLine,
+                    context: {
+                        identifier,
+                        indentation
+                    }
+                };
+            }
+        }
+
+        if (trimmed.startsWith("=") && pendingGM1100Context?.identifier) {
+            const remainder = line.slice(indentation.length).replace(/^\s*/, "");
+            const identifier = pendingGM1100Context.identifier;
+            const sanitizedLine = `${indentation}${identifier} ${remainder}`;
+
+            gm1100Metadata.push({
+                type: "assignment",
+                line: lineNumber,
+                identifier
+            });
+
+            return { line: sanitizedLine, context: null };
+        }
+
+        if (trimmed.startsWith("/") || trimmed.startsWith("*")) {
+            return { line, context: pendingGM1100Context };
+        }
+
+        return { line, context: null };
+    };
+
+    let match;
+
+    while ((match = newlinePattern.exec(sourceText)) !== null) {
+        const lineEnd = match.index;
+        const line = sourceText.slice(lastIndex, lineEnd);
+        const newline = match[0];
+        const { line: sanitizedLine, context } = processLine(line);
+
+        sanitizedParts.push(sanitizedLine, newline);
+        pendingGM1100Context = context;
+        lastIndex = match.index + newline.length;
+        lineNumber += 1;
+    }
+
+    const finalLine = sourceText.slice(lastIndex);
+    if (finalLine.length > 0 || sourceText.endsWith("\n") || sourceText.endsWith("\r")) {
+        const { line: sanitizedLine, context } = processLine(finalLine);
+        sanitizedParts.push(sanitizedLine);
+        pendingGM1100Context = context;
+    }
+
+    const sanitizedSourceText = sanitizedParts.join("");
+
+    if (gm1100Metadata.length === 0) {
+        return {
+            sourceText: sourceText,
+            metadata: null
+        };
+    }
+
+    return {
+        sourceText: sanitizedSourceText,
+        metadata: {
+            GM1100: gm1100Metadata
+        }
+    };
+}
+
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-export function applyFeatherFixes(ast, { sourceText } = {}) {
+export function applyFeatherFixes(ast, { sourceText, preprocessedFixMetadata } = {}) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -20,7 +128,7 @@ export function applyFeatherFixes(ast, { sourceText } = {}) {
     const appliedFixes = [];
 
     for (const entry of FEATHER_DIAGNOSTIC_FIXERS.values()) {
-        const fixes = entry.applyFix(ast, { sourceText });
+        const fixes = entry.applyFix(ast, { sourceText, preprocessedFixMetadata });
 
         if (Array.isArray(fixes) && fixes.length > 0) {
             appliedFixes.push(...fixes);
@@ -70,7 +178,8 @@ function createFixerForDiagnostic(diagnostic) {
             return (ast, context) => {
                 const fixes = implementation({
                     ast,
-                    sourceText: context?.sourceText
+                    sourceText: context?.sourceText,
+                    preprocessedFixMetadata: context?.preprocessedFixMetadata
                 });
 
                 return Array.isArray(fixes) ? fixes : [];
@@ -102,6 +211,23 @@ function buildFeatherFixImplementations() {
                     ast,
                     sourceText,
                     diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1100") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, preprocessedFixMetadata }) => {
+                const fixes = normalizeObviousSyntaxErrors({
+                    ast,
+                    diagnostic,
+                    metadata: preprocessedFixMetadata
                 });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
@@ -172,6 +298,62 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const gm1100Entries = Array.isArray(metadata?.GM1100) ? metadata.GM1100 : [];
+
+    if (gm1100Entries.length === 0) {
+        return [];
+    }
+
+    const nodeIndex = collectGM1100Candidates(ast);
+    const handledNodes = new Set();
+    const fixes = [];
+
+    for (const entry of gm1100Entries) {
+        const lineNumber = entry?.line;
+
+        if (typeof lineNumber !== "number") {
+            continue;
+        }
+
+        const candidates = nodeIndex.get(lineNumber) ?? [];
+        let node = null;
+
+        if (entry.type === "declaration") {
+            node = candidates.find((candidate) => candidate?.type === "VariableDeclaration") ?? null;
+        } else if (entry.type === "assignment") {
+            node = candidates.find((candidate) => candidate?.type === "AssignmentExpression") ?? null;
+        }
+
+        if (!node || handledNodes.has(node)) {
+            continue;
+        }
+
+        handledNodes.add(node);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: entry?.identifier ?? null,
+            range: {
+                start: getNodeStartIndex(node),
+                end: getNodeEndIndex(node)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        attachFeatherFixMetadata(node, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
@@ -830,4 +1012,61 @@ function attachFeatherFixMetadata(target, fixes) {
 
     target[key].push(...fixes);
 }
+
+function getNodeStartLine(node) {
+    const location = node?.start;
+
+    if (location && typeof location === "object" && typeof location.line === "number") {
+        return location.line;
+    }
+
+    return undefined;
+}
+
+function collectGM1100Candidates(node) {
+    const index = new Map();
+
+    const visit = (candidate) => {
+        if (!candidate) {
+            return;
+        }
+
+        if (Array.isArray(candidate)) {
+            for (const item of candidate) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof candidate !== "object") {
+            return;
+        }
+
+        if (
+            (candidate.type === "VariableDeclaration" || candidate.type === "AssignmentExpression") &&
+            typeof getNodeStartLine(candidate) === "number"
+        ) {
+            const line = getNodeStartLine(candidate);
+
+            if (typeof line === "number") {
+                if (!index.has(line)) {
+                    index.set(line, []);
+                }
+
+                index.get(line).push(candidate);
+            }
+        }
+
+        for (const value of Object.values(candidate)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(node);
+
+    return index;
+}
+
 
