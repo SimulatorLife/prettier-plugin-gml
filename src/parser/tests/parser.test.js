@@ -39,7 +39,7 @@ function hasLocationInformation(node) {
     return false;
   }
 
-  if (Object.prototype.hasOwnProperty.call(node, 'start') || Object.prototype.hasOwnProperty.call(node, 'end')) {
+  if (Object.hasOwn(node, 'start') || Object.hasOwn(node, 'end')) {
     return true;
   }
 

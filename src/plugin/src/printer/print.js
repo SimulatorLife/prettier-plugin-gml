@@ -35,6 +35,7 @@ import {
     getIdentifierText,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
+import { getIdentifierText } from "../../../shared/identifier-text.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 
 import { printDanglingComments, printDanglingCommentsAsGroup } from "./comments.js";

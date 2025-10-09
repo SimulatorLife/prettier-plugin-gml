@@ -2,6 +2,8 @@
 // This logic analyses the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
+import { getIdentifierText } from "../../../../shared/identifier-text.js";
+
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
     ["ds_list_size", "size"],
