@@ -1,5 +1,8 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
-import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
+import {
+    getFeatherDiagnosticById,
+    getFeatherDiagnostics
+} from "../../../shared/feather/metadata.js";
 
 const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
@@ -7,6 +10,37 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+const RESERVED_IDENTIFIER_NAMES = new Set([
+    "and",
+    "break",
+    "case",
+    "continue",
+    "constructor",
+    "create",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "enum",
+    "event",
+    "for",
+    "function",
+    "globalvar",
+    "if",
+    "macro",
+    "not",
+    "or",
+    "repeat",
+    "return",
+    "step",
+    "switch",
+    "until",
+    "var",
+    "while",
+    "with"
+]);
+const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS = buildDeprecatedBuiltinVariableReplacements();
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -103,6 +137,19 @@ function buildFeatherFixImplementations() {
                     sourceText,
                     diagnostic
                 });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1024") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = replaceDeprecatedBuiltinVariables({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -464,6 +511,246 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    if (DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS.size === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property, owner, ownerKey) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index, owner, ownerKey);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "Identifier") {
+            const fix = replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null, null, null);
+
+    return fixes;
+}
+
+function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, diagnostic) {
+    if (!node || node.type !== "Identifier") {
+        return null;
+    }
+
+    const normalizedName = typeof node.name === "string" ? node.name.toLowerCase() : null;
+
+    if (!normalizedName || normalizedName.length === 0) {
+        return null;
+    }
+
+    const replacementEntry = getDeprecatedBuiltinReplacementEntry(normalizedName);
+
+    if (!replacementEntry) {
+        return null;
+    }
+
+    if (
+        shouldSkipDeprecatedIdentifierReplacement({
+            parent,
+            property,
+            owner,
+            ownerKey
+        })
+    ) {
+        return null;
+    }
+
+    const originalName = node.name;
+    const replacementName = replacementEntry.replacement;
+
+    if (!replacementName || replacementName === originalName) {
+        return null;
+    }
+
+    node.name = replacementName;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: replacementEntry.deprecated ?? originalName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function shouldSkipDeprecatedIdentifierReplacement({ parent, property, owner, ownerKey }) {
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "MemberDotExpression" && property === "property") {
+        return true;
+    }
+
+    if (parent.type === "VariableDeclarator" && property === "id") {
+        return true;
+    }
+
+    if (parent.type === "MacroDeclaration" && property === "name") {
+        return true;
+    }
+
+    if (parent.type === "EnumDeclaration" && property === "name") {
+        return true;
+    }
+
+    if (parent.type === "EnumMember" && property === "name") {
+        return true;
+    }
+
+    if (Array.isArray(parent)) {
+        if (ownerKey === "params") {
+            const ownerType = owner?.type;
+
+            if (
+                ownerType === "FunctionDeclaration" ||
+                ownerType === "FunctionExpression" ||
+                ownerType === "ConstructorDeclaration"
+            ) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function buildDeprecatedBuiltinVariableReplacements() {
+    const replacements = new Map();
+    const diagnostic = getFeatherDiagnosticById("GM1024");
+
+    if (!diagnostic) {
+        return replacements;
+    }
+
+    const entries = deriveDeprecatedBuiltinVariableReplacementsFromExamples(
+        diagnostic.badExample,
+        diagnostic.goodExample
+    );
+
+    for (const entry of entries) {
+        if (!replacements.has(entry.normalized)) {
+            replacements.set(entry.normalized, entry);
+        }
+    }
+
+    return replacements;
+}
+
+function deriveDeprecatedBuiltinVariableReplacementsFromExamples(badExample, goodExample) {
+    const entries = [];
+    const badTokens = extractIdentifierTokens(badExample);
+    const goodTokens = extractIdentifierTokens(goodExample);
+
+    if (badTokens.length === 0 || goodTokens.length === 0) {
+        return entries;
+    }
+
+    const goodTokenSet = new Set(goodTokens.map((token) => token.normalized));
+    const deprecatedTokens = badTokens.filter((token) => !goodTokenSet.has(token.normalized));
+
+    if (deprecatedTokens.length === 0) {
+        return entries;
+    }
+
+    const badTokenSet = new Set(badTokens.map((token) => token.normalized));
+    const replacementTokens = goodTokens.filter((token) => !badTokenSet.has(token.normalized));
+
+    const pairCount = Math.min(deprecatedTokens.length, replacementTokens.length);
+
+    for (let index = 0; index < pairCount; index += 1) {
+        const deprecatedToken = deprecatedTokens[index];
+        const replacementToken = replacementTokens[index];
+
+        if (!deprecatedToken || !replacementToken) {
+            continue;
+        }
+
+        entries.push({
+            normalized: deprecatedToken.normalized,
+            deprecated: deprecatedToken.token,
+            replacement: replacementToken.token
+        });
+    }
+
+    return entries;
+}
+
+function extractIdentifierTokens(text) {
+    if (typeof text !== "string" || text.length === 0) {
+        return [];
+    }
+
+    const matches = text.match(IDENTIFIER_TOKEN_PATTERN) ?? [];
+    const tokens = [];
+    const seen = new Set();
+
+    for (const match of matches) {
+        const normalized = match.toLowerCase();
+
+        if (RESERVED_IDENTIFIER_NAMES.has(normalized)) {
+            continue;
+        }
+
+        if (seen.has(normalized)) {
+            continue;
+        }
+
+        seen.add(normalized);
+        tokens.push({ token: match, normalized });
+    }
+
+    return tokens;
+}
+
+function getDeprecatedBuiltinReplacementEntry(name) {
+    if (!name) {
+        return null;
+    }
+
+    return DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS.get(name) ?? null;
 }
 
 function cloneIdentifier(node) {
