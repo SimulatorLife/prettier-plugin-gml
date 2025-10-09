@@ -93,6 +93,37 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("inserts the missing argument for GM1005 and records fix metadata", () => {
+        const source = "draw_set_color();";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [callExpression] = ast.body ?? [];
+        assert.ok(callExpression);
+        assert.ok(Array.isArray(callExpression.arguments));
+        assert.strictEqual(callExpression.arguments.length, 1);
+
+        const [argument] = callExpression.arguments;
+        assert.ok(argument);
+        assert.strictEqual(argument.type, "Identifier");
+        assert.strictEqual(argument.name, "c_black");
+
+        const appliedFixes = callExpression._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(appliedFixes));
+        assert.strictEqual(appliedFixes.some((entry) => entry.id === "GM1005"), true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1005"),
+            true
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
