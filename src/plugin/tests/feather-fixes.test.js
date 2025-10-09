@@ -93,6 +93,70 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("splits inline globalvar initializers into assignments", () => {
+        const declarationSource = "globalvar gameManager;";
+        const initializerSource = "gameManager = new GameManager();";
+
+        const ast = GMLParser.parse(declarationSource, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const initializerAst = GMLParser.parse(initializerSource, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const globalVar = ast.body?.[0];
+        const initializerExpression = initializerAst.body?.[0]?.right ?? null;
+
+        assert.ok(globalVar, "Expected to parse a globalvar declaration.");
+        assert.ok(initializerExpression, "Expected to parse the initializer expression.");
+
+        const [declarator] = globalVar.declarations ?? [];
+        assert.ok(declarator, "Expected the globalvar statement to expose a declarator.");
+
+        declarator.init = initializerExpression;
+        declarator.end = initializerExpression?.end ?? declarator.end;
+
+        applyFeatherFixes(ast, {
+            sourceText: `${declarationSource}\n${initializerSource}`
+        });
+
+        assert.strictEqual(declarator.init, null, "Expected the declarator initializer to be cleared.");
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length, 2, "Expected the initializer to be emitted as a separate assignment.");
+
+        const assignment = ast.body[1];
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+        assert.strictEqual(assignment.operator, "=");
+        assert.strictEqual(assignment.left?.type, "Identifier");
+        assert.strictEqual(assignment.left?.name, "gameManager");
+        assert.strictEqual(assignment.right, initializerExpression);
+
+        const assignmentFixes = assignment._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(assignmentFixes));
+        assert.strictEqual(assignmentFixes.length, 1);
+        assert.strictEqual(assignmentFixes[0].id, "GM1002");
+        assert.strictEqual(assignmentFixes[0].target, "gameManager");
+
+        const globalVarFixes = globalVar._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(globalVarFixes));
+        assert.strictEqual(
+            globalVarFixes.some((entry) => entry.id === "GM1002"),
+            true,
+            "Expected the globalvar statement to record the GM1002 fix."
+        );
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1002"),
+            true,
+            "Expected GM1002 metadata to be recorded on the program node."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
