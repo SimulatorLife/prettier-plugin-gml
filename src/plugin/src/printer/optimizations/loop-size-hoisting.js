@@ -177,6 +177,5 @@ export {
     DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
-    getSizeRetrievalFunctionSuffixes,
-    getIdentifierText
+    getSizeRetrievalFunctionSuffixes
 };

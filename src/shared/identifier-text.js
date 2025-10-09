@@ -21,7 +21,11 @@ function getIdentifierText(node) {
 
     if (node.type === "MemberIndexExpression") {
         const object = node.object;
-        if (!object || object.type !== "Identifier") {
+        if (
+            !object ||
+            object.type !== "Identifier" ||
+            typeof object.name !== "string"
+        ) {
             return null;
         }
 
@@ -42,7 +46,14 @@ function getIdentifierText(node) {
         const object = node.object;
         const property = node.property;
 
-        if (!object || object.type !== "Identifier" || !property || property.type !== "Identifier") {
+        if (
+            !object ||
+            object.type !== "Identifier" ||
+            typeof object.name !== "string" ||
+            !property ||
+            property.type !== "Identifier" ||
+            typeof property.name !== "string"
+        ) {
             return null;
         }
 
