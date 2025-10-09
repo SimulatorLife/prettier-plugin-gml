@@ -279,19 +279,19 @@ function handleCommentAttachedToOpenBrace(
     ast,
     isLastComment
 ) {
-    if (
-        comment.enclosingNode?.type === "BlockStatement"
-    ) {
-        // if a comment is enclosed in a block statement and starts on the same line,
-        // it is considered "attached" to the opening brace.
-        if (comment.start.line === comment.enclosingNode.start.line) {
-            comment.attachToBrace = true;
-            addDanglingComment(comment.enclosingNode, comment);
-            return true;
-        }
+    if (comment.enclosingNode?.type !== "BlockStatement") {
         return false;
     }
-    return false;
+
+    // A comment enclosed in a block statement that begins on the same line as the
+    // opening brace should attach to that brace.
+    if (comment.start.line !== comment.enclosingNode.start.line) {
+        return false;
+    }
+
+    comment.attachToBrace = true;
+    addDanglingComment(comment.enclosingNode, comment);
+    return true;
 }
 
 function handleCommentInEmptyParens(

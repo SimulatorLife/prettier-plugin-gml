@@ -60,7 +60,7 @@ function getLineCommentBannerAutofillThreshold(options) {
     );
 }
 
-const jsDocReplacements = {
+const JSDOC_REPLACEMENTS = {
     "@func": "@function",
     "@method": "@function",
     "@yield": "@returns",
@@ -74,6 +74,16 @@ const jsDocReplacements = {
     "@private": "@hide"
     // Add more replacements here as needed
 };
+
+// Cache the replacement rules so applyJsDocReplacements avoids constructing
+// new RegExp instances on every invocation. The helper is on a hot path while
+// formatting doc-style comments.
+const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
+    ([oldWord, newWord]) => ({
+        regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
+        replacement: newWord
+    })
+);
 
 const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     Object.entries({
@@ -231,9 +241,9 @@ function applyJsDocReplacements(text) {
         ? text.replace(/\(\)\s*$/, "")
         : text;
 
-    for (let [oldWord, newWord] of Object.entries(jsDocReplacements)) {
-        const regex = new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi");
-        formattedText = formattedText.replace(regex, `$1${newWord}`);
+    for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
+        regex.lastIndex = 0;
+        formattedText = formattedText.replace(regex, `$1${replacement}`);
     }
 
     formattedText = stripTrailingFunctionParameters(formattedText);

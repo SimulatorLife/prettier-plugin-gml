@@ -20,19 +20,18 @@ export function getLineBreakCount(text) {
 
     let count = 0;
     let index = 0;
+    const length = text.length; // Hoist for repeated loop checks.
 
     // Manual scanning avoids creating RegExp match arrays for every call. The
     // parser frequently invokes this helper while iterating over tokens, so we
     // keep the loop tight and operate on character codes directly.
-    while (index < text.length) {
+    while (index < length) {
         const code = text.charCodeAt(index);
 
         if (code === CARRIAGE_RETURN) {
-            if (text.charCodeAt(index + 1) === LINE_FEED) {
-                index += 2;
-            } else {
-                index += 1;
-            }
+            const nextIndex = index + 1;
+            index =
+                text.charCodeAt(nextIndex) === LINE_FEED ? nextIndex + 1 : nextIndex;
 
             count += 1;
             continue;

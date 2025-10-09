@@ -34,6 +34,22 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('formats files when a custom extension is provided', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.txt');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, '--extensions=.txt', tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('applies Prettier configuration from the target project', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
@@ -56,6 +72,77 @@ describe('Prettier wrapper CLI', () => {
 
       const formatted = await fs.readFile(targetFile, 'utf8');
       assert.equal(formatted, ['if (true) {', '  a = 1;', '}', ''].join('\n'));
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('respects ignore rules from .prettierignore', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'script.gml\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var    a=1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('does not descend into directories ignored by .prettierignore', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignoredDirectory = path.join(tempDirectory, 'ignored');
+      await fs.mkdir(ignoredDirectory);
+
+      const ignoredSidecar = path.join(ignoredDirectory, 'file.txt');
+      await fs.writeFile(ignoredSidecar, 'hello', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'ignored/\n', 'utf8');
+
+      const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const skippedMatch = stdout.match(/Skipped (\d+) files/);
+      assert.ok(skippedMatch, 'Expected wrapper output to report skipped files');
+      assert.equal(Number(skippedMatch[1]), 1);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('exits with a non-zero status when formatting fails', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'if (\n', 'utf8');
+
+      try {
+        await execFileAsync('node', [wrapperPath, tempDirectory]);
+        assert.fail('Expected the wrapper to exit with a non-zero status code');
+      } catch (error) {
+        assert.ok(error, 'Expected an error to be thrown for a failing format');
+        assert.equal(error.code, 1, 'Expected a non-zero exit code when formatting fails');
+        assert.ok(
+          /Syntax Error/.test(error.stderr),
+          'Expected stderr to include the formatting error message'
+        );
+      }
     } finally {
       await fs.rm(tempDirectory, { recursive: true, force: true });
     }
