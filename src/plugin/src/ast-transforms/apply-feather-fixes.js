@@ -6,6 +6,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -86,14 +87,36 @@ function createNoOpFixer() {
 
 function buildFeatherFixImplementations() {
     const registry = new Map();
+    const diagnostics = getFeatherDiagnostics();
 
-    registerFeatherFixer(registry, "GM1051", (diagnostic) => ({ ast, sourceText }) =>
-        removeTrailingMacroSemicolons({
-            ast,
-            sourceText,
-            diagnostic
-        })
-    );
+    for (const diagnostic of diagnostics) {
+        const diagnosticId = diagnostic?.id;
+
+        if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1051") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
+                const fixes = removeTrailingMacroSemicolons({
+                    ast,
+                    sourceText,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
+            registerManualFeatherFix({ ast, diagnostic })
+        );
+    }
 
     return registry;
 }
@@ -184,21 +207,78 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     node.tokens = tokens.slice(0, tokens.length - 1);
     node._featherMacroText = sanitizedText;
 
-    const fixDetail = {
-        id: diagnostic.id,
-        title: diagnostic.title,
-        description: diagnostic.description,
-        correction: diagnostic.correction,
+    const fixDetail = createFeatherFixDetail(diagnostic, {
         target: node.name?.name ?? null,
         range: {
             start: getNodeStartIndex(node),
             end: getNodeEndIndex(node)
         }
-    };
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
 
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function registerManualFeatherFix({ ast, diagnostic }) {
+    if (!ast || typeof ast !== "object" || !diagnostic?.id) {
+        return [];
+    }
+
+    const manualFixIds = getManualFeatherFixRegistry(ast);
+
+    if (manualFixIds.has(diagnostic.id)) {
+        return [];
+    }
+
+    manualFixIds.add(diagnostic.id);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        automatic: false,
+        range: null,
+        target: null
+    });
+
+    return [fixDetail];
+}
+
+function getManualFeatherFixRegistry(ast) {
+    let registry = ast[MANUAL_FIX_TRACKING_KEY];
+
+    if (registry instanceof Set) {
+        return registry;
+    }
+
+    registry = new Set();
+
+    Object.defineProperty(ast, MANUAL_FIX_TRACKING_KEY, {
+        configurable: true,
+        enumerable: false,
+        writable: false,
+        value: registry
+    });
+
+    return registry;
+}
+
+function createFeatherFixDetail(diagnostic, { target = null, range = null, automatic = true } = {}) {
+    if (!diagnostic) {
+        return null;
+    }
+
+    return {
+        id: diagnostic.id ?? null,
+        title: diagnostic.title ?? null,
+        description: diagnostic.description ?? null,
+        correction: diagnostic.correction ?? null,
+        target,
+        range,
+        automatic
+    };
 }
 
 function attachFeatherFixMetadata(target, fixes) {

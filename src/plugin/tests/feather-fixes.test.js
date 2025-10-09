@@ -48,7 +48,11 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
-        assert.strictEqual(ast._appliedFeatherDiagnostics.length > 0, true);
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1051"),
+            true,
+            "Expected macro fixer metadata to be recorded on the program node."
+        );
 
         assert.ok(macro);
         assert.ok(Array.isArray(macro.tokens));
@@ -87,5 +91,43 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(macroFixes));
         assert.strictEqual(macroFixes.length, 1);
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
+    });
+
+    it("records manual Feather fix metadata for every diagnostic", () => {
+        const source = "var value = 1;";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+
+        const recordedIds = new Set(ast._appliedFeatherDiagnostics.map((entry) => entry.id));
+        const diagnostics = getFeatherMetadata().diagnostics ?? [];
+
+        assert.strictEqual(
+            recordedIds.size,
+            diagnostics.length,
+            "Expected manual Feather fix metadata to be captured for every diagnostic."
+        );
+
+        ["GM2054", "GM2020", "GM1042"].forEach((id) => {
+            assert.strictEqual(
+                recordedIds.has(id),
+                true,
+                `Expected manual Feather fix metadata for diagnostic ${id}.`
+            );
+        });
+
+        for (const entry of ast._appliedFeatherDiagnostics) {
+            assert.strictEqual(
+                Object.prototype.hasOwnProperty.call(entry, "automatic"),
+                true,
+                "Each Feather fix entry should indicate whether it was applied automatically."
+            );
+        }
     });
 });
