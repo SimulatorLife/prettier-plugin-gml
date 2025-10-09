@@ -93,6 +93,51 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("normalizes asset assignments flagged by GM1031", () => {
+        const source = [
+            "obj_control = 75;",
+            "",
+            "obj_player = player;",
+            "",
+            "obj_enemy = enemy_count;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assignments = (ast.body ?? []).filter(
+            (statement) => statement && statement.type === "AssignmentExpression"
+        );
+
+        const [firstAssignment, secondAssignment, thirdAssignment] = assignments;
+
+        assert.ok(firstAssignment);
+        assert.ok(secondAssignment);
+        assert.ok(thirdAssignment);
+
+        assert.strictEqual(firstAssignment.left?.name, "control");
+        assert.strictEqual(secondAssignment.left?.name, "player");
+        assert.strictEqual(secondAssignment.right?.name, "obj_player");
+        assert.strictEqual(thirdAssignment.left?.name, "enemy");
+
+        const recordedFixes = [].concat(
+            firstAssignment._appliedFeatherDiagnostics ?? [],
+            secondAssignment._appliedFeatherDiagnostics ?? [],
+            thirdAssignment._appliedFeatherDiagnostics ?? []
+        );
+
+        assert.strictEqual(recordedFixes.length > 0, true);
+        assert.strictEqual(
+            recordedFixes.every((entry) => entry.id === "GM1031"),
+            true,
+            "Expected GM1031 fix metadata on normalized assignments."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

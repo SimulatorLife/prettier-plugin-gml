@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1031") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeAssetAssignmentTargets({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -410,6 +423,252 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function normalizeAssetAssignmentTargets({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            const fix = normalizeAssetAssignment(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function normalizeAssetAssignment(node, diagnostic) {
+    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
+        return null;
+    }
+
+    const left = node.left;
+
+    if (!isIdentifierNode(left)) {
+        return null;
+    }
+
+    const sanitizedName = sanitizeAssetAssignmentTargetName(left.name);
+
+    if (!sanitizedName) {
+        return null;
+    }
+
+    const right = node.right;
+
+    if (isIdentifierNode(right) && right.name === sanitizedName) {
+        node.left = right;
+        node.right = left;
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: node.left?.name ?? sanitizedName,
+            range: {
+                start: getNodeStartIndex(node),
+                end: getNodeEndIndex(node)
+            }
+        });
+
+        if (!fixDetail) {
+            node.left = left;
+            node.right = right;
+            return null;
+        }
+
+        attachFeatherFixMetadata(node, [fixDetail]);
+
+        return fixDetail;
+    }
+
+    const originalName = left.name;
+
+    left.name = sanitizedName;
+
+    if (Object.prototype.hasOwnProperty.call(left, "original")) {
+        left.original = sanitizedName;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: sanitizedName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        left.name = originalName;
+        if (Object.prototype.hasOwnProperty.call(left, "original")) {
+            left.original = originalName;
+        }
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+// Seed asset prefix heuristics with common examples taken from the GM1031 entry in
+// the bundled Feather metadata.
+const ASSET_PREFIX_FALLBACKS = [
+    "obj_",
+    "spr_",
+    "snd_",
+    "rm_",
+    "room_",
+    "bg_",
+    "path_",
+    "shader_",
+    "seq_",
+    "anim_",
+    "font_",
+    "timeline_",
+    "tile_",
+    "part_",
+    "particle_",
+    "sound_",
+    "music_"
+];
+
+const ASSET_PREFIX_BLOCKLIST = new Set(["var_", "enum_", "struct_", "macro_", "function_", "event_"]);
+
+const DEFAULT_ASSET_PREFIXES = buildAssetPrefixRegistry();
+
+function sanitizeAssetAssignmentTargetName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    let sanitized = name;
+    let prefixRemoved = false;
+    let normalized = sanitized.toLowerCase();
+
+    while (true) {
+        const prefix = findAssetPrefixMatch(normalized);
+
+        if (!prefix) {
+            break;
+        }
+
+        sanitized = sanitized.slice(prefix.length);
+        normalized = normalized.slice(prefix.length);
+        prefixRemoved = true;
+    }
+
+    sanitized = sanitized.replace(/^_+/, "");
+
+    if (!prefixRemoved || sanitized.length === 0) {
+        return null;
+    }
+
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(sanitized)) {
+        return null;
+    }
+
+    return sanitized;
+}
+
+function findAssetPrefixMatch(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    for (const prefix of DEFAULT_ASSET_PREFIXES) {
+        if (name.startsWith(prefix)) {
+            return prefix;
+        }
+    }
+
+    return null;
+}
+
+function isIdentifierNode(node) {
+    return node && typeof node === "object" && node.type === "Identifier" && typeof node.name === "string";
+}
+
+function buildAssetPrefixRegistry() {
+    const registry = new Set();
+
+    for (const fallback of ASSET_PREFIX_FALLBACKS) {
+        registry.add(fallback);
+    }
+
+    const diagnostics = getFeatherDiagnostics();
+    const gm1031 = diagnostics.find((entry) => entry?.id === "GM1031");
+
+    if (gm1031) {
+        const pattern = /\b([A-Za-z][A-Za-z0-9]*_)[A-Za-z0-9_]*\b/g;
+        const sources = [gm1031.badExample, gm1031.goodExample, gm1031.description, gm1031.correction];
+
+        for (const source of sources) {
+            if (typeof source !== "string" || source.length === 0) {
+                continue;
+            }
+
+            let match;
+            while ((match = pattern.exec(source)) !== null) {
+                const prefix = match[1]?.toLowerCase();
+
+                if (isLikelyAssetPrefix(prefix)) {
+                    registry.add(prefix);
+                }
+            }
+        }
+    }
+
+    return [...registry];
+}
+
+function isLikelyAssetPrefix(prefix) {
+    if (typeof prefix !== "string" || prefix.length === 0) {
+        return false;
+    }
+
+    if (!prefix.endsWith("_")) {
+        return false;
+    }
+
+    if (prefix.length < 3) {
+        return false;
+    }
+
+    if (ASSET_PREFIX_BLOCKLIST.has(prefix)) {
+        return false;
+    }
+
+    return true;
 }
 
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
