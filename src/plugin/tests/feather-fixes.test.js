@@ -62,7 +62,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
-    it("keeps inline macro semicolons when they are not trailing", () => {
+    it("removes trailing macro semicolons before inline comments", () => {
         const source = [
             "#macro SAMPLE value; // comment",
             "",
@@ -79,9 +79,13 @@ describe("applyFeatherFixes transform", () => {
 
         assert.ok(macro);
         assert.ok(Array.isArray(macro.tokens));
-        assert.strictEqual(macro.tokens.includes(";"), true);
-        assert.strictEqual(macro._featherMacroText, undefined);
-        assert.strictEqual(macro._appliedFeatherDiagnostics, undefined);
-        assert.strictEqual(ast._appliedFeatherDiagnostics, undefined);
+        assert.strictEqual(macro.tokens.includes(";"), false);
+        assert.strictEqual(typeof macro._featherMacroText, "string");
+        assert.strictEqual(macro._featherMacroText.trimEnd(), "#macro SAMPLE value // comment");
+
+        const macroFixes = macro._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(macroFixes));
+        assert.strictEqual(macroFixes.length, 1);
+        assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 });

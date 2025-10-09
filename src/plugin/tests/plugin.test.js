@@ -236,7 +236,7 @@ describe('Prettier GameMaker plugin fixtures', () => {
     assert.strictEqual(formatted, expected);
   });
 
-  it('leaves inline macro semicolons untouched when they are not trailing', async () => {
+  it('strips trailing macro semicolons before inline comments when Feather fixes are applied', async () => {
     const source = [
       '#macro FOO(value) (value + 1); // comment',
       '#macro BAR value + 2;',
@@ -247,7 +247,7 @@ describe('Prettier GameMaker plugin fixtures', () => {
     const formatted = await formatWithPlugin(source, { applyFeatherFixes: true });
 
     const expected = [
-      '#macro FOO(value) (value + 1); // comment',
+      '#macro FOO(value) (value + 1) // comment',
       '',
       '#macro BAR value + 2',
       '',
