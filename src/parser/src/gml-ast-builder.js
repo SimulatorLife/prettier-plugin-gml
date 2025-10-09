@@ -227,7 +227,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             "globalVarStatement",
             "macroStatement",
             "defineStatement",
-            "regionStatement"
+            "regionStatement",
+            "deleteStatement"
         ]);
     }
 

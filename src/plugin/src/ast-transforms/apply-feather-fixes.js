@@ -6,6 +6,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const ALLOWED_DELETE_MEMBER_TYPES = new Set(["MemberDotExpression", "MemberIndexExpression"]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
 export function getFeatherDiagnosticFixers() {
@@ -103,6 +104,19 @@ function buildFeatherFixImplementations() {
                     sourceText,
                     diagnostic
                 });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1052") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = replaceInvalidDeleteStatements({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -248,6 +262,147 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function replaceInvalidDeleteStatements({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "DeleteStatement") {
+            const fix = convertDeleteStatementToUndefinedAssignment(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertDeleteStatementToUndefinedAssignment(node, parent, property, diagnostic) {
+    if (!node || node.type !== "DeleteStatement" || !diagnostic) {
+        return null;
+    }
+
+    if (!isValidDeleteTarget(node.argument)) {
+        return null;
+    }
+
+    const targetName = getDeleteTargetName(node.argument);
+    const assignment = {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: node.argument,
+        right: createLiteral("undefined"),
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    copyCommentMetadata(node, assignment);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: targetName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (!replaceNodeInParent(parent, property, assignment)) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(assignment, [fixDetail]);
+
+    return fixDetail;
+}
+
+function isValidDeleteTarget(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (isIdentifierNode(node)) {
+        return true;
+    }
+
+    return ALLOWED_DELETE_MEMBER_TYPES.has(node.type);
+}
+
+function isIdentifierNode(node) {
+    return node && node.type === "Identifier" && typeof node.name === "string" && node.name.length > 0;
+}
+
+function getDeleteTargetName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (isIdentifierNode(node)) {
+        return node.name;
+    }
+
+    if (node.type === "MemberDotExpression") {
+        return node.property?.name ?? null;
+    }
+
+    return null;
+}
+
+function replaceNodeInParent(parent, property, replacement) {
+    if (Array.isArray(parent)) {
+        if (typeof property !== "number" || property < 0 || property >= parent.length) {
+            return false;
+        }
+
+        parent[property] = replacement;
+        return true;
+    }
+
+    if (parent && typeof parent === "object" && property != null) {
+        parent[property] = replacement;
+        return true;
+    }
+
+    return false;
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {

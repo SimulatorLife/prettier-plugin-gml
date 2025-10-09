@@ -93,6 +93,55 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("replaces invalid delete statements and records fix metadata", () => {
+        const source = [
+            "var values = [2, 403, 202, 303, 773, 573];",
+            "",
+            "delete values;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length >= 2, true);
+
+        const assignment = ast.body[1];
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+        assert.ok(assignment.left);
+        assert.strictEqual(assignment.left.type, "Identifier");
+        assert.strictEqual(assignment.left.name, "values");
+        assert.ok(assignment.right);
+        assert.strictEqual(assignment.right.type, "Literal");
+        assert.strictEqual(assignment.right.value, "undefined");
+
+        const assignmentFixes = assignment._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(assignmentFixes));
+        assert.strictEqual(assignmentFixes.length >= 1, true);
+        assert.strictEqual(
+            assignmentFixes.some((entry) => entry.id === "GM1052"),
+            true,
+            "Expected delete fixer metadata to be recorded on the assignment node."
+        );
+
+        const recordedFix = assignmentFixes.find((entry) => entry.id === "GM1052");
+        assert.ok(recordedFix);
+        assert.strictEqual(recordedFix.target, "values");
+        assert.strictEqual(recordedFix.automatic, true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1052"),
+            true,
+            "Expected delete fixer metadata to be recorded on the program node."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
