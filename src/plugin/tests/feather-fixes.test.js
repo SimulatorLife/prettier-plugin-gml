@@ -169,4 +169,57 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("wraps pure function calls flagged by GM2022 and records metadata", () => {
+        const source = [
+            "variable_get_hash(\"member\");",
+            "",
+            "choose(\"a\", \"b\", \"c\");",
+            "",
+            "choose(\"d\", \"e\", \"f\");",
+            "",
+            "if (flag) make_colour_rgb(255, 255, 0);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [first, second, third, fourth] = ast.body ?? [];
+
+        assert.strictEqual(first?.type, "VariableDeclaration");
+        assert.strictEqual(second?.type, "VariableDeclaration");
+        assert.strictEqual(third?.type, "VariableDeclaration");
+        assert.strictEqual(fourth?.type, "IfStatement");
+
+        const firstDeclarator = first?.declarations?.[0];
+        const secondDeclarator = second?.declarations?.[0];
+        const thirdDeclarator = third?.declarations?.[0];
+        const fourthConsequent = fourth?.consequent;
+
+        assert.strictEqual(firstDeclarator?.id?.name, "__feather_variable_get_hash_result_1");
+        assert.strictEqual(secondDeclarator?.id?.name, "__feather_choose_result_1");
+        assert.strictEqual(thirdDeclarator?.id?.name, "__feather_choose_result_2");
+
+        assert.strictEqual(fourthConsequent?.type, "VariableDeclaration");
+        const fourthDeclarator = fourthConsequent?.declarations?.[0];
+        assert.strictEqual(fourthDeclarator?.id?.name, "__feather_make_colour_rgb_result_1");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2022Diagnostics = appliedDiagnostics.filter((entry) => entry.id === "GM2022");
+        assert.strictEqual(gm2022Diagnostics.length, 4);
+
+        const firstDiagnostics = first?._appliedFeatherDiagnostics ?? [];
+        const secondDiagnostics = second?._appliedFeatherDiagnostics ?? [];
+        const thirdDiagnostics = third?._appliedFeatherDiagnostics ?? [];
+        const fourthDiagnostics = fourthConsequent?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(firstDiagnostics.some((entry) => entry.target === "variable_get_hash"), true);
+        assert.strictEqual(secondDiagnostics.some((entry) => entry.target === "choose"), true);
+        assert.strictEqual(thirdDiagnostics.some((entry) => entry.target === "choose"), true);
+        assert.strictEqual(fourthDiagnostics.some((entry) => entry.target === "make_colour_rgb"), true);
+    });
 });
