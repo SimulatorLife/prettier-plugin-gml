@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2050") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureFogIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -381,6 +394,108 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureFogIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureFogResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureFogResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_fog")) {
+        return null;
+    }
+
+    if (isFogResetCall(node)) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isLiteralFalse(args[0])) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isFogResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createFogResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -625,12 +740,51 @@ function isIdentifier(node) {
     return !!node && node.type === "Identifier";
 }
 
+function isLiteralFalse(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    return node.value === "false" || node.value === false;
+}
+
 function isLiteralZero(node) {
     if (!node || node.type !== "Literal") {
         return false;
     }
 
     return node.value === "0" || node.value === 0;
+}
+
+function isLiteralOne(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    return node.value === "1" || node.value === 1;
+}
+
+function isFogResetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_fog")) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length < 4) {
+        return false;
+    }
+
+    return (
+        isLiteralFalse(args[0]) &&
+        isIdentifierWithName(args[1], "c_black") &&
+        isLiteralZero(args[2]) &&
+        isLiteralOne(args[3])
+    );
 }
 
 function isAlphaTestRefResetCall(node) {
@@ -668,6 +822,47 @@ function createAlphaTestRefResetCall(template) {
         type: "CallExpression",
         object: identifier,
         arguments: [literalZero]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function createFogResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "gpu_set_fog") {
+        return null;
+    }
+
+    const [argument0, argument1, argument2, argument3] = Array.isArray(template.arguments)
+        ? template.arguments
+        : [];
+
+    const falseLiteral = createLiteral("false", argument0);
+    const colorIdentifier = createIdentifier("c_black", argument1);
+    const zeroLiteral = createLiteral("0", argument2);
+    const oneLiteral = createLiteral("1", argument3);
+
+    if (!falseLiteral || !colorIdentifier || !zeroLiteral || !oneLiteral) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [falseLiteral, colorIdentifier, zeroLiteral, oneLiteral]
     };
 
     if (Object.prototype.hasOwnProperty.call(template, "start")) {

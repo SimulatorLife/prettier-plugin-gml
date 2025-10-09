@@ -131,6 +131,47 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("ensures gpu_set_fog defaults are restored for GM2050 and records metadata", () => {
+        const source = [
+            "gpu_set_fog(true, c_aqua, 0, 1000);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 3, "Expected fog reset call to be inserted after gpu_set_fog().");
+
+        const fogResetCall = body[1];
+        assert.ok(fogResetCall);
+        assert.strictEqual(fogResetCall.type, "CallExpression");
+        assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
+
+        const args = Array.isArray(fogResetCall.arguments) ? fogResetCall.arguments : [];
+        assert.strictEqual(args.length, 4);
+        assert.strictEqual(args[0]?.value, "false");
+        assert.strictEqual(args[1]?.name, "c_black");
+        assert.strictEqual(args[2]?.value, "0");
+        assert.strictEqual(args[3]?.value, "1");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2050 = appliedDiagnostics.find((entry) => entry.id === "GM2050");
+
+        assert.ok(gm2050, "Expected GM2050 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2050.automatic, true);
+        assert.strictEqual(gm2050.target, "gpu_set_fog");
+        assert.ok(gm2050.range);
+
+        const nodeDiagnostics = fogResetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(nodeDiagnostics.some((entry) => entry.id === "GM2050"), true);
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
