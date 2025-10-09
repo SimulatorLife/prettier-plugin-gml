@@ -188,7 +188,7 @@ async function processDirectory(directory) {
     const files = await readdir(directory);
     for (const file of files) {
         const filePath = path.join(directory, file);
-        const stats = await lstat(filePath);
+        let stats = await lstat(filePath);
 
         if (stats.isSymbolicLink()) {
             let targetStats;
@@ -196,7 +196,15 @@ async function processDirectory(directory) {
             try {
                 targetStats = await stat(filePath);
             } catch (error) {
-                console.log(`Skipping ${filePath} (unresolvable symbolic link)`);
+                if (error?.code === "ELOOP") {
+                    console.warn(`Skipping ${filePath} (symbolic link loop)`);
+                } else if (error?.code === "ENOENT") {
+                    console.warn(`Skipping ${filePath} (dangling symbolic link)`);
+                } else {
+                    console.warn(
+                        `Skipping ${filePath} (unable to resolve symbolic link: ${error?.message ?? "unknown error"})`
+                    );
+                }
                 skippedFileCount += 1;
                 continue;
             }
@@ -207,18 +215,13 @@ async function processDirectory(directory) {
                 continue;
             }
 
-            if (targetStats.isFile()) {
-                if (shouldFormatFile(filePath)) {
-                    await processFile(filePath);
-                } else {
-                    skippedFileCount += 1;
-                }
+            if (!targetStats.isFile()) {
+                console.log(`Skipping ${filePath} (symbolic link to unsupported target)`);
+                skippedFileCount += 1;
                 continue;
             }
 
-            console.log(`Skipping ${filePath} (symbolic link to unsupported target)`);
-            skippedFileCount += 1;
-            continue;
+            stats = targetStats;
         }
 
         if (stats.isDirectory()) {

@@ -125,6 +125,9 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  const directorySymlinkType = process.platform === 'win32' ? 'junction' : 'dir';
+  const fileSymlinkType = process.platform === 'win32' ? 'file' : null;
+
   it('skips symbolic links to avoid infinite directory traversal loops', async function () {
     const tempDirectory = await createTemporaryDirectory();
 
@@ -138,8 +141,7 @@ describe('Prettier wrapper CLI', () => {
       let shouldSkip = false;
 
       try {
-        const symlinkType = process.platform === 'win32' ? 'junction' : 'dir';
-        await fs.symlink(tempDirectory, directorySymlinkPath, symlinkType);
+        await fs.symlink(tempDirectory, directorySymlinkPath, directorySymlinkType);
       } catch (error) {
         if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
           shouldSkip = true;
@@ -149,7 +151,11 @@ describe('Prettier wrapper CLI', () => {
       }
 
       try {
-        await fs.symlink(targetFile, fileSymlinkPath);
+        if (fileSymlinkType) {
+          await fs.symlink(targetFile, fileSymlinkPath, fileSymlinkType);
+        } else {
+          await fs.symlink(targetFile, fileSymlinkPath);
+        }
       } catch (error) {
         if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
           shouldSkip = true;
