@@ -7,6 +7,7 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -96,6 +97,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1008") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertReadOnlyBuiltInAssignments({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -159,6 +173,317 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const nameRegistry = collectAllIdentifierNames(ast);
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            const fixDetail = convertReadOnlyAssignment(
+                node,
+                parent,
+                property,
+                diagnostic,
+                nameRegistry
+            );
+
+            if (fixDetail) {
+                fixes.push(fixDetail);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertReadOnlyAssignment(node, parent, property, diagnostic, nameRegistry) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
+        return null;
+    }
+
+    const identifier = node.left;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    if (!READ_ONLY_BUILT_IN_VARIABLES.has(identifier.name)) {
+        return null;
+    }
+
+    const replacementName = createReadOnlyReplacementName(identifier.name, nameRegistry);
+    const replacementIdentifier = createIdentifierFromTemplate(
+        replacementName,
+        identifier
+    );
+
+    const declarator = {
+        type: "VariableDeclarator",
+        id: replacementIdentifier,
+        init: node.right,
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    const declaration = {
+        type: "VariableDeclaration",
+        declarations: [declarator],
+        kind: "var",
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    copyCommentMetadata(node, declaration);
+
+    parent[property] = declaration;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: identifier.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(declaration, [fixDetail]);
+
+    replaceReadOnlyIdentifierReferences(parent, property + 1, identifier.name, replacementName);
+
+    return fixDetail;
+}
+
+function replaceReadOnlyIdentifierReferences(
+    siblings,
+    startIndex,
+    originalName,
+    replacementName
+) {
+    if (!Array.isArray(siblings)) {
+        return;
+    }
+
+    for (let index = startIndex; index < siblings.length; index += 1) {
+        renameIdentifiersInNode(siblings[index], originalName, replacementName);
+    }
+}
+
+function renameIdentifiersInNode(root, originalName, replacementName) {
+    const stack = [
+        { node: root, parent: null, property: null, ancestors: [] }
+    ];
+
+    while (stack.length > 0) {
+        const { node, parent, property, ancestors } = stack.pop();
+
+        if (!node) {
+            continue;
+        }
+
+        if (Array.isArray(node)) {
+            const arrayContext = { node, parent, property };
+            const nextAncestors = ancestors.concat(arrayContext);
+
+            for (let index = node.length - 1; index >= 0; index -= 1) {
+                stack.push({
+                    node: node[index],
+                    parent: node,
+                    property: index,
+                    ancestors: nextAncestors
+                });
+            }
+            continue;
+        }
+
+        if (typeof node !== "object") {
+            continue;
+        }
+
+        if (node.type === "Identifier" && node.name === originalName) {
+            if (!shouldSkipIdentifierReplacement({ parent, property, ancestors })) {
+                const replacement = createIdentifierFromTemplate(
+                    replacementName,
+                    node
+                );
+
+                if (parent && property !== null && property !== undefined) {
+                    parent[property] = replacement;
+                }
+            }
+            continue;
+        }
+
+        const nextAncestors = ancestors.concat({ node, parent, property });
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                stack.push({
+                    node: value,
+                    parent: node,
+                    property: key,
+                    ancestors: nextAncestors
+                });
+            }
+        }
+    }
+}
+
+const IDENTIFIER_DECLARATION_CONTEXTS = new Set([
+    "VariableDeclarator:id",
+    "FunctionDeclaration:id",
+    "ConstructorDeclaration:id",
+    "StructDeclaration:id",
+    "EnumDeclaration:name",
+    "EnumMember:name",
+    "ConstructorParentClause:id",
+    "MacroDeclaration:name",
+    "NamespaceDeclaration:id",
+    "DefaultParameter:left"
+]);
+
+function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
+    if (!parent) {
+        return true;
+    }
+
+    if (parent.type === "MemberDotExpression" && property === "property") {
+        return true;
+    }
+
+    if (parent.type === "NamespaceAccessExpression" && property === "name") {
+        return true;
+    }
+
+    const contextKey = parent.type ? `${parent.type}:${property}` : null;
+
+    if (contextKey && IDENTIFIER_DECLARATION_CONTEXTS.has(contextKey)) {
+        return true;
+    }
+
+    if (!Array.isArray(parent)) {
+        return false;
+    }
+
+    let arrayIndex = -1;
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        if (ancestors[index].node === parent) {
+            arrayIndex = index;
+            break;
+        }
+    }
+
+    if (arrayIndex === -1) {
+        return false;
+    }
+
+    const arrayContext = ancestors[arrayIndex];
+    const ownerContext = arrayIndex > 0 ? ancestors[arrayIndex - 1] : null;
+    const containerNode = ownerContext?.node ?? null;
+    const containerProperty = arrayContext?.property ?? null;
+
+    if (
+        containerNode &&
+        containerProperty === "params" &&
+        (containerNode.type === "FunctionDeclaration" ||
+            containerNode.type === "ConstructorDeclaration" ||
+            containerNode.type === "StructDeclaration" ||
+            containerNode.type === "ConstructorParentClause")
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function createReadOnlyReplacementName(originalName, nameRegistry) {
+    const baseName =
+        typeof originalName === "string" && originalName.length > 0
+            ? originalName
+            : "value";
+    const sanitized = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+    let candidate = `__feather_${sanitized}`;
+    let suffix = 1;
+
+    while (nameRegistry.has(candidate)) {
+        suffix += 1;
+        candidate = `__feather_${sanitized}_${suffix}`;
+    }
+
+    nameRegistry.add(candidate);
+
+    return candidate;
+}
+
+function collectAllIdentifierNames(root) {
+    const names = new Set();
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const value of node) {
+                visit(value);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "Identifier" && typeof node.name === "string") {
+            names.add(node.name);
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(root);
+
+    return names;
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
@@ -464,6 +789,25 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function createIdentifierFromTemplate(name, template) {
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+    }
+
+    return identifier;
 }
 
 function cloneIdentifier(node) {
