@@ -191,6 +191,49 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("resets texture repeat flagged by GM2056 and records metadata", () => {
+        const source = [
+            "gpu_set_texrepeat(true);",
+            "",
+            "vertex_submit(vb_world, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [setRepeatCall, resetCall, submitCall] = ast.body ?? [];
+
+        assert.ok(setRepeatCall);
+        assert.ok(resetCall);
+        assert.ok(submitCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_texrepeat");
+
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.strictEqual(args.length > 0, true);
+        assert.strictEqual(args[0]?.type, "Literal");
+        assert.strictEqual(args[0]?.value, "false");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2056 = appliedDiagnostics.find((entry) => entry.id === "GM2056");
+
+        assert.ok(gm2056, "Expected GM2056 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2056.automatic, true);
+        assert.strictEqual(gm2056.target, "gpu_set_texrepeat");
+        assert.ok(gm2056.range);
+
+        const resetMetadata = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetMetadata.some((entry) => entry.id === "GM2056"),
+            true,
+            "Expected GM2056 metadata to be recorded on the inserted reset call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
