@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2023") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeFunctionCallArgumentOrder({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -304,6 +317,256 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const state = {
+        counter: 0
+    };
+
+    const visit = (node, parent, property, ancestors) => {
+        if (!node) {
+            return;
+        }
+
+        const nextAncestors = Array.isArray(ancestors)
+            ? ancestors.concat([{ node, parent, property }])
+            : [{ node, parent, property }];
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index, nextAncestors);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key, nextAncestors);
+            }
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = normalizeCallExpressionArguments({
+                node,
+                parent,
+                property,
+                diagnostic,
+                ancestors: nextAncestors,
+                state
+            });
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+    };
+
+    visit(ast, null, null, []);
+
+    return fixes;
+}
+
+function normalizeCallExpressionArguments({
+    node,
+    parent,
+    property,
+    diagnostic,
+    ancestors,
+    state
+}) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    if (args.length === 0) {
+        return null;
+    }
+
+    const callArgumentInfos = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index];
+
+        if (!argument || argument.type !== "CallExpression") {
+            continue;
+        }
+
+        callArgumentInfos.push({
+            argument,
+            index
+        });
+    }
+
+    if (callArgumentInfos.length < 2) {
+        return null;
+    }
+
+    const statementContext = findStatementContext(ancestors);
+
+    if (!statementContext) {
+        return null;
+    }
+
+    const temporaryDeclarations = [];
+
+    for (const { argument, index } of callArgumentInfos) {
+        const tempName = buildTemporaryIdentifierName(state);
+        const tempIdentifier = createIdentifier(tempName, argument);
+
+        if (!tempIdentifier) {
+            continue;
+        }
+
+        const declaration = createTemporaryVariableDeclaration(tempName, argument);
+
+        if (!declaration) {
+            continue;
+        }
+
+        temporaryDeclarations.push({
+            declaration,
+            index,
+            identifier: tempIdentifier
+        });
+    }
+
+    if (temporaryDeclarations.length !== callArgumentInfos.length) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    for (const { declaration, index, identifier } of temporaryDeclarations) {
+        node.arguments[index] = createIdentifier(identifier.name, identifier);
+    }
+
+    statementContext.statements.splice(
+        statementContext.index,
+        0,
+        ...temporaryDeclarations.map(({ declaration }) => declaration)
+    );
+
+    for (const { declaration } of temporaryDeclarations) {
+        attachFeatherFixMetadata(declaration, [fixDetail]);
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function buildTemporaryIdentifierName(state) {
+    if (!state || typeof state !== "object") {
+        return "__feather_call_arg_0";
+    }
+
+    const nextIndex = typeof state.counter === "number" ? state.counter : 0;
+    state.counter = nextIndex + 1;
+
+    return `__feather_call_arg_${nextIndex}`;
+}
+
+function createTemporaryVariableDeclaration(name, init) {
+    if (!name || !init || typeof init !== "object") {
+        return null;
+    }
+
+    const id = createIdentifier(name, init);
+
+    if (!id) {
+        return null;
+    }
+
+    const declarator = {
+        type: "VariableDeclarator",
+        id,
+        init,
+        start: cloneLocation(init.start),
+        end: cloneLocation(init.end)
+    };
+
+    const declaration = {
+        type: "VariableDeclaration",
+        declarations: [declarator],
+        kind: "var",
+        start: cloneLocation(init.start),
+        end: cloneLocation(init.end)
+    };
+
+    return declaration;
+}
+
+function findStatementContext(ancestors) {
+    if (!Array.isArray(ancestors)) {
+        return null;
+    }
+
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        const entry = ancestors[index];
+
+        if (!entry || !Array.isArray(entry.parent) || typeof entry.property !== "number") {
+            continue;
+        }
+
+        const arrayAncestor = ancestors[index - 1];
+
+        if (!arrayAncestor) {
+            continue;
+        }
+
+        if (!isStatementArray(arrayAncestor)) {
+            continue;
+        }
+
+        return {
+            statements: entry.parent,
+            index: entry.property
+        };
+    }
+
+    return null;
+}
+
+function isStatementArray(entry) {
+    if (!entry || !Array.isArray(entry.node)) {
+        return false;
+    }
+
+    const owner = entry.parent;
+    const propertyName = entry.property;
+
+    if (!owner || typeof propertyName !== "string") {
+        return false;
+    }
+
+    if (propertyName !== "body") {
+        return false;
+    }
+
+    const parentType = owner?.type;
+
+    return parentType === "Program" || parentType === "BlockStatement" || parentType === "SwitchCase";
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
