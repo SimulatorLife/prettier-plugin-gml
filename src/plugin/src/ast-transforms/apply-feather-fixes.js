@@ -1,24 +1,26 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
-import { getFeatherDiagnosticById } from "../../../shared/feather/metadata.js";
+import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
 
-const MACRO_SEMICOLON_DIAGNOSTIC_ID = "GM1051";
-const MACRO_SEMICOLON_DIAGNOSTIC = getFeatherDiagnosticById(MACRO_SEMICOLON_DIAGNOSTIC_ID);
+const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
+const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 
-export function applyFeatherFixes(ast, { sourceText, enableMacroSemicolonFix = true } = {}) {
+export function getFeatherDiagnosticFixers() {
+    return new Map(FEATHER_DIAGNOSTIC_FIXERS);
+}
+
+export function applyFeatherFixes(ast, { sourceText } = {}) {
     if (!ast || typeof ast !== "object") {
-        return ast;
-    }
-
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
         return ast;
     }
 
     const appliedFixes = [];
 
-    if (enableMacroSemicolonFix && MACRO_SEMICOLON_DIAGNOSTIC) {
-        appliedFixes.push(
-            ...removeTrailingMacroSemicolons(ast, sourceText, MACRO_SEMICOLON_DIAGNOSTIC)
-        );
+    for (const entry of FEATHER_DIAGNOSTIC_FIXERS.values()) {
+        const fixes = entry.applyFix(ast, { sourceText });
+
+        if (Array.isArray(fixes) && fixes.length > 0) {
+            appliedFixes.push(...fixes);
+        }
     }
 
     if (appliedFixes.length > 0) {
@@ -28,7 +30,90 @@ export function applyFeatherFixes(ast, { sourceText, enableMacroSemicolonFix = t
     return ast;
 }
 
-function removeTrailingMacroSemicolons(ast, sourceText, diagnostic) {
+function buildFeatherDiagnosticFixers() {
+    const diagnostics = getFeatherDiagnostics();
+    const registry = new Map();
+
+    for (const diagnostic of diagnostics) {
+        const diagnosticId = diagnostic?.id;
+
+        if (!diagnosticId || registry.has(diagnosticId)) {
+            continue;
+        }
+
+        const applyFix = createFixerForDiagnostic(diagnostic);
+
+        if (typeof applyFix !== "function") {
+            continue;
+        }
+
+        registry.set(diagnosticId, {
+            diagnostic,
+            applyFix
+        });
+    }
+
+    return registry;
+}
+
+function createFixerForDiagnostic(diagnostic) {
+    const implementationFactory = FEATHER_FIX_IMPLEMENTATIONS.get(diagnostic?.id);
+
+    if (typeof implementationFactory === "function") {
+        const implementation = implementationFactory(diagnostic);
+
+        if (typeof implementation === "function") {
+            return (ast, context) => {
+                const fixes = implementation({
+                    ast,
+                    sourceText: context?.sourceText
+                });
+
+                return Array.isArray(fixes) ? fixes : [];
+            };
+        }
+    }
+
+    return createNoOpFixer();
+}
+
+function createNoOpFixer() {
+    return () => [];
+}
+
+function buildFeatherFixImplementations() {
+    const registry = new Map();
+
+    registerFeatherFixer(registry, "GM1051", (diagnostic) => ({ ast, sourceText }) =>
+        removeTrailingMacroSemicolons({
+            ast,
+            sourceText,
+            diagnostic
+        })
+    );
+
+    return registry;
+}
+
+function registerFeatherFixer(registry, diagnosticId, factory) {
+    if (!registry || typeof registry.set !== "function") {
+        return;
+    }
+
+    if (!diagnosticId || typeof factory !== "function") {
+        return;
+    }
+
+    if (!registry.has(diagnosticId)) {
+        registry.set(diagnosticId, factory);
+    }
+}
+
+function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
+    if (!diagnostic || typeof sourceText !== "string" || sourceText.length === 0) {
+        return [];
+    }
+
     const fixes = [];
 
     const visit = (node) => {

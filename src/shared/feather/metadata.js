@@ -25,17 +25,23 @@ export function getFeatherMetadata() {
     return loadFeatherMetadata();
 }
 
+export function getFeatherDiagnostics() {
+    const metadata = loadFeatherMetadata();
+    const diagnostics = metadata?.diagnostics;
+
+    if (!Array.isArray(diagnostics)) {
+        return [];
+    }
+
+    return diagnostics;
+}
+
 export function getFeatherDiagnosticById(id) {
     if (!id) {
         return null;
     }
 
-    const metadata = loadFeatherMetadata();
-    const diagnostics = metadata?.diagnostics;
-
-    if (!Array.isArray(diagnostics)) {
-        return null;
-    }
+    const diagnostics = getFeatherDiagnostics();
 
     return diagnostics.find((diagnostic) => diagnostic?.id === id) ?? null;
 }
