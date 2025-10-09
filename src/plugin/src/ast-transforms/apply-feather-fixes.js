@@ -113,6 +113,27 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1045") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, sourceText }) => {
+                    const fixes = synchronizeJsDocReturnTypes({
+                        ast,
+                        sourceText,
+                        diagnostic
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -159,6 +180,432 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function synchronizeJsDocReturnTypes({ ast, sourceText, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object" || typeof sourceText !== "string") {
+        return [];
+    }
+
+    const fixes = [];
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+            const functionFixes = updateFunctionDocReturnType({
+                node,
+                sourceText,
+                diagnostic,
+                comments
+            });
+
+            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+                fixes.push(...functionFixes);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function updateFunctionDocReturnType({ node, sourceText, diagnostic, comments }) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    const docComments = collectDocCommentBlockBeforeNode({
+        node,
+        comments,
+        sourceText
+    });
+
+    if (docComments.length === 0) {
+        return [];
+    }
+
+    const inferredType = inferFunctionReturnType(node, sourceText);
+
+    if (!inferredType) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (const comment of docComments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        const fixApplied = updateReturnTypeInComment({ comment, inferredType });
+
+        if (!fixApplied) {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: getFunctionNodeName(node),
+            range: {
+                start: getNodeStartIndex(comment),
+                end: getNodeEndIndex(comment)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        attachFeatherFixMetadata(comment, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
+function collectDocCommentBlockBeforeNode({ node, comments, sourceText }) {
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return [];
+    }
+
+    const nodeStart = getNodeStartIndex(node);
+
+    if (nodeStart == null) {
+        return [];
+    }
+
+    let lastIndex = -1;
+
+    for (let index = 0; index < comments.length; index += 1) {
+        const commentEnd = getNodeEndIndex(comments[index]);
+
+        if (commentEnd != null && commentEnd <= nodeStart) {
+            lastIndex = index;
+        }
+    }
+
+    if (lastIndex === -1) {
+        return [];
+    }
+
+    const block = [];
+    let boundary = nodeStart;
+
+    for (let index = lastIndex; index >= 0; index -= 1) {
+        const comment = comments[index];
+
+        if (!comment || comment.type !== "CommentLine") {
+            break;
+        }
+
+        const commentEnd = getNodeEndIndex(comment);
+        const commentStart = getNodeStartIndex(comment);
+
+        if (commentEnd == null || commentStart == null || commentEnd > boundary) {
+            break;
+        }
+
+        const betweenText = sourceText.slice(commentEnd, boundary);
+
+        if (/[^\s]/.test(betweenText)) {
+            break;
+        }
+
+        block.unshift(comment);
+        boundary = commentStart;
+    }
+
+    if (block.length === 0) {
+        return [];
+    }
+
+    return block.filter(isReturnsDocComment);
+}
+
+function isReturnsDocComment(comment) {
+    if (!comment || typeof comment.value !== "string") {
+        return false;
+    }
+
+    const commentText = `//${comment.value}`;
+    return /\/\/\/\s*@returns\b/i.test(commentText);
+}
+
+function updateReturnTypeInComment({ comment, inferredType }) {
+    if (!comment || typeof comment.value !== "string" || typeof inferredType !== "string") {
+        return false;
+    }
+
+    const commentText = `//${comment.value}`;
+    const typePattern = /(\/\/\/\s*@returns\s*\{)([^}]+)(\})/i;
+    const match = commentText.match(typePattern);
+
+    if (!match) {
+        return false;
+    }
+
+    const currentType = match[2]?.trim();
+
+    if (shouldSkipDocTypeReplacement(currentType)) {
+        return false;
+    }
+
+    if (typesAreEquivalent(currentType, inferredType)) {
+        return false;
+    }
+
+    const updatedCommentText = commentText.replace(typePattern, `$1${inferredType}$3`);
+
+    if (updatedCommentText === commentText) {
+        return false;
+    }
+
+    comment.value = updatedCommentText.slice(2);
+    return true;
+}
+
+function shouldSkipDocTypeReplacement(typeText) {
+    if (typeof typeText !== "string") {
+        return true;
+    }
+
+    const trimmed = typeText.trim();
+
+    if (trimmed.length === 0) {
+        return true;
+    }
+
+    if (/[|&,<>{}]/.test(trimmed)) {
+        return true;
+    }
+
+    return false;
+}
+
+function typesAreEquivalent(docType, inferredType) {
+    const normalizedDoc = normalizeTypeForComparison(docType);
+    const normalizedInferred = normalizeTypeForComparison(inferredType);
+
+    return normalizedDoc === normalizedInferred;
+}
+
+function normalizeTypeForComparison(typeText) {
+    if (typeof typeText !== "string") {
+        return null;
+    }
+
+    return typeText.replace(/\s+/g, "").toLowerCase();
+}
+
+function inferFunctionReturnType(node, sourceText) {
+    if (!node || typeof node !== "object" || typeof sourceText !== "string") {
+        return null;
+    }
+
+    const body = node.body;
+
+    if (!body) {
+        return null;
+    }
+
+    const returnStatements = [];
+    collectReturnStatements(body, returnStatements);
+
+    if (returnStatements.length === 0) {
+        return null;
+    }
+
+    const inferredTypes = new Set();
+
+    for (const statement of returnStatements) {
+        const returnType = inferReturnStatementType(statement, sourceText);
+
+        if (!returnType) {
+            return null;
+        }
+
+        inferredTypes.add(returnType);
+
+        if (inferredTypes.size > 1) {
+            return null;
+        }
+    }
+
+    return inferredTypes.size === 1 ? inferredTypes.values().next().value : null;
+}
+
+function collectReturnStatements(node, results) {
+    if (!node || !results) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            collectReturnStatements(item, results);
+        }
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    if (node.type === "ReturnStatement") {
+        results.push(node);
+        return;
+    }
+
+    if (node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration") {
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            collectReturnStatements(value, results);
+        }
+    }
+}
+
+function inferReturnStatementType(statement, sourceText) {
+    if (!statement || statement.type !== "ReturnStatement") {
+        return null;
+    }
+
+    const argument = statement.argument;
+
+    if (!argument) {
+        return "undefined";
+    }
+
+    return inferExpressionType(argument, sourceText);
+}
+
+function inferExpressionType(node, sourceText) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return inferExpressionType(node.expression, sourceText);
+    }
+
+    if (node.type === "UnaryExpression" && (node.operator === "+" || node.operator === "-")) {
+        return inferExpressionType(node.argument, sourceText);
+    }
+
+    if (node.type === "Literal") {
+        const literalText = extractSourceText(node, sourceText);
+
+        if (!literalText) {
+            return null;
+        }
+
+        const trimmed = literalText.trim();
+
+        if (/^".*"$/s.test(trimmed) || /^'.*'$/s.test(trimmed)) {
+            return "string";
+        }
+
+        if (/^(true|false)$/i.test(trimmed)) {
+            return "bool";
+        }
+
+        if (isNumericLiteral(trimmed)) {
+            return "real";
+        }
+
+        if (/^undefined$/i.test(trimmed)) {
+            return "undefined";
+        }
+
+        return null;
+    }
+
+    if (node.type === "ArrayExpression") {
+        return "array";
+    }
+
+    if (node.type === "StructExpression") {
+        return "struct";
+    }
+
+    return null;
+}
+
+function isNumericLiteral(text) {
+    if (typeof text !== "string") {
+        return false;
+    }
+
+    const trimmed = text.trim();
+
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    const decimalPattern = /^[-+]?\d*(?:\.\d+)?(?:e[-+]?\d+)?$/i;
+    const hexPattern = /^[-+]?0x[0-9a-f]+$/i;
+    const binaryPattern = /^[-+]?0b[01]+$/i;
+    const octalPattern = /^[-+]?0o[0-7]+$/i;
+
+    return (
+        decimalPattern.test(trimmed) ||
+        hexPattern.test(trimmed) ||
+        binaryPattern.test(trimmed) ||
+        octalPattern.test(trimmed)
+    );
+}
+
+function extractSourceText(node, sourceText) {
+    if (!node || typeof sourceText !== "string") {
+        return null;
+    }
+
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
+
+    if (start == null || end == null || start >= end) {
+        return null;
+    }
+
+    return sourceText.slice(start, end);
+}
+
+function getFunctionNodeName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (typeof node.id === "string" && node.id.length > 0) {
+        return node.id;
+    }
+
+    if (node.id && typeof node.id.name === "string") {
+        return node.id.name;
+    }
+
+    return null;
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {

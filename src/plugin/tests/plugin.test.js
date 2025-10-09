@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import prettier from 'prettier';
 import { describe, it } from 'mocha';
 
+import { gmlParserAdapter } from '../src/parsers/gml-parser-adapter.js';
+
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
 const pluginPath = path.resolve(currentDirectory, '../src/gml.js');
 const fileEncoding = 'utf8';
@@ -74,7 +76,7 @@ async function loadTestCases() {
 
   const sortedBaseNames = [...caseMap.keys()].sort();
 
-  return Promise.all(
+    return Promise.all(
     sortedBaseNames.map(async (baseName) => {
       const { inputFile, outputFile, singleFile } = caseMap.get(baseName);
 
@@ -96,8 +98,15 @@ async function loadTestCases() {
         }
 
         const options = await tryLoadOptions(baseName);
+        const { metadataAssertions, ...prettierOptions } = options ?? {};
 
-        return { baseName, inputSource: rawInput, expectedOutput, options };
+        return {
+          baseName,
+          inputSource: rawInput,
+          expectedOutput,
+          options: prettierOptions,
+          metadataAssertions,
+        };
       }
 
       if (!inputFile || !outputFile) {
@@ -119,8 +128,15 @@ async function loadTestCases() {
       }
 
       const options = await tryLoadOptions(baseName);
+      const { metadataAssertions, ...prettierOptions } = options ?? {};
 
-      return { baseName, inputSource: rawInput, expectedOutput, options };
+      return {
+        baseName,
+        inputSource: rawInput,
+        expectedOutput,
+        options: prettierOptions,
+        metadataAssertions,
+      };
     })
   );
 }
@@ -142,7 +158,13 @@ async function formatWithPlugin(source, overrides) {
 const testCases = await loadTestCases();
 
 describe('Prettier GameMaker plugin fixtures', () => {
-  for (const { baseName, inputSource, expectedOutput, options } of testCases) {
+  for (const {
+    baseName,
+    inputSource,
+    expectedOutput,
+    options,
+    metadataAssertions,
+  } of testCases) {
     it(`formats ${baseName}`, async () => {
       const formatted = await formatWithPlugin(inputSource, options);
       const expected = expectedOutput.trim();
@@ -176,6 +198,8 @@ describe('Prettier GameMaker plugin fixtures', () => {
           );
         }
       }
+
+      runMetadataAssertions(metadataAssertions, inputSource, options);
     });
   }
 
@@ -279,3 +303,122 @@ describe('Prettier GameMaker plugin fixtures', () => {
     assert.strictEqual(formatted, expected);
   });
 });
+
+function runMetadataAssertions(metadataAssertions, source, options) {
+  if (!metadataAssertions) {
+    return;
+  }
+
+  const parserOptions = { ...(options ?? {}) };
+  const ast = gmlParserAdapter.parse(source, parserOptions);
+
+  const programDiagnostics = Array.isArray(ast?._appliedFeatherDiagnostics)
+    ? ast._appliedFeatherDiagnostics
+    : [];
+
+  if (Array.isArray(metadataAssertions.appliedFeatherDiagnostics)) {
+    for (const expected of metadataAssertions.appliedFeatherDiagnostics) {
+      const match = programDiagnostics.find((entry) => entry.id === expected.id);
+
+      assert.ok(
+        match,
+        `Expected Program to record Feather diagnostic ${expected.id}.`
+      );
+
+      if (Object.prototype.hasOwnProperty.call(expected, 'automatic')) {
+        assert.strictEqual(
+          match.automatic,
+          expected.automatic,
+          `Expected Feather diagnostic ${expected.id} automatic flag to be ${expected.automatic}.`
+        );
+      }
+
+      if (Object.prototype.hasOwnProperty.call(expected, 'target')) {
+        assert.strictEqual(
+          match.target,
+          expected.target,
+          `Expected Feather diagnostic ${expected.id} target to equal '${expected.target}'.`
+        );
+      }
+    }
+  }
+
+  if (Array.isArray(metadataAssertions.commentDiagnostics)) {
+    const commentDiagnostics = collectCommentDiagnostics(ast);
+
+    for (const expected of metadataAssertions.commentDiagnostics) {
+      const commentEntry = commentDiagnostics.find(({ diagnostics }) =>
+        diagnostics.some((entry) => entry.id === expected.id)
+      );
+
+      assert.ok(
+        commentEntry,
+        `Expected at least one comment to record Feather diagnostic ${expected.id}.`
+      );
+
+      if (Object.prototype.hasOwnProperty.call(expected, 'target')) {
+        const diagnosticMatch = commentEntry.diagnostics.find(
+          (entry) => entry.id === expected.id
+        );
+
+        assert.ok(
+          diagnosticMatch,
+          `Expected comment metadata for diagnostic ${expected.id}.`
+        );
+
+        assert.strictEqual(
+          diagnosticMatch.target,
+          expected.target,
+          `Expected comment diagnostic ${expected.id} target to equal '${expected.target}'.`
+        );
+      }
+    }
+  }
+}
+
+function collectCommentDiagnostics(ast) {
+  const results = [];
+
+  const visit = (node) => {
+    if (!node) {
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        visit(item);
+      }
+      return;
+    }
+
+    if (typeof node !== 'object') {
+      return;
+    }
+
+    if (Array.isArray(node.docComments)) {
+      for (const comment of node.docComments) {
+        if (
+          comment &&
+          typeof comment === 'object' &&
+          Array.isArray(comment._appliedFeatherDiagnostics) &&
+          comment._appliedFeatherDiagnostics.length > 0
+        ) {
+          results.push({
+            comment,
+            diagnostics: comment._appliedFeatherDiagnostics,
+          });
+        }
+      }
+    }
+
+    for (const value of Object.values(node)) {
+      if (value && typeof value === 'object') {
+        visit(value);
+      }
+    }
+  };
+
+  visit(ast);
+
+  return results;
+}

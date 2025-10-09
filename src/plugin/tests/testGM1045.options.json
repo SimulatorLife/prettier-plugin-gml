@@ -1,0 +1,18 @@
+{
+  "applyFeatherFixes": true,
+  "metadataAssertions": {
+    "appliedFeatherDiagnostics": [
+      {
+        "id": "GM1045",
+        "automatic": true,
+        "target": "return_something"
+      }
+    ],
+    "commentDiagnostics": [
+      {
+        "id": "GM1045",
+        "target": "return_something"
+      }
+    ]
+  }
+}
