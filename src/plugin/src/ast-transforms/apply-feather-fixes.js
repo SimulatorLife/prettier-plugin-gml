@@ -1,8 +1,7 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
 
-const MACRO_SEMICOLON_DIAGNOSTIC_ID = "GM1051";
-
+const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 
 export function getFeatherDiagnosticFixers() {
@@ -58,9 +57,21 @@ function buildFeatherDiagnosticFixers() {
 }
 
 function createFixerForDiagnostic(diagnostic) {
-    if (diagnostic?.id === MACRO_SEMICOLON_DIAGNOSTIC_ID) {
-        return (ast, context) =>
-            removeTrailingMacroSemicolons(ast, context?.sourceText, diagnostic);
+    const implementationFactory = FEATHER_FIX_IMPLEMENTATIONS.get(diagnostic?.id);
+
+    if (typeof implementationFactory === "function") {
+        const implementation = implementationFactory(diagnostic);
+
+        if (typeof implementation === "function") {
+            return (ast, context) => {
+                const fixes = implementation({
+                    ast,
+                    sourceText: context?.sourceText
+                });
+
+                return Array.isArray(fixes) ? fixes : [];
+            };
+        }
     }
 
     return createNoOpFixer();
@@ -70,7 +81,35 @@ function createNoOpFixer() {
     return () => [];
 }
 
-function removeTrailingMacroSemicolons(ast, sourceText, diagnostic) {
+function buildFeatherFixImplementations() {
+    const registry = new Map();
+
+    registerFeatherFixer(registry, "GM1051", (diagnostic) => ({ ast, sourceText }) =>
+        removeTrailingMacroSemicolons({
+            ast,
+            sourceText,
+            diagnostic
+        })
+    );
+
+    return registry;
+}
+
+function registerFeatherFixer(registry, diagnosticId, factory) {
+    if (!registry || typeof registry.set !== "function") {
+        return;
+    }
+
+    if (!diagnosticId || typeof factory !== "function") {
+        return;
+    }
+
+    if (!registry.has(diagnosticId)) {
+        registry.set(diagnosticId, factory);
+    }
+}
+
+function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     if (!diagnostic || typeof sourceText !== "string" || sourceText.length === 0) {
         return [];
     }
