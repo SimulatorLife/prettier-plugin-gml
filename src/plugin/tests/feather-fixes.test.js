@@ -130,4 +130,49 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("replaces deprecated constants highlighted by GM1023", () => {
+        const source = [
+            "if (os_type == os_win32)",
+            "{",
+            "    return os_win32;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [ifStatement] = ast.body ?? [];
+        const comparison = ifStatement?.test?.expression;
+        const conditionConstant = comparison?.right;
+        const returnStatement = ifStatement?.consequent?.body?.[0];
+        const returnArgument = returnStatement?.argument;
+
+        assert.ok(conditionConstant);
+        assert.strictEqual(conditionConstant.type, "Identifier");
+        assert.strictEqual(conditionConstant.name, "os_windows");
+
+        assert.ok(returnArgument);
+        assert.strictEqual(returnArgument.type, "Identifier");
+        assert.strictEqual(returnArgument.name, "os_windows");
+
+        const identifierFixes = returnArgument._appliedFeatherDiagnostics ?? [];
+        assert.ok(Array.isArray(identifierFixes));
+
+        const gm1023Fix = identifierFixes.find((entry) => entry.id === "GM1023");
+        assert.ok(gm1023Fix, "Expected GM1023 fix metadata to be attached to the identifier.");
+        assert.strictEqual(gm1023Fix.target, "os_windows");
+        assert.strictEqual(gm1023Fix.automatic, true);
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.ok(
+            programFixes.some((entry) => entry.id === "GM1023"),
+            "Expected GM1023 fix metadata to be attached to the program node."
+        );
+    });
 });
