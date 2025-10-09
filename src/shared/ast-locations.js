@@ -25,14 +25,11 @@ function getStartIndex(node) {
         return undefined;
     }
 
-    if (node.type === "MemberDotExpression" && node.object) {
-        const objectStart = getStartIndex(node.object);
-        if (typeof objectStart === "number") {
-            return objectStart;
-        }
-    }
+    const isMemberAccess =
+        (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") &&
+        node.object;
 
-    if (node.type === "MemberIndexExpression" && node.object) {
+    if (isMemberAccess) {
         const objectStart = getStartIndex(node.object);
         if (typeof objectStart === "number") {
             return objectStart;
