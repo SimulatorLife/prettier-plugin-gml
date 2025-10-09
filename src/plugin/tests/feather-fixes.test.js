@@ -93,6 +93,39 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("converts string length property access into string_length calls", () => {
+        const source = "var result = string(value).length;";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const declaration = ast.body?.[0]?.declarations?.[0];
+        const originalInit = declaration?.init;
+
+        assert.ok(originalInit);
+        assert.strictEqual(originalInit.type, "MemberDotExpression");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const updatedInit = declaration?.init;
+
+        assert.ok(updatedInit);
+        assert.strictEqual(updatedInit.type, "CallExpression");
+        assert.strictEqual(updatedInit.object?.type, "Identifier");
+        assert.strictEqual(updatedInit.object?.name, "string_length");
+        assert.ok(Array.isArray(updatedInit.arguments));
+        assert.strictEqual(updatedInit.arguments.length, 1);
+        assert.strictEqual(updatedInit.arguments[0], originalInit.object);
+
+        const appliedFixes = updatedInit._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(appliedFixes));
+        const gm1012Fix = appliedFixes.find((entry) => entry.id === "GM1012");
+        assert.ok(gm1012Fix);
+        assert.strictEqual(gm1012Fix.target, "length");
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
