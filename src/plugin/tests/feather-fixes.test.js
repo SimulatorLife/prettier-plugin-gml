@@ -93,6 +93,63 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("corrects GM1021 typoed function calls using metadata guidance", () => {
+        const source = [
+            "function make_game(_genre) { /* ... */ }",
+            "",
+            'make_gaem("RPG");',
+            "",
+            "var _x = clam(x, 0, 100);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const typoCall = ast.body?.find((node) => node?.type === "CallExpression");
+        const variableDeclaration = ast.body?.find((node) => node?.type === "VariableDeclaration");
+        const clampCall = variableDeclaration?.declarations?.[0]?.init;
+
+        assert.ok(typoCall);
+        assert.strictEqual(typoCall.type, "CallExpression");
+        assert.strictEqual(typoCall.object?.name, "make_game");
+
+        assert.ok(clampCall);
+        assert.strictEqual(clampCall.type, "CallExpression");
+        assert.strictEqual(clampCall.object?.name, "clamp");
+
+        const typoFixes = typoCall._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(typoFixes));
+        assert.strictEqual(typoFixes.length, 1);
+        assert.strictEqual(typoFixes[0].id, "GM1021");
+        assert.strictEqual(typoFixes[0].target, "make_gaem");
+        assert.strictEqual(typoFixes[0].replacement, "make_game");
+        assert.strictEqual(typeof typoFixes[0].automatic, "boolean");
+        assert.strictEqual(typoFixes[0].automatic, true);
+        assert.ok(typoFixes[0].range);
+        assert.strictEqual(typeof typoFixes[0].range.start, "number");
+        assert.strictEqual(typeof typoFixes[0].range.end, "number");
+
+        const clampFixes = clampCall._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(clampFixes));
+        assert.strictEqual(clampFixes.length, 1);
+        assert.strictEqual(clampFixes[0].id, "GM1021");
+        assert.strictEqual(clampFixes[0].target, "clam");
+        assert.strictEqual(clampFixes[0].replacement, "clamp");
+        assert.strictEqual(clampFixes[0].automatic, true);
+
+        const appliedFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1021Entries = appliedFixes.filter((entry) => entry?.id === "GM1021");
+
+        assert.strictEqual(gm1021Entries.length >= 2, true);
+        gm1021Entries.forEach((entry) => {
+            assert.strictEqual(entry.automatic, true);
+        });
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
