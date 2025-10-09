@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1001") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeContinueStatementsOutsideLoops({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -197,6 +210,146 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     visit(ast);
 
     return fixes;
+}
+
+function removeContinueStatementsOutsideLoops({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    function visit(node, parent, property, loopDepth, arrayOwner) {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = node.length - 1; index >= 0; index -= 1) {
+                visit(node[index], node, index, loopDepth, arrayOwner);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "ContinueStatement" && loopDepth === 0) {
+            const fix = removeContinueStatement({
+                node,
+                parent,
+                property,
+                diagnostic,
+                programNode: ast,
+                container: arrayOwner
+            });
+
+            if (fix) {
+                fixes.push(fix);
+            }
+
+            return;
+        }
+
+        if (isLoopStatement(node)) {
+            traverseLoopChildren(node, loopDepth, arrayOwner);
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            visit(value, node, key, loopDepth, Array.isArray(value) ? node : arrayOwner);
+        }
+    }
+
+    function traverseLoopChildren(node, loopDepth, arrayOwner) {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        switch (node.type) {
+            case "ForStatement": {
+                if (node.init) {
+                    visit(node.init, node, "init", loopDepth, Array.isArray(node.init) ? node : arrayOwner);
+                }
+
+                if (node.test) {
+                    visit(node.test, node, "test", loopDepth, Array.isArray(node.test) ? node : arrayOwner);
+                }
+
+                if (node.update) {
+                    visit(node.update, node, "update", loopDepth, Array.isArray(node.update) ? node : arrayOwner);
+                }
+
+                if (node.body) {
+                    visit(node.body, node, "body", loopDepth + 1, Array.isArray(node.body) ? node : arrayOwner);
+                }
+                break;
+            }
+
+            case "RepeatStatement":
+            case "WhileStatement":
+            case "DoUntilStatement":
+            case "WithStatement": {
+                if (node.test) {
+                    visit(node.test, node, "test", loopDepth, Array.isArray(node.test) ? node : arrayOwner);
+                }
+
+                if (node.body) {
+                    visit(node.body, node, "body", loopDepth + 1, Array.isArray(node.body) ? node : arrayOwner);
+                }
+                break;
+            }
+
+            default: {
+                for (const [key, value] of Object.entries(node)) {
+                    if (!value || typeof value !== "object") {
+                        continue;
+                    }
+
+                    visit(value, node, key, loopDepth + (key === "body" ? 1 : 0), Array.isArray(value) ? node : arrayOwner);
+                }
+            }
+        }
+    }
+
+    visit(ast, null, null, 0, ast);
+
+    return fixes;
+}
+
+function removeContinueStatement({ node, parent, property, diagnostic, programNode, container }) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "ContinueStatement") {
+        return null;
+    }
+
+    parent.splice(property, 1);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (container && container !== programNode) {
+        attachFeatherFixMetadata(container, [fixDetail]);
+    }
+
+    return fixDetail;
 }
 
 function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
@@ -464,6 +617,20 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function isLoopStatement(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        node.type === "ForStatement" ||
+        node.type === "RepeatStatement" ||
+        node.type === "WhileStatement" ||
+        node.type === "DoUntilStatement" ||
+        node.type === "WithStatement"
+    );
 }
 
 function cloneIdentifier(node) {

@@ -93,6 +93,53 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("removes continue statements outside loops and records GM1001 metadata", () => {
+        const source = [
+            "var value = 1;",
+            "",
+            "continue;",
+            "",
+            "repeat (2) {",
+            "    continue;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(
+            ast.body.some((node) => node?.type === "ContinueStatement"),
+            false,
+            "Expected continue statements outside of loops to be removed."
+        );
+
+        const repeatStatement = ast.body.find((node) => node?.type === "RepeatStatement");
+        assert.ok(repeatStatement, "Expected repeat statement to remain in the AST.");
+        const repeatBody = Array.isArray(repeatStatement?.body?.body)
+            ? repeatStatement.body.body
+            : [];
+        assert.strictEqual(
+            repeatBody.some((node) => node?.type === "ContinueStatement"),
+            true,
+            "Expected continue statements inside loops to be preserved."
+        );
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm1001Entry = appliedDiagnostics.find((entry) => entry?.id === "GM1001");
+
+        assert.ok(gm1001Entry, "Expected GM1001 metadata to be recorded on the program node.");
+        assert.strictEqual(gm1001Entry.automatic, true);
+        assert.ok(gm1001Entry.range);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
