@@ -119,8 +119,9 @@ load it when you install from Git.
     node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
     ```
 
-    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every `.gml`
-    file under the provided path.
+    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
+    matching the configured extensions (defaulting to `.gml`). Pass `--extensions=.gml,.yy` to format additional file types in
+    a single run.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:

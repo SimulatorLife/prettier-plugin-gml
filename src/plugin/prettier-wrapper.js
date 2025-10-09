@@ -9,33 +9,74 @@ const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
 const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
 
+const DEFAULT_EXTENSIONS = [".gml"];
+
 const [, , ...cliArgs] = process.argv;
 
-function resolveTargetPath(args) {
-    if (args.length === 0) {
-        return null;
+function normalizeExtensions(rawExtensions) {
+    if (!rawExtensions) {
+        return DEFAULT_EXTENSIONS;
     }
+
+    const candidateValues = rawExtensions
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+    if (candidateValues.length === 0) {
+        return DEFAULT_EXTENSIONS;
+    }
+
+    const normalized = candidateValues.map((extension) => {
+        const lowerCaseExtension = extension.toLowerCase();
+        return lowerCaseExtension.startsWith(".") ? lowerCaseExtension : `.${lowerCaseExtension}`;
+    });
+
+    return [...new Set(normalized)];
+}
+
+function parseCliArguments(args) {
+    const parsed = {
+        targetPathInput: null,
+        extensions: DEFAULT_EXTENSIONS
+    };
 
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
 
         if (!arg.startsWith("--")) {
-            return arg;
+            if (!parsed.targetPathInput) {
+                parsed.targetPathInput = arg;
+            }
+            continue;
         }
 
         if (arg === "--path" && index + 1 < args.length) {
-            return args[index + 1];
+            parsed.targetPathInput = args[index + 1];
+            index += 1;
+            continue;
         }
 
         if (arg.startsWith("--path=")) {
-            return arg.slice("--path=".length);
+            parsed.targetPathInput = arg.slice("--path=".length);
+            continue;
+        }
+
+        if (arg === "--extensions" && index + 1 < args.length) {
+            parsed.extensions = normalizeExtensions(args[index + 1]);
+            index += 1;
+            continue;
+        }
+
+        if (arg.startsWith("--extensions=")) {
+            parsed.extensions = normalizeExtensions(arg.slice("--extensions=".length));
         }
     }
 
-    return null;
+    return parsed;
 }
 
-const targetPathInput = resolveTargetPath(cliArgs);
+const { targetPathInput, extensions: configuredExtensions } = parseCliArguments(cliArgs);
 
 if (!targetPathInput) {
     console.error(
@@ -45,6 +86,14 @@ if (!targetPathInput) {
 }
 
 const targetPath = path.resolve(process.cwd(), targetPathInput);
+const targetExtensions = configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
+const targetExtensionSet = new Set(targetExtensions.map((extension) => extension.toLowerCase()));
+const placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+
+function shouldFormatFile(filePath) {
+    const fileExtension = path.extname(filePath).toLowerCase();
+    return targetExtensionSet.has(fileExtension);
+}
 
 /**
  * Prettier configuration shared by all formatted GameMaker Language files.
@@ -82,7 +131,10 @@ async function shouldSkipDirectory(directory) {
         return false;
     }
 
-    const placeholderPath = path.join(directory, "__prettier_plugin_gml_ignore_test__.gml");
+    const placeholderPath = path.join(
+        directory,
+        `__prettier_plugin_gml_ignore_test__${placeholderExtension}`
+    );
 
     try {
         const fileInfo = await prettier.getFileInfo(placeholderPath, {
@@ -140,7 +192,7 @@ async function processDirectory(directory) {
                 continue;
             }
             await processDirectory(filePath);
-        } else if (path.extname(filePath).toLowerCase() === ".gml") {
+        } else if (shouldFormatFile(filePath)) {
             await processFile(filePath);
         } else {
             skippedFileCount += 1;
