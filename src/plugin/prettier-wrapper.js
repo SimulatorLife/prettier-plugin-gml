@@ -111,6 +111,7 @@ const readdir = util.promisify(fs.readdir);
 const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const stat = util.promisify(fs.stat);
+const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
 let projectIgnorePath = null;
@@ -187,7 +188,14 @@ async function processDirectory(directory) {
     const files = await readdir(directory);
     for (const file of files) {
         const filePath = path.join(directory, file);
-        const stats = await stat(filePath);
+        const stats = await lstat(filePath);
+
+        if (stats.isSymbolicLink()) {
+            console.log(`Skipping ${filePath} (symbolic link)`);
+            skippedFileCount += 1;
+            continue;
+        }
+
         if (stats.isDirectory()) {
             if (await shouldSkipDirectory(filePath)) {
                 continue;
