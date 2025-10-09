@@ -93,6 +93,56 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("normalizes mouse button constants for GM1044 and records metadata", () => {
+        const source = [
+            "if (mouse_check_button_pressed(mb_midle))",
+            "{",
+            "    if (mouse_check_button_pressed(vk_left))",
+            "    {",
+            "        show_debug_message(\"nested\");",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const outerIf = ast.body?.[0];
+        const outerCall = outerIf?.test?.expression;
+        const innerIf = outerIf?.consequent?.body?.[0];
+        const innerCall = innerIf?.test?.expression;
+
+        assert.ok(outerCall);
+        assert.ok(innerCall);
+
+        const outerArgument = outerCall.arguments?.[0];
+        const innerArgument = innerCall.arguments?.[0];
+
+        assert.strictEqual(outerArgument?.type, "Identifier");
+        assert.strictEqual(innerArgument?.type, "Identifier");
+        assert.strictEqual(outerArgument.name, "mb_middle");
+        assert.strictEqual(innerArgument.name, "mb_left");
+
+        assert.ok(Array.isArray(outerArgument._appliedFeatherDiagnostics));
+        assert.ok(Array.isArray(innerArgument._appliedFeatherDiagnostics));
+        assert.strictEqual(outerArgument._appliedFeatherDiagnostics[0].id, "GM1044");
+        assert.strictEqual(innerArgument._appliedFeatherDiagnostics[0].id, "GM1044");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1044Fixes = programFixes.filter((entry) => entry.id === "GM1044");
+
+        assert.strictEqual(gm1044Fixes.length >= 2, true);
+        gm1044Fixes.forEach((entry) => {
+            assert.strictEqual(entry.automatic, true);
+            assert.strictEqual(typeof entry.target, "string");
+        });
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

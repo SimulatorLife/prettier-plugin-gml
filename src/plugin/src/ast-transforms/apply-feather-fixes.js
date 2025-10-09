@@ -7,6 +7,15 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const MOUSE_BUTTON_FUNCTION_PREFIX = "mouse_check_button";
+const MOUSE_BUTTON_CONSTANT_CORRECTIONS = new Map([["mb_midle", "mb_middle"]]);
+const KEYBOARD_TO_MOUSE_BUTTON_CONSTANTS = new Map([
+    ["vk_left", "mb_left"],
+    ["vk_right", "mb_right"],
+    ["vk_anykey", "mb_any"],
+    ["vk_nokey", "mb_none"]
+]);
+const MOUSE_BUTTON_CONSTANTS = new Set(["mb_left", "mb_right", "mb_middle", "mb_any", "mb_none"]);
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -96,6 +105,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1044") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeMouseButtonConstants({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -159,6 +181,179 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function normalizeMouseButtonConstants({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const callFixes = normalizeMouseButtonCall(node, diagnostic);
+
+            if (Array.isArray(callFixes) && callFixes.length > 0) {
+                fixes.push(...callFixes);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function normalizeMouseButtonCall(node, diagnostic) {
+    if (!isMouseButtonCheckCall(node)) {
+        return [];
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index];
+        const replacementName = getMouseButtonConstantReplacementName(argument);
+
+        if (!replacementName) {
+            continue;
+        }
+
+        const rangeStart = getNodeStartIndex(argument);
+        const rangeEnd = getNodeEndIndex(argument);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: replacementName,
+            range:
+                typeof rangeStart === "number" && typeof rangeEnd === "number"
+                    ? { start: rangeStart, end: rangeEnd }
+                    : null
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        const replacementNode = convertNodeToMouseButtonIdentifier(argument, replacementName);
+
+        if (!replacementNode) {
+            continue;
+        }
+
+        args[index] = replacementNode;
+        attachFeatherFixMetadata(replacementNode, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
+function isMouseButtonCheckCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const callee = node.object;
+
+    if (!callee || callee.type !== "Identifier") {
+        return false;
+    }
+
+    const name = callee.name;
+
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    return name.startsWith(MOUSE_BUTTON_FUNCTION_PREFIX);
+}
+
+function getMouseButtonConstantReplacementName(argument) {
+    if (!argument || typeof argument !== "object") {
+        return null;
+    }
+
+    if (argument.type === "Identifier") {
+        return normalizeMouseButtonConstantName(argument.name);
+    }
+
+    if (argument.type === "Literal") {
+        const literalValue = argument.value;
+
+        if (typeof literalValue !== "string" || literalValue.length === 0) {
+            return null;
+        }
+
+        const unquoted = literalValue.replace(/^['"]|['"]$/g, "");
+        return normalizeMouseButtonConstantName(unquoted);
+    }
+
+    return null;
+}
+
+function normalizeMouseButtonConstantName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    if (MOUSE_BUTTON_CONSTANTS.has(name)) {
+        return null;
+    }
+
+    const correction = MOUSE_BUTTON_CONSTANT_CORRECTIONS.get(name);
+
+    if (typeof correction === "string" && MOUSE_BUTTON_CONSTANTS.has(correction)) {
+        return correction;
+    }
+
+    const mapped = KEYBOARD_TO_MOUSE_BUTTON_CONSTANTS.get(name);
+
+    if (typeof mapped === "string" && MOUSE_BUTTON_CONSTANTS.has(mapped)) {
+        return mapped;
+    }
+
+    return null;
+}
+
+function convertNodeToMouseButtonIdentifier(node, name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    if (node && node.type === "Identifier") {
+        node.name = name;
+        return node;
+    }
+
+    return createIdentifierFromTemplate(name, node);
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
@@ -485,6 +680,31 @@ function cloneIdentifier(node) {
     }
 
     return cloned;
+}
+
+function createIdentifierFromTemplate(name, template) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+
+        copyCommentMetadata(template, identifier);
+    }
+
+    return identifier;
 }
 
 function cloneLocation(location) {
