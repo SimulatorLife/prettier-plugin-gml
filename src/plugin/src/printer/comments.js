@@ -2,6 +2,7 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
+    getLineCommentRawText,
     formatLineComment,
     getLineCommentBannerMinimum,
     getLineCommentBannerAutofillThreshold,
@@ -141,7 +142,7 @@ function printComment(commentPath, options) {
         case "CommentLine": {
             const bannerMinimum = getLineCommentBannerMinimum(options);
             const bannerAutofillThreshold = getLineCommentBannerAutofillThreshold(options);
-            const rawText = comment.leadingText || comment.raw || `//${comment.value}`;
+            const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
             if (bannerMatch) {
