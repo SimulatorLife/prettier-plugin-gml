@@ -152,6 +152,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2014") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureVertexFormatBeginPrecedesAttributeCalls({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -479,6 +495,105 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureVertexFormatBeginPrecedesAttributeCalls({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            const reordered = reorderVertexFormatBeginCalls(node, diagnostic);
+
+            if (Array.isArray(reordered) && reordered.length > 0) {
+                fixes.push(...reordered);
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index]);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function reorderVertexFormatBeginCalls(statements, diagnostic) {
+    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const node = statements[index];
+
+        if (!isVertexFormatBeginCall(node)) {
+            continue;
+        }
+
+        let insertIndex = index;
+        let offendingName = null;
+
+        while (insertIndex > 0) {
+            const previous = statements[insertIndex - 1];
+
+            if (!isVertexFormatAddCall(previous)) {
+                break;
+            }
+
+            insertIndex -= 1;
+
+            if (!offendingName) {
+                offendingName = getCallExpressionName(previous);
+            }
+        }
+
+        if (insertIndex === index) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        statements.splice(insertIndex, 0, node);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: offendingName ?? getCallExpressionName(node),
+            range: {
+                start: getNodeStartIndex(node),
+                end: getNodeEndIndex(node)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        attachFeatherFixMetadata(node, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -731,6 +846,34 @@ function isSpriteGetTextureCall(node) {
     }
 
     return isIdentifierWithName(node.object, "sprite_get_texture");
+}
+
+function isCallExpression(node) {
+    return !!node && node.type === "CallExpression";
+}
+
+function getCallExpressionName(node) {
+    if (!isCallExpression(node)) {
+        return null;
+    }
+
+    const object = node.object;
+
+    return isIdentifier(object) ? object.name ?? null : null;
+}
+
+function isVertexFormatAddCall(node) {
+    const name = getCallExpressionName(node);
+
+    if (typeof name !== "string") {
+        return false;
+    }
+
+    return name.startsWith("vertex_format_add_");
+}
+
+function isVertexFormatBeginCall(node) {
+    return getCallExpressionName(node) === "vertex_format_begin";
 }
 
 function isNegativeOneLiteral(node) {

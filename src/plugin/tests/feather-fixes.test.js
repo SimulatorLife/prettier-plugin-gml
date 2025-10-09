@@ -93,6 +93,46 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("moves vertex_format_begin calls before vertex_format_add calls flagged by GM2014", () => {
+        const source = [
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(body[0]?.object?.name, "vertex_format_begin");
+        assert.strictEqual(body[1]?.object?.name, "vertex_format_add_position_3d");
+        assert.strictEqual(body[2]?.object?.name, "vertex_format_add_colour");
+        assert.strictEqual(body[3]?.object?.name, "vertex_format_add_texcoord");
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2014 = appliedDiagnostics.find((entry) => entry.id === "GM2014");
+
+        assert.ok(gm2014, "Expected GM2014 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2014.automatic, true);
+        assert.strictEqual(gm2014.target, "vertex_format_add_colour");
+
+        const beginDiagnostics = body[0]?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            beginDiagnostics.some((entry) => entry.id === "GM2014"),
+            true,
+            "Expected GM2014 metadata to be recorded on the reordered call."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
