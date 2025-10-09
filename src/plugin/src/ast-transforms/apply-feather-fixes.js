@@ -139,6 +139,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2044") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = deduplicateLocalVariableDeclarations({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -261,6 +274,207 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const scopeStack = [];
+
+    const pushScope = (initialNames = []) => {
+        const scope = new Map();
+
+        if (Array.isArray(initialNames)) {
+            for (const name of initialNames) {
+                if (typeof name === "string" && name.length > 0) {
+                    scope.set(name, true);
+                }
+            }
+        }
+
+        scopeStack.push(scope);
+    };
+
+    const popScope = () => {
+        scopeStack.pop();
+    };
+
+    const declareLocal = (name) => {
+        if (typeof name !== "string" || name.length === 0) {
+            return true;
+        }
+
+        const scope = scopeStack[scopeStack.length - 1];
+
+        if (!scope) {
+            return true;
+        }
+
+        if (scope.has(name)) {
+            return false;
+        }
+
+        scope.set(name, true);
+        return true;
+    };
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const initialLength = node.length;
+                visit(node[index], node, index);
+
+                if (node.length < initialLength) {
+                    index -= 1;
+                }
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(node)) {
+            const paramNames = getFunctionParameterNames(node);
+
+            pushScope(paramNames);
+
+            const params = Array.isArray(node.params) ? node.params : [];
+            for (const param of params) {
+                visit(param, node, "params");
+            }
+
+            visit(node.body, node, "body");
+            popScope();
+            return;
+        }
+
+        if (node.type === "VariableDeclaration" && node.kind === "var") {
+            const fixDetails = handleVariableDeclaration(node, parent, property);
+
+            if (Array.isArray(fixDetails) && fixDetails.length > 0) {
+                fixes.push(...fixDetails);
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (key === "body" && isFunctionLikeNode(node)) {
+                continue;
+            }
+
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            visit(value, node, key);
+        }
+    };
+
+    const handleVariableDeclaration = (node, parent, property) => {
+        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+
+        if (declarations.length === 0) {
+            return [];
+        }
+
+        const retained = [];
+        const duplicates = [];
+
+        for (const declarator of declarations) {
+            if (!declarator || typeof declarator !== "object") {
+                retained.push(declarator);
+                continue;
+            }
+
+            const name = getVariableDeclaratorName(declarator);
+
+            if (!name) {
+                retained.push(declarator);
+                continue;
+            }
+
+            const isNewDeclaration = declareLocal(name);
+
+            if (isNewDeclaration) {
+                retained.push(declarator);
+                continue;
+            }
+
+            duplicates.push(declarator);
+        }
+
+        if (duplicates.length === 0) {
+            return [];
+        }
+
+        if (!Array.isArray(parent) || typeof property !== "number") {
+            return [];
+        }
+
+        const fixDetails = [];
+        const assignments = [];
+
+        for (const declarator of duplicates) {
+            const name = getVariableDeclaratorName(declarator);
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: name,
+                range: {
+                    start: getNodeStartIndex(declarator),
+                    end: getNodeEndIndex(declarator)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            const assignment = createAssignmentFromDeclarator(declarator, node);
+
+            if (assignment) {
+                attachFeatherFixMetadata(assignment, [fixDetail]);
+                assignments.push(assignment);
+            }
+
+            fixDetails.push(fixDetail);
+        }
+
+        if (fixDetails.length === 0) {
+            return [];
+        }
+
+        node.declarations = retained;
+
+        if (retained.length === 0) {
+            if (assignments.length > 0) {
+                parent.splice(property, 1, ...assignments);
+            } else {
+                parent.splice(property, 1);
+            }
+        } else if (assignments.length > 0) {
+            parent.splice(property + 1, 0, ...assignments);
+        }
+
+        if (retained.length > 0) {
+            attachFeatherFixMetadata(node, fixDetails);
+        }
+
+        return fixDetails;
+    };
+
+    pushScope();
+    visit(ast, null, null);
+    popScope();
+
+    return fixes;
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
@@ -723,6 +937,88 @@ function createIdentifier(name, template) {
     }
 
     return identifier;
+}
+
+function createAssignmentFromDeclarator(declarator, declarationNode) {
+    if (!declarator || typeof declarator !== "object") {
+        return null;
+    }
+
+    const identifier = declarator.id;
+
+    if (!isIdentifier(identifier)) {
+        return null;
+    }
+
+    if (!declarator.init) {
+        return null;
+    }
+
+    const assignment = {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: cloneIdentifier(identifier),
+        right: declarator.init,
+        start: cloneLocation(declarator.start ?? declarationNode?.start),
+        end: cloneLocation(declarator.end ?? declarationNode?.end)
+    };
+
+    copyCommentMetadata(declarator, assignment);
+
+    return assignment;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        node.type === "FunctionDeclaration" ||
+        node.type === "ConstructorDeclaration" ||
+        node.type === "StructDeclaration"
+    );
+}
+
+function getFunctionParameterNames(node) {
+    const params = Array.isArray(node?.params) ? node.params : [];
+    const names = [];
+
+    for (const param of params) {
+        if (!param || typeof param !== "object") {
+            continue;
+        }
+
+        if (isIdentifier(param)) {
+            if (param.name) {
+                names.push(param.name);
+            }
+            continue;
+        }
+
+        if (param.type === "DefaultParameter" && isIdentifier(param.left)) {
+            if (param.left.name) {
+                names.push(param.left.name);
+            }
+            continue;
+        }
+    }
+
+    return names;
+}
+
+function getVariableDeclaratorName(declarator) {
+    if (!declarator || typeof declarator !== "object") {
+        return null;
+    }
+
+    const identifier = declarator.id;
+
+    if (!isIdentifier(identifier)) {
+        return null;
+    }
+
+    return identifier.name ?? null;
 }
 
 function isSpriteGetTextureCall(node) {
