@@ -6,6 +6,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const NUMERIC_LITERAL_PATTERN = /^-?(?:\d+|\d*\.\d+)(?:[eE][+-]?\d+)?$/;
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
 export function getFeatherDiagnosticFixers() {
@@ -93,6 +94,19 @@ function buildFeatherFixImplementations() {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1035") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeReturnStatementTypes({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -464,6 +478,283 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function normalizeReturnStatementTypes({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(node)) {
+            const functionFixes = normalizeFunctionReturnTypes(node, diagnostic);
+
+            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+                fixes.push(...functionFixes);
+            }
+
+            visit(node.body);
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function normalizeFunctionReturnTypes(node, diagnostic) {
+    if (!node) {
+        return [];
+    }
+
+    const body = node.body;
+    const returnStatements = collectReturnStatements(body);
+
+    if (returnStatements.length === 0) {
+        return [];
+    }
+
+    let hasNumericLiteral = false;
+    let hasNonConvertibleLiteral = false;
+    const convertibleReturns = [];
+
+    for (const statement of returnStatements) {
+        const argument = statement.argument;
+
+        if (!argument) {
+            continue;
+        }
+
+        if (isNumericLiteral(argument)) {
+            hasNumericLiteral = true;
+            continue;
+        }
+
+        if (isNumericStringLiteral(argument)) {
+            convertibleReturns.push(statement);
+            continue;
+        }
+
+        hasNonConvertibleLiteral = true;
+    }
+
+    if (convertibleReturns.length === 0) {
+        return [];
+    }
+
+    if (hasNonConvertibleLiteral) {
+        return [];
+    }
+
+    if (!hasNumericLiteral && convertibleReturns.length !== returnStatements.length) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (const statement of convertibleReturns) {
+        const argument = statement.argument;
+        const numericValue = extractNumericValue(argument);
+
+        if (numericValue === null) {
+            continue;
+        }
+
+        const replacementLiteral = createLiteral(numericValue, argument);
+
+        if (!replacementLiteral) {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: getFunctionLikeName(node),
+            range: {
+                start: getNodeStartIndex(statement),
+                end: getNodeEndIndex(statement)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        statement.argument = replacementLiteral;
+        attachFeatherFixMetadata(statement, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
+function collectReturnStatements(node) {
+    const statements = [];
+
+    const visit = (candidate) => {
+        if (!candidate) {
+            return;
+        }
+
+        if (Array.isArray(candidate)) {
+            for (const item of candidate) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof candidate !== "object") {
+            return;
+        }
+
+        if (candidate.type === "ReturnStatement") {
+            statements.push(candidate);
+            return;
+        }
+
+        if (isFunctionLikeNode(candidate)) {
+            return;
+        }
+
+        for (const value of Object.values(candidate)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(node);
+
+    return statements;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return node.type === "FunctionDeclaration" || node.type === "FunctionExpression";
+}
+
+function getFunctionLikeName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (typeof node.id === "string" && node.id.length > 0) {
+        return node.id;
+    }
+
+    if (node.id && typeof node.id === "object" && typeof node.id.name === "string") {
+        return node.id.name;
+    }
+
+    if (typeof node.name === "string" && node.name.length > 0) {
+        return node.name;
+    }
+
+    if (node.name && typeof node.name === "object" && typeof node.name.name === "string") {
+        return node.name.name;
+    }
+
+    return null;
+}
+
+function isNumericLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    if (typeof node.value !== "string") {
+        return false;
+    }
+
+    if (isQuotedLiteralValue(node.value)) {
+        return false;
+    }
+
+    return NUMERIC_LITERAL_PATTERN.test(node.value.trim());
+}
+
+function isNumericStringLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    if (typeof node.value !== "string") {
+        return false;
+    }
+
+    if (!isQuotedLiteralValue(node.value)) {
+        return false;
+    }
+
+    const numericValue = extractNumericValue(node);
+    return numericValue !== null;
+}
+
+function isQuotedLiteralValue(value) {
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    if (value.length < 2) {
+        return false;
+    }
+
+    const first = value[0];
+    const last = value[value.length - 1];
+
+    return (first === "\"" || first === "'") && last === first;
+}
+
+function extractNumericValue(node) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const { value } = node;
+
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const first = value[0];
+    const last = value[value.length - 1];
+
+    if ((first !== "\"" && first !== "'") || last !== first) {
+        return null;
+    }
+
+    const inner = value.slice(1, -1).trim();
+
+    if (!NUMERIC_LITERAL_PATTERN.test(inner)) {
+        return null;
+    }
+
+    return inner;
 }
 
 function cloneIdentifier(node) {

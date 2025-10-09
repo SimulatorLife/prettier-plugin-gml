@@ -93,6 +93,48 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("normalizes numeric string return literals and records fix metadata", () => {
+        const source = [
+            "function get_random_number2() {",
+            "    if (irandom(100) < 50)",
+            "        return 0;",
+            "",
+            "    return \"1\";",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const fn = ast.body?.[0];
+        assert.ok(fn);
+        const body = fn.body?.body ?? [];
+        const trailingReturn = body[body.length - 1];
+
+        assert.ok(trailingReturn);
+        assert.strictEqual(trailingReturn.type, "ReturnStatement");
+        assert.strictEqual(trailingReturn.argument?.type, "Literal");
+        assert.strictEqual(trailingReturn.argument.value, "1");
+
+        const returnMetadata = trailingReturn._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(returnMetadata));
+        assert.strictEqual(returnMetadata.length > 0, true);
+        assert.strictEqual(returnMetadata[0].id, "GM1035");
+        assert.strictEqual(returnMetadata[0].target, "get_random_number2");
+        assert.strictEqual(returnMetadata[0].automatic, true);
+
+        const programMetadata = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            programMetadata.some((entry) => entry.id === "GM1035"),
+            true,
+            "Expected GM1035 metadata to be recorded on the program node."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
