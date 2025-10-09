@@ -130,4 +130,43 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "tex = (texture_defined) ? sprite_get_texture(sprite_index, 0) : -1;",
+            "",
+            "/// Draw Event",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [assignment] = ast.body ?? [];
+        assert.ok(assignment?.right?.type === "TernaryExpression");
+        assert.strictEqual(assignment.right.alternate.type === "UnaryExpression", true);
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const fixedTernary = assignment?.right;
+        assert.ok(fixedTernary);
+        assert.strictEqual(fixedTernary.alternate?.type, "Identifier");
+        assert.strictEqual(fixedTernary.alternate?.name, "pointer_null");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm1063 = appliedDiagnostics.find((entry) => entry.id === "GM1063");
+
+        assert.ok(gm1063, "Expected GM1063 metadata to be recorded on the AST.");
+        assert.strictEqual(gm1063.automatic, true);
+        assert.strictEqual(gm1063.target, "tex");
+        assert.ok(gm1063.range);
+
+        const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
+    });
 });
