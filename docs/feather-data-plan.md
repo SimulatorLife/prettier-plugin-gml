@@ -31,8 +31,12 @@
    - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
    - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRef`, `commitSha`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
 5. **Tooling integration**
-   - Ship `scripts/generate-feather-metadata.mjs`, sharing CLI ergonomics with the identifier generator and exposing it via `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
-   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
+  - Ship `scripts/generate-feather-metadata.mjs`, sharing CLI ergonomics with the identifier generator and exposing it via `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
+  - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
+
+## Regeneration helper
+- Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `scripts/cache/`.
+- Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
 
 ## Open questions / future research
 - The manual does not expose rule severity presets. We should inspect GameMaker IDE distributions (potentially via `@bscotch/stitch-launcher`) for config files that mirror the Message Severity table shown in the UI, so we can enrich the dataset in a later iteration.
