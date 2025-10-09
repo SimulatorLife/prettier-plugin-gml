@@ -131,6 +131,72 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("removes unreachable conditional branches flagged by GM2047", () => {
+        const source = [
+            "if (false)",
+            "{",
+            "    show_debug_message(\"never\");",
+            "}",
+            "",
+            "if (true)",
+            "{",
+            "    show_debug_message(\"always\");",
+            "}",
+            "else",
+            "{",
+            "    show_debug_message(\"nope\");",
+            "}",
+            "",
+            "var value = 1;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        const ifStatements = statements.filter((node) => node?.type === "IfStatement");
+
+        assert.strictEqual(
+            ifStatements.length,
+            0,
+            "Expected constant condition branches to be folded away."
+        );
+
+        const gm2047Entries = (ast._appliedFeatherDiagnostics ?? []).filter(
+            (entry) => entry.id === "GM2047"
+        );
+
+        assert.ok(
+            gm2047Entries.length >= 2,
+            "Expected GM2047 fixes to be recorded for each constant branch."
+        );
+
+        for (const entry of gm2047Entries) {
+            assert.strictEqual(entry.automatic, true);
+            assert.ok(entry.range);
+        }
+
+        const callStatements = statements.filter((node) => node?.type === "CallExpression");
+
+        assert.strictEqual(
+            callStatements.some((call) => call?.object?.name === "show_debug_message"),
+            true,
+            "Expected reachable call expressions to be preserved."
+        );
+
+        const callArguments = callStatements.flatMap((call) => call?.arguments ?? []);
+
+        assert.strictEqual(
+            callArguments.some((argument) => argument?.value === '"never"'),
+            false,
+            "Expected unreachable call arguments to be removed."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
