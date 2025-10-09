@@ -114,11 +114,11 @@ const stat = util.promisify(fs.stat);
 const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
-let projectIgnorePath = null;
+let projectIgnorePaths = [];
 let encounteredFormattingError = false;
 
 function getIgnorePathOptions() {
-    const ignoreCandidates = [ignorePath, projectIgnorePath].filter(Boolean);
+    const ignoreCandidates = [ignorePath, ...projectIgnorePaths].filter(Boolean);
     if (ignoreCandidates.length === 0) {
         return null;
     }
@@ -156,20 +156,50 @@ async function shouldSkipDirectory(directory) {
     return false;
 }
 
-async function resolveProjectIgnorePath(directory) {
-    const candidate = path.join(directory, ".prettierignore");
+async function resolveProjectIgnorePaths(directory) {
+    const directoriesToInspect = [];
+    const seenDirectories = new Set();
 
-    try {
-        const candidateStats = await stat(candidate);
-
-        if (candidateStats.isFile()) {
-            return candidate;
+    const collectDirectories = (startingDirectory) => {
+        if (!startingDirectory) {
+            return;
         }
-    } catch {
-        // Ignore missing files.
+
+        let currentDirectory = path.resolve(startingDirectory);
+
+        while (!seenDirectories.has(currentDirectory)) {
+            seenDirectories.add(currentDirectory);
+            directoriesToInspect.push(currentDirectory);
+
+            const parentDirectory = path.dirname(currentDirectory);
+            if (parentDirectory === currentDirectory) {
+                break;
+            }
+
+            currentDirectory = parentDirectory;
+        }
+    };
+
+    collectDirectories(directory);
+    collectDirectories(process.cwd());
+
+    const ignoreFiles = [];
+
+    for (const candidateDirectory of directoriesToInspect) {
+        const ignoreCandidate = path.join(candidateDirectory, ".prettierignore");
+
+        try {
+            const candidateStats = await stat(ignoreCandidate);
+
+            if (candidateStats.isFile()) {
+                ignoreFiles.push(ignoreCandidate);
+            }
+        } catch {
+            // Ignore missing files.
+        }
     }
 
-    return null;
+    return ignoreFiles;
 }
 
 async function ensureDirectoryExists(directory) {
@@ -267,7 +297,7 @@ async function processFile(filePath) {
 }
 
 await ensureDirectoryExists(targetPath);
-projectIgnorePath = await resolveProjectIgnorePath(targetPath);
+projectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);
 if (encounteredFormattingError) {
