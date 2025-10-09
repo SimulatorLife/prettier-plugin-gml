@@ -237,6 +237,38 @@ describe('Prettier GameMaker plugin fixtures', () => {
     );
   });
 
+  it('respects enum trailing comment padding overrides', async () => {
+    const source = [
+      'enum Alignment {',
+      '    Left, // left comment',
+      '    Right // right comment',
+      '}',
+      '',
+    ].join('\n');
+
+    const defaultFormatted = await formatWithPlugin(source);
+    const compactFormatted = await formatWithPlugin(source, {
+      enumTrailingCommentPadding: 0,
+    });
+
+    const defaultLine = defaultFormatted
+      .split('\n')
+      .find((line) => line.includes('Left'));
+    const compactLine = compactFormatted
+      .split('\n')
+      .find((line) => line.includes('Left'));
+
+    assert.ok(defaultLine && compactLine, 'Expected formatted enum members to be present.');
+
+    const defaultColumn = defaultLine.indexOf('//');
+    const compactColumn = compactLine.indexOf('//');
+
+    assert.ok(
+      defaultColumn > compactColumn,
+      'Expected reduced padding to move the trailing comment closer to the enum member name.'
+    );
+  });
+
   it('strips trailing macro semicolons when Feather fixes are applied', async () => {
     const source = [
       '#macro FOO(value) (value + 1);',
