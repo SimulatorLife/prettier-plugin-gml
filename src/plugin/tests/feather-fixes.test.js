@@ -169,4 +169,80 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("normalizes inconsistent naming flagged by GM2017 and records metadata", () => {
+        const source = [
+            "var s = sprSprite;",
+            "",
+            "enum size",
+            "",
+            "{",
+            "",
+            "    small,",
+            "",
+            "    medium,",
+            "",
+            "    large",
+            "",
+            "}",
+            "",
+            "function Show()",
+            "",
+            "{",
+            "",
+            "    show_debug_message(\"Here it is!\");",
+            "",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [variableDeclaration, enumDeclaration, functionDeclaration] = ast.body ?? [];
+
+        assert.ok(variableDeclaration);
+        assert.ok(enumDeclaration);
+        assert.ok(functionDeclaration);
+
+        const [variable] = variableDeclaration?.declarations ?? [];
+        assert.ok(variable);
+        assert.strictEqual(variable.id?.name, "_s");
+
+        assert.strictEqual(enumDeclaration?.name?.name, "SIZE");
+        const memberNames = (enumDeclaration?.members ?? []).map((member) => member?.name?.name);
+        assert.deepStrictEqual(memberNames, ["SMALL", "MEDIUM", "LARGE"]);
+
+        assert.strictEqual(functionDeclaration?.id, "show");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2017Fixes = appliedDiagnostics.filter((entry) => entry.id === "GM2017");
+
+        assert.strictEqual(gm2017Fixes.length >= 5, true);
+        assert.strictEqual(gm2017Fixes.every((entry) => entry.automatic === true), true);
+
+        const enumMemberMetadata = (enumDeclaration?.members ?? []).map(
+            (member) => member?._appliedFeatherDiagnostics ?? []
+        );
+
+        assert.strictEqual(
+            enumMemberMetadata.every((entries) => entries.some((entry) => entry.id === "GM2017")),
+            true
+        );
+
+        assert.ok(Array.isArray(variable.id?._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            variable.id._appliedFeatherDiagnostics.some((entry) => entry.id === "GM2017"),
+            true
+        );
+
+        const enumNameMetadata = enumDeclaration?.name?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(enumNameMetadata.some((entry) => entry.id === "GM2017"), true);
+
+        const functionMetadata = functionDeclaration?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(functionMetadata.some((entry) => entry.id === "GM2017"), true);
+    });
 });

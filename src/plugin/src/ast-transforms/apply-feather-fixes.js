@@ -139,6 +139,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2017") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = enforceDefaultNamingRules({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -421,6 +434,53 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     };
 
     visit(ast, null, null);
+
+    return fixes;
+}
+
+function enforceDefaultNamingRules({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "EnumDeclaration") {
+            applyEnumNamingRules(node, diagnostic, fixes);
+        }
+
+        if (node.type === "VariableDeclaration" && node.kind === "var") {
+            applyLocalVariableNamingRules(node, diagnostic, fixes);
+        }
+
+        if (node.type === "FunctionDeclaration") {
+            applyFunctionNamingRules(node, diagnostic, fixes);
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
 
     return fixes;
 }
@@ -755,6 +815,128 @@ function isNegativeOneLiteral(node) {
     return false;
 }
 
+function applyEnumNamingRules(node, diagnostic, fixes) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    const enumIdentifier = node.name;
+    const recommendedEnumName = normalizeEnumName(enumIdentifier?.name);
+
+    if (enumIdentifier && recommendedEnumName && recommendedEnumName !== enumIdentifier.name) {
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: recommendedEnumName,
+            range: {
+                start: getNodeStartIndex(enumIdentifier),
+                end: getNodeEndIndex(enumIdentifier)
+            }
+        });
+
+        if (fixDetail) {
+            enumIdentifier.name = recommendedEnumName;
+            fixes.push(fixDetail);
+            attachFeatherFixMetadata(enumIdentifier, [fixDetail]);
+        }
+    }
+
+    const members = Array.isArray(node.members) ? node.members : [];
+
+    for (const member of members) {
+        applyEnumMemberNamingRules(member, diagnostic, fixes);
+    }
+}
+
+function applyEnumMemberNamingRules(member, diagnostic, fixes) {
+    if (!member || typeof member !== "object") {
+        return;
+    }
+
+    const identifier = member.name;
+    const recommendedName = normalizeEnumMemberName(identifier?.name);
+
+    if (!identifier || !recommendedName || recommendedName === identifier.name) {
+        return;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: recommendedName,
+        range: {
+            start: getNodeStartIndex(identifier),
+            end: getNodeEndIndex(identifier)
+        }
+    });
+
+    if (!fixDetail) {
+        return;
+    }
+
+    identifier.name = recommendedName;
+    fixes.push(fixDetail);
+    attachFeatherFixMetadata(member, [fixDetail]);
+}
+
+function applyLocalVariableNamingRules(node, diagnostic, fixes) {
+    const declarations = Array.isArray(node?.declarations) ? node.declarations : [];
+
+    for (const declarator of declarations) {
+        if (!declarator || typeof declarator !== "object") {
+            continue;
+        }
+
+        const identifier = declarator.id;
+        const recommendedName = normalizeLocalVariableName(identifier?.name);
+
+        if (!identifier || !recommendedName || recommendedName === identifier.name) {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: recommendedName,
+            range: {
+                start: getNodeStartIndex(identifier),
+                end: getNodeEndIndex(identifier)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        identifier.name = recommendedName;
+        fixes.push(fixDetail);
+        attachFeatherFixMetadata(identifier, [fixDetail]);
+    }
+}
+
+function applyFunctionNamingRules(node, diagnostic, fixes) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    const currentName = typeof node.id === "string" && node.id ? node.id : null;
+    const recommendedName = normalizeFunctionName(currentName);
+
+    if (!currentName || !recommendedName || recommendedName === currentName) {
+        return;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: recommendedName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return;
+    }
+
+    node.id = recommendedName;
+    fixes.push(fixDetail);
+    attachFeatherFixMetadata(node, [fixDetail]);
+}
+
 function registerManualFeatherFix({ ast, diagnostic }) {
     if (!ast || typeof ast !== "object" || !diagnostic?.id) {
         return [];
@@ -829,5 +1011,118 @@ function attachFeatherFixMetadata(target, fixes) {
     }
 
     target[key].push(...fixes);
+}
+
+function normalizeEnumName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    if (name === name.toUpperCase()) {
+        return name;
+    }
+
+    if (name !== name.toLowerCase()) {
+        return null;
+    }
+
+    return toAllUpperSnakeCase(name);
+}
+
+function normalizeEnumMemberName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    if (name === name.toUpperCase()) {
+        return name;
+    }
+
+    if (name !== name.toLowerCase()) {
+        return null;
+    }
+
+    return toAllUpperSnakeCase(name);
+}
+
+function normalizeLocalVariableName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const trimmed = name.replace(/^_+/, "");
+    if (trimmed.length !== 1) {
+        return null;
+    }
+
+    return `_${trimmed.toLowerCase()}`;
+}
+
+function normalizeFunctionName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    if (!/^[A-Z][A-Za-z0-9]*$/.test(name)) {
+        return null;
+    }
+
+    return toLowerCamelCase(name);
+}
+
+function toAllUpperSnakeCase(name) {
+    const snake = toSnakeCase(name);
+
+    if (!snake) {
+        return null;
+    }
+
+    return snake.toUpperCase();
+}
+
+function toLowerCamelCase(name) {
+    const words = splitIdentifierIntoWords(name);
+
+    if (words.length === 0) {
+        return null;
+    }
+
+    const [first, ...rest] = words.map((word) => word.toLowerCase());
+
+    return first + rest.map(capitalizeWord).join("");
+}
+
+function toSnakeCase(name) {
+    const words = splitIdentifierIntoWords(name);
+
+    if (words.length === 0) {
+        return null;
+    }
+
+    return words.map((word) => word.toLowerCase()).join("_");
+}
+
+function splitIdentifierIntoWords(name) {
+    if (typeof name !== "string") {
+        return [];
+    }
+
+    const sanitized = name.replace(/[^A-Za-z0-9]+/g, " ");
+    const separated = sanitized
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+
+    return separated
+        .trim()
+        .split(/\s+/)
+        .filter((segment) => segment.length > 0);
+}
+
+function capitalizeWord(word) {
+    if (!word) {
+        return "";
+    }
+
+    return word[0].toUpperCase() + word.slice(1);
 }
 
