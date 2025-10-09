@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1009") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeOperationsThatTriggerGM1009({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -464,6 +477,289 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function normalizeOperationsThatTriggerGM1009({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = convertRoomGotoArithmetic(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        if (node.type === "BinaryExpression") {
+            const fix =
+                convertFlagConstantAddition(node, diagnostic) ??
+                convertRoomArithmeticExpression(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertFlagConstantAddition(node, diagnostic) {
+    if (!node || node.type !== "BinaryExpression" || node.operator !== "+") {
+        return null;
+    }
+
+    if (!isFlagConstantIdentifier(node.left) || !isFlagConstantIdentifier(node.right)) {
+        return null;
+    }
+
+    node.operator = "|";
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.left?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function convertRoomGotoArithmetic(node, diagnostic) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "room_goto")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length !== 1) {
+        return null;
+    }
+
+    const [argument] = args;
+
+    if (!argument || argument.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const normalized = normalizeRoomArithmetic(argument);
+
+    if (!normalized) {
+        return null;
+    }
+
+    const helperName = normalized.direction === "next" ? "room_goto_next" : "room_goto_previous";
+    const helperIdentifier = createIdentifier(helperName, node.object);
+
+    if (!helperIdentifier) {
+        return null;
+    }
+
+    node.object = helperIdentifier;
+    node.arguments = [];
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: helperName,
+        range: {
+            start: getNodeStartIndex(argument),
+            end: getNodeEndIndex(argument)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function convertRoomArithmeticExpression(node, parent, property, diagnostic) {
+    if (!parent || (!Array.isArray(parent) && typeof parent !== "object")) {
+        return null;
+    }
+
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const normalized = normalizeRoomArithmetic(node);
+
+    if (!normalized) {
+        return null;
+    }
+
+    const helperName = normalized.direction === "next" ? "room_next" : "room_previous";
+    const helperIdentifier = createIdentifier(helperName, node);
+    const argumentIdentifier = cloneIdentifier(normalized.reference);
+
+    if (!helperIdentifier || !argumentIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: helperIdentifier,
+        arguments: [argumentIdentifier],
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    copyCommentMetadata(node, callExpression);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: helperName,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (Array.isArray(parent) && typeof property === "number") {
+        parent[property] = callExpression;
+    } else if (typeof property === "string") {
+        parent[property] = callExpression;
+    } else {
+        return null;
+    }
+
+    attachFeatherFixMetadata(callExpression, [fixDetail]);
+
+    return fixDetail;
+}
+
+function normalizeRoomArithmetic(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (node.operator !== "+" && node.operator !== "-") {
+        return null;
+    }
+
+    const leftIsRoom = isIdentifierWithName(node.left, "room");
+    const rightIsRoom = isIdentifierWithName(node.right, "room");
+
+    if (leftIsRoom === rightIsRoom) {
+        return null;
+    }
+
+    const literalNode = leftIsRoom ? node.right : node.left;
+    const numericValue = getLiteralNumericValue(literalNode);
+
+    if (numericValue !== 1) {
+        return null;
+    }
+
+    if (!leftIsRoom && node.operator === "-") {
+        return null;
+    }
+
+    return {
+        direction: node.operator === "+" ? "next" : "previous",
+        reference: leftIsRoom ? node.left : node.right
+    };
+}
+
+function getLiteralNumericValue(node) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const { value } = node;
+
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === "string") {
+        if (value.trim().length === 0) {
+            return null;
+        }
+
+        const parsed = Number(value);
+
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function isFlagConstantIdentifier(node) {
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    return typeof node.name === "string" && /^fa_[a-z0-9_]+$/i.test(node.name);
+}
+
+function createIdentifier(name, template) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+    }
+
+    return identifier;
 }
 
 function cloneIdentifier(node) {

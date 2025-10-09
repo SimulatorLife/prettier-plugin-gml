@@ -130,4 +130,59 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("normalizes GM1009 operations and captures fix metadata", () => {
+        const source = [
+            "var _attribs = fa_readonly + fa_archive;",
+            "var next_room = room + 1;",
+            "var previous_room = room - 1;",
+            "room_goto(room + 1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [attribDecl, nextDecl, previousDecl, gotoStatement] = ast.body ?? [];
+
+        const attribInit = attribDecl?.declarations?.[0]?.init;
+        assert.ok(attribInit);
+        assert.strictEqual(attribInit.operator, "|");
+        assert.ok(Array.isArray(attribInit._appliedFeatherDiagnostics));
+        assert.strictEqual(attribInit._appliedFeatherDiagnostics[0]?.id, "GM1009");
+
+        const nextInit = nextDecl?.declarations?.[0]?.init;
+        assert.ok(nextInit);
+        assert.strictEqual(nextInit.type, "CallExpression");
+        assert.strictEqual(nextInit.object?.name, "room_next");
+        assert.deepStrictEqual(nextInit.arguments?.map((argument) => argument?.name), ["room"]);
+        assert.ok(Array.isArray(nextInit._appliedFeatherDiagnostics));
+        assert.strictEqual(nextInit._appliedFeatherDiagnostics[0]?.id, "GM1009");
+
+        const previousInit = previousDecl?.declarations?.[0]?.init;
+        assert.ok(previousInit);
+        assert.strictEqual(previousInit.type, "CallExpression");
+        assert.strictEqual(previousInit.object?.name, "room_previous");
+        assert.deepStrictEqual(previousInit.arguments?.map((argument) => argument?.name), ["room"]);
+        assert.ok(Array.isArray(previousInit._appliedFeatherDiagnostics));
+        assert.strictEqual(previousInit._appliedFeatherDiagnostics[0]?.id, "GM1009");
+
+        const gotoExpression = gotoStatement;
+        assert.ok(gotoExpression);
+        assert.strictEqual(gotoExpression.type, "CallExpression");
+        assert.strictEqual(gotoExpression.object?.name, "room_goto_next");
+        assert.deepStrictEqual(gotoExpression.arguments, []);
+        assert.ok(Array.isArray(gotoExpression._appliedFeatherDiagnostics));
+        assert.strictEqual(gotoExpression._appliedFeatherDiagnostics[0]?.id, "GM1009");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1009"),
+            true,
+            "Expected GM1009 fix metadata to be captured on the program node."
+        );
+    });
 });
