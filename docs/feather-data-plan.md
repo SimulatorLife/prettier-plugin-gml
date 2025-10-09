@@ -1,0 +1,39 @@
+# Plan: Automating Feather lint metadata ingestion
+
+## Goals and scope
+- Mirror the approach used for `gml-identifiers.json` by scraping first-party GameMaker sources instead of maintaining hand-written lint metadata.
+- Capture the rules that affect formatter output: message catalogue (GM* diagnostics), naming-style presets, suppress/override directives, and Feather's type taxonomy.
+- Produce a machine-readable artefact (e.g. `resources/feather-rules.json`) that can be regenerated against any GameMaker release tag and consumed by future formatting heuristics.
+
+## Upstream sources worth harvesting
+1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
+   - The manual repository already exposes multiple Feather-specific HTML topics: `Feather_Messages`, `Feather_Directives`, `Feather_Features`, `Feather_Data_Types`, and the IDE preference page that enumerates naming-rule controls.【6f027d†L1-L10】
+   - `Feather_Messages` documents every GM1xxx/GM2xxx diagnostic with prose, fix guidance, and embedded code samples that we can parse into a structured rule catalogue.【3062ec†L1-L80】【f622c5†L1-L33】
+   - `Feather_Settings` lists the configurable naming styles, prefixes/suffixes, and the linkage to GM2017, which is exactly the data we need to mirror Feather's naming policies.【702cf8†L31-L120】
+   - `Feather_Directives` explains project-level overrides (`// Feather ignore …`, `// Feather use …`) including path glob syntax, so we can understand how to map diagnostics to suppressions and profiles.【40be1b†L1-L44】
+   - `Feather_Data_Types` details the base types, specifiers, and collection syntax recognised by the language server, which we can lift to inform formatter-aware type hints later.【ec129e†L1-L80】
+2. **Existing identifier harvesting script**
+   - `scripts/generate-gml-identifiers.mjs` already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.【F:scripts/generate-gml-identifiers.mjs†L1-L138】
+
+## Extraction pipeline outline
+1. **Version selection & caching**
+   - Follow the identifier script's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.【F:scripts/generate-gml-identifiers.mjs†L21-L139】
+2. **Data acquisition**
+   - Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【F:scripts/generate-gml-identifiers.mjs†L121-L139】【6f027d†L1-L10】
+   - Keep the fetch list configurable so we can add/remove topics without touching code (e.g. JSON manifest describing each page and the section(s) to extract).
+3. **HTML parsing**
+   - Use a resilient HTML parser (Cheerio or `linkedom`) to traverse headings, paragraphs, tables, and code blocks. RoboHelp exports are consistent (nested `<h3>`, `<p class="code">`, `<table>` blocks), so we can map DOM structures to structured records.
+   - For `Feather_Messages`, group each `<h3>` diagnostic heading with subsequent prose, notes, and code samples until the next heading. Extract the rule ID, title, description, strict-mode annotations (`div[data-conref]`), and sample snippets. Preserve HTML-to-Markdown conversion so we can surface examples later.【3062ec†L1-L80】【f622c5†L1-L33】
+   - For `Feather_Settings`, parse the Naming Rules section to enumerate selectable styles, prefix/suffix toggles, and the GM2017 dependency. This can become a schema like `{ identifierKind, namingStyleOptions, supportsPrefix, supportsSuffix, preserveUnderscores }` for downstream formatters.【702cf8†L71-L120】
+   - For `Feather_Directives`, capture directive keywords (`ignore`, `use`), valid scope patterns, and documented examples so we can validate suppression comments and propose quick fixes.【40be1b†L1-L44】
+   - For `Feather_Data_Types`, extract the base type list, specifier examples, and explanatory text so we can normalise Feather type annotations when generating documentation or enforcing formatter-aware heuristics.【ec129e†L1-L80】
+4. **Normalisation & schema**
+   - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
+   - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRef`, `commitSha`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
+5. **Tooling integration**
+   - Add a new script (e.g. `scripts/generate-feather-metadata.mjs`) that shares CLI ergonomics with the identifier generator. Wire it into `package.json` scripts for easy regeneration and future CI checks.
+   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
+
+## Open questions / future research
+- The manual does not expose rule severity presets. We should inspect GameMaker IDE distributions (potentially via `@bscotch/stitch-launcher`) for config files that mirror the Message Severity table shown in the UI, so we can enrich the dataset in a later iteration.
+- Investigate whether Feather ships additional machine-readable metadata (e.g. language server protocol definitions) that could be scraped once we have access to an IDE install; the current plan focuses on publicly accessible manual content to unblock formatter research quickly.
