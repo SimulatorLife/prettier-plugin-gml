@@ -93,6 +93,57 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("removes standalone string literal statements and records GM1027 metadata", () => {
+        const gmMetadata = getFeatherMetadata();
+        const gm1027 = gmMetadata.diagnostics.find((entry) => entry.id === "GM1027");
+
+        const source = ['"dang";', 'show_debug_message("kept");'].join("\n");
+
+        const ast = {
+            type: "Program",
+            body: [
+                {
+                    type: "ExpressionStatement",
+                    expression: { type: "Literal", value: '"dang"' },
+                    start: { index: 0 },
+                    end: { index: 6 }
+                },
+                {
+                    type: "ExpressionStatement",
+                    expression: {
+                        type: "CallExpression",
+                        object: { type: "Identifier", name: "show_debug_message" },
+                        arguments: [{ type: "Literal", value: '"kept"' }]
+                    },
+                    start: { index: 8 },
+                    end: { index: source.length - 1 }
+                }
+            ]
+        };
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length, 1);
+        assert.strictEqual(ast.body[0].expression?.type, "CallExpression");
+
+        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics.filter((entry) => entry.id === "GM1027")
+            : [];
+
+        assert.strictEqual(recordedFixes.length, 1);
+
+        const [fixDetail] = recordedFixes;
+        assert.strictEqual(fixDetail.automatic, true);
+        assert.strictEqual(fixDetail.target, '"dang"');
+
+        if (gm1027) {
+            assert.strictEqual(fixDetail.title, gm1027.title);
+            assert.strictEqual(fixDetail.description, gm1027.description);
+            assert.strictEqual(fixDetail.correction, gm1027.correction);
+        }
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

@@ -96,6 +96,27 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1027") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, sourceText }) => {
+                    const fixes = removeStandaloneStringLiteralStatements({
+                        ast,
+                        sourceText,
+                        diagnostic
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -159,6 +180,172 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function removeStandaloneStringLiteralStatements({ ast, sourceText, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property, containerOwner, containerProperty) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            const ownerNode = containerOwner || (parent && typeof parent === "object" ? parent : null);
+            const ownerProperty =
+                containerProperty ?? (typeof property === "string" ? property : null);
+
+            for (let index = 0; index < node.length; ) {
+                const child = node[index];
+
+                if (
+                    isStandaloneStringLiteralStatement(child) &&
+                    isStatementContainer(ownerNode, ownerProperty)
+                ) {
+                    const literal = getLiteralFromExpression(child.expression);
+                    const startIndex = getNodeStartIndex(child);
+                    const endIndex = getNodeEndIndex(child);
+                    const range =
+                        typeof startIndex === "number" && typeof endIndex === "number"
+                            ? { start: startIndex, end: endIndex }
+                            : null;
+
+                    const textSnippet = getSourceSnippet(sourceText, range);
+                    const target = literal?.value ?? textSnippet ?? null;
+
+                    const fixDetail = createFeatherFixDetail(diagnostic, {
+                        target,
+                        range
+                    });
+
+                    if (fixDetail) {
+                        const metadataTarget =
+                            ownerNode && typeof ownerNode === "object" ? ownerNode : null;
+
+                        if (metadataTarget && metadataTarget !== ast) {
+                            attachFeatherFixMetadata(metadataTarget, [fixDetail]);
+                        }
+
+                        fixes.push(fixDetail);
+                    }
+
+                    node.splice(index, 1);
+                    continue;
+                }
+
+                visit(child, node, index, ownerNode, ownerProperty);
+                index += 1;
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                if (Array.isArray(value)) {
+                    visit(value, node, key, node, key);
+                } else {
+                    visit(value, node, key, null, null);
+                }
+            }
+        }
+    };
+
+    visit(ast, null, null, null, null);
+
+    return fixes;
+}
+
+function isStatementContainer(node, property) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (!property) {
+        return false;
+    }
+
+    if (property === "body" || property === "consequent") {
+        return true;
+    }
+
+    if (node.type === "Program" && property === "body") {
+        return true;
+    }
+
+    if (node.type === "SwitchCase" && property === "consequent") {
+        return true;
+    }
+
+    return false;
+}
+
+function isStandaloneStringLiteralStatement(node) {
+    if (!node || node.type !== "ExpressionStatement") {
+        return false;
+    }
+
+    const literal = getLiteralFromExpression(node.expression);
+
+    if (!literal) {
+        return false;
+    }
+
+    return isStringLiteralValue(literal.value);
+}
+
+function getLiteralFromExpression(expression) {
+    let current = expression;
+
+    while (current && current.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    if (!current || current.type !== "Literal") {
+        return null;
+    }
+
+    return current;
+}
+
+function isStringLiteralValue(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return false;
+    }
+
+    if (value.startsWith("\"") && value.endsWith("\"")) {
+        return true;
+    }
+
+    if (value.startsWith("'") && value.endsWith("'")) {
+        return true;
+    }
+
+    return false;
+}
+
+function getSourceSnippet(sourceText, range) {
+    if (typeof sourceText !== "string") {
+        return null;
+    }
+
+    if (!range || typeof range.start !== "number" || typeof range.end !== "number") {
+        return null;
+    }
+
+    if (range.start < 0 || range.end < range.start) {
+        return null;
+    }
+
+    return sourceText.slice(range.start, range.end + 1);
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
