@@ -169,4 +169,50 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("inserts vertex_begin before vertex_end flagged by GM2009 and records metadata", () => {
+        const source = "vertex_end(vb);";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 2, "Expected vertex_begin to be inserted before vertex_end.");
+
+        const vertexBegin = body[0];
+        const vertexEnd = body[1];
+
+        assert.ok(vertexBegin?.type === "CallExpression");
+        assert.strictEqual(vertexBegin.object?.name, "vertex_begin");
+
+        const beginArgs = Array.isArray(vertexBegin.arguments) ? vertexBegin.arguments : [];
+        assert.strictEqual(beginArgs.length >= 1, true);
+        assert.strictEqual(beginArgs[0]?.name, "vb");
+        assert.strictEqual(beginArgs[1]?.name, "format");
+
+        assert.ok(vertexEnd?.type === "CallExpression");
+        assert.strictEqual(vertexEnd.object?.name, "vertex_end");
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2009 = appliedDiagnostics.find((entry) => entry.id === "GM2009");
+
+        assert.ok(gm2009, "Expected GM2009 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2009.automatic, true);
+        assert.strictEqual(gm2009.target, "vb");
+        assert.ok(gm2009.range);
+        assert.strictEqual(typeof gm2009.range.start, "number");
+        assert.strictEqual(typeof gm2009.range.end, "number");
+
+        const beginMetadata = vertexBegin?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(beginMetadata.some((entry) => entry.id === "GM2009"), true);
+
+        const endMetadata = vertexEnd?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(endMetadata.some((entry) => entry.id === "GM2009"), true);
+    });
 });
