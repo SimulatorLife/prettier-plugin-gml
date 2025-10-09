@@ -169,4 +169,42 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("resets draw_set_halign calls flagged by GM2026 and records metadata", () => {
+        const source = [
+            "draw_set_halign(fa_right);",
+            "",
+            "draw_text(room_width - 5, 5, \"In the top-right corner\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const calls = Array.isArray(ast.body)
+            ? ast.body.filter((node) => node?.type === "CallExpression")
+            : [];
+
+        assert.strictEqual(calls.length, 3);
+
+        const resetCall = calls[calls.length - 1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.object?.name, "draw_set_halign");
+        assert.ok(Array.isArray(resetCall.arguments));
+        assert.strictEqual(resetCall.arguments[0]?.name, "fa_left");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2026 = appliedDiagnostics.find((entry) => entry.id === "GM2026");
+
+        assert.ok(gm2026, "Expected GM2026 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2026.automatic, true);
+        assert.strictEqual(gm2026.target, "draw_set_halign");
+        assert.ok(gm2026.range);
+
+        const resetDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(resetDiagnostics.some((entry) => entry.id === "GM2026"), true);
+    });
 });

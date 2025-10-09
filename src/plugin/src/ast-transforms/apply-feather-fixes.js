@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2026") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureHalignIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -377,6 +390,104 @@ function convertAllAssignment(node, parent, property, diagnostic) {
 
     parent[property] = withStatement;
     attachFeatherFixMetadata(withStatement, [fixDetail]);
+
+    return fixDetail;
+}
+
+function ensureHalignIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureHalignResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "draw_set_halign")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isIdentifierWithName(args[0], "fa_left")) {
+        return null;
+    }
+
+    const siblings = parent;
+    const subsequentNodes = siblings.slice(property + 1);
+
+    if (subsequentNodes.some(isHalignResetCall)) {
+        return null;
+    }
+
+    const resetCall = createHalignResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.push(resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
 }
@@ -681,6 +792,40 @@ function createAlphaTestRefResetCall(template) {
     return callExpression;
 }
 
+function createHalignResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "draw_set_halign") {
+        return null;
+    }
+
+    const faLeft = createIdentifier("fa_left", template.arguments?.[0]);
+
+    if (!faLeft) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [faLeft]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
 function createLiteral(value, template) {
     const literalValue = typeof value === "number" ? String(value) : value;
 
@@ -753,6 +898,24 @@ function isNegativeOneLiteral(node) {
     }
 
     return false;
+}
+
+function isHalignResetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "draw_set_halign")) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isIdentifierWithName(args[0], "fa_left");
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
