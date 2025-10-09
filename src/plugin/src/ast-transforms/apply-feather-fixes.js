@@ -7,6 +7,7 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const NUMERIC_LITERAL_PATTERN = /^(?:[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?|0[xX][0-9a-fA-F]+|#[0-9a-fA-F]{3,8})$/;
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -93,6 +94,19 @@ function buildFeatherFixImplementations() {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1025") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeStandaloneNumberLiterals({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -466,6 +480,90 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function normalizeStandaloneNumberLiterals({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const processStatements = (container, property) => {
+        if (!container || typeof container !== "object") {
+            return;
+        }
+
+        const statements = container[property];
+
+        if (!Array.isArray(statements) || statements.length === 0) {
+            return;
+        }
+
+        for (let index = 0; index < statements.length; index += 1) {
+            const statement = statements[index];
+
+            if (!isNumericLiteralExpressionStatement(statement)) {
+                continue;
+            }
+
+            const replacement = createReturnStatementFromExpression(statement);
+
+            if (!replacement) {
+                continue;
+            }
+
+            const literalText = getNumericLiteralText(statement);
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: literalText,
+                range: {
+                    start: getNodeStartIndex(statement),
+                    end: getNodeEndIndex(statement)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements[index] = replacement;
+            attachFeatherFixMetadata(replacement, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    };
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "Program" || node.type === "BlockStatement") {
+            processStatements(node, "body");
+        } else if (node.type === "SwitchCase") {
+            processStatements(node, "consequent");
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
 function cloneIdentifier(node) {
     if (!node || node.type !== "Identifier") {
         return null;
@@ -594,6 +692,103 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+function isNumericLiteralExpressionStatement(node) {
+    if (!node || node.type !== "ExpressionStatement") {
+        return false;
+    }
+
+    return isNumericLiteralExpression(node.expression);
+}
+
+function isNumericLiteralExpression(expression) {
+    if (expression && typeof expression === "object" && expression.type === "Literal") {
+        return isNumericLiteralValue(expression.value);
+    }
+
+    if (typeof expression === "string") {
+        return isNumericLiteralValue(expression);
+    }
+
+    return false;
+}
+
+function isNumericLiteralValue(value) {
+    if (typeof value === "number") {
+        return true;
+    }
+
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const trimmed = value.trim();
+
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    return NUMERIC_LITERAL_PATTERN.test(trimmed);
+}
+
+function createReturnStatementFromExpression(statement) {
+    if (!statement || typeof statement !== "object") {
+        return null;
+    }
+
+    const literal = convertExpressionToLiteral(statement.expression, statement);
+
+    if (!literal) {
+        return null;
+    }
+
+    const returnStatement = {
+        type: "ReturnStatement",
+        argument: literal,
+        start: cloneLocation(statement.start),
+        end: cloneLocation(statement.end)
+    };
+
+    copyCommentMetadata(statement, returnStatement);
+
+    return returnStatement;
+}
+
+function convertExpressionToLiteral(expression, fallbackNode) {
+    if (expression && typeof expression === "object" && expression.type === "Literal") {
+        return createLiteral(expression.value, expression);
+    }
+
+    if (typeof expression === "string") {
+        const literal = createLiteral(expression, fallbackNode);
+
+        if (!Object.prototype.hasOwnProperty.call(literal, "start") && fallbackNode?.start) {
+            literal.start = cloneLocation(fallbackNode.start);
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(literal, "end") && fallbackNode?.end) {
+            literal.end = cloneLocation(fallbackNode.end);
+        }
+
+        return literal;
+    }
+
+    return null;
+}
+
+function getNumericLiteralText(statement) {
+    const expression = statement?.expression;
+
+    if (expression && typeof expression === "object" && expression.type === "Literal") {
+        return expression.value ?? null;
+    }
+
+    if (typeof expression === "string") {
+        return expression;
+    }
+
+    return null;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {

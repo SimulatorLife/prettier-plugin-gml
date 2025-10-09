@@ -130,4 +130,103 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("wraps standalone numeric literals with return statements and records metadata", () => {
+        const sourceWithReturn = [
+            "function constant() {",
+            "    return 123;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(sourceWithReturn, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const program = ast;
+        const [functionDeclaration] = program.body ?? [];
+        assert.ok(functionDeclaration);
+
+        const block = functionDeclaration.body;
+        const [originalReturn] = block.body ?? [];
+        assert.ok(originalReturn);
+
+        block.body[0] = {
+            type: "ExpressionStatement",
+            expression: originalReturn.argument,
+            start: { line: 2, index: 26 },
+            end: { line: 2, index: 29 }
+        };
+
+        const literalSource = [
+            "function constant() {",
+            "    123;",
+            "}"
+        ].join("\n");
+
+        applyFeatherFixes(program, { sourceText: literalSource });
+
+        const [updatedStatement] = block.body ?? [];
+
+        assert.ok(updatedStatement);
+        assert.strictEqual(updatedStatement.type, "ReturnStatement");
+        assert.ok(Array.isArray(updatedStatement._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            updatedStatement._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1025"),
+            true,
+            "Expected GM1025 metadata to be recorded on the synthesized return statement."
+        );
+
+        assert.ok(Array.isArray(program._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            program._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1025"),
+            true,
+            "Expected program-level Feather metadata to include GM1025."
+        );
+    });
+
+    it("wraps standalone colour literals and preserves literal text in metadata", () => {
+        const sourceWithReturn = [
+            "function get_colour() {",
+            "    return #AEF033;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(sourceWithReturn, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const program = ast;
+        const [functionDeclaration] = program.body ?? [];
+        const block = functionDeclaration.body;
+        const [originalReturn] = block.body ?? [];
+
+        block.body[0] = {
+            type: "ExpressionStatement",
+            expression: originalReturn.argument,
+            start: { line: 2, index: 28 },
+            end: { line: 2, index: 35 }
+        };
+
+        const literalSource = [
+            "function get_colour() {",
+            "    #AEF033;",
+            "}"
+        ].join("\n");
+
+        applyFeatherFixes(program, { sourceText: literalSource });
+
+        const [updatedStatement] = block.body ?? [];
+
+        assert.ok(updatedStatement);
+        assert.strictEqual(updatedStatement.type, "ReturnStatement");
+
+        const diagnostics = updatedStatement._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            diagnostics.some((entry) => entry.id === "GM1025" && entry.target === "#AEF033"),
+            true,
+            "Expected GM1025 metadata to capture the colour literal text."
+        );
+    });
 });
