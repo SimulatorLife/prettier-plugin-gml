@@ -125,6 +125,45 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('skips symbolic links to avoid infinite directory traversal loops', async function () {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const symlinkPath = path.join(tempDirectory, 'loop');
+
+      let shouldSkip = false;
+
+      try {
+        await fs.symlink(tempDirectory, symlinkPath, 'dir');
+      } catch (error) {
+        if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
+          shouldSkip = true;
+        } else {
+          throw error;
+        }
+      }
+
+      if (shouldSkip) {
+        this.skip();
+      }
+
+      const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      assert.ok(
+        stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
+        'Expected wrapper output to report skipped symbolic links'
+      );
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('exits with a non-zero status when formatting fails', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
