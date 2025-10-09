@@ -176,6 +176,14 @@ function getIdentifierText(node) {
         return null;
     }
 
+    if (typeof node === "string") {
+        return node;
+    }
+
+    if (typeof node.name === "string") {
+        return node.name;
+    }
+
     if (node.type === "Identifier") {
         return node.name || null;
     }
@@ -221,5 +229,6 @@ export {
     DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
-    getSizeRetrievalFunctionSuffixes
+    getSizeRetrievalFunctionSuffixes,
+    getIdentifierText
 };
