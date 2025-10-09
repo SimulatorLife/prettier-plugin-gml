@@ -214,4 +214,46 @@ describe('Prettier GameMaker plugin fixtures', () => {
       "Expected formatter to omit 'globalvar' declarations when disabled."
     );
   });
+
+  it('strips trailing macro semicolons when Feather fixes are applied', async () => {
+    const source = [
+      '#macro FOO(value) (value + 1);',
+      '#macro BAR 100;',
+      '',
+      'var result = FOO(1) + BAR;',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source, { applyFeatherFixes: true });
+
+    const expected = [
+      '#macro FOO(value) (value + 1)',
+      '',
+      '#macro BAR 100',
+      '',
+      'var result = FOO(1) + BAR;',
+    ].join('\n');
+
+    assert.strictEqual(formatted, expected);
+  });
+
+  it('leaves inline macro semicolons untouched when they are not trailing', async () => {
+    const source = [
+      '#macro FOO(value) (value + 1); // comment',
+      '#macro BAR value + 2;',
+      '',
+      'var result = FOO(3) + BAR;',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source, { applyFeatherFixes: true });
+
+    const expected = [
+      '#macro FOO(value) (value + 1); // comment',
+      '',
+      '#macro BAR value + 2',
+      '',
+      'var result = FOO(3) + BAR;',
+    ].join('\n');
+
+    assert.strictEqual(formatted, expected);
+  });
 });
