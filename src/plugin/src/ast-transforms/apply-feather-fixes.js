@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1006") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = mergeDuplicateEnumDeclarations({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -195,6 +208,94 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     };
 
     visit(ast);
+
+    return fixes;
+}
+
+function mergeDuplicateEnumDeclarations({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const enumRegistry = new Map();
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return null;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const result = visit(node[index], node, index);
+
+                if (result?.removed === true) {
+                    index -= 1;
+                }
+            }
+            return null;
+        }
+
+        if (typeof node !== "object") {
+            return null;
+        }
+
+        if (node.type === "EnumDeclaration") {
+            const enumName = node?.name?.name;
+
+            if (enumName && enumRegistry.has(enumName) && Array.isArray(parent) && typeof property === "number") {
+                const canonical = enumRegistry.get(enumName);
+                const canonicalEnum = canonical?.node ?? null;
+
+                if (!canonicalEnum || canonicalEnum === node) {
+                    return null;
+                }
+
+                const canonicalMembers = Array.isArray(canonicalEnum.members) ? canonicalEnum.members : [];
+
+                if (!Array.isArray(canonicalEnum.members)) {
+                    canonicalEnum.members = canonicalMembers;
+                }
+
+                const duplicateMembers = Array.isArray(node.members) ? node.members : [];
+
+                if (duplicateMembers.length > 0) {
+                    canonicalMembers.push(...duplicateMembers);
+                }
+
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: enumName,
+                    range: {
+                        start: getNodeStartIndex(node),
+                        end: getNodeEndIndex(node)
+                    }
+                });
+
+                if (fixDetail) {
+                    fixes.push(fixDetail);
+                    attachFeatherFixMetadata(canonicalEnum, [fixDetail]);
+                }
+
+                parent.splice(property, 1);
+
+                return { removed: true };
+            }
+
+            if (enumName && !enumRegistry.has(enumName)) {
+                enumRegistry.set(enumName, { node });
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+
+        return null;
+    };
+
+    visit(ast, null, null);
 
     return fixes;
 }
