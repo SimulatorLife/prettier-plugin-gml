@@ -93,6 +93,56 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("resets alpha test enable calls flagged by GM2053 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(statements.length >= 3, true, "Expected reset call to be inserted.");
+
+        const enableCall = statements[0];
+        const resetCall = statements[1];
+
+        assert.strictEqual(enableCall?.type, "CallExpression");
+        assert.strictEqual(enableCall?.object?.name, "gpu_set_alphatestenable");
+
+        assert.strictEqual(resetCall?.type, "CallExpression");
+        assert.strictEqual(resetCall?.object?.name, "gpu_set_alphatestenable");
+
+        const [resetArg] = Array.isArray(resetCall?.arguments) ? resetCall.arguments : [];
+        assert.ok(resetArg);
+        assert.strictEqual(resetArg.type, "Literal");
+        assert.ok(resetArg.value === false || resetArg.value === "false");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2053 = appliedDiagnostics.find((entry) => entry.id === "GM2053");
+
+        assert.ok(gm2053, "Expected GM2053 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2053.automatic, true);
+        assert.strictEqual(gm2053.target, "gpu_set_alphatestenable");
+        assert.ok(gm2053.range);
+
+        const resetDiagnostics = resetCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2053"),
+            true,
+            "Expected GM2053 metadata on the inserted reset call."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
