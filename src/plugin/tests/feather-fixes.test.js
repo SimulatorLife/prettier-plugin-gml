@@ -169,4 +169,49 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("resets blend modes flagged by GM2000 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_blendmode(bm_add);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(statements.length >= 3, true, "Expected blend mode reset to be inserted.");
+
+        const originalCall = statements[0];
+        assert.ok(originalCall);
+        assert.strictEqual(originalCall.type, "CallExpression");
+        assert.strictEqual(originalCall.object?.name, "gpu_set_blendmode");
+
+        const resetCall = statements[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendmode");
+
+        const [resetArgument] = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.ok(resetArgument);
+        assert.strictEqual(resetArgument.type, "Identifier");
+        assert.strictEqual(resetArgument.name, "bm_normal");
+
+        const resetDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(resetDiagnostics.some((entry) => entry.id === "GM2000"), true);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2000 = appliedDiagnostics.find((entry) => entry.id === "GM2000");
+        assert.ok(gm2000, "Expected GM2000 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2000.automatic, true);
+        assert.strictEqual(gm2000.target, "gpu_set_blendmode");
+        assert.ok(gm2000.range);
+    });
 });
