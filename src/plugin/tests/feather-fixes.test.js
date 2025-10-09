@@ -230,6 +230,55 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
 
+    it("resets texture filtering flagged by GM2055 and records metadata", () => {
+        const source = [
+            "gpu_set_texfilter(true);",
+            "vertex_submit(vb_world, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 3);
+
+        const [enableCall, resetCall, submitCall] = body;
+
+        assert.ok(enableCall);
+        assert.strictEqual(enableCall.type, "CallExpression");
+        assert.strictEqual(enableCall.object?.name, "gpu_set_texfilter");
+
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_texfilter");
+
+        const resetArgs = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.strictEqual(resetArgs.length, 1);
+        assert.strictEqual(resetArgs[0]?.type, "Literal");
+        assert.strictEqual(resetArgs[0]?.value, "false");
+
+        const resetMetadata = resetCall._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(resetMetadata));
+        assert.strictEqual(resetMetadata.length, 1);
+        assert.strictEqual(resetMetadata[0].id, "GM2055");
+        assert.strictEqual(resetMetadata[0].automatic, true);
+
+        assert.ok(submitCall);
+        assert.strictEqual(submitCall.type, "CallExpression");
+        assert.strictEqual(submitCall.object?.name, "vertex_submit");
+
+        const rootMetadata = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2055Metadata = rootMetadata.filter((entry) => entry.id === "GM2055");
+        assert.strictEqual(gm2055Metadata.length, 1);
+        assert.strictEqual(gm2055Metadata[0].automatic, true);
+    });
+
     it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
         const topLevelLiteral = {
             type: "ExpressionStatement",
