@@ -4,7 +4,10 @@ import { describe, it } from "mocha";
 
 import GMLParser from "gamemaker-language-parser";
 
-import { getFeatherMetadata } from "../../shared/feather/metadata.js";
+import {
+    getFeatherMetadata,
+    getFeatherDiagnosticById
+} from "../../shared/feather/metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers
@@ -309,5 +312,51 @@ describe("applyFeatherFixes transform", () => {
             assert.strictEqual(entry.automatic, true, "GM1016 fixes should be marked as automatic.");
             assert.ok(entry.range, "GM1016 fixes should capture the removed node's range.");
         }
+    });
+
+    it("records metadata for GM2064 flagged struct properties", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "ins_companion = instance_create_layer(x, y, layer, obj_companion, {",
+            "    intro_message: message",
+            "});"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assignment = ast.body?.[0];
+        assert.ok(assignment);
+        const callExpression = assignment.right;
+        assert.ok(callExpression);
+        const structArgument = callExpression.arguments?.[4];
+        assert.ok(structArgument);
+        const [property] = structArgument.properties ?? [];
+        assert.ok(property);
+
+        const propertyMetadata = property._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(propertyMetadata.length, 1);
+
+        const [metadata] = propertyMetadata;
+        assert.strictEqual(metadata.id, "GM2064");
+        assert.strictEqual(metadata.target, "message");
+        assert.strictEqual(metadata.automatic, false);
+
+        const expectedMetadata = getFeatherDiagnosticById("GM2064");
+        assert.ok(expectedMetadata);
+        assert.strictEqual(metadata.title, expectedMetadata.title);
+        assert.strictEqual(metadata.description, expectedMetadata.description);
+        assert.strictEqual(metadata.correction, expectedMetadata.correction);
+
+        const recordedFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm2064Fixes = recordedFixes.filter((entry) => entry.id === "GM2064");
+        assert.strictEqual(gm2064Fixes.length, 1);
+        assert.strictEqual(gm2064Fixes[0].target, "message");
+        assert.strictEqual(gm2064Fixes[0].automatic, false);
     });
 });
