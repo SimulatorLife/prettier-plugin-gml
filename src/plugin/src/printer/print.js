@@ -32,6 +32,7 @@ import {
 import {
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
+    getIdentifierText,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
@@ -2146,22 +2147,6 @@ function getNodeName(node) {
     }
 
     return getIdentifierText(node);
-}
-
-function getIdentifierText(identifier) {
-    if (!identifier) {
-        return null;
-    }
-
-    if (typeof identifier === "string") {
-        return identifier;
-    }
-
-    if (typeof identifier.name === "string") {
-        return identifier.name;
-    }
-
-    return null;
 }
 
 function stripSyntheticParameterSentinels(name) {
