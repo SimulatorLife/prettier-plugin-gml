@@ -130,4 +130,60 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("replaces zero denominators and records GM1015 metadata", () => {
+        const source = [
+            "var total = 10 / 0;",
+            "total /= 0;",
+            "total = total % (0);",
+            "total %= (-0);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [declaration, assignment, moduloAssignmentStatement, moduloCompound] = ast.body ?? [];
+
+        const binary = declaration?.declarations?.[0]?.init;
+        assert.strictEqual(binary?.right?.type, "Literal");
+        assert.strictEqual(binary.right.value, "1");
+
+        assert.strictEqual(assignment?.right?.type, "Literal");
+        assert.strictEqual(assignment.right.value, "1");
+
+        const moduloBinary = moduloAssignmentStatement?.right;
+        assert.strictEqual(moduloBinary?.type, "BinaryExpression");
+        assert.strictEqual(moduloBinary.right?.type, "ParenthesizedExpression");
+        assert.strictEqual(moduloBinary.right.expression?.type, "Literal");
+        assert.strictEqual(moduloBinary.right.expression.value, "1");
+
+        const moduloCompoundRight = moduloCompound?.right;
+        assert.strictEqual(moduloCompoundRight?.type, "ParenthesizedExpression");
+        const moduloCompoundUnary = moduloCompoundRight?.expression;
+        assert.strictEqual(moduloCompoundUnary?.type, "UnaryExpression");
+        assert.strictEqual(moduloCompoundUnary.argument?.type, "Literal");
+        assert.strictEqual(moduloCompoundUnary.argument.value, "1");
+
+        const binaryFixes = binary?._appliedFeatherDiagnostics ?? [];
+        const divideAssignFixes = assignment?._appliedFeatherDiagnostics ?? [];
+        const moduloBinaryFixes = moduloBinary?._appliedFeatherDiagnostics ?? [];
+        const moduloCompoundFixes = moduloCompound?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(binaryFixes.some((fix) => fix.id === "GM1015"), true);
+        assert.strictEqual(divideAssignFixes.some((fix) => fix.id === "GM1015"), true);
+        assert.strictEqual(moduloBinaryFixes.some((fix) => fix.id === "GM1015"), true);
+        assert.strictEqual(moduloCompoundFixes.some((fix) => fix.id === "GM1015"), true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        const gm1015Fixes = ast._appliedFeatherDiagnostics.filter((entry) => entry.id === "GM1015");
+        assert.strictEqual(gm1015Fixes.length >= 4, true);
+        gm1015Fixes.forEach((entry) => {
+            assert.strictEqual(entry.target, "0");
+            assert.notStrictEqual(entry.range, null);
+        });
+    });
 });

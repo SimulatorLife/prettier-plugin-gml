@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1015") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = preventDivisionOrModuloByZero({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -159,6 +172,219 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function preventDivisionOrModuloByZero({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "BinaryExpression") {
+            const fix = normalizeDivisionBinaryExpression(node, diagnostic);
+            if (fix) {
+                fixes.push(fix);
+            }
+        } else if (node.type === "AssignmentExpression") {
+            const fix = normalizeDivisionAssignmentExpression(node, diagnostic);
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function normalizeDivisionBinaryExpression(node, diagnostic) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (node.operator !== "/" && node.operator !== "%") {
+        return null;
+    }
+
+    const zeroLiteralInfo = findZeroLiteralInfo(node.right);
+    if (!zeroLiteralInfo) {
+        return null;
+    }
+
+    const { literal, container, property } = zeroLiteralInfo;
+    const replacementLiteral = createLiteral("1", literal);
+
+    if (!replacementLiteral) {
+        return null;
+    }
+
+    if (container && property) {
+        container[property] = replacementLiteral;
+    } else {
+        node.right = replacementLiteral;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: literal?.value ?? null,
+        range: {
+            start: getNodeStartIndex(literal),
+            end: getNodeEndIndex(literal)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function normalizeDivisionAssignmentExpression(node, diagnostic) {
+    if (!node || node.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    if (node.operator !== "/=" && node.operator !== "%=") {
+        return null;
+    }
+
+    const zeroLiteralInfo = findZeroLiteralInfo(node.right);
+    if (!zeroLiteralInfo) {
+        return null;
+    }
+
+    const { literal, container, property } = zeroLiteralInfo;
+    const replacementLiteral = createLiteral("1", literal);
+
+    if (!replacementLiteral) {
+        return null;
+    }
+
+    if (container && property) {
+        container[property] = replacementLiteral;
+    } else {
+        node.right = replacementLiteral;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: literal?.value ?? null,
+        range: {
+            start: getNodeStartIndex(literal),
+            end: getNodeEndIndex(literal)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function findZeroLiteralInfo(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        return isZeroLiteral(node)
+            ? { literal: node, container: null, property: null }
+            : null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        if (!node.expression || typeof node.expression !== "object") {
+            return null;
+        }
+
+        const innerInfo = findZeroLiteralInfo(node.expression);
+
+        if (!innerInfo) {
+            return null;
+        }
+
+        if (!innerInfo.container) {
+            return { literal: innerInfo.literal, container: node, property: "expression" };
+        }
+
+        return innerInfo;
+    }
+
+    if (node.type === "UnaryExpression") {
+        if (node.operator !== "+" && node.operator !== "-") {
+            return null;
+        }
+
+        if (!node.argument || typeof node.argument !== "object") {
+            return null;
+        }
+
+        const innerInfo = findZeroLiteralInfo(node.argument);
+
+        if (!innerInfo) {
+            return null;
+        }
+
+        if (!innerInfo.container) {
+            return { literal: innerInfo.literal, container: node, property: "argument" };
+        }
+
+        return innerInfo;
+    }
+
+    return null;
+}
+
+function isZeroLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const rawValue = node.value;
+
+    if (typeof rawValue === "number") {
+        return rawValue === 0;
+    }
+
+    if (typeof rawValue !== "string" || rawValue.length === 0) {
+        return false;
+    }
+
+    const normalized = Number(rawValue);
+
+    if (!Number.isFinite(normalized)) {
+        return false;
+    }
+
+    return normalized === 0;
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
