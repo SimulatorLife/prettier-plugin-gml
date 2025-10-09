@@ -113,6 +113,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2013") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureVertexFormatBeginPrecedesEnd({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -381,6 +394,80 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureVertexFormatBeginPrecedesEnd({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const entries = collectVertexFormatCallEntries(ast);
+
+    if (entries.length === 0) {
+        return [];
+    }
+
+    entries.sort((a, b) => {
+        const aStart = typeof a.start === "number" ? a.start : Number.POSITIVE_INFINITY;
+        const bStart = typeof b.start === "number" ? b.start : Number.POSITIVE_INFINITY;
+
+        return aStart - bStart;
+    });
+
+    const fixes = [];
+    let openVertexFormatCount = 0;
+
+    for (const entry of entries) {
+        if (!entry || entry.kind === "begin") {
+            if (entry?.kind === "begin") {
+                openVertexFormatCount += 1;
+            }
+            continue;
+        }
+
+        if (entry.kind !== "end") {
+            continue;
+        }
+
+        const { statement, statements } = entry.statementContext ?? {};
+
+        if (!statement || !Array.isArray(statements)) {
+            continue;
+        }
+
+        if (openVertexFormatCount === 0) {
+            const insertionIndex = statements.indexOf(statement);
+
+            if (insertionIndex < 0) {
+                continue;
+            }
+
+            const beginCall = createVertexFormatBeginCall(entry.node);
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: entry.node?.object?.name ?? null,
+                range: {
+                    start: getNodeStartIndex(entry.node),
+                    end: getNodeEndIndex(entry.node)
+                }
+            });
+
+            if (!beginCall || !fixDetail) {
+                continue;
+            }
+
+            statements.splice(insertionIndex, 0, beginCall);
+            attachFeatherFixMetadata(beginCall, [fixDetail]);
+            fixes.push(fixDetail);
+            openVertexFormatCount += 1;
+        }
+
+        if (openVertexFormatCount > 0) {
+            openVertexFormatCount -= 1;
+        }
+    }
+
+    return fixes;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -477,6 +564,116 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function collectVertexFormatCallEntries(ast) {
+    const entries = [];
+    const ancestors = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            ancestors.push({ node, parent, property, isArray: true });
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+
+            ancestors.pop();
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        ancestors.push({ node, parent, property, isArray: false });
+
+        if (node.type === "CallExpression") {
+            let kind = null;
+
+            if (isIdentifierWithName(node.object, "vertex_format_begin")) {
+                kind = "begin";
+            } else if (isIdentifierWithName(node.object, "vertex_format_end")) {
+                kind = "end";
+            }
+
+            if (kind) {
+                entries.push({
+                    kind,
+                    node,
+                    start: getNodeStartIndex(node),
+                    statementContext: findVertexFormatStatementContext(ancestors)
+                });
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+
+        ancestors.pop();
+    };
+
+    visit(ast, null, null);
+
+    return entries;
+}
+
+function findVertexFormatStatementContext(ancestors) {
+    if (!Array.isArray(ancestors) || ancestors.length === 0) {
+        return null;
+    }
+
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        const entry = ancestors[index];
+
+        if (!entry || !Array.isArray(entry.parent) || typeof entry.property !== "number") {
+            continue;
+        }
+
+        const arrayEntry = ancestors[index - 1];
+
+        if (!arrayEntry || !arrayEntry.isArray) {
+            continue;
+        }
+
+        if (!isStatementSequenceContainer(arrayEntry.parent, arrayEntry.property)) {
+            continue;
+        }
+
+        const statements = entry.parent;
+        const statement = statements?.[entry.property];
+
+        if (!statement || typeof statement !== "object") {
+            continue;
+        }
+
+        return { statements, statement };
+    }
+
+    return null;
+}
+
+function isStatementSequenceContainer(node, property) {
+    if (!node || typeof property !== "string") {
+        return false;
+    }
+
+    if (property === "body") {
+        return node.type === "Program" || node.type === "BlockStatement";
+    }
+
+    if (property === "consequent" && node.type === "SwitchCase") {
+        return true;
+    }
+
+    return false;
 }
 
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
@@ -676,6 +873,32 @@ function createAlphaTestRefResetCall(template) {
 
     if (Object.prototype.hasOwnProperty.call(template, "end")) {
         callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function createVertexFormatBeginCall(template) {
+    const identifier = createIdentifier("vertex_format_begin");
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            callExpression.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            callExpression.end = cloneLocation(template.end);
+        }
     }
 
     return callExpression;

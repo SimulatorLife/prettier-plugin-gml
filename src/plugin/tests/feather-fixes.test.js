@@ -93,6 +93,47 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("inserts vertex_format_begin before unmatched vertex_format_end and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(programBody.length, 2, "Expected vertex_format_begin to be inserted before vertex_format_end().");
+
+        const [beginCall, assignment] = programBody;
+
+        assert.strictEqual(beginCall?.type, "CallExpression");
+        assert.strictEqual(beginCall?.object?.name, "vertex_format_begin");
+
+        assert.strictEqual(assignment?.type, "AssignmentExpression");
+        assert.strictEqual(assignment?.right?.type, "CallExpression");
+        assert.strictEqual(assignment?.right?.object?.name, "vertex_format_end");
+
+        const beginFixes = beginCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(beginFixes.some((entry) => entry.id === "GM2013"), true);
+
+        const gm2013Fix = beginFixes.find((entry) => entry.id === "GM2013");
+        assert.ok(gm2013Fix);
+        assert.strictEqual(gm2013Fix.automatic, true);
+        assert.strictEqual(gm2013Fix.target, "vertex_format_end");
+        assert.ok(gm2013Fix.range);
+        assert.strictEqual(typeof gm2013Fix.range.start, "number");
+        assert.strictEqual(typeof gm2013Fix.range.end, "number");
+
+        const astFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(astFixes.some((entry) => entry.id === "GM2013"), true);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
