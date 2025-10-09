@@ -96,6 +96,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1034") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = relocateArgumentReferencesInsideFunctions({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -670,5 +686,206 @@ function attachFeatherFixMetadata(target, fixes) {
     }
 
     target[key].push(...fixes);
+}
+
+const ARGUMENT_BUILTINS = new Set([
+    "argument",
+    "argument_relative",
+    "argument_count",
+    ...Array.from({ length: 16 }, (_, index) => `argument${index}`)
+]);
+
+const FUNCTION_LIKE_TYPES = new Set([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration"
+]);
+
+function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const programBody = Array.isArray(ast.body) ? ast.body : null;
+
+    if (!programBody || programBody.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < programBody.length; index += 1) {
+        const entry = programBody[index];
+
+        if (!isFunctionDeclaration(entry)) {
+            continue;
+        }
+
+        const block = getFunctionBlock(entry);
+
+        if (!block) {
+            continue;
+        }
+
+        let nextIndex = index + 1;
+
+        while (nextIndex < programBody.length) {
+            const candidate = programBody[nextIndex];
+
+            if (!candidate || typeof candidate !== "object") {
+                break;
+            }
+
+            if (isFunctionDeclaration(candidate)) {
+                break;
+            }
+
+            const argumentReference = findArgumentReferenceOutsideFunctions(candidate);
+
+            if (!argumentReference) {
+                break;
+            }
+
+            programBody.splice(nextIndex, 1);
+            block.body.push(candidate);
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: argumentReference?.name ?? null,
+                range: {
+                    start: getNodeStartIndex(candidate),
+                    end: getNodeEndIndex(candidate)
+                }
+            });
+
+            if (fixDetail) {
+                attachFeatherFixMetadata(candidate, [fixDetail]);
+                fixes.push(fixDetail);
+            }
+        }
+    }
+
+    return fixes;
+}
+
+function isFunctionDeclaration(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return node.type === "FunctionDeclaration";
+}
+
+function getFunctionBlock(declaration) {
+    const body = declaration?.body;
+
+    if (!body || body.type !== "BlockStatement") {
+        return null;
+    }
+
+    const blockBody = Array.isArray(body.body) ? body.body : null;
+
+    if (!blockBody) {
+        return null;
+    }
+
+    return body;
+}
+
+function findArgumentReferenceOutsideFunctions(node) {
+    let match = null;
+
+    const visit = (current, isRoot = false) => {
+        if (!current || match) {
+            return;
+        }
+
+        if (Array.isArray(current)) {
+            for (const item of current) {
+                visit(item, false);
+
+                if (match) {
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        if (typeof current !== "object") {
+            return;
+        }
+
+        if (!isRoot && isFunctionLikeNode(current)) {
+            return;
+        }
+
+        if (current.type === "Identifier") {
+            const builtin = getArgumentBuiltinName(current.name);
+
+            if (builtin) {
+                match = { name: builtin };
+                return;
+            }
+        }
+
+        if (
+            current.type === "MemberIndexExpression" &&
+            isIdentifierWithName(current.object, "argument")
+        ) {
+            match = { name: "argument" };
+            return;
+        }
+
+        if (
+            current.type === "MemberDotExpression" &&
+            isIdentifierWithName(current.object, "argument")
+        ) {
+            match = { name: "argument" };
+            return;
+        }
+
+        for (const value of Object.values(current)) {
+            if (!value || (typeof value !== "object" && !Array.isArray(value))) {
+                continue;
+            }
+
+            visit(value, false);
+
+            if (match) {
+                break;
+            }
+        }
+    };
+
+    visit(node, true);
+
+    return match;
+}
+
+function getArgumentBuiltinName(name) {
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    if (ARGUMENT_BUILTINS.has(name)) {
+        return name;
+    }
+
+    return null;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (typeof node.type !== "string") {
+        return false;
+    }
+
+    return FUNCTION_LIKE_TYPES.has(node.type);
 }
 

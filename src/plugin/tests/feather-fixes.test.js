@@ -130,4 +130,58 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("moves argument references into the preceding function body", () => {
+        const source = [
+            "function args()",
+            "{",
+            "}",
+            "",
+            "var _first_parameter = argument[0];",
+            "var _argument_total = argument_count;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [functionDeclaration, firstStatement, secondStatement] = ast.body ?? [];
+
+        assert.ok(functionDeclaration);
+        assert.strictEqual(functionDeclaration.type, "FunctionDeclaration");
+        assert.strictEqual(typeof firstStatement, "object");
+        assert.strictEqual(typeof secondStatement, "object");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length > 0, true);
+        assert.strictEqual(ast.body[0], functionDeclaration);
+
+        const functionBody = functionDeclaration?.body;
+        assert.ok(functionBody);
+        assert.strictEqual(functionBody.type, "BlockStatement");
+        assert.ok(Array.isArray(functionBody.body));
+        assert.strictEqual(functionBody.body.length >= 2, true);
+        assert.strictEqual(functionBody.body[functionBody.body.length - 2], firstStatement);
+        assert.strictEqual(functionBody.body[functionBody.body.length - 1], secondStatement);
+
+        const firstFixes = firstStatement?._appliedFeatherDiagnostics;
+        const secondFixes = secondStatement?._appliedFeatherDiagnostics;
+
+        assert.ok(Array.isArray(firstFixes));
+        assert.strictEqual(firstFixes.length, 1);
+        assert.strictEqual(firstFixes[0].id, "GM1034");
+        assert.strictEqual(firstFixes[0].target, "argument");
+
+        assert.ok(Array.isArray(secondFixes));
+        assert.strictEqual(secondFixes.length, 1);
+        assert.strictEqual(secondFixes[0].id, "GM1034");
+        assert.strictEqual(secondFixes[0].target, "argument_count");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1034Fixes = programFixes.filter((entry) => entry.id === "GM1034");
+        assert.strictEqual(gm1034Fixes.length, 2);
+    });
 });
