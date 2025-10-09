@@ -113,6 +113,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1059") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = renameDuplicateFunctionParameters({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -261,6 +277,147 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function renameDuplicateFunctionParameters({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            node.forEach(visit);
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "FunctionDeclaration") {
+            const functionFixes = renameDuplicateParametersInFunction(node, diagnostic);
+            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+                fixes.push(...functionFixes);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function renameDuplicateParametersInFunction(functionNode, diagnostic) {
+    const params = Array.isArray(functionNode?.params) ? functionNode.params : [];
+
+    if (params.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+    const seenNames = new Map();
+
+    for (const param of params) {
+        const identifier = getFunctionParameterIdentifier(param);
+
+        if (!identifier || typeof identifier.name !== "string" || identifier.name.length === 0) {
+            continue;
+        }
+
+        const originalName = identifier.name;
+        const currentCount = (seenNames.get(originalName) ?? 0) + 1;
+        seenNames.set(originalName, currentCount);
+
+        if (currentCount === 1) {
+            continue;
+        }
+
+        const range = {
+            start: getNodeStartIndex(identifier),
+            end: getNodeEndIndex(identifier)
+        };
+
+        const replacementName = generateUniqueParameterName(originalName, seenNames);
+
+        if (!replacementName) {
+            continue;
+        }
+
+        identifier.name = replacementName;
+        seenNames.set(replacementName, 1);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: originalName,
+            range
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        attachFeatherFixMetadata(identifier, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
+function getFunctionParameterIdentifier(param) {
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+        return param.left;
+    }
+
+    if (param.type === "RestParameter" && param.argument?.type === "Identifier") {
+        return param.argument;
+    }
+
+    return null;
+}
+
+function generateUniqueParameterName(baseName, registry) {
+    if (!baseName || typeof baseName !== "string") {
+        return null;
+    }
+
+    const sanitizedBase = baseName.trim();
+
+    if (sanitizedBase.length === 0) {
+        return null;
+    }
+
+    const seen = registry instanceof Map ? registry : null;
+    const startingSuffix = Math.max(2, seen?.get(baseName) ?? 2);
+    let suffix = startingSuffix;
+
+    while (true) {
+        const candidate = `${sanitizedBase}_${suffix}`;
+
+        if (!seen || !seen.has(candidate)) {
+            return candidate;
+        }
+
+        suffix += 1;
+    }
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
