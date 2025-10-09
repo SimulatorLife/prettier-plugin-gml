@@ -914,10 +914,19 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = siblings.length;
 
-    if (isAlphaTestRefResetCall(nextNode)) {
-        return null;
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (isAlphaTestRefResetCall(sibling)) {
+            return null;
+        }
+
+        if (isAlphaTestDisableCall(sibling)) {
+            insertionIndex = index;
+            break;
+        }
     }
 
     const resetCall = createAlphaTestRefResetCall(node);
@@ -938,7 +947,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -1238,6 +1247,26 @@ function isAlphaTestRefResetCall(node) {
     return isLiteralZero(args[0]);
 }
 
+function isAlphaTestDisableCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    const [argument] = args;
+
+    return isLiteralFalse(argument) || isLiteralZero(argument);
+}
+
 function createAlphaTestRefResetCall(template) {
     if (!template || template.type !== "CallExpression") {
         return null;
@@ -1479,4 +1508,3 @@ function attachFeatherFixMetadata(target, fixes) {
 
     target[key].push(...fixes);
 }
-
