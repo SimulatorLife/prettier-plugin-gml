@@ -1,9 +1,8 @@
 // Lightweight helpers for accessing the bundled Feather metadata artefact.
 //
-// The formatter needs to query individual diagnostics to understand
-// the intent behind specific auto-fixes. Centralising the metadata
-// access keeps downstream modules from worrying about relative path
-// resolution or cache management.
+// Keeping these utilities within the plugin tree reflects that they are
+// purely formatter-facing and avoids leaking Feather concepts into the
+// shared parser/runtime utilities.
 
 import { createRequire } from "node:module";
 
@@ -16,7 +15,7 @@ function loadFeatherMetadata() {
         return cachedMetadata;
     }
 
-    const metadata = require("../../../resources/feather-metadata.json");
+    const metadata = require("../../../../resources/feather-metadata.json");
     cachedMetadata = metadata;
     return metadata;
 }

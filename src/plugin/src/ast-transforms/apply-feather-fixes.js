@@ -1,5 +1,5 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
-import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
+import { getFeatherDiagnostics } from "../feather/metadata.js";
 
 const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
