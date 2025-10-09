@@ -130,4 +130,54 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("normalizes missing constructor parent clauses and records fix metadata", () => {
+        const source = [
+            "function Base() {",
+            "    self.value = 1;",
+            "}",
+            "",
+            "function Child() : Base() constructor {",
+            "    constructor_apply();",
+            "}",
+            "",
+            "function Orphan() : Missing() constructor {",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [baseFunction, childConstructor, orphanConstructor] = ast.body ?? [];
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(baseFunction);
+        assert.strictEqual(baseFunction.type, "ConstructorDeclaration");
+        assert.strictEqual(baseFunction.parent, null);
+
+        const baseFixes = baseFunction._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(baseFixes));
+        assert.strictEqual(baseFixes.length > 0, true);
+        assert.strictEqual(baseFixes.some((entry) => entry.id === "GM1054"), true);
+
+        assert.ok(childConstructor);
+        assert.ok(childConstructor.parent);
+        assert.strictEqual(childConstructor.parent.id, "Base");
+
+        assert.ok(orphanConstructor);
+        assert.strictEqual(orphanConstructor.parent, null);
+
+        const orphanFixes = orphanConstructor._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(orphanFixes));
+        assert.strictEqual(orphanFixes.length > 0, true);
+        assert.strictEqual(orphanFixes[0].id, "GM1054");
+        assert.strictEqual(orphanFixes[0].target, "Missing");
+
+        const recordedIds = new Set(ast._appliedFeatherDiagnostics?.map((entry) => entry.id));
+        assert.strictEqual(recordedIds.has("GM1054"), true);
+    });
 });
