@@ -131,6 +131,54 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("appends file_find_close() for GM2034 and records metadata", () => {
+        const source = [
+            "fnames = [];",
+            "",
+            "var _fname = file_find_first(\"*.txt\", fa_none);",
+            "",
+            "while (_fname != \"\")",
+            "{",
+            "    array_push(fnames, _fname);",
+            "",
+            "    _fname = file_find_next();",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const appendedCall = body[body.length - 1];
+
+        assert.ok(appendedCall);
+        assert.strictEqual(appendedCall.type, "CallExpression");
+        assert.strictEqual(appendedCall.object?.name, "file_find_close");
+        assert.ok(Array.isArray(appendedCall.arguments));
+        assert.strictEqual(appendedCall.arguments.length, 0);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2034 = appliedDiagnostics.find((entry) => entry.id === "GM2034");
+
+        assert.ok(gm2034, "Expected GM2034 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2034.automatic, true);
+        assert.strictEqual(gm2034.target, "file_find_first");
+        assert.ok(gm2034.range);
+        assert.strictEqual(typeof gm2034.range.start, "number");
+        assert.strictEqual(typeof gm2034.range.end, "number");
+
+        const appendedDiagnostics = appendedCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appendedDiagnostics.some((entry) => entry.id === "GM2034"),
+            true,
+            "Expected the appended call to include GM2034 metadata."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",

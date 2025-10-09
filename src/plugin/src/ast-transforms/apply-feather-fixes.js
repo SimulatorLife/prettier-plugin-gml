@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2034") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureFileFindCloseIsCalled({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -379,6 +392,78 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(withStatement, [fixDetail]);
 
     return fixDetail;
+}
+
+function ensureFileFindCloseIsCalled({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const processedBodies = new Set();
+
+    const visit = (node, parent, property, ancestry) => {
+        if (!node) {
+            return;
+        }
+
+        const nextAncestry = Array.isArray(ancestry)
+            ? ancestry.concat([{ node, parent, property }])
+            : [{ node, parent, property }];
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index, nextAncestry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression" && isIdentifierWithName(node.object, "file_find_first")) {
+            const bodyContext = findEnclosingBodyContext(nextAncestry);
+
+            if (bodyContext && Array.isArray(bodyContext.body)) {
+                const statements = bodyContext.body;
+
+                if (!processedBodies.has(statements)) {
+                    processedBodies.add(statements);
+
+                    if (!arrayContainsCallWithName(statements, "file_find_close")) {
+                        const closeCall = createFileFindCloseCall(node);
+
+                        if (closeCall) {
+                            const fixDetail = createFeatherFixDetail(diagnostic, {
+                                target: node.object?.name ?? null,
+                                range: {
+                                    start: getNodeStartIndex(node),
+                                    end: getNodeEndIndex(node)
+                                }
+                            });
+
+                            if (fixDetail) {
+                                statements.push(closeCall);
+                                attachFeatherFixMetadata(closeCall, [fixDetail]);
+                                fixes.push(fixDetail);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object" && key !== "_appliedFeatherDiagnostics") {
+                visit(value, node, key, nextAncestry);
+            }
+        }
+    };
+
+    visit(ast, null, null, []);
+
+    return fixes;
 }
 
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
@@ -649,6 +734,99 @@ function isAlphaTestRefResetCall(node) {
     }
 
     return isLiteralZero(args[0]);
+}
+
+function arrayContainsCallWithName(nodes, name) {
+    if (!Array.isArray(nodes)) {
+        return false;
+    }
+
+    for (const node of nodes) {
+        if (nodeContainsCallWithName(node, name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function nodeContainsCallWithName(node, name) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (Array.isArray(node)) {
+        return node.some((item) => nodeContainsCallWithName(item, name));
+    }
+
+    if (node.type === "CallExpression" && isIdentifierWithName(node.object, name)) {
+        return true;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!value || typeof value !== "object" || key === "_appliedFeatherDiagnostics") {
+            continue;
+        }
+
+        if (nodeContainsCallWithName(value, name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function findEnclosingBodyContext(ancestry) {
+    if (!Array.isArray(ancestry)) {
+        return null;
+    }
+
+    for (let index = ancestry.length - 1; index >= 0; index -= 1) {
+        const entry = ancestry[index];
+
+        if (!entry || !Array.isArray(entry.parent) || typeof entry.property !== "number") {
+            continue;
+        }
+
+        const arrayEntry = ancestry[index - 1];
+
+        if (!arrayEntry || !Array.isArray(arrayEntry.node) || arrayEntry.property !== "body") {
+            continue;
+        }
+
+        return {
+            body: arrayEntry.node,
+            statement: entry.node
+        };
+    }
+
+    return null;
+}
+
+function createFileFindCloseCall(template) {
+    const identifier = createIdentifier("file_find_close", template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            callExpression.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            callExpression.end = cloneLocation(template.end);
+        }
+    }
+
+    return callExpression;
 }
 
 function createAlphaTestRefResetCall(template) {
