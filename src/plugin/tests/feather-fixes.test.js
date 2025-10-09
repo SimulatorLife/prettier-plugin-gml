@@ -131,6 +131,95 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("resets gpu zfunc flagged by GM2049 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_ztestenable(true);",
+            "",
+            "gpu_set_zfunc(cmpfunc_greater);",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);",
+            "",
+            "gpu_set_ztestenable(false);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const zfuncIndex = body.findIndex(
+            (node) => node?.type === "CallExpression" && node.object?.name === "gpu_set_zfunc"
+        );
+
+        assert.ok(zfuncIndex >= 0, "Expected sample program to include a gpu_set_zfunc call.");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const updatedBody = Array.isArray(ast.body) ? ast.body : [];
+        const zfuncCall = updatedBody[zfuncIndex];
+        const resetIndex = updatedBody.findIndex((node, index) => {
+            if (index <= zfuncIndex) {
+                return false;
+            }
+
+            if (!node || node.type !== "CallExpression") {
+                return false;
+            }
+
+            if (node.object?.name !== "gpu_set_zfunc") {
+                return false;
+            }
+
+            const [argument] = Array.isArray(node.arguments) ? node.arguments : [];
+
+            if (!argument || argument.type !== "Identifier") {
+                return false;
+            }
+
+            return argument.name === "cmpfunc_lessequal";
+        });
+
+        assert.ok(resetIndex > zfuncIndex, "Expected fixer to insert a reset call after gpu_set_zfunc.");
+
+        const resetCall = updatedBody[resetIndex];
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_zfunc");
+
+        const [resetArg] = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.ok(resetArg, "Expected reset call to include an argument.");
+        assert.strictEqual(resetArg.type, "Identifier");
+        assert.strictEqual(resetArg.name, "cmpfunc_lessequal");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2049 = appliedDiagnostics.find((entry) => entry.id === "GM2049");
+
+        assert.ok(gm2049, "Expected GM2049 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2049.automatic, true);
+        assert.strictEqual(gm2049.target, "gpu_set_zfunc");
+        assert.ok(gm2049.range);
+
+        const resetDiagnostics = Array.isArray(resetCall._appliedFeatherDiagnostics)
+            ? resetCall._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2049"),
+            true,
+            "Expected inserted reset call to include GM2049 metadata."
+        );
+
+        const originalDiagnostics = Array.isArray(zfuncCall?._appliedFeatherDiagnostics)
+            ? zfuncCall._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            originalDiagnostics.some((entry) => entry.id === "GM2049"),
+            false,
+            "Expected metadata to be attached to the inserted reset call instead of the original invocation."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",

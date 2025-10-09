@@ -139,6 +139,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2049") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureZFuncIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -381,6 +394,113 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureZFuncIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureZFuncResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureZFuncResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_zfunc")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isCmpfuncLessEqual(args[0])) {
+        return null;
+    }
+
+    const siblings = parent;
+    let insertionIndex = siblings.length;
+
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (isZFuncResetCall(sibling)) {
+            return null;
+        }
+
+        if (isZTestEnableCall(sibling)) {
+            insertionIndex = index;
+            break;
+        }
+    }
+
+    const resetCall = createZFuncResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -479,6 +599,36 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function isZFuncResetCall(node) {
+    const callExpression = getCallExpression(node);
+
+    if (!callExpression) {
+        return false;
+    }
+
+    if (!isIdentifierWithName(callExpression.object, "gpu_set_zfunc")) {
+        return false;
+    }
+
+    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isCmpfuncLessEqual(args[0]);
+}
+
+function isZTestEnableCall(node) {
+    const callExpression = getCallExpression(node);
+
+    if (!callExpression) {
+        return false;
+    }
+
+    return isIdentifierWithName(callExpression.object, "gpu_set_ztestenable");
+}
+
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -568,6 +718,40 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function createZFuncResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "gpu_set_zfunc") {
+        return null;
+    }
+
+    const defaultFunction = createIdentifier("cmpfunc_lessequal", template.arguments?.[0]);
+
+    if (!defaultFunction) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [defaultFunction]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
 function cloneIdentifier(node) {
     if (!node || node.type !== "Identifier") {
         return null;
@@ -631,6 +815,18 @@ function isLiteralZero(node) {
     }
 
     return node.value === "0" || node.value === 0;
+}
+
+function isCmpfuncLessEqual(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Identifier") {
+        return node.name === "cmpfunc_lessequal";
+    }
+
+    return false;
 }
 
 function isAlphaTestRefResetCall(node) {
@@ -723,6 +919,22 @@ function createIdentifier(name, template) {
     }
 
     return identifier;
+}
+
+function getCallExpression(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        return getCallExpression(node.expression);
+    }
+
+    return null;
 }
 
 function isSpriteGetTextureCall(node) {
