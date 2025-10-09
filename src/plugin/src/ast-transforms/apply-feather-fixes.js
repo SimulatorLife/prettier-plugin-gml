@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1043") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = flagPotentialTypeReassignments({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -594,6 +607,280 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+function flagPotentialTypeReassignments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const scopeStack = [new Map()];
+    const scopeNodeTypes = new Set([
+        "BlockStatement",
+        "ConstructorDeclaration",
+        "FunctionDeclaration",
+        "FunctionExpression",
+        "MethodDeclaration",
+        "Program",
+        "WithStatement"
+    ]);
+    const skippedKeys = new Set(["start", "end", "tokens", "_appliedFeatherDiagnostics"]);
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        const shouldEnterScope = scopeNodeTypes.has(node.type);
+
+        if (shouldEnterScope) {
+            scopeStack.push(new Map());
+        }
+
+        if (node.type === "VariableDeclaration") {
+            recordDeclarationInitializers(node);
+        } else if (node.type === "AssignmentExpression") {
+            recordAssignment(node);
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (skippedKeys.has(key)) {
+                continue;
+            }
+
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    if (item && typeof item === "object") {
+                        visit(item);
+                    }
+                }
+                continue;
+            }
+
+            visit(value);
+        }
+
+        if (shouldEnterScope) {
+            scopeStack.pop();
+        }
+    };
+
+    const recordDeclarationInitializers = (node) => {
+        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+
+        for (const declarator of declarations) {
+            const id = declarator?.id;
+
+            if (!id || id.type !== "Identifier") {
+                continue;
+            }
+
+            const initializer = declarator.init;
+            const initializerType = inferExpressionType(initializer);
+
+            if (!initializerType) {
+                clearRecordedType(id.name);
+                continue;
+            }
+
+            setRecordedType(id.name, initializerType);
+        }
+    };
+
+    const recordAssignment = (node) => {
+        if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
+            return;
+        }
+
+        const target = node.left;
+
+        if (!target || target.type !== "Identifier" || !target.name) {
+            return;
+        }
+
+        const assignedType = inferExpressionType(node.right);
+
+        if (!assignedType) {
+            clearRecordedType(target.name);
+            return;
+        }
+
+        const previousType = getRecordedType(target.name);
+
+        if (previousType && previousType !== assignedType) {
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                automatic: false,
+                target: target.name,
+                range: {
+                    start: getNodeStartIndex(node),
+                    end: getNodeEndIndex(node)
+                }
+            });
+
+            if (fixDetail) {
+                fixes.push(fixDetail);
+                attachFeatherFixMetadata(node, [fixDetail]);
+            }
+        }
+
+        setRecordedType(target.name, assignedType);
+    };
+
+    const getRecordedType = (name) => {
+        if (!name) {
+            return null;
+        }
+
+        for (let index = scopeStack.length - 1; index >= 0; index -= 1) {
+            const scope = scopeStack[index];
+
+            if (scope && scope.has(name)) {
+                return scope.get(name);
+            }
+        }
+
+        return null;
+    };
+
+    const setRecordedType = (name, type) => {
+        if (!name) {
+            return;
+        }
+
+        if (!type) {
+            clearRecordedType(name);
+            return;
+        }
+
+        for (let index = scopeStack.length - 1; index >= 0; index -= 1) {
+            const scope = scopeStack[index];
+
+            if (scope && scope.has(name)) {
+                scope.set(name, type);
+                return;
+            }
+        }
+
+        const currentScope = scopeStack[scopeStack.length - 1];
+
+        if (currentScope) {
+            currentScope.set(name, type);
+        }
+    };
+
+    const clearRecordedType = (name) => {
+        if (!name) {
+            return;
+        }
+
+        for (let index = scopeStack.length - 1; index >= 0; index -= 1) {
+            const scope = scopeStack[index];
+
+            if (scope && scope.delete(name)) {
+                return;
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function inferExpressionType(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    switch (node.type) {
+        case "Literal":
+            return inferLiteralValueType(node.value);
+        case "ArrayExpression":
+            return "array";
+        case "StructExpression":
+            return "struct";
+        case "FunctionDeclaration":
+        case "FunctionExpression":
+        case "MethodDeclaration":
+        case "ConstructorDeclaration":
+            return "function";
+        case "ParenthesizedExpression":
+            return inferExpressionType(node.expression);
+        case "UnaryExpression":
+            return inferUnaryExpressionType(node);
+        default:
+            return null;
+    }
+}
+
+function inferUnaryExpressionType(node) {
+    if (!node || node.type !== "UnaryExpression") {
+        return null;
+    }
+
+    const argumentType = inferExpressionType(node.argument);
+
+    if (!argumentType) {
+        return null;
+    }
+
+    if (node.operator === "-" || node.operator === "+") {
+        if (argumentType === "number") {
+            return "number";
+        }
+        return null;
+    }
+
+    if (node.operator === "!") {
+        if (argumentType === "boolean") {
+            return "boolean";
+        }
+        return null;
+    }
+
+    if (node.operator === "~") {
+        if (argumentType === "number") {
+            return "number";
+        }
+        return null;
+    }
+
+    return null;
+}
+
+function inferLiteralValueType(value) {
+    if (typeof value !== "string" || value.length === 0) {
+        return null;
+    }
+
+    if (value === "true" || value === "false") {
+        return "boolean";
+    }
+
+    if (value === "undefined") {
+        return "undefined";
+    }
+
+    const firstCharacter = value[0];
+    const lastCharacter = value[value.length - 1];
+
+    if (
+        (firstCharacter === "\"" && lastCharacter === "\"") ||
+        (firstCharacter === "'" && lastCharacter === "'")
+    ) {
+        return "string";
+    }
+
+    if (!Number.isNaN(Number(value))) {
+        return "number";
+    }
+
+    return null;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {

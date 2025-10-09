@@ -4,6 +4,7 @@ import { describe, it } from "mocha";
 
 import GMLParser from "gamemaker-language-parser";
 
+import { getNodeStartIndex, getNodeEndIndex } from "../../shared/ast-locations.js";
 import { getFeatherMetadata } from "../../shared/feather/metadata.js";
 import {
     applyFeatherFixes,
@@ -129,5 +130,45 @@ describe("applyFeatherFixes transform", () => {
                 "Each Feather fix entry should indicate whether it was applied automatically."
             );
         }
+    });
+
+    it("flags GM1043 type reassignments with manual fix metadata", () => {
+        const source = [
+            "var state = 1;",
+            'state = "ready";'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [, reassignment] = ast.body ?? [];
+        assert.ok(reassignment);
+        assert.strictEqual(reassignment.type, "AssignmentExpression");
+
+        const assignmentFixes = reassignment._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(assignmentFixes));
+        assert.strictEqual(assignmentFixes.length, 1);
+
+        const [fixDetail] = assignmentFixes;
+        assert.ok(fixDetail);
+        assert.strictEqual(fixDetail.id, "GM1043");
+        assert.strictEqual(fixDetail.automatic, false);
+        assert.strictEqual(fixDetail.target, "state");
+        assert.ok(fixDetail.range);
+        assert.strictEqual(typeof fixDetail.range.start, "number");
+        assert.strictEqual(typeof fixDetail.range.end, "number");
+        assert.strictEqual(fixDetail.range.start, getNodeStartIndex(reassignment));
+        assert.strictEqual(fixDetail.range.end, getNodeEndIndex(reassignment));
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            programFixes.some((entry) => entry.id === "GM1043"),
+            true,
+            "Expected GM1043 to be recorded at the program level."
+        );
     });
 });
