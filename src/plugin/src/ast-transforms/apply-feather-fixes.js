@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1040") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeMixedArgumentAccesses({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -195,6 +208,103 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     };
 
     visit(ast);
+
+    return fixes;
+}
+
+function normalizeMixedArgumentAccesses({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const functionStack = [];
+
+    const visit = (node, parent, property, parentKey) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index, parentKey);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        let createdFunctionContext = false;
+
+        if (isFunctionLikeNode(node)) {
+            functionStack.push(createFunctionContext());
+            createdFunctionContext = true;
+        }
+
+        const currentContext = functionStack[functionStack.length - 1] ?? null;
+
+        if (currentContext) {
+            if (isLegacyArgumentIdentifier(node, parent, property, parentKey)) {
+                currentContext.hasLegacyReferences = true;
+                currentContext.legacyReferences.push({ node, parent, property });
+            } else if (isArgumentArrayAccess(node)) {
+                currentContext.hasArrayReferences = true;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key, key);
+            }
+        }
+
+        if (createdFunctionContext) {
+            const context = functionStack.pop();
+
+            if (context.hasLegacyReferences && context.hasArrayReferences) {
+                for (const reference of context.legacyReferences) {
+                    const replacement = createArgumentArrayAccessFromIdentifier(reference.node);
+
+                    if (!replacement || !reference || !reference.parent) {
+                        continue;
+                    }
+
+                    const range = {
+                        start: getNodeStartIndex(reference.node),
+                        end: getNodeEndIndex(reference.node)
+                    };
+
+                    const fixDetail = createFeatherFixDetail(diagnostic, {
+                        target: reference.node?.name ?? null,
+                        range
+                    });
+
+                    if (!fixDetail) {
+                        continue;
+                    }
+
+                    if (Array.isArray(reference.parent) && typeof reference.property === "number") {
+                        reference.parent[reference.property] = replacement;
+                    } else if (
+                        reference.parent &&
+                        typeof reference.property !== "undefined"
+                    ) {
+                        reference.parent[reference.property] = replacement;
+                    } else {
+                        continue;
+                    }
+
+                    copyCommentMetadata(reference.node, replacement);
+                    attachFeatherFixMetadata(replacement, [fixDetail]);
+                    fixes.push(fixDetail);
+                }
+            }
+        }
+    };
+
+    visit(ast, null, null, null);
 
     return fixes;
 }
@@ -594,6 +704,92 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        node.type === "FunctionDeclaration" ||
+        node.type === "ConstructorDeclaration" ||
+        node.type === "StructDeclaration" ||
+        node.type === "Program"
+    );
+}
+
+function createFunctionContext() {
+    return {
+        hasLegacyReferences: false,
+        hasArrayReferences: false,
+        legacyReferences: []
+    };
+}
+
+function isLegacyArgumentIdentifier(node, parent, property, parentKey) {
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    if (!/^argument\d+$/.test(node.name ?? "")) {
+        return false;
+    }
+
+    if (parentKey === "params" || parentKey === "id") {
+        return false;
+    }
+
+    if (parent?.type === "MemberDotExpression" && property === "property") {
+        return false;
+    }
+
+    return true;
+}
+
+function isArgumentArrayAccess(node) {
+    if (!node || node.type !== "MemberIndexExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "argument");
+}
+
+function createArgumentArrayAccessFromIdentifier(identifier) {
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    const match = /^argument(\d+)$/.exec(identifier.name ?? "");
+
+    if (!match) {
+        return null;
+    }
+
+    const literal = {
+        type: "Literal",
+        value: match[1]
+    };
+
+    const memberExpression = {
+        type: "MemberIndexExpression",
+        object: {
+            type: "Identifier",
+            name: "argument"
+        },
+        property: [literal],
+        accessor: "["
+    };
+
+    if (Object.prototype.hasOwnProperty.call(identifier, "start")) {
+        memberExpression.start = cloneLocation(identifier.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(identifier, "end")) {
+        memberExpression.end = cloneLocation(identifier.end);
+    }
+
+    return memberExpression;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
