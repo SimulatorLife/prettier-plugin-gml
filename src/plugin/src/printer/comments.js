@@ -145,24 +145,27 @@ function printComment(commentPath, options) {
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
-            if (bannerMatch) {
-                const slashRun = bannerMatch[1];
-                const slashCount = slashRun.length;
-                if (slashCount >= bannerMinimum) {
-                    return applyInlinePadding(comment, rawText.trim());
-                }
+            if (!bannerMatch) {
+                return formatLineComment(comment, bannerMinimum);
+            }
 
-                const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
-                const remainderTrimmed = remainder.trimStart();
-                if (
-                    slashCount >= bannerAutofillThreshold &&
-                    bannerMinimum > slashCount &&
-                    remainderTrimmed.length > 0 &&
-                    !remainderTrimmed.startsWith("@")
-                ) {
-                    const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
-                    return applyInlinePadding(comment, padded.trimEnd());
-                }
+            const slashRun = bannerMatch[1];
+            const slashCount = slashRun.length;
+            if (slashCount >= bannerMinimum) {
+                return applyInlinePadding(comment, rawText.trim());
+            }
+
+            const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
+            const remainderTrimmed = remainder.trimStart();
+            const shouldAutofillBanner =
+                slashCount >= bannerAutofillThreshold &&
+                bannerMinimum > slashCount &&
+                remainderTrimmed.length > 0 &&
+                !remainderTrimmed.startsWith("@");
+
+            if (shouldAutofillBanner) {
+                const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
+                return applyInlinePadding(comment, padded.trimEnd());
             }
 
             return formatLineComment(comment, bannerMinimum);
