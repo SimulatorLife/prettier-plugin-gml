@@ -7,6 +7,7 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const GUARDED_CALL_MARKER = Symbol("featherGuardedCall");
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -116,6 +117,19 @@ function buildFeatherFixImplementations() {
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1060") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = guardDangerousVariableCalls({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -366,6 +380,252 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(withStatement, [fixDetail]);
 
     return fixDetail;
+}
+
+function guardDangerousVariableCalls({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = guardDangerousCallExpression(node, parent, property, diagnostic, ast);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function guardDangerousCallExpression(node, parent, property, diagnostic, ast) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression" || node[GUARDED_CALL_MARKER]) {
+        return null;
+    }
+
+    const target = node.object;
+
+    if (!target || target.type !== "Identifier") {
+        return null;
+    }
+
+    const callStart = getNodeStartIndex(node);
+
+    if (!hasSuspiciousAssignmentBeforeCall(ast, target.name, callStart)) {
+        return null;
+    }
+
+    const guardStatement = createCallableGuardStatement(node);
+
+    if (!guardStatement) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: target?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    node[GUARDED_CALL_MARKER] = true;
+    parent[property] = guardStatement;
+    attachFeatherFixMetadata(guardStatement, [fixDetail]);
+
+    return fixDetail;
+}
+
+function createCallableGuardStatement(callExpression) {
+    if (!callExpression || callExpression.type !== "CallExpression") {
+        return null;
+    }
+
+    const target = callExpression.object;
+
+    if (!target || target.type !== "Identifier") {
+        return null;
+    }
+
+    const guardIdentifier = {
+        type: "Identifier",
+        name: "is_callable"
+    };
+
+    const clonedTarget = cloneIdentifier(target);
+
+    if (!clonedTarget) {
+        return null;
+    }
+
+    const guardCall = {
+        type: "CallExpression",
+        object: guardIdentifier,
+        arguments: [clonedTarget]
+    };
+
+    const parenthesized = {
+        type: "ParenthesizedExpression",
+        expression: guardCall
+    };
+
+    const block = {
+        type: "BlockStatement",
+        body: [callExpression]
+    };
+
+    const ifStatement = {
+        type: "IfStatement",
+        test: parenthesized,
+        consequent: block,
+        alternate: null
+    };
+
+    if (Object.prototype.hasOwnProperty.call(callExpression, "start")) {
+        const start = cloneLocation(callExpression.start);
+        guardIdentifier.start = cloneLocation(callExpression.start);
+        guardCall.start = cloneLocation(callExpression.start);
+        parenthesized.start = cloneLocation(callExpression.start);
+        block.start = cloneLocation(callExpression.start);
+        ifStatement.start = start;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(callExpression, "end")) {
+        const end = cloneLocation(callExpression.end);
+        guardCall.end = cloneLocation(callExpression.end);
+        parenthesized.end = cloneLocation(callExpression.end);
+        block.end = cloneLocation(callExpression.end);
+        ifStatement.end = end;
+    }
+
+    copyCommentMetadata(callExpression, ifStatement);
+
+    return ifStatement;
+}
+
+function hasSuspiciousAssignmentBeforeCall(ast, identifierName, callStartIndex) {
+    if (!ast || typeof callStartIndex !== "number" || !identifierName) {
+        return false;
+    }
+
+    let found = false;
+
+    const visit = (node) => {
+        if (!node || found) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+                if (found) {
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "VariableDeclaration") {
+            const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+
+            for (const declarator of declarations) {
+                if (!declarator || declarator.type !== "VariableDeclarator") {
+                    continue;
+                }
+
+                const id = declarator.id;
+                if (!id || id.type !== "Identifier" || id.name !== identifierName) {
+                    continue;
+                }
+
+                const declaratorStart = getNodeStartIndex(declarator);
+                if (typeof declaratorStart !== "number" || declaratorStart >= callStartIndex) {
+                    continue;
+                }
+
+                const init = declarator.init;
+                if (isFunctionLikeValue(init)) {
+                    continue;
+                }
+
+                found = true;
+                return;
+            }
+        } else if (node.type === "AssignmentExpression") {
+            if (isIdentifierWithName(node.left, identifierName)) {
+                const assignmentStart = getNodeStartIndex(node);
+
+                if (typeof assignmentStart === "number" && assignmentStart < callStartIndex) {
+                    if (!isFunctionLikeValue(node.right)) {
+                        found = true;
+                        return;
+                    }
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (found) {
+                return;
+            }
+
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return found;
+}
+
+function isFunctionLikeValue(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
 }
 
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {

@@ -130,4 +130,56 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("wraps standalone variable calls in an is_callable guard", () => {
+        const source = [
+            "var my_function = 100;",
+            "",
+            "my_function();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [, guard] = ast.body ?? [];
+
+        assert.ok(guard);
+        assert.strictEqual(guard.type, "IfStatement");
+
+        const testExpression = guard.test?.expression;
+        assert.strictEqual(testExpression?.type, "CallExpression");
+        assert.strictEqual(testExpression?.object?.type, "Identifier");
+        assert.strictEqual(testExpression?.object?.name, "is_callable");
+        assert.strictEqual(testExpression?.arguments?.[0]?.type, "Identifier");
+        assert.strictEqual(testExpression?.arguments?.[0]?.name, "my_function");
+
+        const consequentBody = guard.consequent?.body ?? [];
+        assert.ok(Array.isArray(consequentBody));
+        assert.strictEqual(consequentBody.length, 1);
+
+        const guardedCall = consequentBody[0];
+        assert.strictEqual(guardedCall?.type, "CallExpression");
+        assert.strictEqual(guardedCall?.object?.type, "Identifier");
+        assert.strictEqual(guardedCall?.object?.name, "my_function");
+
+        const guardFixes = guard._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(guardFixes));
+        assert.strictEqual(guardFixes.length, 1);
+        assert.strictEqual(guardFixes[0].id, "GM1060");
+        assert.strictEqual(guardFixes[0].target, "my_function");
+        assert.strictEqual(guardFixes[0].automatic, true);
+        assert.ok(guardFixes[0].range);
+        assert.strictEqual(typeof guardFixes[0].range.start, "number");
+        assert.strictEqual(typeof guardFixes[0].range.end, "number");
+
+        const rootFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1060Entry = rootFixes.find((entry) => entry.id === "GM1060");
+        assert.ok(gm1060Entry);
+        assert.strictEqual(gm1060Entry.automatic, true);
+        assert.strictEqual(gm1060Entry.target, "my_function");
+    });
 });
