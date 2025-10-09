@@ -131,6 +131,76 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("rewrites counted for-loops flagged by GM2004 into repeat statements", () => {
+        const source = [
+            "for (var i = 0; i < amount; i += 1) {",
+            "    do_something();",
+            "}",
+            "",
+            "for (count = 0; count < 3; ++count) {",
+            '    show_debug_message("done");',
+            "}",
+            "",
+            "for (var step = 0; step < compute_limit(); step = step + 1) {",
+            "    trigger();",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const repeatStatements = (ast.body ?? []).filter((node) => node?.type === "RepeatStatement");
+
+        assert.strictEqual(repeatStatements.length, 3, "Expected all loops to convert to repeat statements.");
+        assert.strictEqual(
+            (ast.body ?? []).some((node) => node?.type === "ForStatement"),
+            false,
+            "Expected no ForStatement nodes to remain after applying fixes."
+        );
+
+        const [firstRepeat, secondRepeat, thirdRepeat] = repeatStatements;
+
+        assert.strictEqual(firstRepeat?.test?.type, "Identifier");
+        assert.strictEqual(firstRepeat?.test?.name, "amount");
+
+        assert.strictEqual(secondRepeat?.test?.type, "Literal");
+        assert.strictEqual(secondRepeat?.test?.value, "3");
+
+        assert.strictEqual(thirdRepeat?.test?.type, "CallExpression");
+        assert.strictEqual(thirdRepeat?.test?.object?.name, "compute_limit");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2004Entries = appliedDiagnostics.filter((entry) => entry.id === "GM2004");
+
+        assert.strictEqual(gm2004Entries.length, 3, "Expected metadata to be recorded for each converted loop.");
+        assert.deepStrictEqual(new Set(gm2004Entries.map((entry) => entry.target)), new Set(["i", "count", "step"]));
+
+        for (const entry of gm2004Entries) {
+            assert.strictEqual(entry.automatic, true);
+            assert.ok(entry.range);
+        }
+
+        assert.strictEqual(
+            firstRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
+            true,
+            "Expected GM2004 metadata on the first repeat statement."
+        );
+        assert.strictEqual(
+            secondRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
+            true,
+            "Expected GM2004 metadata on the second repeat statement."
+        );
+        assert.strictEqual(
+            thirdRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
+            true,
+            "Expected GM2004 metadata on the third repeat statement."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
