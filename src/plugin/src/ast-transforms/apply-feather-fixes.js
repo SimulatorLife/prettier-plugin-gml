@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2040") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeInvalidEventInheritedCalls({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -479,6 +492,100 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visitArray = (array, owner, ownerKey) => {
+        if (!Array.isArray(array)) {
+            return;
+        }
+
+        for (let index = 0; index < array.length; ) {
+            const removed = visit(array[index], array, index, owner, ownerKey);
+
+            if (!removed) {
+                index += 1;
+            }
+        }
+    };
+
+    const visit = (node, parent, property, owner, ownerKey) => {
+        if (!node) {
+            return false;
+        }
+
+        if (Array.isArray(node)) {
+            visitArray(node, owner, ownerKey);
+            return false;
+        }
+
+        if (typeof node !== "object") {
+            return false;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = removeEventInheritedCall(node, parent, property, owner, ownerKey, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return true;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                visitArray(value, node, key);
+            } else {
+                visit(value, node, key, node, key);
+            }
+        }
+
+        return false;
+    };
+
+    visit(ast, null, null, null, null);
+
+    return fixes;
+}
+
+function removeEventInheritedCall(node, parent, property, owner, ownerKey, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!isStatementContainer(owner, ownerKey)) {
+        return null;
+    }
+
+    if (!isEventInheritedCall(node)) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    parent.splice(property, 1);
+
+    return fixDetail;
+}
+
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -750,6 +857,36 @@ function isNegativeOneLiteral(node) {
         }
 
         return argument.value === "1" || argument.value === 1;
+    }
+
+    return false;
+}
+
+function isEventInheritedCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "event_inherited")) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    return args.length === 0;
+}
+
+function isStatementContainer(owner, ownerKey) {
+    if (!owner || typeof owner !== "object") {
+        return false;
+    }
+
+    if (ownerKey === "body") {
+        return owner.type === "Program" || owner.type === "BlockStatement";
+    }
+
+    if (owner.type === "SwitchCase" && ownerKey === "consequent") {
+        return true;
     }
 
     return false;

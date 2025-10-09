@@ -10,6 +10,16 @@ import {
     getFeatherDiagnosticFixers
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
+function isEventInheritedCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const callee = node.object;
+
+    return callee?.type === "Identifier" && callee.name === "event_inherited";
+}
+
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
@@ -168,5 +178,58 @@ describe("applyFeatherFixes transform", () => {
 
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
+    });
+
+    it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
+        const source = [
+            "/// Room Start Event",
+            "",
+            "if (should_run)",
+            "{",
+            "    event_inherited();",
+            "    show_debug_message(\"branch\");",
+            "}",
+            "",
+            "event_inherited();",
+            "",
+            "show_debug_message(\"Ready\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(
+            statements.some((statement) => isEventInheritedCall(statement)),
+            false,
+            "Expected top-level event_inherited calls to be removed."
+        );
+
+        const branch = statements.find((statement) => statement?.type === "IfStatement");
+        assert.ok(branch);
+
+        const branchBody = Array.isArray(branch?.consequent?.body) ? branch.consequent.body : [];
+        assert.strictEqual(
+            branchBody.some((statement) => isEventInheritedCall(statement)),
+            false,
+            "Expected event_inherited calls inside blocks to be removed."
+        );
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2040Fixes = appliedDiagnostics.filter((entry) => entry.id === "GM2040");
+
+        assert.strictEqual(gm2040Fixes.length, 2, "Expected two GM2040 fixes to be recorded.");
+
+        for (const entry of gm2040Fixes) {
+            assert.strictEqual(entry.automatic, true, "GM2040 fixes should be automatic.");
+            assert.strictEqual(entry.target, "event_inherited");
+            assert.ok(entry.range, "GM2040 fixes should include range metadata.");
+        }
     });
 });
