@@ -1,7 +1,16 @@
-import { util as prettierUtil } from "prettier";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 
-const { addTrailingComment } = prettierUtil;
+const FALLBACK_COMMENT_TOOLS = Object.freeze({
+    addTrailingComment() {}
+});
+
+function normalizeCommentTools(commentTools) {
+    if (!commentTools || typeof commentTools.addTrailingComment !== "function") {
+        return FALLBACK_COMMENT_TOOLS;
+    }
+
+    return commentTools;
+}
 
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
@@ -12,47 +21,48 @@ const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 
-export function consolidateStructAssignments(ast) {
+export function consolidateStructAssignments(ast, commentTools) {
     if (!isNode(ast)) {
         return ast;
     }
 
+    const normalizedCommentTools = normalizeCommentTools(commentTools);
     const tracker = new CommentTracker(Array.isArray(ast.comments) ? ast.comments : []);
-    visit(ast, tracker);
+    visit(ast, tracker, normalizedCommentTools);
     tracker.removeConsumedComments();
     return ast;
 }
 
-function visit(node, tracker) {
+function visit(node, tracker, commentTools) {
     if (!isNode(node)) {
         return;
     }
 
     if (Array.isArray(node)) {
         for (const item of node) {
-            visit(item, tracker);
+            visit(item, tracker, commentTools);
         }
         return;
     }
 
     if (Array.isArray(node.body)) {
-        consolidateBlock(node.body, tracker);
+        consolidateBlock(node.body, tracker, commentTools);
         for (const child of node.body) {
-            visit(child, tracker);
+            visit(child, tracker, commentTools);
         }
     } else if (isNode(node.body)) {
-        visit(node.body, tracker);
+        visit(node.body, tracker, commentTools);
     }
 
     for (const [key, value] of Object.entries(node)) {
         if (key === "body" || key === "start" || key === "end" || key === "comments") {
             continue;
         }
-        visit(value, tracker);
+        visit(value, tracker, commentTools);
     }
 }
 
-function consolidateBlock(statements, tracker) {
+function consolidateBlock(statements, tracker, commentTools) {
     if (!Array.isArray(statements) || statements.length === 0) {
         return;
     }
@@ -80,7 +90,8 @@ function consolidateBlock(statements, tracker) {
             startIndex: index + 1,
             identifierName,
             previousEnd: structEndIndex,
-            tracker
+            tracker,
+            commentTools
         });
 
         if (!collected) {
@@ -94,7 +105,14 @@ function consolidateBlock(statements, tracker) {
     }
 }
 
-function collectPropertyAssignments({ statements, startIndex, identifierName, previousEnd, tracker }) {
+function collectPropertyAssignments({
+    statements,
+    startIndex,
+    identifierName,
+    previousEnd,
+    tracker,
+    commentTools
+}) {
     const properties = [];
     let cursor = startIndex;
     let lastEnd = previousEnd;
@@ -113,13 +131,16 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
             break;
         }
 
-        if (!allowTrailingCommentsBetween({
-            tracker,
-            left: lastEnd,
-            right: start,
-            precedingStatement: previousStatement,
-            precedingProperty: lastProperty
-        })) {
+        if (
+            !allowTrailingCommentsBetween({
+                tracker,
+                left: lastEnd,
+                right: start,
+                precedingStatement: previousStatement,
+                precedingProperty: lastProperty,
+                commentTools
+            })
+        ) {
             break;
         }
 
@@ -173,23 +194,29 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const nextStatement = statements[cursor];
     if (nextStatement) {
         const nextStart = getNodeStartIndex(nextStatement);
-        if (!allowTrailingCommentsBetween({
-            tracker,
-            left: lastEnd,
-            right: nextStart,
-            precedingStatement: previousStatement,
-            precedingProperty: lastProperty
-        })) {
+        if (
+            !allowTrailingCommentsBetween({
+                tracker,
+                left: lastEnd,
+                right: nextStart,
+                precedingStatement: previousStatement,
+                precedingProperty: lastProperty,
+                commentTools
+            })
+        ) {
             return null;
         }
     } else {
-        if (!allowTrailingCommentsBetween({
-            tracker,
-            left: lastEnd,
-            right: Number.POSITIVE_INFINITY,
-            precedingStatement: previousStatement,
-            precedingProperty: lastProperty
-        })) {
+        if (
+            !allowTrailingCommentsBetween({
+                tracker,
+                left: lastEnd,
+                right: Number.POSITIVE_INFINITY,
+                precedingStatement: previousStatement,
+                precedingProperty: lastProperty,
+                commentTools
+            })
+        ) {
             return null;
         }
 
@@ -411,7 +438,14 @@ function buildPropertyNameNode(propertyKey) {
     return null;
 }
 
-function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement, precedingProperty }) {
+function allowTrailingCommentsBetween({
+    tracker,
+    left,
+    right,
+    precedingStatement,
+    precedingProperty,
+    commentTools
+}) {
     const commentEntries = tracker.getEntriesBetween(left, right);
     if (commentEntries.length === 0) {
         return true;
@@ -431,6 +465,7 @@ function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement
     }
 
     const commentTarget = precedingProperty ? precedingProperty.value ?? precedingProperty : null;
+    const attachTrailingComment = commentTools.addTrailingComment;
 
     for (const { comment } of commentEntries) {
         if (comment.leadingChar === ";") {
@@ -438,7 +473,7 @@ function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement
         }
 
         if (commentTarget) {
-            addTrailingComment(commentTarget, comment);
+            attachTrailingComment(commentTarget, comment);
         }
     }
 

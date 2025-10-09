@@ -2,9 +2,12 @@
 // parser implementation. Keeping this logic in one place avoids sprinkling
 // knowledge of the parser's option shape and location metadata across the
 // rest of the plugin configuration.
+import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
 import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
+
+const { addTrailingComment } = util;
 
 function parse(text, options) {
     const ast = GMLParser.parse(text, {
@@ -17,7 +20,7 @@ function parse(text, options) {
     }
 
     if (options?.condenseStructAssignments ?? true) {
-        return consolidateStructAssignments(ast);
+        return consolidateStructAssignments(ast, { addTrailingComment });
     }
 
     return ast;
