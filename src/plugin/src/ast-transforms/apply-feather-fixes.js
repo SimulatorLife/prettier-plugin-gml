@@ -6,6 +6,8 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const NUMERIC_STRING_LITERAL_PATTERN =
+    /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
 export function getFeatherDiagnosticFixers() {
@@ -93,6 +95,22 @@ function buildFeatherFixImplementations() {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1029") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertNumericStringArgumentsToNumbers({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -248,6 +266,111 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+            for (const argument of args) {
+                const fix = convertNumericStringLiteral(argument, diagnostic);
+
+                if (fix) {
+                    fixes.push(fix);
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function convertNumericStringLiteral(argument, diagnostic) {
+    const literal = extractLiteral(argument);
+
+    if (!literal) {
+        return null;
+    }
+
+    const rawValue = literal.value;
+
+    if (typeof rawValue !== "string" || rawValue.length < 2) {
+        return null;
+    }
+
+    if (!rawValue.startsWith("\"") || !rawValue.endsWith("\"")) {
+        return null;
+    }
+
+    const numericText = rawValue.slice(1, -1);
+
+    if (!NUMERIC_STRING_LITERAL_PATTERN.test(numericText)) {
+        return null;
+    }
+
+    literal.value = numericText;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: numericText,
+        range: {
+            start: getNodeStartIndex(literal),
+            end: getNodeEndIndex(literal)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(literal, [fixDetail]);
+
+    return fixDetail;
+}
+
+function extractLiteral(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        return node;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return extractLiteral(node.expression);
+    }
+
+    return null;
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
