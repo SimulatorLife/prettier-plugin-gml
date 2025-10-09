@@ -30,7 +30,7 @@
    - Flag identifiers tagged as deprecated in the manual (look for strings like "Deprecated" in topic metadata) so consumers can optionally allow or warn on renaming.【F:docs/reserved-identifiers-plan.md†L71-L73】
 
 ## Consumption inside the plugin
-- Emit a consolidated JSON artefact (e.g. `resources/gml-identifiers.json`) keyed by identifier with metadata (`{ type, source, manualPath, version }`). Regenerate this file via a script (e.g. `pnpm run build:gml-identifiers`) during release prep or when bumping supported GameMaker versions.【F:docs/reserved-identifiers-plan.md†L75-L80】
+- Emit a consolidated JSON artefact (e.g. `resources/gml-identifiers.json`) keyed by identifier with metadata (`{ type, source, manualPath, version }`). Regenerate this file via a script (e.g. `npm run build:gml-identifiers`) during release prep or when bumping supported GameMaker versions.【F:docs/reserved-identifiers-plan.md†L75-L80】
 - The Prettier plugin can lazily load the JSON when performing rename-safe checks, ensuring runtime performance stays predictable.【F:docs/reserved-identifiers-plan.md†L80-L82】
 - Add automated tests that diff the generated identifier set against the previous snapshot whenever the manual commit changes, catching unexpected removals and highlighting new reserved words that need explicit handling.【F:docs/reserved-identifiers-plan.md†L82-L85】
 

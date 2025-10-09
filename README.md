@@ -7,11 +7,10 @@
 </p>
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
-repository houses the parser, printer, generated metadata, and shared helpers in one workspace so scripts, objects, and shaders
+repository houses the parser, printer, generated metadata, and shared helpers in one npm workspace so scripts, objects, and shaders
 all benefit from the same formatter. The plugin is not yet published on npm; install it straight from GitHub using the
-instructions below. The
-formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier needs an explicit path to
-load it when you install from Git.
+instructions below. The formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier
+needs an explicit path to load it when you install from Git.
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
 
@@ -127,7 +126,7 @@ load it when you install from Git.
    plugin:
 
    ```bash
-   npm install --save-dev prettier antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
+   npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
    ```
 
    Re-running `npm install` after a GameMaker update helps ensure the parser matches the latest language features.
@@ -368,7 +367,9 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
 - `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
 - `resources/` — Generated data files that power formatter heuristics (for example `gml-identifiers.json` and
   `feather-metadata.json`).
-- `docs/` — Planning and reference notes such as the [reserved identifier harvesting plan](docs/reserved-identifiers-plan.md).
+- `scripts/` — Tooling that regenerates manual-driven metadata (for example the scrapers behind `npm run build:*`).
+- `docs/` — Planning and reference notes such as the [reserved identifier harvesting plan](docs/reserved-identifiers-plan.md)
+  and the [Feather metadata ingestion plan](docs/feather-data-plan.md).
 
 The repository is configured as an npm workspace so the root `node_modules` folder manages dependencies for both the parser and the plugin packages.
 
@@ -434,7 +435,9 @@ code and include the corresponding rationale in your pull request.
 ### Regenerate metadata snapshots
 
 The formatter relies on generated metadata stored under `resources/` to make naming, diagnostic, and language-aware decisions.
-Refresh the datasets whenever YoYo Games updates the manual or when you tweak the scrapers:
+Refresh the datasets whenever YoYo Games updates the manual or when you tweak the scrapers. The plans in
+[docs/reserved-identifiers-plan.md](docs/reserved-identifiers-plan.md) and
+[docs/feather-data-plan.md](docs/feather-data-plan.md) describe the scraping pipelines in more detail:
 
 ```bash
 npm run build:gml-identifiers
