@@ -11,7 +11,7 @@
     "prettier:plugin": "node prettier-wrapper.js $npm_config_path"
   },
   "dependencies": {
-    "gamemaker-language-parser": "^0.0.1"
+    "gamemaker-language-parser": "file:../parser"
   },
   "engines": {
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
