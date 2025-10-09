@@ -96,6 +96,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1010") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureNumericOperationsUseRealLiteralCoercion({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -464,6 +480,175 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "BinaryExpression") {
+            const fix = coerceStringLiteralsInBinaryExpression(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (node.operator !== "+") {
+        return null;
+    }
+
+    const leftLiteral = isCoercibleStringLiteral(node.left) ? node.left : null;
+    const rightLiteral = isCoercibleStringLiteral(node.right) ? node.right : null;
+
+    if (!leftLiteral && !rightLiteral) {
+        return null;
+    }
+
+    if (leftLiteral) {
+        node.left = createRealCoercionCall(leftLiteral);
+    }
+
+    if (rightLiteral) {
+        node.right = createRealCoercionCall(rightLiteral);
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.operator ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function isCoercibleStringLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const rawValue = typeof node.value === "string" ? node.value : null;
+
+    if (!rawValue) {
+        return false;
+    }
+
+    if (rawValue.startsWith("@\"")) {
+        return rawValue.endsWith("\"");
+    }
+
+    if (rawValue.length < 2) {
+        return false;
+    }
+
+    const startingQuote = rawValue[0];
+    const endingQuote = rawValue[rawValue.length - 1];
+
+    return (
+        (startingQuote === "\"" || startingQuote === "'") &&
+        startingQuote === endingQuote
+    );
+}
+
+function createRealCoercionCall(literal) {
+    const argument = cloneLiteral(literal) ?? literal;
+
+    const identifier = createIdentifierFromTemplate("real", literal);
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [argument],
+        start: cloneLocation(literal.start),
+        end: cloneLocation(literal.end)
+    };
+
+    return callExpression;
+}
+
+function cloneLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const cloned = {
+        type: "Literal",
+        value: node.value
+    };
+
+    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        cloned.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        cloned.end = cloneLocation(node.end);
+    }
+
+    return cloned;
+}
+
+function createIdentifierFromTemplate(name, template) {
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+    }
+
+    return identifier;
 }
 
 function cloneIdentifier(node) {
