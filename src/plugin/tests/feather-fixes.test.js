@@ -130,4 +130,74 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("removes non-integer enum assignments and records GM1003 metadata", () => {
+        const ast = {
+            type: "Program",
+            body: [
+                {
+                    type: "EnumDeclaration",
+                    name: {
+                        type: "Identifier",
+                        name: "Fruit",
+                        start: { index: 5 },
+                        end: { index: 10 }
+                    },
+                    members: [
+                        {
+                            type: "EnumMember",
+                            name: {
+                                type: "Identifier",
+                                name: "UNKNOWN",
+                                start: { index: 15 },
+                                end: { index: 22 }
+                            },
+                            initializer: "0",
+                            start: { index: 15 },
+                            end: { index: 26 }
+                        },
+                        {
+                            type: "EnumMember",
+                            name: {
+                                type: "Identifier",
+                                name: "APPLE",
+                                start: { index: 30 },
+                                end: { index: 35 }
+                            },
+                            initializer: '"apple"',
+                            start: { index: 30 },
+                            end: { index: 46 }
+                        }
+                    ],
+                    start: { index: 0 },
+                    end: { index: 50 }
+                }
+            ],
+            start: { index: 0 },
+            end: { index: 50 }
+        };
+
+        applyFeatherFixes(ast, { sourceText: "" });
+
+        const [enumDeclaration] = ast.body ?? [];
+        assert.ok(enumDeclaration);
+
+        const [, appleMember] = enumDeclaration.members ?? [];
+        assert.ok(appleMember);
+        assert.strictEqual(appleMember.initializer, null);
+        assert.strictEqual(appleMember._featherOriginalInitializer, '"apple"');
+
+        const memberFixes = appleMember._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(memberFixes));
+        assert.strictEqual(memberFixes.length, 1);
+        assert.strictEqual(memberFixes[0].id, "GM1003");
+        assert.strictEqual(memberFixes[0].automatic, true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1003"),
+            true,
+            "Expected GM1003 metadata to be recorded on the program node."
+        );
+    });
 });
