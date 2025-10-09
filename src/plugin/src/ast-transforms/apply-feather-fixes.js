@@ -3,6 +3,9 @@ import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
 
 const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
+const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
+    ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
+);
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -172,7 +175,7 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     const originalText = sourceText.slice(startIndex, endIndex + 1);
 
     // Only strip semicolons that appear at the end of the macro definition.
-    const sanitizedText = originalText.replace(/;(?=[^\S\r\n]*(?:\r?\n|$))/, "");
+    const sanitizedText = originalText.replace(TRAILING_MACRO_SEMICOLON_PATTERN, "");
 
     if (sanitizedText === originalText) {
         return null;
