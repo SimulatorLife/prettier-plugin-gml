@@ -7,6 +7,13 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const GM1041_CALL_ARGUMENT_TARGETS = new Map([
+    ["instance_create_depth", [3]],
+    ["instance_create_layer", [3]],
+    ["instance_create_layer_depth", [4]],
+    ["layer_instance_create", [3]]
+]);
+const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
@@ -96,6 +103,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1041") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertAssetArgumentStringsToIdentifiers({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -145,6 +165,114 @@ function buildFeatherFixImplementations() {
     }
 
     return registry;
+}
+
+function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const calleeName = node.object?.type === "Identifier" ? node.object.name : null;
+
+            if (typeof calleeName === "string" && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
+                const argumentIndexes = GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
+                const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+                for (const argumentIndex of argumentIndexes) {
+                    if (typeof argumentIndex !== "number" || argumentIndex < 0 || argumentIndex >= args.length) {
+                        continue;
+                    }
+
+                    const fixDetail = convertStringLiteralArgumentToIdentifier({
+                        argument: args[argumentIndex],
+                        container: args,
+                        index: argumentIndex,
+                        diagnostic
+                    });
+
+                    if (fixDetail) {
+                        fixes.push(fixDetail);
+                    }
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function convertStringLiteralArgumentToIdentifier({ argument, container, index, diagnostic }) {
+    if (!Array.isArray(container) || typeof index !== "number") {
+        return null;
+    }
+
+    if (!argument || argument.type !== "Literal" || typeof argument.value !== "string") {
+        return null;
+    }
+
+    const identifierName = extractIdentifierNameFromLiteral(argument.value);
+    if (!identifierName) {
+        return null;
+    }
+
+    const identifierNode = {
+        type: "Identifier",
+        name: identifierName
+    };
+
+    if (Object.prototype.hasOwnProperty.call(argument, "start")) {
+        identifierNode.start = cloneLocation(argument.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(argument, "end")) {
+        identifierNode.end = cloneLocation(argument.end);
+    }
+
+    copyCommentMetadata(argument, identifierNode);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: identifierName,
+        range: {
+            start: getNodeStartIndex(argument),
+            end: getNodeEndIndex(argument)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    container[index] = identifierNode;
+    attachFeatherFixMetadata(identifierNode, [fixDetail]);
+
+    return fixDetail;
 }
 
 function registerFeatherFixer(registry, diagnosticId, factory) {
@@ -509,6 +637,38 @@ function copyCommentMetadata(source, target) {
             target[key] = source[key];
         }
     });
+}
+
+function extractIdentifierNameFromLiteral(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const stripped = stripStringQuotes(value);
+    if (!stripped) {
+        return null;
+    }
+
+    if (!IDENTIFIER_NAME_PATTERN.test(stripped)) {
+        return null;
+    }
+
+    return stripped;
+}
+
+function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value[value.length - 1];
+
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
 }
 
 function isIdentifierWithName(node, name) {

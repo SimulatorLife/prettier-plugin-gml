@@ -93,6 +93,47 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("converts instance creation asset strings to identifiers and records metadata", () => {
+        const source = 'instance_create_depth(x, y, -100, "obj_player");';
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [callExpression] = ast.body ?? [];
+        assert.ok(callExpression);
+        const originalArgument = callExpression?.arguments?.[3];
+        assert.ok(originalArgument);
+        assert.strictEqual(originalArgument.type, "Literal");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const updatedArgument = callExpression.arguments?.[3];
+        assert.ok(updatedArgument);
+        assert.strictEqual(updatedArgument.type, "Identifier");
+        assert.strictEqual(updatedArgument.name, "obj_player");
+
+        const metadata = updatedArgument._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(metadata));
+        assert.strictEqual(metadata.length, 1);
+        const [entry] = metadata;
+        assert.strictEqual(entry.id, "GM1041");
+        assert.strictEqual(entry.target, "obj_player");
+        assert.strictEqual(entry.automatic, true);
+        assert.ok(entry.range);
+        assert.strictEqual(typeof entry.range.start, "number");
+        assert.strictEqual(typeof entry.range.end, "number");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.ok(Array.isArray(programFixes));
+        assert.ok(
+            programFixes.some(
+                (detail) => detail.id === "GM1041" && detail.automatic === true && detail.target === "obj_player"
+            )
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
