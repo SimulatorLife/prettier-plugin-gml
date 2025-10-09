@@ -93,6 +93,66 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("renames duplicate function parameters and records fix metadata", () => {
+        const source = [
+            "function example(value, other, value, value) {",
+            "    return value + other;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [fn] = ast.body ?? [];
+        assert.ok(fn);
+        const params = Array.isArray(fn.params) ? fn.params : [];
+        assert.strictEqual(params.length, 4);
+
+        const extractName = (param) => {
+            if (!param) {
+                return null;
+            }
+
+            if (param.type === "Identifier") {
+                return param.name;
+            }
+
+            if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+                return param.left.name;
+            }
+
+            return null;
+        };
+
+        const parameterNames = params.map(extractName);
+        assert.deepStrictEqual(parameterNames, ["value", "other", "value_2", "value_3"]);
+
+        const renamedParams = [params[2], params[3]];
+
+        for (const param of renamedParams) {
+            assert.ok(param);
+            const identifier = param.type === "Identifier" ? param : param.left;
+            const metadata = identifier?._appliedFeatherDiagnostics;
+            assert.ok(Array.isArray(metadata));
+            assert.strictEqual(metadata.length, 1);
+            assert.strictEqual(metadata[0].id, "GM1059");
+            assert.strictEqual(metadata[0].target, "value");
+            assert.strictEqual(metadata[0].automatic, true);
+        }
+
+        const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
+        const gm1059Metadata = rootMetadata.filter((entry) => entry.id === "GM1059");
+        assert.strictEqual(gm1059Metadata.length, 2);
+        gm1059Metadata.forEach((entry) => {
+            assert.strictEqual(entry.target, "value");
+            assert.strictEqual(entry.automatic, true);
+        });
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
