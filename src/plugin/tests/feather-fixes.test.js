@@ -93,6 +93,97 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("terminates var declarations flagged by GM2007 and records metadata", () => {
+        const source = [
+            "var missing",
+            "var intact = 1;",
+            "if (true)",
+            "{",
+            "    var inside",
+            "    var withComment // comment",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const allDeclarations = [];
+
+        const collectDeclarations = (node) => {
+            if (!node) {
+                return;
+            }
+
+            if (Array.isArray(node)) {
+                for (const entry of node) {
+                    collectDeclarations(entry);
+                }
+                return;
+            }
+
+            if (typeof node !== "object") {
+                return;
+            }
+
+            if (node.type === "VariableDeclaration" && node.kind === "var") {
+                allDeclarations.push(node);
+            }
+
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    collectDeclarations(value);
+                }
+            }
+        };
+
+        collectDeclarations(ast);
+
+        const flaggedDeclarations = allDeclarations.filter((node) => {
+            const diagnostics = node._appliedFeatherDiagnostics ?? [];
+            return diagnostics.some((entry) => entry.id === "GM2007");
+        });
+
+        assert.strictEqual(flaggedDeclarations.length, 3);
+
+        const expectedTargets = new Set(["missing", "inside", "withComment"]);
+        const observedTargets = new Set();
+
+        for (const declaration of flaggedDeclarations) {
+            const diagnostics = declaration._appliedFeatherDiagnostics ?? [];
+            const gm2007 = diagnostics.find((entry) => entry.id === "GM2007");
+
+            assert.ok(gm2007, "Expected GM2007 metadata to be recorded on the declaration.");
+            assert.strictEqual(gm2007.automatic, true);
+            assert.ok(gm2007.range);
+            assert.strictEqual(typeof gm2007.range.start, "number");
+            assert.strictEqual(typeof gm2007.range.end, "number");
+
+            if (gm2007.target) {
+                observedTargets.add(gm2007.target);
+            }
+        }
+
+        assert.strictEqual(observedTargets.size, expectedTargets.size);
+
+        for (const target of expectedTargets) {
+            assert.strictEqual(
+                observedTargets.has(target),
+                true,
+                `Expected GM2007 fix metadata for var declaration '${target}'.`
+            );
+        }
+
+        const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2007Diagnostics = programDiagnostics.filter((entry) => entry.id === "GM2007");
+
+        assert.strictEqual(gm2007Diagnostics.length, flaggedDeclarations.length);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
