@@ -12,4 +12,19 @@ describe("getIdentifierText", () => {
     it("reads the name property from plain objects", () => {
         assert.equal(getIdentifierText({ name: "identifier" }), "identifier");
     });
+
+    it("normalizes member index expressions", () => {
+        const identifier = {
+            type: "MemberIndexExpression",
+            object: { type: "Identifier", name: "list" },
+            property: [
+                {
+                    type: "Identifier",
+                    name: "count"
+                }
+            ]
+        };
+
+        assert.equal(getIdentifierText(identifier), "list_count");
+    });
 });
