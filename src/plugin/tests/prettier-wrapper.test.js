@@ -79,4 +79,33 @@ describe('Prettier wrapper CLI', () => {
       await fs.rm(tempDirectory, { recursive: true, force: true });
     }
   });
+
+  it('does not descend into directories ignored by .prettierignore', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignoredDirectory = path.join(tempDirectory, 'ignored');
+      await fs.mkdir(ignoredDirectory);
+
+      const ignoredSidecar = path.join(ignoredDirectory, 'file.txt');
+      await fs.writeFile(ignoredSidecar, 'hello', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'ignored/\n', 'utf8');
+
+      const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const skippedMatch = stdout.match(/Skipped (\d+) files/);
+      assert.ok(skippedMatch, 'Expected wrapper output to report skipped files');
+      assert.equal(Number(skippedMatch[1]), 1);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
 });
