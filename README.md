@@ -6,14 +6,12 @@
   </a>
 </p>
 
-A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
-repository houses the parser, printer, generated metadata, and shared helpers in one workspace so scripts, objects, and shaders
-all benefit from the same formatter. The plugin is not yet published on npm; install it straight from GitHub using the
-instructions below. The
-formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier needs an explicit path to
-load it when you install from Git.
+A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. The
+repository is an npm workspace that ships both the formatter (`src/plugin`, published as `prettier-plugin-gamemaker`) and the
+parser runtime (`src/parser`, published locally as `gamemaker-language-parser`). Because the packages are consumed straight from
+GitHub today, Prettier needs an explicit plugin path when you install from Git.
 
-> ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
+> ⚠️ The formatter is still experimental. Keep commits or backups handy before you format large projects.
 
 ## Table of contents
 
@@ -43,17 +41,17 @@ load it when you install from Git.
 
 ### Requirements
 
-- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository ships with an `.nvmrc` file if you
-  prefer `nvm` to manage the runtime:
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository includes an `.nvmrc` file so you
+  can align with the tested version quickly:
 
-  ````bash
+  ```bash
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 
   export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
   nvm install
   nvm use
-  ````
+  ```
 
 - npm (ships with Node.js). Confirm availability with:
 
@@ -66,8 +64,8 @@ load it when you install from Git.
 
 1. Change into the root folder of the GameMaker project you want to format (the directory that contains your `.yyp` file).
 
-   > 💡 **Do not run the install command from this repository or another shared tooling folder.** Prettier only loads plugins
-   > that are installed next to the project you are formatting.
+    > 💡 **Install the dependency from the project you want to format.** Prettier only loads plugins that live next to the code
+    > it formats, so running the install command from this repository or another shared tooling folder will not work.
 
 2. Add Prettier, the plugin, and the parser runtime to your GameMaker project:
 
@@ -83,8 +81,7 @@ load it when you install from Git.
    folder next to your project so the Git-based install remains discoverable. The Git dependency will appear in
    `node_modules/root` (the name defined in this repository’s workspace manifest).
 
-3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Add a convenience script to your
-   `package.json` so you consistently point Prettier at the bundled plugin entry (`node_modules/root/src/plugin/src/gml.js`):
+3. Point Prettier at the plugin entry (`node_modules/root/src/plugin/src/gml.js`). Adding a script keeps the command memorable:
 
     ```jsonc
     {
@@ -112,24 +109,24 @@ load it when you install from Git.
     ```
 
     The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. If you prefer a
-    single entry point, call the bundled wrapper instead of wiring Prettier manually:
+    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions.
 
-    ```bash
-    node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
-    ```
+4. Prefer a single entry point instead of wiring Prettier manually? Call the bundled wrapper and pass the directory you want to
+   format:
 
-    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every `.gml`
-    file under the provided path.
+   ```bash
+   node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+   ```
 
-4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
-   plugin:
+   The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every `.gml`
+   file under the provided path. If you omit `--path`, it defaults to the current working directory.
+
+5. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
+   plugin or after updating GameMaker so the parser matches the latest language features:
 
    ```bash
    npm install --save-dev prettier antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
    ```
-
-   Re-running `npm install` after a GameMaker update helps ensure the parser matches the latest language features.
 
 ### Format code
 
