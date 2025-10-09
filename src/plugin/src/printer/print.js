@@ -2102,12 +2102,12 @@ function shouldGenerateSyntheticDocForFunction(path, existingDocLines, options) 
 }
 
 function shouldInsertHoistedLoopSeparator(path, options) {
-    if (!path || typeof path.getValue !== "function") {
+    if (typeof path?.getValue !== "function") {
         return false;
     }
 
     const node = path.getValue();
-    if (!node || node.type !== "ForStatement") {
+    if (node?.type !== "ForStatement") {
         return false;
     }
 
@@ -2120,26 +2120,20 @@ function shouldInsertHoistedLoopSeparator(path, options) {
         return false;
     }
 
-    for (const key of Object.keys(parent)) {
-        const value = parent[key];
-        if (!Array.isArray(value)) {
-            continue;
-        }
+    const siblingList = Object.values(parent).find(
+        (value) => Array.isArray(value) && value.includes(node)
+    );
 
-        const index = value.indexOf(node);
-        if (index === -1) {
-            continue;
-        }
-
-        const nextNode = value[index + 1];
-        if (!nextNode || nextNode.type !== "ForStatement") {
-            return false;
-        }
-
-        return options?.optimizeArrayLengthLoops ?? true;
+    if (!siblingList) {
+        return false;
     }
 
-    return false;
+    const nextNode = siblingList[siblingList.indexOf(node) + 1];
+    if (nextNode?.type !== "ForStatement") {
+        return false;
+    }
+
+    return options?.optimizeArrayLengthLoops ?? true;
 }
 
 function getNodeName(node) {
