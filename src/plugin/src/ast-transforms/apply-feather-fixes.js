@@ -113,6 +113,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2020") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -222,6 +235,169 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            const fix = convertAllAssignment(node, parent, property, diagnostic);
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertAllAssignment(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
+        return null;
+    }
+
+    const member = node.left;
+    if (!member || member.type !== "MemberDotExpression") {
+        return null;
+    }
+
+    const object = member.object;
+    if (!object || object.type !== "Identifier" || object.name !== "all") {
+        return null;
+    }
+
+    const propertyIdentifier = member.property;
+    if (!propertyIdentifier || propertyIdentifier.type !== "Identifier") {
+        return null;
+    }
+
+    const normalizedAssignment = {
+        type: "AssignmentExpression",
+        operator: node.operator,
+        left: cloneIdentifier(propertyIdentifier),
+        right: node.right,
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    const blockStatement = {
+        type: "BlockStatement",
+        body: [normalizedAssignment],
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    const parenthesizedExpression = {
+        type: "ParenthesizedExpression",
+        expression: cloneIdentifier(object),
+        start: cloneLocation(object?.start ?? node.start),
+        end: cloneLocation(object?.end ?? node.end)
+    };
+
+    const withStatement = {
+        type: "WithStatement",
+        test: parenthesizedExpression,
+        body: blockStatement,
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    copyCommentMetadata(node, withStatement);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: propertyIdentifier?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    parent[property] = withStatement;
+    attachFeatherFixMetadata(withStatement, [fixDetail]);
+
+    return fixDetail;
+}
+
+function cloneIdentifier(node) {
+    if (!node || node.type !== "Identifier") {
+        return null;
+    }
+
+    const cloned = {
+        type: "Identifier",
+        name: node.name
+    };
+
+    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        cloned.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        cloned.end = cloneLocation(node.end);
+    }
+
+    return cloned;
+}
+
+function cloneLocation(location) {
+    if (typeof location === "number") {
+        return location;
+    }
+
+    if (location && typeof location === "object") {
+        return { ...location };
+    }
+
+    return location ?? undefined;
+}
+
+function copyCommentMetadata(source, target) {
+    if (!source || !target) {
+        return;
+    }
+
+    ["leadingComments", "trailingComments", "innerComments", "comments"].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+            target[key] = source[key];
+        }
+    });
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
