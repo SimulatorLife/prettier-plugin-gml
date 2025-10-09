@@ -104,6 +104,14 @@ export const options = {
         range: { start: 0, end: Infinity },
         description:
             "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable.",
+    },
+    applyFeatherFixes: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: false,
+        description:
+            "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051).",
     }
 };
 
@@ -120,6 +128,7 @@ export const defaultOptions = {
     alignAssignmentsMinGroupSize: 3,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
-    preserveGlobalVarStatements: true
+    preserveGlobalVarStatements: true,
+    applyFeatherFixes: false
 };
 
