@@ -131,6 +131,65 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("inserts surface target resets for GM2046 sequences and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "surface_set_target(sf);",
+            "draw_clear_alpha(c_blue, 1);",
+            "draw_circle(50, 50, 20, false);",
+            "vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const setIndex = body.findIndex(
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_set_target"
+        );
+        const resetIndex = body.findIndex(
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(setIndex >= 0, "Expected surface_set_target call to be present in the AST.");
+        assert.ok(resetIndex > setIndex, "Expected surface_reset_target to be inserted after the setter.");
+
+        const resetCall = body[resetIndex];
+        assert.ok(Array.isArray(resetCall?.arguments));
+        assert.strictEqual(resetCall.arguments.length, 0, "Reset call should not include arguments.");
+
+        const vertexCall = body[resetIndex + 1];
+        assert.strictEqual(
+            vertexCall?.object?.name,
+            "vertex_submit",
+            "Expected reset call to appear before vertex submission."
+        );
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2046 = appliedDiagnostics.find((entry) => entry.id === "GM2046");
+
+        assert.ok(gm2046, "Expected GM2046 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2046.automatic, true);
+        assert.strictEqual(gm2046.target, "sf");
+
+        const resetDiagnostics = Array.isArray(resetCall?._appliedFeatherDiagnostics)
+            ? resetCall._appliedFeatherDiagnostics
+            : [];
+
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2046"),
+            true,
+            "Expected GM2046 metadata to be attached to the inserted reset call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
