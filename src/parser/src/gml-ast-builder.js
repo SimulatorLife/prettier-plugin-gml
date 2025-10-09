@@ -124,7 +124,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // This method will be the primary method handling the binary expressions
     handleBinaryExpression(ctx, isEmbeddedExpression = false) {
         // Check if the expression is defined and is a function
-        if (!ctx || !ctx.hasOwnProperty('expression')) {
+        if (!ctx || !Object.hasOwn(ctx, 'expression')) {
             return this.visit(ctx);
         }
 
@@ -143,8 +143,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             leftNode = this.visit(childExpressions[0]);
         } else {
             // For two child expressions, check if each is a binary expression
-            let leftIsBinary = childExpressions[0].hasOwnProperty('expression') && typeof childExpressions[0].expression === 'function';
-            let rightIsBinary = childExpressions[1].hasOwnProperty('expression') && typeof childExpressions[1].expression === 'function';
+            let leftIsBinary = Object.hasOwn(childExpressions[0], 'expression') && typeof childExpressions[0].expression === 'function';
+            let rightIsBinary = Object.hasOwn(childExpressions[1], 'expression') && typeof childExpressions[1].expression === 'function';
 
             leftNode = leftIsBinary ? 
                 this.handleBinaryExpression(childExpressions[0], true) :
