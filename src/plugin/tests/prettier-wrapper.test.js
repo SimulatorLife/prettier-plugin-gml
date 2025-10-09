@@ -125,6 +125,33 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('formats files restored by negated patterns in .prettierignore', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const ignoredDirectory = path.join(tempDirectory, 'ignored');
+      const nestedDirectory = path.join(ignoredDirectory, 'nested');
+      await fs.mkdir(nestedDirectory, { recursive: true });
+
+      const targetFile = path.join(nestedDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(
+        ignorePath,
+        ['ignored/*', '!ignored/nested/', '!ignored/nested/script.gml', ''].join('\n'),
+        'utf8'
+      );
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   const directorySymlinkType = process.platform === 'win32' ? 'junction' : 'dir';
   const fileSymlinkType = process.platform === 'win32' ? 'file' : null;
 

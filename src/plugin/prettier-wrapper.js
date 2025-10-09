@@ -115,6 +115,7 @@ const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
 let projectIgnorePath = null;
+let projectIgnoreHasNegatedPatterns = false;
 let encounteredFormattingError = false;
 
 function getIgnorePathOptions() {
@@ -146,6 +147,18 @@ async function shouldSkipDirectory(directory) {
         });
 
         if (fileInfo.ignored) {
+            if (projectIgnoreHasNegatedPatterns && projectIgnorePath) {
+                const wrapperOnlyInfo = await prettier.getFileInfo(placeholderPath, {
+                    ignorePath,
+                    plugins: options.plugins,
+                    resolveConfig: true
+                });
+
+                if (!wrapperOnlyInfo.ignored) {
+                    return false;
+                }
+            }
+
             console.log(`Skipping ${directory} (ignored directory)`);
             return true;
         }
@@ -163,12 +176,35 @@ async function resolveProjectIgnorePath(directory) {
         const candidateStats = await stat(candidate);
 
         if (candidateStats.isFile()) {
+            try {
+                const ignoreContents = await readFile(candidate, "utf8");
+                projectIgnoreHasNegatedPatterns = ignoreContents
+                    .split(/\r?\n/)
+                    .some((rawLine) => {
+                        const line = rawLine.trim();
+
+                        if (line === "" || line.startsWith("#")) {
+                            return false;
+                        }
+
+                        if (line.startsWith("\\!")) {
+                            return false;
+                        }
+
+                        return line.startsWith("!");
+                    });
+            } catch (error) {
+                projectIgnoreHasNegatedPatterns = false;
+                console.warn(`Unable to inspect ignore patterns in ${candidate}: ${error.message}`);
+            }
             return candidate;
         }
     } catch {
+        projectIgnoreHasNegatedPatterns = false;
         // Ignore missing files.
     }
 
+    projectIgnoreHasNegatedPatterns = false;
     return null;
 }
 
