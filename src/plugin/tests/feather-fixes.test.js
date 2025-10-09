@@ -93,6 +93,54 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("rewrites postfix increment statements flagged by GM1026", () => {
+        const source = "pi++;";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [variableDeclaration, incDecStatement] = ast.body ?? [];
+
+        assert.ok(variableDeclaration);
+        assert.strictEqual(variableDeclaration.type, "VariableDeclaration");
+        assert.strictEqual(variableDeclaration.kind, "var");
+
+        const [declarator] = variableDeclaration.declarations ?? [];
+        assert.ok(declarator);
+        assert.strictEqual(declarator.type, "VariableDeclarator");
+        assert.strictEqual(declarator.init?.type, "Identifier");
+        assert.strictEqual(declarator.init?.name, "pi");
+
+        const identifierName = declarator.id?.name;
+        assert.ok(typeof identifierName === "string");
+        assert.ok(identifierName.startsWith("__featherFix_pi"));
+
+        assert.ok(incDecStatement);
+        assert.strictEqual(incDecStatement.type, "IncDecStatement");
+        assert.strictEqual(incDecStatement.prefix, false);
+        assert.strictEqual(incDecStatement.operator, "++");
+        assert.strictEqual(incDecStatement.argument?.type, "Identifier");
+        assert.strictEqual(incDecStatement.argument?.name, identifierName);
+
+        const declarationMetadata = variableDeclaration._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(declarationMetadata));
+        assert.strictEqual(declarationMetadata.some((entry) => entry.id === "GM1026"), true);
+
+        const statementMetadata = incDecStatement._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(statementMetadata));
+        assert.strictEqual(statementMetadata.some((entry) => entry.id === "GM1026"), true);
+
+        const programMetadata = ast._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(programMetadata));
+        const gm1026 = programMetadata.find((entry) => entry.id === "GM1026");
+        assert.ok(gm1026);
+        assert.strictEqual(gm1026.automatic, true);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

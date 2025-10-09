@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1026") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = rewriteInvalidPostfixExpressions({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -464,6 +477,273 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "IncDecStatement") {
+            const fix = rewritePostfixStatement(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function rewritePostfixStatement(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "IncDecStatement" || node.prefix !== false) {
+        return null;
+    }
+
+    const argument = node.argument;
+
+    if (!argument || typeof argument !== "object") {
+        return null;
+    }
+
+    const argumentName = getIdentifierName(argument);
+
+    if (typeof argumentName === "string" && argumentName.startsWith("__featherFix_")) {
+        return null;
+    }
+
+    const siblings = parent;
+    const temporaryName = createTemporaryIdentifierName(argument, siblings);
+
+    if (!temporaryName) {
+        return null;
+    }
+
+    const initializer = cloneNode(argument);
+    const declarationIdentifier = createIdentifier(temporaryName, argument);
+
+    if (!initializer || !declarationIdentifier) {
+        return null;
+    }
+
+    const declarator = {
+        type: "VariableDeclarator",
+        id: declarationIdentifier,
+        init: initializer
+    };
+
+    if (Object.prototype.hasOwnProperty.call(argument, "start")) {
+        declarator.start = cloneLocation(argument.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(argument, "end")) {
+        declarator.end = cloneLocation(argument.end);
+    }
+
+    const variableDeclaration = {
+        type: "VariableDeclaration",
+        declarations: [declarator],
+        kind: "var"
+    };
+
+    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        variableDeclaration.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        variableDeclaration.end = cloneLocation(node.end);
+    }
+
+    const temporaryIdentifier = createIdentifier(temporaryName, argument);
+
+    if (!temporaryIdentifier) {
+        return null;
+    }
+
+    const rewrittenStatement = {
+        type: "IncDecStatement",
+        operator: node.operator,
+        prefix: node.prefix,
+        argument: temporaryIdentifier
+    };
+
+    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        rewrittenStatement.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        rewrittenStatement.end = cloneLocation(node.end);
+    }
+
+    copyCommentMetadata(node, variableDeclaration);
+    copyCommentMetadata(node, rewrittenStatement);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getIdentifierName(argument),
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    parent.splice(property, 1, variableDeclaration, rewrittenStatement);
+
+    attachFeatherFixMetadata(variableDeclaration, [fixDetail]);
+    attachFeatherFixMetadata(rewrittenStatement, [fixDetail]);
+
+    return fixDetail;
+}
+
+function createTemporaryIdentifierName(argument, siblings) {
+    const existingNames = new Set();
+
+    if (Array.isArray(siblings)) {
+        for (const entry of siblings) {
+            collectIdentifierNames(entry, existingNames);
+        }
+    }
+
+    const baseName = sanitizeIdentifierName(getIdentifierName(argument) || "value");
+    const prefix = `__featherFix_${baseName}`;
+    let candidate = prefix;
+    let suffix = 1;
+
+    while (existingNames.has(candidate)) {
+        candidate = `${prefix}_${suffix}`;
+        suffix += 1;
+    }
+
+    return candidate;
+}
+
+function sanitizeIdentifierName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return "value";
+    }
+
+    let sanitized = name.replace(/[^A-Za-z0-9_]/g, "_");
+
+    if (!/^[A-Za-z_]/.test(sanitized)) {
+        sanitized = `value_${sanitized}`;
+    }
+
+    return sanitized || "value";
+}
+
+function collectIdentifierNames(node, registry) {
+    if (!node || !registry) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const entry of node) {
+            collectIdentifierNames(entry, registry);
+        }
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    if (node.type === "Identifier" && typeof node.name === "string") {
+        registry.add(node.name);
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            collectIdentifierNames(value, registry);
+        }
+    }
+}
+
+function createIdentifier(name, template) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            identifier.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            identifier.end = cloneLocation(template.end);
+        }
+    }
+
+    return identifier;
+}
+
+function getIdentifierName(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "Identifier" && typeof node.name === "string") {
+        return node.name;
+    }
+
+    return null;
+}
+
+function cloneNode(node) {
+    if (node === null || typeof node !== "object") {
+        return node;
+    }
+
+    if (Array.isArray(node)) {
+        return node.map((entry) => cloneNode(entry));
+    }
+
+    const clone = {};
+
+    for (const [key, value] of Object.entries(node)) {
+        clone[key] = cloneNode(value);
+    }
+
+    return clone;
 }
 
 function cloneIdentifier(node) {
