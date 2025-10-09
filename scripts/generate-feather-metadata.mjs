@@ -2,8 +2,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { load } from "cheerio";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -62,8 +60,6 @@ function printUsage() {
     `  --help, -h                Show this help message.`);
 }
 
-const execFileAsync = promisify(execFile);
-
 const BASE_HEADERS = {
   "User-Agent": "prettier-plugin-gml feather metadata generator",
 };
@@ -77,19 +73,18 @@ async function curlRequest(url, { headers = {}, acceptJson = false } = {}) {
   if (acceptJson) {
     finalHeaders.Accept = "application/vnd.github+json";
   }
-  const args = ["--fail-with-body", "--silent", "--show-error", "-L"];
-  for (const [key, value] of Object.entries(finalHeaders)) {
-    args.push("-H", `${key}: ${value}`);
+  const response = await fetch(url, {
+    headers: finalHeaders,
+    redirect: "follow",
+  });
+
+  const bodyText = await response.text();
+  if (!response.ok) {
+    const errorMessage = bodyText || response.statusText;
+    throw new Error(`Request failed for ${url}: ${errorMessage}`);
   }
-  args.push(url);
-  try {
-    const { stdout } = await execFileAsync("curl", args);
-    return stdout;
-  } catch (error) {
-    const stdout = error?.stdout?.toString() ?? "";
-    const stderr = error?.stderr?.toString() ?? "";
-    throw new Error(`Request failed for ${url}: ${stderr || stdout || error.message}`);
-  }
+
+  return bodyText;
 }
 
 async function ensureDir(dirPath) {
