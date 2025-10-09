@@ -3,6 +3,7 @@ import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
 
 const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
+const LERP_EXPECTED_ARGUMENT_COUNT = 3;
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -93,6 +94,22 @@ function buildFeatherFixImplementations() {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1020") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = supplyMissingLerpInterpolationArguments({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -291,6 +308,149 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function supplyMissingLerpInterpolationArguments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const appliedFixes = ensureNestedLerpCallHasInterpolationArgument({
+                callExpression: node,
+                diagnostic
+            });
+
+            if (Array.isArray(appliedFixes) && appliedFixes.length > 0) {
+                fixes.push(...appliedFixes);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function ensureNestedLerpCallHasInterpolationArgument({ callExpression, diagnostic }) {
+    const args = Array.isArray(callExpression?.arguments) ? callExpression.arguments : [];
+
+    if (args.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index];
+
+        if (!isCallExpressionWithName(argument, "lerp")) {
+            continue;
+        }
+
+        const fix = transferArgumentsIntoLerpCall({
+            parentCall: callExpression,
+            callIndex: index,
+            lerpCall: argument,
+            diagnostic
+        });
+
+        if (fix) {
+            fixes.push(fix);
+        }
+    }
+
+    return fixes;
+}
+
+function transferArgumentsIntoLerpCall({ parentCall, callIndex, lerpCall, diagnostic }) {
+    if (!parentCall || parentCall.type !== "CallExpression") {
+        return null;
+    }
+
+    const parentArgs = Array.isArray(parentCall.arguments) ? parentCall.arguments : null;
+    const lerpArgs = Array.isArray(lerpCall?.arguments) ? lerpCall.arguments : null;
+
+    if (!parentArgs || !lerpArgs) {
+        return null;
+    }
+
+    if (lerpArgs.length >= LERP_EXPECTED_ARGUMENT_COUNT) {
+        return null;
+    }
+
+    const movedArguments = [];
+
+    while (
+        lerpArgs.length < LERP_EXPECTED_ARGUMENT_COUNT &&
+        parentArgs.length > callIndex + 1
+    ) {
+        const candidate = parentArgs[callIndex + 1];
+
+        if (!candidate) {
+            break;
+        }
+
+        parentArgs.splice(callIndex + 1, 1);
+        lerpArgs.push(candidate);
+        movedArguments.push(candidate);
+    }
+
+    if (lerpArgs.length !== LERP_EXPECTED_ARGUMENT_COUNT) {
+        while (movedArguments.length > 0) {
+            const argument = movedArguments.pop();
+            lerpArgs.pop();
+            parentArgs.splice(callIndex + 1, 0, argument);
+        }
+
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: lerpCall?.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(lerpCall),
+            end: getNodeEndIndex(lerpCall)
+        }
+    });
+
+    if (!fixDetail) {
+        while (movedArguments.length > 0) {
+            const argument = movedArguments.pop();
+            lerpArgs.pop();
+            parentArgs.splice(callIndex + 1, 0, argument);
+        }
+
+        return null;
+    }
+
+    attachFeatherFixMetadata(lerpCall, [fixDetail]);
+
+    return fixDetail;
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
@@ -517,6 +677,14 @@ function isIdentifierWithName(node, name) {
     }
 
     return node.name === name;
+}
+
+function isCallExpressionWithName(node, name) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, name);
 }
 
 function isLiteralZero(node) {
