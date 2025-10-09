@@ -93,6 +93,52 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("renames reserved identifiers and records fix metadata", () => {
+        const source = [
+            "#macro image_index 1",
+            "",
+            "var image_index = 1;",
+            "static draw_text = 2;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [macro, varDeclaration, staticDeclaration] = ast.body ?? [];
+
+        assert.ok(macro?.name);
+        assert.strictEqual(macro.name.name, "_image_index");
+        assert.strictEqual(macro._featherMacroText?.trimEnd(), "#macro _image_index 1");
+        assert.ok(Array.isArray(macro.name._appliedFeatherDiagnostics));
+        assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].target, "image_index");
+
+        const varDeclarator = varDeclaration?.declarations?.[0];
+        assert.ok(varDeclarator?.id);
+        assert.strictEqual(varDeclarator.id.name, "_image_index");
+        assert.ok(Array.isArray(varDeclarator.id._appliedFeatherDiagnostics));
+        assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].target, "image_index");
+
+        const staticDeclarator = staticDeclaration?.declarations?.[0];
+        assert.ok(staticDeclarator?.id);
+        assert.strictEqual(staticDeclarator.id.name, "_draw_text");
+        assert.ok(Array.isArray(staticDeclarator.id._appliedFeatherDiagnostics));
+        assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].target, "draw_text");
+
+        const appliedFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedFixes.some((entry) => entry.id === "GM1030"),
+            true,
+            "Expected GM1030 fix metadata to be attached to the program node."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
