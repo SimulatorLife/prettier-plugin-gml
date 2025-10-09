@@ -181,6 +181,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2063") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureDrawAlphaIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -697,6 +710,50 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     return fixes;
 }
 
+function ensureDrawAlphaIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureDrawAlphaResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -728,6 +785,60 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const resetCall = createAlphaTestRefResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
+function ensureDrawAlphaResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isDrawSetAlphaCall(node)) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isLiteralOne(args[0])) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isDrawSetAlphaResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createDrawSetAlphaResetCall(node);
 
     if (!resetCall) {
         return null;
@@ -905,6 +1016,30 @@ function isLiteralZero(node) {
     return node.value === "0" || node.value === 0;
 }
 
+function isLiteralOne(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    if (node.value === "1" || node.value === 1) {
+        return true;
+    }
+
+    if (typeof node.value === "string") {
+        const numeric = Number(node.value);
+
+        if (!Number.isNaN(numeric)) {
+            return numeric === 1;
+        }
+    }
+
+    if (typeof node.value === "number") {
+        return node.value === 1;
+    }
+
+    return false;
+}
+
 function isAlphaTestRefResetCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -921,6 +1056,28 @@ function isAlphaTestRefResetCall(node) {
     }
 
     return isLiteralZero(args[0]);
+}
+
+function isDrawSetAlphaCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_set_alpha");
+}
+
+function isDrawSetAlphaResetCall(node) {
+    if (!isDrawSetAlphaCall(node)) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isLiteralOne(args[0]);
 }
 
 function createAlphaTestRefResetCall(template) {
@@ -940,6 +1097,36 @@ function createAlphaTestRefResetCall(template) {
         type: "CallExpression",
         object: identifier,
         arguments: [literalZero]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function createDrawSetAlphaResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "draw_set_alpha") {
+        return null;
+    }
+
+    const literalOne = createLiteral("1", template.arguments?.[0]);
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [literalOne]
     };
 
     if (Object.prototype.hasOwnProperty.call(template, "start")) {

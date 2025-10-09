@@ -153,6 +153,49 @@ describe("applyFeatherFixes transform", () => {
         });
     });
 
+    it("ensures draw alpha resets flagged by GM2063 and records metadata", () => {
+        const source = [
+            "draw_set_alpha(0.5);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 3);
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.type, "Identifier");
+        assert.strictEqual(resetCall.object?.name, "draw_set_alpha");
+
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.strictEqual(args.length, 1);
+        assert.strictEqual(args[0]?.type, "Literal");
+        assert.strictEqual(args[0]?.value, "1");
+
+        const metadata = resetCall._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(metadata));
+        assert.strictEqual(metadata.length, 1);
+        assert.strictEqual(metadata[0].id, "GM2063");
+        assert.strictEqual(metadata[0].target, "draw_set_alpha");
+        assert.strictEqual(metadata[0].automatic, true);
+
+        const rootMetadata = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2063Entries = rootMetadata.filter((entry) => entry.id === "GM2063");
+        assert.strictEqual(gm2063Entries.length, 1);
+        assert.strictEqual(gm2063Entries[0].automatic, true);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
