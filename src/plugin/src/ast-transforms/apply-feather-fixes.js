@@ -113,6 +113,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1056") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = reorderOptionalParameters({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -594,6 +607,148 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+function reorderOptionalParameters({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "FunctionDeclaration") {
+            const fix = reorderFunctionOptionalParameters(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function reorderFunctionOptionalParameters(node, diagnostic) {
+    if (!node || node.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    const params = Array.isArray(node.params) ? node.params : null;
+
+    if (!params || params.length === 0) {
+        return null;
+    }
+
+    let encounteredOptional = false;
+    let needsReordering = false;
+
+    for (const param of params) {
+        if (isOptionalParameter(param)) {
+            encounteredOptional = true;
+        } else if (encounteredOptional) {
+            needsReordering = true;
+            break;
+        }
+    }
+
+    if (!needsReordering) {
+        return null;
+    }
+
+    const requiredParams = [];
+    const optionalParams = [];
+
+    for (const param of params) {
+        if (isOptionalParameter(param)) {
+            optionalParams.push(param);
+        } else {
+            requiredParams.push(param);
+        }
+    }
+
+    const reorderedParams = requiredParams.concat(optionalParams);
+
+    if (reorderedParams.length !== params.length) {
+        return null;
+    }
+
+    node.params = reorderedParams;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getFunctionIdentifierName(node),
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function isOptionalParameter(parameter) {
+    return parameter?.type === "DefaultParameter";
+}
+
+function getFunctionIdentifierName(node) {
+    if (!node) {
+        return null;
+    }
+
+    const { id, name, key } = node;
+
+    if (typeof id === "string") {
+        return id;
+    }
+
+    if (id && typeof id === "object") {
+        if (typeof id.name === "string") {
+            return id.name;
+        }
+
+        if (id.type === "Identifier" && typeof id.name === "string") {
+            return id.name;
+        }
+    }
+
+    if (typeof name === "string") {
+        return name;
+    }
+
+    if (key && typeof key === "object" && typeof key.name === "string") {
+        return key.name;
+    }
+
+    return null;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
