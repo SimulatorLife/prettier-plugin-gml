@@ -647,7 +647,10 @@ export function print(path, options, print) {
             }
         }
         case "MacroDeclaration": {
-        // can't touch this
+            if (typeof node._featherMacroText === "string") {
+                return concat(node._featherMacroText);
+            }
+
             return options.originalText.slice(node.start.index, node.end.index + 1);
         }
         case "RegionStatement": {
