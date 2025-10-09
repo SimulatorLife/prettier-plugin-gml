@@ -113,6 +113,22 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1058") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureConstructorDeclarationsForNewExpressions({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -246,6 +262,128 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     }
 
     attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const functionDeclarations = new Map();
+
+    const collectFunctions = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                collectFunctions(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "FunctionDeclaration" && typeof node.id === "string" && node.id.length > 0) {
+            if (!functionDeclarations.has(node.id)) {
+                functionDeclarations.set(node.id, node);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                collectFunctions(value);
+            }
+        }
+    };
+
+    collectFunctions(ast);
+
+    if (functionDeclarations.size === 0) {
+        return [];
+    }
+
+    const convertedFunctions = new Set();
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "NewExpression") {
+            const expression = node.expression;
+            const constructorName =
+                expression && expression.type === "Identifier" && typeof expression.name === "string"
+                    ? expression.name
+                    : null;
+
+            if (constructorName && functionDeclarations.has(constructorName)) {
+                const functionNode = functionDeclarations.get(constructorName);
+
+                if (functionNode && functionNode.type === "FunctionDeclaration" && !convertedFunctions.has(functionNode)) {
+                    const fix = convertFunctionDeclarationToConstructor(functionNode, diagnostic);
+
+                    if (fix) {
+                        fixes.push(fix);
+                        convertedFunctions.add(functionNode);
+                    }
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: typeof functionNode.id === "string" ? functionNode.id : null,
+        range: {
+            start: getNodeStartIndex(functionNode),
+            end: getNodeEndIndex(functionNode)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    functionNode.type = "ConstructorDeclaration";
+
+    if (!Object.prototype.hasOwnProperty.call(functionNode, "parent")) {
+        functionNode.parent = null;
+    }
+
+    attachFeatherFixMetadata(functionNode, [fixDetail]);
 
     return fixDetail;
 }
