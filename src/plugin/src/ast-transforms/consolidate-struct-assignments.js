@@ -1,4 +1,5 @@
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
+import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -14,7 +15,6 @@ function normalizeCommentTools(commentTools) {
 
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
-const VARIABLE_DECLARATOR = "VariableDeclarator";
 const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const MEMBER_DOT_EXPRESSION = "MemberDotExpression";
 const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
@@ -240,12 +240,8 @@ function getStructInitializer(statement) {
     }
 
     if (statement.type === VARIABLE_DECLARATION) {
-        if (!Array.isArray(statement.declarations) || statement.declarations.length !== 1) {
-            return null;
-        }
-
-        const declarator = statement.declarations[0];
-        if (!isNode(declarator) || declarator.type !== VARIABLE_DECLARATOR) {
+        const declarator = getSingleVariableDeclarator(statement);
+        if (!isNode(declarator)) {
             return null;
         }
 
