@@ -139,6 +139,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2042") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = balanceGpuStateStack({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2054") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
@@ -775,6 +788,229 @@ function registerManualFeatherFix({ ast, diagnostic }) {
     });
 
     return [fixDetail];
+}
+
+function balanceGpuStateStack({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "Program" || node.type === "BlockStatement") {
+            const statements = Array.isArray(node.body) ? node.body : null;
+
+            if (statements && statements.length > 0) {
+                const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
+
+                if (blockFixes.length > 0) {
+                    fixes.push(...blockFixes);
+                }
+            }
+
+            if (Array.isArray(node.body)) {
+                for (const statement of node.body) {
+                    visit(statement);
+                }
+            }
+
+            for (const [key, value] of Object.entries(node)) {
+                if (key === "body") {
+                    continue;
+                }
+
+                if (value && typeof value === "object") {
+                    visit(value);
+                }
+            }
+
+            return;
+        }
+
+        if (node.type === "CaseClause") {
+            const statements = Array.isArray(node.consequent) ? node.consequent : null;
+
+            if (statements && statements.length > 0) {
+                const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
+
+                if (blockFixes.length > 0) {
+                    fixes.push(...blockFixes);
+                }
+            }
+
+            if (node.test) {
+                visit(node.test);
+            }
+
+            if (Array.isArray(node.consequent)) {
+                for (const statement of node.consequent) {
+                    visit(statement);
+                }
+            }
+
+            for (const [key, value] of Object.entries(node)) {
+                if (key === "consequent" || key === "test") {
+                    continue;
+                }
+
+                if (value && typeof value === "object") {
+                    visit(value);
+                }
+            }
+
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return [];
+    }
+
+    const unmatchedPushes = [];
+    const fixes = [];
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (!statement || typeof statement !== "object") {
+            continue;
+        }
+
+        if (isGpuPushStateCall(statement)) {
+            unmatchedPushes.push({ index, node: statement });
+            continue;
+        }
+
+        if (isGpuPopStateCall(statement)) {
+            if (unmatchedPushes.length > 0) {
+                unmatchedPushes.pop();
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: statement.object?.name ?? "gpu_pop_state",
+                range: {
+                    start: getNodeStartIndex(statement),
+                    end: getNodeEndIndex(statement)
+                }
+            });
+
+            statements.splice(index, 1);
+            index -= 1;
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            fixes.push(fixDetail);
+        }
+    }
+
+    if (unmatchedPushes.length > 0) {
+        for (const entry of unmatchedPushes) {
+            const popCall = createGpuStateCall("gpu_pop_state", entry.node);
+
+            if (!popCall) {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: entry.node?.object?.name ?? "gpu_push_state",
+                range: {
+                    start: getNodeStartIndex(entry.node),
+                    end: getNodeEndIndex(entry.node)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements.push(popCall);
+            attachFeatherFixMetadata(popCall, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
+
+    if (fixes.length > 0 && container && typeof container === "object") {
+        attachFeatherFixMetadata(container, fixes);
+    }
+
+    return fixes;
+}
+
+function createGpuStateCall(name, template) {
+    if (!name) {
+        return null;
+    }
+
+    const identifier = createIdentifier(name, template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            callExpression.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            callExpression.end = cloneLocation(template.end);
+        }
+    }
+
+    return callExpression;
+}
+
+function isGpuPushStateCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "gpu_push_state");
+}
+
+function isGpuPopStateCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "gpu_pop_state");
 }
 
 function getManualFeatherFixRegistry(ast) {
