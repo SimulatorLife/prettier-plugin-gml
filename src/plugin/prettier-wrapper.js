@@ -66,6 +66,42 @@ const stat = util.promisify(fs.stat);
 let skippedFileCount = 0;
 let projectIgnorePath = null;
 
+function getIgnorePathOptions() {
+    const ignoreCandidates = [ignorePath, projectIgnorePath].filter(Boolean);
+    if (ignoreCandidates.length === 0) {
+        return null;
+    }
+
+    const uniqueIgnorePaths = [...new Set(ignoreCandidates)];
+    return uniqueIgnorePaths.length === 1 ? uniqueIgnorePaths[0] : uniqueIgnorePaths;
+}
+
+async function shouldSkipDirectory(directory) {
+    const ignorePathOption = getIgnorePathOptions();
+    if (!ignorePathOption) {
+        return false;
+    }
+
+    const placeholderPath = path.join(directory, "__prettier_plugin_gml_ignore_test__.gml");
+
+    try {
+        const fileInfo = await prettier.getFileInfo(placeholderPath, {
+            ignorePath: ignorePathOption,
+            plugins: options.plugins,
+            resolveConfig: true
+        });
+
+        if (fileInfo.ignored) {
+            console.log(`Skipping ${directory} (ignored directory)`);
+            return true;
+        }
+    } catch (error) {
+        console.warn(`Unable to evaluate ignore rules for ${directory}: ${error.message}`);
+    }
+
+    return false;
+}
+
 async function resolveProjectIgnorePath(directory) {
     const candidate = path.join(directory, ".prettierignore");
 
@@ -100,6 +136,9 @@ async function processDirectory(directory) {
         const filePath = path.join(directory, file);
         const stats = await stat(filePath);
         if (stats.isDirectory()) {
+            if (await shouldSkipDirectory(filePath)) {
+                continue;
+            }
             await processDirectory(filePath);
         } else if (path.extname(filePath).toLowerCase() === ".gml") {
             await processFile(filePath);
@@ -144,13 +183,9 @@ async function resolveFormattingOptions(filePath) {
 async function processFile(filePath) {
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
-        const ignorePaths = projectIgnorePath
-            ? [ignorePath, projectIgnorePath]
-            : [ignorePath];
-        const uniqueIgnorePaths = [...new Set(ignorePaths)];
+        const ignorePathOption = getIgnorePathOptions();
         const fileInfo = await prettier.getFileInfo(filePath, {
-            ignorePath:
-                uniqueIgnorePaths.length === 1 ? uniqueIgnorePaths[0] : uniqueIgnorePaths,
+            ...(ignorePathOption ? { ignorePath: ignorePathOption } : {}),
             plugins: formattingOptions.plugins,
             resolveConfig: true
         });
