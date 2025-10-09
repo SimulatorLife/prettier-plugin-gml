@@ -1,5 +1,8 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
-import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
+import {
+    getFeatherDiagnosticById,
+    getFeatherDiagnostics
+} from "../../../shared/feather/metadata.js";
 
 const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
@@ -7,20 +10,47 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const GM1022_LONE_IDENTIFIER_PATTERN =
+    /^[^\S\r\n]*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)[^\S\r\n]*;?[^\S\r\n]*(?:(\/\/[^\r\n]*))?[^\S\r\n]*$/gm;
+const GM1022_RESERVED_IDENTIFIERS = new Set(["break", "continue", "exit", "return"]);
+const GM1022_COMPOUND_ASSIGNMENT_OPERATORS = [
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "^=",
+    "|=",
+    "&=",
+    "<<=",
+    ">>=",
+    "??="
+];
 
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-export function applyFeatherFixes(ast, { sourceText } = {}) {
+export function applyFeatherFixes(
+    ast,
+    { sourceText, preAppliedFixes = [], skipManualFixIds } = {}
+) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
 
     const appliedFixes = [];
+    if (Array.isArray(preAppliedFixes) && preAppliedFixes.length > 0) {
+        appliedFixes.push(...preAppliedFixes);
+    }
+
+    const manualSkipSet = createFeatherFixSkipSet(skipManualFixIds);
 
     for (const entry of FEATHER_DIAGNOSTIC_FIXERS.values()) {
-        const fixes = entry.applyFix(ast, { sourceText });
+        const fixes = entry.applyFix(ast, {
+            sourceText,
+            skipManualFixIds: manualSkipSet
+        });
 
         if (Array.isArray(fixes) && fixes.length > 0) {
             appliedFixes.push(...fixes);
@@ -32,6 +62,37 @@ export function applyFeatherFixes(ast, { sourceText } = {}) {
     }
 
     return ast;
+}
+
+export function preprocessSourceTextForFeatherFixes(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return {
+            text: sourceText,
+            appliedFixes: [],
+            skipManualFixIds: new Set()
+        };
+    }
+
+    let sanitizedText = sourceText;
+    const appliedFixes = [];
+    const skipManualFixIds = new Set();
+
+    const gm1022Result = preprocessGM1022LoneIdentifiers(sourceText);
+
+    if (gm1022Result) {
+        sanitizedText = gm1022Result.text;
+
+        if (Array.isArray(gm1022Result.fixes) && gm1022Result.fixes.length > 0) {
+            appliedFixes.push(...gm1022Result.fixes);
+            skipManualFixIds.add("GM1022");
+        }
+    }
+
+    return {
+        text: sanitizedText,
+        appliedFixes,
+        skipManualFixIds
+    };
 }
 
 function buildFeatherDiagnosticFixers() {
@@ -70,7 +131,8 @@ function createFixerForDiagnostic(diagnostic) {
             return (ast, context) => {
                 const fixes = implementation({
                     ast,
-                    sourceText: context?.sourceText
+                    sourceText: context?.sourceText,
+                    context
                 });
 
                 return Array.isArray(fixes) ? fixes : [];
@@ -96,8 +158,25 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1022") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, context }) => {
+                    const fixes = removeDanglingIdentifierStatements({ ast, diagnostic });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic, context });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText, context }) => {
                 const fixes = removeTrailingMacroSemicolons({
                     ast,
                     sourceText,
@@ -108,39 +187,39 @@ function buildFeatherFixImplementations() {
                     return fixes;
                 }
 
-                return registerManualFeatherFix({ ast, diagnostic });
+                return registerManualFeatherFix({ ast, diagnostic, context });
             });
             continue;
         }
 
         if (diagnosticId === "GM2020") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, context }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
                 }
 
-                return registerManualFeatherFix({ ast, diagnostic });
+                return registerManualFeatherFix({ ast, diagnostic, context });
             });
             continue;
         }
 
         if (diagnosticId === "GM2054") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, context }) => {
                 const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
                 }
 
-                return registerManualFeatherFix({ ast, diagnostic });
+                return registerManualFeatherFix({ ast, diagnostic, context });
             });
             continue;
         }
 
-        registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
-            registerManualFeatherFix({ ast, diagnostic })
+        registerFeatherFixer(registry, diagnosticId, () => ({ ast, context }) =>
+            registerManualFeatherFix({ ast, diagnostic, context })
         );
     }
 
@@ -159,6 +238,292 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function preprocessGM1022LoneIdentifiers(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return null;
+    }
+
+    const diagnostic = getFeatherDiagnosticById("GM1022");
+
+    if (!diagnostic) {
+        return null;
+    }
+
+    const fixes = [];
+    const sanitizedSegments = [];
+    let searchIndex = 0;
+
+    GM1022_LONE_IDENTIFIER_PATTERN.lastIndex = 0;
+
+    let match;
+    while ((match = GM1022_LONE_IDENTIFIER_PATTERN.exec(sourceText)) !== null) {
+        const fullMatch = match[0];
+        const identifier = match[1];
+
+        if (!identifier) {
+            continue;
+        }
+
+        if (GM1022_RESERVED_IDENTIFIERS.has(identifier)) {
+            continue;
+        }
+
+        const matchStart = match.index;
+        const matchEnd = matchStart + fullMatch.length;
+
+        if (shouldSkipGM1022Candidate(sourceText, matchStart, matchEnd)) {
+            continue;
+        }
+
+        sanitizedSegments.push(sourceText.slice(searchIndex, matchStart));
+        searchIndex = matchEnd;
+
+        const leadingWhitespace = fullMatch.match(/^[^\S\r\n]*/);
+        const leadingLength = Array.isArray(leadingWhitespace)
+            ? leadingWhitespace[0]?.length ?? 0
+            : 0;
+        const rangeStart = matchStart + leadingLength;
+        const rangeEnd = rangeStart + identifier.length;
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: identifier,
+            range: { start: rangeStart, end: rangeEnd }
+        });
+
+        if (fixDetail) {
+            fixes.push(fixDetail);
+        }
+    }
+
+    if (fixes.length === 0) {
+        return null;
+    }
+
+    sanitizedSegments.push(sourceText.slice(searchIndex));
+
+    return {
+        text: sanitizedSegments.join(""),
+        fixes
+    };
+}
+
+function shouldSkipGM1022Candidate(sourceText, matchStart, matchEnd) {
+    const length = typeof sourceText === "string" ? sourceText.length : 0;
+
+    if (length === 0) {
+        return false;
+    }
+
+    let index = matchEnd;
+
+    while (index < length) {
+        const char = sourceText[index];
+
+        if (char === " " || char === "\t" || char === "\f" || char === "\v") {
+            index += 1;
+            continue;
+        }
+
+        if (char === "\r") {
+            if (sourceText[index + 1] === "\n") {
+                index += 2;
+            } else {
+                index += 1;
+            }
+            continue;
+        }
+
+        if (char === "\n") {
+            index += 1;
+            continue;
+        }
+
+        if (char === "/" && sourceText[index + 1] === "/") {
+            index += 2;
+            while (index < length) {
+                const commentChar = sourceText[index];
+                if (commentChar === "\n" || commentChar === "\r") {
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        if (char === "/" && sourceText[index + 1] === "*") {
+            index += 2;
+            while (index < length) {
+                if (sourceText[index] === "*" && sourceText[index + 1] === "/") {
+                    index += 2;
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+
+        break;
+    }
+
+    if (index >= length) {
+        return false;
+    }
+
+    if (sourceText[index] === "=") {
+        return true;
+    }
+
+    for (const operator of GM1022_COMPOUND_ASSIGNMENT_OPERATORS) {
+        if (sourceText.startsWith(operator, index)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function removeDanglingIdentifierStatements({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visitNode = (node, containerInfo) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            visitArray(node, containerInfo);
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (Array.isArray(value)) {
+                visitArray(value, { container: node, property: key });
+                continue;
+            }
+
+            if (value && typeof value === "object") {
+                visitNode(value, { container: node, property: key });
+            }
+        }
+    };
+
+    const visitArray = (array, containerInfo) => {
+        if (!Array.isArray(array)) {
+            return;
+        }
+
+        const representsStatements = isStatementArrayContainer(containerInfo);
+
+        for (let index = 0; index < array.length; ) {
+            const element = array[index];
+
+            if (representsStatements && isDanglingIdentifierNode(element)) {
+                const identifierName = getIdentifierNameForGM1022(element);
+                const range = getNodeRange(element);
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: identifierName,
+                    range
+                });
+
+                if (fixDetail) {
+                    fixes.push(fixDetail);
+                }
+
+                array.splice(index, 1);
+                continue;
+            }
+
+            visitNode(element, containerInfo);
+            index += 1;
+        }
+    };
+
+    visitNode(ast, null);
+
+    return fixes;
+}
+
+function isStatementArrayContainer(info) {
+    if (!info || typeof info !== "object") {
+        return false;
+    }
+
+    const property = info.property;
+    const container = info.container;
+
+    if (typeof property !== "string" || !container || typeof container !== "object") {
+        return false;
+    }
+
+    if (property === "body") {
+        return true;
+    }
+
+    if (container?.type === "SwitchCase" && property === "consequent") {
+        return true;
+    }
+
+    return false;
+}
+
+function isDanglingIdentifierNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Identifier") {
+        return true;
+    }
+
+    if (node.type === "MemberDotExpression") {
+        return isDanglingIdentifierNode(node.object) && isDanglingIdentifierNode(node.property);
+    }
+
+    return false;
+}
+
+function getIdentifierNameForGM1022(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return typeof node.name === "string" ? node.name : null;
+    }
+
+    if (node.type === "MemberDotExpression") {
+        const objectName = getIdentifierNameForGM1022(node.object);
+        const propertyName = getIdentifierNameForGM1022(node.property);
+
+        if (objectName && propertyName) {
+            return `${objectName}.${propertyName}`;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
+function getNodeRange(node) {
+    const startIndex = getNodeStartIndex(node);
+    const endIndex = getNodeEndIndex(node);
+
+    if (typeof startIndex === "number" && typeof endIndex === "number") {
+        return { start: startIndex, end: endIndex };
+    }
+
+    return null;
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
@@ -596,8 +961,30 @@ function createLiteral(value, template) {
     return literal;
 }
 
-function registerManualFeatherFix({ ast, diagnostic }) {
+function createFeatherFixSkipSet(value) {
+    if (value instanceof Set) {
+        return new Set(value);
+    }
+
+    if (Array.isArray(value)) {
+        return new Set(value);
+    }
+
+    if (value && typeof value === "string") {
+        return new Set([value]);
+    }
+
+    return new Set();
+}
+
+function registerManualFeatherFix({ ast, diagnostic, context }) {
     if (!ast || typeof ast !== "object" || !diagnostic?.id) {
+        return [];
+    }
+
+    const skipSet = context?.skipManualFixIds;
+
+    if (skipSet instanceof Set && skipSet.has(diagnostic.id)) {
         return [];
     }
 
@@ -615,7 +1002,7 @@ function registerManualFeatherFix({ ast, diagnostic }) {
         target: null
     });
 
-    return [fixDetail];
+    return fixDetail ? [fixDetail] : [];
 }
 
 function getManualFeatherFixRegistry(ast) {

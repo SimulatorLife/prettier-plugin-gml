@@ -5,16 +5,58 @@
 import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
-import { applyFeatherFixes } from "../ast-transforms/apply-feather-fixes.js";
+import {
+    applyFeatherFixes,
+    preprocessSourceTextForFeatherFixes
+} from "../ast-transforms/apply-feather-fixes.js";
 import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = util;
 
 function parse(text, options) {
-    const ast = GMLParser.parse(text, {
-        getLocations: true,
-        simplifyLocations: false
-    });
+    let parseSource = text;
+    let preAppliedFixes = [];
+    let skipManualFixIds = new Set();
+
+    let ast;
+
+    try {
+        ast = GMLParser.parse(parseSource, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+    } catch (error) {
+        if (options?.applyFeatherFixes) {
+            const preprocessResult = preprocessSourceTextForFeatherFixes(text);
+
+            if (
+                preprocessResult &&
+                typeof preprocessResult.text === "string" &&
+                preprocessResult.text !== text
+            ) {
+                parseSource = preprocessResult.text;
+                preAppliedFixes = Array.isArray(preprocessResult.appliedFixes)
+                    ? preprocessResult.appliedFixes
+                    : [];
+                skipManualFixIds = preprocessResult.skipManualFixIds instanceof Set
+                    ? preprocessResult.skipManualFixIds
+                    : new Set();
+
+                try {
+                    ast = GMLParser.parse(parseSource, {
+                        getLocations: true,
+                        simplifyLocations: false
+                    });
+                } catch (retryError) {
+                    throw error;
+                }
+            } else {
+                throw error;
+            }
+        } else {
+            throw error;
+        }
+    }
 
     if (!ast || typeof ast !== "object") {
         throw new Error("GameMaker parser returned no AST for the provided source.");
@@ -26,7 +68,9 @@ function parse(text, options) {
 
     if (options?.applyFeatherFixes) {
         applyFeatherFixes(ast, {
-            sourceText: text
+            sourceText: parseSource,
+            preAppliedFixes,
+            skipManualFixIds
         });
     }
 

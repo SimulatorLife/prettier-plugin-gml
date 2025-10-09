@@ -7,7 +7,8 @@ import GMLParser from "gamemaker-language-parser";
 import { getFeatherMetadata } from "../../shared/feather/metadata.js";
 import {
     applyFeatherFixes,
-    getFeatherDiagnosticFixers
+    getFeatherDiagnosticFixers,
+    preprocessSourceTextForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
 describe("Feather diagnostic fixer registry", () => {
@@ -129,5 +130,60 @@ describe("applyFeatherFixes transform", () => {
                 "Each Feather fix entry should indicate whether it was applied automatically."
             );
         }
+    });
+
+    it("removes standalone identifier statements flagged by GM1022", () => {
+        const source = [
+            "username;",
+            "",
+            "global.score; // inline access",
+            "",
+            "var player_name = get_string(\"Name?\", \"guest\");"
+        ].join("\n");
+
+        const preprocess = preprocessSourceTextForFeatherFixes(source);
+
+        assert.ok(preprocess);
+        assert.notStrictEqual(
+            preprocess.text,
+            source,
+            "Expected preprocess step to adjust source text for GM1022 violations."
+        );
+        assert.ok(Array.isArray(preprocess.appliedFixes));
+        assert.strictEqual(preprocess.appliedFixes.length, 2);
+        assert.ok(preprocess.skipManualFixIds instanceof Set);
+        assert.strictEqual(preprocess.skipManualFixIds.has("GM1022"), true);
+
+        const ast = GMLParser.parse(preprocess.text, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, {
+            sourceText: preprocess.text,
+            preAppliedFixes: preprocess.appliedFixes,
+            skipManualFixIds: preprocess.skipManualFixIds
+        });
+
+        const remainingIdentifiers = (ast.body ?? []).filter((node) => node?.type === "Identifier");
+        assert.strictEqual(
+            remainingIdentifiers.length,
+            0,
+            "Expected GM1022 fixer to remove dangling identifier statements."
+        );
+
+        const recordedFixes = ast._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(recordedFixes));
+
+        const gm1022Fixes = recordedFixes.filter((entry) => entry.id === "GM1022");
+        assert.strictEqual(gm1022Fixes.length, 2);
+        assert.deepStrictEqual(
+            new Set(gm1022Fixes.map((entry) => entry.target)),
+            new Set(["username", "global.score"])
+        );
+        gm1022Fixes.forEach((entry) => {
+            assert.strictEqual(entry.automatic, true);
+            assert.ok(entry.range);
+        });
     });
 });
