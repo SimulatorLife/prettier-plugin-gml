@@ -5,6 +5,7 @@
 import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
+import { applyFeatherFixes } from "../ast-transforms/apply-feather-fixes.js";
 import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = util;
@@ -20,7 +21,13 @@ function parse(text, options) {
     }
 
     if (options?.condenseStructAssignments ?? true) {
-        return consolidateStructAssignments(ast, { addTrailingComment });
+        consolidateStructAssignments(ast, { addTrailingComment });
+    }
+
+    if (options?.applyFeatherFixes) {
+        applyFeatherFixes(ast, {
+            sourceText: text
+        });
     }
 
     return ast;
