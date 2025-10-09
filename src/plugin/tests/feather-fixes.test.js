@@ -93,6 +93,54 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("aligns jsdoc parameter names with function parameters", () => {
+        const source = [
+            "/// @func sum(_v1, _v2);",
+            "/// @arg {Array<Real>} _v1 The first vector",
+            "/// @arg {Array<Real>} _v2 The second vector",
+            "function sum(_v, _v2)",
+            "{",
+            "    return _v + _v2;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false,
+            includeComments: true
+        });
+
+        const [fn] = ast.body ?? [];
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const comments = Array.isArray(ast.comments) ? ast.comments : [];
+        const rawComments = comments.map((comment) =>
+            typeof comment.value === "string" ? `//${comment.value}`.trim() : ""
+        );
+
+        assert.ok(
+            rawComments.includes("/// @func sum(_v, _v2);"),
+            "Expected @func doc line to use function parameter names."
+        );
+        assert.ok(
+            rawComments.includes("/// @arg {Array<Real>} _v The first vector"),
+            "Expected first @arg line to use the function parameter name."
+        );
+        assert.ok(
+            rawComments.includes("/// @arg {Array<Real>} _v2 The second vector"),
+            "Expected second @arg line to remain unchanged."
+        );
+
+        const functionFixes = Array.isArray(fn?._appliedFeatherDiagnostics)
+            ? fn._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.id === "GM1042" && entry.automatic !== false),
+            true,
+            "Expected GM1042 fix metadata to be attached to the function node."
+        );
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 

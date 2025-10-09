@@ -113,6 +113,27 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1042") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, sourceText }) => {
+                    const fixes = alignJsDocParameterNamesWithFunctionParameters({
+                        ast,
+                        sourceText,
+                        diagnostic
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -594,6 +615,303 @@ function createLiteral(value, template) {
     }
 
     return literal;
+}
+
+
+function alignJsDocParameterNamesWithFunctionParameters({ ast, sourceText, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return [];
+    }
+
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    if (comments.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (node.type === "FunctionDeclaration") {
+            const fix = alignFunctionDocComment({
+                node,
+                sourceText,
+                diagnostic,
+                comments
+            });
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function alignFunctionDocComment({ node, sourceText, diagnostic, comments }) {
+    const startIndex = getNodeStartIndex(node);
+    const functionName = typeof node?.id === "string" ? node.id : null;
+    if (startIndex == null) {
+        return null;
+    }
+
+    const paramNames = getFunctionParameterNames(node);
+    if (!paramNames) {
+        return null;
+    }
+
+    const docComments = findLeadingJsDocComments({
+        comments,
+        boundaryStart: startIndex,
+        sourceText
+    });
+
+    if (docComments.length === 0) {
+        return null;
+    }
+
+    let changed = false;
+
+    for (const entry of docComments) {
+        const rawText = getCommentRawText(entry).trim();
+        const tagMatch = rawText.match(/^\/\/\/\s*@([a-z]+)/i);
+        if (!tagMatch) {
+            continue;
+        }
+
+        const tag = tagMatch[1].toLowerCase();
+        if (tag === "func" || tag === "function") {
+            if (updateFunctionDocSignature(entry, rawText, paramNames)) {
+                changed = true;
+            }
+        }
+    }
+
+    let ordinal = 0;
+    for (const entry of docComments) {
+        if (ordinal >= paramNames.length) {
+            break;
+        }
+
+        const rawText = getCommentRawText(entry).trim();
+        const tagMatch = rawText.match(/^\/\/\/\s*@([a-z]+)/i);
+        if (!tagMatch) {
+            continue;
+        }
+
+        const tag = tagMatch[1].toLowerCase();
+        if (tag === "arg" || tag === "argument" || tag === "param") {
+            if (updateFunctionDocParameter(entry, rawText, paramNames[ordinal])) {
+                changed = true;
+            }
+            ordinal += 1;
+        }
+    }
+
+    if (!changed) {
+        return null;
+    }
+
+    const firstComment = docComments[0];
+    const lastComment = docComments[docComments.length - 1];
+    const rangeStart = getNodeStartIndex(firstComment);
+    const rangeEnd = getNodeEndIndex(lastComment);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: functionName,
+        range:
+            typeof rangeStart === "number" && typeof rangeEnd === "number"
+                ? { start: rangeStart, end: rangeEnd }
+                : null
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function getFunctionParameterNames(node) {
+    const params = Array.isArray(node?.params) ? node.params : [];
+    const names = [];
+
+    for (const param of params) {
+        const name = extractParameterName(param);
+        if (!name) {
+            return null;
+        }
+        names.push(name);
+    }
+
+    return names;
+}
+
+function extractParameterName(param) {
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier" && typeof param.name === "string") {
+        return param.name;
+    }
+
+    if (param.type === "DefaultParameter") {
+        return extractParameterName(param.left);
+    }
+
+    return null;
+}
+
+function findLeadingJsDocComments({ comments, boundaryStart, sourceText }) {
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return [];
+    }
+
+    const docComments = [];
+    let boundary = boundaryStart;
+
+    for (let index = comments.length - 1; index >= 0; index -= 1) {
+        const comment = comments[index];
+        if (!isDocCommentLine(comment)) {
+            continue;
+        }
+
+        const commentEnd = getNodeEndIndex(comment);
+        const commentStart = getNodeStartIndex(comment);
+        if (commentStart == null || commentEnd == null) {
+            continue;
+        }
+
+        if (commentEnd > boundary) {
+            continue;
+        }
+
+        const between = sourceText.slice(commentEnd + 1, boundary);
+        if (between.trim() !== "") {
+            if (commentEnd < boundaryStart) {
+                break;
+            }
+            continue;
+        }
+
+        docComments.unshift(comment);
+        boundary = commentStart;
+
+        if (commentStart <= 0) {
+            break;
+        }
+    }
+
+    if (docComments.length === 0) {
+        return [];
+    }
+
+    return docComments;
+}
+
+function isDocCommentLine(comment) {
+    if (!comment || typeof comment !== "object") {
+        return false;
+    }
+
+    if (comment.type !== "CommentLine") {
+        return false;
+    }
+
+    const value = typeof comment.value === "string" ? comment.value : "";
+    const trimmed = value.trim();
+
+    return /^\/\s*@/i.test(trimmed);
+}
+
+function getCommentRawText(comment) {
+    if (!comment || typeof comment !== "object") {
+        return "";
+    }
+
+    if (typeof comment.leadingText === "string") {
+        return comment.leadingText;
+    }
+
+    if (typeof comment.raw === "string") {
+        return comment.raw;
+    }
+
+    const value = typeof comment.value === "string" ? comment.value : "";
+    return `//${value}`;
+}
+
+function updateFunctionDocSignature(comment, rawText, paramNames) {
+    const match = rawText.match(/^(\s*\/\/\/\s*@(?:func|function)\s+[^()]*\()([^)]*)(\)\s*;?.*)$/i);
+    if (!match) {
+        return false;
+    }
+
+    const [, prefix, paramsSection, suffix] = match;
+    const leadingSpaceMatch = paramsSection.match(/^\s*/);
+    const trailingSpaceMatch = paramsSection.match(/\s*$/);
+    const leading = leadingSpaceMatch ? leadingSpaceMatch[0] : "";
+    const trailing = trailingSpaceMatch ? trailingSpaceMatch[0] : "";
+    const delimiterMatch = paramsSection.match(/,\s*/);
+    const delimiter = delimiterMatch ? delimiterMatch[0] : ", ";
+    const joinedParams = paramNames.length > 0 ? paramNames.join(delimiter) : "";
+    const newParams = paramNames.length > 0 ? `${leading}${joinedParams}${trailing}` : "";
+    const updatedRaw = `${prefix}${newParams}${suffix}`;
+
+    if (updatedRaw === rawText) {
+        return false;
+    }
+
+    comment.value = updatedRaw.slice(2);
+    return true;
+}
+
+function updateFunctionDocParameter(comment, rawText, paramName) {
+    if (typeof paramName !== "string" || paramName.length === 0) {
+        return false;
+    }
+
+    const regex = /^(\s*\/\/\/\s*@(?:arg|argument|param)\s*)(\{[^}]*\}\s*)?([^\s]+)(.*)$/i;
+    const match = rawText.match(regex);
+    if (!match) {
+        return false;
+    }
+
+    const [, prefix, typeSection = "", , remainder] = match;
+    const updatedRaw = `${prefix}${typeSection ?? ""}${paramName}${remainder}`;
+
+    if (updatedRaw === rawText) {
+        return false;
+    }
+
+    comment.value = updatedRaw.slice(2);
+    return true;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
