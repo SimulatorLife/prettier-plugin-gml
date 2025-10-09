@@ -96,6 +96,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM1014") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = addMissingEnumMembers({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1051") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
                 const fixes = removeTrailingMacroSemicolons({
@@ -464,6 +477,218 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function addMissingEnumMembers({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const enumRegistry = collectEnumDeclarations(ast);
+
+    if (enumRegistry.size === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberDotExpression") {
+            const fix = addMissingEnumMember(node, enumRegistry, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function collectEnumDeclarations(ast) {
+    const registry = new Map();
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "EnumDeclaration") {
+            const enumName = node.name?.name;
+
+            if (enumName && !registry.has(enumName)) {
+                const members = Array.isArray(node.members) ? node.members : [];
+                const memberNames = new Set();
+
+                for (const member of members) {
+                    const memberName = member?.name?.name;
+                    if (memberName) {
+                        memberNames.add(memberName);
+                    }
+                }
+
+                registry.set(enumName, {
+                    declaration: node,
+                    members,
+                    memberNames
+                });
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return registry;
+}
+
+function addMissingEnumMember(memberExpression, enumRegistry, diagnostic) {
+    if (!memberExpression || memberExpression.type !== "MemberDotExpression") {
+        return null;
+    }
+
+    const enumIdentifier = memberExpression.object;
+    const memberIdentifier = memberExpression.property;
+
+    if (!enumIdentifier || enumIdentifier.type !== "Identifier") {
+        return null;
+    }
+
+    if (!memberIdentifier || memberIdentifier.type !== "Identifier") {
+        return null;
+    }
+
+    const enumName = enumIdentifier.name;
+    const memberName = memberIdentifier.name;
+
+    if (!enumName || !memberName) {
+        return null;
+    }
+
+    const enumInfo = enumRegistry.get(enumName);
+
+    if (!enumInfo) {
+        return null;
+    }
+
+    if (enumInfo.memberNames.has(memberName)) {
+        return null;
+    }
+
+    const newMember = createEnumMember(memberName);
+
+    if (!newMember) {
+        return null;
+    }
+
+    const insertIndex = getEnumInsertionIndex(enumInfo.members);
+    enumInfo.members.splice(insertIndex, 0, newMember);
+    enumInfo.memberNames.add(memberName);
+
+    const start = getNodeStartIndex(memberIdentifier);
+    const end = getNodeEndIndex(memberIdentifier);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: `${enumName}.${memberName}`,
+        range: start !== null && end !== null ? { start, end } : null
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(newMember, [fixDetail]);
+
+    const declaration = enumInfo.declaration;
+    if (declaration && typeof declaration === "object") {
+        attachFeatherFixMetadata(declaration, [fixDetail]);
+    }
+
+    return fixDetail;
+}
+
+function createEnumMember(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    return {
+        type: "EnumMember",
+        name: {
+            type: "Identifier",
+            name
+        },
+        initializer: null
+    };
+}
+
+function getEnumInsertionIndex(members) {
+    if (!Array.isArray(members) || members.length === 0) {
+        return Array.isArray(members) ? members.length : 0;
+    }
+
+    const lastIndex = members.length - 1;
+    const lastMember = members[lastIndex];
+
+    if (isSizeofEnumMember(lastMember)) {
+        return lastIndex;
+    }
+
+    return members.length;
+}
+
+function isSizeofEnumMember(member) {
+    if (!member || member.type !== "EnumMember") {
+        return false;
+    }
+
+    const identifier = member.name;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return false;
+    }
+
+    return identifier.name === "SIZEOF";
 }
 
 function cloneIdentifier(node) {

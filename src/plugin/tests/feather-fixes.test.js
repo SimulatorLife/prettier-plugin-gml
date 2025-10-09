@@ -93,6 +93,50 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("adds missing enum members and records fix metadata", () => {
+        const source = [
+            "enum FRUIT {",
+            "    NONE,",
+            "    ORANGE,",
+            "    SIZEOF",
+            "}",
+            "",
+            "var best = FRUIT.KIWI;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [enumDeclaration] = ast.body ?? [];
+        assert.ok(enumDeclaration);
+
+        const members = Array.isArray(enumDeclaration.members) ? enumDeclaration.members : [];
+        const memberNames = members.map((member) => member?.name?.name);
+
+        assert.deepStrictEqual(memberNames, ["NONE", "ORANGE", "KIWI", "SIZEOF"]);
+
+        const kiwiMember = members.find((member) => member?.name?.name === "KIWI");
+        assert.ok(kiwiMember);
+
+        const memberFixes = kiwiMember._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(memberFixes));
+        assert.strictEqual(memberFixes.length, 1);
+        assert.strictEqual(memberFixes[0].id, "GM1014");
+        assert.strictEqual(memberFixes[0].target, "FRUIT.KIWI");
+
+        const enumFixes = enumDeclaration._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(enumFixes));
+        assert.strictEqual(enumFixes.some((entry) => entry.id === "GM1014"), true);
+
+        const programFixes = ast._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(programFixes));
+        assert.strictEqual(programFixes.some((entry) => entry.id === "GM1014"), true);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
