@@ -66,7 +66,7 @@ export function print(path, options, print) {
     switch (node.type) {
         case "Program": {
             if (node.body.length === 0) {
-                return concat(printDanglingCommentsAsGroup(path, options, true));
+                return concat(printDanglingCommentsAsGroup(path, options));
             }
             return concat(printStatements(path, options, print, "body"));
         }
@@ -77,12 +77,7 @@ export function print(path, options, print) {
 
             return concat([
                 "{",
-                printDanglingComments(
-                    path,
-                    options,
-                    true,
-                    (comment) => comment.attachToBrace
-                ),
+                printDanglingComments(path, options, (comment) => comment.attachToBrace),
                 indent([
                     hardline, // the first statement of a non-empty block must begin on its own line.
                     printStatements(path, options, print, "body")
@@ -2343,16 +2338,10 @@ function printEmptyBlock(path, options, print) {
         // an empty block with comments
         return [
             "{",
-            printDanglingComments(
-                path,
-                options,
-                true,
-                (comment) => comment.attachToBrace
-            ),
+            printDanglingComments(path, options, (comment) => comment.attachToBrace),
             printDanglingCommentsAsGroup(
                 path,
                 options,
-                true,
                 (comment) => !comment.attachToBrace
             ),
             hardline,

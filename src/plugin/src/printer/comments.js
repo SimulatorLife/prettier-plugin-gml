@@ -204,48 +204,65 @@ function collectDanglingComments(path, filter) {
     return { entries, totalCount: entries.length };
 }
 
-function printDanglingComments(path, options, sameIndent, filter) {
-    const { entries } = collectDanglingComments(path, filter);
+function printCommentAtIndex(path, options, commentIndex) {
+    return path.call(
+        (commentPath) => printComment(commentPath, options),
+        "comments",
+        commentIndex
+    );
+}
+
+function collectPrintedDanglingComments(path, options, filter) {
+    const { entries, totalCount } = collectDanglingComments(path, filter);
+
+    if (entries.length === 0) {
+        return { entries: [], totalCount: 0 };
+    }
+
+    const printedEntries = entries.map(({ commentIndex, comment }) => ({
+        comment,
+        printed: printCommentAtIndex(path, options, commentIndex)
+    }));
+
+    return { entries: printedEntries, totalCount };
+}
+
+function printDanglingComments(path, options, filter) {
+    const { entries } = collectPrintedDanglingComments(path, options, filter);
+
     if (entries.length === 0) {
         return "";
     }
 
-    return entries.map(({ commentIndex, comment }) => {
-        const printedComment = path.call(
-            (commentPath) => printComment(commentPath, options),
-            "comments",
-            commentIndex
-        );
-
-        return comment.attachToBrace
-            ? [" ", printedComment]
-            : [printedComment];
-    });
+    return entries.map(({ comment, printed }) =>
+        comment.attachToBrace ? [" ", printed] : [printed]
+    );
 }
 
 // print dangling comments and preserve the whitespace around the comments.
 // this function behaves similarly to the default comment algorithm.
-function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
-    const { entries, totalCount } = collectDanglingComments(path, filter);
+function printDanglingCommentsAsGroup(path, options, filter) {
+    const { entries, totalCount } = collectPrintedDanglingComments(
+        path,
+        options,
+        filter
+    );
+
     if (entries.length === 0) {
         return "";
     }
 
     const parts = [];
-    let i = 0;
     const finalIndex = totalCount - 1;
 
-    for (const { commentIndex, comment } of entries) {
-        if (i === 0) {
+    entries.forEach(({ comment, printed }, index) => {
+        if (index === 0) {
             parts.push(whitespaceToDoc(comment.leadingWS));
         }
-        const printedComment = path.call(
-            (commentPath) => printComment(commentPath, options),
-            "comments",
-            commentIndex
-        );
-        parts.push([printedComment]);
-        if (i !== finalIndex) {
+
+        parts.push([printed]);
+
+        if (index !== finalIndex) {
             let wsDoc = whitespaceToDoc(comment.trailingWS);
             // enforce at least one space between comments
             if (wsDoc === "") {
@@ -253,8 +270,7 @@ function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
             }
             parts.push(wsDoc);
         }
-        i += 1;
-    }
+    });
 
     return parts;
 }
