@@ -1,4 +1,5 @@
 import { hasComment } from "../printer/util.js";
+import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 /**
  * Normalize function parameters by converting argument_count fallbacks into default parameters.
@@ -251,12 +252,8 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
         return null;
     }
 
-    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
-        return null;
-    }
-
-    const declarator = node.declarations[0];
-    if (!declarator || declarator.type !== "VariableDeclarator") {
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator) {
         return null;
     }
 
@@ -385,13 +382,8 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
         return false;
     }
 
-    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
-        return false;
-    }
-
-    const declarator = node.declarations[0];
-
-    if (!declarator || declarator.type !== "VariableDeclarator") {
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator) {
         return false;
     }
 

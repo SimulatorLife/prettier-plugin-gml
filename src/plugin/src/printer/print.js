@@ -44,6 +44,7 @@ import {
     isCommentNode
 } from "./comment-utils.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
+import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 export function print(path, options, print) {
     const node = path.getValue();
@@ -1104,11 +1105,7 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         return null;
     }
 
-    if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
-        return null;
-    }
-
-    const declarator = node.declarations[0];
+    const declarator = getSingleVariableDeclarator(node);
     if (!declarator || declarator.id?.type !== "Identifier") {
         return null;
     }
