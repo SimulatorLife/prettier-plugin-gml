@@ -133,10 +133,12 @@ export default class GMLParser {
                 continue;
             }
 
+            const tokenText = token.text;
+
             if (token.type === SingleLineComment) {
                 let node = {
                     type: "CommentLine",
-                    value: token.text.replace(/^[\/][\/]/, ""),
+                    value: tokenText.replace(/^[\/][\/]/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line,
@@ -156,15 +158,16 @@ export default class GMLParser {
             }
 
             if (token.type === MultiLineComment) {
+                const lineBreakCount = getLineBreakCount(tokenText);
                 let node = {
                     type: "CommentBlock",
-                    value: token.text.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
+                    value: tokenText.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
-                        line: token.line + getLineBreakCount(token.text),
+                        line: token.line + lineBreakCount,
                         index: token.stop
                     },
-                    lineCount: getLineBreakCount(token.text) + 1,
+                    lineCount: lineBreakCount + 1,
                     leadingWS: prevWS,
                     trailingWS: "",
                     leadingChar: prevSignificantChar,
@@ -180,12 +183,13 @@ export default class GMLParser {
 
             if (token.type === WhiteSpaces || token.type === LineTerminator) {
                 const isNewline = token.type === LineTerminator;
+                const lineBreakCount = getLineBreakCount(tokenText);
                 let node = {
                     type: "Whitespace",
-                    value: token.text,
+                    value: tokenText,
                     start: { line: token.line, index: token.start },
                     end: {
-                        line: token.line + getLineBreakCount(token.text),
+                        line: token.line + lineBreakCount,
                         index: token.stop
                     },
                     line: token.line,
@@ -193,21 +197,21 @@ export default class GMLParser {
                 };
                 this.whitespaces.push(node);
                 if (prevComment !== null) {
-                    prevComment.trailingWS += token.text;
+                    prevComment.trailingWS += tokenText;
                 }
                 prevComment = null;
-                prevWS += token.text;
+                prevWS += tokenText;
                 continue;
             }
 
             // significant token
             foundFirstSignificantToken = true;
             if (prevComment !== null) {
-                prevComment.trailingChar = token.text.slice(0);
+                prevComment.trailingChar = tokenText;
             }
             prevComment = null;
             prevWS = "";
-            prevSignificantChar = token.text.slice(-1);
+            prevSignificantChar = tokenText.slice(-1);
         }
     }
 
