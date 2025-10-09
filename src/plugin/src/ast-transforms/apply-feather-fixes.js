@@ -113,6 +113,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2019") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureVerticalAlignmentIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
@@ -381,6 +394,104 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureVerticalAlignmentIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureVerticalAlignmentResetAfterCall(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureVerticalAlignmentResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "draw_set_valign")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isVerticalAlignmentResetCall(node)) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isVerticalAlignmentResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createVerticalAlignmentResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -633,6 +744,24 @@ function isLiteralZero(node) {
     return node.value === "0" || node.value === 0;
 }
 
+function isVerticalAlignmentResetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "draw_set_valign")) {
+        return false;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isIdentifierWithName(args[0], "fa_top");
+}
+
 function isAlphaTestRefResetCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -668,6 +797,40 @@ function createAlphaTestRefResetCall(template) {
         type: "CallExpression",
         object: identifier,
         arguments: [literalZero]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function createVerticalAlignmentResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "draw_set_valign") {
+        return null;
+    }
+
+    const faTopIdentifier = createIdentifier("fa_top", template.arguments?.[0]);
+
+    if (!faTopIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [faTopIdentifier]
     };
 
     if (Object.prototype.hasOwnProperty.call(template, "start")) {

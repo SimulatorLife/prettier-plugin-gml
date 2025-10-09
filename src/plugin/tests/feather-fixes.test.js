@@ -131,6 +131,46 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("resets vertical alignment flagged by GM2019 and records metadata", () => {
+        const source = [
+            "draw_set_valign(fa_bottom);",
+            "",
+            "draw_text(5, 5, \"Example\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.ok(body.length >= 2, "Expected reset call to be inserted after the alignment change.");
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "draw_set_valign");
+
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
+        assert.ok(args.length > 0, "Expected reset call to include arguments.");
+        assert.strictEqual(args[0]?.type, "Identifier");
+        assert.strictEqual(args[0]?.name, "fa_top");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2019 = appliedDiagnostics.find((entry) => entry.id === "GM2019");
+        assert.ok(gm2019, "Expected GM2019 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2019.automatic, true);
+
+        const callDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2019"),
+            true,
+            "Expected GM2019 metadata on the inserted reset call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
