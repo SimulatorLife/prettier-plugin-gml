@@ -93,6 +93,71 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("normalizes multidimensional array indexing and records metadata", () => {
+        const source = [
+            "function fetch_value(_grid, _row, _column, _depth)",
+            "{",
+            "    var primary = _grid[_row, _column];",
+            "    var tertiary = _grid[_row, _column, _depth];",
+            "    return primary + tertiary;",
+            "}",
+            "",
+            "var nested = matrix[0, 1, 2, 3];"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const functionDeclaration = ast.body?.[0];
+        assert.ok(functionDeclaration?.body?.body);
+
+        const [primaryDeclaration, tertiaryDeclaration, returnStatement] =
+            functionDeclaration.body.body;
+
+        const primaryInit = primaryDeclaration?.declarations?.[0]?.init;
+        const tertiaryInit = tertiaryDeclaration?.declarations?.[0]?.init;
+
+        assert.strictEqual(primaryInit?.type, "MemberIndexExpression");
+        assert.strictEqual(primaryInit?.property?.length, 1);
+        assert.strictEqual(primaryInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(primaryInit.object.property?.length, 1);
+        assert.ok(Array.isArray(primaryInit._appliedFeatherDiagnostics));
+
+        assert.strictEqual(tertiaryInit?.type, "MemberIndexExpression");
+        assert.strictEqual(tertiaryInit?.property?.length, 1);
+        assert.strictEqual(tertiaryInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(tertiaryInit.object.property?.length, 1);
+        assert.strictEqual(tertiaryInit.object?.object?.type, "MemberIndexExpression");
+        assert.ok(Array.isArray(tertiaryInit._appliedFeatherDiagnostics));
+
+        const globalDeclaration = ast.body?.[1]?.declarations?.[0];
+        const nestedInit = globalDeclaration?.init;
+
+        assert.strictEqual(nestedInit?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.property?.length, 1);
+        assert.strictEqual(nestedInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.object?.property?.length, 1);
+        assert.strictEqual(nestedInit?.object?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.object?.object?.object?.type, "MemberIndexExpression");
+        assert.ok(Array.isArray(nestedInit._appliedFeatherDiagnostics));
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        const normalizedFixes = ast._appliedFeatherDiagnostics.filter(
+            (entry) => entry.id === "GM1036"
+        );
+        assert.strictEqual(normalizedFixes.length >= 3, true);
+
+        for (const entry of normalizedFixes) {
+            assert.strictEqual(entry.automatic, true);
+        }
+
+        assert.ok(returnStatement);
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
