@@ -4,7 +4,7 @@ import { describe, it } from "mocha";
 
 import GMLParser from "gamemaker-language-parser";
 
-import { getFeatherMetadata } from "../../shared/feather/metadata.js";
+import { getFeatherMetadata } from "../src/feather/metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
