@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2027") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureOpenPrimitivesAreClosed({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -479,6 +492,124 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureOpenPrimitivesAreClosed({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            scanSequence(node, parent, property);
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    const scanSequence = (nodes, parent, property) => {
+        if (!Array.isArray(nodes) || nodes.length === 0) {
+            return;
+        }
+
+        if (!parent || typeof property !== "string" || property !== "body") {
+            return;
+        }
+
+        if (!isSequenceContainer(parent)) {
+            return;
+        }
+
+        let openPrimitiveCall = null;
+
+        for (let index = 0; index < nodes.length; index += 1) {
+            const current = nodes[index];
+
+            if (isPrimitiveBeginCall(current)) {
+                if (openPrimitiveCall) {
+                    const fix = insertMissingPrimitiveEnd(nodes, index, openPrimitiveCall);
+
+                    if (fix) {
+                        fixes.push(fix);
+                        openPrimitiveCall = null;
+                        continue;
+                    }
+                }
+
+                openPrimitiveCall = current;
+                continue;
+            }
+
+            if (isPrimitiveEndCall(current)) {
+                openPrimitiveCall = null;
+            }
+        }
+    };
+
+    const insertMissingPrimitiveEnd = (nodes, index, beginCall) => {
+        if (!Array.isArray(nodes) || typeof index !== "number" || !beginCall) {
+            return null;
+        }
+
+        const endCall = createPrimitiveEndCall(beginCall);
+
+        if (!endCall) {
+            return null;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: beginCall?.object?.name ?? null,
+            range: {
+                start: getNodeStartIndex(beginCall),
+                end: getNodeEndIndex(beginCall)
+            }
+        });
+
+        if (!fixDetail) {
+            return null;
+        }
+
+        nodes.splice(index, 0, endCall);
+        attachFeatherFixMetadata(endCall, [fixDetail]);
+
+        return fixDetail;
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function isSequenceContainer(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Program" || node.type === "BlockStatement") {
+        return true;
+    }
+
+    return false;
+}
+
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -651,6 +782,22 @@ function isAlphaTestRefResetCall(node) {
     return isLiteralZero(args[0]);
 }
 
+function isPrimitiveBeginCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_primitive_begin");
+}
+
+function isPrimitiveEndCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "draw_primitive_end");
+}
+
 function createAlphaTestRefResetCall(template) {
     if (!template || template.type !== "CallExpression") {
         return null;
@@ -723,6 +870,34 @@ function createIdentifier(name, template) {
     }
 
     return identifier;
+}
+
+function createPrimitiveEndCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = createIdentifier("draw_primitive_end", template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
 }
 
 function isSpriteGetTextureCall(node) {

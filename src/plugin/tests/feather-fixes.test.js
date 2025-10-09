@@ -131,6 +131,54 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("closes open primitives flagged by GM2027 before new begin calls and records metadata", () => {
+        const source = [
+            "draw_primitive_begin(pr_linestrip);",
+            "",
+            "draw_vertex(0, 0);",
+            "",
+            "draw_vertex(10, 0);",
+            "",
+            "draw_primitive_begin(pr_trianglelist);",
+            "",
+            "draw_vertex(20, 0);",
+            "",
+            "draw_primitive_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.ok(Array.isArray(body));
+        assert.strictEqual(body.length, 7);
+
+        const insertedEnd = body[3];
+        assert.ok(insertedEnd);
+        assert.strictEqual(insertedEnd.type, "CallExpression");
+        assert.strictEqual(insertedEnd.object?.name, "draw_primitive_end");
+
+        const diagnosticEntries = insertedEnd._appliedFeatherDiagnostics ?? [];
+        assert.ok(Array.isArray(diagnosticEntries));
+
+        const gm2027 = diagnosticEntries.find((entry) => entry.id === "GM2027");
+        assert.ok(gm2027, "Expected inserted primitive end call to capture GM2027 metadata.");
+        assert.strictEqual(gm2027.automatic, true);
+        assert.strictEqual(gm2027.target, "draw_primitive_begin");
+        assert.ok(gm2027.range);
+
+        const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            rootDiagnostics.some((entry) => entry.id === "GM2027"),
+            true,
+            "Expected GM2027 metadata to be recorded on the program node."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
