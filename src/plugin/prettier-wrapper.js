@@ -92,10 +92,43 @@ async function processDirectory(directory) {
     }
 }
 
+async function resolveFormattingOptions(filePath) {
+    let resolvedConfig = null;
+
+    try {
+        resolvedConfig = await prettier.resolveConfig(filePath, {
+            editorconfig: true
+        });
+    } catch (error) {
+        console.warn(`Unable to resolve Prettier config for ${filePath}: ${error.message}`);
+    }
+
+    const mergedOptions = {
+        ...options,
+        ...(resolvedConfig ?? {}),
+        filepath: filePath
+    };
+
+    const basePlugins = Array.isArray(options.plugins) ? options.plugins : [];
+    const resolvedPlugins = Array.isArray(resolvedConfig?.plugins) ? resolvedConfig.plugins : [];
+    const combinedPlugins = [...new Set([...basePlugins, ...resolvedPlugins])];
+
+    if (combinedPlugins.length > 0) {
+        mergedOptions.plugins = combinedPlugins;
+    }
+
+    if (!mergedOptions.parser) {
+        mergedOptions.parser = options.parser;
+    }
+
+    return mergedOptions;
+}
+
 async function processFile(filePath) {
     try {
         const data = await readFile(filePath, "utf8");
-        const formatted = await prettier.format(data, options);
+        const formattingOptions = await resolveFormattingOptions(filePath);
+        const formatted = await prettier.format(data, formattingOptions);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (err) {
