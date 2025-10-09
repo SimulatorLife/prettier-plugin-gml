@@ -131,6 +131,43 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("ensures shader_set calls are followed by shader_reset and records metadata", () => {
+        const source = [
+            "shader_set(sh_fancy_lighting);",
+            "",
+            "vertex_submit(vb_my_world_model, pr_trianglelist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.ok(Array.isArray(body));
+        assert.ok(body.length >= 2, "Expected shader_reset call to be inserted after shader_set.");
+
+        const shaderResetCall = body[1];
+        assert.strictEqual(shaderResetCall?.type, "CallExpression");
+        assert.strictEqual(shaderResetCall?.object?.name, "shader_reset");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2003 = appliedDiagnostics.find((entry) => entry.id === "GM2003");
+
+        assert.ok(gm2003, "Expected GM2003 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2003.automatic, true);
+        assert.ok(gm2003.range);
+
+        const callDiagnostics = shaderResetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2003"),
+            true,
+            "Expected shader_reset call to record GM2003 metadata."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
