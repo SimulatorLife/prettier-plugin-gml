@@ -33,4 +33,31 @@ describe('Prettier wrapper CLI', () => {
       await fs.rm(tempDirectory, { recursive: true, force: true });
     }
   });
+
+  it('applies Prettier configuration from the target project', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(
+        targetFile,
+        ['if (true) {', '    a = 1;', '}', ''].join('\n'),
+        'utf8'
+      );
+
+      const configPath = path.join(tempDirectory, '.prettierrc');
+      await fs.writeFile(
+        configPath,
+        JSON.stringify({ tabWidth: 2 }, null, 2),
+        'utf8'
+      );
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, ['if (true) {', '  a = 1;', '}', ''].join('\n'));
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
 });
