@@ -152,6 +152,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2029") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureDrawVertexCallsAreWrapped({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         registerFeatherFixer(registry, diagnosticId, () => ({ ast }) =>
             registerManualFeatherFix({ ast, diagnostic })
         );
@@ -423,6 +436,210 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            const normalizedFixes = normalizeDrawVertexStatements(node, diagnostic);
+
+            if (Array.isArray(normalizedFixes) && normalizedFixes.length > 0) {
+                fixes.push(...normalizedFixes);
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function normalizeDrawVertexStatements(statements, diagnostic) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (!isDrawVertexCall(statement)) {
+            continue;
+        }
+
+        if (hasOpenPrimitiveBefore(statements, index)) {
+            continue;
+        }
+
+        let blockEnd = index;
+
+        while (blockEnd + 1 < statements.length && isDrawVertexCall(statements[blockEnd + 1])) {
+            blockEnd += 1;
+        }
+
+        const candidateBegin = statements[blockEnd + 1];
+
+        if (!isDrawPrimitiveBeginCall(candidateBegin)) {
+            continue;
+        }
+
+        const beginIndex = blockEnd + 1;
+        const endIndex = findMatchingDrawPrimitiveEnd(statements, beginIndex + 1);
+
+        if (endIndex === -1) {
+            continue;
+        }
+
+        const vertexStatements = statements.slice(index, blockEnd + 1);
+        const fixDetails = [];
+
+        for (const vertex of vertexStatements) {
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: getDrawCallName(vertex),
+                range: {
+                    start: getNodeStartIndex(vertex),
+                    end: getNodeEndIndex(vertex)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            attachFeatherFixMetadata(vertex, [fixDetail]);
+            fixDetails.push(fixDetail);
+        }
+
+        if (fixDetails.length === 0) {
+            continue;
+        }
+
+        const [primitiveBegin] = statements.splice(beginIndex, 1);
+
+        if (!primitiveBegin) {
+            continue;
+        }
+
+        statements.splice(index, 0, primitiveBegin);
+        fixes.push(...fixDetails);
+
+        index += vertexStatements.length;
+    }
+
+    return fixes;
+}
+
+function hasOpenPrimitiveBefore(statements, index) {
+    let depth = 0;
+
+    for (let cursor = 0; cursor < index; cursor += 1) {
+        const statement = statements[cursor];
+
+        if (isDrawPrimitiveBeginCall(statement)) {
+            depth += 1;
+            continue;
+        }
+
+        if (isDrawPrimitiveEndCall(statement) && depth > 0) {
+            depth -= 1;
+        }
+    }
+
+    return depth > 0;
+}
+
+function findMatchingDrawPrimitiveEnd(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return -1;
+    }
+
+    let depth = 0;
+
+    for (let index = startIndex; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (isDrawPrimitiveBeginCall(statement)) {
+            depth += 1;
+            continue;
+        }
+
+        if (isDrawPrimitiveEndCall(statement)) {
+            if (depth === 0) {
+                return index;
+            }
+
+            depth -= 1;
+        }
+    }
+
+    return -1;
+}
+
+function isDrawPrimitiveBeginCall(node) {
+    return isCallExpressionWithIdentifier(node, "draw_primitive_begin");
+}
+
+function isDrawPrimitiveEndCall(node) {
+    return isCallExpressionWithIdentifier(node, "draw_primitive_end");
+}
+
+function isDrawVertexCall(node) {
+    const name = getDrawCallName(node);
+
+    if (!name) {
+        return false;
+    }
+
+    return name.startsWith("draw_vertex");
+}
+
+function getDrawCallName(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const object = node.object;
+
+    if (!object || object.type !== "Identifier") {
+        return null;
+    }
+
+    return object.name ?? null;
+}
+
+function isCallExpressionWithIdentifier(node, expectedName) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, expectedName);
 }
 
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
