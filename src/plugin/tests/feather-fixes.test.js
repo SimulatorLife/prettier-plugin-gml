@@ -169,4 +169,46 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("moves vertex data calls flagged by GM2010 inside the vertex batch and records metadata", () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "vertex_end(vb);",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_colour(vb, c_white, 1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = ast.body ?? [];
+        assert.strictEqual(statements.length, 4);
+        assert.strictEqual(statements[0]?.object?.name, "vertex_begin");
+        assert.strictEqual(statements[1]?.object?.name, "vertex_position_3d");
+        assert.strictEqual(statements[2]?.object?.name, "vertex_colour");
+        assert.strictEqual(statements[3]?.object?.name, "vertex_end");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2010" && entry.automatic === true),
+            true,
+            "Expected GM2010 metadata to be recorded on the AST."
+        );
+
+        const positionDiagnostics = statements[1]?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(positionDiagnostics.length > 0, true);
+        assert.strictEqual(positionDiagnostics[0].id, "GM2010");
+        assert.strictEqual(positionDiagnostics[0].target, "vertex_position_3d");
+        assert.strictEqual(positionDiagnostics[0].automatic, true);
+
+        const colourDiagnostics = statements[2]?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(colourDiagnostics.length > 0, true);
+        assert.strictEqual(colourDiagnostics[0].id, "GM2010");
+        assert.strictEqual(colourDiagnostics[0].target, "vertex_colour");
+        assert.strictEqual(colourDiagnostics[0].automatic, true);
+    });
 });

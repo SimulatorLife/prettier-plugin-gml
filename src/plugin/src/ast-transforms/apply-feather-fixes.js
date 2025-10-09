@@ -6,6 +6,17 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const VERTEX_DATA_WRITER_FUNCTIONS = new Set([
+    "vertex_position",
+    "vertex_position_3d",
+    "vertex_colour",
+    "vertex_color",
+    "vertex_texcoord",
+    "vertex_texcoord2",
+    "vertex_normal",
+    "vertex_argb",
+    "vertex_fog"
+]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 
 export function getFeatherDiagnosticFixers() {
@@ -116,6 +127,19 @@ function buildFeatherFixImplementations() {
         if (diagnosticId === "GM2020") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertAllDotAssignmentsToWithStatements({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM2010") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = relocateVertexDataCallsInsideBatch({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -381,6 +405,129 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function relocateVertexDataCallsInsideBatch({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            if (isStatementArray(parent, property)) {
+                fixes.push(
+                    ...reorderVertexDataCalls(node, {
+                        diagnostic
+                    })
+                );
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function reorderVertexDataCalls(statements, { diagnostic }) {
+    if (!Array.isArray(statements) || statements.length < 3) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const beginCall = statements[index];
+
+        if (!isVertexBeginCall(beginCall)) {
+            continue;
+        }
+
+        const beginArgument = getCallExpressionFirstArgument(beginCall);
+
+        if (!beginArgument) {
+            continue;
+        }
+
+        const endIndex = index + 1;
+        const endCall = statements[endIndex];
+
+        if (!isVertexEndCall(endCall)) {
+            continue;
+        }
+
+        const endArgument = getCallExpressionFirstArgument(endCall);
+
+        if (!endArgument || !areNodesEquivalent(beginArgument, endArgument)) {
+            continue;
+        }
+
+        let movedCount = 0;
+        for (let candidateIndex = endIndex + 1; candidateIndex < statements.length; candidateIndex += 1) {
+            const candidate = statements[candidateIndex];
+
+            if (!isVertexDataWriterCall(candidate)) {
+                break;
+            }
+
+            const candidateArgument = getCallExpressionFirstArgument(candidate);
+
+            if (!candidateArgument || !areNodesEquivalent(beginArgument, candidateArgument)) {
+                break;
+            }
+
+            movedCount += 1;
+        }
+
+        if (movedCount === 0) {
+            continue;
+        }
+
+        const movedStatements = statements.splice(endIndex + 1, movedCount);
+        statements.splice(endIndex, 0, ...movedStatements);
+
+        for (const call of movedStatements) {
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: getCallExpressionName(call),
+                range: {
+                    start: getNodeStartIndex(call),
+                    end: getNodeEndIndex(call)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            attachFeatherFixMetadata(call, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+
+        index += movedCount;
+    }
+
+    return fixes;
+}
+
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -423,6 +570,134 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function isVertexBeginCall(node) {
+    return isCallExpressionWithName(node, "vertex_begin");
+}
+
+function isVertexEndCall(node) {
+    return isCallExpressionWithName(node, "vertex_end");
+}
+
+function isVertexDataWriterCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const name = getCallExpressionName(node);
+
+    if (!name) {
+        return false;
+    }
+
+    return VERTEX_DATA_WRITER_FUNCTIONS.has(name);
+}
+
+function isCallExpressionWithName(node, name) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const identifier = node.object;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return false;
+    }
+
+    return identifier.name === name;
+}
+
+function getCallExpressionName(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = node.object;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    return identifier.name ?? null;
+}
+
+function getCallExpressionFirstArgument(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    return unwrapParenthesizedExpression(args[0]);
+}
+
+function unwrapParenthesizedExpression(node) {
+    let current = node;
+
+    while (current && current.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current;
+}
+
+function areNodesEquivalent(left, right) {
+    if (left === right) {
+        return true;
+    }
+
+    if (!left || !right) {
+        return false;
+    }
+
+    if (left.type !== right.type) {
+        return false;
+    }
+
+    switch (left.type) {
+        case "Identifier": {
+            return left.name === right.name;
+        }
+        case "Literal": {
+            return left.value === right.value;
+        }
+        case "MemberDotExpression": {
+            return (
+                areNodesEquivalent(left.object, right.object) &&
+                areNodesEquivalent(left.property, right.property)
+            );
+        }
+        case "MemberIndexExpression": {
+            return (
+                areNodesEquivalent(left.object, right.object) &&
+                areNodesEquivalent(left.index, right.index)
+            );
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+function isStatementArray(parent, property) {
+    if (!parent || typeof parent !== "object") {
+        return false;
+    }
+
+    if (property === "body") {
+        return parent.type === "Program" || parent.type === "BlockStatement";
+    }
+
+    if (property === "consequent" && parent.type === "CaseClause") {
+        return true;
+    }
+
+    return false;
 }
 
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
