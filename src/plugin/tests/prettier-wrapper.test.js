@@ -214,6 +214,47 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('formats files referenced through symbolic links', async function () {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const actualFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(actualFile, 'var    a=1;\n', 'utf8');
+
+      const symlinkPath = path.join(tempDirectory, 'link.gml');
+
+      let shouldSkip = false;
+
+      try {
+        if (fileSymlinkType) {
+          await fs.symlink(actualFile, symlinkPath, fileSymlinkType);
+        } else {
+          await fs.symlink(actualFile, symlinkPath);
+        }
+      } catch (error) {
+        if (error && (error.code === 'EPERM' || error.code === 'ENOSYS')) {
+          shouldSkip = true;
+        } else {
+          throw error;
+        }
+      }
+
+      if (shouldSkip) {
+        this.skip();
+      }
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(actualFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+
+      const linkedFormatted = await fs.readFile(symlinkPath, 'utf8');
+      assert.equal(linkedFormatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('exits with a non-zero status when formatting fails', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
