@@ -169,4 +169,49 @@ describe("applyFeatherFixes transform", () => {
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
     });
+
+    it("records manual metadata for GM2025 user event references", () => {
+        const source = [
+            "function trigger() {",
+            "    event_user(4);",
+            "    event_perform(ev_user, 7);",
+            "    event_perform_object(other, ev_other, ev_user3);",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const functionNode = ast.body?.[0];
+        const statements = functionNode?.body?.body ?? [];
+        const [directCall, performCall, performObjectCall] = statements;
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assertUserEventMetadata = (node, expectedTarget) => {
+            assert.ok(node, `Expected call expression for ${expectedTarget}.`);
+            const fixes = node._appliedFeatherDiagnostics ?? [];
+            const gm2025 = fixes.find((entry) => entry.id === "GM2025");
+
+            assert.ok(gm2025, `Expected GM2025 metadata for ${expectedTarget}.`);
+            assert.strictEqual(gm2025.automatic, false);
+            assert.strictEqual(gm2025.target, expectedTarget);
+            assert.ok(gm2025.range);
+        };
+
+        assertUserEventMetadata(directCall, "User Event 4");
+        assertUserEventMetadata(performCall, "User Event 7");
+        assertUserEventMetadata(performObjectCall, "User Event 3");
+
+        const gm2025Entries = (ast._appliedFeatherDiagnostics ?? []).filter(
+            (entry) => entry.id === "GM2025"
+        );
+
+        assert.strictEqual(gm2025Entries.length, 3);
+        gm2025Entries.forEach((entry) => {
+            assert.strictEqual(entry.automatic, false);
+        });
+    });
 });

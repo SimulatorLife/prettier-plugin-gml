@@ -126,6 +126,19 @@ function buildFeatherFixImplementations() {
             continue;
         }
 
+        if (diagnosticId === "GM2025") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = annotateMissingUserEvents({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
@@ -521,6 +534,166 @@ function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+function annotateMissingUserEvents({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = annotateUserEventCall(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function annotateUserEventCall(node, diagnostic) {
+    const eventInfo = getUserEventReference(node);
+
+    if (!eventInfo) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: eventInfo.name,
+        automatic: false,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function getUserEventReference(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const callee = node.object;
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (isIdentifierWithName(callee, "event_user")) {
+        const eventIndex = resolveUserEventIndex(args[0]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    if (isIdentifierWithName(callee, "event_perform")) {
+        if (args.length < 2 || !isIdentifierWithName(args[0], "ev_user")) {
+            return null;
+        }
+
+        const eventIndex = resolveUserEventIndex(args[1]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    if (isIdentifierWithName(callee, "event_perform_object")) {
+        if (args.length < 3) {
+            return null;
+        }
+
+        const eventIndex = resolveUserEventIndex(args[2]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    return null;
+}
+
+function resolveUserEventIndex(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        const numericValue = typeof node.value === "number" ? node.value : Number(node.value);
+
+        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
+            return null;
+        }
+
+        return numericValue;
+    }
+
+    if (node.type === "Identifier") {
+        const match = /^ev_user(\d+)$/.exec(node.name);
+
+        if (!match) {
+            return null;
+        }
+
+        const numericValue = Number.parseInt(match[1], 10);
+
+        if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 15) {
+            return null;
+        }
+
+        return numericValue;
+    }
+
+    return null;
+}
+
+function formatUserEventName(index) {
+    if (!Number.isInteger(index)) {
+        return null;
+    }
+
+    return `User Event ${index}`;
 }
 
 function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
