@@ -96,22 +96,24 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         }
 
         const { targetName, argumentIndex } = match;
-
         if (argumentIndex == null || argumentIndex < 0) {
             return null;
         }
 
         const existingInfo = paramInfoByName.get(targetName);
         if (existingInfo) {
-            if (existingInfo.index === argumentIndex) {
-                return existingInfo;
-            }
-            return null;
+            return existingInfo.index === argumentIndex ? existingInfo : null;
         }
 
         if (argumentIndex > params.length) {
             return null;
         }
+
+        const registerInfo = (index, identifier) => {
+            const info = { index, identifier };
+            paramInfoByName.set(targetName, info);
+            return info;
+        };
 
         if (argumentIndex === params.length) {
             const newIdentifier = {
@@ -119,9 +121,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 name: targetName
             };
             params.push(newIdentifier);
-            const info = { index: argumentIndex, identifier: newIdentifier };
-            paramInfoByName.set(targetName, info);
-            return info;
+            return registerInfo(argumentIndex, newIdentifier);
         }
 
         const paramAtIndex = params[argumentIndex];
@@ -135,9 +135,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
             return null;
         }
 
-        const info = { index: argumentIndex, identifier };
-        paramInfoByName.set(targetName, info);
-        return info;
+        return registerInfo(argumentIndex, identifier);
     };
 
     for (const match of matches) {
