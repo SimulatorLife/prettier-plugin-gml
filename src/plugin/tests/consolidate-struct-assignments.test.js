@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 
 const helperSource = `function getNodeStartIndex(node) {
     if (!node || typeof node !== "object") {
