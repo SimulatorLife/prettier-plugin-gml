@@ -426,6 +426,12 @@ Lint the JavaScript sources before submitting a change:
 npm run lint
 ```
 
+Auto-fix lint violations when appropriate:
+
+```bash
+npm run lint:fix
+```
+
 The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
 flags such as watch mode or filtering individual tests:
 

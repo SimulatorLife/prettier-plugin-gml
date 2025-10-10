@@ -33,7 +33,8 @@
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules project_structure.txt",
-    "lint": "eslint . --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
     "test": "npm run test:parser && npm run test:plugin",
     "test:parser": "cd src/parser && npm test",
