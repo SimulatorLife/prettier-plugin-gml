@@ -107,7 +107,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
     if (gm1100Metadata.length === 0) {
         return {
-            sourceText: sourceText,
+            sourceText,
             metadata: null
         };
     }
