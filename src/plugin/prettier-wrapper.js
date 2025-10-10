@@ -25,10 +25,29 @@ function normalizeExtensions(rawExtensions, fallbackExtensions = FALLBACK_EXTENS
         return fallbackExtensions;
     }
 
-    const normalized = candidateValues.map((extension) => {
-        const lowerCaseExtension = extension.toLowerCase();
-        return lowerCaseExtension.startsWith(".") ? lowerCaseExtension : `.${lowerCaseExtension}`;
-    });
+    const normalized = candidateValues
+        .map((extension) => {
+            let lowerCaseExtension = extension.toLowerCase();
+
+            // Drop any directory/glob prefixes (e.g. **/*.gml or src/**/*.yy).
+            lowerCaseExtension = lowerCaseExtension.replace(/.*[\\/]/, "");
+
+            // Trim leading wildcard tokens like * or ? that commonly appear in glob patterns.
+            lowerCaseExtension = lowerCaseExtension.replace(/^[*?]+/, "");
+
+            if (!lowerCaseExtension) {
+                return null;
+            }
+
+            return lowerCaseExtension.startsWith(".")
+                ? lowerCaseExtension
+                : `.${lowerCaseExtension}`;
+        })
+        .filter(Boolean);
+
+    if (normalized.length === 0) {
+        return fallbackExtensions;
+    }
 
     return [...new Set(normalized)];
 }

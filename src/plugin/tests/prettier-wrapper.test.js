@@ -56,6 +56,31 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('normalizes glob patterns in default extension environment overrides', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const gmlFile = path.join(tempDirectory, 'example.GML');
+      const txtFile = path.join(tempDirectory, 'extra.txt');
+      await fs.writeFile(gmlFile, 'var    a=1;\n', 'utf8');
+      await fs.writeFile(txtFile, 'var    b=2;\n', 'utf8');
+
+      const env = {
+        ...process.env,
+        PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: '**/*.GML,*.txt'
+      };
+
+      await execFileAsync('node', [wrapperPath, tempDirectory], { env });
+
+      const formattedGml = await fs.readFile(gmlFile, 'utf8');
+      const formattedTxt = await fs.readFile(txtFile, 'utf8');
+      assert.equal(formattedGml, 'var a = 1;\n');
+      assert.equal(formattedTxt, 'var b = 2;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('formats files when a custom extension is provided', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
