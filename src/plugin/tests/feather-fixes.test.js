@@ -170,6 +170,60 @@ describe("applyFeatherFixes transform", () => {
     });
   });
 
+  it("respects the configurable duplicate parameter suffix start", () => {
+    const source = [
+      "function example(value, other, value, value) {",
+      "    return value + other;",
+      "}",
+    ].join("\n");
+
+    const ast = GMLParser.parse(source, {
+      getLocations: true,
+      simplifyLocations: false,
+    });
+
+    applyFeatherFixes(ast, {
+      sourceText: source,
+      options: { featherDuplicateParameterSuffixStart: 7 },
+    });
+
+    const [fn] = ast.body ?? [];
+    assert.ok(fn);
+    const params = Array.isArray(fn.params) ? fn.params : [];
+    assert.strictEqual(params.length, 4);
+
+    const names = params.map((param) => {
+      if (!param) {
+        return null;
+      }
+
+      if (param.type === "Identifier") {
+        return param.name;
+      }
+
+      if (param.type === "DefaultParameter") {
+        return param.left?.name ?? null;
+      }
+
+      return null;
+    });
+
+    assert.deepStrictEqual(names, [
+      "value",
+      "other",
+      "value_7",
+      "value_8",
+    ]);
+
+    const renamed = [params[2], params[3]];
+    renamed.forEach((param) => {
+      const identifier = param?.type === "Identifier" ? param : param?.left;
+      assert.ok(identifier);
+      const metadata = identifier._appliedFeatherDiagnostics ?? [];
+      assert.strictEqual(metadata.some((entry) => entry.id === "GM1059"), true);
+    });
+  });
+
   it("records manual Feather fix metadata for every diagnostic", () => {
     const source = "var value = 1;";
 

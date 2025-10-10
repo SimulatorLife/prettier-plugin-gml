@@ -16,6 +16,7 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
   ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))",
 );
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const DEFAULT_DUPLICATE_PARAMETER_SUFFIX_START = 2;
 
 export function preprocessSourceForFeatherFixes(sourceText) {
   if (typeof sourceText !== "string" || sourceText.length === 0) {
@@ -135,7 +136,7 @@ export function getFeatherDiagnosticFixers() {
 
 export function applyFeatherFixes(
   ast,
-  { sourceText, preprocessedFixMetadata } = {},
+  { sourceText, preprocessedFixMetadata, options } = {},
 ) {
   if (!ast || typeof ast !== "object") {
     return ast;
@@ -144,7 +145,11 @@ export function applyFeatherFixes(
   const appliedFixes = [];
 
   for (const entry of FEATHER_DIAGNOSTIC_FIXERS.values()) {
-    const fixes = entry.applyFix(ast, { sourceText, preprocessedFixMetadata });
+    const fixes = entry.applyFix(ast, {
+      sourceText,
+      preprocessedFixMetadata,
+      options,
+    });
 
     if (Array.isArray(fixes) && fixes.length > 0) {
       appliedFixes.push(...fixes);
@@ -202,6 +207,7 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
           ast,
           sourceText: context?.sourceText,
           preprocessedFixMetadata: context?.preprocessedFixMetadata,
+          options: context?.options,
         });
 
         return Array.isArray(fixes) ? fixes : [];
@@ -284,10 +290,11 @@ function buildFeatherFixImplementations(diagnostics) {
     }
 
     if (diagnosticId === "GM1059") {
-      registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+      registerFeatherFixer(registry, diagnosticId, () => ({ ast, options }) => {
         const fixes = renameDuplicateFunctionParameters({
           ast,
           diagnostic,
+          options,
         });
 
         if (Array.isArray(fixes) && fixes.length > 0) {
@@ -679,7 +686,7 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
   return fixDetail;
 }
 
-function renameDuplicateFunctionParameters({ ast, diagnostic }) {
+function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
   if (!diagnostic || !ast || typeof ast !== "object") {
     return [];
   }
@@ -704,6 +711,7 @@ function renameDuplicateFunctionParameters({ ast, diagnostic }) {
       const functionFixes = renameDuplicateParametersInFunction(
         node,
         diagnostic,
+        options,
       );
       if (Array.isArray(functionFixes) && functionFixes.length > 0) {
         fixes.push(...functionFixes);
@@ -722,7 +730,11 @@ function renameDuplicateFunctionParameters({ ast, diagnostic }) {
   return fixes;
 }
 
-function renameDuplicateParametersInFunction(functionNode, diagnostic) {
+function renameDuplicateParametersInFunction(
+  functionNode,
+  diagnostic,
+  options,
+) {
   const params = Array.isArray(functionNode?.params) ? functionNode.params : [];
 
   if (params.length === 0) {
@@ -759,6 +771,7 @@ function renameDuplicateParametersInFunction(functionNode, diagnostic) {
     const replacementName = generateUniqueParameterName(
       originalName,
       seenNames,
+      options,
     );
 
     if (!replacementName) {
@@ -804,7 +817,25 @@ function getFunctionParameterIdentifier(param) {
   return null;
 }
 
-function generateUniqueParameterName(baseName, registry) {
+function getDuplicateParameterSuffixStart(options) {
+  const rawValue = options?.featherDuplicateParameterSuffixStart;
+
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return Math.max(1, Math.trunc(rawValue));
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim().length > 0) {
+    const parsed = Number.parseInt(rawValue, 10);
+
+    if (Number.isFinite(parsed)) {
+      return Math.max(1, parsed);
+    }
+  }
+
+  return DEFAULT_DUPLICATE_PARAMETER_SUFFIX_START;
+}
+
+function generateUniqueParameterName(baseName, registry, options) {
   if (!baseName || typeof baseName !== "string") {
     return null;
   }
@@ -816,7 +847,11 @@ function generateUniqueParameterName(baseName, registry) {
   }
 
   const seen = registry instanceof Map ? registry : null;
-  const startingSuffix = Math.max(2, seen?.get(baseName) ?? 2);
+  const suffixStart = getDuplicateParameterSuffixStart(options);
+  const startingSuffix = Math.max(
+    suffixStart,
+    seen?.get(baseName) ?? suffixStart,
+  );
   let suffix = startingSuffix;
 
   while (true) {
