@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import { describe, it } from "node:test";
 
-import { getIdentifierText } from "../../shared/ast-node-helpers.js";
+import { getIdentifierText } from "../ast-node-helpers.js";
 
 describe("getIdentifierText", () => {
   it("returns string arguments unchanged", () => {

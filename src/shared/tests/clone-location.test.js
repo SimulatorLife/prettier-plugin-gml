@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneLocation } from "../../shared/ast-locations.js";
+import { cloneLocation } from "../ast-locations.js";
 
 test("cloneLocation clones plain location objects", () => {
   const location = {
