@@ -96,6 +96,28 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('formats files restored by negated .prettierignore entries', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const ignoredDirectory = path.join(tempDirectory, 'ignored');
+      await fs.mkdir(ignoredDirectory);
+
+      const targetFile = path.join(ignoredDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      const ignorePath = path.join(tempDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, 'ignored/*\n!ignored/script.gml\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('does not descend into directories ignored by .prettierignore', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
