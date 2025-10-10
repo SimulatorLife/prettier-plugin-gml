@@ -294,9 +294,7 @@ async function resolveFormattingOptions(filePath) {
         mergedOptions.plugins = combinedPlugins;
     }
 
-    if (!mergedOptions.parser) {
-        mergedOptions.parser = options.parser;
-    }
+    mergedOptions.parser = options.parser;
 
     return mergedOptions;
 }

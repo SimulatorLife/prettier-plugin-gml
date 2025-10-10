@@ -77,6 +77,28 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('overrides conflicting parser configuration from .prettierrc', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'enum.gml');
+      await fs.writeFile(targetFile, 'enum   MyEnum{value}\n', 'utf8');
+
+      const configPath = path.join(tempDirectory, '.prettierrc');
+      await fs.writeFile(configPath, JSON.stringify({ parser: 'babel' }), 'utf8');
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(
+        formatted,
+        ['enum MyEnum {', '    value', '}', ''].join('\n')
+      );
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('respects ignore rules from .prettierignore', async () => {
     const tempDirectory = await createTemporaryDirectory();
 
