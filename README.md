@@ -122,7 +122,8 @@ needs an explicit path to load it when you install from Git.
    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
    matching the configured extensions (defaulting to `.gml`, or the comma-separated list provided via the
    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable). Pass `--extensions=.gml,.yy` to format additional file types in a
-   single run.
+   single run. The helper also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a
+   summary of skipped paths so you can confirm non-GML assets stayed untouched.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -190,7 +191,8 @@ additional dependencies alongside that project:
     The path can be absolute or relative to this repository. The script loads Prettier and the plugin from the clone, writes
     formatted output back to the target project, and leaves that project’s `package.json` untouched. The wrapper mirrors the
     CLI behaviour (`--path` or a positional path argument) and logs any skipped non-GML files so you can confirm only `.gml`
-    sources were ignored.
+    sources were ignored. Supply `--extensions=.gml,.yy` when you want to cover multiple languages at once, or export
+    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` to reuse the same list on future runs.
 
 ### Optional: global install
 
@@ -241,6 +243,16 @@ command.
   ```bash
   npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write scripts/player_attack.gml
   ```
+
+- Format a whole project with the wrapper helper from any checkout:
+
+  ```bash
+  node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+  ```
+
+  The wrapper expands glob patterns, merges plugin paths discovered via `resolveConfig`, and prints a skipped-file summary so
+  you can audit what was excluded. See [Format with a local clone](#format-with-a-local-clone) if you prefer to run the helper
+  from this repository instead of a project install.
 
 See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options, and watch the
 [GitHub releases](https://github.com/SimulatorLife/prettier-plugin-gml/releases) for plugin updates.
@@ -458,7 +470,8 @@ npm run build:feather-metadata
 ```
 
 Both commands accept `--ref <branch|tag|commit>` to target a specific manual revision and `--force-refresh` to bypass the cached
-downloads stored in `scripts/cache/manual/`.
+downloads stored in `scripts/cache/manual/`. Pass `--help` for a full argument list, including custom output destinations, and
+consult the linked plans for a deeper explanation of how each dataset is generated and consumed.
 
 ### Regenerate the parser grammar
 
