@@ -1,4 +1,4 @@
-import { hasComment } from "../printer/util.js";
+import { hasComment } from "../../../shared/comments.js";
 import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 /**
