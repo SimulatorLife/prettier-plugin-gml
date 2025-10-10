@@ -1,4 +1,5 @@
 import { util } from "prettier";
+import { hasComment } from "../../../shared/comments.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -104,11 +105,6 @@ function shouldAddNewlinesAroundStatement(node, options) {
     // statement loops, so trading `Array.includes` for a simple Set membership
     // check keeps the hot path allocation-free and branch-predictable.
     return NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType);
-}
-
-function hasComment(node) {
-    const comments = node.comments ?? null;
-    return comments && Array.isArray(comments) && comments.length > 0;
 }
 
 export {
