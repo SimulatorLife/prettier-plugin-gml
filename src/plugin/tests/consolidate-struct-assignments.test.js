@@ -79,4 +79,22 @@ describe("CommentTracker", () => {
 
         assert.equal(tracker.hasAfter(5), true);
     });
+
+    it("removes consumed comments from the original collection", async () => {
+        const { CommentTracker } = await loadCommentTracker();
+
+        const comments = [
+            { start: { index: 10 } },
+            { start: { index: 20 } }
+        ];
+
+        const tracker = new CommentTracker(comments);
+        tracker.consumeEntries([tracker.entries[0]]);
+        tracker.removeConsumedComments();
+
+        assert.deepEqual(
+            comments.map((comment) => comment.start.index),
+            [20]
+        );
+    });
 });

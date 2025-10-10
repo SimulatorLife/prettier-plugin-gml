@@ -591,7 +591,9 @@ function isNode(value) {
 
 class CommentTracker {
     constructor(comments) {
-        this.entries = comments
+        const sourceComments = Array.isArray(comments) ? comments : [];
+        this.comments = sourceComments;
+        this.entries = sourceComments
             .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
