@@ -34,8 +34,6 @@ import {
     getArrayLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
-import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
-
 import { printDanglingComments, printDanglingCommentsAsGroup } from "./comments.js";
 import {
     formatLineComment,
@@ -47,7 +45,8 @@ import { coercePositiveIntegerOption } from "./option-utils.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 import {
     getIdentifierText,
-    getSingleVariableDeclarator
+    getSingleVariableDeclarator,
+    isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 
 export function print(path, options, print) {
@@ -60,11 +59,6 @@ export function print(path, options, print) {
     if (typeof node === "string") {
         return concat(node);
     }
-
-    preprocessFunctionArgumentDefaults(path, {
-        getIdentifierText,
-        isUndefinedLiteral
-    });
 
     switch (node.type) {
         case "Program": {
@@ -2250,15 +2244,6 @@ function unwrapParenthesizedExpression(childPath, print) {
     }
 
     return print();
-}
-
-function isUndefinedLiteral(node) {
-    return !!(
-        node &&
-        node.type === "Literal" &&
-        typeof node.value === "string" &&
-        node.value.toLowerCase() === "undefined"
-    );
 }
 
 function buildClauseGroup(doc) {

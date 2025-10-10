@@ -9,6 +9,7 @@ import {
     applyFeatherFixes,
     preprocessSourceForFeatherFixes
 } from "../ast-transforms/apply-feather-fixes.js";
+import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = util;
@@ -46,6 +47,8 @@ function parse(text, options) {
             preprocessedFixMetadata
         });
     }
+
+    preprocessFunctionArgumentDefaults(ast);
 
     return ast;
 }

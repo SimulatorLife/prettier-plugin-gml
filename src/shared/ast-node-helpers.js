@@ -96,4 +96,17 @@ function getMemberIndexText(indexNode) {
     return getIdentifierText(indexNode);
 }
 
-export { getIdentifierText, getSingleVariableDeclarator };
+function isUndefinedLiteral(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const { value } = node;
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    return value.toLowerCase() === "undefined";
+}
+
+export { getIdentifierText, getSingleVariableDeclarator, isUndefinedLiteral };
