@@ -4,7 +4,7 @@ import GMLParser from "../gml-parser.js";
 import fs from "fs";
 
 const options = {
-  getLocationInformation: true
+  getLocationInformation: true,
 };
 
 const files = fs.readdirSync("test/input");
@@ -24,7 +24,7 @@ for (const file of files) {
   let input = fs.readFileSync("test/input/" + file, "utf8");
   console.time(file + " (warm)");
   let ast = GMLParser.parse(input);
-  console.timeEnd(file  + " (warm)");
+  console.timeEnd(file + " (warm)");
 }
 
 console.profileEnd("benchmark");

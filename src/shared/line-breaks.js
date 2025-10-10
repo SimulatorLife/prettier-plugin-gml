@@ -14,39 +14,39 @@ const LINE_SEPARATOR = "\u2028".charCodeAt(0);
 const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
 
 export function getLineBreakCount(text) {
-    if (typeof text !== "string" || text.length === 0) {
-        return 0;
+  if (typeof text !== "string" || text.length === 0) {
+    return 0;
+  }
+
+  let count = 0;
+  let index = 0;
+  const length = text.length; // Hoist for repeated loop checks.
+
+  // Manual scanning avoids creating RegExp match arrays for every call. The
+  // parser frequently invokes this helper while iterating over tokens, so we
+  // keep the loop tight and operate on character codes directly.
+  while (index < length) {
+    const code = text.charCodeAt(index);
+
+    if (code === CARRIAGE_RETURN) {
+      const nextIndex = index + 1;
+      index =
+        text.charCodeAt(nextIndex) === LINE_FEED ? nextIndex + 1 : nextIndex;
+
+      count += 1;
+      continue;
     }
 
-    let count = 0;
-    let index = 0;
-    const length = text.length; // Hoist for repeated loop checks.
-
-    // Manual scanning avoids creating RegExp match arrays for every call. The
-    // parser frequently invokes this helper while iterating over tokens, so we
-    // keep the loop tight and operate on character codes directly.
-    while (index < length) {
-        const code = text.charCodeAt(index);
-
-        if (code === CARRIAGE_RETURN) {
-            const nextIndex = index + 1;
-            index =
-                text.charCodeAt(nextIndex) === LINE_FEED ? nextIndex + 1 : nextIndex;
-
-            count += 1;
-            continue;
-        }
-
-        if (
-            code === LINE_FEED ||
-            code === LINE_SEPARATOR ||
-            code === PARAGRAPH_SEPARATOR
-        ) {
-            count += 1;
-        }
-
-        index += 1;
+    if (
+      code === LINE_FEED ||
+      code === LINE_SEPARATOR ||
+      code === PARAGRAPH_SEPARATOR
+    ) {
+      count += 1;
     }
 
-    return count;
+    index += 1;
+  }
+
+  return count;
 }

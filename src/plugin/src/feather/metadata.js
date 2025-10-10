@@ -11,37 +11,36 @@ const require = createRequire(import.meta.url);
 let cachedMetadata = null;
 
 function loadFeatherMetadata() {
-    if (cachedMetadata) {
-        return cachedMetadata;
-    }
+  if (cachedMetadata) {
+    return cachedMetadata;
+  }
 
-    const metadata = require("../../../../resources/feather-metadata.json");
-    cachedMetadata = metadata;
-    return metadata;
+  const metadata = require("../../../../resources/feather-metadata.json");
+  cachedMetadata = metadata;
+  return metadata;
 }
 
 export function getFeatherMetadata() {
-    return loadFeatherMetadata();
+  return loadFeatherMetadata();
 }
 
 export function getFeatherDiagnostics() {
-    const metadata = loadFeatherMetadata();
-    const diagnostics = metadata?.diagnostics;
+  const metadata = loadFeatherMetadata();
+  const diagnostics = metadata?.diagnostics;
 
-    if (!Array.isArray(diagnostics)) {
-        return [];
-    }
+  if (!Array.isArray(diagnostics)) {
+    return [];
+  }
 
-    return diagnostics;
+  return diagnostics;
 }
 
 export function getFeatherDiagnosticById(id) {
-    if (!id) {
-        return null;
-    }
+  if (!id) {
+    return null;
+  }
 
-    const diagnostics = getFeatherDiagnostics();
+  const diagnostics = getFeatherDiagnostics();
 
-    return diagnostics.find((diagnostic) => diagnostic?.id === id) ?? null;
+  return diagnostics.find((diagnostic) => diagnostic?.id === id) ?? null;
 }
-
