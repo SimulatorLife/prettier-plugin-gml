@@ -1,4 +1,8 @@
-import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
+import {
+    getNodeEndIndex,
+    getNodeStartIndex,
+    cloneLocation
+} from "../../../shared/ast-locations.js";
 import { getFeatherDiagnostics } from "../feather/metadata.js";
 
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
@@ -1458,14 +1462,6 @@ function cloneIdentifier(node) {
     }
 
     return cloned;
-}
-
-function cloneLocation(location) {
-    if (location == null) {
-        return undefined;
-    }
-
-    return structuredClone(location);
 }
 
 function copyCommentMetadata(source, target) {
