@@ -1,14 +1,80 @@
 import { hasComment } from "../../../shared/comments.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import {
+    getSingleVariableDeclarator,
+    getIdentifierText,
+    isUndefinedLiteral
+} from "../../../shared/ast-node-helpers.js";
+
+const DEFAULT_HELPERS = {
+    getIdentifierText,
+    isUndefinedLiteral
+};
 
 /**
  * Normalize function parameters by converting argument_count fallbacks into default parameters.
  *
- * @param {import("prettier").AstPath} path
- * @param {{ getIdentifierText: (node: unknown) => string | null, isUndefinedLiteral: (node: unknown) => boolean }} helpers
+ * @param {unknown} ast
+ * @param {{ getIdentifierText?: (node: unknown) => string | null, isUndefinedLiteral?: (node: unknown) => boolean }} helpers
  */
-export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
-    const node = path?.getValue?.();
+export function preprocessFunctionArgumentDefaults(ast, helpers = DEFAULT_HELPERS) {
+    if (!ast || typeof ast !== "object") {
+        return ast;
+    }
+
+    const normalizedHelpers = {
+        getIdentifierText:
+            typeof helpers.getIdentifierText === "function"
+                ? helpers.getIdentifierText
+                : DEFAULT_HELPERS.getIdentifierText,
+        isUndefinedLiteral:
+            typeof helpers.isUndefinedLiteral === "function"
+                ? helpers.isUndefinedLiteral
+                : DEFAULT_HELPERS.isUndefinedLiteral
+    };
+
+    traverse(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        preprocessFunctionDeclaration(node, normalizedHelpers);
+    });
+
+    return ast;
+}
+
+function traverse(node, visitor, seen = new Set()) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (seen.has(node)) {
+        return;
+    }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            traverse(child, visitor, seen);
+        }
+        return;
+    }
+
+    visitor(node);
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        if (value && typeof value === "object") {
+            traverse(value, visitor, seen);
+        }
+    }
+}
+
+function preprocessFunctionDeclaration(node, helpers) {
     if (!node || node.type !== "FunctionDeclaration") {
         return;
     }
@@ -17,14 +83,9 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         return;
     }
 
-    const getIdentifierText = typeof helpers.getIdentifierText === "function"
-        ? helpers.getIdentifierText
-        : null;
-    const isUndefinedLiteral = typeof helpers.isUndefinedLiteral === "function"
-        ? helpers.isUndefinedLiteral
-        : null;
+    const { getIdentifierText, isUndefinedLiteral } = helpers;
 
-    if (!getIdentifierText || !isUndefinedLiteral) {
+    if (typeof getIdentifierText !== "function" || typeof isUndefinedLiteral !== "function") {
         return;
     }
 
@@ -40,10 +101,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
 
     for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
         const statement = statements[statementIndex];
-        const match = matchArgumentCountFallbackStatement(statement, {
-            getIdentifierText,
-            isUndefinedLiteral
-        });
+        const match = matchArgumentCountFallbackStatement(statement, helpers);
 
         if (!match) {
             continue;
@@ -74,7 +132,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
 
     const paramInfoByName = new Map();
     params.forEach((param, index) => {
-        const identifier = getIdentifierFromParameter(param, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(param, helpers);
         if (!identifier) {
             return;
         }
@@ -125,7 +183,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         }
 
         const paramAtIndex = params[argumentIndex];
-        const identifier = getIdentifierFromParameter(paramAtIndex, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
         if (!identifier) {
             return null;
         }
@@ -177,10 +235,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 statements,
                 match.statementIndex,
                 match.targetName,
-                {
-                    getIdentifierText,
-                    isUndefinedLiteral
-                }
+                helpers
             );
 
             if (redundantVar) {
