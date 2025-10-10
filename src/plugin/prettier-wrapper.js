@@ -342,6 +342,11 @@ async function processFile(filePath) {
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
+
+        if (formatted === data) {
+            return;
+        }
+
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (err) {

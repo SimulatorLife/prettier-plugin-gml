@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
 import { describe, it } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
@@ -230,6 +231,27 @@ describe('Prettier wrapper CLI', () => {
     } finally {
       await fs.rm(projectDirectory, { recursive: true, force: true });
       await fs.rm(outerDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('does not rewrite files when formatting produces no changes', async () => {
+    const tempDirectory = await createTemporaryDirectory();
+
+    try {
+      const targetFile = path.join(tempDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+      const { mtimeMs: initialMtime } = await fs.stat(targetFile);
+
+      await delay(1000);
+
+      await execFileAsync('node', [wrapperPath, tempDirectory]);
+      const { mtimeMs: finalMtime } = await fs.stat(targetFile);
+
+      assert.equal(finalMtime, initialMtime);
+    } finally {
+      await fs.rm(tempDirectory, { recursive: true, force: true });
     }
   });
 
