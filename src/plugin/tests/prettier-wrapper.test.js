@@ -191,6 +191,27 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
+  it('ignores .prettierignore files outside the target project', async () => {
+    const outerDirectory = await createTemporaryDirectory();
+    const projectDirectory = await createTemporaryDirectory();
+
+    try {
+      const ignorePath = path.join(outerDirectory, '.prettierignore');
+      await fs.writeFile(ignorePath, '*.gml\n', 'utf8');
+
+      const targetFile = path.join(projectDirectory, 'script.gml');
+      await fs.writeFile(targetFile, 'var    a=1;\n', 'utf8');
+
+      await execFileAsync('node', [wrapperPath, projectDirectory], { cwd: outerDirectory });
+
+      const formatted = await fs.readFile(targetFile, 'utf8');
+      assert.equal(formatted, 'var a = 1;\n');
+    } finally {
+      await fs.rm(projectDirectory, { recursive: true, force: true });
+      await fs.rm(outerDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('skips symbolic links to avoid infinite directory traversal loops', async (t) => {
     const tempDirectory = await createTemporaryDirectory();
 
