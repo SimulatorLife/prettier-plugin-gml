@@ -229,6 +229,50 @@ describe("Prettier GameMaker plugin fixtures", () => {
     assert.strictEqual(formatted, expected);
   });
 
+  it("converts argument_count equality fallbacks into default parameters", async () => {
+    const source = [
+      "function equalityExample(arg) {",
+      "    if (argument_count == 0) {",
+      '        arg = "fallback";',
+      "    } else {",
+      "        arg = argument[0];",
+      "    }",
+      "}",
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    const expected = [
+      "/// @function equalityExample",
+      '/// @param [arg="fallback"]',
+      'function equalityExample(arg = "fallback") {}',
+    ].join("\n");
+
+    assert.strictEqual(formatted, expected);
+  });
+
+  it("converts argument_count inequality fallbacks into default parameters", async () => {
+    const source = [
+      "function inequalityExample(arg) {",
+      "    if (argument_count != 0) {",
+      "        arg = argument[0];",
+      "    } else {",
+      '        arg = "fallback";',
+      "    }",
+      "}",
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    const expected = [
+      "/// @function inequalityExample",
+      '/// @param [arg="fallback"]',
+      'function inequalityExample(arg = "fallback") {}',
+    ].join("\n");
+
+    assert.strictEqual(formatted, expected);
+  });
+
   it("converts argument_count fallbacks guarded by <= or < comparisons", async () => {
     const source = [
       "function fallbackLeq(existing) {",
