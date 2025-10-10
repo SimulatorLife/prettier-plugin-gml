@@ -221,6 +221,50 @@ describe('Prettier GameMaker plugin fixtures', () => {
     assert.strictEqual(formatted, expected);
   });
 
+  it('converts argument_count fallbacks guarded by <= or < comparisons', async () => {
+    const source = [
+      'function fallbackLeq(existing) {',
+      '    var second;',
+      '    if (argument_count <= 1) {',
+      '        second = "fallback";',
+      '    } else {',
+      '        second = argument[1];',
+      '    }',
+      '    return existing + second;',
+      '}',
+      '',
+      'function fallbackLt(existing) {',
+      '    var second;',
+      '    if (argument_count < 2) {',
+      '        second = "fallback";',
+      '    } else {',
+      '        second = argument[1];',
+      '    }',
+      '    return existing + second;',
+      '}',
+    ].join('\n');
+
+    const formatted = await formatWithPlugin(source);
+
+    const expected = [
+      '/// @function fallbackLeq',
+      '/// @param existing',
+      '/// @param [second="fallback"]',
+      'function fallbackLeq(existing, second = "fallback") {',
+      '    return existing + second;',
+      '}',
+      '',
+      '/// @function fallbackLt',
+      '/// @param existing',
+      '/// @param [second="fallback"]',
+      'function fallbackLt(existing, second = "fallback") {',
+      '    return existing + second;',
+      '}',
+    ].join('\n');
+
+    assert.strictEqual(formatted, expected);
+  });
+
   it("can elide 'globalvar' declarations when disabled", async () => {
     const source = [
       'globalvar foo, bar;',

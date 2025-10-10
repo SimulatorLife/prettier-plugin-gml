@@ -529,6 +529,15 @@ function parseArgumentCountGuard(node) {
         return adjusted >= 0 ? { argumentIndex: adjusted } : null;
     }
 
+    if (node.operator === "<") {
+        const adjusted = rightIndex - 1;
+        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
+    }
+
+    if (node.operator === "<=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
     return null;
 }
 
