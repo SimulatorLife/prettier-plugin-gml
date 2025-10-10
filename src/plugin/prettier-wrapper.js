@@ -186,6 +186,19 @@ async function shouldSkipDirectory(directory) {
     return false;
 }
 
+function isPathInside(child, parent) {
+    if (!child || !parent) {
+        return false;
+    }
+
+    const relative = path.relative(parent, child);
+    if (!relative) {
+        return true;
+    }
+
+    return !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
 async function resolveProjectIgnorePaths(directory) {
     const directoriesToInspect = [];
     const seenDirectories = new Set();
@@ -210,8 +223,13 @@ async function resolveProjectIgnorePaths(directory) {
         }
     };
 
-    collectDirectories(directory);
-    collectDirectories(process.cwd());
+    const resolvedDirectory = path.resolve(directory);
+    collectDirectories(resolvedDirectory);
+
+    const workingDirectory = process.cwd();
+    if (isPathInside(path.resolve(workingDirectory), resolvedDirectory)) {
+        collectDirectories(workingDirectory);
+    }
 
     const ignoreFiles = [];
 
