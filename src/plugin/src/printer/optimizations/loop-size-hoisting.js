@@ -152,8 +152,10 @@ function getArrayLengthHoistInfo(
       return null;
     }
 
-    const allowedOperators = new Set(["+=", "-="]);
-    if (!allowedOperators.has(update.operator)) {
+    const operator = update.operator;
+    // Direct comparison avoids allocating a Set for every assignment-style
+    // update, keeping this hot path allocation-free.
+    if (operator !== "+=" && operator !== "-=") {
       return null;
     }
   } else {
