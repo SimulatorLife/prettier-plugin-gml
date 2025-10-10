@@ -1,4 +1,8 @@
-import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    cloneLocation
+} from "../../../shared/ast-locations.js";
 import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
@@ -321,10 +325,12 @@ function buildPropertyFromAssignment(assignmentDetails) {
         type: "Property",
         name: propertyName,
         value: assignment.right,
-        start: cloneLocation(
-            getPreferredLocation(propertyAccess.propertyStart, assignment.start)
-        ),
-        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+        start:
+            cloneLocation(
+                getPreferredLocation(propertyAccess.propertyStart, assignment.start)
+            ) ?? null,
+        end:
+            cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end)) ?? null
     };
 }
 
@@ -417,8 +423,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: IDENTIFIER,
             name: identifierName,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -426,8 +432,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: LITERAL,
             value: propertyKey.raw,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -497,13 +503,6 @@ function getPreferredLocation(primary, fallback) {
         return fallback;
     }
     return null;
-}
-
-function cloneLocation(location) {
-    if (!isNode(location)) {
-        return location ?? null;
-    }
-    return structuredClone(location);
 }
 
 function getNodeEndLine(node) {

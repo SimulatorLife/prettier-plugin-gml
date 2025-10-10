@@ -58,10 +58,23 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
+function cloneLocation(location) {
+    if (location == null) {
+        return undefined;
+    }
+
+    if (typeof location !== "object") {
+        return location;
+    }
+
+    return structuredClone(location);
+}
+
 export {
     getLocationIndex,
     getStartIndex,
     getEndIndex,
     getNodeStartIndex,
-    getNodeEndIndex
+    getNodeEndIndex,
+    cloneLocation
 };
