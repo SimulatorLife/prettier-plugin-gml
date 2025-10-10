@@ -2199,7 +2199,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 const RADIAN_TRIG_TO_DEGREE = new Map([
     ["sin", "dsin"],
     ["cos", "dcos"],
-    ["tan", "dtan"],
+    ["tan", "dtan"]
 ]);
 
 const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
@@ -2209,14 +2209,14 @@ const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
     ["darcsin", { name: "arcsin", expectedArgs: 1 }],
     ["darccos", { name: "arccos", expectedArgs: 1 }],
     ["darctan", { name: "arctan", expectedArgs: 1 }],
-    ["darctan2", { name: "arctan2", expectedArgs: 2 }],
+    ["darctan2", { name: "arctan2", expectedArgs: 2 }]
 ]);
 
 const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
     ["arcsin", { name: "darcsin", expectedArgs: 1 }],
     ["arccos", { name: "darccos", expectedArgs: 1 }],
     ["arctan", { name: "darctan", expectedArgs: 1 }],
-    ["arctan2", { name: "darctan2", expectedArgs: 2 }],
+    ["arctan2", { name: "darctan2", expectedArgs: 2 }]
 ]);
 
 function buildArrayLengthDocs(path, print, hoistInfo) {

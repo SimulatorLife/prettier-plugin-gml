@@ -9,7 +9,7 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_list_size", "size"],
     ["ds_map_size", "size"],
     ["ds_grid_width", "width"],
-    ["ds_grid_height", "height"],
+    ["ds_grid_height", "height"]
 ]);
 
 const ARRAY_LENGTH_SUFFIX_CACHE = Symbol.for("prettier-plugin-gml.arrayLengthHoistFunctionSuffixes");

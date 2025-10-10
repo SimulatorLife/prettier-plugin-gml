@@ -9,48 +9,48 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         this.operators = {
             // Highest Precedence
-            '++': { prec: 15, assoc: 'right', type: 'unary' }, // TODO handle pre/post
-            '--': { prec: 15, assoc: 'right', type: 'unary' }, // TODO handle pre/post
-            '~': { prec: 14, assoc: 'right', type: 'unary' },
-            '!': { prec: 14, assoc: 'right', type: 'unary' },
+            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
+            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
+            "~": { prec: 14, assoc: "right", type: "unary" },
+            "!": { prec: 14, assoc: "right", type: "unary" },
             // '-': { prec: 14, assoc: 'left', type: 'unary' }, // Negate
-            '*': { prec: 13, assoc: 'left', type: 'arithmetic' },
-            '/': { prec: 13, assoc: 'left', type: 'arithmetic' },
-            'div': { prec: 13, assoc: 'left', type: 'arithmetic' },
-            '%': { prec: 13, assoc: 'left', type: 'arithmetic' },
-            'mod': { prec: 13, assoc: 'left', type: 'arithmetic' },
-            '+': { prec: 12, assoc: 'left', type: 'arithmetic' }, // Addition
-            '-': { prec: 12, assoc: 'left', type: 'arithmetic' }, // Subtraction
-            '<<': { prec: 12, assoc: 'left', type: 'bitwise' },
-            '>>': { prec: 12, assoc: 'left', type: 'bitwise' },
-            '&': { prec: 11, assoc: 'left', type: 'bitwise' },
-            '^': { prec: 10, assoc: 'left', type: 'bitwise' },
-            '|': { prec: 9, assoc: 'left', type: 'bitwise' },
-            '<': { prec: 8, assoc: 'left', type: 'comparison' },
-            '<=': { prec: 8, assoc: 'left', type: 'comparison' },
-            '>': { prec: 8, assoc: 'left', type: 'comparison' },
-            '>=': { prec: 8, assoc: 'left', type: 'comparison' },
-            '==': { prec: 7, assoc: 'left', type: 'comparison' },
-            '!=': { prec: 7, assoc: 'left', type: 'comparison' },
-            '<>': { prec: 7, assoc: 'left', type: 'comparison' },
-            '&&': { prec: 6, assoc: 'left', type: 'logical' },
-            'and': { prec: 6, assoc: 'left', type: 'logical' },
-            '||': { prec: 5, assoc: 'left', type: 'logical' },
-            'or': { prec: 5, assoc: 'left', type: 'logical' },
-            '??': { prec: 4, assoc: 'right', type: 'logical' }, // Nullish coalescing
-            '*=': { prec: 1, assoc: 'right', type: 'assign' },
-            ':=': { prec: 1, assoc: 'right', type: 'assign' }, // Equivalent to '=' in GML
-            '=': { prec: 1, assoc: 'right', type: 'assign' },
-            '/=': { prec: 1, assoc: 'right', type: 'assign' },
-            '%=': { prec: 1, assoc: 'right', type: 'assign' },
-            '+=': { prec: 1, assoc: 'right', type: 'assign' },
-            '-=': { prec: 1, assoc: 'right', type: 'assign' },
-            '<<=': { prec: 1, assoc: 'right', type: 'assign' },
-            '>>=': { prec: 1, assoc: 'right', type: 'assign' },
-            '&=': { prec: 1, assoc: 'right', type: 'assign' },
-            '^=': { prec: 1, assoc: 'right', type: 'assign' },
-            '|=': { prec: 1, assoc: 'right', type: 'assign' },
-            '??=': { prec: 1, assoc: 'right', type: 'assign' } // Nullish coalescing assignment
+            "*": { prec: 13, assoc: "left", type: "arithmetic" },
+            "/": { prec: 13, assoc: "left", type: "arithmetic" },
+            "div": { prec: 13, assoc: "left", type: "arithmetic" },
+            "%": { prec: 13, assoc: "left", type: "arithmetic" },
+            "mod": { prec: 13, assoc: "left", type: "arithmetic" },
+            "+": { prec: 12, assoc: "left", type: "arithmetic" }, // Addition
+            "-": { prec: 12, assoc: "left", type: "arithmetic" }, // Subtraction
+            "<<": { prec: 12, assoc: "left", type: "bitwise" },
+            ">>": { prec: 12, assoc: "left", type: "bitwise" },
+            "&": { prec: 11, assoc: "left", type: "bitwise" },
+            "^": { prec: 10, assoc: "left", type: "bitwise" },
+            "|": { prec: 9, assoc: "left", type: "bitwise" },
+            "<": { prec: 8, assoc: "left", type: "comparison" },
+            "<=": { prec: 8, assoc: "left", type: "comparison" },
+            ">": { prec: 8, assoc: "left", type: "comparison" },
+            ">=": { prec: 8, assoc: "left", type: "comparison" },
+            "==": { prec: 7, assoc: "left", type: "comparison" },
+            "!=": { prec: 7, assoc: "left", type: "comparison" },
+            "<>": { prec: 7, assoc: "left", type: "comparison" },
+            "&&": { prec: 6, assoc: "left", type: "logical" },
+            "and": { prec: 6, assoc: "left", type: "logical" },
+            "||": { prec: 5, assoc: "left", type: "logical" },
+            "or": { prec: 5, assoc: "left", type: "logical" },
+            "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
+            "*=": { prec: 1, assoc: "right", type: "assign" },
+            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to '=' in GML
+            "=": { prec: 1, assoc: "right", type: "assign" },
+            "/=": { prec: 1, assoc: "right", type: "assign" },
+            "%=": { prec: 1, assoc: "right", type: "assign" },
+            "+=": { prec: 1, assoc: "right", type: "assign" },
+            "-=": { prec: 1, assoc: "right", type: "assign" },
+            "<<=": { prec: 1, assoc: "right", type: "assign" },
+            ">>=": { prec: 1, assoc: "right", type: "assign" },
+            "&=": { prec: 1, assoc: "right", type: "assign" },
+            "^=": { prec: 1, assoc: "right", type: "assign" },
+            "|=": { prec: 1, assoc: "right", type: "assign" },
+            "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
         };
     }
 
@@ -124,7 +124,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // This method will be the primary method handling the binary expressions
     handleBinaryExpression(ctx, isEmbeddedExpression = false) {
         // Check if the expression is defined and is a function
-        if (!ctx || !Object.hasOwn(ctx, 'expression')) {
+        if (!ctx || !Object.hasOwn(ctx, "expression")) {
             return this.visit(ctx);
         }
 
@@ -143,8 +143,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             leftNode = this.visit(childExpressions[0]);
         } else {
             // For two child expressions, check if each is a binary expression
-            let leftIsBinary = Object.hasOwn(childExpressions[0], 'expression') && typeof childExpressions[0].expression === 'function';
-            let rightIsBinary = Object.hasOwn(childExpressions[1], 'expression') && typeof childExpressions[1].expression === 'function';
+            let leftIsBinary = Object.hasOwn(childExpressions[0], "expression") && typeof childExpressions[0].expression === "function";
+            let rightIsBinary = Object.hasOwn(childExpressions[1], "expression") && typeof childExpressions[1].expression === "function";
 
             leftNode = leftIsBinary ? 
                 this.handleBinaryExpression(childExpressions[0], true) :
@@ -703,13 +703,13 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.preIncDecExpression() != null) {
             let result = this.visit(ctx.preIncDecExpression());
             // Modify type to denote statement context
-            result.type = 'IncDecStatement';
+            result.type = "IncDecStatement";
             return result;
         }
         if (ctx.postIncDecExpression() != null) {
             let result = this.visit(ctx.postIncDecExpression());
             // Modify type to denote statement context
-            result.type = 'IncDecStatement';
+            result.type = "IncDecStatement";
             return result;
         }
         return null;

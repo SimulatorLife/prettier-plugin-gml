@@ -8,7 +8,7 @@ const dataset = [
     {
         type: "MemberDotExpression",
         object: { type: "Identifier", name: "player" },
-        property: { type: "Identifier", name: "x" },
+        property: { type: "Identifier", name: "x" }
     },
     {
         type: "MemberIndexExpression",
@@ -16,9 +16,9 @@ const dataset = [
         property: [
             {
                 type: "Literal",
-                value: "potion",
-            },
-        ],
+                value: "potion"
+            }
+        ]
     },
     {
         type: "MemberIndexExpression",
@@ -27,10 +27,10 @@ const dataset = [
             {
                 type: "MemberDotExpression",
                 object: { type: "Identifier", name: "position" },
-                property: { type: "Identifier", name: "x" },
-            },
-        ],
-    },
+                property: { type: "Identifier", name: "x" }
+            }
+        ]
+    }
 ];
 
 const iterations = 5_000_000;
