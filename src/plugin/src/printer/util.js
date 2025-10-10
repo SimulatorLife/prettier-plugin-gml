@@ -86,18 +86,24 @@ function isAssignmentLikeExpression(nodeType) {
 }
 
 // These top-level statements are surrounded by empty lines by default.
+const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
+    "FunctionDeclaration",
+    "ConstructorDeclaration",
+    "RegionStatement",
+    "EndRegionStatement"
+]);
+
 function shouldAddNewlinesAroundStatement(node, options) {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;
     }
 
-    return [
-        "FunctionDeclaration",
-        "ConstructorDeclaration",
-        "RegionStatement",
-        "EndRegionStatement"
-    ].includes(nodeType);
+    // Avoid allocating an array for every call by reusing a Set that is created
+    // once when the module is evaluated. This helper runs inside the printer's
+    // statement loops, so trading `Array.includes` for a simple Set membership
+    // check keeps the hot path allocation-free and branch-predictable.
+    return NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType);
 }
 
 function hasComment(node) {
