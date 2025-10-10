@@ -1455,15 +1455,11 @@ function cloneIdentifier(node) {
 }
 
 function cloneLocation(location) {
-    if (typeof location === "number") {
-        return location;
+    if (location == null) {
+        return undefined;
     }
 
-    if (location && typeof location === "object") {
-        return { ...location };
-    }
-
-    return location ?? undefined;
+    return structuredClone(location);
 }
 
 function copyCommentMetadata(source, target) {
