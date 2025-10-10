@@ -116,6 +116,32 @@ const lstat = util.promisify(fs.lstat);
 let skippedFileCount = 0;
 let projectIgnorePaths = [];
 let encounteredFormattingError = false;
+let ignoreRulesContainNegations = false;
+
+async function detectIgnoreRuleNegations(ignoreFiles) {
+    ignoreRulesContainNegations = false;
+
+    for (const ignoreFilePath of ignoreFiles) {
+        if (!ignoreFilePath) {
+            continue;
+        }
+
+        try {
+            const contents = await readFile(ignoreFilePath, "utf8");
+            const hasNegation = contents
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .some((line) => line.startsWith("!") && line.length > 1);
+
+            if (hasNegation) {
+                ignoreRulesContainNegations = true;
+                return;
+            }
+        } catch {
+            // Ignore missing or unreadable files.
+        }
+    }
+}
 
 function getIgnorePathOptions() {
     const ignoreCandidates = [ignorePath, ...projectIgnorePaths].filter(Boolean);
@@ -128,6 +154,10 @@ function getIgnorePathOptions() {
 }
 
 async function shouldSkipDirectory(directory) {
+    if (ignoreRulesContainNegations) {
+        return false;
+    }
+
     const ignorePathOption = getIgnorePathOptions();
     if (!ignorePathOption) {
         return false;
@@ -298,6 +328,7 @@ async function processFile(filePath) {
 
 await ensureDirectoryExists(targetPath);
 projectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
+await detectIgnoreRuleNegations([ignorePath, ...projectIgnorePaths]);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);
 if (encounteredFormattingError) {
