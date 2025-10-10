@@ -9,4 +9,4 @@
 **/*.resource_order
 datafiles
 vector_store
-.DS_STORE
+.DS_Store
