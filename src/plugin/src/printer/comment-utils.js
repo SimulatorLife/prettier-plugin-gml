@@ -1,3 +1,5 @@
+import { coercePositiveIntegerOption } from "./option-utils.js";
+
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
 
@@ -25,22 +27,6 @@ function getLineCommentRawText(comment) {
             : String(comment.value);
 
     return `//${fallbackValue}`;
-}
-
-function coercePositiveIntegerOption(value, defaultValue, { zeroReplacement } = {}) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        const normalized = Math.floor(value);
-
-        if (normalized > 0) {
-            return normalized;
-        }
-
-        if (zeroReplacement !== undefined && normalized <= 0) {
-            return zeroReplacement;
-        }
-    }
-
-    return defaultValue;
 }
 
 function getLineCommentBannerMinimum(options) {

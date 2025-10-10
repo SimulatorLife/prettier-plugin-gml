@@ -43,6 +43,7 @@ import {
     normalizeDocCommentTypeAnnotations,
     isCommentNode
 } from "./comment-utils.js";
+import { coercePositiveIntegerOption } from "./option-utils.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
 import {
     getIdentifierText,
@@ -1064,35 +1065,21 @@ function applyAssignmentAlignment(statements, options) {
 }
 
 function getAssignmentAlignmentMinimum(options) {
-    const rawValue = options?.alignAssignmentsMinGroupSize;
-    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-        return 3;
-    }
-
-    const normalized = Math.floor(rawValue);
-    if (normalized <= 0) {
-        return 0;
-    }
-
-    return normalized;
+    return coercePositiveIntegerOption(
+        options?.alignAssignmentsMinGroupSize,
+        3,
+        { zeroReplacement: 0 }
+    );
 }
 
 const DEFAULT_ENUM_TRAILING_COMMENT_PADDING = 2;
 
 function getEnumTrailingCommentPadding(options) {
-    const rawValue = options?.enumTrailingCommentPadding;
-
-    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-        return DEFAULT_ENUM_TRAILING_COMMENT_PADDING;
-    }
-
-    const normalized = Math.floor(rawValue);
-
-    if (normalized < 0) {
-        return 0;
-    }
-
-    return normalized;
+    return coercePositiveIntegerOption(
+        options?.enumTrailingCommentPadding,
+        DEFAULT_ENUM_TRAILING_COMMENT_PADDING,
+        { zeroReplacement: 0 }
+    );
 }
 
 function isSimpleAssignment(node) {
