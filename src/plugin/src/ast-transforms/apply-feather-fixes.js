@@ -1,8 +1,12 @@
 import { getNodeEndIndex, getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { getFeatherDiagnostics } from "../feather/metadata.js";
 
-const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations();
-const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers();
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+const FEATHER_FIX_IMPLEMENTATIONS = buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
+const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
+    FEATHER_DIAGNOSTICS,
+    FEATHER_FIX_IMPLEMENTATIONS
+);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -142,18 +146,17 @@ export function applyFeatherFixes(ast, { sourceText, preprocessedFixMetadata } =
     return ast;
 }
 
-function buildFeatherDiagnosticFixers() {
-    const diagnostics = getFeatherDiagnostics();
+function buildFeatherDiagnosticFixers(diagnostics, implementationRegistry) {
     const registry = new Map();
 
-    for (const diagnostic of diagnostics) {
+    for (const diagnostic of Array.isArray(diagnostics) ? diagnostics : []) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId || registry.has(diagnosticId)) {
             continue;
         }
 
-        const applyFix = createFixerForDiagnostic(diagnostic);
+        const applyFix = createFixerForDiagnostic(diagnostic, implementationRegistry);
 
         if (typeof applyFix !== "function") {
             continue;
@@ -168,8 +171,12 @@ function buildFeatherDiagnosticFixers() {
     return registry;
 }
 
-function createFixerForDiagnostic(diagnostic) {
-    const implementationFactory = FEATHER_FIX_IMPLEMENTATIONS.get(diagnostic?.id);
+function createFixerForDiagnostic(diagnostic, implementationRegistry) {
+    if (!implementationRegistry) {
+        return createNoOpFixer();
+    }
+
+    const implementationFactory = implementationRegistry.get(diagnostic?.id);
 
     if (typeof implementationFactory === "function") {
         const implementation = implementationFactory(diagnostic);
@@ -194,11 +201,10 @@ function createNoOpFixer() {
     return () => [];
 }
 
-function buildFeatherFixImplementations() {
+function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
-    const diagnostics = getFeatherDiagnostics();
 
-    for (const diagnostic of diagnostics) {
+    for (const diagnostic of Array.isArray(diagnostics) ? diagnostics : []) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
