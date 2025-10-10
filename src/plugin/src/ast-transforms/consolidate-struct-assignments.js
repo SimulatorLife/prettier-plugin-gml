@@ -121,7 +121,11 @@ function collectPropertyAssignments({
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
-        if (!isPropertyAssignment(statement, identifierName)) {
+        const assignmentDetails = getStructPropertyAssignmentDetails(
+            statement,
+            identifierName
+        );
+        if (!assignmentDetails) {
             break;
         }
 
@@ -148,7 +152,7 @@ function collectPropertyAssignments({
             break;
         }
 
-        const property = buildPropertyFromAssignment(statement, identifierName);
+        const property = buildPropertyFromAssignment(assignmentDetails);
         if (!property) {
             break;
         }
@@ -289,41 +293,20 @@ function getStructInitializer(statement) {
     return null;
 }
 
-function isPropertyAssignment(statement, identifierName) {
-    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
-        return false;
-    }
-
-    if (statement.operator !== "=") {
-        return false;
-    }
-
-    const left = statement.left;
-    if (!isNode(left)) {
-        return false;
-    }
-
-    if (left.type === MEMBER_DOT_EXPRESSION) {
-        return isIdentifierRoot(left.object, identifierName);
-    }
-
-    if (left.type === MEMBER_INDEX_EXPRESSION) {
-        return isIdentifierRoot(left.object, identifierName);
-    }
-
-    return false;
-}
-
 function isIdentifierRoot(node, identifierName) {
     return isNode(node) && node.type === IDENTIFIER && node.name === identifierName;
 }
 
-function buildPropertyFromAssignment(assignment, identifierName) {
+function buildPropertyFromAssignment(assignmentDetails) {
+    if (!assignmentDetails) {
+        return null;
+    }
+
+    const { assignment, propertyAccess } = assignmentDetails;
     if (!isNode(assignment) || assignment.type !== ASSIGNMENT_EXPRESSION) {
         return null;
     }
 
-    const propertyAccess = getStructPropertyAccess(assignment.left, identifierName);
     if (!propertyAccess) {
         return null;
     }
@@ -343,6 +326,23 @@ function buildPropertyFromAssignment(assignment, identifierName) {
         ),
         end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
     };
+}
+
+function getStructPropertyAssignmentDetails(statement, identifierName) {
+    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
+        return null;
+    }
+
+    if (statement.operator !== "=") {
+        return null;
+    }
+
+    const propertyAccess = getStructPropertyAccess(statement.left, identifierName);
+    if (!propertyAccess) {
+        return null;
+    }
+
+    return { assignment: statement, propertyAccess };
 }
 
 function getStructPropertyAccess(left, identifierName) {
