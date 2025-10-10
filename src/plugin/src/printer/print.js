@@ -496,83 +496,53 @@ export function print(path, options, print) {
       applyTrigonometricFunctionSimplification(path);
       let printedArgs = [];
 
-      const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
-        ? options.maxParamsPerLine
-        : 0;
-      const elementsPerLineLimit =
-        maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
-
-      const callbackArguments = node.arguments.filter(
-        (argument) => argument?.type === "FunctionDeclaration",
-      );
-
-      const shouldForceBreakArguments =
-        (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
-        callbackArguments.length > 1;
-
       if (node.arguments.length === 0) {
         printedArgs = [printEmptyParens(path, print, options)];
-      } else if (
-        [node.arguments[0], node.arguments[node.arguments.length - 1]].some(
-          (node) =>
-            node?.type === "FunctionDeclaration" ||
-            node?.type === "StructExpression",
-        )
-      ) {
-        // treat this function like it has a callback
-        const inlineArguments = printCommaSeparatedList(
-          path,
-          print,
-          "arguments",
-          "(",
-          ")",
-          options,
-          {
-            addIndent: false,
-            forceInline: true,
-            leadingNewline: false,
-            trailingNewline: false,
-            maxElementsPerLine: elementsPerLineLimit,
-          },
-        );
-
-        const multilineArguments = printCommaSeparatedList(
-          path,
-          print,
-          "arguments",
-          "(",
-          ")",
-          options,
-          {
-            forceBreak: shouldForceBreakArguments,
-            maxElementsPerLine: elementsPerLineLimit,
-          },
-        );
-
-        if (shouldForceBreakArguments) {
-          printedArgs = [concat([breakParent, multilineArguments])];
-        } else {
-          printedArgs = [
-            conditionalGroup([inlineArguments, multilineArguments]),
-          ];
-        }
       } else {
-        const callArguments = printCommaSeparatedList(
+        const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
+          ? options.maxParamsPerLine
+          : 0;
+        const elementsPerLineLimit =
+          maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+
+        const callbackArguments = node.arguments.filter(
+          (argument) => argument?.type === "FunctionDeclaration",
+        );
+
+        const shouldForceBreakArguments =
+          (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
+          callbackArguments.length > 1;
+
+        const shouldUseCallbackLayout = [
+          node.arguments[0],
+          node.arguments[node.arguments.length - 1],
+        ].some(
+          (argumentNode) =>
+            argumentNode?.type === "FunctionDeclaration" ||
+            argumentNode?.type === "StructExpression",
+        );
+
+        const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
           path,
           print,
-          "arguments",
-          "(",
-          ")",
           options,
           {
             forceBreak: shouldForceBreakArguments,
             maxElementsPerLine: elementsPerLineLimit,
+            includeInlineVariant:
+              shouldUseCallbackLayout && !shouldForceBreakArguments,
           },
         );
 
-        printedArgs = shouldForceBreakArguments
-          ? [concat([breakParent, callArguments])]
-          : [callArguments];
+        if (shouldUseCallbackLayout) {
+          printedArgs = shouldForceBreakArguments
+            ? [concat([breakParent, multilineDoc])]
+            : [conditionalGroup([inlineDoc, multilineDoc])];
+        } else {
+          printedArgs = shouldForceBreakArguments
+            ? [concat([breakParent, multilineDoc])]
+            : [multilineDoc];
+        }
       }
 
       if (isInLValueChain(path)) {
@@ -891,6 +861,50 @@ function printDelimitedList(
 
 function shouldAllowTrailingComma(options) {
   return options?.trailingComma === "all";
+}
+
+function buildCallArgumentsDocs(
+  path,
+  print,
+  options,
+  {
+    forceBreak = false,
+    maxElementsPerLine = Infinity,
+    includeInlineVariant = false,
+  } = {},
+) {
+  const multilineDoc = printCommaSeparatedList(
+    path,
+    print,
+    "arguments",
+    "(",
+    ")",
+    options,
+    {
+      forceBreak,
+      maxElementsPerLine,
+    },
+  );
+
+  const inlineDoc = includeInlineVariant
+    ? printCommaSeparatedList(
+        path,
+        print,
+        "arguments",
+        "(",
+        ")",
+        options,
+        {
+          addIndent: false,
+          forceInline: true,
+          leadingNewline: false,
+          trailingNewline: false,
+          maxElementsPerLine,
+        },
+      )
+    : null;
+
+  return { inlineDoc, multilineDoc };
 }
 
 function printCommaSeparatedList(
