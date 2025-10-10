@@ -9,13 +9,11 @@ const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
 const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
 
-const DEFAULT_EXTENSIONS = [".gml"];
+const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
-const [, , ...cliArgs] = process.argv;
-
-function normalizeExtensions(rawExtensions) {
+function normalizeExtensions(rawExtensions, fallbackExtensions = FALLBACK_EXTENSIONS) {
     if (!rawExtensions) {
-        return DEFAULT_EXTENSIONS;
+        return fallbackExtensions;
     }
 
     const candidateValues = rawExtensions
@@ -24,7 +22,7 @@ function normalizeExtensions(rawExtensions) {
         .filter(Boolean);
 
     if (candidateValues.length === 0) {
-        return DEFAULT_EXTENSIONS;
+        return fallbackExtensions;
     }
 
     const normalized = candidateValues.map((extension) => {
@@ -34,6 +32,13 @@ function normalizeExtensions(rawExtensions) {
 
     return [...new Set(normalized)];
 }
+
+const DEFAULT_EXTENSIONS = normalizeExtensions(
+    process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
+    FALLBACK_EXTENSIONS
+);
+
+const [, , ...cliArgs] = process.argv;
 
 function parseCliArguments(args) {
     const parsed = {
@@ -63,13 +68,16 @@ function parseCliArguments(args) {
         }
 
         if (arg === "--extensions" && index + 1 < args.length) {
-            parsed.extensions = normalizeExtensions(args[index + 1]);
+            parsed.extensions = normalizeExtensions(args[index + 1], DEFAULT_EXTENSIONS);
             index += 1;
             continue;
         }
 
         if (arg.startsWith("--extensions=")) {
-            parsed.extensions = normalizeExtensions(arg.slice("--extensions=".length));
+            parsed.extensions = normalizeExtensions(
+                arg.slice("--extensions=".length),
+                DEFAULT_EXTENSIONS
+            );
         }
     }
 
