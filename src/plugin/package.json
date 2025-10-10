@@ -13,6 +13,9 @@
   "dependencies": {
     "gamemaker-language-parser": "file:../parser"
   },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  },
   "engines": {
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
   },
