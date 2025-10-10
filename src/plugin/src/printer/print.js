@@ -32,7 +32,6 @@ import {
 import {
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
-    getIdentifierText,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
@@ -45,7 +44,10 @@ import {
     isCommentNode
 } from "./comment-utils.js";
 import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import {
+    getIdentifierText,
+    getSingleVariableDeclarator
+} from "../../../shared/ast-node-helpers.js";
 
 export function print(path, options, print) {
     const node = path.getValue();
