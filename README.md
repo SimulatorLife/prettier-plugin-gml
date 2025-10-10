@@ -419,6 +419,8 @@ npm install
 
 The workspace definition installs the root tooling plus the parser and plugin package dependencies in a single `npm install` run. This includes the shared [Mocha](https://mochajs.org/) binary so the parser and plugin test suites work out of the box. Use `npm install --workspace src/plugin` or `npm install --workspace src/parser` when you only need to refresh a single package.
 
+The first install also wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix` before every commit. Set `HUSKY=0` when you need to bypass the hook (for example, in CI environments that handle formatting separately).
+
 ### Test the plugin and parser
 
 Run every test suite from the repository root:
@@ -502,4 +504,3 @@ expects the `antlr` CLI in your `PATH`.
 
 - [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
-
