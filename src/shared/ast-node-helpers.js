@@ -53,6 +53,7 @@ function getIdentifierText(node) {
 
     if (type === "MemberIndexExpression") {
         const { object, property } = node;
+
         if (!object || object.type !== "Identifier") {
             return null;
         }
@@ -61,23 +62,7 @@ function getIdentifierText(node) {
             return null;
         }
 
-        const [indexNode] = property;
-
-        let indexText = null;
-        if (typeof indexNode === "string") {
-            indexText = indexNode;
-        } else if (indexNode) {
-            const { name: indexName, type: indexType } = indexNode;
-
-            if (typeof indexName === "string") {
-                indexText = indexName;
-            } else if (indexType === "Literal" && typeof indexNode.value === "string") {
-                indexText = indexNode.value;
-            } else {
-                indexText = getIdentifierText(indexNode);
-            }
-        }
-
+        const indexText = getMemberIndexText(property[0]);
         if (indexText == null) {
             return null;
         }
@@ -86,6 +71,29 @@ function getIdentifierText(node) {
     }
 
     return null;
+}
+
+function getMemberIndexText(indexNode) {
+    if (typeof indexNode === "string") {
+        return indexNode;
+    }
+
+    if (!indexNode) {
+        return null;
+    }
+
+    const { name: indexName, type: indexType } = indexNode;
+
+    if (typeof indexName === "string") {
+        return indexName;
+    }
+
+    if (indexType === "Literal") {
+        const { value } = indexNode;
+        return typeof value === "string" ? value : null;
+    }
+
+    return getIdentifierText(indexNode);
 }
 
 export { getIdentifierText, getSingleVariableDeclarator };
