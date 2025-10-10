@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import prettier from 'prettier';
-import { describe, it } from 'mocha';
+import { describe, it } from 'node:test';
 
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
 const pluginPath = path.resolve(currentDirectory, '../src/gml.js');

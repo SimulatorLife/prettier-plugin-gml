@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
-import { describe, it } from 'mocha';
+import { describe, it } from 'node:test';
 
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
@@ -191,7 +191,7 @@ describe('Prettier wrapper CLI', () => {
     }
   });
 
-  it('skips symbolic links to avoid infinite directory traversal loops', async function () {
+  it('skips symbolic links to avoid infinite directory traversal loops', async (t) => {
     const tempDirectory = await createTemporaryDirectory();
 
     try {
@@ -213,7 +213,7 @@ describe('Prettier wrapper CLI', () => {
       }
 
       if (shouldSkip) {
-        this.skip();
+        t.skip();
       }
 
       const { stdout } = await execFileAsync('node', [wrapperPath, tempDirectory]);

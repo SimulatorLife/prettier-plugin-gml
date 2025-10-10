@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, it } from 'mocha';
+import { describe, it } from 'node:test';
 
 import GMLParser from '../gml-parser.js';
 import { getLineBreakCount } from '../../shared/line-breaks.js';
