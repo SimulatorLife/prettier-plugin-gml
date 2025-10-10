@@ -339,43 +339,65 @@ function handleCommentInEmptyLiteral(
 }
 
 function handleOnlyComments(comment, text, options, ast, isLastComment) {
-    const { enclosingNode, followingNode } = comment;
-
-    if (
-        followingNode &&
-        typeof followingNode === "object" &&
-        comment.type === "CommentLine" &&
-        (followingNode.type === "FunctionDeclaration" || followingNode.type === "ConstructorDeclaration")
-    ) {
-        const bannerMinimum = getLineCommentBannerMinimum(options);
-        const formatted = formatLineComment(comment, bannerMinimum);
-
-        if (formatted && formatted.startsWith("///")) {
-            comment.printed = true;
-            if (!followingNode.docComments) {
-                followingNode.docComments = [];
-            }
-            followingNode.docComments.push(comment);
-            return true;
-        }
-    }
-
-    if (ast && ast.body && ast.body.length === 0) {
-        addDanglingComment(ast, comment);
+    if (attachDocCommentToFollowingNode(comment, options)) {
         return true;
     }
 
-    if (enclosingNode?.type === "Program" && enclosingNode?.body.length === 0) {
-        addDanglingComment(enclosingNode, comment);
-        return true;
-    }
-
-    if (followingNode?.type === "Program" && followingNode?.body.length === 0) {
-        addDanglingComment(followingNode, comment);
+    const emptyProgram = findEmptyProgramTarget(ast, comment.enclosingNode, comment.followingNode);
+    if (emptyProgram) {
+        addDanglingComment(emptyProgram, comment);
         return true;
     }
 
     return false;
+}
+
+function attachDocCommentToFollowingNode(comment, options) {
+    const { followingNode } = comment;
+
+    if (!isDocCommentCandidate(comment, followingNode)) {
+        return false;
+    }
+
+    const bannerMinimum = getLineCommentBannerMinimum(options);
+    const formatted = formatLineComment(comment, bannerMinimum);
+    if (!formatted || !formatted.startsWith("///")) {
+        return false;
+    }
+
+    comment.printed = true;
+    const docComments = followingNode.docComments ?? (followingNode.docComments = []);
+    docComments.push(comment);
+    return true;
+}
+
+function isDocCommentCandidate(comment, followingNode) {
+    if (!followingNode || typeof followingNode !== "object") {
+        return false;
+    }
+
+    if (comment.type !== "CommentLine") {
+        return false;
+    }
+
+    return (
+        followingNode.type === "FunctionDeclaration" ||
+        followingNode.type === "ConstructorDeclaration"
+    );
+}
+
+function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
+    if (Array.isArray(ast?.body) && ast.body.length === 0) {
+        return ast;
+    }
+
+    for (const node of [enclosingNode, followingNode]) {
+        if (node?.type === "Program" && Array.isArray(node.body) && node.body.length === 0) {
+            return node;
+        }
+    }
+
+    return null;
 }
 
 // note: this preserves non-standard whitespaces!
