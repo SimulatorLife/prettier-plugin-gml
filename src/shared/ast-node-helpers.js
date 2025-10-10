@@ -29,36 +29,20 @@ function getIdentifierText(node) {
         return node;
     }
 
-    if (typeof node.name === "string") {
-        return node.name;
+    const { name } = node;
+    if (typeof name === "string") {
+        return name;
     }
 
-    if (node.type === "Identifier") {
-        return node.name || null;
+    const { type } = node;
+
+    if (type === "Literal") {
+        const { value } = node;
+        return typeof value === "string" ? value : null;
     }
 
-    if (node.type === "MemberIndexExpression") {
-        const object = node.object;
-        if (!object || object.type !== "Identifier") {
-            return null;
-        }
-
-        if (!Array.isArray(node.property) || node.property.length !== 1) {
-            return null;
-        }
-
-        const indexNode = node.property[0];
-        const indexText = getIdentifierText(indexNode);
-        if (indexText == null) {
-            return null;
-        }
-
-        return `${object.name}_${indexText}`;
-    }
-
-    if (node.type === "MemberDotExpression") {
-        const object = node.object;
-        const property = node.property;
+    if (type === "MemberDotExpression") {
+        const { object, property } = node;
 
         if (!object || object.type !== "Identifier" || !property || property.type !== "Identifier") {
             return null;
@@ -67,8 +51,38 @@ function getIdentifierText(node) {
         return `${object.name}_${property.name}`;
     }
 
-    if (node.type === "Literal" && typeof node.value === "string") {
-        return node.value;
+    if (type === "MemberIndexExpression") {
+        const { object, property } = node;
+        if (!object || object.type !== "Identifier") {
+            return null;
+        }
+
+        if (!Array.isArray(property) || property.length !== 1) {
+            return null;
+        }
+
+        const [indexNode] = property;
+
+        let indexText = null;
+        if (typeof indexNode === "string") {
+            indexText = indexNode;
+        } else if (indexNode) {
+            const { name: indexName, type: indexType } = indexNode;
+
+            if (typeof indexName === "string") {
+                indexText = indexName;
+            } else if (indexType === "Literal" && typeof indexNode.value === "string") {
+                indexText = indexNode.value;
+            } else {
+                indexText = getIdentifierText(indexNode);
+            }
+        }
+
+        if (indexText == null) {
+            return null;
+        }
+
+        return `${object.name}_${indexText}`;
     }
 
     return null;
