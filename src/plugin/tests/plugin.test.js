@@ -349,7 +349,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("respects enum trailing comment padding overrides", async () => {
+    it("respects trailing comment padding overrides for enums", async () => {
         const source = [
             "enum Alignment {",
             "    Left, // left comment",
@@ -360,7 +360,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const defaultFormatted = await formatWithPlugin(source);
         const compactFormatted = await formatWithPlugin(source, {
-            enumTrailingCommentPadding: 0
+            trailingCommentPadding: 0
         });
 
         const defaultLine = defaultFormatted
@@ -381,6 +381,35 @@ describe("Prettier GameMaker plugin fixtures", () => {
         assert.ok(
             defaultColumn > compactColumn,
             "Expected reduced padding to move the trailing comment closer to the enum member name."
+        );
+    });
+
+    it("applies trailing comment padding to inline comments", async () => {
+        const source = [
+            "var foo = 1; // comment",
+            "var bar = 2; // comment",
+            ""
+        ].join("\n");
+
+        const defaultFormatted = await formatWithPlugin(source);
+        const expandedFormatted = await formatWithPlugin(source, {
+            trailingCommentPadding: 5
+        });
+
+        const defaultLine = defaultFormatted.split("\n")[0];
+        const expandedLine = expandedFormatted.split("\n")[0];
+
+        assert.ok(
+            defaultLine.includes("//") && expandedLine.includes("//"),
+            "Expected formatted inline comments to be present."
+        );
+
+        const defaultColumn = defaultLine.indexOf("//");
+        const expandedColumn = expandedLine.indexOf("//");
+
+        assert.ok(
+            expandedColumn > defaultColumn,
+            "Expected increased padding to move the trailing comment further right."
         );
     });
 

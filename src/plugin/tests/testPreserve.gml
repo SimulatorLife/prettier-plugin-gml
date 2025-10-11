@@ -6,12 +6,12 @@ var b = (x > y) ? (a + b) : (a - b);
 // Define states
 states.add_state(
     "opening",
-    function() { // enter
+    function() {  // enter
         gml_pragma("forceinline");
 
         scr_play_sound_at(snd_slot_machine, x, y, z);
         scaler.big_squish();
-        image_speed = 1; // start animation
+        image_speed = 1;  // start animation
 
         // Start spraying coins
         time_source_start(ts_spray_coins);
@@ -29,11 +29,11 @@ states.add_state(
             true
         );
     },
-    undefined, // step
-    function() { // leave
-        audio_stop_sound(snd_slot_machine); // stop sound effect
-        pe_general.retire(true); // stop sparkle particles
-        time_source_stop(ts_spray_coins); // stop this time source
+    undefined,  // step
+    function() {  // leave
+        audio_stop_sound(snd_slot_machine);  // stop sound effect
+        pe_general.retire(true);  // stop sparkle particles
+        time_source_stop(ts_spray_coins);  // stop this time source
     }
 );
 
@@ -68,13 +68,16 @@ global.settings = {
     fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
 
-// Particle system
-//if (!variable_instance_exists(id, "pt_colour")) {
-//	pt_colour = choose(
-//		eParticleType.fire_red,
-//		eParticleType.fire_blue,
-//		eParticleType.fire_green,
-//		eParticleType.fire_orange,
-//		eParticleType.fire_gold
-//	); // choose fire colour
-//}
+ // Particle system
+ //if (!variable_instance_exists(id, "pt_colour")) {
+ //	pt_colour = choose(
+ //		eParticleType.fire_red,
+ //		eParticleType.fire_blue,
+ //		eParticleType.fire_green,
+ //		eParticleType.fire_orange,
+ //		eParticleType.fire_gold
+ //	); // choose fire colour
+ //}
+
+// The following should be preserved; math-expression parentheses should not be applied to string concatenation
+var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));

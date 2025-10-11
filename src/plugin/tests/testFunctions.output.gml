@@ -63,9 +63,9 @@ function Shape(color = undefined) constructor {
     /// @param solid
     static setSolid = function(solid) {
         if (solid) {
-            group |= cmGroupSolid; // Flag as solid
+            group |= cmGroupSolid;  // Flag as solid
         } else {
-            group &= ~cmGroupSolid; // Remove solid flag
+            group &= ~cmGroupSolid;  // Remove solid flag
         }
     };
 }

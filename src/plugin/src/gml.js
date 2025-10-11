@@ -34,13 +34,13 @@ export const printers = {
 };
 
 export const options = {
-    optimizeArrayLengthLoops: {
+    optimizeLoopLengthHoisting: {
         since: "0.0.0",
         type: "boolean",
         category: "gml",
         default: true,
         description:
-      "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
+      "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable."
     },
     condenseStructAssignments: {
         since: "0.0.0",
@@ -121,14 +121,14 @@ export const options = {
         description:
       "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
     },
-    enumTrailingCommentPadding: {
+    trailingCommentPadding: {
         since: "0.0.0",
         type: "int",
         category: "gml",
         default: 2,
         range: { start: 0, end: Infinity },
         description:
-      "Spaces inserted between the longest enum member name and trailing comments. Increase to push comments further right or set to 0 to minimize padding."
+      "Spaces inserted between the end of code and trailing comments. Increase to push inline comments further right or set to 0 to minimize padding."
     },
     maxParamsPerLine: {
         since: "0.0.0",
@@ -162,13 +162,13 @@ export const defaultOptions = {
     semi: true,
     trailingComma: "none",
     printWidth: 120,
-    optimizeArrayLengthLoops: true,
+    optimizeLoopLengthHoisting: true,
     condenseStructAssignments: true,
     loopLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
     alignAssignmentsMinGroupSize: 3,
-    enumTrailingCommentPadding: 2,
+    trailingCommentPadding: 2,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
     logicalOperatorsStyle: "keywords",

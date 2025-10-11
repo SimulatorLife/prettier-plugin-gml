@@ -35,6 +35,22 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("formats a single file when the target path points to a file", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            await execFileAsync("node", [wrapperPath, targetFile]);
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.equal(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("derives default extensions from the environment when configured", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
@@ -165,6 +181,25 @@ describe("Prettier wrapper CLI", () => {
             await fs.writeFile(ignorePath, "script.gml\n", "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.equal(formatted, "var    a=1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("respects .prettierignore entries when invoked with a file path", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "script.gml\n", "utf8");
+
+            await execFileAsync("node", [wrapperPath, targetFile]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.equal(formatted, "var    a=1;\n");

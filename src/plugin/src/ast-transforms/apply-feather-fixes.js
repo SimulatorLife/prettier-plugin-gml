@@ -3167,10 +3167,11 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
-    !isAlphaTestDisableCall(nextSibling) &&
-    insertionIndex > property + 1 &&
-    !isTriviallyIgnorableStatement(previousSibling) &&
-    !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+      !isAlphaTestDisableCall(nextSibling) &&
+      !nextSibling &&
+      insertionIndex > property + 1 &&
+      !isTriviallyIgnorableStatement(previousSibling) &&
+      !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (needsSeparator) {
         siblings.splice(
@@ -3614,6 +3615,24 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
 
     if (!fixDetail) {
         return null;
+    }
+
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const shouldInsertSeparator =
+      !nextSibling &&
+      insertionIndex > property + 1 &&
+      !isTriviallyIgnorableStatement(previousSibling) &&
+      !hasOriginalBlankLineBetween(previousSibling, nextSibling) &&
+      !isAlphaTestDisableCall(nextSibling);
+
+    if (shouldInsertSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
     }
 
     siblings.splice(insertionIndex, 0, resetCall);

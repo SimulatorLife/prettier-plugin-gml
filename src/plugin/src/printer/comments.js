@@ -8,6 +8,7 @@ import {
     isCommentNode
 } from "./comment-utils.js";
 import { resolveLineCommentOptions } from "./line-comment-options.js";
+import { getTrailingCommentInlinePadding } from "./trailing-comment-padding.js";
 
 const { addDanglingComment } = util;
 
@@ -131,6 +132,7 @@ function printComment(commentPath, options) {
         }
         return "";
     }
+    applyTrailingCommentPadding(comment, options);
     if (comment?._structPropertyTrailing) {
         if (comment._structPropertyHandled) {
             return "";
@@ -177,6 +179,29 @@ function printComment(commentPath, options) {
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
         }
+    }
+}
+
+function applyTrailingCommentPadding(comment, options) {
+    if (!comment || typeof comment !== "object") {
+        return;
+    }
+
+    const isTrailingComment = Boolean(
+        comment.trailing ||
+      comment.placement === "endOfLine" ||
+      comment._structPropertyTrailing
+    );
+
+    if (!isTrailingComment) {
+        return;
+    }
+
+    const inlinePadding = getTrailingCommentInlinePadding(options);
+    if (typeof comment.inlinePadding === "number") {
+        comment.inlinePadding = Math.max(comment.inlinePadding, inlinePadding);
+    } else if (inlinePadding > 0) {
+        comment.inlinePadding = inlinePadding;
     }
 }
 

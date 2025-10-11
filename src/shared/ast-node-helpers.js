@@ -10,7 +10,7 @@
  * @returns {object | null} The single declarator when present, otherwise
  *     {@code null}.
  */
-export function getSingleVariableDeclarator(node) {
+function getSingleVariableDeclarator(node) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
     }
