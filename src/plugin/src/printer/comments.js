@@ -4,11 +4,10 @@ import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
     getLineCommentRawText,
     formatLineComment,
-    getLineCommentBannerMinimum,
-    getLineCommentBannerAutofillThreshold,
     applyInlinePadding,
     isCommentNode
 } from "./comment-utils.js";
+import { resolveLineCommentOptions } from "./line-comment-options.js";
 
 const { addDanglingComment } = util;
 
@@ -145,14 +144,13 @@ function printComment(commentPath, options) {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
-            const bannerMinimum = getLineCommentBannerMinimum(options);
-            const bannerAutofillThreshold =
-        getLineCommentBannerAutofillThreshold(options);
+            const lineCommentOptions = resolveLineCommentOptions(options);
+            const { bannerMinimum, bannerAutofillThreshold } = lineCommentOptions;
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
             if (!bannerMatch) {
-                return formatLineComment(comment, bannerMinimum);
+                return formatLineComment(comment, lineCommentOptions);
             }
 
             const slashRun = bannerMatch[1];
@@ -174,7 +172,7 @@ function printComment(commentPath, options) {
                 return applyInlinePadding(comment, padded.trimEnd());
             }
 
-            return formatLineComment(comment, bannerMinimum);
+            return formatLineComment(comment, lineCommentOptions);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
@@ -355,8 +353,8 @@ function attachDocCommentToFollowingNode(comment, options) {
         return false;
     }
 
-    const bannerMinimum = getLineCommentBannerMinimum(options);
-    const formatted = formatLineComment(comment, bannerMinimum);
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const formatted = formatLineComment(comment, lineCommentOptions);
     if (!formatted || !formatted.startsWith("///")) {
         return false;
     }

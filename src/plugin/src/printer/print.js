@@ -31,10 +31,10 @@ import {
 } from "./comments.js";
 import {
     formatLineComment,
-    getLineCommentBannerMinimum,
     normalizeDocCommentTypeAnnotations,
     isCommentNode
 } from "./comment-utils.js";
+import { resolveLineCommentOptions } from "./line-comment-options.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
 import {
     getNodeStartIndex,
@@ -264,7 +264,7 @@ export function print(path, options, print) {
             const parts = [];
 
             let docCommentDocs = [];
-            const bannerMinimum = getLineCommentBannerMinimum(options);
+            const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
             if (Array.isArray(node.docComments) && node.docComments.length > 0) {
@@ -277,7 +277,7 @@ export function print(path, options, print) {
                     }
                 }
                 docCommentDocs = node.docComments
-                    .map((comment) => formatLineComment(comment, bannerMinimum))
+                    .map((comment) => formatLineComment(comment, lineCommentOptions))
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 
