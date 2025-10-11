@@ -1,0 +1,26 @@
+name: Codex 38 – Logic Deduplication
+on:
+  schedule:
+    - cron: "45 3,15 * * *" # twice daily at 03:45, 15:45 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Logic Deduplication"
+      pr_body: "Seed PR for Codex to collapse repeated logic into a single path."
+      prompt: >
+        Hunt for duplicated conditionals, switch statements, or near-identical helper
+        bodies that drift across the codebase. Select one small cluster and unify it by
+        extracting a shared helper, reusing an existing one, or routing both code paths
+        through the same implementation. Avoid expanding scope—focus on a single, well-
+        understood duplication, keep naming and APIs stable, and add/regress tests as
+        needed so the unified path stays safe. In your commit message, call out where the
+        duplication lived and the helper/path that now covers it.

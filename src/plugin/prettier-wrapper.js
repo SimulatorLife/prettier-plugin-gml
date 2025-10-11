@@ -9,13 +9,14 @@ const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
 const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
 
-const DEFAULT_EXTENSIONS = [".gml"];
+const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
-const [, , ...cliArgs] = process.argv;
-
-function normalizeExtensions(rawExtensions) {
+function normalizeExtensions(
+    rawExtensions,
+    fallbackExtensions = FALLBACK_EXTENSIONS
+) {
     if (!rawExtensions) {
-        return DEFAULT_EXTENSIONS;
+        return fallbackExtensions;
     }
 
     const candidateValues = rawExtensions
@@ -24,16 +25,42 @@ function normalizeExtensions(rawExtensions) {
         .filter(Boolean);
 
     if (candidateValues.length === 0) {
-        return DEFAULT_EXTENSIONS;
+        return fallbackExtensions;
     }
 
-    const normalized = candidateValues.map((extension) => {
-        const lowerCaseExtension = extension.toLowerCase();
-        return lowerCaseExtension.startsWith(".") ? lowerCaseExtension : `.${lowerCaseExtension}`;
-    });
+    const normalized = candidateValues
+        .map((extension) => {
+            let lowerCaseExtension = extension.toLowerCase();
+
+            // Drop any directory/glob prefixes (e.g. **/*.gml or src/**/*.yy).
+            lowerCaseExtension = lowerCaseExtension.replace(/.*[\\/]/, "");
+
+            // Trim leading wildcard tokens like * or ? that commonly appear in glob patterns.
+            lowerCaseExtension = lowerCaseExtension.replace(/^[*?]+/, "");
+
+            if (!lowerCaseExtension) {
+                return null;
+            }
+
+            return lowerCaseExtension.startsWith(".")
+                ? lowerCaseExtension
+                : `.${lowerCaseExtension}`;
+        })
+        .filter(Boolean);
+
+    if (normalized.length === 0) {
+        return fallbackExtensions;
+    }
 
     return [...new Set(normalized)];
 }
+
+const DEFAULT_EXTENSIONS = normalizeExtensions(
+    process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
+    FALLBACK_EXTENSIONS
+);
+
+const [, , ...cliArgs] = process.argv;
 
 function parseCliArguments(args) {
     const parsed = {
@@ -63,20 +90,27 @@ function parseCliArguments(args) {
         }
 
         if (arg === "--extensions" && index + 1 < args.length) {
-            parsed.extensions = normalizeExtensions(args[index + 1]);
+            parsed.extensions = normalizeExtensions(
+                args[index + 1],
+                DEFAULT_EXTENSIONS
+            );
             index += 1;
             continue;
         }
 
         if (arg.startsWith("--extensions=")) {
-            parsed.extensions = normalizeExtensions(arg.slice("--extensions=".length));
+            parsed.extensions = normalizeExtensions(
+                arg.slice("--extensions=".length),
+                DEFAULT_EXTENSIONS
+            );
         }
     }
 
     return parsed;
 }
 
-const { targetPathInput, extensions: configuredExtensions } = parseCliArguments(cliArgs);
+const { targetPathInput, extensions: configuredExtensions } =
+  parseCliArguments(cliArgs);
 
 if (!targetPathInput) {
     console.error(
@@ -86,8 +120,11 @@ if (!targetPathInput) {
 }
 
 const targetPath = path.resolve(process.cwd(), targetPathInput);
-const targetExtensions = configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
-const targetExtensionSet = new Set(targetExtensions.map((extension) => extension.toLowerCase()));
+const targetExtensions =
+  configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
+const targetExtensionSet = new Set(
+    targetExtensions.map((extension) => extension.toLowerCase())
+);
 const placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 
 function shouldFormatFile(filePath) {
@@ -114,21 +151,58 @@ const stat = util.promisify(fs.stat);
 const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
-let projectIgnorePath = null;
+let baseProjectIgnorePaths = [];
+const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
+let ignoreRulesContainNegations = false;
+const registeredIgnorePaths = new Set();
 
-function getIgnorePathOptions() {
-    const ignoreCandidates = [ignorePath, projectIgnorePath].filter(Boolean);
+async function registerIgnorePaths(ignoreFiles) {
+    for (const ignoreFilePath of ignoreFiles) {
+        if (!ignoreFilePath || registeredIgnorePaths.has(ignoreFilePath)) {
+            continue;
+        }
+
+        registeredIgnorePaths.add(ignoreFilePath);
+
+        try {
+            const contents = await readFile(ignoreFilePath, "utf8");
+            const hasNegation = contents
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .some((line) => line.startsWith("!") && line.length > 1);
+
+            if (hasNegation) {
+                ignoreRulesContainNegations = true;
+            }
+        } catch {
+            // Ignore missing or unreadable files.
+        }
+    }
+}
+
+function getIgnorePathOptions(additionalIgnorePaths = []) {
+    const ignoreCandidates = [
+        ignorePath,
+        ...baseProjectIgnorePaths,
+        ...additionalIgnorePaths
+    ].filter(Boolean);
     if (ignoreCandidates.length === 0) {
         return null;
     }
 
     const uniqueIgnorePaths = [...new Set(ignoreCandidates)];
-    return uniqueIgnorePaths.length === 1 ? uniqueIgnorePaths[0] : uniqueIgnorePaths;
+    return uniqueIgnorePaths.length === 1
+        ? uniqueIgnorePaths[0]
+        : uniqueIgnorePaths;
 }
 
-async function shouldSkipDirectory(directory) {
-    const ignorePathOption = getIgnorePathOptions();
+async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
+    if (ignoreRulesContainNegations) {
+        return false;
+    }
+
+    const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
     if (!ignorePathOption) {
         return false;
     }
@@ -150,26 +224,76 @@ async function shouldSkipDirectory(directory) {
             return true;
         }
     } catch (error) {
-        console.warn(`Unable to evaluate ignore rules for ${directory}: ${error.message}`);
+        console.warn(
+            `Unable to evaluate ignore rules for ${directory}: ${error.message}`
+        );
     }
 
     return false;
 }
 
-async function resolveProjectIgnorePath(directory) {
-    const candidate = path.join(directory, ".prettierignore");
-
-    try {
-        const candidateStats = await stat(candidate);
-
-        if (candidateStats.isFile()) {
-            return candidate;
-        }
-    } catch {
-        // Ignore missing files.
+function isPathInside(child, parent) {
+    if (!child || !parent) {
+        return false;
     }
 
-    return null;
+    const relative = path.relative(parent, child);
+    if (!relative) {
+        return true;
+    }
+
+    return !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+async function resolveProjectIgnorePaths(directory) {
+    const directoriesToInspect = [];
+    const seenDirectories = new Set();
+
+    const collectDirectories = (startingDirectory) => {
+        if (!startingDirectory) {
+            return;
+        }
+
+        let currentDirectory = path.resolve(startingDirectory);
+
+        while (!seenDirectories.has(currentDirectory)) {
+            seenDirectories.add(currentDirectory);
+            directoriesToInspect.push(currentDirectory);
+
+            const parentDirectory = path.dirname(currentDirectory);
+            if (parentDirectory === currentDirectory) {
+                break;
+            }
+
+            currentDirectory = parentDirectory;
+        }
+    };
+
+    const resolvedDirectory = path.resolve(directory);
+    collectDirectories(resolvedDirectory);
+
+    const workingDirectory = process.cwd();
+    if (isPathInside(path.resolve(workingDirectory), resolvedDirectory)) {
+        collectDirectories(workingDirectory);
+    }
+
+    const ignoreFiles = [];
+
+    for (const candidateDirectory of directoriesToInspect) {
+        const ignoreCandidate = path.join(candidateDirectory, ".prettierignore");
+
+        try {
+            const candidateStats = await stat(ignoreCandidate);
+
+            if (candidateStats.isFile()) {
+                ignoreFiles.push(ignoreCandidate);
+            }
+        } catch {
+            // Ignore missing files.
+        }
+    }
+
+    return ignoreFiles;
 }
 
 async function ensureDirectoryExists(directory) {
@@ -184,7 +308,29 @@ async function ensureDirectoryExists(directory) {
     }
 }
 
-async function processDirectory(directory) {
+async function processDirectory(directory, inheritedIgnorePaths = []) {
+    let currentIgnorePaths = inheritedIgnorePaths;
+    const localIgnorePath = path.join(directory, ".prettierignore");
+    let shouldRegisterLocalIgnore = baseProjectIgnorePathSet.has(localIgnorePath);
+
+    try {
+        const ignoreStats = await stat(localIgnorePath);
+
+        if (ignoreStats.isFile()) {
+            shouldRegisterLocalIgnore = true;
+
+            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
+                currentIgnorePaths = [...inheritedIgnorePaths, localIgnorePath];
+            }
+        }
+    } catch {
+    // Ignore missing files.
+    }
+
+    if (shouldRegisterLocalIgnore) {
+        await registerIgnorePaths([localIgnorePath]);
+    }
+
     const files = await readdir(directory);
     for (const file of files) {
         const filePath = path.join(directory, file);
@@ -197,12 +343,12 @@ async function processDirectory(directory) {
         }
 
         if (stats.isDirectory()) {
-            if (await shouldSkipDirectory(filePath)) {
+            if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
                 continue;
             }
-            await processDirectory(filePath);
+            await processDirectory(filePath, currentIgnorePaths);
         } else if (shouldFormatFile(filePath)) {
-            await processFile(filePath);
+            await processFile(filePath, currentIgnorePaths);
         } else {
             skippedFileCount += 1;
         }
@@ -217,7 +363,9 @@ async function resolveFormattingOptions(filePath) {
             editorconfig: true
         });
     } catch (error) {
-        console.warn(`Unable to resolve Prettier config for ${filePath}: ${error.message}`);
+        console.warn(
+            `Unable to resolve Prettier config for ${filePath}: ${error.message}`
+        );
     }
 
     const mergedOptions = {
@@ -227,24 +375,24 @@ async function resolveFormattingOptions(filePath) {
     };
 
     const basePlugins = Array.isArray(options.plugins) ? options.plugins : [];
-    const resolvedPlugins = Array.isArray(resolvedConfig?.plugins) ? resolvedConfig.plugins : [];
+    const resolvedPlugins = Array.isArray(resolvedConfig?.plugins)
+        ? resolvedConfig.plugins
+        : [];
     const combinedPlugins = [...new Set([...basePlugins, ...resolvedPlugins])];
 
     if (combinedPlugins.length > 0) {
         mergedOptions.plugins = combinedPlugins;
     }
 
-    if (!mergedOptions.parser) {
-        mergedOptions.parser = options.parser;
-    }
+    mergedOptions.parser = options.parser;
 
     return mergedOptions;
 }
 
-async function processFile(filePath) {
+async function processFile(filePath, activeIgnorePaths = []) {
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
-        const ignorePathOption = getIgnorePathOptions();
+        const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
         const fileInfo = await prettier.getFileInfo(filePath, {
             ...(ignorePathOption ? { ignorePath: ignorePathOption } : {}),
             plugins: formattingOptions.plugins,
@@ -258,6 +406,11 @@ async function processFile(filePath) {
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
+
+        if (formatted === data) {
+            return;
+        }
+
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (err) {
@@ -267,7 +420,12 @@ async function processFile(filePath) {
 }
 
 await ensureDirectoryExists(targetPath);
-projectIgnorePath = await resolveProjectIgnorePath(targetPath);
+baseProjectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
+baseProjectIgnorePathSet.clear();
+for (const projectIgnorePath of baseProjectIgnorePaths) {
+    baseProjectIgnorePathSet.add(projectIgnorePath);
+}
+await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);
 if (encounteredFormattingError) {

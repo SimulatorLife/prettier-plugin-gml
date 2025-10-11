@@ -1,5 +1,4 @@
-const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
-const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
+import { DEFAULT_LINE_COMMENT_OPTIONS } from "./line-comment-options.js";
 
 const BOILERPLATE_COMMENTS = [
     "Script assets have changed for v2.3.0",
@@ -20,44 +19,11 @@ function getLineCommentRawText(comment) {
     }
 
     const fallbackValue =
-        comment.value === undefined || comment.value === null
-            ? ""
-            : String(comment.value);
+    comment.value === undefined || comment.value === null
+        ? ""
+        : String(comment.value);
 
     return `//${fallbackValue}`;
-}
-
-function coercePositiveIntegerOption(value, defaultValue, { zeroReplacement } = {}) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        const normalized = Math.floor(value);
-
-        if (normalized > 0) {
-            return normalized;
-        }
-
-        if (zeroReplacement !== undefined && normalized <= 0) {
-            return zeroReplacement;
-        }
-    }
-
-    return defaultValue;
-}
-
-function getLineCommentBannerMinimum(options) {
-    return coercePositiveIntegerOption(
-        options?.lineCommentBannerMinimumSlashes,
-        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-    );
-}
-
-function getLineCommentBannerAutofillThreshold(options) {
-    return coercePositiveIntegerOption(
-        options?.lineCommentBannerAutofillThreshold,
-        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-        {
-            zeroReplacement: Number.POSITIVE_INFINITY
-        }
-    );
 }
 
 const JSDOC_REPLACEMENTS = {
@@ -112,15 +78,27 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
+const COMMENTED_OUT_CODE_PATTERNS = [
+    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
+    /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
+    /^[{}()[\].]/,
+    /^#/,
+    /^@/
+];
+
 function isCommentNode(node) {
     return (
         node &&
-        typeof node === "object" &&
-        (node.type === "CommentBlock" || node.type === "CommentLine")
+    typeof node === "object" &&
+    (node.type === "CommentBlock" || node.type === "CommentLine")
     );
 }
 
-function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES) {
+function formatLineComment(
+    comment,
+    lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
+) {
+    const { bannerMinimum } = normalizeLineCommentOptions(lineCommentOptions);
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
@@ -137,14 +115,14 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     }
 
     const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-    if (slashesMatch && slashesMatch[1].length >= bannerMinimumSlashes) {
+    if (slashesMatch && slashesMatch[1].length >= bannerMinimum) {
         return applyInlinePadding(comment, original.trim());
     }
 
     if (
         trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@") &&
-        leadingSlashCount >= bannerMinimumSlashes
+    !trimmedOriginal.includes("@") &&
+    leadingSlashCount >= bannerMinimum
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -156,7 +134,9 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
         // remainder begins with another slash
         if (!remainder.startsWith("/")) {
             const shouldInsertSpace = remainder.length > 0 && /\w/.test(remainder);
-            const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${remainder}`);
+            const formatted = applyJsDocReplacements(
+                `///${shouldInsertSpace ? " " : ""}${remainder}`
+            );
             return applyInlinePadding(comment, formatted);
         }
     }
@@ -170,7 +150,9 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     }
 
     const isInlineComment = comment && typeof comment.inlinePadding === "number";
-    const sentences = !isInlineComment ? splitCommentIntoSentences(trimmedValue) : [trimmedValue];
+    const sentences = !isInlineComment
+        ? splitCommentIntoSentences(trimmedValue)
+        : [trimmedValue];
     if (sentences.length > 1) {
         const formattedSentences = sentences.map((sentence) =>
             applyInlinePadding(comment, `// ${sentence}`)
@@ -179,15 +161,51 @@ function formatLineComment(comment, bannerMinimumSlashes = DEFAULT_LINE_COMMENT_
     }
 
     const leadingWhitespaceMatch = rawValue.match(/^\s*/);
-    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
+    const leadingWhitespace = leadingWhitespaceMatch
+        ? leadingWhitespaceMatch[0]
+        : "";
     const valueWithoutTrailingWhitespace = rawValue.replace(/\s+$/, "");
-    const coreValue = valueWithoutTrailingWhitespace.slice(leadingWhitespace.length).trim();
+    const coreValue = valueWithoutTrailingWhitespace
+        .slice(leadingWhitespace.length)
+        .trim();
 
-    if (coreValue.length > 0 && (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))) {
+    if (
+        coreValue.length > 0 &&
+    (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))
+    ) {
         return applyInlinePadding(comment, `//${leadingWhitespace}${coreValue}`);
     }
 
     return applyInlinePadding(comment, "// " + trimmedValue);
+}
+
+function normalizeLineCommentOptions(lineCommentOptions) {
+    if (
+        typeof lineCommentOptions === "number" &&
+    Number.isFinite(lineCommentOptions)
+    ) {
+        return {
+            ...DEFAULT_LINE_COMMENT_OPTIONS,
+            bannerMinimum: lineCommentOptions
+        };
+    }
+
+    if (lineCommentOptions && typeof lineCommentOptions === "object") {
+        const { bannerMinimum, bannerAutofillThreshold } = lineCommentOptions;
+
+        return {
+            bannerMinimum:
+        typeof bannerMinimum === "number"
+            ? bannerMinimum
+            : DEFAULT_LINE_COMMENT_OPTIONS.bannerMinimum,
+            bannerAutofillThreshold:
+        typeof bannerAutofillThreshold === "number"
+            ? bannerAutofillThreshold
+            : DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
+        };
+    }
+
+    return DEFAULT_LINE_COMMENT_OPTIONS;
 }
 
 function looksLikeCommentedOutCode(text) {
@@ -200,35 +218,15 @@ function looksLikeCommentedOutCode(text) {
         return false;
     }
 
-    if (/^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i.test(trimmed)) {
-        return true;
-    }
-
-    if (/^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^[{}()[\].]/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^#/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^@/.test(trimmed)) {
-        return true;
-    }
-
-    return false;
+    return COMMENTED_OUT_CODE_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 
 function applyInlinePadding(comment, formattedText) {
     if (
         comment &&
-        typeof comment.inlinePadding === "number" &&
-        comment.inlinePadding > 0 &&
-        formattedText.startsWith("//")
+    typeof comment.inlinePadding === "number" &&
+    comment.inlinePadding > 0 &&
+    formattedText.startsWith("//")
     ) {
         return " ".repeat(comment.inlinePadding) + formattedText;
     }
@@ -236,8 +234,13 @@ function applyInlinePadding(comment, formattedText) {
     return formattedText;
 }
 
+const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
+
 function applyJsDocReplacements(text) {
-    let formattedText = /@/i.test(text)
+    const shouldStripEmptyParams =
+        typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
+
+    let formattedText = shouldStripEmptyParams
         ? text.replace(/\(\)\s*$/, "")
         : text;
 
@@ -251,7 +254,8 @@ function applyJsDocReplacements(text) {
     return normalizeDocCommentTypeAnnotations(formattedText);
 }
 
-const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
+const FUNCTION_SIGNATURE_PATTERN =
+  /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
 
 function stripTrailingFunctionParameters(text) {
     if (typeof text !== "string" || !/@function\b/i.test(text)) {
@@ -282,7 +286,9 @@ function normalizeGameMakerType(typeText) {
     }
 
     return typeText.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (identifier) => {
-        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(identifier.toLowerCase());
+        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
+            identifier.toLowerCase()
+        );
         return normalized ?? identifier;
     });
 }
@@ -293,7 +299,8 @@ function splitCommentIntoSentences(text) {
     }
 
     const splitPattern = /(?<=\.)\s+(?=[A-Z])/g;
-    const segments = text.split(splitPattern)
+    const segments = text
+        .split(splitPattern)
         .map((segment) => segment.trim())
         .filter((segment) => segment.length > 0);
 
@@ -303,10 +310,7 @@ function splitCommentIntoSentences(text) {
 export {
     getLineCommentRawText,
     formatLineComment,
-    getLineCommentBannerMinimum,
-    getLineCommentBannerAutofillThreshold,
     applyInlinePadding,
     normalizeDocCommentTypeAnnotations,
     isCommentNode
 };
-
