@@ -241,7 +241,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             "globalVarStatement",
             "macroStatement",
             "defineStatement",
-            "regionStatement"
+            "regionStatement",
+            "literalStatement"
         ]);
     }
 
@@ -487,6 +488,31 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "DeleteStatement",
             operator: "delete",
             argument: this.visit(ctx.expression())
+        });
+    }
+
+    visitLiteralStatement(ctx) {
+        if (!ctx) {
+            return null;
+        }
+
+        const literalNode = ctx.literal ? ctx.literal() : null;
+        let expression = this.visit(literalNode);
+
+        if (typeof expression === "string") {
+            expression = this.astNode(literalNode, {
+                type: "Literal",
+                value: expression
+            });
+        }
+
+        if (!expression || typeof expression !== "object") {
+            return null;
+        }
+
+        return this.astNode(ctx, {
+            type: "ExpressionStatement",
+            expression
         });
     }
 

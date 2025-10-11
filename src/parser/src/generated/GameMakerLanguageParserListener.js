@@ -230,6 +230,15 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 	}
 
 
+	// Enter a parse tree produced by GameMakerLanguageParser#literalStatement.
+	enterLiteralStatement(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#literalStatement.
+	exitLiteralStatement(ctx) {
+	}
+
+
 	// Enter a parse tree produced by GameMakerLanguageParser#assignmentExpression.
 	enterAssignmentExpression(ctx) {
 	}
