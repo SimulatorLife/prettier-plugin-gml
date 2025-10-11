@@ -80,10 +80,22 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
         if (varMatch) {
             const identifier = varMatch[1];
-            const starIndex = line.indexOf("*", varMatch[0].length);
+            const remainder = line.slice(varMatch[0].length);
+            const trimmedRemainder = remainder.replace(/^\s*/, "");
 
-            if (starIndex !== -1) {
-                const sanitizedLine = `${line.slice(0, starIndex)}=${line.slice(starIndex + 1)}`;
+            if (trimmedRemainder.startsWith("*")) {
+                const leadingWhitespaceLength =
+          remainder.length - trimmedRemainder.length;
+                const leadingWhitespace =
+          leadingWhitespaceLength > 0
+              ? remainder.slice(0, leadingWhitespaceLength)
+              : "";
+                const sanitizedLine = [
+                    line.slice(0, varMatch[0].length),
+                    leadingWhitespace,
+                    "=",
+                    trimmedRemainder.slice(1)
+                ].join("");
 
                 gm1100Metadata.push({
                     type: "declaration",
@@ -1643,6 +1655,17 @@ function ensureFileFindFirstBeforeCloseCall(
     }
 
     if (!isIdentifierWithName(node.object, "file_find_close")) {
+        return null;
+    }
+
+    const diagnosticMetadata = Array.isArray(node._appliedFeatherDiagnostics)
+        ? node._appliedFeatherDiagnostics
+        : [];
+
+    const insertedForSerializedSearch =
+        diagnosticMetadata.some((entry) => entry?.id === "GM2031");
+
+    if (insertedForSerializedSearch) {
         return null;
     }
 
