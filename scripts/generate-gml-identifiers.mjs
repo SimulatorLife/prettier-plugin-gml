@@ -8,6 +8,40 @@ const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
 const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
 
+const KB = 1024;
+const MB = KB * 1024;
+const PROGRESS_BAR_WIDTH = 24;
+
+function assertSupportedNodeVersion() {
+  const [major, minor] = process.versions.node
+    .split(".")
+    .map((part) => Number.parseInt(part, 10));
+  if (Number.isNaN(major) || Number.isNaN(minor)) {
+    return;
+  }
+  const minimum = { 18: 18, 20: 9 };
+  if (major < 18) {
+    console.error(
+      `Node.js 18.18.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+  if (major === 18 && minor < minimum[18]) {
+    console.error(
+      `Node.js 18.18.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+  if (major === 20 && minor < minimum[20]) {
+    console.error(
+      `Node.js 20.9.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+}
+
+assertSupportedNodeVersion();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -24,6 +58,12 @@ function parseArgs() {
   let ref = process.env.GML_MANUAL_REF ?? null;
   let outputPath = OUTPUT_DEFAULT;
   let forceRefresh = false;
+  const verbose = {
+    resolveRef: true,
+    downloads: true,
+    parsing: true,
+    progressBar: process.stdout.isTTY === true,
+  };
 
   for (let i = 0; i < ARGUMENTS.length; i += 1) {
     const arg = ARGUMENTS[i];
@@ -38,6 +78,11 @@ function parseArgs() {
       i += 1;
     } else if (arg === "--force-refresh") {
       forceRefresh = true;
+    } else if (arg === "--quiet") {
+      verbose.resolveRef = false;
+      verbose.downloads = false;
+      verbose.parsing = false;
+      verbose.progressBar = false;
     } else if (arg === "--help" || arg === "-h") {
       printUsage();
       process.exit(0);
@@ -48,7 +93,7 @@ function parseArgs() {
     }
   }
 
-  return { ref, outputPath, forceRefresh };
+  return { ref, outputPath, forceRefresh, verbose };
 }
 
 function printUsage() {
@@ -60,6 +105,7 @@ function printUsage() {
       "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
       "  --output, -o <path>       Output JSON path. Defaults to resources/gml-identifiers.json.",
       "  --force-refresh           Ignore cached manual artefacts and re-download.",
+      "  --quiet                   Suppress progress logging (for CI).",
       "  --help, -h                Show this help message.",
     ].join("\n"),
   );
@@ -96,7 +142,14 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function resolveManualRef(ref) {
+async function resolveManualRef(ref, { verbose }) {
+  if (verbose.resolveRef) {
+    console.log(
+      ref
+        ? `Resolving manual reference '${ref}'…`
+        : "Resolving latest manual tag…",
+    );
+  }
   if (ref) {
     return resolveCommitFromRef(ref);
   }
@@ -125,11 +178,67 @@ async function resolveCommitFromRef(ref) {
   return { ref, sha: payload.sha };
 }
 
-async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
+function formatDuration(startTime) {
+  const deltaMs = Date.now() - startTime;
+  if (deltaMs < 1000) {
+    return `${deltaMs}ms`;
+  }
+  return `${(deltaMs / 1000).toFixed(1)}s`;
+}
+
+function formatBytes(text) {
+  const size = Buffer.byteLength(text, "utf8");
+  if (size >= MB) {
+    return `${(size / MB).toFixed(1)}MB`;
+  }
+  if (size >= KB) {
+    return `${(size / KB).toFixed(1)}KB`;
+  }
+  return `${size}B`;
+}
+
+function renderProgressBar(label, current, total) {
+  if (!process.stdout.isTTY) {
+    return;
+  }
+  const denominator = total > 0 ? total : 1;
+  const ratio = Math.min(Math.max(current / denominator, 0), 1);
+  const filled = Math.round(ratio * PROGRESS_BAR_WIDTH);
+  const bar = `${"#".repeat(filled)}${"-".repeat(
+    Math.max(PROGRESS_BAR_WIDTH - filled, 0),
+  )}`;
+  const message = `${label} [${bar}] ${current}/${total}`;
+  process.stdout.write(`\r${message}`);
+  if (current >= total) {
+    process.stdout.write("\n");
+  }
+}
+
+function timeSync(label, fn, { verbose }) {
+  if (verbose.parsing) {
+    console.log(`→ ${label}`);
+  }
+  const start = Date.now();
+  const result = fn();
+  if (verbose.parsing) {
+    console.log(`  ${label} completed in ${formatDuration(start)}.`);
+  }
+  return result;
+}
+
+async function fetchManualFile(
+  sha,
+  filePath,
+  { forceRefresh = false, verbose },
+) {
+  const shouldLogDetails = verbose.downloads && !verbose.progressBar;
   const cachePath = path.join(CACHE_ROOT, sha, filePath);
   if (!forceRefresh) {
     try {
       const cached = await fs.readFile(cachePath, "utf8");
+      if (shouldLogDetails) {
+        console.log(`[cache] ${filePath}`);
+      }
       return cached;
     } catch (error) {
       if (error.code !== "ENOENT") {
@@ -138,10 +247,19 @@ async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
     }
   }
 
+  const start = Date.now();
+  if (shouldLogDetails) {
+    console.log(`[download] ${filePath}…`);
+  }
   const url = `${RAW_ROOT}/${sha}/${filePath}`;
   const content = await curlRequest(url);
   await ensureDir(path.dirname(cachePath));
   await fs.writeFile(cachePath, content, "utf8");
+  if (shouldLogDetails) {
+    console.log(
+      `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(start)})`,
+    );
+  }
   return content;
 }
 
@@ -304,9 +422,10 @@ function normaliseIdentifier(name) {
 }
 
 async function main() {
-  const { ref, outputPath, forceRefresh } = parseArgs();
+  const { ref, outputPath, forceRefresh, verbose } = parseArgs();
+  const startTime = Date.now();
 
-  const manualRef = await resolveManualRef(ref);
+  const manualRef = await resolveManualRef(ref, { verbose });
   if (!manualRef.sha) {
     throw new Error(
       `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`,
@@ -315,118 +434,194 @@ async function main() {
 
   console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-  const gmlSource = await fetchManualFile(
-    manualRef.sha,
-    "Manual/contents/assets/scripts/gml.js",
-    { forceRefresh },
+  const manualAssets = [
+    {
+      key: "gmlSource",
+      path: "Manual/contents/assets/scripts/gml.js",
+      label: "gml.js",
+    },
+    { key: "keywords", path: "ZeusDocs_keywords.json", label: "keywords" },
+    { key: "tags", path: "ZeusDocs_tags.json", label: "tags" },
+  ];
+  const downloadsTotal = manualAssets.length;
+  if (verbose.downloads) {
+    console.log(
+      `Fetching ${downloadsTotal} manual asset${
+        downloadsTotal === 1 ? "" : "s"
+      }…`,
+    );
+  }
+
+  const fetchedPayloads = {};
+  let fetchedCount = 0;
+  for (const asset of manualAssets) {
+    fetchedPayloads[asset.key] = await fetchManualFile(
+      manualRef.sha,
+      asset.path,
+      { forceRefresh, verbose },
+    );
+    fetchedCount += 1;
+    if (verbose.progressBar && verbose.downloads) {
+      renderProgressBar("Downloading manual assets", fetchedCount, downloadsTotal);
+    } else if (verbose.downloads) {
+      console.log(`✓ ${asset.path}`);
+    }
+  }
+
+  const gmlSource = fetchedPayloads.gmlSource;
+  const keywordsArray = timeSync(
+    "Parsing keyword array",
+    () => parseArrayLiteral(gmlSource, "KEYWORDS"),
+    { verbose },
   );
-  const keywordsArray = parseArrayLiteral(gmlSource, "KEYWORDS");
-  const literalsArray = parseArrayLiteral(gmlSource, "LITERALS");
-  const symbolsArray = parseArrayLiteral(gmlSource, "SYMBOLS");
+  const literalsArray = timeSync(
+    "Parsing literal array",
+    () => parseArrayLiteral(gmlSource, "LITERALS"),
+    { verbose },
+  );
+  const symbolsArray = timeSync(
+    "Parsing symbol array",
+    () => parseArrayLiteral(gmlSource, "SYMBOLS"),
+    { verbose },
+  );
 
   const identifierMap = new Map();
 
-  for (const keyword of keywordsArray) {
-    const identifier = normaliseIdentifier(keyword);
-    mergeEntry(identifierMap, identifier, {
-      type: "keyword",
-      sources: ["manual:gml.js:KEYWORDS"],
-    });
-  }
-
-  for (const literal of literalsArray) {
-    const identifier = normaliseIdentifier(literal);
-    mergeEntry(identifierMap, identifier, {
-      type: "literal",
-      sources: ["manual:gml.js:LITERALS"],
-    });
-  }
-
-  for (const symbol of symbolsArray) {
-    const identifier = normaliseIdentifier(symbol);
-    mergeEntry(identifierMap, identifier, {
-      type: "symbol",
-      sources: ["manual:gml.js:SYMBOLS"],
-    });
-  }
-
-  const keywordsJson = await fetchManualFile(
-    manualRef.sha,
-    "ZeusDocs_keywords.json",
-    { forceRefresh },
+  timeSync(
+    "Collecting keywords",
+    () => {
+      for (const keyword of keywordsArray) {
+        const identifier = normaliseIdentifier(keyword);
+        mergeEntry(identifierMap, identifier, {
+          type: "keyword",
+          sources: ["manual:gml.js:KEYWORDS"],
+        });
+      }
+    },
+    { verbose },
   );
-  const manualKeywords = JSON.parse(keywordsJson);
-  const tagsJsonText = await fetchManualFile(
-    manualRef.sha,
-    "ZeusDocs_tags.json",
-    { forceRefresh },
+
+  timeSync(
+    "Collecting literals",
+    () => {
+      for (const literal of literalsArray) {
+        const identifier = normaliseIdentifier(literal);
+        mergeEntry(identifierMap, identifier, {
+          type: "literal",
+          sources: ["manual:gml.js:LITERALS"],
+        });
+      }
+    },
+    { verbose },
   );
-  const manualTags = JSON.parse(tagsJsonText);
+
+  timeSync(
+    "Collecting symbols",
+    () => {
+      for (const symbol of symbolsArray) {
+        const identifier = normaliseIdentifier(symbol);
+        mergeEntry(identifierMap, identifier, {
+          type: "symbol",
+          sources: ["manual:gml.js:SYMBOLS"],
+        });
+      }
+    },
+    { verbose },
+  );
+
+  if (verbose.parsing) {
+    console.log("Merging manual keyword metadata…");
+  }
+
+  const keywordsJson = fetchedPayloads.keywords;
+  const tagsJsonText = fetchedPayloads.tags;
+
+  const manualKeywords = timeSync(
+    "Decoding ZeusDocs keywords",
+    () => JSON.parse(keywordsJson),
+    { verbose },
+  );
+  const manualTags = timeSync(
+    "Decoding ZeusDocs tags",
+    () => JSON.parse(tagsJsonText),
+    { verbose },
+  );
 
   const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
 
-  for (const [rawIdentifier, manualPath] of Object.entries(manualKeywords)) {
-    const identifier = normaliseIdentifier(rawIdentifier);
-    if (!IDENTIFIER_PATTERN.test(identifier)) {
-      continue;
-    }
+  timeSync(
+    "Classifying manual identifiers",
+    () => {
+      for (const [rawIdentifier, manualPath] of Object.entries(manualKeywords)) {
+        const identifier = normaliseIdentifier(rawIdentifier);
+        if (!IDENTIFIER_PATTERN.test(identifier)) {
+          continue;
+        }
 
-    if (typeof manualPath !== "string" || manualPath.length === 0) {
-      continue;
-    }
+        if (typeof manualPath !== "string" || manualPath.length === 0) {
+          continue;
+        }
 
-    const normalisedPath = manualPath.replace(/\\/g, "/");
-    if (
-      !normalisedPath.startsWith("3_Scripting") ||
-      !normalisedPath.includes("4_GML_Reference")
-    ) {
-      continue;
-    }
+        const normalisedPath = manualPath.replace(/\\/g, "/");
+        if (
+          !normalisedPath.startsWith("3_Scripting") ||
+          !normalisedPath.includes("4_GML_Reference")
+        ) {
+          continue;
+        }
 
-    const tagKeyCandidates = [
-      `${normalisedPath}.html`,
-      `${normalisedPath}/index.html`,
-    ];
-    let tagEntry;
-    for (const key of tagKeyCandidates) {
-      if (manualTags[key]) {
-        tagEntry = manualTags[key];
-        break;
+        const tagKeyCandidates = [
+          `${normalisedPath}.html`,
+          `${normalisedPath}/index.html`,
+        ];
+        let tagEntry;
+        for (const key of tagKeyCandidates) {
+          if (manualTags[key]) {
+            tagEntry = manualTags[key];
+            break;
+          }
+        }
+        const tags = tagEntry
+          ? tagEntry
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [];
+
+        const type = classifyFromPath(normalisedPath, tags);
+        const deprecated =
+          tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
+          normalisedPath.toLowerCase().includes("deprecated");
+
+        mergeEntry(identifierMap, identifier, {
+          type,
+          sources: ["manual:ZeusDocs_keywords.json"],
+          manualPath: normalisedPath,
+          tags,
+          deprecated,
+        });
       }
-    }
-    const tags = tagEntry
-      ? tagEntry
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      : [];
+    },
+    { verbose },
+  );
 
-    const type = classifyFromPath(normalisedPath, tags);
-    const deprecated =
-      tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
-      normalisedPath.toLowerCase().includes("deprecated");
-
-    mergeEntry(identifierMap, identifier, {
-      type,
-      sources: ["manual:ZeusDocs_keywords.json"],
-      manualPath: normalisedPath,
-      tags,
-      deprecated,
-    });
-  }
-
-  const sortedIdentifiers = Array.from(identifierMap.entries())
-    .map(([identifier, data]) => [
-      identifier,
-      {
-        type: data.type,
-        sources: Array.from(data.sources).sort(),
-        manualPath: data.manualPath,
-        tags: Array.from(data.tags).sort(),
-        deprecated: data.deprecated,
-      },
-    ])
-    .sort(([a], [b]) => a.localeCompare(b));
+  const sortedIdentifiers = timeSync(
+    "Sorting identifiers",
+    () =>
+      Array.from(identifierMap.entries())
+        .map(([identifier, data]) => [
+          identifier,
+          {
+            type: data.type,
+            sources: Array.from(data.sources).sort(),
+            manualPath: data.manualPath,
+            tags: Array.from(data.tags).sort(),
+            deprecated: data.deprecated,
+          },
+        ])
+        .sort(([a], [b]) => a.localeCompare(b)),
+    { verbose },
+  );
 
   const payload = {
     meta: {
@@ -446,6 +641,9 @@ async function main() {
   );
 
   console.log(`Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`);
+  if (verbose.parsing) {
+    console.log(`Completed in ${formatDuration(startTime)}.`);
+  }
 }
 
 main().catch((error) => {

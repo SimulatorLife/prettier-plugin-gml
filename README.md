@@ -480,7 +480,7 @@ consult the linked plans for a deeper explanation of how each dataset is generat
 Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run the generator:
 
 ```bash
-npm run antlr
+npm run build:antlr
 ```
 
 This command re-generates the parser and lexer inside `src/parser/src/generated` based on the `.g4` grammar files. The script

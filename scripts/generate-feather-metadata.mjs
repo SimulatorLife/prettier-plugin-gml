@@ -8,6 +8,40 @@ const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
 const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
 
+const KB = 1024;
+const MB = KB * 1024;
+const PROGRESS_BAR_WIDTH = 24;
+
+function assertSupportedNodeVersion() {
+  const [major, minor] = process.versions.node
+    .split(".")
+    .map((part) => Number.parseInt(part, 10));
+  if (Number.isNaN(major) || Number.isNaN(minor)) {
+    return;
+  }
+  const minimum = { 18: 18, 20: 9 };
+  if (major < 18) {
+    console.error(
+      `Node.js 18.18.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+  if (major === 18 && minor < minimum[18]) {
+    console.error(
+      `Node.js 18.18.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+  if (major === 20 && minor < minimum[20]) {
+    console.error(
+      `Node.js 20.9.0 or newer is required. Detected ${process.version}.`,
+    );
+    process.exit(1);
+  }
+}
+
+assertSupportedNodeVersion();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -35,6 +69,12 @@ function parseArgs() {
   let ref = process.env.GML_MANUAL_REF ?? null;
   let outputPath = OUTPUT_DEFAULT;
   let forceRefresh = false;
+  const verbose = {
+    resolveRef: true,
+    downloads: true,
+    parsing: true,
+    progressBar: process.stdout.isTTY === true,
+  };
 
   for (let i = 0; i < ARGUMENTS.length; i += 1) {
     const arg = ARGUMENTS[i];
@@ -49,6 +89,11 @@ function parseArgs() {
       i += 1;
     } else if (arg === "--force-refresh") {
       forceRefresh = true;
+    } else if (arg === "--quiet") {
+      verbose.resolveRef = false;
+      verbose.downloads = false;
+      verbose.parsing = false;
+      verbose.progressBar = false;
     } else if (arg === "--help" || arg === "-h") {
       printUsage();
       process.exit(0);
@@ -59,7 +104,7 @@ function parseArgs() {
     }
   }
 
-  return { ref, outputPath, forceRefresh };
+  return { ref, outputPath, forceRefresh, verbose };
 }
 
 function printUsage() {
@@ -71,6 +116,7 @@ function printUsage() {
       "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
       "  --output, -o <path>       Output JSON path. Defaults to resources/feather-metadata.json.",
       "  --force-refresh           Ignore cached manual artefacts and re-download.",
+      "  --quiet                   Suppress progress output (useful in CI).",
       "  --help, -h                Show this help message.",
     ].join("\n"),
   );
@@ -107,7 +153,14 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function resolveManualRef(ref) {
+async function resolveManualRef(ref, { verbose }) {
+  if (verbose.resolveRef) {
+    console.log(
+      ref
+        ? `Resolving manual reference '${ref}'…`
+        : "Resolving latest manual tag…",
+    );
+  }
   if (ref) {
     return resolveCommitFromRef(ref);
   }
@@ -136,11 +189,38 @@ async function resolveCommitFromRef(ref) {
   return { ref, sha: payload.sha };
 }
 
-async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
+function formatDuration(startTime) {
+  const deltaMs = Date.now() - startTime;
+  if (deltaMs < 1000) {
+    return `${deltaMs}ms`;
+  }
+  return `${(deltaMs / 1000).toFixed(1)}s`;
+}
+
+function formatBytes(text) {
+  const size = Buffer.byteLength(text, "utf8");
+  if (size >= MB) {
+    return `${(size / MB).toFixed(1)}MB`;
+  }
+  if (size >= KB) {
+    return `${(size / KB).toFixed(1)}KB`;
+  }
+  return `${size}B`;
+}
+
+async function fetchManualFile(
+  sha,
+  filePath,
+  { forceRefresh = false, verbose },
+) {
+  const shouldLogDetails = verbose.downloads && !verbose.progressBar;
   const cachePath = path.join(CACHE_ROOT, sha, filePath);
   if (!forceRefresh) {
     try {
       const cached = await fs.readFile(cachePath, "utf8");
+      if (shouldLogDetails) {
+        console.log(`[cache] ${filePath}`);
+      }
       return cached;
     } catch (error) {
       if (error.code !== "ENOENT") {
@@ -149,15 +229,55 @@ async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
     }
   }
 
+  const startTime = Date.now();
+  if (shouldLogDetails) {
+    console.log(`[download] ${filePath}…`);
+  }
   const url = `${RAW_ROOT}/${sha}/${filePath}`;
   const content = await curlRequest(url);
   await ensureDir(path.dirname(cachePath));
   await fs.writeFile(cachePath, content, "utf8");
+  if (shouldLogDetails) {
+    console.log(
+      `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
+        startTime,
+      )})`,
+    );
+  }
   return content;
 }
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderProgressBar(label, current, total) {
+  if (!process.stdout.isTTY) {
+    return;
+  }
+  const clampedTotal = total > 0 ? total : 1;
+  const ratio = Math.min(Math.max(current / clampedTotal, 0), 1);
+  const filled = Math.round(ratio * PROGRESS_BAR_WIDTH);
+  const bar = `${"#".repeat(filled)}${"-".repeat(
+    Math.max(PROGRESS_BAR_WIDTH - filled, 0),
+  )}`;
+  const message = `${label} [${bar}] ${current}/${total}`;
+  process.stdout.write(`\r${message}`);
+  if (current >= total) {
+    process.stdout.write("\n");
+  }
+}
+
+function timeSync(label, fn, { verbose }) {
+  if (verbose.parsing) {
+    console.log(`→ ${label}`);
+  }
+  const startTime = Date.now();
+  const result = fn();
+  if (verbose.parsing) {
+    console.log(`  ${label} completed in ${formatDuration(startTime)}.`);
+  }
+  return result;
 }
 
 function normaliseMultilineText(text) {
@@ -804,24 +924,61 @@ function parseTypeSystem(html) {
 }
 
 async function main() {
-  const { ref, outputPath, forceRefresh } = parseArgs();
-  const manualRef = await resolveManualRef(ref);
+  const { ref, outputPath, forceRefresh, verbose } = parseArgs();
+  const startTime = Date.now();
+  const manualRef = await resolveManualRef(ref, { verbose });
   if (!manualRef?.sha) {
     throw new Error("Could not resolve manual commit SHA.");
   }
   console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
   const htmlPayloads = {};
-  for (const [key, manualPath] of Object.entries(FEATHER_PAGES)) {
-    htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, {
-      forceRefresh,
-    });
+  const manualEntries = Object.entries(FEATHER_PAGES);
+  const totalManualPages = manualEntries.length;
+  if (verbose.downloads) {
+    console.log(
+      `Fetching ${totalManualPages} manual page${
+        totalManualPages === 1 ? "" : "s"
+      }…`,
+    );
   }
 
-  const diagnostics = parseDiagnostics(htmlPayloads.diagnostics);
-  const directives = parseDirectiveSections(htmlPayloads.directives);
-  const namingRules = parseNamingRules(htmlPayloads.naming);
-  const typeSystem = parseTypeSystem(htmlPayloads.typeSystem);
+  let fetchedCount = 0;
+  for (const [key, manualPath] of manualEntries) {
+    htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, {
+      forceRefresh,
+      verbose,
+    });
+    fetchedCount += 1;
+    if (verbose.progressBar && verbose.downloads) {
+      renderProgressBar("Downloading manual pages", fetchedCount, totalManualPages);
+    } else if (verbose.downloads) {
+      console.log(`✓ ${manualPath}`);
+    }
+  }
+  if (verbose.parsing) {
+    console.log("Parsing manual sections…");
+  }
+  const diagnostics = timeSync(
+    "Diagnostics",
+    () => parseDiagnostics(htmlPayloads.diagnostics),
+    { verbose },
+  );
+  const directives = timeSync(
+    "Directives",
+    () => parseDirectiveSections(htmlPayloads.directives),
+    { verbose },
+  );
+  const namingRules = timeSync(
+    "Naming rules",
+    () => parseNamingRules(htmlPayloads.naming),
+    { verbose },
+  );
+  const typeSystem = timeSync(
+    "Type system",
+    () => parseTypeSystem(htmlPayloads.typeSystem),
+    { verbose },
+  );
 
   const payload = {
     meta: {
@@ -845,6 +1002,9 @@ async function main() {
   );
 
   console.log(`Wrote Feather metadata to ${outputPath}`);
+  if (verbose.parsing) {
+    console.log(`Completed in ${formatDuration(startTime)}.`);
+  }
 }
 
 main().catch((error) => {
