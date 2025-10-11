@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
+import { Agent, setGlobalDispatcher } from "undici";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
@@ -41,6 +42,9 @@ function assertSupportedNodeVersion() {
 }
 
 assertSupportedNodeVersion();
+
+const httpAgent = new Agent({ connections: 5 });
+setGlobalDispatcher(httpAgent);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1011,7 +1015,19 @@ async function main() {
     }
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exit(1);
+async function run() {
+  try {
+    await main();
+  } finally {
+    try {
+      await httpAgent.close();
+    } catch (closeError) {
+      console.error("Failed to close HTTP agent:", closeError);
+    }
+  }
+}
+
+run().catch((error) => {
+  console.error(error);
+  process.exit(1);
 });
