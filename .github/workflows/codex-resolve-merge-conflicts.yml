@@ -19,13 +19,6 @@ concurrency:
   group: codex-resolve-merge-conflicts
   cancel-in-progress: false
 
-outputs:
-  pr_number:
-    value: ${{ jobs.resolve_conflicts_comment.outputs.pr_number }}
-  commented:
-    value: ${{ jobs.resolve_conflicts_comment.outputs.commented }}
-
-
 jobs:
   resolve_conflicts_comment:
     runs-on: ubuntu-latest
