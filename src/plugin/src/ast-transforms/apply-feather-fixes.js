@@ -3,6 +3,7 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
+import { collectCommentNodes } from "../../../shared/comments.js";
 import {
     getFeatherDiagnostics,
     getFeatherMetadata
@@ -5157,49 +5158,6 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     }
 
     return fixes;
-}
-
-function collectCommentNodes(root) {
-    if (!root || typeof root !== "object") {
-        return [];
-    }
-
-    const comments = [];
-    const stack = [root];
-    const visited = new WeakSet();
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-
-        if (!current || typeof current !== "object") {
-            continue;
-        }
-
-        if (visited.has(current)) {
-            continue;
-        }
-
-        visited.add(current);
-
-        if (Array.isArray(current)) {
-            for (const item of current) {
-                stack.push(item);
-            }
-            continue;
-        }
-
-        if (current.type === "CommentLine" || current.type === "CommentBlock") {
-            comments.push(current);
-        }
-
-        for (const value of Object.values(current)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
-    }
-
-    return comments;
 }
 
 function sanitizeDocCommentType(comment, typeSystemInfo) {

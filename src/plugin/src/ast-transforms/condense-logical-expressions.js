@@ -1,4 +1,7 @@
-import { hasComment as sharedHasComment } from "../../../shared/comments.js";
+import {
+    hasComment as sharedHasComment,
+    isDocCommentLine
+} from "../../../shared/comments.js";
 import {
     cloneLocation,
     getNodeStartIndex
@@ -301,14 +304,6 @@ function collectFunctionNodes(ast) {
 
     traverse(ast);
     return functions;
-}
-
-function isDocCommentLine(comment) {
-    return (
-        comment?.type === "CommentLine" &&
-    typeof comment.value === "string" &&
-    comment.value.startsWith("/ @")
-    );
 }
 
 function extractFunctionDescription(ast, functionNode) {
