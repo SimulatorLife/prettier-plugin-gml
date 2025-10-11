@@ -3,7 +3,7 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
-import { getFeatherDiagnostics } from "../feather/metadata.js";
+import { getFeatherDiagnostics } from "../../../shared/feather/metadata.js";
 
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 const FEATHER_FIX_IMPLEMENTATIONS =
@@ -390,6 +390,19 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2056") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureTextureRepeatIsReset({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM2064") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = annotateInstanceVariableStructAssignments({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -1747,6 +1760,160 @@ function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
     visit(ast, null, null);
 
     return fixes;
+}
+
+const INSTANCE_CREATE_FUNCTION_NAMES = new Set([
+    "instance_create_layer",
+    "instance_create_depth",
+    "instance_create_depth_ext",
+    "instance_create_layer_ext",
+    "instance_create_at",
+    "instance_create",
+    "instance_create_z"
+]);
+
+function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const callFixes = annotateInstanceCreateCall(node, diagnostic);
+
+            if (Array.isArray(callFixes) && callFixes.length > 0) {
+                fixes.push(...callFixes);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function annotateInstanceCreateCall(node, diagnostic) {
+    if (!node || node.type !== "CallExpression") {
+        return [];
+    }
+
+    if (!isInstanceCreateIdentifier(node.object)) {
+        return [];
+    }
+
+    const structArgument = findStructArgument(node.arguments);
+
+    if (!structArgument) {
+        return [];
+    }
+
+    return annotateVariableStructProperties(structArgument, diagnostic);
+}
+
+function isInstanceCreateIdentifier(node) {
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    if (INSTANCE_CREATE_FUNCTION_NAMES.has(node.name)) {
+        return true;
+    }
+
+    return node.name?.startsWith?.("instance_create_") ?? false;
+}
+
+function findStructArgument(args) {
+    if (!Array.isArray(args) || args.length === 0) {
+        return null;
+    }
+
+    for (let index = args.length - 1; index >= 0; index -= 1) {
+        const candidate = args[index];
+
+        if (candidate && candidate.type === "StructExpression") {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+function annotateVariableStructProperties(structExpression, diagnostic) {
+    if (!structExpression || structExpression.type !== "StructExpression") {
+        return [];
+    }
+
+    const properties = Array.isArray(structExpression.properties)
+        ? structExpression.properties
+        : [];
+
+    if (properties.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (const property of properties) {
+        const fixDetail = annotateVariableStructProperty(property, diagnostic);
+
+        if (fixDetail) {
+            fixes.push(fixDetail);
+        }
+    }
+
+    return fixes;
+}
+
+function annotateVariableStructProperty(property, diagnostic) {
+    if (!property || property.type !== "Property") {
+        return null;
+    }
+
+    const value = property.value;
+
+    if (!value || value.type !== "Identifier" || typeof value.name !== "string") {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: value.name,
+        range: {
+            start: getNodeStartIndex(property),
+            end: getNodeEndIndex(property)
+        },
+        automatic: false
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(property, [fixDetail]);
+
+    return fixDetail;
 }
 
 function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
