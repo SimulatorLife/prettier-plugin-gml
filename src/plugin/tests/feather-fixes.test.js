@@ -557,4 +557,80 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("deduplicates local variables flagged by GM2044 and records metadata", () => {
+        const source = [
+            "function demo() {",
+            "    var total = 1;",
+            "    var total = 2;",
+            "    var count;",
+            "    var count;",
+            "    if (true) {",
+            "        var temp = 0;",
+            "        var temp = 1;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const functionNode = ast.body?.[0];
+        assert.ok(functionNode?.type === "FunctionDeclaration");
+
+        const statements = functionNode?.body?.body ?? [];
+        assert.strictEqual(statements.length, 4);
+
+        const totalDeclaration = statements[0];
+        assert.ok(totalDeclaration?.type === "VariableDeclaration");
+        assert.strictEqual(totalDeclaration.declarations?.[0]?.id?.name, "total");
+
+        const totalAssignment = statements[1];
+        assert.ok(totalAssignment?.type === "AssignmentExpression");
+        assert.strictEqual(totalAssignment.left?.name, "total");
+
+        const countDeclarations = statements.filter(
+            (node) =>
+                node?.type === "VariableDeclaration" &&
+        node.declarations?.[0]?.id?.name === "count"
+        );
+        assert.strictEqual(countDeclarations.length, 1);
+
+        const ifStatement = statements[3];
+        assert.strictEqual(ifStatement?.type, "IfStatement");
+
+        const innerStatements = ifStatement?.consequent?.body ?? [];
+        assert.strictEqual(innerStatements.length, 2);
+
+        const innerAssignment = innerStatements[1];
+        assert.ok(innerAssignment?.type === "AssignmentExpression");
+        assert.strictEqual(innerAssignment.left?.name, "temp");
+
+        const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2044Entries = programDiagnostics.filter(
+            (entry) => entry.id === "GM2044"
+        );
+
+        assert.ok(
+            gm2044Entries.length >= 2,
+            "Expected GM2044 metadata to be recorded at the program level."
+        );
+        assert.strictEqual(
+            gm2044Entries.every((entry) => entry.automatic === true),
+            true
+        );
+
+        const assignmentDiagnostics =
+      innerAssignment._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            assignmentDiagnostics.some((entry) => entry.id === "GM2044"),
+            true,
+            "Expected inserted assignment to record GM2044 metadata."
+        );
+    });
 });
