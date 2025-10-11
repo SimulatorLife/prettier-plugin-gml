@@ -1,4 +1,5 @@
 import { util } from "prettier";
+import { hasComment } from "../../../shared/comments.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -13,12 +14,16 @@ function statementShouldEndWithSemicolon(path) {
     // for single line control structures written in short form (i.e. without a block),
     // we need to make sure the single body node gets a semicolon
     if (
-        ["ForStatement", "WhileStatement", "DoUntilStatement", "IfStatement", "SwitchStatement"].includes(
-            parentNode.type
-        ) &&
-        node.type !== "BlockStatement" &&
-        node.type !== "IfStatement" &&
-        (parentNode.body === node || parentNode.alternate === node)
+        [
+            "ForStatement",
+            "WhileStatement",
+            "DoUntilStatement",
+            "IfStatement",
+            "SwitchStatement"
+        ].includes(parentNode.type) &&
+    node.type !== "BlockStatement" &&
+    node.type !== "IfStatement" &&
+    (parentNode.body === node || parentNode.alternate === node)
     ) {
         return true;
     }
@@ -86,23 +91,24 @@ function isAssignmentLikeExpression(nodeType) {
 }
 
 // These top-level statements are surrounded by empty lines by default.
-function shouldAddNewlinesAroundStatement(node, options) {
+const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
+    "FunctionDeclaration",
+    "ConstructorDeclaration",
+    "RegionStatement",
+    "EndRegionStatement"
+]);
+
+function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;
     }
 
-    return [
-        "FunctionDeclaration",
-        "ConstructorDeclaration",
-        "RegionStatement",
-        "EndRegionStatement"
-    ].includes(nodeType);
-}
-
-function hasComment(node) {
-    const comments = node.comments ?? null;
-    return comments && Array.isArray(comments) && comments.length > 0;
+    // Avoid allocating an array for every call by reusing a Set that is created
+    // once when the module is evaluated. This helper runs inside the printer's
+    // statement loops, so trading `Array.includes` for a simple Set membership
+    // check keeps the hot path allocation-free and branch-predictable.
+    return NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType);
 }
 
 export {

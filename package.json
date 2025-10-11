@@ -32,25 +32,29 @@
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
   },
   "scripts": {
-    "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules project_structure.txt",
-    "lint": "eslint . --fix",
+    "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated project_structure.txt",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "tree": "find . | grep -v \"__pycache__\\|\\.pytest_cache\\|\\.benchmarks\\|node_modules\\|\\.pyc\\|\\.antlr\\|./talk-venv\\|./.github\\|./.DS_Store\\|package-lock.json\\|./.git\" > project_structure.txt",
-    "test": "npm run test:parser && npm run test:plugin",
+    "test": "npm run test:shared && npm run test:parser && npm run test:plugin",
+    "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
     "format:gml": "node ./src/plugin/prettier-wrapper.js",
+    "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
     "test:plugin": "cd src/plugin && npm test",
-    "antlr": "cd src/parser && npm run antlr",
+    "build": "npm run build:antlr && npm run build:gml-identifiers && npm run build:feather-metadata",
+    "build:antlr": "cd src/parser && npm run antlr",
     "build:gml-identifiers": "node ./scripts/generate-gml-identifiers.mjs",
     "build:feather-metadata": "node ./scripts/generate-feather-metadata.mjs",
-    "example:plugin": "cd src/plugin && npm run example"
+    "example:plugin": "cd src/plugin && npm run example",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
-    "cheerio": "^1.1.2",
+    "cheerio": "~1.0.0",
     "eslint": "^9.37.0",
     "globals": "^16.4.0",
-    "mocha": "^11.7.4",
-    "prettier": "^3.6.2"
+    "husky": "^9.1.7"
   }
 }
