@@ -31,6 +31,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     const gm1100Metadata = [];
+    const gm1016Metadata = [];
     const sanitizedParts = [];
     const newlinePattern = /\r?\n/g;
     let lastIndex = 0;
@@ -44,6 +45,35 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
         if (trimmed.length === 0) {
             return { line, context: pendingGM1100Context };
+        }
+
+        const booleanLiteralMatch = line.match(/^(\s*)(true|false)\s*;?\s*$/);
+
+        if (booleanLiteralMatch) {
+            const leadingWhitespace = booleanLiteralMatch[1] ?? "";
+            const sanitizedRemainder = " ".repeat(
+                Math.max(0, line.length - leadingWhitespace.length)
+            );
+            const sanitizedLine = `${leadingWhitespace}${sanitizedRemainder}`;
+            const trimmedRightLength = line.replace(/\s+$/, "").length;
+            const startColumn = leadingWhitespace.length;
+            const endColumn = Math.max(startColumn, trimmedRightLength - 1);
+            const lineStartIndex = lastIndex;
+
+            gm1016Metadata.push({
+                start: {
+                    line: lineNumber,
+                    column: startColumn,
+                    index: lineStartIndex + startColumn
+                },
+                end: {
+                    line: lineNumber,
+                    column: endColumn,
+                    index: lineStartIndex + endColumn
+                }
+            });
+
+            return { line: sanitizedLine, context: null };
         }
 
         const varMatch = line.match(/^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
@@ -118,8 +148,17 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     const sanitizedSourceText = sanitizedParts.join("");
+    const metadata = {};
 
-    if (gm1100Metadata.length === 0) {
+    if (gm1100Metadata.length > 0) {
+        metadata.GM1100 = gm1100Metadata;
+    }
+
+    if (gm1016Metadata.length > 0) {
+        metadata.GM1016 = gm1016Metadata;
+    }
+
+    if (Object.keys(metadata).length === 0) {
         return {
             sourceText,
             metadata: null
@@ -128,9 +167,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
     return {
         sourceText: sanitizedSourceText,
-        metadata: {
-            GM1100: gm1100Metadata
-        }
+        metadata
     };
 }
 
@@ -237,15 +274,23 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1016") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeBooleanLiteralStatements({ ast, diagnostic });
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, preprocessedFixMetadata }) => {
+                    const fixes = removeBooleanLiteralStatements({
+                        ast,
+                        diagnostic,
+                        metadata: preprocessedFixMetadata
+                    });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
                 }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
+            );
             continue;
         }
 
@@ -631,12 +676,46 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     return fixes;
 }
 
-function removeBooleanLiteralStatements({ ast, diagnostic }) {
+function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
     }
 
     const fixes = [];
+    const gm1016MetadataEntries = extractFeatherPreprocessMetadata(
+        metadata,
+        "GM1016"
+    );
+
+    for (const entry of gm1016MetadataEntries) {
+        const range = normalizePreprocessedRange(entry);
+
+        if (!range) {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: null,
+            range
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        const owner = findInnermostBlockForRange(
+            ast,
+            range.start.index,
+            range.end.index
+        );
+
+        if (owner && owner !== ast) {
+            attachFeatherFixMetadata(owner, [fixDetail]);
+        }
+
+        fixes.push(fixDetail);
+    }
+
     const arrayOwners = new WeakMap();
 
     const visitNode = (node) => {
@@ -727,6 +806,103 @@ function removeBooleanLiteralStatements({ ast, diagnostic }) {
     }
 
     return fixes;
+}
+
+function extractFeatherPreprocessMetadata(metadata, key) {
+    if (!metadata || typeof metadata !== "object") {
+        return [];
+    }
+
+    const entries = metadata[key];
+
+    return Array.isArray(entries) ? entries.filter(Boolean) : [];
+}
+
+function normalizePreprocessedRange(entry) {
+    const startIndex = entry?.start?.index;
+    const endIndex = entry?.end?.index;
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    if (endIndex < startIndex) {
+        return null;
+    }
+
+    const startLine = entry?.start?.line;
+    const endLine = entry?.end?.line;
+
+    const startLocation = { index: startIndex };
+    const endLocation = { index: endIndex };
+
+    if (typeof startLine === "number") {
+        startLocation.line = startLine;
+    }
+
+    if (typeof endLine === "number") {
+        endLocation.line = endLine;
+    }
+
+    return { start: startLocation, end: endLocation };
+}
+
+function findInnermostBlockForRange(ast, startIndex, endIndex) {
+    if (!ast || typeof ast !== "object") {
+        return null;
+    }
+
+    let bestMatch = null;
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        const nodeStart = getNodeStartIndex(node);
+        const nodeEnd = getNodeEndIndex(node);
+
+        if (
+            typeof nodeStart !== "number" ||
+            typeof nodeEnd !== "number" ||
+            nodeStart > startIndex ||
+            nodeEnd < endIndex
+        ) {
+            return;
+        }
+
+        if (node.type === "BlockStatement") {
+            if (!bestMatch) {
+                bestMatch = node;
+            } else {
+                const bestStart = getNodeStartIndex(bestMatch);
+                const bestEnd = getNodeEndIndex(bestMatch);
+
+                if (
+                    typeof bestStart === "number" &&
+                    typeof bestEnd === "number" &&
+                    (nodeStart > bestStart || nodeEnd < bestEnd)
+                ) {
+                    bestMatch = node;
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    visit(item);
+                }
+                continue;
+            }
+
+            visit(value);
+        }
+    };
+
+    visit(ast);
+
+    return bestMatch;
 }
 
 function isBooleanLiteral(node) {
