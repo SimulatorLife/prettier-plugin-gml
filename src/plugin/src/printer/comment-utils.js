@@ -235,6 +235,19 @@ function applyInlinePadding(comment, formattedText) {
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
+/**
+ * Normalizes doc-style line comments so they use canonical JSDoc tags and do not
+ * preserve redundant syntax emitted by GameMaker.
+ *
+ * @param {string} text Raw comment text that still includes the leading slashes.
+ * @returns {string} Comment text that has consistent tags and normalized type
+ *     annotations.
+ *
+ * Why it matters: GameMaker often serializes signatures like `/// @func()` and
+ * mixes tag aliases such as `@arg`. Rewriting them here prevents us from printing
+ * empty parameter lists—which imply undocumented arguments—and keeps downstream
+ * tooling aligned on the same tag vocabulary.
+ */
 function applyJsDocReplacements(text) {
     const shouldStripEmptyParams =
     typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
@@ -268,6 +281,14 @@ function stripTrailingFunctionParameters(text) {
     );
 }
 
+/**
+ * Ensures GameMaker-specific type identifiers inside `{}` blocks follow the
+ * plugin's canonical casing so downstream formatters treat equivalent tokens as
+ * identical.
+ *
+ * @param {string} text A comment line that may include type annotations.
+ * @returns {string} The input text with normalized type identifiers.
+ */
 function normalizeDocCommentTypeAnnotations(text) {
     if (typeof text !== "string" || text.indexOf("{") === -1) {
         return text;
