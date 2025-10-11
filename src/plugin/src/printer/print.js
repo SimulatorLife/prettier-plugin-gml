@@ -50,6 +50,34 @@ import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-re
 
 const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
+const preservedUndefinedDefaultParameters = new WeakSet();
+
+const BINARY_OPERATOR_INFO = new Map([
+    ["*", { precedence: 13, associativity: "left" }],
+    ["/", { precedence: 13, associativity: "left" }],
+    ["div", { precedence: 13, associativity: "left" }],
+    ["%", { precedence: 13, associativity: "left" }],
+    ["mod", { precedence: 13, associativity: "left" }],
+    ["+", { precedence: 12, associativity: "left" }],
+    ["-", { precedence: 12, associativity: "left" }],
+    ["<<", { precedence: 12, associativity: "left" }],
+    [">>", { precedence: 12, associativity: "left" }],
+    ["&", { precedence: 11, associativity: "left" }],
+    ["^", { precedence: 10, associativity: "left" }],
+    ["|", { precedence: 9, associativity: "left" }],
+    ["<", { precedence: 8, associativity: "left" }],
+    ["<=", { precedence: 8, associativity: "left" }],
+    [">", { precedence: 8, associativity: "left" }],
+    [">=", { precedence: 8, associativity: "left" }],
+    ["==", { precedence: 7, associativity: "left" }],
+    ["!=", { precedence: 7, associativity: "left" }],
+    ["<>", { precedence: 7, associativity: "left" }],
+    ["&&", { precedence: 6, associativity: "left" }],
+    ["and", { precedence: 6, associativity: "left" }],
+    ["||", { precedence: 5, associativity: "left" }],
+    ["or", { precedence: 5, associativity: "left" }],
+    ["??", { precedence: 4, associativity: "right" }]
+]);
 
 function resolvelogicalOperatorsStyle(options) {
     const style = options?.logicalOperatorsStyle;
@@ -1520,6 +1548,7 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
             if (canonical && paramLineIndices.has(canonical) && metadata?.name) {
                 const lineIndex = paramLineIndices.get(canonical);
                 const existingLine = mergedLines[lineIndex];
+
                 const updatedLine = updateParamLineWithDocName(
                     existingLine,
                     metadata.name
@@ -1681,6 +1710,10 @@ function getCanonicalParamNameFromText(name) {
     return normalized && normalized.length > 0 ? normalized : null;
 }
 
+function isOptionalParamDocName(name) {
+    return typeof name === "string" && /^\s*\[[^\]]+\]\s*$/.test(name);
+}
+
 function updateParamLineWithDocName(line, newDocName) {
     if (typeof line !== "string" || typeof newDocName !== "string") {
         return line;
@@ -1722,6 +1755,9 @@ function computeSyntheticFunctionDocLines(
       meta.name.trim().length > 0
     );
     const documentedParamNames = new Set();
+    const paramMetadataByCanonical = new Map();
+    const overrideName = overrides?.nameOverride;
+    const functionName = overrideName ?? getNodeName(node);
 
     for (const meta of metadata) {
         if (meta.tag !== "param") {
@@ -1734,11 +1770,14 @@ function computeSyntheticFunctionDocLines(
         }
 
         documentedParamNames.add(rawName);
+
+        const canonical = getCanonicalParamNameFromText(rawName);
+        if (canonical && !paramMetadataByCanonical.has(canonical)) {
+            paramMetadataByCanonical.set(canonical, meta);
+        }
     }
 
     const lines = [];
-    const overrideName = overrides?.nameOverride;
-    const functionName = overrideName ?? getNodeName(node);
 
     if (functionName && !hasFunctionTag) {
         lines.push(`/// @function ${functionName}`);
@@ -1753,7 +1792,25 @@ function computeSyntheticFunctionDocLines(
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
-        const docName = paramInfo.optional ? `[${paramInfo.name}]` : paramInfo.name;
+        const canonicalParamName = getCanonicalParamNameFromText(paramInfo.name);
+        const existingMetadata =
+      canonicalParamName && paramMetadataByCanonical.has(canonicalParamName)
+          ? paramMetadataByCanonical.get(canonicalParamName)
+          : null;
+        const existingDocName = existingMetadata?.name;
+        const shouldMarkOptional =
+      paramInfo.optional ||
+      (param?.type === "DefaultParameter" &&
+        isOptionalParamDocName(existingDocName));
+        if (
+            shouldMarkOptional &&
+      param?.type === "DefaultParameter" &&
+      isUndefinedLiteral(param.right)
+        ) {
+            preservedUndefinedDefaultParameters.add(param);
+        }
+        const docName = shouldMarkOptional ? `[${paramInfo.name}]` : paramInfo.name;
+
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -1788,8 +1845,27 @@ function parseDocCommentMetadata(line) {
             }
         }
 
-        const paramMatch = paramSection.match(/^(\[[^\]]+\]|[^\s]+)/);
-        const name = paramMatch ? paramMatch[1] : null;
+        let name = null;
+        if (paramSection.startsWith("[")) {
+            let depth = 0;
+            for (let i = 0; i < paramSection.length; i++) {
+                const char = paramSection[i];
+                if (char === "[") {
+                    depth += 1;
+                } else if (char === "]") {
+                    depth -= 1;
+                    if (depth === 0) {
+                        name = paramSection.slice(0, i + 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!name) {
+            const paramMatch = paramSection.match(/^(\S+)/);
+            name = paramMatch ? paramMatch[1] : null;
+        }
         return { tag, name };
     }
 
@@ -1930,7 +2006,8 @@ function shouldOmitDefaultValueForParameter(path) {
     }
 
     if (
-        !isUndefinedLiteral(node.right) ||
+        preservedUndefinedDefaultParameters.has(node) ||
+    !isUndefinedLiteral(node.right) ||
     typeof path.getParentNode !== "function"
     ) {
         return false;
@@ -2523,6 +2600,10 @@ function printWithoutExtraParens(path, print, ...keys) {
     );
 }
 
+function getBinaryOperatorInfo(operator) {
+    return operator != null ? BINARY_OPERATOR_INFO.get(operator) : undefined;
+}
+
 function shouldOmitSyntheticParens(path) {
     if (!path || typeof path.getValue !== "function") {
         return false;
@@ -2542,11 +2623,33 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const parent = path.getParentNode();
+    if (!parent || parent.type !== "BinaryExpression") {
+        return false;
+    }
+
+    const expression = node.expression;
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
     if (
-        !parent ||
-    parent.type !== "BinaryExpression" ||
-    parent.operator !== "+"
+        expression?.type === "BinaryExpression" &&
+    shouldFlattenSyntheticBinary(parent, expression, path)
     ) {
+        return true;
+    }
+
+    if (expression?.type === "BinaryExpression" && parentInfo != null) {
+        const childInfo = getBinaryOperatorInfo(expression.operator);
+
+        if (
+            childInfo != null &&
+      childInfo.precedence > parentInfo.precedence &&
+      expression.operator === "*" &&
+      isNumericComputationNode(expression)
+        ) {
+            return true;
+        }
+    }
+
+    if (parent.operator !== "+") {
         return false;
     }
 
@@ -2570,6 +2673,134 @@ function shouldOmitSyntheticParens(path) {
         }
 
         depth += 1;
+    }
+}
+
+function shouldFlattenSyntheticBinary(parent, expression, path) {
+    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const childInfo = getBinaryOperatorInfo(expression.operator);
+
+    if (!parentInfo || !childInfo) {
+        return false;
+    }
+
+    if (parentInfo.associativity !== "left") {
+        return false;
+    }
+
+    const parentOperator = parent.operator;
+    const childOperator = expression.operator;
+    const isAdditivePair =
+    (parentOperator === "+" || parentOperator === "-") &&
+    (childOperator === "+" || childOperator === "-");
+    const isMultiplicativePair = parentOperator === "*" && childOperator === "*";
+
+    if (!isAdditivePair && !isMultiplicativePair) {
+        return false;
+    }
+
+    if (
+        !isNumericComputationNode(parent) ||
+    !isNumericComputationNode(expression)
+    ) {
+        return false;
+    }
+
+    if (
+        isAdditivePair &&
+    (binaryExpressionContainsString(parent) ||
+      binaryExpressionContainsString(expression))
+    ) {
+        return false;
+    }
+
+    const operandName =
+    typeof path.getName === "function" ? path.getName() : undefined;
+    const isLeftOperand = operandName === "left";
+    const isRightOperand = operandName === "right";
+
+    if (!isLeftOperand && !isRightOperand) {
+        return false;
+    }
+
+    if (childInfo.precedence !== parentInfo.precedence) {
+        return false;
+    }
+
+    if (isLeftOperand) {
+        return true;
+    }
+
+    if (
+        parentOperator === "+" &&
+    (childOperator === "+" || childOperator === "-")
+    ) {
+        return true;
+    }
+
+    if (parentOperator === "*" && childOperator === "*") {
+        return true;
+    }
+
+    return false;
+}
+
+function isNumericComputationNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            const value = typeof node.value === "string" ? node.value.trim() : "";
+            if (value === "") {
+                return false;
+            }
+
+            const numericValue = Number(value);
+            return Number.isFinite(numericValue);
+        }
+        case "UnaryExpression": {
+            if (node.operator === "+" || node.operator === "-") {
+                return isNumericComputationNode(node.argument);
+            }
+
+            return false;
+        }
+        case "ParenthesizedExpression": {
+            return isNumericComputationNode(node.expression);
+        }
+        case "BinaryExpression": {
+            if (!isArithmeticBinaryOperator(node.operator)) {
+                return false;
+            }
+
+            return (
+                isNumericComputationNode(node.left) &&
+        isNumericComputationNode(node.right)
+            );
+        }
+        case "MemberIndexExpression":
+            return true;
+        case "MemberDotExpression":
+            return true;
+        default:
+            return false;
+    }
+}
+
+function isArithmeticBinaryOperator(operator) {
+    switch (operator) {
+        case "+":
+        case "-":
+        case "*":
+        case "/":
+        case "div":
+        case "%":
+        case "mod":
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -2719,10 +2950,16 @@ function printSingleClauseStatement(
                     onlyStatement?.type === "ReturnStatement" &&
           !hasComment(onlyStatement)
                 ) {
-                    inlineReturnDoc = path.call(
-                        (childPath) => childPath.call(print, "body", 0),
-                        bodyKey
-                    );
+                    const blockSource = getSourceTextForNode(bodyNode, options);
+                    const blockContainsSemicolon =
+            typeof blockSource === "string" && blockSource.includes(";");
+
+                    if (blockContainsSemicolon) {
+                        inlineReturnDoc = path.call(
+                            (childPath) => childPath.call(print, "body", 0),
+                            bodyKey
+                        );
+                    }
                 }
             }
         }
