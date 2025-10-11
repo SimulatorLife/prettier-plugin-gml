@@ -47,7 +47,7 @@ export default class GMLParser {
         } catch (error) {
             if (error) {
                 const normalisedError =
-                    error instanceof Error ? error : new Error(String(error));
+          error instanceof Error ? error : new Error(String(error));
                 throw normalisedError;
             }
             throw new Error("Unknown syntax error while parsing GML source.");

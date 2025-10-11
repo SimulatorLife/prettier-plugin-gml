@@ -1,0 +1,249 @@
+name: Codex – Resolve Merge Conflicts
+
+on:
+  schedule:
+    - cron: "10 * * * *"
+  workflow_dispatch:
+    inputs:
+      additional_context:
+        description: "Optional context to include in the Codex request."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: codex-resolve-merge-conflicts
+  cancel-in-progress: false
+
+jobs:
+  resolve_conflicts_comment:
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.select_pr.outputs.pr_number }}
+      commented: ${{ steps.comment.outputs.commented }}
+
+    steps:
+      - name: Validate GH_USER_TOKEN
+        run: |
+          set -e
+          test -n "${GH_USER_TOKEN}" || { echo "GH_USER_TOKEN is empty"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${GH_USER_TOKEN}" https://api.github.com/user)
+          if [ "$code" != "200" ]; then
+            echo "Token cannot access /user (HTTP $code). Check scopes, repo access, and SSO."; exit 1;
+          fi
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+
+      - name: Select PR needing conflict resolution
+        id: select_pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = "<!-- codex-resolve-merge-conflicts -->";
+
+            async function fetchPullRequest(prNumber, attempts = 6) {
+              for (let attempt = 0; attempt < attempts; attempt++) {
+                const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                if (pr.mergeable !== null) {
+                  return pr;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+              }
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              return pr;
+            }
+
+            async function hasExistingMarker(prNumber) {
+              const comments = await github.paginate(
+                github.rest.issues.listComments,
+                { owner, repo, issue_number: prNumber, per_page: 100 }
+              );
+              return comments.some((comment) => comment.body && comment.body.includes(marker));
+            }
+
+            async function findCandidate() {
+              const openPulls = await github.paginate(
+                github.rest.pulls.list,
+                { owner, repo, state: "open", sort: "updated", direction: "asc", per_page: 100 }
+              );
+
+              for (const summary of openPulls) {
+                const pr = await fetchPullRequest(summary.number);
+                if (!pr) continue;
+                if (pr.state !== "open") continue;
+                if (pr.draft) continue;
+                if ((pr.changed_files || 0) === 0) continue;
+                const mergeableState = pr.mergeable_state || "unknown";
+                if (mergeableState !== "dirty") continue;
+                if (await hasExistingMarker(pr.number)) continue;
+
+                return pr;
+              }
+
+              return null;
+            }
+
+            const candidate = await findCandidate();
+
+            if (!candidate) {
+              core.info("No eligible PR found for conflict resolution comment.");
+              core.setOutput("found", "false");
+              core.setOutput("pr_number", "");
+              core.setOutput("head_ref", "");
+              core.setOutput("base_ref", "");
+              core.setOutput("head_sha", "");
+              core.setOutput("mergeable_state", "");
+              return;
+            }
+
+            core.info(`Selected PR #${candidate.number} (${candidate.head.ref}) for conflict resolution comment.`);
+            core.setOutput("found", "true");
+            core.setOutput("pr_number", String(candidate.number));
+            core.setOutput("head_ref", candidate.head.ref);
+            core.setOutput("base_ref", candidate.base.ref);
+            core.setOutput("head_sha", candidate.head.sha);
+            core.setOutput("mergeable_state", candidate.mergeable_state || "unknown");
+
+      - name: Comment to request conflict resolution (as your user)
+        id: comment
+        uses: actions/github-script@v7
+        env:
+          FOUND: ${{ steps.select_pr.outputs.found }}
+          PR_NUMBER: ${{ steps.select_pr.outputs.pr_number }}
+          HEAD_REF: ${{ steps.select_pr.outputs.head_ref }}
+          BASE_REF: ${{ steps.select_pr.outputs.base_ref }}
+          HEAD_SHA: ${{ steps.select_pr.outputs.head_sha }}
+          MERGEABLE_STATE: ${{ steps.select_pr.outputs.mergeable_state }}
+          ADDITIONAL_CONTEXT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.additional_context || '' }}
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            if (process.env.FOUND !== "true") {
+              core.info("No eligible PR selected; skipping comment.");
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!prNumber) {
+              core.warning("Selected PR number is missing; skipping comment.");
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            const additionalContext = process.env.ADDITIONAL_CONTEXT || "";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = "<!-- codex-resolve-merge-conflicts -->";
+
+            async function fetchPullRequest(attempts = 6) {
+              for (let attempt = 0; attempt < attempts; attempt++) {
+                const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                if (pr.mergeable !== null) {
+                  return pr;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+              }
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              return pr;
+            }
+
+            const pr = await fetchPullRequest();
+
+            if (!pr) {
+              core.warning(`PR #${prNumber} could not be retrieved.`);
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            if (pr.state !== "open") {
+              core.info(`PR #${prNumber} is not open (state: ${pr.state}). Skipping comment.`);
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            if (pr.changed_files === 0) {
+              core.info(`PR #${prNumber} has no file changes. Skipping comment.`);
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            const mergeableState = pr.mergeable_state || "unknown";
+            if (mergeableState !== "dirty") {
+              core.info(`PR #${prNumber} is mergeable_state="${mergeableState}". Skipping comment.`);
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: prNumber, per_page: 100 }
+            );
+
+            const alreadyCommented = comments.some((comment) => comment.body && comment.body.includes(marker));
+            if (alreadyCommented) {
+              core.info(`A conflict resolution request already exists on PR #${prNumber}.`);
+              core.setOutput("commented", "false");
+              return;
+            }
+
+            const lines = [
+              marker,
+              "",
+              `@codex This PR currently has merge conflicts between \`${pr.head.ref}\` and \`${pr.base.ref}\`. Please resolve them and push the fixes back to this branch.`,
+              "",
+              "Follow these steps:",
+              "1. Fetch the latest branches: `git fetch origin`.",
+              `2. Check out the PR branch locally: \`git checkout ${pr.head.ref}\`.`,
+              `3. Integrate the base branch to surface conflicts: \`git merge origin/${pr.base.ref}\` (rebasing is also fine).`,
+              "4. Resolve all conflict markers, run the relevant tests, and stage your changes.",
+              "5. Commit the conflict resolutions with a descriptive message.",
+              "6. Push your updates using the exact commands below so credentials and remotes are configured correctly:",
+              "",
+              "```bash",
+              `git config user.name  "codex-bot"`,
+              `git config user.email "codex@example.com"`,
+              `git -c credential.helper= \\`,
+              `    -c 'credential.helper=store --file .git/codex-cred' \\`,
+              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
+              "```",
+              "After pushing, double-check the PR to ensure it is mergeable and all checks have passed.",
+              "",
+              "Additional context for this task:",
+              "```yaml",
+              "codex_task:",
+              `  branch: "${pr.head.ref}"`,
+              `  pr_number: ${pr.number}`,
+              `  base: "${pr.base.ref}"`,
+              `  head_sha: "${pr.head.sha}"`,
+              `  mergeable_state: "${mergeableState}"`,
+            ];
+
+            if (additionalContext.trim().length > 0) {
+              lines.push("  notes: |");
+              for (const line of additionalContext.split(/\r?\n/)) {
+                lines.push(`    ${line}`);
+              }
+            }
+
+            lines.push("```");
+
+            const body = lines.join("\n");
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+
+            core.info(`Posted conflict resolution request to PR #${prNumber}.`);
+            core.setOutput("commented", "true");

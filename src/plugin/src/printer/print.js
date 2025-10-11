@@ -1,24 +1,15 @@
 import { builders } from "prettier/doc";
-import { util } from "prettier";
-
 const {
     breakParent,
     join,
     line,
-    lineSuffix,
     group,
     conditionalGroup,
     indent,
-    dedent,
     ifBreak,
     hardline,
     softline,
-    literalline,
-    align,
-    dedentToRoot,
-    concat,
-    indentIfBreak,
-    lineSuffixBoundary
+    concat
 } = builders;
 
 import {
@@ -32,20 +23,28 @@ import {
 import {
     buildCachedSizeVariableName,
     getArrayLengthHoistInfo,
-    getIdentifierText,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
-import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
-
-import { printDanglingComments, printDanglingCommentsAsGroup } from "./comments.js";
+import {
+    printDanglingComments,
+    printDanglingCommentsAsGroup
+} from "./comments.js";
 import {
     formatLineComment,
-    getLineCommentBannerMinimum,
     normalizeDocCommentTypeAnnotations,
     isCommentNode
 } from "./comment-utils.js";
-import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import { resolveLineCommentOptions } from "./line-comment-options.js";
+import { coercePositiveIntegerOption } from "./option-utils.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex
+} from "../../../shared/ast-locations.js";
+import {
+    getIdentifierText,
+    getSingleVariableDeclarator,
+    isUndefinedLiteral
+} from "../../../shared/ast-node-helpers.js";
 
 export function print(path, options, print) {
     const node = path.getValue();
@@ -58,15 +57,10 @@ export function print(path, options, print) {
         return concat(node);
     }
 
-    preprocessFunctionArgumentDefaults(path, {
-        getIdentifierText,
-        isUndefinedLiteral
-    });
-
     switch (node.type) {
         case "Program": {
             if (node.body.length === 0) {
-                return concat(printDanglingCommentsAsGroup(path, options, true));
+                return concat(printDanglingCommentsAsGroup(path, options));
             }
             return concat(printStatements(path, options, print, "body"));
         }
@@ -80,7 +74,6 @@ export function print(path, options, print) {
                 printDanglingComments(
                     path,
                     options,
-                    true,
                     (comment) => comment.attachToBrace
                 ),
                 indent([
@@ -98,41 +91,38 @@ export function print(path, options, print) {
             }
             const parts = [];
             parts.push(
-                printSingleClauseStatement(path, options, print, "if", "test", "consequent")
+                printSingleClauseStatement(
+                    path,
+                    options,
+                    print,
+                    "if",
+                    "test",
+                    "consequent"
+                )
             );
 
             if (node.alternate != null) {
                 // don't add braces to else-if
                 const elseBlock =
-                    node.alternate.type === "IfStatement"
-                        ? print("alternate")
-                        : printInBlock(path, options, print, "alternate");
-                parts.push([
-                    " else ",
-                    elseBlock
-                ]);
+          node.alternate.type === "IfStatement"
+              ? print("alternate")
+              : printInBlock(path, options, print, "alternate");
+                parts.push([" else ", elseBlock]);
             }
             return concat(parts);
         }
         case "SwitchStatement": {
             const parts = [];
-            const discriminantDoc = printWithoutExtraParens(path, print, "discriminant");
-            parts.push([
-                "switch (",
-                buildClauseGroup(discriminantDoc),
-                ") "
-            ]);
+            const discriminantDoc = printWithoutExtraParens(
+                path,
+                print,
+                "discriminant"
+            );
+            parts.push(["switch (", buildClauseGroup(discriminantDoc), ") "]);
             if (node.cases.length === 0) {
                 parts.push(printEmptyBlock(path, options, print));
             } else {
-                parts.push([
-                    "{",
-                    indent([
-                        path.map(print, "cases")
-                    ]),
-                    hardline,
-                    "}"
-                ]);
+                parts.push(["{", indent([path.map(print, "cases")]), hardline, "}"]);
             }
             return concat(parts);
         }
@@ -142,10 +132,7 @@ export function print(path, options, print) {
             const caseBody = node.body;
             if (Array.isArray(caseBody) && caseBody.length > 0) {
                 parts.push([
-                    indent([
-                        hardline,
-                        printStatements(path, options, print, "body")
-                    ])
+                    indent([hardline, printStatements(path, options, print, "body")])
                 ]);
             }
             return concat(parts);
@@ -155,15 +142,16 @@ export function print(path, options, print) {
                 print("test"),
                 indent([
                     line,
-                    "? ", print("consequent"),
+                    "? ",
+                    print("consequent"),
                     line,
-                    ": ", print("alternate")
+                    ": ",
+                    print("alternate")
                 ])
             ]);
         }
         case "ForStatement": {
-            const shouldHoistArrayLength =
-                options?.optimizeArrayLengthLoops ?? true;
+            const shouldHoistArrayLength = options?.optimizeArrayLengthLoops ?? true;
             const sizeFunctionSuffixes = shouldHoistArrayLength
                 ? getSizeRetrievalFunctionSuffixes(options)
                 : undefined;
@@ -171,11 +159,8 @@ export function print(path, options, print) {
                 ? getArrayLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
                 : null;
             if (hoistInfo) {
-                const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } = buildArrayLengthDocs(
-                    path,
-                    print,
-                    hoistInfo
-                );
+                const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } =
+          buildArrayLengthDocs(path, print, hoistInfo);
 
                 const initDoc = path.getValue().init ? print("init") : "";
                 const updateDoc = path.getValue().update ? print("update") : "";
@@ -193,27 +178,13 @@ export function print(path, options, print) {
                 );
 
                 return concat([
-                    group([
-                        "var ",
-                        cachedLengthName,
-                        " = ",
-                        arrayLengthCallDoc,
-                        ";"
-                    ]),
+                    group(["var ", cachedLengthName, " = ", arrayLengthCallDoc, ";"]),
                     hardline,
                     "for (",
                     group([
                         indent([
                             ifBreak(line),
-                            concat([
-                                initDoc,
-                                ";",
-                                line,
-                                testDoc,
-                                ";",
-                                line,
-                                updateDoc
-                            ])
+                            concat([initDoc, ";", line, testDoc, ";", line, updateDoc])
                         ])
                     ]),
                     ") ",
@@ -227,7 +198,15 @@ export function print(path, options, print) {
                 group([
                     indent([
                         ifBreak(line),
-                        concat([print("init"), ";", line, print("test"), ";", line, print("update")])
+                        concat([
+                            print("init"),
+                            ";",
+                            line,
+                            print("test"),
+                            ";",
+                            line,
+                            print("update")
+                        ])
                     ])
                 ]),
                 ") ",
@@ -245,42 +224,76 @@ export function print(path, options, print) {
             ]);
         }
         case "WhileStatement": {
-            return concat(printSingleClauseStatement(path, options, print, "while", "test", "body"));
+            return concat(
+                printSingleClauseStatement(
+                    path,
+                    options,
+                    print,
+                    "while",
+                    "test",
+                    "body"
+                )
+            );
         }
         case "RepeatStatement": {
-            return concat(printSingleClauseStatement(path, options, print, "repeat", "test", "body"));
+            return concat(
+                printSingleClauseStatement(
+                    path,
+                    options,
+                    print,
+                    "repeat",
+                    "test",
+                    "body"
+                )
+            );
         }
         case "WithStatement": {
-            return concat(printSingleClauseStatement(path, options, print, "with", "test", "body"));
+            return concat(
+                printSingleClauseStatement(
+                    path,
+                    options,
+                    print,
+                    "with",
+                    "test",
+                    "body"
+                )
+            );
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
             const parts = [];
 
             let docCommentDocs = [];
-            const bannerMinimum = getLineCommentBannerMinimum(options);
+            const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
             if (Array.isArray(node.docComments) && node.docComments.length > 0) {
                 const firstDocComment = node.docComments[0];
                 if (firstDocComment && typeof firstDocComment.leadingWS === "string") {
-                    const blankLinePattern = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
+                    const blankLinePattern =
+            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
                     if (blankLinePattern.test(firstDocComment.leadingWS)) {
                         needsLeadingBlankLine = true;
                     }
                 }
                 docCommentDocs = node.docComments
-                    .map((comment) => formatLineComment(comment, bannerMinimum))
+                    .map((comment) => formatLineComment(comment, lineCommentOptions))
                     .filter((text) => typeof text === "string" && text.trim() !== "");
             }
 
-            if (shouldGenerateSyntheticDocForFunction(path, docCommentDocs, options)) {
-                docCommentDocs = mergeSyntheticDocComments(node, docCommentDocs, options);
+            if (
+                shouldGenerateSyntheticDocForFunction(path, docCommentDocs, options)
+            ) {
+                docCommentDocs = mergeSyntheticDocComments(
+                    node,
+                    docCommentDocs,
+                    options
+                );
             }
 
             if (docCommentDocs.length > 0) {
                 const suppressLeadingBlank =
-                    docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
+          docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
 
                 if (needsLeadingBlankLine && !suppressLeadingBlank) {
                     parts.push(hardline);
@@ -316,16 +329,18 @@ export function print(path, options, print) {
         case "ConstructorParentClause": {
             let params;
             if (node.params.length > 0) {
-                params = printCommaSeparatedList(path, print, "params", "(", ")", options);
+                params = printCommaSeparatedList(
+                    path,
+                    print,
+                    "params",
+                    "(",
+                    ")",
+                    options
+                );
             } else {
                 params = printEmptyParens(path, print, options);
             }
-            return concat([
-                " : ",
-                print("id"),
-                params,
-                " constructor"
-            ]);
+            return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
             if (shouldOmitDefaultValueForParameter(path)) {
@@ -334,9 +349,11 @@ export function print(path, options, print) {
             return concat(printSimpleDeclaration(print("left"), print("right")));
         }
         case "AssignmentExpression": {
-            const padding = node.operator === "=" && typeof node._alignAssignmentPadding === "number"
-                ? Math.max(0, node._alignAssignmentPadding)
-                : 0;
+            const padding =
+        node.operator === "=" &&
+        typeof node._alignAssignmentPadding === "number"
+            ? Math.max(0, node._alignAssignmentPadding)
+            : 0;
             const spacing = " ".repeat(padding + 1);
 
             return group([
@@ -354,10 +371,18 @@ export function print(path, options, print) {
 
             let decls = [];
             if (node.declarations.length > 1) {
-                decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                    leadingNewline: false,
-                    trailingNewline: false
-                });
+                decls = printCommaSeparatedList(
+                    path,
+                    print,
+                    "declarations",
+                    "",
+                    "",
+                    options,
+                    {
+                        leadingNewline: false,
+                        trailingNewline: false
+                    }
+                );
             } else {
                 decls = path.map(print, "declarations");
             }
@@ -369,10 +394,18 @@ export function print(path, options, print) {
         case "VariableDeclaration": {
             let decls = [];
             if (node.declarations.length > 1) {
-                decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
-                    leadingNewline: false,
-                    trailingNewline: false
-                });
+                decls = printCommaSeparatedList(
+                    path,
+                    print,
+                    "declarations",
+                    "",
+                    "",
+                    options,
+                    {
+                        leadingNewline: false,
+                        trailingNewline: false
+                    }
+                );
             } else {
                 decls = path.map(print, "declarations");
             }
@@ -382,7 +415,11 @@ export function print(path, options, print) {
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
         case "ParenthesizedExpression": {
-            return concat(["(", printWithoutExtraParens(path, print, "expression"), ")"]);
+            return concat([
+                "(",
+                printWithoutExtraParens(path, print, "expression"),
+                ")"
+            ]);
         }
         case "BinaryExpression": {
             let left = print("left");
@@ -392,7 +429,10 @@ export function print(path, options, print) {
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
 
-            if ((operator === "==" || operator === "!=") && (leftIsUndefined || rightIsUndefined)) {
+            if (
+                (operator === "==" || operator === "!=") &&
+        (leftIsUndefined || rightIsUndefined)
+            ) {
                 const expressionDoc = leftIsUndefined
                     ? printWithoutExtraParens(path, print, "right")
                     : printWithoutExtraParens(path, print, "left");
@@ -400,23 +440,28 @@ export function print(path, options, print) {
                 return group([prefix, expressionDoc, ")"]);
             }
 
-            const booleanSimplification = simplifyBooleanBinaryExpression(path, print, node);
+            const booleanSimplification = simplifyBooleanBinaryExpression(
+                path,
+                print,
+                node
+            );
             if (booleanSimplification) {
                 return booleanSimplification;
             }
 
             const canConvertDivisionToHalf =
-                operator === "/" &&
-                node?.right?.type === "Literal" &&
-                node.right.value === "2" &&
-                !hasComment(node) &&
-                !hasComment(node.left) &&
-                !hasComment(node.right);
+        operator === "/" &&
+        node?.right?.type === "Literal" &&
+        node.right.value === "2" &&
+        !hasComment(node) &&
+        !hasComment(node.left) &&
+        !hasComment(node.right);
 
             if (canConvertDivisionToHalf) {
                 operator = "*";
                 right = "0.5";
-            } else if (operator === "&&") { // TODO add option to specify if we want 'and' or '&&'
+            } else if (operator === "&&") {
+                // TODO add option to specify if we want 'and' or '&&'
                 operator = "and";
             } else if (operator === "||") {
                 operator = "or";
@@ -428,11 +473,7 @@ export function print(path, options, print) {
                 operator = "!=";
             }
 
-            return group([
-                left,
-                " ",
-                group([operator, line, right])
-            ]);
+            return group([left, " ", group([operator, line, right])]);
         }
         case "UnaryExpression":
         case "IncDecStatement":
@@ -446,56 +487,53 @@ export function print(path, options, print) {
             applyTrigonometricFunctionSimplification(path);
             let printedArgs = [];
 
-            const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
-                ? options.maxParamsPerLine
-                : 0;
-            const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
-
-            const callbackArguments = node.arguments.filter(
-                (argument) => argument?.type === "FunctionDeclaration"
-            );
-
-            const shouldForceBreakArguments =
-                (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
-                callbackArguments.length > 1;
-
             if (node.arguments.length === 0) {
                 printedArgs = [printEmptyParens(path, print, options)];
-            } else if (
-                [node.arguments[0], node.arguments[node.arguments.length - 1]].some(
-                    (node) =>
-                        node?.type === "FunctionDeclaration" ||
-                        node?.type === "StructExpression"
-                )
-            ) {
-                // treat this function like it has a callback
-                const inlineArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-                    addIndent: false,
-                    forceInline: true,
-                    leadingNewline: false,
-                    trailingNewline: false,
-                    maxElementsPerLine: elementsPerLineLimit
-                });
-
-                const multilineArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-                    forceBreak: shouldForceBreakArguments,
-                    maxElementsPerLine: elementsPerLineLimit
-                });
-
-                if (shouldForceBreakArguments) {
-                    printedArgs = [concat([breakParent, multilineArguments])];
-                } else {
-                    printedArgs = [conditionalGroup([inlineArguments, multilineArguments])];
-                }
             } else {
-                const callArguments = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
-                    forceBreak: shouldForceBreakArguments,
-                    maxElementsPerLine: elementsPerLineLimit
-                });
+                const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
+                    ? options.maxParamsPerLine
+                    : 0;
+                const elementsPerLineLimit =
+          maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
-                printedArgs = shouldForceBreakArguments
-                    ? [concat([breakParent, callArguments])]
-                    : [callArguments];
+                const callbackArguments = node.arguments.filter(
+                    (argument) => argument?.type === "FunctionDeclaration"
+                );
+
+                const shouldForceBreakArguments =
+          (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
+          callbackArguments.length > 1;
+
+                const shouldUseCallbackLayout = [
+                    node.arguments[0],
+                    node.arguments[node.arguments.length - 1]
+                ].some(
+                    (argumentNode) =>
+                        argumentNode?.type === "FunctionDeclaration" ||
+            argumentNode?.type === "StructExpression"
+                );
+
+                const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
+                    path,
+                    print,
+                    options,
+                    {
+                        forceBreak: shouldForceBreakArguments,
+                        maxElementsPerLine: elementsPerLineLimit,
+                        includeInlineVariant:
+              shouldUseCallbackLayout && !shouldForceBreakArguments
+                    }
+                );
+
+                if (shouldUseCallbackLayout) {
+                    printedArgs = shouldForceBreakArguments
+                        ? [concat([breakParent, multilineDoc])]
+                        : [conditionalGroup([inlineDoc, multilineDoc])];
+                } else {
+                    printedArgs = shouldForceBreakArguments
+                        ? [concat([breakParent, multilineDoc])]
+                        : [multilineDoc];
+                }
             }
 
             if (isInLValueChain(path)) {
@@ -508,25 +546,16 @@ export function print(path, options, print) {
             if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
                 const objectNode = path.getValue()?.object;
                 const shouldAllowBreakBeforeDot =
-                    objectNode &&
-                    (objectNode.type === "CallExpression" ||
-                        objectNode.type === "MemberDotExpression" ||
-                        objectNode.type === "MemberIndexExpression");
+          objectNode &&
+          (objectNode.type === "CallExpression" ||
+            objectNode.type === "MemberDotExpression" ||
+            objectNode.type === "MemberIndexExpression");
 
                 if (shouldAllowBreakBeforeDot) {
-                    return concat([
-                        print("object"),
-                        softline,
-                        ".",
-                        print("property")
-                    ]);
+                    return concat([print("object"), softline, ".", print("property")]);
                 }
 
-                return concat([
-                    print("object"),
-                    ".",
-                    print("property")
-                ]);
+                return concat([print("object"), ".", print("property")]);
             } else {
                 // return [
                 //     print("object"),
@@ -535,13 +564,16 @@ export function print(path, options, print) {
                 // ];
                 let property = print("property");
                 if (property === undefined) {
-                    property = printCommaSeparatedList(path, print, "property", "", "", options);
+                    property = printCommaSeparatedList(
+                        path,
+                        print,
+                        "property",
+                        "",
+                        "",
+                        options
+                    );
                 }
-                return concat([
-                    print("object"),
-                    ".",
-                    group(indent(property))
-                ]);
+                return concat([print("object"), ".", group(indent(property))]);
                 // return [
                 //     print("object"),
                 //     ".",
@@ -554,23 +586,27 @@ export function print(path, options, print) {
             if (accessor.length > 1) {
                 accessor += " ";
             }
-            let property = printCommaSeparatedList(path, print, "property", "", "", options);
-            return concat([
-                print("object"),
-                accessor,
-                group(indent(property)),
-                "]"
-            ]);
+            let property = printCommaSeparatedList(
+                path,
+                print,
+                "property",
+                "",
+                "",
+                options
+            );
+            return concat([print("object"), accessor, group(indent(property)), "]"]);
         }
         case "StructExpression": {
             if (node.properties.length === 0) {
                 return concat(printEmptyBlock(path, options, print));
             }
-            return concat(printCommaSeparatedList(path, print, "properties", "{", "}", options, {
-                forceBreak: node.hasTrailingComma,
-                // TODO: decide whether to add bracket spacing for struct expressions
-                padding: ""
-            }));
+            return concat(
+                printCommaSeparatedList(path, print, "properties", "{", "}", options, {
+                    forceBreak: node.hasTrailingComma,
+                    // TODO: decide whether to add bracket spacing for struct expressions
+                    padding: ""
+                })
+            );
         }
         case "Property": {
             const originalPrefix = getStructPropertyPrefix(node, options);
@@ -582,10 +618,12 @@ export function print(path, options, print) {
         }
         case "ArrayExpression": {
             const allowTrailingComma = shouldAllowTrailingComma(options);
-            return concat(printCommaSeparatedList(path, print, "elements", "[", "]", options, {
-                allowTrailingDelimiter: allowTrailingComma,
-                forceBreak: allowTrailingComma && node.hasTrailingComma
-            }));
+            return concat(
+                printCommaSeparatedList(path, print, "elements", "[", "]", options, {
+                    allowTrailingDelimiter: allowTrailingComma,
+                    forceBreak: allowTrailingComma && node.hasTrailingComma
+                })
+            );
         }
         case "EnumDeclaration": {
             if (Array.isArray(node.members) && node.members.length > 0) {
@@ -594,8 +632,9 @@ export function print(path, options, print) {
                     return name ? name.length : 0;
                 });
                 const maxNameLength = Math.max(...nameLengths);
+                const commentPadding = getEnumTrailingCommentPadding(options);
                 node.members.forEach((member, index) => {
-                    member._commentColumnTarget = maxNameLength + 2;
+                    member._commentColumnTarget = maxNameLength + commentPadding;
                     member._hasTrailingComma = index !== node.members.length - 1;
                     member._nameLengthForAlignment = nameLengths[index];
                 });
@@ -654,13 +693,14 @@ export function print(path, options, print) {
         case "EmptyStatement": {
             return concat("");
         }
-        case "Literal": {  // TODO add option to allow missing trailing/leading zeroes
+        case "Literal": {
+            // TODO add option to allow missing trailing/leading zeroes
             let value = node.value;
             if (value.startsWith(".") && !value.startsWith("\"")) {
-                value = "0" + value;  // fix decimals without a leading 0
+                value = "0" + value; // fix decimals without a leading 0
             }
             if (value.endsWith(".") && !value.endsWith("\"")) {
-                value = value + "0";  // fix decimals without a trailing 0
+                value = value + "0"; // fix decimals without a trailing 0
             }
             return concat(value);
         }
@@ -679,24 +719,31 @@ export function print(path, options, print) {
             if (node.arguments.length === 0) {
                 argsPrinted = [printEmptyParens(path, print, options)];
             } else {
-                argsPrinted = [printCommaSeparatedList(path, print, "arguments", "(", ")", options)];
+                argsPrinted = [
+                    printCommaSeparatedList(path, print, "arguments", "(", ")", options)
+                ];
             }
             return concat(["new ", print("expression"), ...argsPrinted]);
         }
         case "EnumMember": {
             if (Array.isArray(node.comments) && node.comments.length > 0) {
-                const baseLength = (node._nameLengthForAlignment || 0) + (node._hasTrailingComma ? 1 : 0);
+                const baseLength =
+          (node._nameLengthForAlignment || 0) +
+          (node._hasTrailingComma ? 1 : 0);
                 const targetColumn = node._commentColumnTarget || 0;
                 const padding = Math.max(targetColumn - baseLength - 1, 0);
                 node.comments.forEach((comment) => {
-                    if (comment && (comment.trailing || comment.placement === "endOfLine")) {
+                    if (
+                        comment &&
+            (comment.trailing || comment.placement === "endOfLine")
+                    ) {
                         comment.inlinePadding = padding;
                     }
                 });
             }
-            return concat(printSimpleDeclaration(
-                print("name"), print("initializer")
-            ));
+            return concat(
+                printSimpleDeclaration(print("name"), print("initializer"))
+            );
         }
         case "CatchClause": {
             const parts = [];
@@ -737,9 +784,12 @@ export function print(path, options, print) {
             });
             parts.push("\"");
             return concat(parts);
-        }        
+        }
         default:
-            console.warn("Print.js:print encountered unhandled node type: " + node.type, node);
+            console.warn(
+                "Print.js:print encountered unhandled node type: " + node.type,
+                node
+            );
     }
 }
 
@@ -767,7 +817,14 @@ function printDelimitedList(
 
     const innerDoc = [
         ifBreak(leadingNewline ? lineBreak : "", padding),
-        printElements(path, print, listKey, delimiter, lineBreak, maxElementsPerLine)
+        printElements(
+            path,
+            print,
+            listKey,
+            delimiter,
+            lineBreak,
+            maxElementsPerLine
+        )
     ];
 
     const groupElements = [
@@ -797,11 +854,55 @@ function shouldAllowTrailingComma(options) {
     return options?.trailingComma === "all";
 }
 
-function printCommaSeparatedList(path, print, listKey, startChar, endChar, options, overrides = {}) {
+function buildCallArgumentsDocs(
+    path,
+    print,
+    options,
+    {
+        forceBreak = false,
+        maxElementsPerLine = Infinity,
+        includeInlineVariant = false
+    } = {}
+) {
+    const multilineDoc = printCommaSeparatedList(
+        path,
+        print,
+        "arguments",
+        "(",
+        ")",
+        options,
+        {
+            forceBreak,
+            maxElementsPerLine
+        }
+    );
+
+    const inlineDoc = includeInlineVariant
+        ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
+            addIndent: false,
+            forceInline: true,
+            leadingNewline: false,
+            trailingNewline: false,
+            maxElementsPerLine
+        })
+        : null;
+
+    return { inlineDoc, multilineDoc };
+}
+
+function printCommaSeparatedList(
+    path,
+    print,
+    listKey,
+    startChar,
+    endChar,
+    options,
+    overrides = {}
+) {
     const allowTrailingDelimiter =
-        overrides.allowTrailingDelimiter !== undefined
-            ? overrides.allowTrailingDelimiter
-            : shouldAllowTrailingComma(options);
+    overrides.allowTrailingDelimiter !== undefined
+        ? overrides.allowTrailingDelimiter
+        : shouldAllowTrailingComma(options);
 
     return printDelimitedList(path, print, listKey, startChar, endChar, {
         delimiter: ",",
@@ -816,11 +917,7 @@ function printInBlock(path, options, print, expressionKey) {
     if (node.type !== "BlockStatement") {
         return [
             "{",
-            indent([
-                hardline,
-                print(expressionKey),
-                optionalSemicolon(node.type)
-            ]),
+            indent([hardline, print(expressionKey), optionalSemicolon(node.type)]),
             hardline,
             "}"
         ];
@@ -845,7 +942,7 @@ function printElements(
     return path.map((childPath, index) => {
         const parts = [];
         const printed = print();
-        const separator = (index !== finalIndex ? delimiter : "");
+        const separator = index !== finalIndex ? delimiter : "";
 
         if (docHasTrailingComment(printed)) {
             printed.splice(printed.length - 1, 0, separator);
@@ -856,13 +953,14 @@ function printElements(
         }
 
         if (index !== finalIndex) {
-            const hasLimit = Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
+            const hasLimit =
+        Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
             itemsSinceLastBreak += 1;
             if (hasLimit) {
                 const childNode = childPath.getValue();
                 const shouldBreakAfter =
-                    isComplexArgumentNode(childNode) ||
-                    itemsSinceLastBreak >= maxElementsPerLine;
+          isComplexArgumentNode(childNode) ||
+          itemsSinceLastBreak >= maxElementsPerLine;
 
                 if (shouldBreakAfter) {
                     parts.push(lineBreak);
@@ -886,21 +984,18 @@ function isComplexArgumentNode(node) {
 
     return (
         node.type === "CallExpression" ||
-        node.type === "FunctionDeclaration" ||
-        node.type === "StructExpression"
+    node.type === "FunctionDeclaration" ||
+    node.type === "StructExpression"
     );
 }
 
 // variation of printElements that handles semicolons and line breaks in a program or block
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
-    let currentHadNewlineAddedBefore = false; // tracks newline added before the current node
 
     const parentNode = path.getValue();
-    const parentOfParent = typeof path.getParentNode === "function"
-        ? path.getParentNode()
-        : null;
-    const statements = parentNode && Array.isArray(parentNode[childrenAttribute])
+    const statements =
+    parentNode && Array.isArray(parentNode[childrenAttribute])
         ? parentNode[childrenAttribute]
         : null;
     if (statements) {
@@ -910,7 +1005,10 @@ function printStatements(path, options, print, childrenAttribute) {
     const syntheticDocByNode = new Map();
     if (statements) {
         for (const statement of statements) {
-            const docComment = getSyntheticDocCommentForStaticVariable(statement, options);
+            const docComment = getSyntheticDocCommentForStaticVariable(
+                statement,
+                options
+            );
             if (docComment) {
                 syntheticDocByNode.set(statement, docComment);
             }
@@ -918,7 +1016,8 @@ function printStatements(path, options, print, childrenAttribute) {
     }
 
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
-    const locStart = typeof options.locStart === "function" ? options.locStart : null;
+    const locStart =
+    typeof options.locStart === "function" ? options.locStart : null;
     const locEnd = typeof options.locEnd === "function" ? options.locEnd : null;
     const originalTextCache = options.originalText;
 
@@ -935,19 +1034,23 @@ function printStatements(path, options, print, childrenAttribute) {
         let semi = optionalSemicolon(node.type);
         const startProp = node?.start;
         const endProp = node?.end;
-        const fallbackStart = typeof startProp === "number"
-            ? startProp
-            : (typeof startProp?.index === "number" ? startProp.index : 0);
-        const fallbackEnd = typeof endProp === "number"
-            ? endProp
-            : (typeof endProp?.index === "number" ? endProp.index : fallbackStart);
+        const fallbackStart =
+      typeof startProp === "number"
+          ? startProp
+          : typeof startProp?.index === "number"
+              ? startProp.index
+              : 0;
+        const fallbackEnd =
+      typeof endProp === "number"
+          ? endProp
+          : typeof endProp?.index === "number"
+              ? endProp.index
+              : fallbackStart;
         const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
         const nodeEndIndex = locEnd ? locEnd(node) - 1 : fallbackEnd;
 
-        const currentNodeRequiresNewline = shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
-
-        // Reset flag for current node
-        currentHadNewlineAddedBefore = false;
+        const currentNodeRequiresNewline =
+      shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
         // Check if a newline should be added BEFORE the statement
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
@@ -955,12 +1058,12 @@ function printStatements(path, options, print, childrenAttribute) {
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
                 : false;
 
-            if (isTopLevel &&
-                !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
-                !hasLeadingComment
+            if (
+                isTopLevel &&
+        !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
+        !hasLeadingComment
             ) {
                 parts.push(hardline);
-                currentHadNewlineAddedBefore = true;
             }
         }
 
@@ -977,7 +1080,7 @@ function printStatements(path, options, print, childrenAttribute) {
             let cursor = nodeEndIndex + 1;
             while (
                 cursor < textLength &&
-                isSkippableSemicolonWhitespace(textForSemicolons.charCodeAt(cursor))
+        isSkippableSemicolonWhitespace(textForSemicolons.charCodeAt(cursor))
             ) {
                 cursor++;
             }
@@ -985,10 +1088,10 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         const shouldOmitSemicolon =
-            semi === ";" &&
-            !hasTerminatingSemicolon &&
-            syntheticDocComment &&
-            isLastStatement(childPath);
+      semi === ";" &&
+      !hasTerminatingSemicolon &&
+      syntheticDocComment &&
+      isLastStatement(childPath);
 
         if (shouldOmitSemicolon) {
             semi = "";
@@ -1010,8 +1113,13 @@ function printStatements(path, options, print, childrenAttribute) {
         if (!isLastStatement(childPath)) {
             parts.push(hardline);
             const nextNode = statements ? statements[index + 1] : null;
-            const nextHasSyntheticDoc = nextNode ? syntheticDocByNode.has(nextNode) : false;
-            const nextLineEmpty = isNextLineEmpty(options.originalText, nodeEndIndex + 1);
+            const nextHasSyntheticDoc = nextNode
+                ? syntheticDocByNode.has(nextNode)
+                : false;
+            const nextLineEmpty = isNextLineEmpty(
+                options.originalText,
+                nodeEndIndex + 1
+            );
 
             if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
@@ -1066,27 +1174,29 @@ function applyAssignmentAlignment(statements, options) {
 }
 
 function getAssignmentAlignmentMinimum(options) {
-    const rawValue = options?.alignAssignmentsMinGroupSize;
-    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-        return 3;
-    }
+    return coercePositiveIntegerOption(options?.alignAssignmentsMinGroupSize, 3, {
+        zeroReplacement: 0
+    });
+}
 
-    const normalized = Math.floor(rawValue);
-    if (normalized <= 0) {
-        return 0;
-    }
+const DEFAULT_ENUM_TRAILING_COMMENT_PADDING = 2;
 
-    return normalized;
+function getEnumTrailingCommentPadding(options) {
+    return coercePositiveIntegerOption(
+        options?.enumTrailingCommentPadding,
+        DEFAULT_ENUM_TRAILING_COMMENT_PADDING,
+        { zeroReplacement: 0 }
+    );
 }
 
 function isSimpleAssignment(node) {
     return !!(
         node &&
-        node.type === "AssignmentExpression" &&
-        node.operator === "=" &&
-        node.left &&
-        node.left.type === "Identifier" &&
-        typeof node.left.name === "string"
+    node.type === "AssignmentExpression" &&
+    node.operator === "=" &&
+    node.left &&
+    node.left.type === "Identifier" &&
+    typeof node.left.name === "string"
     );
 }
 
@@ -1151,9 +1261,9 @@ function isInlineWhitespace(charCode) {
     // allocations when scanning large source files inside tight loops.
     return (
         charCode === 9 || // tab
-        charCode === 10 || // line feed
-        charCode === 13 || // carriage return
-        charCode === 32 // space
+    charCode === 10 || // line feed
+    charCode === 13 || // carriage return
+    charCode === 32 // space
     );
 }
 
@@ -1182,7 +1292,10 @@ function hasCommentImmediatelyBefore(text, index) {
     }
 
     let lineStart = cursor + 1;
-    while (lineStart < lineEndExclusive && isInlineWhitespace(text.charCodeAt(lineStart))) {
+    while (
+        lineStart < lineEndExclusive &&
+    isInlineWhitespace(text.charCodeAt(lineStart))
+    ) {
         lineStart++;
     }
 
@@ -1202,15 +1315,22 @@ function hasCommentImmediatelyBefore(text, index) {
     const first = text.charCodeAt(lineStart);
     const second = lineStart + 1 <= lineEnd ? text.charCodeAt(lineStart + 1) : -1;
 
-    if (first === 47) { // '/'
-        if (second === 47 || second === 42) { // '/', '*'
+    if (first === 47) {
+    // '/'
+        if (second === 47 || second === 42) {
+            // '/', '*'
             return true;
         }
-    } else if (first === 42) { // '*'
+    } else if (first === 42) {
+    // '*'
         return true;
     }
 
-    return lineEnd >= lineStart + 1 && text.charCodeAt(lineEnd) === 47 && text.charCodeAt(lineEnd - 1) === 42;
+    return (
+        lineEnd >= lineStart + 1 &&
+    text.charCodeAt(lineEnd) === 47 &&
+    text.charCodeAt(lineEnd - 1) === 42
+    );
 }
 
 function mergeSyntheticDocComments(node, existingDocLines, options) {
@@ -1248,11 +1368,11 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
         }
 
         const docMetadata =
-            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+      metadata === undefined ? parseDocCommentMetadata(line) : metadata;
         const canonical =
-            docMetadata?.tag === "param"
-                ? getCanonicalParamNameFromText(docMetadata.name)
-                : null;
+      docMetadata?.tag === "param"
+          ? getCanonicalParamNameFromText(docMetadata.name)
+          : null;
 
         paramCanonicalNameCache.set(line, canonical);
         return canonical;
@@ -1281,14 +1401,14 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
             const firstParamIndex = mergedLines.findIndex(isParamLine);
 
             const insertionIndex =
-                firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
+        firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
             const precedingLine =
-                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+        insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
 
             const needsSeparatorBeforeFunction =
-                typeof precedingLine === "string" &&
-                precedingLine.trim() !== "" &&
-                !isFunctionLine(precedingLine);
+        typeof precedingLine === "string" &&
+        precedingLine.trim() !== "" &&
+        !isFunctionLine(precedingLine);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [
@@ -1333,7 +1453,10 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
             if (canonical && paramLineIndices.has(canonical) && metadata?.name) {
                 const lineIndex = paramLineIndices.get(canonical);
                 const existingLine = mergedLines[lineIndex];
-                const updatedLine = updateParamLineWithDocName(existingLine, metadata.name);
+                const updatedLine = updateParamLineWithDocName(
+                    existingLine,
+                    metadata.name
+                );
                 if (updatedLine !== existingLine) {
                     mergedLines[lineIndex] = updatedLine;
                     removedAnyLine = true;
@@ -1387,8 +1510,8 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
     if (lastFunctionIndex === -1) {
         while (
             insertionIndex < mergedLines.length &&
-            typeof mergedLines[insertionIndex] === "string" &&
-            mergedLines[insertionIndex].trim() === ""
+      typeof mergedLines[insertionIndex] === "string" &&
+      mergedLines[insertionIndex].trim() === ""
         ) {
             insertionIndex += 1;
         }
@@ -1396,8 +1519,8 @@ function mergeSyntheticDocComments(node, existingDocLines, options) {
 
     while (
         insertionIndex < mergedLines.length &&
-        typeof mergedLines[insertionIndex] === "string" &&
-        isParamLine(mergedLines[insertionIndex])
+    typeof mergedLines[insertionIndex] === "string" &&
+    isParamLine(mergedLines[insertionIndex])
     ) {
         insertionIndex += 1;
     }
@@ -1511,22 +1634,25 @@ function updateParamLineWithDocName(line, newDocName) {
     return `${prefix}${updatedRemainder}`;
 }
 
-function computeSyntheticFunctionDocLines(node, existingDocLines, options, overrides = {}) {
+function computeSyntheticFunctionDocLines(
+    node,
+    existingDocLines,
+    options,
+    overrides = {}
+) {
     if (!node) {
         return [];
     }
 
     const metadata = Array.isArray(existingDocLines)
-        ? existingDocLines
-            .map(parseDocCommentMetadata)
-            .filter((meta) => meta)
+        ? existingDocLines.map(parseDocCommentMetadata).filter((meta) => meta)
         : [];
 
     const hasFunctionTag = metadata.some(
         (meta) =>
             meta.tag === "function" &&
-            typeof meta.name === "string" &&
-            meta.name.trim().length > 0
+      typeof meta.name === "string" &&
+      meta.name.trim().length > 0
     );
     const documentedParamNames = new Set();
 
@@ -1561,7 +1687,6 @@ function computeSyntheticFunctionDocLines(node, existingDocLines, options, overr
             continue;
         }
         const docName = paramInfo.optional ? `[${paramInfo.name}]` : paramInfo.name;
-        const canonicalName = getCanonicalParamNameFromText(docName);
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -1609,10 +1734,12 @@ function getSourceTextForNode(node, options) {
         return null;
     }
 
-    const startIndex = typeof options.locStart === "function"
+    const startIndex =
+    typeof options.locStart === "function"
         ? options.locStart(node)
         : getNodeStartIndex(node);
-    const endIndex = typeof options.locEnd === "function"
+    const endIndex =
+    typeof options.locEnd === "function"
         ? options.locEnd(node)
         : getNodeEndIndex(node);
 
@@ -1637,8 +1764,8 @@ function getStructPropertyPrefix(node, options) {
 
     if (
         typeof propertyStart !== "number" ||
-        typeof valueStart !== "number" ||
-        valueStart <= propertyStart
+    typeof valueStart !== "number" ||
+    valueStart <= propertyStart
     ) {
         return null;
     }
@@ -1683,13 +1810,15 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const defaultIsUndefined = isUndefinedLiteral(paramNode.right);
         const signatureOmitsUndefinedDefault =
-            defaultIsUndefined && shouldOmitUndefinedDefaultForFunctionNode(functionNode);
+      defaultIsUndefined &&
+      shouldOmitUndefinedDefaultForFunctionNode(functionNode);
         const isConstructorLike =
-            functionNode?.type === "ConstructorDeclaration" ||
-            functionNode?.type === "ConstructorParentClause";
+      functionNode?.type === "ConstructorDeclaration" ||
+      functionNode?.type === "ConstructorParentClause";
 
         const shouldIncludeDefaultText =
-            !defaultIsUndefined || (!signatureOmitsUndefinedDefault && !isConstructorLike);
+      !defaultIsUndefined ||
+      (!signatureOmitsUndefinedDefault && !isConstructorLike);
 
         const defaultText = shouldIncludeDefaultText
             ? getSourceTextForNode(paramNode.right, options)
@@ -1697,7 +1826,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
-        const optional = defaultIsUndefined ? !signatureOmitsUndefinedDefault : true;
+        const optional = defaultIsUndefined
+            ? !signatureOmitsUndefinedDefault
+            : true;
 
         return {
             name: docName,
@@ -1710,7 +1841,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     const rawFallbackName = getIdentifierText(paramNode);
-    const sanitizedFallbackName = stripSyntheticParameterSentinels(rawFallbackName);
+    const sanitizedFallbackName =
+    stripSyntheticParameterSentinels(rawFallbackName);
     const fallbackName = normalizeDocMetadataName(sanitizedFallbackName);
     return fallbackName ? { name: fallbackName, optional: false } : null;
 }
@@ -1721,13 +1853,17 @@ function shouldOmitDefaultValueForParameter(path) {
         return false;
     }
 
-    if (!isUndefinedLiteral(node.right) || typeof path.getParentNode !== "function") {
+    if (
+        !isUndefinedLiteral(node.right) ||
+    typeof path.getParentNode !== "function"
+    ) {
         return false;
     }
 
     let depth = 0;
     while (true) {
-        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor =
+      depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!ancestor) {
             break;
         }
@@ -1749,7 +1885,7 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
 
     if (
         functionNode.type === "ConstructorDeclaration" ||
-        functionNode.type === "ConstructorParentClause"
+    functionNode.type === "ConstructorParentClause"
     ) {
         return false;
     }
@@ -1761,10 +1897,10 @@ function printBooleanReturnIf(path, print) {
     const node = path.getValue();
     if (
         !node ||
-        node.type !== "IfStatement" ||
-        !node.consequent ||
-        !node.alternate ||
-        hasComment(node)
+    node.type !== "IfStatement" ||
+    !node.consequent ||
+    !node.alternate ||
+    hasComment(node)
     ) {
         return null;
     }
@@ -1783,15 +1919,12 @@ function printBooleanReturnIf(path, print) {
     const conditionDoc = printWithoutExtraParens(path, print, "test");
     const conditionNode = node.test;
 
-    const argumentDoc = consequentReturn.value === "true"
+    const argumentDoc =
+    consequentReturn.value === "true"
         ? conditionDoc
         : negateExpressionDoc(conditionDoc, conditionNode);
 
-    return concat([
-        "return ",
-        argumentDoc,
-        optionalSemicolon("ReturnStatement")
-    ]);
+    return concat(["return ", argumentDoc, optionalSemicolon("ReturnStatement")]);
 }
 
 function getBooleanReturnBranch(branchNode) {
@@ -1927,7 +2060,9 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    const wrappedArgs = Array.isArray(firstArg.arguments) ? firstArg.arguments : [];
+    const wrappedArgs = Array.isArray(firstArg.arguments)
+        ? firstArg.arguments
+        : [];
     if (wrappedArgs.length !== 1) {
         return false;
     }
@@ -1962,7 +2097,10 @@ function applyOuterTrigConversion(node, conversionMap) {
     }
 
     const innerArgs = Array.isArray(firstArg.arguments) ? firstArg.arguments : [];
-    if (typeof mapping.expectedArgs === "number" && innerArgs.length !== mapping.expectedArgs) {
+    if (
+        typeof mapping.expectedArgs === "number" &&
+    innerArgs.length !== mapping.expectedArgs
+    ) {
         return false;
     }
 
@@ -2024,9 +2162,10 @@ function needsParensForNegation(node) {
 function isBooleanLiteral(node) {
     return !!(
         node &&
-        node.type === "Literal" &&
-        typeof node.value === "string" &&
-        (node.value.toLowerCase() === "true" || node.value.toLowerCase() === "false")
+    node.type === "Literal" &&
+    typeof node.value === "string" &&
+    (node.value.toLowerCase() === "true" ||
+      node.value.toLowerCase() === "false")
     );
 }
 
@@ -2072,7 +2211,11 @@ function shouldPrefixGlobalIdentifier(path) {
     return true;
 }
 
-function shouldGenerateSyntheticDocForFunction(path, existingDocLines, options) {
+function shouldGenerateSyntheticDocForFunction(
+    path,
+    existingDocLines,
+    options
+) {
     const node = path.getValue();
     const parent = path.getParentNode();
     if (!node || !parent || parent.type !== "Program") {
@@ -2097,9 +2240,12 @@ function shouldGenerateSyntheticDocForFunction(path, existingDocLines, options) 
         return true;
     }
 
-    return Array.isArray(node.params) && node.params.some((param) => {
+    return (
+        Array.isArray(node.params) &&
+    node.params.some((param) => {
         return param?.type === "DefaultParameter";
-    });
+    })
+    );
 }
 
 function shouldInsertHoistedLoopSeparator(path, options) {
@@ -2183,7 +2329,7 @@ function docHasTrailingComment(doc) {
                 return commentArr.some((item) => {
                     return (
                         typeof item === "string" &&
-                        (item.startsWith("//") || item.startsWith("/*"))
+            (item.startsWith("//") || item.startsWith("/*"))
                     );
                 });
             }
@@ -2202,7 +2348,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 const RADIAN_TRIG_TO_DEGREE = new Map([
     ["sin", "dsin"],
     ["cos", "dcos"],
-    ["tan", "dtan"],
+    ["tan", "dtan"]
 ]);
 
 const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
@@ -2212,14 +2358,14 @@ const DEGREE_TO_RADIAN_CONVERSIONS = new Map([
     ["darcsin", { name: "arcsin", expectedArgs: 1 }],
     ["darccos", { name: "arccos", expectedArgs: 1 }],
     ["darctan", { name: "arctan", expectedArgs: 1 }],
-    ["darctan2", { name: "arctan2", expectedArgs: 2 }],
+    ["darctan2", { name: "arctan2", expectedArgs: 2 }]
 ]);
 
 const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
     ["arcsin", { name: "darcsin", expectedArgs: 1 }],
     ["arccos", { name: "darccos", expectedArgs: 1 }],
     ["arctan", { name: "darctan", expectedArgs: 1 }],
-    ["arctan2", { name: "darctan2", expectedArgs: 2 }],
+    ["arctan2", { name: "darctan2", expectedArgs: 2 }]
 ]);
 
 function buildArrayLengthDocs(path, print, hoistInfo) {
@@ -2227,7 +2373,12 @@ function buildArrayLengthDocs(path, print, hoistInfo) {
         hoistInfo.sizeIdentifierName,
         hoistInfo.cachedLengthSuffix
     );
-    const arrayLengthCallDoc = printWithoutExtraParens(path, print, "test", "right");
+    const arrayLengthCallDoc = printWithoutExtraParens(
+        path,
+        print,
+        "test",
+        "right"
+    );
     const iteratorDoc = printWithoutExtraParens(path, print, "test", "left");
 
     return {
@@ -2249,15 +2400,6 @@ function unwrapParenthesizedExpression(childPath, print) {
     return print();
 }
 
-function isUndefinedLiteral(node) {
-    return !!(
-        node &&
-        node.type === "Literal" &&
-        typeof node.value === "string" &&
-        node.value.toLowerCase() === "undefined"
-    );
-}
-
 function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
@@ -2271,13 +2413,25 @@ function wrapInClauseParens(path, print, clauseKey) {
 }
 
 // prints any statement that matches the structure [keyword, clause, statement]
-function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
+function printSingleClauseStatement(
+    path,
+    options,
+    print,
+    keyword,
+    clauseKey,
+    bodyKey
+) {
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const node = path.getValue();
     const bodyNode = node?.[bodyKey];
-    const allowSingleLineIfStatements = options?.allowSingleLineIfStatements ?? true;
+    const allowSingleLineIfStatements =
+    options?.allowSingleLineIfStatements ?? true;
 
-    if (allowSingleLineIfStatements && bodyNode && bodyNode.type === "ReturnStatement") {
+    if (
+        allowSingleLineIfStatements &&
+    bodyNode &&
+    bodyNode.type === "ReturnStatement"
+    ) {
         return group([
             keyword,
             " ",
@@ -2289,7 +2443,13 @@ function printSingleClauseStatement(path, options, print, keyword, clauseKey, bo
         ]);
     }
 
-    return concat([keyword, " ", clauseDoc, " ", printInBlock(path, options, print, bodyKey)]);
+    return concat([
+        keyword,
+        " ",
+        clauseDoc,
+        " ",
+        printInBlock(path, options, print, bodyKey)
+    ]);
 }
 
 function printSimpleDeclaration(leftDoc, rightDoc) {
@@ -2297,43 +2457,40 @@ function printSimpleDeclaration(leftDoc, rightDoc) {
 }
 
 // prints empty parens with dangling comments
-function printEmptyParens(path, options, print) {
-    const printed = group([
-        "(",
-        indent([
-            printDanglingCommentsAsGroup(
-                path,
-                options,
-                true,
-                (comment) => !comment.attachToBrace
-            )
-        ]),
-        ifBreak(line, "", { groupId: "emptyparen" }),
-        ")"
-    ], { id: "emptyparen" });
+function printEmptyParens(path, options) {
+    const printed = group(
+        [
+            "(",
+            indent([
+                printDanglingCommentsAsGroup(
+                    path,
+                    options,
+                    true,
+                    (comment) => !comment.attachToBrace
+                )
+            ]),
+            ifBreak(line, "", { groupId: "emptyparen" }),
+            ")"
+        ],
+        { id: "emptyparen" }
+    );
     return printed;
 }
 
 // prints an empty block with dangling comments
-function printEmptyBlock(path, options, print) {
+function printEmptyBlock(path, options) {
     const node = path.getValue();
     const comments = Array.isArray(node?.comments) ? node.comments : [];
     const hasPrintableComments = comments.some(isCommentNode);
 
     if (hasPrintableComments) {
-        // an empty block with comments
+    // an empty block with comments
         return [
             "{",
-            printDanglingComments(
-                path,
-                options,
-                true,
-                (comment) => comment.attachToBrace
-            ),
+            printDanglingComments(path, options, (comment) => comment.attachToBrace),
             printDanglingCommentsAsGroup(
                 path,
                 options,
-                true,
                 (comment) => !comment.attachToBrace
             ),
             hardline,
@@ -2348,7 +2505,7 @@ function isInLValueChain(path) {
     const { node, parent } = path;
     if (
         parent.type === "CallExpression" &&
-        parent.arguments.indexOf(node) !== -1
+    parent.arguments.indexOf(node) !== -1
     ) {
         return false;
     }
@@ -2358,7 +2515,7 @@ function isInLValueChain(path) {
 function isLValueExpression(nodeType) {
     return (
         nodeType === "MemberIndexExpression" ||
-        nodeType === "CallExpression" ||
-        nodeType === "MemberDotExpression"
+    nodeType === "CallExpression" ||
+    nodeType === "MemberDotExpression"
     );
 }
