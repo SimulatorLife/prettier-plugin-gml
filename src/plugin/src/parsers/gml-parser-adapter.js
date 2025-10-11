@@ -11,6 +11,7 @@ import {
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
+import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -25,6 +26,10 @@ const { addTrailingComment } = util;
 function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
+
+    if (options && typeof options === "object" && options.originalText == null) {
+        options.originalText = text;
+    }
 
     if (options?.applyFeatherFixes) {
         const preprocessResult = preprocessSourceForFeatherFixes(text);
@@ -75,6 +80,10 @@ function parse(text, options) {
 
     if (options?.useStringInterpolation) {
         convertStringConcatenations(ast);
+    }
+
+    if (options?.condenseLogicalExpressions) {
+        condenseLogicalExpressions(ast);
     }
 
     preprocessFunctionArgumentDefaults(ast);
