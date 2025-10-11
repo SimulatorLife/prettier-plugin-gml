@@ -441,6 +441,120 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("normalizes argument built-ins flagged by GM1032", () => {
+        const metadata = getFeatherMetadata();
+        const diagnostic = (metadata?.diagnostics ?? []).find(
+            (entry) => entry?.id === "GM1032"
+        );
+
+        assert.ok(
+            diagnostic,
+            "Expected GM1032 diagnostic metadata to be available."
+        );
+
+        const source = [
+            "function sample() {",
+            "    var first = argument1;",
+            "    var second = argument3;",
+            "    return argument3 + argument4;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const trackedIdentifiers = [];
+
+        const collectArgumentIdentifiers = (node) => {
+            if (!node) {
+                return;
+            }
+
+            if (Array.isArray(node)) {
+                for (const child of node) {
+                    collectArgumentIdentifiers(child);
+                }
+                return;
+            }
+
+            if (typeof node !== "object") {
+                return;
+            }
+
+            if (
+                node.type === "Identifier" &&
+                typeof node.name === "string" &&
+                /^argument\d+$/.test(node.name)
+            ) {
+                trackedIdentifiers.push({
+                    node,
+                    originalName: node.name
+                });
+            }
+
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    collectArgumentIdentifiers(value);
+                }
+            }
+        };
+
+        collectArgumentIdentifiers(ast);
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const changedIdentifiers = trackedIdentifiers.filter(
+            (entry) => entry.node.name !== entry.originalName
+        );
+
+        assert.strictEqual(
+            changedIdentifiers.length > 0,
+            true,
+            "Expected some argument built-ins to be renamed."
+        );
+
+        const changedNames = changedIdentifiers
+            .map((entry) => entry.node.name)
+            .sort();
+        const expectedNames = [
+            "argument0",
+            "argument1",
+            "argument1",
+            "argument2"
+        ].sort();
+
+        assert.deepStrictEqual(
+            changedNames,
+            expectedNames,
+            "Argument built-ins should be reindexed without gaps starting from argument0."
+        );
+
+        for (const entry of changedIdentifiers) {
+            const metadataEntries = entry.node._appliedFeatherDiagnostics;
+
+            assert.ok(
+                Array.isArray(metadataEntries),
+                "Each rewritten argument identifier should include metadata."
+            );
+            assert.strictEqual(metadataEntries.length > 0, true);
+
+            const [fixDetail] = metadataEntries;
+
+            assert.strictEqual(fixDetail.id, "GM1032");
+            assert.strictEqual(fixDetail.target, entry.node.name);
+            assert.strictEqual(fixDetail.title, diagnostic.title);
+            assert.strictEqual(fixDetail.correction, diagnostic.correction);
+            assert.strictEqual(fixDetail.description, diagnostic.description);
+            assert.strictEqual(fixDetail.automatic, true);
+        }
+
+        const applied = ast._appliedFeatherDiagnostics ?? [];
+        assert.ok(applied.some((entry) => entry.id === "GM1032"));
+    });
+
     it("records duplicate semicolon fixes for GM1033", () => {
         const source = [
             "var value = 1;;",
