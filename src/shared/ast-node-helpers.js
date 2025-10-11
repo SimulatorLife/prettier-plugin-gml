@@ -21,7 +21,7 @@ function getSingleVariableDeclarator(node) {
 }
 
 function getIdentifierText(node) {
-    if (!node) {
+    if (node == null) {
         return null;
     }
 
@@ -29,20 +29,28 @@ function getIdentifierText(node) {
         return node;
     }
 
-    const { name } = node;
-    if (typeof name === "string") {
-        return name;
-    }
-
+    // Hoist the common type lookup; many callers are hot paths that check the
+    // same field repeatedly while traversing AST nodes.
     const { type } = node;
 
+    if (type === "Identifier") {
+        const name = node.name;
+        return typeof name === "string" ? name : null;
+    }
+
+    const directName = node.name;
+    if (typeof directName === "string") {
+        return directName;
+    }
+
     if (type === "Literal") {
-        const { value } = node;
+        const value = node.value;
         return typeof value === "string" ? value : null;
     }
 
     if (type === "MemberDotExpression") {
-        const { object, property } = node;
+        const object = node.object;
+        const property = node.property;
 
         if (
             !object ||
@@ -53,16 +61,19 @@ function getIdentifierText(node) {
             return null;
         }
 
-        return `${object.name}_${property.name}`;
+        // String concatenation avoids the template literal machinery in this
+        // hot branch, shaving work inside tight printer loops.
+        return object.name + "_" + property.name;
     }
 
     if (type === "MemberIndexExpression") {
-        const { object, property } = node;
+        const object = node.object;
 
         if (!object || object.type !== "Identifier") {
             return null;
         }
 
+        const property = node.property;
         if (!Array.isArray(property) || property.length !== 1) {
             return null;
         }
@@ -72,7 +83,7 @@ function getIdentifierText(node) {
             return null;
         }
 
-        return `${object.name}_${indexText}`;
+        return object.name + "_" + indexText;
     }
 
     return null;
@@ -83,18 +94,18 @@ function getMemberIndexText(indexNode) {
         return indexNode;
     }
 
-    if (!indexNode) {
+    if (indexNode == null) {
         return null;
     }
 
-    const { name: indexName, type: indexType } = indexNode;
-
+    const indexName = indexNode.name;
     if (typeof indexName === "string") {
         return indexName;
     }
 
+    const indexType = indexNode.type;
     if (indexType === "Literal") {
-        const { value } = indexNode;
+        const value = indexNode.value;
         return typeof value === "string" ? value : null;
     }
 

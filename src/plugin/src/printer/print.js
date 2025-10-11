@@ -726,10 +726,10 @@ export function print(path, options, print) {
         case "Literal": {
             // TODO add option to allow missing trailing/leading zeroes
             let value = node.value;
-            if (value.startsWith(".") && !value.startsWith("\"")) {
+            if (value.startsWith(".") && !value.startsWith('"')) {
                 value = "0" + value; // fix decimals without a leading 0
             }
-            if (value.endsWith(".") && !value.endsWith("\"")) {
+            if (value.endsWith(".") && !value.endsWith('"')) {
                 value = value + "0"; // fix decimals without a trailing 0
             }
             return concat(value);
@@ -804,7 +804,7 @@ export function print(path, options, print) {
         }
         case "TemplateStringExpression": {
             const parts = [];
-            parts.push("$\"");
+            parts.push('$"');
             node.atoms.forEach((atom, index) => {
                 if (atom.type === "TemplateStringText") {
                     parts.push(atom.value);
@@ -812,7 +812,7 @@ export function print(path, options, print) {
                     parts.push("{", path.map(print, "atoms")[index], "}");
                 }
             });
-            parts.push("\"");
+            parts.push('"');
             return concat(parts);
         }
         default:
@@ -1020,6 +1020,21 @@ function isComplexArgumentNode(node) {
 }
 
 // variation of printElements that handles semicolons and line breaks in a program or block
+function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
+    if (!previousNode || !nextNode) {
+        return false;
+    }
+
+    if (
+        previousNode.type === "MacroDeclaration" &&
+    nextNode.type === "MacroDeclaration"
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -1141,8 +1156,18 @@ function printStatements(path, options, print, childrenAttribute) {
 
         // Check if a newline should be added AFTER the statement
         if (!isLastStatement(childPath)) {
-            parts.push(hardline);
             const nextNode = statements ? statements[index + 1] : null;
+            const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
+                node,
+                nextNode
+            );
+            const shouldSkipStandardHardline =
+        shouldSuppressExtraEmptyLine && node?.type === "MacroDeclaration";
+
+            if (!shouldSkipStandardHardline) {
+                parts.push(hardline);
+            }
+
             const nextHasSyntheticDoc = nextNode
                 ? syntheticDocByNode.has(nextNode)
                 : false;
@@ -1154,7 +1179,11 @@ function printStatements(path, options, print, childrenAttribute) {
             if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
-            } else if (nextLineEmpty && !nextHasSyntheticDoc) {
+            } else if (
+                nextLineEmpty &&
+        !nextHasSyntheticDoc &&
+        !shouldSuppressExtraEmptyLine
+            ) {
                 parts.push(hardline);
             }
         } else if (isTopLevel) {
@@ -2314,7 +2343,7 @@ function shouldInsertHoistedLoopSeparator(path, options) {
     let nodeIndex = -1;
 
     for (const key in parent) {
-        if (!Object.prototype.hasOwnProperty.call(parent, key)) {
+        if (!Object.hasOwn(parent, key)) {
             continue;
         }
 

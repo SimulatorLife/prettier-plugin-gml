@@ -23,7 +23,7 @@ export default [
         },
         rules: {
             indent: ["error", 4, { SwitchCase: 1 }],
-            quotes: ["warn", "double"],
+            quotes: ["warn", "double", { avoidEscape: true }],
             semi: ["error", "always"],
             "no-unused-vars": ["warn"],
             "no-console": ["off"],

@@ -207,13 +207,30 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("preserves parentheses in @description tags", async () => {
+        const source = [
+            "/// @description Draw()",
+            "function draw() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        assert.ok(
+            formatted.includes("/// @description Draw()"),
+            "Expected @description comments to retain trailing parentheses"
+        );
+    });
+
     it("converts argument_count fallback conditionals into default parameters", async () => {
         const source = [
             "function example(arg) {",
             "    if (argument_count > 0) {",
             "        arg = argument[0];",
             "    } else {",
-            "        arg = \"default\";",
+            '        arg = "default";',
             "    }",
             "}"
         ].join("\n");
@@ -222,8 +239,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "/// @function example",
-            "/// @param [arg=\"default\"]",
-            "function example(arg = \"default\") {}"
+            '/// @param [arg="default"]',
+            'function example(arg = "default") {}'
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
@@ -233,7 +250,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const source = [
             "function equalityExample(arg) {",
             "    if (argument_count == 0) {",
-            "        arg = \"fallback\";",
+            '        arg = "fallback";',
             "    } else {",
             "        arg = argument[0];",
             "    }",
@@ -244,8 +261,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "/// @function equalityExample",
-            "/// @param [arg=\"fallback\"]",
-            "function equalityExample(arg = \"fallback\") {}"
+            '/// @param [arg="fallback"]',
+            'function equalityExample(arg = "fallback") {}'
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
@@ -257,7 +274,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    if (argument_count != 0) {",
             "        arg = argument[0];",
             "    } else {",
-            "        arg = \"fallback\";",
+            '        arg = "fallback";',
             "    }",
             "}"
         ].join("\n");
@@ -266,8 +283,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "/// @function inequalityExample",
-            "/// @param [arg=\"fallback\"]",
-            "function inequalityExample(arg = \"fallback\") {}"
+            '/// @param [arg="fallback"]',
+            'function inequalityExample(arg = "fallback") {}'
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
@@ -278,7 +295,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "function fallbackLeq(existing) {",
             "    var second;",
             "    if (argument_count <= 1) {",
-            "        second = \"fallback\";",
+            '        second = "fallback";',
             "    } else {",
             "        second = argument[1];",
             "    }",
@@ -288,7 +305,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "function fallbackLt(existing) {",
             "    var second;",
             "    if (argument_count < 2) {",
-            "        second = \"fallback\";",
+            '        second = "fallback";',
             "    } else {",
             "        second = argument[1];",
             "    }",
@@ -301,15 +318,15 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function fallbackLeq",
             "/// @param existing",
-            "/// @param [second=\"fallback\"]",
-            "function fallbackLeq(existing, second = \"fallback\") {",
+            '/// @param [second="fallback"]',
+            'function fallbackLeq(existing, second = "fallback") {',
             "    return existing + second;",
             "}",
             "",
             "/// @function fallbackLt",
             "/// @param existing",
-            "/// @param [second=\"fallback\"]",
-            "function fallbackLt(existing, second = \"fallback\") {",
+            '/// @param [second="fallback"]',
+            'function fallbackLt(existing, second = "fallback") {',
             "    return existing + second;",
             "}"
         ].join("\n");
@@ -381,7 +398,6 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "#macro FOO(value) (value + 1)",
-            "",
             "#macro BAR 100",
             "",
             "var result = FOO(1) + BAR;"
@@ -404,7 +420,6 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "#macro FOO(value) (value + 1) // comment",
-            "",
             "#macro BAR value + 2",
             "",
             "var result = FOO(3) + BAR;"

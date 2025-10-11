@@ -290,7 +290,7 @@ function parseArrayLiteral(source, identifier) {
                 inString = null;
             }
         } else {
-            if (char === "\"" || char === "'" || char === "`") {
+            if (char === '"' || char === "'" || char === "`") {
                 inString = char;
             } else if (char === "[") {
                 depth += 1;

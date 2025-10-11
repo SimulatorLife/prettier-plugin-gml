@@ -29,6 +29,16 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_layer_depth", [4]],
     ["layer_instance_create", [3]]
 ]);
+const FUNCTION_LIKE_TYPES = new Set([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration",
+    "StructDeclaration",
+    "Program"
+]);
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 
@@ -296,6 +306,95 @@ function buildFeatherFixImplementations(diagnostics) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1033") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = removeDuplicateSemicolons({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
+
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
+            continue;
+        }
+
+        if (diagnosticId === "GM1034") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = relocateArgumentReferencesInsideFunctions({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1036") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeMultidimensionalArrayIndexing({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1038") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeDuplicateMacroDeclarations({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1051") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = removeTrailingMacroSemicolons({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
+
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
             continue;
         }
 
@@ -728,11 +827,11 @@ function convertStringLiteralArgumentToIdentifier({
         name: identifierName
     };
 
-    if (Object.prototype.hasOwnProperty.call(argument, "start")) {
+    if (Object.hasOwn(argument, "start")) {
         identifierNode.start = cloneLocation(argument.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(argument, "end")) {
+    if (Object.hasOwn(argument, "end")) {
         identifierNode.end = cloneLocation(argument.end);
     }
 
@@ -819,6 +918,539 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const seenMacros = new Set();
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return false;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const child = node[index];
+                const removed = visit(child, node, index);
+
+                if (removed) {
+                    index -= 1;
+                }
+            }
+
+            return false;
+        }
+
+        if (typeof node !== "object") {
+            return false;
+        }
+
+        if (node.type === "MacroDeclaration") {
+            const macroName = node.name?.name;
+
+            if (!macroName) {
+                return false;
+            }
+
+            if (!seenMacros.has(macroName)) {
+                seenMacros.add(macroName);
+                return false;
+            }
+
+            if (!Array.isArray(parent) || typeof property !== "number") {
+                return false;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: macroName,
+                range: {
+                    start: getNodeStartIndex(node),
+                    end: getNodeEndIndex(node)
+                }
+            });
+
+            if (!fixDetail) {
+                return false;
+            }
+
+            parent.splice(property, 1);
+            fixes.push(fixDetail);
+
+            return true;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+
+        return false;
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberIndexExpression") {
+            const fix = convertMultidimensionalMemberIndex(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertMultidimensionalMemberIndex(
+    node,
+    parent,
+    property,
+    diagnostic
+) {
+    if (
+        !Array.isArray(parent) &&
+    (typeof parent !== "object" || parent === null)
+    ) {
+        return null;
+    }
+
+    if (property === undefined || property === null) {
+        return null;
+    }
+
+    if (!node || node.type !== "MemberIndexExpression") {
+        return null;
+    }
+
+    const indices = Array.isArray(node.property) ? node.property : null;
+
+    if (!indices || indices.length <= 1) {
+        return null;
+    }
+
+    const nestedExpression = buildNestedMemberIndexExpression({
+        object: node.object,
+        indices,
+        template: node
+    });
+
+    if (!nestedExpression) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getMemberExpressionRootIdentifier(node) ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    copyCommentMetadata(node, nestedExpression);
+
+    if (Array.isArray(parent)) {
+        parent[property] = nestedExpression;
+    } else if (typeof parent === "object" && parent !== null) {
+        parent[property] = nestedExpression;
+    }
+
+    attachFeatherFixMetadata(nestedExpression, [fixDetail]);
+
+    return fixDetail;
+}
+
+function buildNestedMemberIndexExpression({ object, indices, template }) {
+    if (!object || !Array.isArray(indices) || indices.length === 0) {
+        return null;
+    }
+
+    const [firstIndex, ...remaining] = indices;
+    const accessor = template?.accessor ?? "[";
+
+    let current = {
+        type: "MemberIndexExpression",
+        object,
+        property: [firstIndex],
+        accessor
+    };
+
+    if (Object.hasOwn(template, "start")) {
+        current.start = cloneLocation(template.start);
+    }
+
+    if (remaining.length === 0 && Object.hasOwn(template, "end")) {
+        current.end = cloneLocation(template.end);
+    }
+
+    for (let index = 0; index < remaining.length; index += 1) {
+        const propertyNode = remaining[index];
+
+        const next = {
+            type: "MemberIndexExpression",
+            object: current,
+            property: [propertyNode],
+            accessor
+        };
+
+        if (Object.hasOwn(template, "start")) {
+            next.start = cloneLocation(template.start);
+        }
+
+        if (index === remaining.length - 1 && Object.hasOwn(template, "end")) {
+            next.end = cloneLocation(template.end);
+        }
+
+        current = next;
+    }
+
+    return current;
+}
+
+function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
+    if (
+        !diagnostic ||
+    !ast ||
+    typeof sourceText !== "string" ||
+    sourceText.length === 0
+    ) {
+        return [];
+    }
+
+    const fixes = [];
+    const recordedRanges = new Set();
+
+    const recordFix = (container, range) => {
+        if (
+            !range ||
+      typeof range.start !== "number" ||
+      typeof range.end !== "number"
+        ) {
+            return;
+        }
+
+        const key = `${range.start}:${range.end}`;
+        if (recordedRanges.has(key)) {
+            return;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: null,
+            range
+        });
+
+        if (!fixDetail) {
+            return;
+        }
+
+        recordedRanges.add(key);
+        fixes.push(fixDetail);
+
+        if (container && typeof container === "object") {
+            attachFeatherFixMetadata(container, [fixDetail]);
+        }
+    };
+
+    const processSegment = (container, startIndex, endIndex) => {
+        if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+            return;
+        }
+
+        if (endIndex <= startIndex) {
+            return;
+        }
+
+        const segment = sourceText.slice(startIndex, endIndex);
+
+        if (!segment || segment.indexOf(";") === -1) {
+            return;
+        }
+
+        for (const range of findDuplicateSemicolonRanges(segment, startIndex)) {
+            recordFix(container, range);
+        }
+    };
+
+    const processStatementList = (container, statements) => {
+        if (!Array.isArray(statements) || statements.length === 0) {
+            return;
+        }
+
+        const bounds = getStatementListBounds(container, sourceText);
+
+        let previousEnd = bounds.start;
+
+        for (const statement of statements) {
+            const statementStart = getNodeStartIndex(statement);
+            const statementEnd = getNodeEndIndex(statement);
+
+            if (
+                typeof previousEnd === "number" &&
+        typeof statementStart === "number"
+            ) {
+                processSegment(container, previousEnd, statementStart);
+            }
+
+            if (typeof statementEnd === "number") {
+                previousEnd = statementEnd;
+            } else {
+                previousEnd = statementStart;
+            }
+        }
+
+        if (typeof previousEnd === "number" && typeof bounds.end === "number") {
+            processSegment(container, previousEnd, bounds.end);
+        }
+    };
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node.body) && node.body.length > 0) {
+            processStatementList(node, node.body);
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function getStatementListBounds(node, sourceText) {
+    if (!node || typeof sourceText !== "string") {
+        return { start: null, end: null };
+    }
+
+    let start = getNodeStartIndex(node);
+    let end = getNodeEndIndex(node);
+
+    if (node.type === "Program") {
+        start = 0;
+        end = sourceText.length;
+    } else if (node.type === "BlockStatement") {
+        if (typeof start === "number" && sourceText[start] === "{") {
+            start += 1;
+        }
+
+        if (typeof end === "number" && sourceText[end - 1] === "}") {
+            end -= 1;
+        }
+    } else if (node.type === "SwitchCase") {
+        if (typeof start === "number") {
+            const colonIndex = findCharacterInRange(sourceText, ":", start, end);
+
+            if (colonIndex !== -1) {
+                start = colonIndex + 1;
+            }
+        }
+    }
+
+    return {
+        start: typeof start === "number" ? start : null,
+        end: typeof end === "number" ? end : null
+    };
+}
+
+function findCharacterInRange(text, character, start, end) {
+    if (typeof start !== "number") {
+        return -1;
+    }
+
+    const limit = typeof end === "number" ? end : text.length;
+    const index = text.indexOf(character, start);
+
+    if (index === -1 || index >= limit) {
+        return -1;
+    }
+
+    return index;
+}
+
+function findDuplicateSemicolonRanges(segment, offset) {
+    const ranges = [];
+
+    if (typeof segment !== "string" || segment.length === 0) {
+        return ranges;
+    }
+
+    let runStart = -1;
+    let runLength = 0;
+    let inLineComment = false;
+    let inBlockComment = false;
+    let inString = false;
+    let stringDelimiter = null;
+
+    for (let index = 0; index < segment.length; index += 1) {
+        const char = segment[index];
+        const nextChar = index + 1 < segment.length ? segment[index + 1] : "";
+
+        if (inString) {
+            if (char === "\\") {
+                index += 1;
+                continue;
+            }
+
+            if (char === stringDelimiter) {
+                inString = false;
+                stringDelimiter = null;
+            }
+
+            continue;
+        }
+
+        if (inLineComment) {
+            if (char === "\n" || char === "\r") {
+                inLineComment = false;
+            }
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === "*" && nextChar === "/") {
+                inBlockComment = false;
+                index += 1;
+            }
+            continue;
+        }
+
+        if (char === "/" && nextChar === "/") {
+            inLineComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (char === "/" && nextChar === "*") {
+            inBlockComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (char === '"' || char === "'") {
+            inString = true;
+            stringDelimiter = char;
+            continue;
+        }
+
+        if (char === ";") {
+            if (runStart === -1) {
+                runStart = index;
+                runLength = 1;
+            } else {
+                runLength += 1;
+            }
+            continue;
+        }
+
+        if (runStart !== -1 && runLength > 1) {
+            ranges.push({
+                start: offset + runStart + 1,
+                end: offset + runStart + runLength
+            });
+        }
+
+        runStart = -1;
+        runLength = 0;
+    }
+
+    if (runStart !== -1 && runLength > 1) {
+        ranges.push({
+            start: offset + runStart + 1,
+            end: offset + runStart + runLength
+        });
+    }
+
+    return ranges;
+}
+
+function getMemberExpressionRootIdentifier(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return node.name ?? null;
+    }
+
+    if (
+        node.type === "MemberDotExpression" ||
+    node.type === "MemberIndexExpression"
+    ) {
+        return getMemberExpressionRootIdentifier(node.object);
+    }
+
+    if (node.type === "CallExpression") {
+        return getMemberExpressionRootIdentifier(node.object);
+    }
+
+    return null;
 }
 
 function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
@@ -1450,7 +2082,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 
     functionNode.type = "ConstructorDeclaration";
 
-    if (!Object.prototype.hasOwnProperty.call(functionNode, "parent")) {
+    if (!Object.hasOwn(functionNode, "parent")) {
         functionNode.parent = null;
     }
 
@@ -2607,7 +3239,7 @@ function createFileFindFirstCall(template) {
         return null;
     }
 
-    const searchPattern = createLiteral("\"\"", null);
+    const searchPattern = createLiteral('""', null);
     const attributes = createIdentifier("fa_none", null);
 
     const callExpression = {
@@ -2624,11 +3256,11 @@ function createFileFindFirstCall(template) {
         callExpression.arguments.push(attributes);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -2761,7 +3393,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                         if (fallback && fallback.type === "FunctionDeclaration") {
                             fallback.type = "ConstructorDeclaration";
 
-                            if (!Object.prototype.hasOwnProperty.call(fallback, "parent")) {
+                            if (!Object.hasOwn(fallback, "parent")) {
                                 fallback.parent = null;
                             }
 
@@ -3039,11 +3671,11 @@ function createEmptyStatementLike(template) {
     const empty = { type: "EmptyStatement" };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             empty.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             empty.end = cloneLocation(template.end);
         }
     }
@@ -3412,11 +4044,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             arguments: []
         };
 
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             callExpression.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             callExpression.end = cloneLocation(template.end);
         }
 
@@ -3437,11 +4069,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             body: [statement]
         };
 
-        if (Object.prototype.hasOwnProperty.call(statement, "start")) {
+        if (Object.hasOwn(statement, "start")) {
             block.start = cloneLocation(statement.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(statement, "end")) {
+        if (Object.hasOwn(statement, "end")) {
             block.end = cloneLocation(statement.end);
         }
 
@@ -3737,12 +4369,84 @@ function isFunctionLikeNode(node) {
         return false;
     }
 
-    return (
-        node.type === "FunctionDeclaration" ||
-    node.type === "ConstructorDeclaration" ||
-    node.type === "StructDeclaration" ||
-    node.type === "Program"
-    );
+    if (typeof node.type !== "string") {
+        return false;
+    }
+
+    return FUNCTION_LIKE_TYPES.has(node.type);
+}
+
+function createFunctionContext() {
+    return {
+        hasLegacyReferences: false,
+        hasArrayReferences: false,
+        legacyReferences: []
+    };
+}
+
+function isLegacyArgumentIdentifier(node, parent, property, parentKey) {
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    if (!/^argument\d+$/.test(node.name ?? "")) {
+        return false;
+    }
+
+    if (parentKey === "params" || parentKey === "id") {
+        return false;
+    }
+
+    if (parent?.type === "MemberDotExpression" && property === "property") {
+        return false;
+    }
+
+    return true;
+}
+
+function isArgumentArrayAccess(node) {
+    if (!node || node.type !== "MemberIndexExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "argument");
+}
+
+function createArgumentArrayAccessFromIdentifier(identifier) {
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    const match = /^argument(\d+)$/.exec(identifier.name ?? "");
+
+    if (!match) {
+        return null;
+    }
+
+    const literal = {
+        type: "Literal",
+        value: match[1]
+    };
+
+    const memberExpression = {
+        type: "MemberIndexExpression",
+        object: {
+            type: "Identifier",
+            name: "argument"
+        },
+        property: [literal],
+        accessor: "["
+    };
+
+    if (Object.prototype.hasOwnProperty.call(identifier, "start")) {
+        memberExpression.start = cloneLocation(identifier.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(identifier, "end")) {
+        memberExpression.end = cloneLocation(identifier.end);
+    }
+
+    return memberExpression;
 }
 
 function getFunctionParameterNames(node) {
@@ -3796,11 +4500,11 @@ function cloneIdentifier(node) {
         name: node.name
     };
 
-    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    if (Object.hasOwn(node, "start")) {
         cloned.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (Object.hasOwn(node, "end")) {
         cloned.end = cloneLocation(node.end);
     }
 
@@ -3814,7 +4518,7 @@ function copyCommentMetadata(source, target) {
 
     ["leadingComments", "trailingComments", "innerComments", "comments"].forEach(
         (key) => {
-            if (Object.prototype.hasOwnProperty.call(source, key)) {
+            if (Object.hasOwn(source, key)) {
                 target[key] = source[key];
             }
         }
@@ -3846,7 +4550,7 @@ function stripStringQuotes(value) {
     const firstChar = value[0];
     const lastChar = value[value.length - 1];
 
-    if ((firstChar === "\"" || firstChar === "'") && firstChar === lastChar) {
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
         return value.slice(1, -1);
     }
 
@@ -3954,11 +4658,11 @@ function createAlphaTestRefResetCall(template) {
         arguments: [literalZero]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4024,11 +4728,11 @@ function createTextureRepeatResetCall(template) {
         arguments: [literalFalse]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4074,11 +4778,11 @@ function createBlendEnableResetCall(template) {
         arguments: [literalTrue]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4094,11 +4798,11 @@ function createLiteral(value, template) {
     };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             literal.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             literal.end = cloneLocation(template.end);
         }
     }
@@ -4814,11 +5518,11 @@ function createIdentifier(name, template) {
     };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             identifier.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             identifier.end = cloneLocation(template.end);
         }
     }
@@ -4882,79 +5586,6 @@ function escapeRegExp(text) {
     }
 
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function createFunctionContext() {
-    return {
-        hasLegacyReferences: false,
-        hasArrayReferences: false,
-        legacyReferences: []
-    };
-}
-
-function isLegacyArgumentIdentifier(node, parent, property, parentKey) {
-    if (!node || node.type !== "Identifier") {
-        return false;
-    }
-
-    if (!/^argument\d+$/.test(node.name ?? "")) {
-        return false;
-    }
-
-    if (parentKey === "params" || parentKey === "id") {
-        return false;
-    }
-
-    if (parent?.type === "MemberDotExpression" && property === "property") {
-        return false;
-    }
-
-    return true;
-}
-
-function isArgumentArrayAccess(node) {
-    if (!node || node.type !== "MemberIndexExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, "argument");
-}
-
-function createArgumentArrayAccessFromIdentifier(identifier) {
-    if (!identifier || identifier.type !== "Identifier") {
-        return null;
-    }
-
-    const match = /^argument(\d+)$/.exec(identifier.name ?? "");
-
-    if (!match) {
-        return null;
-    }
-
-    const literal = {
-        type: "Literal",
-        value: match[1]
-    };
-
-    const memberExpression = {
-        type: "MemberIndexExpression",
-        object: {
-            type: "Identifier",
-            name: "argument"
-        },
-        property: [literal],
-        accessor: "["
-    };
-
-    if (Object.prototype.hasOwnProperty.call(identifier, "start")) {
-        memberExpression.start = cloneLocation(identifier.start);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(identifier, "end")) {
-        memberExpression.end = cloneLocation(identifier.end);
-    }
-
-    return memberExpression;
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
@@ -5039,6 +5670,187 @@ function attachFeatherFixMetadata(target, fixes) {
     }
 
     target[key].push(...fixes);
+}
+
+const ARGUMENT_BUILTINS = new Set([
+    "argument",
+    "argument_relative",
+    "argument_count",
+    ...Array.from({ length: 16 }, (_, index) => `argument${index}`)
+]);
+
+function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const programBody = Array.isArray(ast.body) ? ast.body : null;
+
+    if (!programBody || programBody.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (let index = 0; index < programBody.length; index += 1) {
+        const entry = programBody[index];
+
+        if (!isFunctionDeclaration(entry)) {
+            continue;
+        }
+
+        const block = getFunctionBlock(entry);
+
+        if (!block) {
+            continue;
+        }
+
+        let nextIndex = index + 1;
+
+        while (nextIndex < programBody.length) {
+            const candidate = programBody[nextIndex];
+
+            if (!candidate || typeof candidate !== "object") {
+                break;
+            }
+
+            if (isFunctionDeclaration(candidate)) {
+                break;
+            }
+
+            const argumentReference =
+        findArgumentReferenceOutsideFunctions(candidate);
+
+            if (!argumentReference) {
+                break;
+            }
+
+            programBody.splice(nextIndex, 1);
+            block.body.push(candidate);
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: argumentReference?.name ?? null,
+                range: {
+                    start: getNodeStartIndex(candidate),
+                    end: getNodeEndIndex(candidate)
+                }
+            });
+
+            if (fixDetail) {
+                attachFeatherFixMetadata(candidate, [fixDetail]);
+                fixes.push(fixDetail);
+            }
+        }
+    }
+
+    return fixes;
+}
+
+function isFunctionDeclaration(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return node.type === "FunctionDeclaration";
+}
+
+function getFunctionBlock(declaration) {
+    const body = declaration?.body;
+
+    if (!body || body.type !== "BlockStatement") {
+        return null;
+    }
+
+    const blockBody = Array.isArray(body.body) ? body.body : null;
+
+    if (!blockBody) {
+        return null;
+    }
+
+    return body;
+}
+
+function findArgumentReferenceOutsideFunctions(node) {
+    let match = null;
+
+    const visit = (current, isRoot = false) => {
+        if (!current || match) {
+            return;
+        }
+
+        if (Array.isArray(current)) {
+            for (const item of current) {
+                visit(item, false);
+
+                if (match) {
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        if (typeof current !== "object") {
+            return;
+        }
+
+        if (!isRoot && isFunctionLikeNode(current)) {
+            return;
+        }
+
+        if (current.type === "Identifier") {
+            const builtin = getArgumentBuiltinName(current.name);
+
+            if (builtin) {
+                match = { name: builtin };
+                return;
+            }
+        }
+
+        if (
+            current.type === "MemberIndexExpression" &&
+      isIdentifierWithName(current.object, "argument")
+        ) {
+            match = { name: "argument" };
+            return;
+        }
+
+        if (
+            current.type === "MemberDotExpression" &&
+      isIdentifierWithName(current.object, "argument")
+        ) {
+            match = { name: "argument" };
+            return;
+        }
+
+        for (const value of Object.values(current)) {
+            if (!value || (typeof value !== "object" && !Array.isArray(value))) {
+                continue;
+            }
+
+            visit(value, false);
+
+            if (match) {
+                break;
+            }
+        }
+    };
+
+    visit(node, true);
+
+    return match;
+}
+
+function getArgumentBuiltinName(name) {
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    if (ARGUMENT_BUILTINS.has(name)) {
+        return name;
+    }
+
+    return null;
 }
 
 function getNodeStartLine(node) {

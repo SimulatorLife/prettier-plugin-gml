@@ -234,8 +234,15 @@ function applyInlinePadding(comment, formattedText) {
     return formattedText;
 }
 
+const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
+
 function applyJsDocReplacements(text) {
-    let formattedText = /@/i.test(text) ? text.replace(/\(\)\s*$/, "") : text;
+    const shouldStripEmptyParams =
+    typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
+
+    let formattedText = shouldStripEmptyParams
+        ? text.replace(/\(\)\s*$/, "")
+        : text;
 
     for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
         regex.lastIndex = 0;

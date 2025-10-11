@@ -598,7 +598,7 @@ function stripStringQuotes(value) {
 
     const firstChar = value[0];
     const lastChar = value[value.length - 1];
-    if ((firstChar === "\"" || firstChar === "'") && firstChar === lastChar) {
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
         return value.slice(1, -1);
     }
 
