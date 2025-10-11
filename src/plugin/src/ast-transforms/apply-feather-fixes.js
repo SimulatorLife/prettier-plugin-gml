@@ -299,6 +299,22 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1036") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeMultidimensionalArrayIndexing({
+                    ast,
+                    diagnostic
+                });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1016") {
             registerFeatherFixer(
                 registry,
@@ -787,6 +803,181 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     }
 }
 
+function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberIndexExpression") {
+            const fix = convertMultidimensionalMemberIndex(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertMultidimensionalMemberIndex(
+    node,
+    parent,
+    property,
+    diagnostic
+) {
+    if (!Array.isArray(parent) && (typeof parent !== "object" || parent === null)) {
+        return null;
+    }
+
+    if (property === undefined || property === null) {
+        return null;
+    }
+
+    if (!node || node.type !== "MemberIndexExpression") {
+        return null;
+    }
+
+    const indices = Array.isArray(node.property) ? node.property : null;
+
+    if (!indices || indices.length <= 1) {
+        return null;
+    }
+
+    const nestedExpression = buildNestedMemberIndexExpression({
+        object: node.object,
+        indices,
+        template: node
+    });
+
+    if (!nestedExpression) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getMemberExpressionRootIdentifier(node) ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    copyCommentMetadata(node, nestedExpression);
+
+    if (Array.isArray(parent)) {
+        parent[property] = nestedExpression;
+    } else if (typeof parent === "object" && parent !== null) {
+        parent[property] = nestedExpression;
+    }
+
+    attachFeatherFixMetadata(nestedExpression, [fixDetail]);
+
+    return fixDetail;
+}
+
+function buildNestedMemberIndexExpression({ object, indices, template }) {
+    if (!object || !Array.isArray(indices) || indices.length === 0) {
+        return null;
+    }
+
+    const [firstIndex, ...remaining] = indices;
+    const accessor = template?.accessor ?? "[";
+
+    let current = {
+        type: "MemberIndexExpression",
+        object,
+        property: [firstIndex],
+        accessor
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        current.start = cloneLocation(template.start);
+    }
+
+    if (remaining.length === 0 && Object.prototype.hasOwnProperty.call(template, "end")) {
+        current.end = cloneLocation(template.end);
+    }
+
+    for (let index = 0; index < remaining.length; index += 1) {
+        const propertyNode = remaining[index];
+
+        const next = {
+            type: "MemberIndexExpression",
+            object: current,
+            property: [propertyNode],
+            accessor
+        };
+
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            next.start = cloneLocation(template.start);
+        }
+
+        if (index === remaining.length - 1 && Object.prototype.hasOwnProperty.call(template, "end")) {
+            next.end = cloneLocation(template.end);
+        }
+
+        current = next;
+    }
+
+    return current;
+}
+
+function getMemberExpressionRootIdentifier(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return node.name ?? null;
+    }
+
+    if (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") {
+        return getMemberExpressionRootIdentifier(node.object);
+    }
+
+    if (node.type === "CallExpression") {
+        return getMemberExpressionRootIdentifier(node.object);
+    }
+
+    return null;
+}
+
 function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -814,14 +1005,14 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 
         if (entry.type === "declaration") {
             node =
-        candidates.find(
-            (candidate) => candidate?.type === "VariableDeclaration"
-        ) ?? null;
+                candidates.find(
+                    (candidate) => candidate?.type === "VariableDeclaration"
+                ) ?? null;
         } else if (entry.type === "assignment") {
             node =
-        candidates.find(
-            (candidate) => candidate?.type === "AssignmentExpression"
-        ) ?? null;
+                candidates.find(
+                    (candidate) => candidate?.type === "AssignmentExpression"
+                ) ?? null;
         }
 
         if (!node || handledNodes.has(node)) {
@@ -848,7 +1039,6 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 
     return fixes;
 }
-
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     if (
         !diagnostic ||
