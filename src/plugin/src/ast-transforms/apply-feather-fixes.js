@@ -289,19 +289,20 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(
                 registry,
                 diagnosticId,
-                () => ({ ast, preprocessedFixMetadata }) => {
-                    const fixes = removeBooleanLiteralStatements({
-                        ast,
-                        diagnostic,
-                        metadata: preprocessedFixMetadata
-                    });
+                () =>
+                    ({ ast, preprocessedFixMetadata }) => {
+                        const fixes = removeBooleanLiteralStatements({
+                            ast,
+                            diagnostic,
+                            metadata: preprocessedFixMetadata
+                        });
 
-                    if (Array.isArray(fixes) && fixes.length > 0) {
-                        return fixes;
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
                     }
-
-                    return registerManualFeatherFix({ ast, diagnostic });
-                }
             );
             continue;
         }
@@ -876,9 +877,9 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
 
         if (
             typeof nodeStart !== "number" ||
-            typeof nodeEnd !== "number" ||
-            nodeStart > startIndex ||
-            nodeEnd < endIndex
+      typeof nodeEnd !== "number" ||
+      nodeStart > startIndex ||
+      nodeEnd < endIndex
         ) {
             return;
         }
@@ -892,8 +893,8 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
 
                 if (
                     typeof bestStart === "number" &&
-                    typeof bestEnd === "number" &&
-                    (nodeStart > bestStart || nodeEnd < bestEnd)
+          typeof bestEnd === "number" &&
+          (nodeStart > bestStart || nodeEnd < bestEnd)
                 ) {
                     bestMatch = node;
                 }
@@ -1662,8 +1663,9 @@ function ensureFileFindFirstBeforeCloseCall(
         ? node._appliedFeatherDiagnostics
         : [];
 
-    const insertedForSerializedSearch =
-        diagnosticMetadata.some((entry) => entry?.id === "GM2031");
+    const insertedForSerializedSearch = diagnosticMetadata.some(
+        (entry) => entry?.id === "GM2031"
+    );
 
     if (insertedForSerializedSearch) {
         return null;
@@ -2013,7 +2015,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     return fixes;
 
     function processStatementBlock(statements, currentState) {
-        if (!Array.isArray(statements) || statements.length === 0 || !currentState) {
+        if (
+            !Array.isArray(statements) ||
+      statements.length === 0 ||
+      !currentState
+        ) {
             return;
         }
 
@@ -2031,7 +2037,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             const callNode = getFileFindFirstCallFromStatement(statement);
 
             if (callNode && currentState.openCount > 0) {
-                const insertion = insertFileFindCloseBefore(statements, index, callNode);
+                const insertion = insertFileFindCloseBefore(
+                    statements,
+                    index,
+                    callNode
+                );
 
                 if (insertion?.fixDetail) {
                     fixes.push(insertion.fixDetail);
@@ -2180,7 +2190,9 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
 
         switch (statement.type) {
             case "CallExpression":
-                return isIdentifierWithName(statement.object, "file_find_first") ? statement : null;
+                return isIdentifierWithName(statement.object, "file_find_first")
+                    ? statement
+                    : null;
             case "AssignmentExpression":
                 return getFileFindFirstCallFromExpression(statement.right);
             case "VariableDeclaration": {
@@ -2212,7 +2224,9 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (expression.type === "CallExpression") {
-            return isIdentifierWithName(expression.object, "file_find_first") ? expression : null;
+            return isIdentifierWithName(expression.object, "file_find_first")
+                ? expression
+                : null;
         }
 
         if (expression.type === "ParenthesizedExpression") {
@@ -2224,7 +2238,9 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (expression.type === "SequenceExpression") {
-            const expressions = Array.isArray(expression.expressions) ? expression.expressions : [];
+            const expressions = Array.isArray(expression.expressions)
+                ? expression.expressions
+                : [];
 
             for (const item of expressions) {
                 const call = getFileFindFirstCallFromExpression(item);
@@ -2234,7 +2250,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             }
         }
 
-        if (expression.type === "BinaryExpression" || expression.type === "LogicalExpression") {
+        if (
+            expression.type === "BinaryExpression" ||
+      expression.type === "LogicalExpression"
+        ) {
             const leftCall = getFileFindFirstCallFromExpression(expression.left);
             if (leftCall) {
                 return leftCall;
@@ -2243,8 +2262,13 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return getFileFindFirstCallFromExpression(expression.right);
         }
 
-        if (expression.type === "ConditionalExpression" || expression.type === "TernaryExpression") {
-            const consequentCall = getFileFindFirstCallFromExpression(expression.consequent);
+        if (
+            expression.type === "ConditionalExpression" ||
+      expression.type === "TernaryExpression"
+        ) {
+            const consequentCall = getFileFindFirstCallFromExpression(
+                expression.consequent
+            );
             if (consequentCall) {
                 return consequentCall;
             }
@@ -2268,7 +2292,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return isFileFindCloseStatement(statement.expression);
         }
 
-        if (statement.type === "ReturnStatement" || statement.type === "ThrowStatement") {
+        if (
+            statement.type === "ReturnStatement" ||
+      statement.type === "ThrowStatement"
+        ) {
             return isFileFindCloseStatement(statement.argument);
         }
 
@@ -2308,7 +2335,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     }
 
     function createFileFindCloseCall(template) {
-        const identifier = createIdentifier("file_find_close", template?.object ?? template);
+        const identifier = createIdentifier(
+            "file_find_close",
+            template?.object ?? template
+        );
 
         if (!identifier) {
             return null;

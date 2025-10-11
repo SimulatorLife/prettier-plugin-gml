@@ -615,7 +615,9 @@ describe("applyFeatherFixes transform", () => {
         );
 
         const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1016Fixes = rootDiagnostics.filter((entry) => entry.id === "GM1016");
+        const gm1016Fixes = rootDiagnostics.filter(
+            (entry) => entry.id === "GM1016"
+        );
 
         assert.strictEqual(
             gm1016Fixes.length,
@@ -629,7 +631,7 @@ describe("applyFeatherFixes transform", () => {
         }
 
         const blockDiagnostics =
-            ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+      ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
 
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
