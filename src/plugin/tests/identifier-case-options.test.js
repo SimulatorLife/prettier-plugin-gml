@@ -1,73 +1,79 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { normalizeIdentifierCaseOptions } from "../src/options/identifier-case.js";
+import {
+    IDENTIFIER_CASE_BASE_OPTION_NAME,
+    IDENTIFIER_CASE_SCOPE_NAMES,
+    IDENTIFIER_CASE_INHERIT_VALUE,
+    IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME,
+    normalizeIdentifierCaseOptions,
+    getIdentifierCaseScopeOptionName,
+    IDENTIFIER_CASE_IGNORE_OPTION_NAME,
+    IDENTIFIER_CASE_PRESERVE_OPTION_NAME
+} from "../src/options/identifier-case.js";
 
-describe("normalizeIdentifierCaseOptions", () => {
-    it("returns no-op defaults when no options are provided", () => {
+describe("gml identifier case option normalization", () => {
+    it("defaults to disabled renaming when options are omitted", () => {
         const normalized = normalizeIdentifierCaseOptions({});
 
-        assert.deepStrictEqual(normalized.baseCase, "off");
-        assert.deepStrictEqual(normalized.scopes, {
-            functions: "off",
-            structs: "off",
-            locals: "off",
-            instance: "off",
-            globals: "off",
-            assets: "off",
-            macros: "off"
-        });
+        assert.strictEqual(normalized.baseStyle, "off");
+        for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
+            assert.strictEqual(
+                normalized.scopeSettings[scope],
+                IDENTIFIER_CASE_INHERIT_VALUE
+            );
+            assert.strictEqual(normalized.scopeStyles[scope], "off");
+        }
         assert.deepStrictEqual(normalized.ignorePatterns, []);
         assert.deepStrictEqual(normalized.preservedIdentifiers, []);
-        assert.strictEqual(normalized.acknowledgesAssetUpdates, false);
+        assert.strictEqual(normalized.assetRenamesAcknowledged, false);
     });
 
-    it("honours per-scope overrides when provided", () => {
+    it("allows scope overrides while inheriting the base style", () => {
         const normalized = normalizeIdentifierCaseOptions({
-            gmlIdentifierCase: "pascal",
-            gmlIdentifierCaseFunctions: "inherit",
-            gmlIdentifierCaseLocals: "snake-lower",
-            gmlIdentifierCaseGlobals: "snake-upper",
-            gmlIdentifierCaseInstance: "camel",
-            gmlIdentifierCaseAssets: "pascal",
-            gmlIdentifierCaseMacros: "off",
-            gmlIdentifierCaseIgnore: "foo_bar , baz",
-            gmlIdentifierCasePreserve: "PlayerHP, enemyHP",
-            gmlIdentifierCaseAcknowledgeAssetUpdates: true
+            [IDENTIFIER_CASE_BASE_OPTION_NAME]: "pascal",
+            [getIdentifierCaseScopeOptionName("globals")]: "snake-upper",
+            [getIdentifierCaseScopeOptionName("locals")]:
+        IDENTIFIER_CASE_INHERIT_VALUE,
+            [getIdentifierCaseScopeOptionName("functions")]: "camel",
+            [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: "temp_, debug",
+            [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: ["hp", "PlayerScore"],
+            [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: true,
+            [getIdentifierCaseScopeOptionName("assets")]: "snake-upper"
         });
 
-        assert.deepStrictEqual(normalized.baseCase, "pascal");
-        assert.deepStrictEqual(normalized.scopes, {
-            functions: "pascal",
-            structs: "pascal",
-            locals: "snake-lower",
-            instance: "camel",
-            globals: "snake-upper",
-            assets: "pascal",
-            macros: "off"
-        });
-        assert.deepStrictEqual(normalized.ignorePatterns, ["foo_bar", "baz"]);
+        assert.strictEqual(normalized.baseStyle, "pascal");
+        assert.strictEqual(normalized.scopeStyles.functions, "camel");
+        assert.strictEqual(normalized.scopeStyles.globals, "snake-upper");
+        assert.strictEqual(normalized.scopeStyles.locals, "pascal");
+        assert.ok(normalized.ignorePatterns.includes("temp_"));
+        assert.ok(normalized.ignorePatterns.includes("debug"));
         assert.deepStrictEqual(normalized.preservedIdentifiers, [
-            "PlayerHP",
-            "enemyHP"
+            "hp",
+            "PlayerScore"
         ]);
-        assert.strictEqual(normalized.acknowledgesAssetUpdates, true);
+        assert.strictEqual(normalized.assetRenamesAcknowledged, true);
     });
 
-    it("requires explicit acknowledgement before enabling asset renames", () => {
-        assert.throws(() => {
-            normalizeIdentifierCaseOptions({
-                gmlIdentifierCase: "camel",
-                gmlIdentifierCaseAssets: "inherit"
-            });
-        }, /AcknowledgeAssetUpdates/);
+    it("rejects enabling asset renames without acknowledgment", () => {
+        assert.throws(
+            () =>
+                normalizeIdentifierCaseOptions({
+                    [IDENTIFIER_CASE_BASE_OPTION_NAME]: "camel",
+                    [getIdentifierCaseScopeOptionName("assets")]:
+            IDENTIFIER_CASE_INHERIT_VALUE
+                }),
+            /acknowledging asset renames/i
+        );
+    });
 
-        assert.doesNotThrow(() => {
-            normalizeIdentifierCaseOptions({
-                gmlIdentifierCase: "camel",
-                gmlIdentifierCaseAssets: "inherit",
-                gmlIdentifierCaseAcknowledgeAssetUpdates: true
-            });
+    it("allows asset renames when explicitly acknowledged", () => {
+        const normalized = normalizeIdentifierCaseOptions({
+            [IDENTIFIER_CASE_BASE_OPTION_NAME]: "snake-lower",
+            [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: true
         });
+
+        assert.strictEqual(normalized.scopeStyles.assets, "snake-lower");
+        assert.strictEqual(normalized.assetRenamesAcknowledged, true);
     });
 });
