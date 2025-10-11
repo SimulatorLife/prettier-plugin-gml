@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 
-import { getIdentifierText } from "../src/printer/optimizations/loop-size-hoisting.js";
+import { getIdentifierText } from "../ast-node-helpers.js";
 
 describe("getIdentifierText", () => {
     it("returns string arguments unchanged", () => {
