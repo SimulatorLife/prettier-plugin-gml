@@ -657,18 +657,18 @@ async function main() {
 }
 
 async function run() {
-  try {
-    await main();
-  } finally {
     try {
-      await httpAgent.close();
-    } catch (closeError) {
-      console.error("Failed to close HTTP agent:", closeError);
+        await main();
+    } finally {
+        try {
+            await httpAgent.close();
+        } catch (closeError) {
+            console.error("Failed to close HTTP agent:", closeError);
+        }
     }
-  }
 }
 
 run().catch((error) => {
-  console.error(error);
-  process.exit(1);
+    console.error(error);
+    process.exit(1);
 });
