@@ -265,6 +265,55 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("reorders optional parameters after required ones and records fix metadata", () => {
+        const source = [
+            "function example(a, b = 1, c, d = 2) {",
+            "    return a + b + c + d;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [fn] = ast.body ?? [];
+        assert.ok(fn);
+
+        const parameterNames = Array.isArray(fn.params)
+            ? fn.params.map((param) => {
+                if (param?.type === "DefaultParameter") {
+                    return param.left?.name ?? null;
+                }
+
+                return param?.name ?? null;
+            })
+            : [];
+
+        assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
+
+        const defaultParameters = fn.params.filter(
+            (param) => param?.type === "DefaultParameter"
+        );
+        assert.strictEqual(defaultParameters.length, 2);
+        assert.strictEqual(defaultParameters[0].left?.name, "b");
+        assert.strictEqual(defaultParameters[1].left?.name, "d");
+
+        assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
+        assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
+        assert.strictEqual(fn._appliedFeatherDiagnostics[0].id, "GM1056");
+        assert.strictEqual(fn._appliedFeatherDiagnostics[0].target, "example");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1056"),
+            true,
+            "Expected GM1056 metadata to be recorded on the program node."
+        );
+    });
+
     it("resets texture repeat flagged by GM2056 and records metadata", () => {
         const source = [
             "gpu_set_texrepeat(true);",
