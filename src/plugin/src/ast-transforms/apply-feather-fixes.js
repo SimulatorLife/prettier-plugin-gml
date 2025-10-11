@@ -402,7 +402,10 @@ function buildFeatherFixImplementations(diagnostics) {
 
         if (diagnosticId === "GM2064") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = annotateInstanceVariableStructAssignments({ ast, diagnostic });
+                const fixes = annotateInstanceVariableStructAssignments({
+                    ast,
+                    diagnostic
+                });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
