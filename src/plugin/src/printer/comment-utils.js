@@ -78,6 +78,14 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
+const COMMENTED_OUT_CODE_PATTERNS = [
+    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
+    /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
+    /^[{}()[\].]/,
+    /^#/,
+    /^@/
+];
+
 function isCommentNode(node) {
     return (
         node &&
@@ -210,31 +218,7 @@ function looksLikeCommentedOutCode(text) {
         return false;
     }
 
-    if (
-        /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i.test(
-            trimmed
-        )
-    ) {
-        return true;
-    }
-
-    if (/^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^[{}()[\].]/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^#/.test(trimmed)) {
-        return true;
-    }
-
-    if (/^@/.test(trimmed)) {
-        return true;
-    }
-
-    return false;
+    return COMMENTED_OUT_CODE_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 
 function applyInlinePadding(comment, formattedText) {
