@@ -4,78 +4,78 @@
 // defensive checks around optional location shapes.
 
 function getLocationIndex(node, key) {
-  if (!node) {
+    if (!node) {
+        return undefined;
+    }
+
+    const location = node[key];
+    if (typeof location === "number") {
+        return location;
+    }
+
+    if (location && typeof location.index === "number") {
+        return location.index;
+    }
+
     return undefined;
-  }
-
-  const location = node[key];
-  if (typeof location === "number") {
-    return location;
-  }
-
-  if (location && typeof location.index === "number") {
-    return location.index;
-  }
-
-  return undefined;
 }
 
 function getStartIndex(node) {
-  if (!node) {
-    return undefined;
-  }
+    if (!node) {
+        return undefined;
+    }
 
-  const isMemberAccess =
+    const isMemberAccess =
     (node.type === "MemberDotExpression" ||
       node.type === "MemberIndexExpression") &&
     node.object;
 
-  if (isMemberAccess) {
-    const objectStart = getStartIndex(node.object);
-    if (typeof objectStart === "number") {
-      return objectStart;
+    if (isMemberAccess) {
+        const objectStart = getStartIndex(node.object);
+        if (typeof objectStart === "number") {
+            return objectStart;
+        }
     }
-  }
 
-  return getLocationIndex(node, "start");
+    return getLocationIndex(node, "start");
 }
 
 function getEndIndex(node) {
-  return getLocationIndex(node, "end");
+    return getLocationIndex(node, "end");
 }
 
 function getNodeStartIndex(node) {
-  const startIndex = getStartIndex(node);
-  return typeof startIndex === "number" ? startIndex : null;
+    const startIndex = getStartIndex(node);
+    return typeof startIndex === "number" ? startIndex : null;
 }
 
 function getNodeEndIndex(node) {
-  const endIndex = getEndIndex(node);
-  if (typeof endIndex === "number") {
-    return endIndex + 1;
-  }
+    const endIndex = getEndIndex(node);
+    if (typeof endIndex === "number") {
+        return endIndex + 1;
+    }
 
-  const fallbackStart = getStartIndex(node);
-  return typeof fallbackStart === "number" ? fallbackStart : null;
+    const fallbackStart = getStartIndex(node);
+    return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
 function cloneLocation(location) {
-  if (location == null) {
-    return undefined;
-  }
+    if (location == null) {
+        return undefined;
+    }
 
-  if (typeof location !== "object") {
-    return location;
-  }
+    if (typeof location !== "object") {
+        return location;
+    }
 
-  return structuredClone(location);
+    return structuredClone(location);
 }
 
 export {
-  getLocationIndex,
-  getStartIndex,
-  getEndIndex,
-  getNodeStartIndex,
-  getNodeEndIndex,
-  cloneLocation,
+    getLocationIndex,
+    getStartIndex,
+    getEndIndex,
+    getNodeStartIndex,
+    getNodeEndIndex,
+    cloneLocation
 };

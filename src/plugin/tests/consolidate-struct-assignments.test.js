@@ -46,54 +46,54 @@ function getNodeEndIndex(node) {
 }`;
 
 async function loadCommentTracker() {
-  const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-  const sourcePath = path.resolve(
-    currentDirectory,
-    "../src/ast-transforms/consolidate-struct-assignments.js",
-  );
-
-  const fileContents = await fs.readFile(sourcePath, "utf8");
-  const classStart = fileContents.indexOf("class CommentTracker");
-
-  if (classStart === -1) {
-    throw new Error(
-      "Unable to locate CommentTracker in consolidate-struct-assignments.js",
+    const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+    const sourcePath = path.resolve(
+        currentDirectory,
+        "../src/ast-transforms/consolidate-struct-assignments.js"
     );
-  }
 
-  const classSource = fileContents.slice(classStart);
-  const moduleSource = `${helperSource}\n${classSource}\nexport { CommentTracker };`;
-  const moduleUrl = `data:text/javascript,${encodeURIComponent(moduleSource)}`;
+    const fileContents = await fs.readFile(sourcePath, "utf8");
+    const classStart = fileContents.indexOf("class CommentTracker");
 
-  return import(moduleUrl);
+    if (classStart === -1) {
+        throw new Error(
+            "Unable to locate CommentTracker in consolidate-struct-assignments.js"
+        );
+    }
+
+    const classSource = fileContents.slice(classStart);
+    const moduleSource = `${helperSource}\n${classSource}\nexport { CommentTracker };`;
+    const moduleUrl = `data:text/javascript,${encodeURIComponent(moduleSource)}`;
+
+    return import(moduleUrl);
 }
 
 describe("CommentTracker", () => {
-  it("ignores consumed comments when checking for later comments", async () => {
-    const { CommentTracker } = await loadCommentTracker();
+    it("ignores consumed comments when checking for later comments", async () => {
+        const { CommentTracker } = await loadCommentTracker();
 
-    const tracker = new CommentTracker([
-      { start: { index: 10 } },
-      { start: { index: 20 } },
-    ]);
+        const tracker = new CommentTracker([
+            { start: { index: 10 } },
+            { start: { index: 20 } }
+        ]);
 
-    tracker.consumeEntries([tracker.entries[0]]);
+        tracker.consumeEntries([tracker.entries[0]]);
 
-    assert.equal(tracker.hasAfter(5), true);
-  });
+        assert.equal(tracker.hasAfter(5), true);
+    });
 
-  it("removes consumed comments from the original collection", async () => {
-    const { CommentTracker } = await loadCommentTracker();
+    it("removes consumed comments from the original collection", async () => {
+        const { CommentTracker } = await loadCommentTracker();
 
-    const comments = [{ start: { index: 10 } }, { start: { index: 20 } }];
+        const comments = [{ start: { index: 10 } }, { start: { index: 20 } }];
 
-    const tracker = new CommentTracker(comments);
-    tracker.consumeEntries([tracker.entries[0]]);
-    tracker.removeConsumedComments();
+        const tracker = new CommentTracker(comments);
+        tracker.consumeEntries([tracker.entries[0]]);
+        tracker.removeConsumedComments();
 
-    assert.deepEqual(
-      comments.map((comment) => comment.start.index),
-      [20],
-    );
-  });
+        assert.deepEqual(
+            comments.map((comment) => comment.start.index),
+            [20]
+        );
+    });
 });
