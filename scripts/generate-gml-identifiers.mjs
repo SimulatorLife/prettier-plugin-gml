@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { Agent, setGlobalDispatcher } from "undici";
 
+import { CliUsageError, handleCliError } from "./utils/cli-errors.js";
+
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
 const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
@@ -18,30 +20,27 @@ function assertSupportedNodeVersion() {
         .split(".")
         .map((part) => Number.parseInt(part, 10));
     if (Number.isNaN(major) || Number.isNaN(minor)) {
-        return;
+        throw new Error(
+            `Unable to determine Node.js version from ${process.version}.`
+        );
     }
     const minimum = { 18: 18, 20: 9 };
     if (major < 18) {
-        console.error(
+        throw new Error(
             `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
         );
-        process.exit(1);
     }
     if (major === 18 && minor < minimum[18]) {
-        console.error(
+        throw new Error(
             `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
         );
-        process.exit(1);
     }
     if (major === 20 && minor < minimum[20]) {
-        console.error(
+        throw new Error(
             `Node.js 20.9.0 or newer is required. Detected ${process.version}.`
         );
-        process.exit(1);
     }
 }
-
-assertSupportedNodeVersion();
 
 const httpAgent = new Agent({ connections: 5 });
 setGlobalDispatcher(httpAgent);
@@ -57,6 +56,19 @@ const OUTPUT_DEFAULT = path.join(
 );
 
 const ARGUMENTS = process.argv.slice(2);
+
+function getUsage() {
+    return [
+        "Usage: node scripts/generate-gml-identifiers.mjs [options]",
+        "",
+        "Options:",
+        "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
+        "  --output, -o <path>       Output JSON path. Defaults to resources/gml-identifiers.json.",
+        "  --force-refresh           Ignore cached manual artefacts and re-download.",
+        "  --quiet                   Suppress progress logging (for CI).",
+        "  --help, -h                Show this help message."
+    ].join("\n");
+}
 
 function parseArgs() {
     let ref = process.env.GML_MANUAL_REF ?? null;
@@ -88,31 +100,16 @@ function parseArgs() {
             verbose.parsing = false;
             verbose.progressBar = false;
         } else if (arg === "--help" || arg === "-h") {
-            printUsage();
+            console.log(getUsage());
             process.exit(0);
         } else {
-            console.error(`Unknown argument: ${arg}`);
-            printUsage();
-            process.exit(1);
+            throw new CliUsageError(`Unknown argument: ${arg}`, {
+                usage: getUsage()
+            });
         }
     }
 
     return { ref, outputPath, forceRefresh, verbose };
-}
-
-function printUsage() {
-    console.log(
-        [
-            "Usage: node scripts/generate-gml-identifiers.mjs [options]",
-            "",
-            "Options:",
-            "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
-            "  --output, -o <path>       Output JSON path. Defaults to resources/gml-identifiers.json.",
-            "  --force-refresh           Ignore cached manual artefacts and re-download.",
-            "  --quiet                   Suppress progress logging (for CI).",
-            "  --help, -h                Show this help message."
-        ].join("\n")
-    );
 }
 
 const BASE_HEADERS = {
@@ -426,6 +423,8 @@ function normaliseIdentifier(name) {
 }
 
 async function main() {
+    assertSupportedNodeVersion();
+
     const { ref, outputPath, forceRefresh, verbose } = parseArgs();
     const startTime = Date.now();
 
@@ -669,6 +668,7 @@ async function run() {
 }
 
 run().catch((error) => {
-    console.error(error);
-    process.exit(1);
+    handleCliError(error, {
+        prefix: "Failed to generate GML identifiers."
+    });
 });
