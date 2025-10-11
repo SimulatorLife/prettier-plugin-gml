@@ -46,6 +46,7 @@ import {
     getSingleVariableDeclarator,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
+import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
 
 const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
@@ -85,6 +86,7 @@ export function print(path, options, print) {
 
     switch (node.type) {
         case "Program": {
+            maybeReportIdentifierCaseDryRun(options);
             if (node.body.length === 0) {
                 return concat(printDanglingCommentsAsGroup(path, options));
             }
