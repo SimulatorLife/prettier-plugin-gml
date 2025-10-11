@@ -1,11 +1,18 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
 import { getLineBreakCount } from "../../shared/line-breaks.js";
+import ScopeTracker from "./scope-tracker.js";
 
 export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
-    constructor() {
+    constructor(options = {}, whitespaces = []) {
         super();
+        this.options = options || {};
+        this.whitespaces = whitespaces || [];
         this.operatorStack = [];
         this.globalIdentifiers = new Set();
+        this.identifierRoles = [];
+        this.scopeTracker = new ScopeTracker({
+            enabled: Boolean(this.options.getIdentifierMetadata)
+        });
 
         this.operators = {
             // Highest Precedence
@@ -52,6 +59,45 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             "|=": { prec: 1, assoc: "right", type: "assign" },
             "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
         };
+    }
+
+    isIdentifierMetadataEnabled() {
+        return this.scopeTracker.isEnabled();
+    }
+
+    withScope(kind, callback) {
+        if (!this.isIdentifierMetadataEnabled()) {
+            return callback();
+        }
+
+        this.scopeTracker.enterScope(kind);
+        try {
+            return callback();
+        } finally {
+            this.scopeTracker.exitScope();
+        }
+    }
+
+    withIdentifierRole(role, callback) {
+        this.identifierRoles.push(role);
+        try {
+            return callback();
+        } finally {
+            this.identifierRoles.pop();
+        }
+    }
+
+    cloneRole(role) {
+        if (!role) {
+            return {};
+        }
+
+        const cloned = { ...role };
+        if (role.tags != null) {
+            cloned.tags = Array.isArray(role.tags) ? [...role.tags] : [role.tags];
+        }
+
+        return cloned;
     }
 
     // Utility helper that replaces long chains of null checks when visiting
@@ -193,13 +239,15 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#program.
     build(ctx) {
-        let body = [];
-        if (ctx.statementList() != null) {
-            body = this.visit(ctx.statementList());
-        }
+        const body = this.withScope("program", () => {
+            if (ctx.statementList() != null) {
+                return this.visit(ctx.statementList());
+            }
+            return [];
+        });
         const ast = this.astNode(ctx, {
             type: "Program",
-            body: body
+            body: body ?? []
         });
 
         return ast;
@@ -339,7 +387,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "WithStatement",
             test: this.visit(ctx.expression()),
-            body: this.visit(ctx.statement())
+            body: this.withScope("with", () => this.visit(ctx.statement()))
         });
     }
 
@@ -454,13 +502,19 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#catchProduction.
     visitCatchProduction(ctx) {
         let param = null;
-        if (ctx.identifier() != null) {
-            param = this.visit(ctx.identifier());
-        }
+        const body = this.withScope("catch", () => {
+            if (ctx.identifier() != null) {
+                param = this.withIdentifierRole(
+                    { type: "declaration", kind: "parameter" },
+                    () => this.visit(ctx.identifier())
+                );
+            }
+            return this.visit(ctx.statement());
+        });
         return this.astNode(ctx, {
             type: "CatchClause",
             param: param,
-            body: this.visit(ctx.statement())
+            body: body
         });
     }
 
@@ -553,9 +607,13 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (ctx.expressionOrFunction()) {
             initExpr = this.visit(ctx.expressionOrFunction());
         }
+        const id = this.withIdentifierRole(
+            { type: "declaration", kind: "variable" },
+            () => this.visit(ctx.identifier())
+        );
         return this.astNode(ctx, {
             type: "VariableDeclarator",
-            id: this.visit(ctx.identifier()),
+            id: id,
             init: initExpr
         });
     }
@@ -566,7 +624,15 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         const declarations = identifierContexts
             .map((identifierCtx) => {
-                const identifier = this.visit(identifierCtx);
+                const identifier = this.withIdentifierRole(
+                    {
+                        type: "declaration",
+                        kind: "variable",
+                        tags: ["global"],
+                        scopeOverride: "global"
+                    },
+                    () => this.visit(identifierCtx)
+                );
 
                 if (identifier && identifier.type === "Identifier" && identifier.name) {
                     identifier.isGlobalIdentifier = true;
@@ -651,7 +717,10 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "MemberDotExpression",
             object: null,
-            property: this.visit(ctx.identifier())
+            property: this.withIdentifierRole(
+                { type: "reference", kind: "property" },
+                () => this.visit(ctx.identifier())
+            )
         });
     }
 
@@ -847,7 +916,10 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitNewExpression(ctx) {
         return this.astNode(ctx, {
             type: "NewExpression",
-            expression: this.visit(ctx.identifier()),
+            expression: this.withIdentifierRole(
+                { type: "reference", kind: "type" },
+                () => this.visit(ctx.identifier())
+            ),
             arguments: this.visit(ctx.arguments())
         });
     }
@@ -860,7 +932,10 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#MemberDotExpression.
     visitMemberDotExpression(ctx) {
         const object = this.visit(ctx.expression()[0]);
-        const property = this.visit(ctx.expression()[1]);
+        const property = this.withIdentifierRole(
+            { type: "reference", kind: "property" },
+            () => this.visit(ctx.expression()[1])
+        );
         const node = this.astNode(ctx, {
             type: "MemberDotExpression",
             object,
@@ -1049,7 +1124,6 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#functionDeclaration.
     visitFunctionDeclaration(ctx) {
         let id = null;
-        let params = this.visit(ctx.parameterList());
 
         if (ctx.Identifier() != null) {
             id = ctx.Identifier().getText();
@@ -1057,10 +1131,21 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         const paramListCtx = ctx.parameterList();
 
-        const hasTrailingComma = this.hasTrailingComma(
-            paramListCtx.Comma(),
-            paramListCtx.parameterArgument()
-        );
+        let params = [];
+
+        const hasTrailingComma = paramListCtx
+            ? this.hasTrailingComma(
+                paramListCtx.Comma(),
+                paramListCtx.parameterArgument()
+            )
+            : false;
+
+        const body = this.withScope("function", () => {
+            if (paramListCtx != null) {
+                params = this.visit(paramListCtx);
+            }
+            return this.visit(ctx.block());
+        });
 
         if (ctx.constructorClause() != null) {
             return this.astNode(ctx, {
@@ -1068,7 +1153,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                 id: id,
                 params: params,
                 parent: this.visit(ctx.constructorClause()),
-                body: this.visit(ctx.block()),
+                body: body,
                 hasTrailingComma: hasTrailingComma
             });
         }
@@ -1077,7 +1162,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "FunctionDeclaration",
             id: id,
             params: params,
-            body: this.visit(ctx.block()),
+            body: body,
             hasTrailingComma: hasTrailingComma
         });
     }
@@ -1115,7 +1200,10 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     }
 
     visitInheritanceClause(ctx) {
-        let id = this.visit(ctx.identifier());
+        const id = this.withIdentifierRole(
+            { type: "reference", kind: "type" },
+            () => this.visit(ctx.identifier())
+        );
         let args = ctx.arguments() ? this.visit(ctx.arguments()) : [];
 
         return this.astNode(ctx, {
@@ -1126,10 +1214,19 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     }
 
     visitStructDeclaration(ctx) {
-        let id = this.visit(ctx.identifier());
-        let params = this.visit(ctx.parameterList());
-        let body = this.visit(ctx.block());
-        let parent = ctx.inheritanceClause()
+        const id = this.withIdentifierRole(
+            { type: "declaration", kind: "struct" },
+            () => this.visit(ctx.identifier())
+        );
+        const paramListCtx = ctx.parameterList();
+        let params = [];
+        const body = this.withScope("struct", () => {
+            if (paramListCtx != null) {
+                params = this.visit(paramListCtx);
+            }
+            return this.visit(ctx.block());
+        });
+        const parent = ctx.inheritanceClause()
             ? this.visit(ctx.inheritanceClause())
             : null;
 
@@ -1155,13 +1252,20 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#parameterArgument.
     visitParameterArgument(ctx) {
         if (ctx.expressionOrFunction() != null) {
+            const left = this.withIdentifierRole(
+                { type: "declaration", kind: "parameter" },
+                () => this.visit(ctx.identifier())
+            );
             return this.astNode(ctx, {
                 type: "DefaultParameter",
-                left: this.visit(ctx.identifier()),
+                left: left,
                 right: this.visit(ctx.expressionOrFunction())
             });
         } else {
-            return this.visit(ctx.identifier());
+            return this.withIdentifierRole(
+                { type: "declaration", kind: "parameter" },
+                () => this.visit(ctx.identifier())
+            );
         }
     }
 
@@ -1189,14 +1293,33 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (this.globalIdentifiers.has(name)) {
             node.isGlobalIdentifier = true;
         }
+        if (this.isIdentifierMetadataEnabled()) {
+            const role =
+        this.identifierRoles.length > 0
+            ? this.identifierRoles[this.identifierRoles.length - 1]
+            : null;
+            const effectiveRole = this.cloneRole(role);
+            const roleType =
+        effectiveRole.type === "declaration" ? "declaration" : "reference";
+
+            if (roleType === "declaration") {
+                this.scopeTracker.declare(name, node, effectiveRole);
+            } else {
+                this.scopeTracker.reference(name, node, effectiveRole);
+            }
+        }
         return node;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#enumeratorDeclaration.
     visitEnumeratorDeclaration(ctx) {
+        const name = this.withIdentifierRole(
+            { type: "declaration", kind: "enum" },
+            () => this.visit(ctx.identifier())
+        );
         return this.astNode(ctx, {
             type: "EnumDeclaration",
-            name: this.visit(ctx.identifier()),
+            name: name,
             members: this.visit(ctx.enumeratorList()),
             hasTrailingComma: ctx.enumeratorList().Comma() != null
         });
@@ -1221,16 +1344,28 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         return this.astNode(ctx, {
             type: "EnumMember",
-            name: this.visit(ctx.identifier()),
+            name: this.withIdentifierRole(
+                { type: "declaration", kind: "enum-member" },
+                () => this.visit(ctx.identifier())
+            ),
             initializer: initializer
         });
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#macroStatement.
     visitMacroStatement(ctx) {
+        const name = this.withIdentifierRole(
+            {
+                type: "declaration",
+                kind: "macro",
+                tags: ["global"],
+                scopeOverride: "global"
+            },
+            () => this.visit(ctx.identifier())
+        );
         return this.astNode(ctx, {
             type: "MacroDeclaration",
-            name: this.visit(ctx.identifier()),
+            name: name,
             tokens: this.visit(ctx.macroToken())
         });
     }
