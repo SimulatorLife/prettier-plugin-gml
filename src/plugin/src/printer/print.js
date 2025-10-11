@@ -2312,6 +2312,34 @@ function shouldGenerateSyntheticDocForFunction(
     );
 }
 
+function findSiblingListAndIndex(parent, targetNode) {
+    if (!parent || !targetNode) {
+        return null;
+    }
+
+    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // while keeping the scan readable and short-circuiting as soon as the node
+    // is located.
+    for (const key in parent) {
+        if (!Object.hasOwn(parent, key)) {
+            continue;
+        }
+
+        const value = parent[key];
+        if (!Array.isArray(value)) {
+            continue;
+        }
+
+        for (let index = 0; index < value.length; index += 1) {
+            if (value[index] === targetNode) {
+                return { list: value, index };
+            }
+        }
+    }
+
+    return null;
+}
+
 function shouldInsertHoistedLoopSeparator(path, options) {
     if (typeof path?.getValue !== "function") {
         return false;
@@ -2331,41 +2359,12 @@ function shouldInsertHoistedLoopSeparator(path, options) {
         return false;
     }
 
-    // The printer calls this helper while iterating over statement lists, so
-    // avoid allocating intermediate arrays via `Object.values` + `Array.find`.
-    // A manual property scan lets us bail as soon as the matching list is
-    // located while also reusing the index we compute for the adjacency check.
-    let siblingList = null;
-    let nodeIndex = -1;
-
-    for (const key in parent) {
-        if (!Object.hasOwn(parent, key)) {
-            continue;
-        }
-
-        const value = parent[key];
-        if (!Array.isArray(value)) {
-            continue;
-        }
-
-        for (let index = 0; index < value.length; index += 1) {
-            if (value[index] === node) {
-                siblingList = value;
-                nodeIndex = index;
-                break;
-            }
-        }
-
-        if (siblingList) {
-            break;
-        }
-    }
-
-    if (!siblingList) {
+    const siblingInfo = findSiblingListAndIndex(parent, node);
+    if (!siblingInfo) {
         return false;
     }
 
-    const nextNode = siblingList[nodeIndex + 1];
+    const nextNode = siblingInfo.list[siblingInfo.index + 1];
     if (nextNode?.type !== "ForStatement") {
         return false;
     }
