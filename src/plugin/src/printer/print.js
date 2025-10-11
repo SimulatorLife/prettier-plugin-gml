@@ -2698,20 +2698,44 @@ function printSingleClauseStatement(
     const allowSingleLineIfStatements =
     options?.allowSingleLineIfStatements ?? true;
 
-    if (
-        allowSingleLineIfStatements &&
-    bodyNode &&
-    bodyNode.type === "ReturnStatement"
-    ) {
-        return group([
-            keyword,
-            " ",
-            clauseDoc,
-            " { ",
-            print(bodyKey),
-            optionalSemicolon(bodyNode.type),
-            " }"
-        ]);
+    if (allowSingleLineIfStatements && bodyNode) {
+        let inlineReturnDoc = null;
+
+        if (bodyNode.type === "ReturnStatement" && !hasComment(bodyNode)) {
+            inlineReturnDoc = print(bodyKey);
+        } else if (
+            bodyNode.type === "BlockStatement" &&
+      !hasComment(bodyNode) &&
+      Array.isArray(bodyNode.body) &&
+      bodyNode.body.length === 1
+        ) {
+            const startLine = bodyNode.start?.line;
+            const endLine = bodyNode.end?.line;
+            if (startLine != null && endLine != null && startLine === endLine) {
+                const [onlyStatement] = bodyNode.body;
+                if (
+                    onlyStatement?.type === "ReturnStatement" &&
+          !hasComment(onlyStatement)
+                ) {
+                    inlineReturnDoc = path.call(
+                        (childPath) => childPath.call(print, "body", 0),
+                        bodyKey
+                    );
+                }
+            }
+        }
+
+        if (inlineReturnDoc) {
+            return group([
+                keyword,
+                " ",
+                clauseDoc,
+                " { ",
+                inlineReturnDoc,
+                optionalSemicolon("ReturnStatement"),
+                " }"
+            ]);
+        }
     }
 
     return concat([
