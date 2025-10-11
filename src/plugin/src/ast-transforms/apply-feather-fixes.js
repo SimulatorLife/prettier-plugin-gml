@@ -7,14 +7,6 @@ import {
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../feather/metadata.js";
-
-const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
-const FEATHER_FIX_IMPLEMENTATIONS =
-  buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
-const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
-    FEATHER_DIAGNOSTICS,
-    FEATHER_FIX_IMPLEMENTATIONS
-);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -43,6 +35,14 @@ const FUNCTION_LIKE_TYPES = new Set([
 ]);
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
+const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
+const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+const FEATHER_FIX_IMPLEMENTATIONS =
+  buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
+const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
+    FEATHER_DIAGNOSTICS,
+    FEATHER_FIX_IMPLEMENTATIONS
+);
 
 export function preprocessSourceForFeatherFixes(sourceText) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
@@ -311,440 +311,198 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
-        if (diagnosticId === "GM1029") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = convertNumericStringArgumentsToNumbers({
-                    ast,
-                    diagnostic
-                });
+        const handler = AUTOMATIC_FEATHER_FIX_HANDLERS.get(diagnosticId);
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1032") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = normalizeArgumentBuiltinReferences({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1033") {
-            registerFeatherFixer(
+        if (handler) {
+            registerAutomaticFeatherFix({
                 registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = removeDuplicateSemicolons({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
-
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1034") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = relocateArgumentReferencesInsideFunctions({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                diagnostic,
+                handler
             });
             continue;
         }
 
-        if (diagnosticId === "GM1036") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = normalizeMultidimensionalArrayIndexing({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1038") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeDuplicateMacroDeclarations({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1051") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = removeTrailingMacroSemicolons({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
-
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1016") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, preprocessedFixMetadata }) => {
-                        const fixes = removeBooleanLiteralStatements({
-                            ast,
-                            diagnostic,
-                            metadata: preprocessedFixMetadata
-                        });
-
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1041") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = convertAssetArgumentStringsToIdentifiers({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1051") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = removeTrailingMacroSemicolons({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
-
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1100") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, preprocessedFixMetadata }) => {
-                        const fixes = normalizeObviousSyntaxErrors({
-                            ast,
-                            diagnostic,
-                            metadata: preprocessedFixMetadata
-                        });
-
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1058") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureConstructorDeclarationsForNewExpressions({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-        if (diagnosticId === "GM1054") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureConstructorParentsExist({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1059") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast, options }) => {
-                const fixes = renameDuplicateFunctionParameters({
-                    ast,
-                    diagnostic,
-                    options
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1062") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = sanitizeMalformedJsDocTypes({
-                    ast,
-                    diagnostic,
-                    typeSystemInfo: FEATHER_TYPE_SYSTEM_INFO
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1056") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = reorderOptionalParameters({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1052") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = replaceInvalidDeleteStatements({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2020") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = convertAllDotAssignmentsToWithStatements({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2032") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureFileFindFirstBeforeClose({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2031") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureFileFindSearchesAreSerialized({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2023") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = normalizeFunctionCallArgumentOrder({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1063") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = harmonizeTexturePointerTernaries({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2044") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = deduplicateLocalVariableDeclarations({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2048") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureBlendEnableIsReset({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2054") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureAlphaTestRefIsReset({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2056") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureTextureRepeatIsReset({ ast, diagnostic });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2064") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = annotateInstanceVariableStructAssignments({
-                    ast,
-                    diagnostic
-                });
-
-                if (Array.isArray(fixes) && fixes.length > 0) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
-            continue;
-        }
-
-        registerFeatherFixer(
-            registry,
-            diagnosticId,
-            () =>
-                ({ ast }) =>
-                    registerManualFeatherFix({ ast, diagnostic })
-        );
+        registerManualOnlyFeatherFix({ registry, diagnostic });
     }
 
     return registry;
+}
+
+function registerAutomaticFeatherFix({ registry, diagnostic, handler }) {
+    if (!diagnostic?.id || typeof handler !== "function") {
+        return;
+    }
+
+    registerFeatherFixer(registry, diagnostic.id, () => (context = {}) => {
+        const fixes = handler({ ...context, diagnostic });
+
+        if (isNonEmptyArray(fixes)) {
+            return fixes;
+        }
+
+        return registerManualFeatherFix({ ast: context.ast, diagnostic });
+    });
+}
+
+function registerManualOnlyFeatherFix({ registry, diagnostic }) {
+    if (!diagnostic?.id) {
+        return;
+    }
+
+    registerFeatherFixer(
+        registry,
+        diagnostic.id,
+        () =>
+            ({ ast }) =>
+                registerManualFeatherFix({ ast, diagnostic })
+    );
+}
+
+function createAutomaticFeatherFixHandlers() {
+    return new Map([
+        [
+            "GM1029",
+            ({ ast, diagnostic }) =>
+                convertNumericStringArgumentsToNumbers({ ast, diagnostic })
+        ],
+        [
+            "GM1032",
+            ({ ast, diagnostic }) =>
+                normalizeArgumentBuiltinReferences({ ast, diagnostic })
+        ],
+        [
+            "GM1033",
+            ({ ast, sourceText, diagnostic }) =>
+                removeDuplicateSemicolons({ ast, sourceText, diagnostic })
+        ],
+        [
+            "GM1034",
+            ({ ast, diagnostic }) =>
+                relocateArgumentReferencesInsideFunctions({ ast, diagnostic })
+        ],
+        [
+            "GM1036",
+            ({ ast, diagnostic }) =>
+                normalizeMultidimensionalArrayIndexing({ ast, diagnostic })
+        ],
+        [
+            "GM1038",
+            ({ ast, diagnostic }) =>
+                removeDuplicateMacroDeclarations({ ast, diagnostic })
+        ],
+        [
+            "GM1051",
+            ({ ast, sourceText, diagnostic }) =>
+                removeTrailingMacroSemicolons({ ast, sourceText, diagnostic })
+        ],
+        [
+            "GM1016",
+            ({ ast, preprocessedFixMetadata, diagnostic }) =>
+                removeBooleanLiteralStatements({
+                    ast,
+                    diagnostic,
+                    metadata: preprocessedFixMetadata
+                })
+        ],
+        [
+            "GM1041",
+            ({ ast, diagnostic }) =>
+                convertAssetArgumentStringsToIdentifiers({ ast, diagnostic })
+        ],
+        [
+            "GM1100",
+            ({ ast, preprocessedFixMetadata, diagnostic }) =>
+                normalizeObviousSyntaxErrors({
+                    ast,
+                    diagnostic,
+                    metadata: preprocessedFixMetadata
+                })
+        ],
+        [
+            "GM1058",
+            ({ ast, diagnostic }) =>
+                ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic })
+        ],
+        [
+            "GM1054",
+            ({ ast, diagnostic }) =>
+                ensureConstructorParentsExist({ ast, diagnostic })
+        ],
+        [
+            "GM1059",
+            ({ ast, options, diagnostic }) =>
+                renameDuplicateFunctionParameters({ ast, diagnostic, options })
+        ],
+        [
+            "GM1062",
+            ({ ast, diagnostic }) =>
+                sanitizeMalformedJsDocTypes({
+                    ast,
+                    diagnostic,
+                    typeSystemInfo: FEATHER_TYPE_SYSTEM_INFO
+                })
+        ],
+        [
+            "GM1056",
+            ({ ast, diagnostic }) => reorderOptionalParameters({ ast, diagnostic })
+        ],
+        [
+            "GM1052",
+            ({ ast, diagnostic }) =>
+                replaceInvalidDeleteStatements({ ast, diagnostic })
+        ],
+        [
+            "GM2020",
+            ({ ast, diagnostic }) =>
+                convertAllDotAssignmentsToWithStatements({ ast, diagnostic })
+        ],
+        [
+            "GM2032",
+            ({ ast, diagnostic }) =>
+                ensureFileFindFirstBeforeClose({ ast, diagnostic })
+        ],
+        [
+            "GM2031",
+            ({ ast, diagnostic }) =>
+                ensureFileFindSearchesAreSerialized({ ast, diagnostic })
+        ],
+        [
+            "GM2023",
+            ({ ast, diagnostic }) =>
+                normalizeFunctionCallArgumentOrder({ ast, diagnostic })
+        ],
+        [
+            "GM1063",
+            ({ ast, diagnostic }) =>
+                harmonizeTexturePointerTernaries({ ast, diagnostic })
+        ],
+        [
+            "GM2044",
+            ({ ast, diagnostic }) =>
+                deduplicateLocalVariableDeclarations({ ast, diagnostic })
+        ],
+        [
+            "GM2048",
+            ({ ast, diagnostic }) => ensureBlendEnableIsReset({ ast, diagnostic })
+        ],
+        [
+            "GM2054",
+            ({ ast, diagnostic }) => ensureAlphaTestRefIsReset({ ast, diagnostic })
+        ],
+        [
+            "GM2056",
+            ({ ast, diagnostic }) => ensureTextureRepeatIsReset({ ast, diagnostic })
+        ],
+        [
+            "GM2064",
+            ({ ast, diagnostic }) =>
+                annotateInstanceVariableStructAssignments({ ast, diagnostic })
+        ]
+    ]);
+}
+
+function isNonEmptyArray(value) {
+    return Array.isArray(value) && value.length > 0;
 }
 
 function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
@@ -1305,9 +1063,9 @@ function convertMultidimensionalMemberIndex(
     const indices = Array.isArray(node.property) ? node.property : null;
 
     if (node.accessor && node.accessor !== "[") {
-        // Non-standard accessors such as '[#' (ds_grid) use comma-separated
-        // coordinates rather than nested lookups. Leave them unchanged so the
-        // grid access semantics remain intact.
+    // Non-standard accessors such as '[#' (ds_grid) use comma-separated
+    // coordinates rather than nested lookups. Leave them unchanged so the
+    // grid access semantics remain intact.
         return null;
     }
 
