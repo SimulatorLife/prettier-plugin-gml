@@ -6,7 +6,7 @@ import {
 import {
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "../../../shared/feather/metadata.js";
+} from "../feather/metadata.js";
 
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 const FEATHER_FIX_IMPLEMENTATIONS =
@@ -1806,7 +1806,11 @@ function findStatementContext(ancestors) {
     for (let index = ancestors.length - 1; index >= 0; index -= 1) {
         const entry = ancestors[index];
 
-        if (!entry || !Array.isArray(entry.parent) || typeof entry.property !== "number") {
+        if (
+            !entry ||
+      !Array.isArray(entry.parent) ||
+      typeof entry.property !== "number"
+        ) {
             continue;
         }
 
@@ -1847,7 +1851,11 @@ function isStatementArray(entry) {
 
     const parentType = owner?.type;
 
-    return parentType === "Program" || parentType === "BlockStatement" || parentType === "SwitchCase";
+    return (
+        parentType === "Program" ||
+    parentType === "BlockStatement" ||
+    parentType === "SwitchCase"
+    );
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
@@ -2300,7 +2308,10 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             if (!constructors.has(node.id)) {
                 constructors.set(node.id, node);
             }
-        } else if (node.type === "FunctionDeclaration" && typeof node.id === "string") {
+        } else if (
+            node.type === "FunctionDeclaration" &&
+      typeof node.id === "string"
+        ) {
             if (!functions.has(node.id)) {
                 functions.set(node.id, node);
             }

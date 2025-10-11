@@ -16,7 +16,7 @@ function loadFeatherMetadata() {
         return cachedMetadata;
     }
 
-    const metadata = require("../../../resources/feather-metadata.json");
+    const metadata = require("../../../../resources/feather-metadata.json");
     cachedMetadata = metadata;
     return metadata;
 }

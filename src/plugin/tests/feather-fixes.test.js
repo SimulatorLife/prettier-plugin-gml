@@ -7,7 +7,7 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "../../shared/feather/metadata.js";
+} from "../src/feather/metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
@@ -338,7 +338,10 @@ describe("applyFeatherFixes transform", () => {
         const baseFixes = baseFunction._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(baseFixes));
         assert.strictEqual(baseFixes.length > 0, true);
-        assert.strictEqual(baseFixes.some((entry) => entry.id === "GM1054"), true);
+        assert.strictEqual(
+            baseFixes.some((entry) => entry.id === "GM1054"),
+            true
+        );
 
         assert.ok(childConstructor);
         assert.ok(childConstructor.parent);
@@ -957,7 +960,7 @@ describe("applyFeatherFixes transform", () => {
 
     it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
         const source =
-            "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
+      "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
 
         const ast = GMLParser.parse(source, {
             getLocations: true,
@@ -968,14 +971,20 @@ describe("applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
-        assert.strictEqual(body.length >= 4, true, "Expected temporaries to be hoisted before the call expression.");
+        assert.strictEqual(
+            body.length >= 4,
+            true,
+            "Expected temporaries to be hoisted before the call expression."
+        );
 
         for (let index = 0; index < 3; index += 1) {
             const declaration = body[index];
             assert.ok(declaration);
             assert.strictEqual(declaration.type, "VariableDeclaration");
 
-            const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
+            const declarators = Array.isArray(declaration.declarations)
+                ? declaration.declarations
+                : [];
             assert.strictEqual(declarators.length, 1);
 
             const [declarator] = declarators;
@@ -983,7 +992,8 @@ describe("applyFeatherFixes transform", () => {
             assert.strictEqual(declarator?.id?.name, `__feather_call_arg_${index}`);
             assert.strictEqual(declarator?.init?.type, "CallExpression");
 
-            const declarationDiagnostics = declaration._appliedFeatherDiagnostics ?? [];
+            const declarationDiagnostics =
+        declaration._appliedFeatherDiagnostics ?? [];
             assert.strictEqual(
                 declarationDiagnostics.some((entry) => entry.id === "GM2023"),
                 true,
@@ -995,7 +1005,9 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(callStatement);
         assert.strictEqual(callStatement.type, "CallExpression");
 
-        const args = Array.isArray(callStatement.arguments) ? callStatement.arguments : [];
+        const args = Array.isArray(callStatement.arguments)
+            ? callStatement.arguments
+            : [];
         assert.strictEqual(args.length, 4);
         assert.strictEqual(args[0]?.type, "Identifier");
         assert.strictEqual(args[0]?.name, "vb");
