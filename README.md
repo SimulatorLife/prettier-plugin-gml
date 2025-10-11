@@ -303,8 +303,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 - `optimizeArrayLengthLoops` (default: `true`)
 
   Hoists calls to `array_length(...)` out of matching `for` loop conditions and stores the result in a cached variable
-  (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization
-  is undesirable for your project.
+  (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization is undesirable for your project.
 
 - `condenseStructAssignments` (default: `true`)
 
@@ -353,11 +352,6 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
   project prefers shorter banners, or raise it to require a longer prefix before a comment is treated as a banner.
-
-- `featherDuplicateParameterSuffixStart` (default: `2`)
-
-  When the optional Feather fixes rename duplicate function parameters (GM1059), start numbering replacements from this value.
-  Increase it to sidestep collisions with existing naming conventions or lower it to keep suffixes compact.
 
 - `applyFeatherFixes` (default: `false`)
 

@@ -139,15 +139,6 @@ export const options = {
         description:
       "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
     },
-    featherDuplicateParameterSuffixStart: {
-        since: "0.0.0",
-        type: "int",
-        category: "gml",
-        default: 2,
-        range: { start: 1, end: Infinity },
-        description:
-      "Starting numeric suffix used when renaming duplicate parameters for Feather fixes (GM1059). Increase to avoid clashes with manual naming conventions."
-    },
     applyFeatherFixes: {
         since: "0.0.0",
         type: "boolean",
@@ -171,7 +162,6 @@ export const defaultOptions = {
     alignAssignmentsMinGroupSize: 3,
     enumTrailingCommentPadding: 2,
     maxParamsPerLine: 0,
-    featherDuplicateParameterSuffixStart: 2,
     allowSingleLineIfStatements: true,
     logicalOperatorsStyle: "keywords",
     preserveGlobalVarStatements: true,
