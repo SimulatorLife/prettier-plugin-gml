@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
-import { Agent, setGlobalDispatcher } from "undici";
 
 import { CliUsageError, handleCliError } from "./utils/cli-errors.js";
 
@@ -41,9 +40,6 @@ function assertSupportedNodeVersion() {
         );
     }
 }
-
-const httpAgent = new Agent({ connections: 5 });
-setGlobalDispatcher(httpAgent);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -656,15 +652,7 @@ async function main() {
 }
 
 async function run() {
-    try {
-        await main();
-    } finally {
-        try {
-            await httpAgent.close();
-        } catch (closeError) {
-            console.error("Failed to close HTTP agent:", closeError);
-        }
-    }
+    await main();
 }
 
 run().catch((error) => {
