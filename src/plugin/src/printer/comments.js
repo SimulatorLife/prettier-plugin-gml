@@ -2,11 +2,8 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
-  getLineCommentRawText,
   formatLineComment,
-  getLineCommentBannerMinimum,
-  getLineCommentBannerAutofillThreshold,
-  applyInlinePadding,
+  getLineCommentBannerOptions,
   isCommentNode,
 } from "./comment-utils.js";
 
@@ -145,36 +142,8 @@ function printComment(commentPath, options) {
       return `/*${comment.value}*/`;
     }
     case "CommentLine": {
-      const bannerMinimum = getLineCommentBannerMinimum(options);
-      const bannerAutofillThreshold =
-        getLineCommentBannerAutofillThreshold(options);
-      const rawText = getLineCommentRawText(comment);
-      const bannerMatch = rawText.match(/^\s*(\/\/+)/);
-
-      if (!bannerMatch) {
-        return formatLineComment(comment, bannerMinimum);
-      }
-
-      const slashRun = bannerMatch[1];
-      const slashCount = slashRun.length;
-      if (slashCount >= bannerMinimum) {
-        return applyInlinePadding(comment, rawText.trim());
-      }
-
-      const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
-      const remainderTrimmed = remainder.trimStart();
-      const shouldAutofillBanner =
-        slashCount >= bannerAutofillThreshold &&
-        bannerMinimum > slashCount &&
-        remainderTrimmed.length > 0 &&
-        !remainderTrimmed.startsWith("@");
-
-      if (shouldAutofillBanner) {
-        const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
-        return applyInlinePadding(comment, padded.trimEnd());
-      }
-
-      return formatLineComment(comment, bannerMinimum);
+      const bannerOptions = getLineCommentBannerOptions(options);
+      return formatLineComment(comment, bannerOptions);
     }
     default: {
       throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
@@ -365,8 +334,8 @@ function attachDocCommentToFollowingNode(comment, options) {
     return false;
   }
 
-  const bannerMinimum = getLineCommentBannerMinimum(options);
-  const formatted = formatLineComment(comment, bannerMinimum);
+  const bannerOptions = getLineCommentBannerOptions(options);
+  const formatted = formatLineComment(comment, bannerOptions);
   if (!formatted || !formatted.startsWith("///")) {
     return false;
   }

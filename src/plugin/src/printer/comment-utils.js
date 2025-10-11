@@ -2,6 +2,10 @@ import { coercePositiveIntegerOption } from "./option-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
+const DEFAULT_LINE_COMMENT_BANNER_OPTIONS = Object.freeze({
+  minimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
+  autofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+});
 
 const BOILERPLATE_COMMENTS = [
   "Script assets have changed for v2.3.0",
@@ -44,6 +48,38 @@ function getLineCommentBannerAutofillThreshold(options) {
       zeroReplacement: Number.POSITIVE_INFINITY,
     },
   );
+}
+
+function getLineCommentBannerOptions(options) {
+  return {
+    minimum: getLineCommentBannerMinimum(options),
+    autofillThreshold: getLineCommentBannerAutofillThreshold(options),
+  };
+}
+
+function normalizeLineCommentBannerOptions(bannerOptions) {
+  if (typeof bannerOptions === "number") {
+    return {
+      minimum: bannerOptions,
+      autofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+    };
+  }
+
+  if (bannerOptions && typeof bannerOptions === "object") {
+    const { minimum, autofillThreshold } = bannerOptions;
+    return {
+      minimum:
+        typeof minimum === "number"
+          ? minimum
+          : DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
+      autofillThreshold:
+        typeof autofillThreshold === "number"
+          ? autofillThreshold
+          : DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+    };
+  }
+
+  return { ...DEFAULT_LINE_COMMENT_BANNER_OPTIONS };
 }
 
 const JSDOC_REPLACEMENTS = {
@@ -108,15 +144,14 @@ function isCommentNode(node) {
 
 function formatLineComment(
   comment,
-  bannerMinimumSlashes = DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
+  bannerOptions = DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
 ) {
+  const { minimum: bannerMinimum, autofillThreshold: bannerAutofillThreshold } =
+    normalizeLineCommentBannerOptions(bannerOptions);
   const original = getLineCommentRawText(comment);
   const trimmedOriginal = original.trim();
   const trimmedValue = comment.value.trim();
   const rawValue = typeof comment.value === "string" ? comment.value : "";
-
-  const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
-  const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
 
   for (const lineFragment of BOILERPLATE_COMMENTS) {
     if (trimmedValue.includes(lineFragment)) {
@@ -125,15 +160,36 @@ function formatLineComment(
     }
   }
 
-  const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-  if (slashesMatch && slashesMatch[1].length >= bannerMinimumSlashes) {
-    return applyInlinePadding(comment, original.trim());
+  const bannerMatch = original.match(/^\s*(\/\/+)/);
+  if (bannerMatch) {
+    const slashRun = bannerMatch[1];
+    const slashCount = slashRun.length;
+
+    if (slashCount >= bannerMinimum) {
+      return applyInlinePadding(comment, trimmedOriginal);
+    }
+
+    const remainder = original.slice(original.indexOf(slashRun) + slashCount);
+    const remainderTrimmed = remainder.trimStart();
+    const shouldAutofillBanner =
+      slashCount >= bannerAutofillThreshold &&
+      bannerMinimum > slashCount &&
+      remainderTrimmed.length > 0 &&
+      !remainderTrimmed.startsWith("@");
+
+    if (shouldAutofillBanner) {
+      const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
+      return applyInlinePadding(comment, padded.trimEnd());
+    }
   }
+
+  const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
+  const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
 
   if (
     trimmedOriginal.startsWith("///") &&
     !trimmedOriginal.includes("@") &&
-    leadingSlashCount >= bannerMinimumSlashes
+    leadingSlashCount >= bannerMinimum
   ) {
     return applyInlinePadding(comment, trimmedOriginal);
   }
@@ -311,6 +367,7 @@ export {
   formatLineComment,
   getLineCommentBannerMinimum,
   getLineCommentBannerAutofillThreshold,
+  getLineCommentBannerOptions,
   applyInlinePadding,
   normalizeDocCommentTypeAnnotations,
   isCommentNode,
