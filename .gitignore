@@ -1,6 +1,5 @@
 .antlr/
 *.cpuprofile
-project_structure.txt
 
 # Logs
 logs
