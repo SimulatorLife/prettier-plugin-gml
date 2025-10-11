@@ -145,24 +145,27 @@ function printComment(commentPath, options) {
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
-            if (bannerMatch) {
-                const slashRun = bannerMatch[1];
-                const slashCount = slashRun.length;
-                if (slashCount >= bannerMinimum) {
-                    return applyInlinePadding(comment, rawText.trim());
-                }
+            if (!bannerMatch) {
+                return formatLineComment(comment, bannerMinimum);
+            }
 
-                const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
-                const remainderTrimmed = remainder.trimStart();
-                if (
-                    slashCount >= bannerAutofillThreshold &&
-                    bannerMinimum > slashCount &&
-                    remainderTrimmed.length > 0 &&
-                    !remainderTrimmed.startsWith("@")
-                ) {
-                    const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
-                    return applyInlinePadding(comment, padded.trimEnd());
-                }
+            const slashRun = bannerMatch[1];
+            const slashCount = slashRun.length;
+            if (slashCount >= bannerMinimum) {
+                return applyInlinePadding(comment, rawText.trim());
+            }
+
+            const remainder = rawText.slice(rawText.indexOf(slashRun) + slashCount);
+            const remainderTrimmed = remainder.trimStart();
+            const shouldAutofillBanner =
+                slashCount >= bannerAutofillThreshold &&
+                bannerMinimum > slashCount &&
+                remainderTrimmed.length > 0 &&
+                !remainderTrimmed.startsWith("@");
+
+            if (shouldAutofillBanner) {
+                const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
+                return applyInlinePadding(comment, padded.trimEnd());
             }
 
             return formatLineComment(comment, bannerMinimum);
@@ -201,48 +204,65 @@ function collectDanglingComments(path, filter) {
     return { entries, totalCount: entries.length };
 }
 
-function printDanglingComments(path, options, sameIndent, filter) {
-    const { entries } = collectDanglingComments(path, filter);
+function printCommentAtIndex(path, options, commentIndex) {
+    return path.call(
+        (commentPath) => printComment(commentPath, options),
+        "comments",
+        commentIndex
+    );
+}
+
+function collectPrintedDanglingComments(path, options, filter) {
+    const { entries, totalCount } = collectDanglingComments(path, filter);
+
+    if (entries.length === 0) {
+        return { entries: [], totalCount: 0 };
+    }
+
+    const printedEntries = entries.map(({ commentIndex, comment }) => ({
+        comment,
+        printed: printCommentAtIndex(path, options, commentIndex)
+    }));
+
+    return { entries: printedEntries, totalCount };
+}
+
+function printDanglingComments(path, options, filter) {
+    const { entries } = collectPrintedDanglingComments(path, options, filter);
+
     if (entries.length === 0) {
         return "";
     }
 
-    return entries.map(({ commentIndex, comment }) => {
-        const printedComment = path.call(
-            (commentPath) => printComment(commentPath, options),
-            "comments",
-            commentIndex
-        );
-
-        return comment.attachToBrace
-            ? [" ", printedComment]
-            : [printedComment];
-    });
+    return entries.map(({ comment, printed }) =>
+        comment.attachToBrace ? [" ", printed] : [printed]
+    );
 }
 
 // print dangling comments and preserve the whitespace around the comments.
 // this function behaves similarly to the default comment algorithm.
-function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
-    const { entries, totalCount } = collectDanglingComments(path, filter);
+function printDanglingCommentsAsGroup(path, options, filter) {
+    const { entries, totalCount } = collectPrintedDanglingComments(
+        path,
+        options,
+        filter
+    );
+
     if (entries.length === 0) {
         return "";
     }
 
     const parts = [];
-    let i = 0;
     const finalIndex = totalCount - 1;
 
-    for (const { commentIndex, comment } of entries) {
-        if (i === 0) {
+    entries.forEach(({ comment, printed }, index) => {
+        if (index === 0) {
             parts.push(whitespaceToDoc(comment.leadingWS));
         }
-        const printedComment = path.call(
-            (commentPath) => printComment(commentPath, options),
-            "comments",
-            commentIndex
-        );
-        parts.push([printedComment]);
-        if (i !== finalIndex) {
+
+        parts.push([printed]);
+
+        if (index !== finalIndex) {
             let wsDoc = whitespaceToDoc(comment.trailingWS);
             // enforce at least one space between comments
             if (wsDoc === "") {
@@ -250,8 +270,7 @@ function printDanglingCommentsAsGroup(path, options, sameIndent, filter) {
             }
             parts.push(wsDoc);
         }
-        i += 1;
-    }
+    });
 
     return parts;
 }
