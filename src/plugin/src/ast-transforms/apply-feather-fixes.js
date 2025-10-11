@@ -30,7 +30,6 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["layer_instance_create", [3]]
 ]);
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const DEFAULT_DUPLICATE_PARAMETER_SUFFIX_START = 2;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 
 export function preprocessSourceForFeatherFixes(sourceText) {
@@ -125,15 +124,18 @@ export function preprocessSourceForFeatherFixes(sourceText) {
         }
 
         if (trimmed.startsWith("=") && pendingGM1100Context?.identifier) {
-            const remainder = line.slice(indentation.length).replace(/^\s*/, "");
+            const rawRemainder = line.slice(indentation.length);
             const identifier = pendingGM1100Context.identifier;
-            const sanitizedLine = `${indentation}${identifier} ${remainder}`;
 
             gm1100Metadata.push({
                 type: "assignment",
                 line: lineNumber,
                 identifier
             });
+
+            const sanitizedLine = `${indentation}${" ".repeat(
+                Math.max(0, rawRemainder.length)
+            )}`;
 
             return { line: sanitizedLine, context: null };
         }
@@ -1545,7 +1547,10 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
             return;
         }
 
-        if (node.type === "FunctionDeclaration") {
+        if (
+            node.type === "FunctionDeclaration" ||
+            node.type === "ConstructorDeclaration"
+        ) {
             const functionFixes = renameDuplicateParametersInFunction(
                 node,
                 diagnostic,
@@ -1570,8 +1575,7 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
 
 function renameDuplicateParametersInFunction(
     functionNode,
-    diagnostic,
-    options
+    diagnostic
 ) {
     const params = Array.isArray(functionNode?.params) ? functionNode.params : [];
 
@@ -1580,25 +1584,25 @@ function renameDuplicateParametersInFunction(
     }
 
     const fixes = [];
-    const seenNames = new Map();
+    const seenNames = new Set();
 
-    for (const param of params) {
+    for (let index = 0; index < params.length; index += 1) {
+        const param = params[index];
         const identifier = getFunctionParameterIdentifier(param);
 
         const hasIdentifier =
-      identifier &&
-      typeof identifier.name === "string" &&
-      identifier.name.length > 0;
+            identifier &&
+            typeof identifier.name === "string" &&
+            identifier.name.length > 0;
 
         if (!hasIdentifier) {
             continue;
         }
 
         const originalName = identifier.name;
-        const currentCount = (seenNames.get(originalName) ?? 0) + 1;
-        seenNames.set(originalName, currentCount);
 
-        if (currentCount === 1) {
+        if (!seenNames.has(originalName)) {
+            seenNames.add(originalName);
             continue;
         }
 
@@ -1607,30 +1611,18 @@ function renameDuplicateParametersInFunction(
             end: getNodeEndIndex(identifier)
         };
 
-        const replacementName = generateUniqueParameterName(
-            originalName,
-            seenNames,
-            options
-        );
-
-        if (!replacementName) {
-            continue;
-        }
-
-        identifier.name = replacementName;
-        seenNames.set(replacementName, 1);
-
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: originalName,
             range
         });
 
-        if (!fixDetail) {
-            continue;
+        if (fixDetail) {
+            attachFeatherFixMetadata(functionNode, [fixDetail]);
+            fixes.push(fixDetail);
         }
 
-        attachFeatherFixMetadata(identifier, [fixDetail]);
-        fixes.push(fixDetail);
+        params.splice(index, 1);
+        index -= 1;
     }
 
     return fixes;
@@ -1656,53 +1648,6 @@ function getFunctionParameterIdentifier(param) {
     return null;
 }
 
-function getDuplicateParameterSuffixStart(options) {
-    const rawValue = options?.featherDuplicateParameterSuffixStart;
-
-    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
-        return Math.max(1, Math.trunc(rawValue));
-    }
-
-    if (typeof rawValue === "string" && rawValue.trim().length > 0) {
-        const parsed = Number.parseInt(rawValue, 10);
-
-        if (Number.isFinite(parsed)) {
-            return Math.max(1, parsed);
-        }
-    }
-
-    return DEFAULT_DUPLICATE_PARAMETER_SUFFIX_START;
-}
-
-function generateUniqueParameterName(baseName, registry, options) {
-    if (!baseName || typeof baseName !== "string") {
-        return null;
-    }
-
-    const sanitizedBase = baseName.trim();
-
-    if (sanitizedBase.length === 0) {
-        return null;
-    }
-
-    const seen = registry instanceof Map ? registry : null;
-    const suffixStart = getDuplicateParameterSuffixStart(options);
-    const startingSuffix = Math.max(
-        suffixStart,
-        seen?.get(baseName) ?? suffixStart
-    );
-    let suffix = startingSuffix;
-
-    while (true) {
-        const candidate = `${sanitizedBase}_${suffix}`;
-
-        if (!seen || !seen.has(candidate)) {
-            return candidate;
-        }
-
-        suffix += 1;
-    }
-}
 function replaceInvalidDeleteStatements({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -2307,10 +2252,19 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = siblings.length;
 
-    if (isBlendEnableResetCall(nextNode)) {
-        return null;
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (isBlendEnableResetCall(sibling)) {
+            return null;
+        }
+
+        if (!isTriviallyIgnorableStatement(sibling)) {
+            insertionIndex = index + 1;
+            break;
+        }
     }
 
     const resetCall = createBlendEnableResetCall(node);
@@ -2331,7 +2285,23 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const needsSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (needsSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -2766,6 +2736,22 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const needsSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (needsSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
@@ -2845,10 +2831,19 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = siblings.length;
 
-    if (isTextureRepeatResetCall(nextNode)) {
-        return null;
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (isTextureRepeatResetCall(sibling)) {
+            return null;
+        }
+
+        if (!isTriviallyIgnorableStatement(sibling)) {
+            insertionIndex = index + 1;
+            break;
+        }
     }
 
     const resetCall = createTextureRepeatResetCall(node);
@@ -2869,10 +2864,75 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const needsSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (needsSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function isTriviallyIgnorableStatement(node) {
+    if (!node || typeof node !== "object") {
+        return true;
+    }
+
+    if (node.type === "EmptyStatement") {
+        return true;
+    }
+
+    if (Array.isArray(node)) {
+        return node.length === 0;
+    }
+
+    return false;
+}
+
+function createEmptyStatementLike(template) {
+    const empty = { type: "EmptyStatement" };
+
+    if (template && typeof template === "object") {
+        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+            empty.start = cloneLocation(template.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+            empty.end = cloneLocation(template.end);
+        }
+    }
+
+    return empty;
+}
+
+function hasOriginalBlankLineBetween(beforeNode, afterNode) {
+    const beforeEndLine =
+        typeof beforeNode?.end?.line === "number"
+            ? beforeNode.end.line
+            : null;
+    const afterStartLine =
+        typeof afterNode?.start?.line === "number"
+            ? afterNode.start.line
+            : null;
+
+    if (beforeEndLine == null || afterStartLine == null) {
+        return false;
+    }
+
+    return afterStartLine > beforeEndLine + 1;
 }
 
 function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
