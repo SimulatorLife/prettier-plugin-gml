@@ -45,4 +45,3 @@ export function getFeatherDiagnosticById(id) {
 
     return diagnostics.find((diagnostic) => diagnostic?.id === id) ?? null;
 }
-

@@ -42,8 +42,8 @@ needs an explicit path to load it when you install from Git.
 
 ### Requirements
 
-- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The repository ships with an `.nvmrc` file if you
-  prefer `nvm` to manage the runtime:
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). Use the bundled `.nvmrc` when you want to align
+  with the repository’s expected runtime:
 
   ````bash
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
@@ -65,8 +65,8 @@ needs an explicit path to load it when you install from Git.
 
 1. Change into the root folder of the GameMaker project you want to format (the directory that contains your `.yyp` file).
 
-   > 💡 **Do not run the install command from this repository or another shared tooling folder.** Prettier only loads plugins
-   > that are installed next to the project you are formatting.
+   > 💡 **Install the plugin next to the project you want to format.** Prettier only loads plugins that live alongside the
+   > project being formatted, so avoid installing from a shared tooling repo.
 
 2. Add Prettier, the plugin, and the parser runtime to your GameMaker project:
 
@@ -74,53 +74,56 @@ needs an explicit path to load it when you install from Git.
    npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
    ```
 
-   - Quoting the dependency strings prevents shells such as `zsh` from treating the `^` character as a glob.
-   - If `npm` reports an `EBADENGINE` warning or refuses to install, upgrade to a supported Node.js release (18.18.0+, 20.9.0+, or
-     21.1.0+). `nvm install --lts` is an easy way to pull the latest compatible runtime.
+   - Quote the dependency strings so shells such as `zsh` do not expand the `^` character as a glob.
+   - If `npm` reports an `EBADENGINE` warning or refuses to install, upgrade to a supported Node.js release (18.18.0+, 20.9.0+,
+     or 21.1.0+). `nvm install --lts` is an easy way to pull the latest compatible runtime.
 
-   If your project does not have a `package.json` yet, `npm` will create one for you. Keep the generated `node_modules`
-   folder next to your project so the Git-based install remains discoverable. The Git dependency will appear in
-   `node_modules/root` (the name defined in this repository’s workspace manifest).
+   `npm` creates a `package.json` for you when the project does not already have one. Keep the generated `node_modules`
+   folder next to your project so the Git-based dependency remains discoverable. The dependency installs into
+   `node_modules/root`, matching the name defined in this repository’s workspace manifest. Pin the dependency to a tag or commit
+   (for example `github:SimulatorLife/prettier-plugin-gml#<commit>`) if you want reproducible installs.
 
 3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Add a convenience script to your
    `package.json` so you consistently point Prettier at the bundled plugin entry (`node_modules/root/src/plugin/src/gml.js`):
 
-    ```jsonc
-    {
-      "scripts": {
-        "format:gml": "prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write \"**/*.gml\""
-      }
-    }
-    ```
+   ```jsonc
+   {
+     "scripts": {
+       "format:gml": "prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write \"**/*.gml\""
+     }
+   }
+   ```
 
-    Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language. Including
-    the plugin in your Prettier configuration keeps editor integrations working even when the CLI script is not used:
+   Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language. Including
+   the plugin path in your Prettier configuration keeps editor integrations working even when the CLI script is not used:
 
-    ```json
-    {
-      "plugins": ["./node_modules/root/src/plugin/src/gml.js"],
-      "overrides": [
-        {
-          "files": "*.gml",
-          "options": {
-            "parser": "gml-parse"
-          }
-        }
-      ]
-    }
-    ```
+   ```json
+   {
+     "plugins": ["./node_modules/root/src/plugin/src/gml.js"],
+     "overrides": [
+       {
+         "files": "*.gml",
+         "options": {
+           "parser": "gml-parse"
+         }
+       }
+     ]
+   }
+   ```
 
-    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-    `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. If you prefer a
-    single entry point, call the bundled wrapper instead of wiring Prettier manually:
+   The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
+   `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. Prefer a single entry
+   point? Use the bundled wrapper instead of wiring Prettier manually:
 
-    ```bash
-    node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
-    ```
+   ```bash
+   node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+   ```
 
-    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
-    matching the configured extensions (defaulting to `.gml`). Pass `--extensions=.gml,.yy` to format additional file types in
-    a single run.
+   The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
+   matching the configured extensions (defaulting to `.gml`, or the comma-separated list provided via the
+   `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable). Pass `--extensions=.gml,.yy` to format additional file types in a
+   single run. The helper also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a
+   summary of skipped paths so you can confirm non-GML assets stayed untouched.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -188,7 +191,8 @@ additional dependencies alongside that project:
     The path can be absolute or relative to this repository. The script loads Prettier and the plugin from the clone, writes
     formatted output back to the target project, and leaves that project’s `package.json` untouched. The wrapper mirrors the
     CLI behaviour (`--path` or a positional path argument) and logs any skipped non-GML files so you can confirm only `.gml`
-    sources were ignored.
+    sources were ignored. Supply `--extensions=.gml,.yy` when you want to cover multiple languages at once, or export
+    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` to reuse the same list on future runs.
 
 ### Optional: global install
 
@@ -239,6 +243,16 @@ command.
   ```bash
   npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write scripts/player_attack.gml
   ```
+
+- Format a whole project with the wrapper helper from any checkout:
+
+  ```bash
+  node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+  ```
+
+  The wrapper expands glob patterns, merges plugin paths discovered via `resolveConfig`, and prints a skipped-file summary so
+  you can audit what was excluded. See [Format with a local clone](#format-with-a-local-clone) if you prefer to run the helper
+  from this repository instead of a project install.
 
 See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options, and watch the
 [GitHub releases](https://github.com/SimulatorLife/prettier-plugin-gml/releases) for plugin updates.
@@ -324,10 +338,20 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Aligns the `=` operator across consecutive simple assignments once at least this many statements appear back-to-back. Increase
   the value to require larger groups before alignment happens, or set it to `0` to disable the alignment pass entirely.
 
+- `enumTrailingCommentPadding` (default: `2`)
+
+  Controls how many spaces appear between the longest enum member name and any trailing end-of-line comments. Raise the value to
+  push comments further right, or set it to `0` to keep comments close to the member names.
+
 - `lineCommentBannerMinimumSlashes` (default: `5`)
 
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
   project prefers shorter banners, or raise it to require a longer prefix before a comment is treated as a banner.
+
+- `featherDuplicateParameterSuffixStart` (default: `2`)
+
+  When the optional Feather fixes rename duplicate function parameters (GM1059), start numbering replacements from this value.
+  Increase it to sidestep collisions with existing naming conventions or lower it to keep suffixes compact.
 
 - `applyFeatherFixes` (default: `false`)
 
@@ -400,6 +424,8 @@ npm install
 
 The workspace definition installs the root tooling plus the parser and plugin package dependencies in a single `npm install` run. This includes the shared [Mocha](https://mochajs.org/) binary so the parser and plugin test suites work out of the box. Use `npm install --workspace src/plugin` or `npm install --workspace src/parser` when you only need to refresh a single package.
 
+The first install also wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix` before every commit. Set `HUSKY=0` when you need to bypass the hook (for example, in CI environments that handle formatting separately).
+
 ### Test the plugin and parser
 
 Run every test suite from the repository root:
@@ -419,6 +445,12 @@ Lint the JavaScript sources before submitting a change:
 
 ```bash
 npm run lint
+```
+
+Auto-fix lint violations when appropriate:
+
+```bash
+npm run lint:fix
 ```
 
 The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
@@ -445,14 +477,15 @@ npm run build:feather-metadata
 ```
 
 Both commands accept `--ref <branch|tag|commit>` to target a specific manual revision and `--force-refresh` to bypass the cached
-downloads stored in `scripts/cache/manual/`.
+downloads stored in `scripts/cache/manual/`. Pass `--help` for a full argument list, including custom output destinations, and
+consult the linked plans for a deeper explanation of how each dataset is generated and consumed.
 
 ### Regenerate the parser grammar
 
 Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run the generator:
 
 ```bash
-npm run antlr
+npm run build:antlr
 ```
 
 This command re-generates the parser and lexer inside `src/parser/src/generated` based on the `.g4` grammar files. The script
@@ -476,4 +509,3 @@ expects the `antlr` CLI in your `PATH`.
 
 - [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
-
