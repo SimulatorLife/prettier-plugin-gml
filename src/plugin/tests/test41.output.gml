@@ -1,5 +1,7 @@
-#macro FOO 1
-
-#macro BAR (value + 1)
-
-var answer = FOO + BAR;
+/// @function logical_example
+function logical_example() {
+    if ((foo && bar) || baz) {
+        return foo && bar;
+    }
+    return foo || baz;
+}
