@@ -225,8 +225,7 @@ function applyInlinePadding(comment, formattedText) {
     if (
         comment &&
     typeof comment.inlinePadding === "number" &&
-    comment.inlinePadding > 0 &&
-    formattedText.startsWith("//")
+    comment.inlinePadding > 0
     ) {
         return " ".repeat(comment.inlinePadding) + formattedText;
     }

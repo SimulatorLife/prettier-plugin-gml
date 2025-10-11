@@ -33,7 +33,7 @@ var currState = eStates.STATE_IDLE;
 /// @function changeState
 /// @param [newState=eStates.STATE_IDLE]
 function changeState(newState = eStates.STATE_IDLE) {
-	currState = newState;
+    currState = newState;
 }
 
 /*
@@ -89,7 +89,7 @@ if (global.disableDraw) {
 }
 
 if (
-    is_debug_mode // this is an inline comment
+    is_debug_mode  // this is an inline comment
 ) {
     show_debug_message("Test console message");
 }
