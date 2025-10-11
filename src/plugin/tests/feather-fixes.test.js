@@ -433,6 +433,44 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("removes duplicate macro declarations and records fix metadata", () => {
+        const source = [
+            "#macro dbg show_debug_message",
+            "#macro other value",
+            "#macro dbg show_debug_message",
+            "",
+            "dbg(\"hi\");"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const macros = Array.isArray(ast.body)
+            ? ast.body.filter((node) => node?.type === "MacroDeclaration")
+            : [];
+
+        assert.strictEqual(macros.length, 2, "Expected duplicate macro to be removed.");
+
+        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+
+        assert.ok(recordedFixes.some((entry) => entry.id === "GM1038"));
+        assert.ok(
+            recordedFixes.some(
+                (entry) =>
+                    entry.id === "GM1038" &&
+                    entry.target === "dbg" &&
+                    entry.automatic !== false
+            ),
+            "Expected GM1038 fix metadata with automatic flag and target name."
+        );
+    });
+
     it("normalizes missing constructor parent clauses and records fix metadata", () => {
         const source = [
             "function Base() {",

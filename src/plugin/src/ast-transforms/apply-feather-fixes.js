@@ -315,6 +315,41 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1038") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeDuplicateMacroDeclarations({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM1051") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = removeTrailingMacroSemicolons({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
+
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM1016") {
             registerFeatherFixer(
                 registry,
@@ -803,6 +838,84 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     }
 }
 
+function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const seenMacros = new Set();
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return false;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const child = node[index];
+                const removed = visit(child, node, index);
+
+                if (removed) {
+                    index -= 1;
+                }
+            }
+
+            return false;
+        }
+
+        if (typeof node !== "object") {
+            return false;
+        }
+
+        if (node.type === "MacroDeclaration") {
+            const macroName = node.name?.name;
+
+            if (!macroName) {
+                return false;
+            }
+
+            if (!seenMacros.has(macroName)) {
+                seenMacros.add(macroName);
+                return false;
+            }
+
+            if (!Array.isArray(parent) || typeof property !== "number") {
+                return false;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: macroName,
+                range: {
+                    start: getNodeStartIndex(node),
+                    end: getNodeEndIndex(node)
+                }
+            });
+
+            if (!fixDetail) {
+                return false;
+            }
+
+            parent.splice(property, 1);
+            fixes.push(fixDetail);
+
+            return true;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+
+        return false;
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
 function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -1039,6 +1152,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 
     return fixes;
 }
+
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
     if (
         !diagnostic ||
