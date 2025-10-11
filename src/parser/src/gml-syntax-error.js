@@ -20,50 +20,17 @@ export default class GameMakerParseErrorListener extends antlr4.error
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
 
-        if (currentRule === "closeBlock") {
-            const openBraceToken = parser._ctx.parentCtx.openBlock().start;
-            if (stack[1] === "block") {
-                throw (
-                    `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
-          "missing associated closing brace for this block"
-                );
-            }
-        }
+        const specificMessage = getSpecificSyntaxErrorMessage({
+            parser,
+            stack,
+            currentRule,
+            line,
+            column,
+            wrongSymbol
+        });
 
-        if (currentRule === "expression") {
-            throw (
-                `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol} in expression`
-            );
-        }
-
-        if (currentRule === "statement") {
-            throw (
-                `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol}`
-            );
-        }
-
-        if (currentRule === "lValueExpression" && stack[1] === "incDecStatement") {
-            throw (
-                `Syntax Error (line ${line}, column ${column}): ` +
-        "++, -- can only be used on a variable-addressing expression"
-            );
-        }
-
-        // Fallback to a generic syntax error when no specific rule matches.
-        if (currentRule === "program") {
-            throw (
-                `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol}`
-            );
-        }
-
-        if (currentRule === "parameterList") {
-            throw (
-                `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol} in function parameters, expected an identifier`
-            );
+        if (specificMessage) {
+            throw specificMessage;
         }
 
         const currentRuleFormatted = currentRule
@@ -75,5 +42,57 @@ export default class GameMakerParseErrorListener extends antlr4.error
       `unexpected ${wrongSymbol}` +
       ` while matching rule ${currentRuleFormatted}`
         );
+    }
+}
+
+function getSpecificSyntaxErrorMessage({
+    parser,
+    stack,
+    currentRule,
+    line,
+    column,
+    wrongSymbol
+}) {
+    switch (currentRule) {
+        case "closeBlock": {
+            if (stack[1] !== "block") {
+                return null;
+            }
+            const openBraceToken = parser._ctx.parentCtx.openBlock().start;
+            return (
+                `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
+        "missing associated closing brace for this block"
+            );
+        }
+        case "lValueExpression": {
+            if (stack[1] !== "incDecStatement") {
+                return null;
+            }
+            return (
+                `Syntax Error (line ${line}, column ${column}): ` +
+        "++, -- can only be used on a variable-addressing expression"
+            );
+        }
+        case "expression": {
+            return (
+                `Syntax Error (line ${line}, column ${column}): ` +
+        `unexpected ${wrongSymbol} in expression`
+            );
+        }
+        case "statement":
+        case "program": {
+            return (
+                `Syntax Error (line ${line}, column ${column}): ` +
+        `unexpected ${wrongSymbol}`
+            );
+        }
+        case "parameterList": {
+            return (
+                `Syntax Error (line ${line}, column ${column}): ` +
+        `unexpected ${wrongSymbol} in function parameters, expected an identifier`
+            );
+        }
+        default:
+            return null;
     }
 }

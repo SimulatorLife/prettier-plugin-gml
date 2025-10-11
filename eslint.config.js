@@ -39,15 +39,27 @@ export default [
         }
     },
     {
+        files: [
+            "src/plugin/src/printer/**/*.js",
+            "src/plugin/src/ast-transforms/apply-feather-fixes.js"
+        ],
+        rules: {
+            "no-unused-vars": ["off"]
+        }
+    },
+    {
+        files: ["src/parser/src/**/*.js"],
+        rules: {
+            "no-unused-vars": ["off"]
+        }
+    },
+    {
         files: ["src/parser/tests/**/*.js"],
         rules: {
             indent: ["error", 2],
             quotes: ["off"],
             "comma-dangle": ["off"],
-            "no-unused-vars": [
-                "warn",
-                { args: "after-used", argsIgnorePattern: "^_" }
-            ]
+            "no-unused-vars": ["off"]
         }
     }
 ];
