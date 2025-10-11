@@ -23,6 +23,7 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -305,6 +306,19 @@ function buildFeatherFixImplementations(diagnostics) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1032") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = normalizeArgumentBuiltinReferences({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -904,6 +918,222 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(node)) {
+            const functionFixes = fixArgumentReferencesWithinFunction(
+                node,
+                diagnostic
+            );
+
+            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+                fixes.push(...functionFixes);
+            }
+
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
+    const fixes = [];
+    const references = [];
+
+    const traverse = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                traverse(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node !== functionNode && isFunctionLikeNode(node)) {
+            const nestedFixes = fixArgumentReferencesWithinFunction(node, diagnostic);
+
+            if (Array.isArray(nestedFixes) && nestedFixes.length > 0) {
+                fixes.push(...nestedFixes);
+            }
+
+            return;
+        }
+
+        const argumentIndex = getArgumentIdentifierIndex(node);
+
+        if (typeof argumentIndex === "number") {
+            references.push({ node, index: argumentIndex });
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                traverse(value);
+            }
+        }
+    };
+
+    const body = functionNode?.body;
+
+    if (body && typeof body === "object") {
+        traverse(body);
+    } else {
+        traverse(functionNode);
+    }
+
+    if (references.length === 0) {
+        return fixes;
+    }
+
+    const mapping = createArgumentIndexMapping(
+        references.map((reference) => reference.index)
+    );
+
+    if (!(mapping instanceof Map) || mapping.size === 0) {
+        return fixes;
+    }
+
+    const hasChanges = [...mapping.entries()].some(
+        ([oldIndex, newIndex]) => oldIndex !== newIndex
+    );
+
+    if (!hasChanges) {
+        return fixes;
+    }
+
+    for (const reference of references) {
+        const newIndex = mapping.get(reference.index);
+
+        if (typeof newIndex !== "number" || newIndex === reference.index) {
+            continue;
+        }
+
+        const newName = `argument${newIndex}`;
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: newName,
+            range: {
+                start: getNodeStartIndex(reference.node),
+                end: getNodeEndIndex(reference.node)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        reference.node.name = newName;
+        attachFeatherFixMetadata(reference.node, [fixDetail]);
+        fixes.push(fixDetail);
+    }
+
+    return fixes;
+}
+
+function createArgumentIndexMapping(indices) {
+    if (!Array.isArray(indices) || indices.length === 0) {
+        return null;
+    }
+
+    const uniqueIndices = [
+        ...new Set(
+            indices.filter((index) => Number.isInteger(index) && index >= 0)
+        )
+    ].sort((left, right) => left - right);
+
+    if (uniqueIndices.length === 0) {
+        return null;
+    }
+
+    const mapping = new Map();
+    let expectedIndex = 0;
+
+    for (const index of uniqueIndices) {
+        if (!Number.isInteger(index) || index < 0) {
+            continue;
+        }
+
+        if (index === expectedIndex) {
+            mapping.set(index, index);
+            expectedIndex = index + 1;
+            continue;
+        }
+
+        if (index > expectedIndex) {
+            mapping.set(index, expectedIndex);
+            expectedIndex += 1;
+            continue;
+        }
+
+        mapping.set(index, expectedIndex);
+        expectedIndex += 1;
+    }
+
+    return mapping;
+}
+
+function getArgumentIdentifierIndex(node) {
+    if (!node || node.type !== "Identifier") {
+        return null;
+    }
+
+    const name = node.name;
+
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(name);
+
+    if (!match) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(match[1], 10);
+
+    if (!Number.isInteger(parsed) || parsed < 0) {
+        return null;
+    }
+
+    return parsed;
 }
 
 function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
