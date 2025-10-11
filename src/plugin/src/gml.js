@@ -3,6 +3,7 @@
 import { gmlParserAdapter } from "./parsers/gml-parser-adapter.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
+import { identifierCaseOptions } from "./options/identifier-case.js";
 
 export const languages = [
     {
@@ -164,6 +165,7 @@ export const options = {
         description:
       "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
     },
+    ...identifierCaseOptions,
     useStringInterpolation: {
         since: "0.0.0",
         type: "boolean",
