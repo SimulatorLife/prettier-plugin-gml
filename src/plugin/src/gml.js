@@ -86,6 +86,14 @@ export const options = {
             }
         ]
     },
+    condenseLogicalExpressions: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: false,
+        description:
+      "Condense complementary logical return branches into simplified boolean expressions when it is safe to do so."
+    },
     preserveGlobalVarStatements: {
         since: "0.0.0",
         type: "boolean",
@@ -172,6 +180,7 @@ export const defaultOptions = {
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
     logicalOperatorsStyle: "keywords",
+    condenseLogicalExpressions: false,
     preserveGlobalVarStatements: true,
     applyFeatherFixes: false,
     useStringInterpolation: false
