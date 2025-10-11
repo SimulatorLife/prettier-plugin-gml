@@ -7,7 +7,7 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "../../shared/feather/metadata.js";
+} from "../src/feather/metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,

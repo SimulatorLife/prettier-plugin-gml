@@ -6,7 +6,7 @@ import {
 import {
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "../../../shared/feather/metadata.js";
+} from "../feather/metadata.js";
 
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 const FEATHER_FIX_IMPLEMENTATIONS =
