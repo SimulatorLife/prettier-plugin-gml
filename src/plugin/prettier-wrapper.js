@@ -296,14 +296,11 @@ async function resolveProjectIgnorePaths(directory) {
     return ignoreFiles;
 }
 
-async function ensureDirectoryExists(directory) {
+async function resolveTargetStats(target) {
     try {
-        const directoryStats = await stat(directory);
-        if (!directoryStats.isDirectory()) {
-            throw new Error(`${directory} is not a directory`);
-        }
+        return await stat(target);
     } catch (error) {
-        console.error(`Unable to access ${directory}: ${error.message}`);
+        console.error(`Unable to access ${target}: ${error.message}`);
         process.exit(1);
     }
 }
@@ -419,14 +416,33 @@ async function processFile(filePath, activeIgnorePaths = []) {
     }
 }
 
-await ensureDirectoryExists(targetPath);
-baseProjectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
+const targetStats = await resolveTargetStats(targetPath);
+const targetIsDirectory = targetStats.isDirectory();
+
+if (!targetIsDirectory && !targetStats.isFile()) {
+    console.error(
+        `${targetPath} is not a file or directory that can be formatted`
+    );
+    process.exit(1);
+}
+
+const projectRoot = targetIsDirectory
+    ? targetPath
+    : path.dirname(targetPath);
+
+baseProjectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
 baseProjectIgnorePathSet.clear();
 for (const projectIgnorePath of baseProjectIgnorePaths) {
     baseProjectIgnorePathSet.add(projectIgnorePath);
 }
 await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
-await processDirectory(targetPath);
+if (targetIsDirectory) {
+    await processDirectory(targetPath);
+} else if (shouldFormatFile(targetPath)) {
+    await processFile(targetPath, baseProjectIgnorePaths);
+} else {
+    skippedFileCount += 1;
+}
 console.debug(`Skipped ${skippedFileCount} files`);
 if (encounteredFormattingError) {
     process.exitCode = 1;
