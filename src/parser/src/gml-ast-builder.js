@@ -242,6 +242,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             "macroStatement",
             "defineStatement",
             "regionStatement",
+            "deleteStatement",
             "literalStatement"
         ]);
     }
