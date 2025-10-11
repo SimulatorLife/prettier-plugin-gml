@@ -43,6 +43,7 @@
 ## Regeneration helper
 - Run `npm run build:gml-identifiers` to download the latest manual artefacts (cached under `scripts/cache/`) and update `resources/gml-identifiers.json` with the consolidated identifier catalogue.
 - Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
+- See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Operational considerations
 - **Rate limiting:** Use conditional requests (ETags) or GitHub API tokens when available to avoid 60-requests-per-hour unauthenticated ceilings, especially if multiple manual files must be fetched during development.【F:docs/reserved-identifiers-plan.md†L87-L90】
