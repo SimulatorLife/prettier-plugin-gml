@@ -10,6 +10,7 @@ import {
     preprocessSourceForFeatherFixes
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -52,6 +53,10 @@ function parse(text, options) {
             preprocessedFixMetadata,
             options
         });
+    }
+
+    if (options?.useStringInterpolation) {
+        convertStringConcatenations(ast);
     }
 
     preprocessFunctionArgumentDefaults(ast);

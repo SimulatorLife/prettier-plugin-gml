@@ -146,6 +146,14 @@ export const options = {
         default: false,
         description:
       "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
+    },
+    useStringInterpolation: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: false,
+        description:
+      'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
     }
 };
 
@@ -165,5 +173,6 @@ export const defaultOptions = {
     allowSingleLineIfStatements: true,
     logicalOperatorsStyle: "keywords",
     preserveGlobalVarStatements: true,
-    applyFeatherFixes: false
+    applyFeatherFixes: false,
+    useStringInterpolation: false
 };

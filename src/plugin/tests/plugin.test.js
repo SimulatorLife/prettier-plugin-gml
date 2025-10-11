@@ -427,4 +427,36 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         assert.strictEqual(formatted, expected);
     });
+
+    it("rewrites safe string concatenations into template strings when enabled", async () => {
+        const source = 'var message = "Hello " + name + "!";\n';
+
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: true
+        });
+
+        assert.strictEqual(formatted, 'var message = $"Hello {name}!";');
+    });
+
+    it("leaves concatenations unchanged when string interpolation is disabled", async () => {
+        const source = 'var message = "Hello " + name + "!";\n';
+
+        const baseline = await formatWithPlugin(source);
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: false
+        });
+
+        assert.strictEqual(formatted, baseline);
+    });
+
+    it("skips concatenations that include non-string expressions", async () => {
+        const source = 'var summary = "Score: " + playerName + 42;\n';
+
+        const baseline = await formatWithPlugin(source);
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: true
+        });
+
+        assert.strictEqual(formatted, baseline);
+    });
 });
