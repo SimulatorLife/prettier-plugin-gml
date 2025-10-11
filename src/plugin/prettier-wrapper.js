@@ -426,9 +426,7 @@ if (!targetIsDirectory && !targetStats.isFile()) {
     process.exit(1);
 }
 
-const projectRoot = targetIsDirectory
-    ? targetPath
-    : path.dirname(targetPath);
+const projectRoot = targetIsDirectory ? targetPath : path.dirname(targetPath);
 
 baseProjectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
 baseProjectIgnorePathSet.clear();
