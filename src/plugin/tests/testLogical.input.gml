@@ -142,3 +142,16 @@ function logical_example(){
     }
     return foo || baz;
 }
+
+/// @function scr_nearest_power_of_2
+/// @param {real} value - The real number to find the nearest power of 2 for.
+/// @description Takes a real number and returns the nearest power of 2, including negative powers for negative values.
+/// @returns {real} The nearest power of 2
+function scr_nearest_power_of_2(value) {
+    // Ensure the value is not zero, as log2(0) is undefined
+    if (value == 0) { return 0; }
+
+    // Find the nearest power of 2 by rounding the logarithm base 2 of the absolute value
+    // Use sign to handle both positive and negative values
+    return power(2, round(log2(abs(value)))) * sign(value);
+}
