@@ -308,6 +308,28 @@ function buildFeatherFixImplementations(diagnostics) {
       continue;
     }
 
+    if (diagnosticId === "GM1033") {
+      registerFeatherFixer(
+        registry,
+        diagnosticId,
+        () =>
+          ({ ast, sourceText }) => {
+            const fixes = removeDuplicateSemicolons({
+              ast,
+              sourceText,
+              diagnostic,
+            });
+
+            if (Array.isArray(fixes) && fixes.length > 0) {
+              return fixes;
+            }
+
+            return registerManualFeatherFix({ ast, diagnostic });
+          },
+      );
+      continue;
+    }
+
     if (diagnosticId === "GM1034") {
       registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
         const fixes = relocateArgumentReferencesInsideFunctions({
@@ -1118,6 +1140,283 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
   }
 
   return current;
+}
+
+function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
+  if (
+    !diagnostic ||
+    !ast ||
+    typeof sourceText !== "string" ||
+    sourceText.length === 0
+  ) {
+    return [];
+  }
+
+  const fixes = [];
+  const recordedRanges = new Set();
+
+  const recordFix = (container, range) => {
+    if (
+      !range ||
+      typeof range.start !== "number" ||
+      typeof range.end !== "number"
+    ) {
+      return;
+    }
+
+    const key = `${range.start}:${range.end}`;
+    if (recordedRanges.has(key)) {
+      return;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+      target: null,
+      range,
+    });
+
+    if (!fixDetail) {
+      return;
+    }
+
+    recordedRanges.add(key);
+    fixes.push(fixDetail);
+
+    if (container && typeof container === "object") {
+      attachFeatherFixMetadata(container, [fixDetail]);
+    }
+  };
+
+  const processSegment = (container, startIndex, endIndex) => {
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+      return;
+    }
+
+    if (endIndex <= startIndex) {
+      return;
+    }
+
+    const segment = sourceText.slice(startIndex, endIndex);
+
+    if (!segment || segment.indexOf(";") === -1) {
+      return;
+    }
+
+    for (const range of findDuplicateSemicolonRanges(segment, startIndex)) {
+      recordFix(container, range);
+    }
+  };
+
+  const processStatementList = (container, statements) => {
+    if (!Array.isArray(statements) || statements.length === 0) {
+      return;
+    }
+
+    const bounds = getStatementListBounds(container, sourceText);
+
+    let previousEnd = bounds.start;
+
+    for (const statement of statements) {
+      const statementStart = getNodeStartIndex(statement);
+      const statementEnd = getNodeEndIndex(statement);
+
+      if (
+        typeof previousEnd === "number" &&
+        typeof statementStart === "number"
+      ) {
+        processSegment(container, previousEnd, statementStart);
+      }
+
+      if (typeof statementEnd === "number") {
+        previousEnd = statementEnd;
+      } else {
+        previousEnd = statementStart;
+      }
+    }
+
+    if (
+      typeof previousEnd === "number" &&
+      typeof bounds.end === "number"
+    ) {
+      processSegment(container, previousEnd, bounds.end);
+    }
+  };
+
+  const visit = (node) => {
+    if (!node) {
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        visit(item);
+      }
+      return;
+    }
+
+    if (typeof node !== "object") {
+      return;
+    }
+
+    if (Array.isArray(node.body) && node.body.length > 0) {
+      processStatementList(node, node.body);
+    }
+
+    for (const value of Object.values(node)) {
+      if (value && typeof value === "object") {
+        visit(value);
+      }
+    }
+  };
+
+  visit(ast);
+
+  return fixes;
+}
+
+function getStatementListBounds(node, sourceText) {
+  if (!node || typeof sourceText !== "string") {
+    return { start: null, end: null };
+  }
+
+  let start = getNodeStartIndex(node);
+  let end = getNodeEndIndex(node);
+
+  if (node.type === "Program") {
+    start = 0;
+    end = sourceText.length;
+  } else if (node.type === "BlockStatement") {
+    if (typeof start === "number" && sourceText[start] === "{") {
+      start += 1;
+    }
+
+    if (typeof end === "number" && sourceText[end - 1] === "}") {
+      end -= 1;
+    }
+  } else if (node.type === "SwitchCase") {
+    if (typeof start === "number") {
+      const colonIndex = findCharacterInRange(sourceText, ":", start, end);
+
+      if (colonIndex !== -1) {
+        start = colonIndex + 1;
+      }
+    }
+  }
+
+  return {
+    start: typeof start === "number" ? start : null,
+    end: typeof end === "number" ? end : null,
+  };
+}
+
+function findCharacterInRange(text, character, start, end) {
+  if (typeof start !== "number") {
+    return -1;
+  }
+
+  const limit = typeof end === "number" ? end : text.length;
+  const index = text.indexOf(character, start);
+
+  if (index === -1 || index >= limit) {
+    return -1;
+  }
+
+  return index;
+}
+
+function findDuplicateSemicolonRanges(segment, offset) {
+  const ranges = [];
+
+  if (typeof segment !== "string" || segment.length === 0) {
+    return ranges;
+  }
+
+  let runStart = -1;
+  let runLength = 0;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let inString = false;
+  let stringDelimiter = null;
+
+  for (let index = 0; index < segment.length; index += 1) {
+    const char = segment[index];
+    const nextChar = index + 1 < segment.length ? segment[index + 1] : "";
+
+    if (inString) {
+      if (char === "\\") {
+        index += 1;
+        continue;
+      }
+
+      if (char === stringDelimiter) {
+        inString = false;
+        stringDelimiter = null;
+      }
+
+      continue;
+    }
+
+    if (inLineComment) {
+      if (char === "\n" || char === "\r") {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === "*" && nextChar === "/") {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (char === "/" && nextChar === "/") {
+      inLineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && nextChar === "*") {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "\"" || char === "'") {
+      inString = true;
+      stringDelimiter = char;
+      continue;
+    }
+
+    if (char === ";") {
+      if (runStart === -1) {
+        runStart = index;
+        runLength = 1;
+      } else {
+        runLength += 1;
+      }
+      continue;
+    }
+
+    if (runStart !== -1 && runLength > 1) {
+      ranges.push({
+        start: offset + runStart + 1,
+        end: offset + runStart + runLength,
+      });
+    }
+
+    runStart = -1;
+    runLength = 0;
+  }
+
+  if (runStart !== -1 && runLength > 1) {
+    ranges.push({
+      start: offset + runStart + 1,
+      end: offset + runStart + runLength,
+    });
+  }
+
+  return ranges;
 }
 
 function getMemberExpressionRootIdentifier(node) {
