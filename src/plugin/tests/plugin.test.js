@@ -398,7 +398,6 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "#macro FOO(value) (value + 1)",
-            "",
             "#macro BAR 100",
             "",
             "var result = FOO(1) + BAR;"
@@ -421,7 +420,6 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         const expected = [
             "#macro FOO(value) (value + 1) // comment",
-            "",
             "#macro BAR value + 2",
             "",
             "var result = FOO(3) + BAR;"
