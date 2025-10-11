@@ -1,7 +1,4 @@
-import { coercePositiveIntegerOption } from "./option-utils.js";
-
-const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
-const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
+import { DEFAULT_LINE_COMMENT_OPTIONS } from "./line-comment-options.js";
 
 const BOILERPLATE_COMMENTS = [
     "Script assets have changed for v2.3.0",
@@ -27,23 +24,6 @@ function getLineCommentRawText(comment) {
         : String(comment.value);
 
     return `//${fallbackValue}`;
-}
-
-function getLineCommentBannerMinimum(options) {
-    return coercePositiveIntegerOption(
-        options?.lineCommentBannerMinimumSlashes,
-        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-    );
-}
-
-function getLineCommentBannerAutofillThreshold(options) {
-    return coercePositiveIntegerOption(
-        options?.lineCommentBannerAutofillThreshold,
-        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-        {
-            zeroReplacement: Number.POSITIVE_INFINITY
-        }
-    );
 }
 
 const JSDOC_REPLACEMENTS = {
@@ -108,8 +88,9 @@ function isCommentNode(node) {
 
 function formatLineComment(
     comment,
-    bannerMinimumSlashes = DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+    lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
+    const { bannerMinimum } = normalizeLineCommentOptions(lineCommentOptions);
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
@@ -126,14 +107,14 @@ function formatLineComment(
     }
 
     const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
-    if (slashesMatch && slashesMatch[1].length >= bannerMinimumSlashes) {
+    if (slashesMatch && slashesMatch[1].length >= bannerMinimum) {
         return applyInlinePadding(comment, original.trim());
     }
 
     if (
         trimmedOriginal.startsWith("///") &&
     !trimmedOriginal.includes("@") &&
-    leadingSlashCount >= bannerMinimumSlashes
+    leadingSlashCount >= bannerMinimum
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -188,6 +169,35 @@ function formatLineComment(
     }
 
     return applyInlinePadding(comment, "// " + trimmedValue);
+}
+
+function normalizeLineCommentOptions(lineCommentOptions) {
+    if (
+        typeof lineCommentOptions === "number" &&
+    Number.isFinite(lineCommentOptions)
+    ) {
+        return {
+            ...DEFAULT_LINE_COMMENT_OPTIONS,
+            bannerMinimum: lineCommentOptions
+        };
+    }
+
+    if (lineCommentOptions && typeof lineCommentOptions === "object") {
+        const { bannerMinimum, bannerAutofillThreshold } = lineCommentOptions;
+
+        return {
+            bannerMinimum:
+        typeof bannerMinimum === "number"
+            ? bannerMinimum
+            : DEFAULT_LINE_COMMENT_OPTIONS.bannerMinimum,
+            bannerAutofillThreshold:
+        typeof bannerAutofillThreshold === "number"
+            ? bannerAutofillThreshold
+            : DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
+        };
+    }
+
+    return DEFAULT_LINE_COMMENT_OPTIONS;
 }
 
 function looksLikeCommentedOutCode(text) {
@@ -309,8 +319,6 @@ function splitCommentIntoSentences(text) {
 export {
     getLineCommentRawText,
     formatLineComment,
-    getLineCommentBannerMinimum,
-    getLineCommentBannerAutofillThreshold,
     applyInlinePadding,
     normalizeDocCommentTypeAnnotations,
     isCommentNode
