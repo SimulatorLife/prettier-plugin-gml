@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+
 import {
     getNodeEndIndex,
     getNodeStartIndex,
@@ -8,6 +10,8 @@ import {
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../feather/metadata.js";
+
+const require = createRequire(import.meta.url);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -18,6 +22,7 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierNameSet();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
@@ -375,6 +380,11 @@ function createAutomaticFeatherFixHandlers() {
             "GM1033",
             ({ ast, sourceText, diagnostic }) =>
                 removeDuplicateSemicolons({ ast, sourceText, diagnostic })
+        ],
+        [
+            "GM1030",
+            ({ ast, sourceText, diagnostic }) =>
+                renameReservedIdentifiers({ ast, diagnostic, sourceText })
         ],
         [
             "GM1034",
@@ -5477,6 +5487,296 @@ function escapeRegExp(text) {
     }
 
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
+    if (
+        !diagnostic ||
+    !ast ||
+    typeof ast !== "object" ||
+    RESERVED_IDENTIFIER_NAMES.size === 0
+    ) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (
+            node.type === "VariableDeclaration" &&
+      isSupportedVariableDeclaration(node)
+        ) {
+            const declarationFixes = renameReservedIdentifiersInVariableDeclaration(
+                node,
+                diagnostic
+            );
+
+            if (Array.isArray(declarationFixes) && declarationFixes.length > 0) {
+                fixes.push(...declarationFixes);
+            }
+        } else if (node.type === "MacroDeclaration") {
+            const macroFix = renameReservedIdentifierInMacro(
+                node,
+                diagnostic,
+                sourceText
+            );
+
+            if (macroFix) {
+                fixes.push(macroFix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function isSupportedVariableDeclaration(node) {
+    if (!node || node.type !== "VariableDeclaration") {
+        return false;
+    }
+
+    const kind = typeof node.kind === "string" ? node.kind.toLowerCase() : null;
+
+    return kind === "var" || kind === "static";
+}
+
+function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
+    const declarations = Array.isArray(node?.declarations)
+        ? node.declarations
+        : [];
+
+    if (declarations.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    for (const declarator of declarations) {
+        if (!declarator || declarator.type !== "VariableDeclarator") {
+            continue;
+        }
+
+        const fix = renameReservedIdentifierNode(declarator.id, diagnostic);
+
+        if (fix) {
+            fixes.push(fix);
+        }
+    }
+
+    return fixes;
+}
+
+function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    const name = identifier.name;
+
+    if (!isReservedIdentifier(name)) {
+        return null;
+    }
+
+    const replacement = getReplacementIdentifierName(name);
+
+    if (!replacement || replacement === name) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: name ?? null,
+        range: {
+            start: getNodeStartIndex(identifier),
+            end: getNodeEndIndex(identifier)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    identifier.name = replacement;
+
+    if (typeof options.onRename === "function") {
+        try {
+            options.onRename({
+                identifier,
+                originalName: name,
+                replacement
+            });
+        } catch {
+            // Swallow callback errors to avoid interrupting the fix pipeline.
+        }
+    }
+
+    attachFeatherFixMetadata(identifier, [fixDetail]);
+
+    return fixDetail;
+}
+
+function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
+    if (!node || node.type !== "MacroDeclaration") {
+        return null;
+    }
+
+    return renameReservedIdentifierNode(node.name, diagnostic, {
+        onRename: ({ originalName, replacement }) => {
+            const updatedText = buildMacroReplacementText({
+                macro: node,
+                originalName,
+                replacement,
+                sourceText
+            });
+
+            if (typeof updatedText === "string") {
+                node._featherMacroText = updatedText;
+            }
+        }
+    });
+}
+
+function isReservedIdentifier(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    return RESERVED_IDENTIFIER_NAMES.has(name.toLowerCase());
+}
+
+function getReplacementIdentifierName(originalName) {
+    if (typeof originalName !== "string" || originalName.length === 0) {
+        return null;
+    }
+
+    let candidate = `_${originalName}`;
+    const seen = new Set();
+
+    while (isReservedIdentifier(candidate)) {
+        if (seen.has(candidate)) {
+            return null;
+        }
+
+        seen.add(candidate);
+        candidate = `_${candidate}`;
+    }
+
+    return candidate;
+}
+
+function buildMacroReplacementText({
+    macro,
+    originalName,
+    replacement,
+    sourceText
+}) {
+    if (
+        !macro ||
+    macro.type !== "MacroDeclaration" ||
+    typeof replacement !== "string"
+    ) {
+        return null;
+    }
+
+    const baseText = getMacroBaseText(macro, sourceText);
+
+    if (typeof baseText !== "string" || baseText.length === 0) {
+        return null;
+    }
+
+    if (typeof originalName === "string" && originalName.length > 0) {
+        const nameIndex = baseText.indexOf(originalName);
+
+        if (nameIndex >= 0) {
+            return (
+                baseText.slice(0, nameIndex) +
+        replacement +
+        baseText.slice(nameIndex + originalName.length)
+            );
+        }
+    }
+
+    return null;
+}
+
+function getMacroBaseText(macro, sourceText) {
+    if (!macro || macro.type !== "MacroDeclaration") {
+        return null;
+    }
+
+    if (
+        typeof macro._featherMacroText === "string" &&
+    macro._featherMacroText.length > 0
+    ) {
+        return macro._featherMacroText;
+    }
+
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return null;
+    }
+
+    const startIndex = getNodeStartIndex(macro);
+    const endIndex = getNodeEndIndex(macro);
+
+    if (
+        typeof startIndex !== "number" ||
+    typeof endIndex !== "number" ||
+    endIndex < startIndex
+    ) {
+        return null;
+    }
+
+    return sourceText.slice(startIndex, endIndex);
+}
+
+function buildReservedIdentifierNameSet() {
+    try {
+        const metadata = require("../../../../resources/gml-identifiers.json");
+        const identifiers = metadata?.identifiers;
+
+        if (identifiers && typeof identifiers === "object") {
+            const disallowedTypes = new Set(["literal", "keyword"]);
+
+            return new Set(
+                Object.entries(identifiers)
+                    .filter(([name, info]) => {
+                        if (typeof name !== "string" || name.length === 0) {
+                            return false;
+                        }
+
+                        const type = typeof info?.type === "string" ? info.type : "";
+                        return !disallowedTypes.has(type.toLowerCase());
+                    })
+                    .map(([name]) => name.toLowerCase())
+            );
+        }
+    } catch {
+    // Ignore metadata loading failures and fall back to a no-op set.
+    }
+
+    return new Set();
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {

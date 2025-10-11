@@ -138,6 +138,15 @@ export const options = {
         description:
       "Spaces inserted between the end of code and trailing comments. Increase to push inline comments further right or set to 0 to minimize padding."
     },
+    trailingCommentInlineOffset: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 1,
+        range: { start: 0, end: Infinity },
+        description:
+      "Spaces trimmed from trailingCommentPadding when applying inline comment padding. Set to 0 to keep inline and trailing padding identical."
+    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
@@ -177,6 +186,7 @@ export const defaultOptions = {
     lineCommentBannerAutofillThreshold: 4,
     alignAssignmentsMinGroupSize: 3,
     trailingCommentPadding: 2,
+    trailingCommentInlineOffset: 1,
     maxParamsPerLine: 0,
     allowSingleLineIfStatements: true,
     logicalOperatorsStyle: "keywords",

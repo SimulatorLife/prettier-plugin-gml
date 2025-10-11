@@ -413,6 +413,23 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("respects the trailing comment inline offset option", async () => {
+        const source = ["var foo = 1; // inline", ""].join("\n");
+
+        const defaultFormatted = await formatWithPlugin(source);
+        const alignedFormatted = await formatWithPlugin(source, {
+            trailingCommentInlineOffset: 0
+        });
+
+        const defaultColumn = defaultFormatted.split("\n")[0].indexOf("//");
+        const alignedColumn = alignedFormatted.split("\n")[0].indexOf("//");
+
+        assert.ok(
+            alignedColumn > defaultColumn,
+            "Expected removing the inline offset to shift the inline comment further right."
+        );
+    });
+
     it("strips trailing macro semicolons when Feather fixes are applied", async () => {
         const source = [
             "#macro FOO(value) (value + 1);",
