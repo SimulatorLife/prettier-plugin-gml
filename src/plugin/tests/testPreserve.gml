@@ -78,3 +78,6 @@ global.settings = {
  //		eParticleType.fire_gold
  //	); // choose fire colour
  //}
+
+// The following should be preserved; math-expression parentheses should not be applied to string concatenation
+var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));

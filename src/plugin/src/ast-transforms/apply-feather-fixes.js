@@ -3617,12 +3617,13 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
 
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
-    const needsSeparator =
+    const shouldInsertSeparator =
     insertionIndex > property + 1 &&
     !isTriviallyIgnorableStatement(previousSibling) &&
-    !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+    !hasOriginalBlankLineBetween(previousSibling, nextSibling) &&
+    !isAlphaTestDisableCall(nextSibling);
 
-    if (needsSeparator) {
+    if (shouldInsertSeparator) {
         siblings.splice(
             insertionIndex,
             0,
