@@ -207,6 +207,23 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("preserves parentheses in @description tags", async () => {
+        const source = [
+            "/// @description Draw()",
+            "function draw() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        assert.ok(
+            formatted.includes("/// @description Draw()"),
+            "Expected @description comments to retain trailing parentheses"
+        );
+    });
+
     it("converts argument_count fallback conditionals into default parameters", async () => {
         const source = [
             "function example(arg) {",
