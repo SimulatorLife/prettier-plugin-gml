@@ -1,14 +1,83 @@
-import { hasComment } from "../printer/util.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import { hasComment } from "../../../shared/comments.js";
+import {
+    getSingleVariableDeclarator,
+    getIdentifierText,
+    isUndefinedLiteral
+} from "../../../shared/ast-node-helpers.js";
+
+const DEFAULT_HELPERS = {
+    getIdentifierText,
+    isUndefinedLiteral
+};
 
 /**
  * Normalize function parameters by converting argument_count fallbacks into default parameters.
  *
- * @param {import("prettier").AstPath} path
- * @param {{ getIdentifierText: (node: unknown) => string | null, isUndefinedLiteral: (node: unknown) => boolean }} helpers
+ * @param {unknown} ast
+ * @param {{ getIdentifierText?: (node: unknown) => string | null, isUndefinedLiteral?: (node: unknown) => boolean }} helpers
  */
-export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
-    const node = path?.getValue?.();
+export function preprocessFunctionArgumentDefaults(
+    ast,
+    helpers = DEFAULT_HELPERS
+) {
+    if (!ast || typeof ast !== "object") {
+        return ast;
+    }
+
+    const normalizedHelpers = {
+        getIdentifierText:
+      typeof helpers.getIdentifierText === "function"
+          ? helpers.getIdentifierText
+          : DEFAULT_HELPERS.getIdentifierText,
+        isUndefinedLiteral:
+      typeof helpers.isUndefinedLiteral === "function"
+          ? helpers.isUndefinedLiteral
+          : DEFAULT_HELPERS.isUndefinedLiteral
+    };
+
+    traverse(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        preprocessFunctionDeclaration(node, normalizedHelpers);
+    });
+
+    return ast;
+}
+
+function traverse(node, visitor, seen = new Set()) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (seen.has(node)) {
+        return;
+    }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            traverse(child, visitor, seen);
+        }
+        return;
+    }
+
+    visitor(node);
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        if (value && typeof value === "object") {
+            traverse(value, visitor, seen);
+        }
+    }
+}
+
+function preprocessFunctionDeclaration(node, helpers) {
     if (!node || node.type !== "FunctionDeclaration") {
         return;
     }
@@ -17,33 +86,37 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         return;
     }
 
-    const getIdentifierText = typeof helpers.getIdentifierText === "function"
-        ? helpers.getIdentifierText
-        : null;
-    const isUndefinedLiteral = typeof helpers.isUndefinedLiteral === "function"
-        ? helpers.isUndefinedLiteral
-        : null;
+    const { getIdentifierText, isUndefinedLiteral } = helpers;
 
-    if (!getIdentifierText || !isUndefinedLiteral) {
+    if (
+        typeof getIdentifierText !== "function" ||
+    typeof isUndefinedLiteral !== "function"
+    ) {
         return;
     }
 
     node._hasProcessedArgumentCountDefaults = true;
 
     const body = node.body;
-    if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body) || body.body.length === 0) {
+    if (
+        !body ||
+    body.type !== "BlockStatement" ||
+    !Array.isArray(body.body) ||
+    body.body.length === 0
+    ) {
         return;
     }
 
     const statements = body.body;
     const matches = [];
 
-    for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
+    for (
+        let statementIndex = 0;
+        statementIndex < statements.length;
+        statementIndex++
+    ) {
         const statement = statements[statementIndex];
-        const match = matchArgumentCountFallbackStatement(statement, {
-            getIdentifierText,
-            isUndefinedLiteral
-        });
+        const match = matchArgumentCountFallbackStatement(statement, helpers);
 
         if (!match) {
             continue;
@@ -74,7 +147,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
 
     const paramInfoByName = new Map();
     params.forEach((param, index) => {
-        const identifier = getIdentifierFromParameter(param, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(param, helpers);
         if (!identifier) {
             return;
         }
@@ -96,22 +169,24 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         }
 
         const { targetName, argumentIndex } = match;
-
         if (argumentIndex == null || argumentIndex < 0) {
             return null;
         }
 
         const existingInfo = paramInfoByName.get(targetName);
         if (existingInfo) {
-            if (existingInfo.index === argumentIndex) {
-                return existingInfo;
-            }
-            return null;
+            return existingInfo.index === argumentIndex ? existingInfo : null;
         }
 
         if (argumentIndex > params.length) {
             return null;
         }
+
+        const registerInfo = (index, identifier) => {
+            const info = { index, identifier };
+            paramInfoByName.set(targetName, info);
+            return info;
+        };
 
         if (argumentIndex === params.length) {
             const newIdentifier = {
@@ -119,13 +194,11 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 name: targetName
             };
             params.push(newIdentifier);
-            const info = { index: argumentIndex, identifier: newIdentifier };
-            paramInfoByName.set(targetName, info);
-            return info;
+            return registerInfo(argumentIndex, newIdentifier);
         }
 
         const paramAtIndex = params[argumentIndex];
-        const identifier = getIdentifierFromParameter(paramAtIndex, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
         if (!identifier) {
             return null;
         }
@@ -135,9 +208,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
             return null;
         }
 
-        const info = { index: argumentIndex, identifier };
-        paramInfoByName.set(targetName, info);
-        return info;
+        return registerInfo(argumentIndex, identifier);
     };
 
     for (const match of matches) {
@@ -179,10 +250,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 statements,
                 match.statementIndex,
                 match.targetName,
-                {
-                    getIdentifierText,
-                    isUndefinedLiteral
-                }
+                helpers
             );
 
             if (redundantVar) {
@@ -195,7 +263,9 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         return;
     }
 
-    body.body = body.body.filter((statement) => !statementsToRemove.has(statement));
+    body.body = body.body.filter(
+        (statement) => !statementsToRemove.has(statement)
+    );
 }
 
 function getIdentifierFromParameter(param, { getIdentifierText }) {
@@ -213,7 +283,9 @@ function getIdentifierFromParameter(param, { getIdentifierText }) {
 
     if (param.type === "ConstructorParentClause" && Array.isArray(param.params)) {
         for (const childParam of param.params) {
-            const identifier = getIdentifierFromParameter(childParam, { getIdentifierText });
+            const identifier = getIdentifierFromParameter(childParam, {
+                getIdentifierText
+            });
             if (identifier) {
                 return identifier;
             }
@@ -228,12 +300,15 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (hasComment(statement)) {
         return null;
     }
 
     if (statement.type === "VariableDeclaration") {
-        return matchArgumentCountFallbackFromVariableDeclaration(statement, helpers);
+        return matchArgumentCountFallbackFromVariableDeclaration(
+            statement,
+            helpers
+        );
     }
 
     if (statement.type === "IfStatement") {
@@ -257,7 +332,7 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
         return null;
     }
 
-    if (declarator.comments && declarator.comments.length > 0) {
+    if (hasComment(declarator)) {
         return null;
     }
 
@@ -333,8 +408,12 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
         return null;
     }
 
-    const argumentAssignment = consequentIsArgument ? consequentAssignment : alternateAssignment;
-    const fallbackAssignment = consequentIsArgument ? alternateAssignment : consequentAssignment;
+    const argumentAssignment = consequentIsArgument
+        ? consequentAssignment
+        : alternateAssignment;
+    const fallbackAssignment = consequentIsArgument
+        ? alternateAssignment
+        : consequentAssignment;
 
     const targetName = helpers.getIdentifierText(argumentAssignment.left);
     const fallbackName = helpers.getIdentifierText(fallbackAssignment.left);
@@ -355,7 +434,12 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
     };
 }
 
-function findRedundantVarDeclarationBefore(statements, currentIndex, targetName, helpers) {
+function findRedundantVarDeclarationBefore(
+    statements,
+    currentIndex,
+    targetName,
+    helpers
+) {
     if (!Array.isArray(statements) || currentIndex <= 0) {
         return null;
     }
@@ -409,7 +493,7 @@ function extractAssignmentFromStatement(statement) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (hasComment(statement)) {
         return null;
     }
 
@@ -476,6 +560,19 @@ function parseArgumentCountGuard(node) {
         return adjusted >= 0 ? { argumentIndex: adjusted } : null;
     }
 
+    if (node.operator === "<") {
+        const adjusted = rightIndex - 1;
+        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
+    }
+
+    if (node.operator === "<=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
+    if ((node.operator === "==" || node.operator === "!=") && rightIndex === 0) {
+        return { argumentIndex: 0 };
+    }
+
     return null;
 }
 
@@ -523,7 +620,11 @@ function isArgumentArrayAccess(node, expectedIndex) {
         return false;
     }
 
-    if (!node.object || node.object.type !== "Identifier" || node.object.name !== "argument") {
+    if (
+        !node.object ||
+    node.object.type !== "Identifier" ||
+    node.object.name !== "argument"
+    ) {
         return false;
     }
 

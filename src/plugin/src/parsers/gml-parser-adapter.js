@@ -5,19 +5,38 @@
 import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
-import { applyFeatherFixes } from "../ast-transforms/apply-feather-fixes.js";
+import {
+    applyFeatherFixes,
+    preprocessSourceForFeatherFixes
+} from "../ast-transforms/apply-feather-fixes.js";
+import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = util;
 
 function parse(text, options) {
-    const ast = GMLParser.parse(text, {
+    let parseSource = text;
+    let preprocessedFixMetadata = null;
+
+    if (options?.applyFeatherFixes) {
+        const preprocessResult = preprocessSourceForFeatherFixes(text);
+
+        if (preprocessResult && typeof preprocessResult.sourceText === "string") {
+            parseSource = preprocessResult.sourceText;
+        }
+
+        preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+    }
+
+    const ast = GMLParser.parse(parseSource, {
         getLocations: true,
         simplifyLocations: false
     });
 
     if (!ast || typeof ast !== "object") {
-        throw new Error("GameMaker parser returned no AST for the provided source.");
+        throw new Error(
+            "GameMaker parser returned no AST for the provided source."
+        );
     }
 
     if (options?.condenseStructAssignments ?? true) {
@@ -26,9 +45,13 @@ function parse(text, options) {
 
     if (options?.applyFeatherFixes) {
         applyFeatherFixes(ast, {
-            sourceText: text
+            sourceText: parseSource,
+            preprocessedFixMetadata,
+            options
         });
     }
+
+    preprocessFunctionArgumentDefaults(ast);
 
     return ast;
 }
