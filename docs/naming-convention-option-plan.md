@@ -2,21 +2,21 @@
 
 ## Objective
 Introduce an opt-in Prettier plugin feature that can rewrite user-defined identifiers (variables, functions, macros, enums, and asset names) to a configurable naming convention (e.g. camelCase → snake_case) while formatting GameMaker projects. The extension must:
-- Preserve program behaviour and avoid collisions with existing identifiers or GameMaker reserved names from `resources/gml-identifiers.json`.
+- Preserve program behaviour and avoid collisions with existing identifiers or GameMaker reserved names from [../resources/gml-identifiers.json](../resources/gml-identifiers.json).
 - Respect identifier scope (local, script-level, object instance, global, macro, enum) and project asset relationships captured in `.yy` metadata.
-- Provide transparent reporting and override hooks so developers can audit, customise, or veto renames that would be unsafe.
+- Provide transparent reporting so developers can audit or rollback changes.
 
 ## Constraints and open questions
-- **GML case semantics:** GML treats identifiers case-insensitively at runtime, but YoYo IDE preserves casing for readability. Our collision detection must assume case-insensitive runtime semantics even when the new casing differs only by lettercase.
+- **GML case semantics:** GML treats identifiers case-sensitively at runtime and in the IDE, so variables with different casing are considered distinct. Our collision detection must assume case-sensitive runtime semantics even when the new casing differs only by lettercase.
 - **Prettier execution model:** The plugin currently formats one file at a time with no persistent cross-file state. We need a lightweight project index that can be shared across formatting runs (e.g. via a cache file keyed by project root) without breaking Prettier’s stateless expectations.
-- **Asset renames vs. filesystem changes:** Updating a script’s name in `.yy` metadata is insufficient if the IDE expects the filename to match. Decide whether the formatter is allowed to rename files on disk, or if we emit actionable diagnostics for the user to run a follow-up sync command.
-- **Incremental adoption:** Teams may only want to convert certain identifier classes (e.g. local variables) or exclude specific prefixes (e.g. `global.`). The option must be granular and default-safe (no renames unless explicitly enabled).
+- **Asset renames vs. filesystem changes:** Updating a script’s name in `.yy` metadata is insufficient if the IDE expects the filename to match. So, the formatter **must** be allowed to rename files on disk.
+- **Incremental adoption:** Teams may only want to convert certain identifier classes (e.g. local variables or just macros) or exclude specific prefixes (e.g. `global.`). The option must be granular and default-safe (no renames unless explicitly enabled).
 - **Third-party code:** Imported marketplace packages or engine snippets may rely on specific identifier shapes. Provide exclusion lists or directory-level opt outs to avoid unwanted rewrites.
 
 ## Deliverables
 1. **Configuration schema**
-   - New Prettier option `gmlIdentifierCase` (or similar) defined in `src/plugin/options.ts` with choices like `"off"`, `"camel"`, `"snake"`, `"pascal"`, `"upper"`, plus a `custom` hook for user-defined mappers.
-   - Sub-options for scope targeting, e.g. `renameLocals`, `renameInstanceFields`, `renameGlobals`, `renameAssets`, `renameMacros`, each defaulting to `false` until explicitly set.
+   - New Prettier option `gmlIdentifierCase` (or similar) defined in the **options** array in [../src/plugin/src/gml.js](../src/plugin/src/gml.js) with these choices: `"off"`, `"camel"` (lower camelCase), `"pascal"` (upper camelCase), `"snake-lower"`, `"snake-upper"`. **NOTE**: Kebab case (or any hyphenated form) is invalid in GML identifiers.
+   - Sub-option(s) to allow for scope targeting, e.g. `functions`, `structs`, `locals`, `instance`, `globals`, `assets`, `macros`, each defaulting to `off` until explicitly set and to allow for per-scope identifier case (e.g. `locals: "snake-lower"`, `globals: "snake-upper"`).
    - Optional `ignorePatterns` array (glob/regex) to skip identifiers or files, and `preserve` list for exact names.
 
 2. **Identifier analysis infrastructure**
@@ -38,13 +38,12 @@ Introduce an opt-in Prettier plugin feature that can rewrite user-defined identi
 
 4. **Formatter integration**
    - During formatting, consult the `ProjectIndex` for the current file. For each identifier node, decide whether it is eligible (per scope flags) and, if so, replace the printed token with the converted name.
-   - Update `.yy` asset formatters to rewrite `name`, `resourcePath`, and related identifier fields when `renameAssets` is enabled, ensuring references in other assets (e.g. object events referencing scripts) are updated simultaneously.
-   - For assets whose filenames must change, surface a post-run task list rather than renaming files directly, unless we add an explicit `allowFileRenames` flag.
+   - Update `.yy` asset formatters to rewrite `name`, `resourcePath`, and related identifier fields when `assets` is included in the list of , ensuring references in other assets (e.g. object events referencing scripts) are updated simultaneously.
+   - For assets whose filenames must change, we need to verify that we have file-permissions to rename them before renaming an assets that would require files to be renamed.
 
 5. **Safety nets & UX**
-   - Implement a dry-run/report mode (e.g. `--gml-naming-report`) that writes a JSON summary of planned renames and conflicts without touching files.
+   - The default when running the formatter with the `gmlIdentifierCase` config option enabled should be a dry-run/report mode that just outputs a summary of planned renames and conflicts without touching files. But, like with Prettier, when the `--write` flag option is provided then the changes are applied.
    - Add lint-style warnings to Prettier’s `diagnostics` channel when renames are skipped, guiding the user to ignore or resolve collisions.
-   - Provide an opt-in audit log (`.prettier-gml-renames.log`) capturing before/after pairs, timestamps, and conflict notes.
 
 6. **Testing strategy**
    - Unit tests for case conversion helpers covering edge cases (leading underscores, mixed digits, existing separators).
@@ -56,8 +55,7 @@ Introduce an opt-in Prettier plugin feature that can rewrite user-defined identi
    - Snapshot the diagnostics/log output for representative rename runs.
 
 7. **Documentation & onboarding**
-   - Update `README.md` with configuration examples, limitations, and migration guidance.
-   - Produce a `docs/naming-convention-guide.md` (separate from this plan) describing best practices and how to stage the renaming rollout (e.g. run dry-run, review log, enable per-scope flags incrementally).
+   - Update `README.md` with configuration examples and usage guidance, including how to stage the renaming rollout (e.g. run dry-run, review log, enable per-scope flags incrementally).
    - Document interaction with existing features like reserved identifier handling and any new CLI helpers.
 
 ## Implementation phases
@@ -77,15 +75,8 @@ Introduce an opt-in Prettier plugin feature that can rewrite user-defined identi
 
 4. **Asset metadata updates**
    - Implement `.yy` mutation layer with dependency graph to propagate renames to referencing assets.
-   - Provide guardrails for filename changes (diagnostic tasks or `allowFileRenames` flag).
-
-5. **UX polish & documentation**
-   - Ship dry-run reporting, logging, and README/docs updates.
-   - Gather feedback via example projects and adjust defaults or warnings before marking the feature as stable.
 
 ## Risk mitigation
 - **Collision risk:** Always compute rename plans globally before mutating. Abort formatting for files tied to unresolved conflicts and instruct the user to resolve duplicates or adjust ignore lists.
 - **Performance regression:** Cache project analysis, debounce rebuilds based on file mtimes, and expose metrics (e.g. number of identifiers processed) for profiling.
-- **False positives:** Allow per-file overrides via magic comments (e.g. `// prettier-ignore-naming`) and ensure third-party directories can be excluded.
-- **Data corruption:** Wrap asset writes in atomic operations (temp file + rename) and create backups when altering `.yy` files. Provide a CLI rollback helper referencing the audit log.
-- **User trust:** Release the feature behind a flag marked “experimental” initially, collect telemetry via optional logs, and encourage dry-run usage before enforcing renames in CI.
+- **Data corruption:** Wrap asset writes in atomic operations (temp file + rename) and create backups when altering `.yy` files. If the process fails, restore from backup.
