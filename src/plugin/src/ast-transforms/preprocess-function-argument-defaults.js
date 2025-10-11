@@ -1,20 +1,27 @@
-import { hasComment } from "../../../shared/comments.js";
+import { hasComment as sharedHasComment } from "../../../shared/comments.js";
 import {
-    getSingleVariableDeclarator,
-    getIdentifierText,
-    isUndefinedLiteral
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
+    getIdentifierText as sharedGetIdentifierText,
+    isUndefinedLiteral as sharedIsUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 
 const DEFAULT_HELPERS = {
-    getIdentifierText,
-    isUndefinedLiteral
+    getIdentifierText: sharedGetIdentifierText,
+    isUndefinedLiteral: sharedIsUndefinedLiteral,
+    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+    hasComment: sharedHasComment
 };
 
 /**
  * Normalize function parameters by converting argument_count fallbacks into default parameters.
  *
  * @param {unknown} ast
- * @param {{ getIdentifierText?: (node: unknown) => string | null, isUndefinedLiteral?: (node: unknown) => boolean }} helpers
+ * @param {{
+ *   getIdentifierText?: (node: unknown) => string | null,
+ *   isUndefinedLiteral?: (node: unknown) => boolean,
+ *   getSingleVariableDeclarator?: (node: unknown) => unknown,
+ *   hasComment?: (node: unknown) => boolean
+ * }} helpers
  */
 export function preprocessFunctionArgumentDefaults(
     ast,
@@ -32,7 +39,15 @@ export function preprocessFunctionArgumentDefaults(
         isUndefinedLiteral:
       typeof helpers.isUndefinedLiteral === "function"
           ? helpers.isUndefinedLiteral
-          : DEFAULT_HELPERS.isUndefinedLiteral
+          : DEFAULT_HELPERS.isUndefinedLiteral,
+        getSingleVariableDeclarator:
+      typeof helpers.getSingleVariableDeclarator === "function"
+          ? helpers.getSingleVariableDeclarator
+          : DEFAULT_HELPERS.getSingleVariableDeclarator,
+        hasComment:
+      typeof helpers.hasComment === "function"
+          ? helpers.hasComment
+          : DEFAULT_HELPERS.hasComment
     };
 
     traverse(ast, (node) => {
@@ -86,11 +101,18 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
-    const { getIdentifierText, isUndefinedLiteral } = helpers;
+    const {
+        getIdentifierText,
+        isUndefinedLiteral,
+        hasComment,
+        getSingleVariableDeclarator
+    } = helpers;
 
     if (
         typeof getIdentifierText !== "function" ||
-    typeof isUndefinedLiteral !== "function"
+    typeof isUndefinedLiteral !== "function" ||
+    typeof hasComment !== "function" ||
+    typeof getSingleVariableDeclarator !== "function"
     ) {
         return;
     }
@@ -300,7 +322,7 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
         return null;
     }
 
-    if (hasComment(statement)) {
+    if (helpers.hasComment(statement)) {
         return null;
     }
 
@@ -327,12 +349,12 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = helpers.getSingleVariableDeclarator(node);
     if (!declarator) {
         return null;
     }
 
-    if (hasComment(declarator)) {
+    if (helpers.hasComment(declarator)) {
         return null;
     }
 
@@ -388,8 +410,14 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
         return null;
     }
 
-    const consequentAssignment = extractAssignmentFromStatement(node.consequent);
-    const alternateAssignment = extractAssignmentFromStatement(node.alternate);
+    const consequentAssignment = extractAssignmentFromStatement(
+        node.consequent,
+        helpers
+    );
+    const alternateAssignment = extractAssignmentFromStatement(
+        node.alternate,
+        helpers
+    );
 
     if (!consequentAssignment || !alternateAssignment) {
         return null;
@@ -462,16 +490,16 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
         return false;
     }
 
-    if (hasComment(node)) {
+    if (helpers.hasComment(node)) {
         return false;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = helpers.getSingleVariableDeclarator(node);
     if (!declarator) {
         return false;
     }
 
-    if (hasComment(declarator)) {
+    if (helpers.hasComment(declarator)) {
         return false;
     }
 
@@ -488,12 +516,12 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
     return true;
 }
 
-function extractAssignmentFromStatement(statement) {
+function extractAssignmentFromStatement(statement, helpers) {
     if (!statement) {
         return null;
     }
 
-    if (hasComment(statement)) {
+    if (helpers.hasComment(statement)) {
         return null;
     }
 
@@ -505,7 +533,7 @@ function extractAssignmentFromStatement(statement) {
         if (!Array.isArray(statement.body) || statement.body.length !== 1) {
             return null;
         }
-        return extractAssignmentFromStatement(statement.body[0]);
+        return extractAssignmentFromStatement(statement.body[0], helpers);
     }
 
     if (statement.type !== "ExpressionStatement") {
