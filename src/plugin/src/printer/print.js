@@ -214,27 +214,13 @@ export function print(path, options, print) {
                     );
 
                     return concat([
-                        group([
-                            "var ",
-                            cachedLengthName,
-                            " = ",
-                            loopSizeCallDoc,
-                            ";"
-                        ]),
+                        group(["var ", cachedLengthName, " = ", loopSizeCallDoc, ";"]),
                         hardline,
                         "for (",
                         group([
                             indent([
                                 ifBreak(line),
-                                concat([
-                                    initDoc,
-                                    ";",
-                                    line,
-                                    testDoc,
-                                    ";",
-                                    line,
-                                    updateDoc
-                                ])
+                                concat([initDoc, ";", line, testDoc, ";", line, updateDoc])
                             ])
                         ]),
                         ") ",
@@ -2394,7 +2380,10 @@ function nodeDeclaresIdentifier(node, identifierName) {
 }
 
 function getParentStatementList(path) {
-    if (typeof path?.getValue !== "function" || typeof path.getParentNode !== "function") {
+    if (
+        typeof path?.getValue !== "function" ||
+    typeof path.getParentNode !== "function"
+    ) {
         return null;
     }
 

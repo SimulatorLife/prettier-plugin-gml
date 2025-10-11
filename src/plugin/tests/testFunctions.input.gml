@@ -28,7 +28,9 @@ function func_coords(x = 0, y = 0, z = 0) {
 var myCoords = func_coords(10,,20);
 
 /// @function Shape
-
+/// @description Base class for all shapes. Shapes can be solid or not solid.
+///              Solid shapes will collide with other solid shapes, and
+///              non-solid shapes will not collide with anything.
 function Shape(color = undefined) constructor {
 	self.color = color;
 	static print = function() {show_debug_message("I'm a shape")}
