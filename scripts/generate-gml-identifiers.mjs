@@ -76,7 +76,7 @@ function parseArgs() {
             i += 1;
         } else if (
             (arg === "--output" || arg === "-o") &&
-            i + 1 < ARGUMENTS.length
+      i + 1 < ARGUMENTS.length
         ) {
             outputPath = path.resolve(ARGUMENTS[i + 1]);
             i += 1;
