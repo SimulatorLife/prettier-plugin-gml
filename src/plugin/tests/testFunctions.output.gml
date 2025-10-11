@@ -1,11 +1,6 @@
 some(
     thisArgumentIsQuiteLong,
-    function foo(
-        cool,
-        f = function() {
-            ez();
-        }
-    ) : bar() constructor {
+    function foo(cool, f = function() { ez(); }) : bar() constructor {
         return cool;
     }
 );
@@ -57,7 +52,7 @@ function Shape(color = undefined) constructor {
     /// @returns {undefined}
     static freeze = function() {
         // This will delete any geometry info contained within the mesh itself.
-// It will not delete any geometry added to a ColMesh.
+        // It will not delete any geometry added to a ColMesh.
         // After a mesh has been frozen, it can no longer be added to a colmesh.
         triangles = [];
         ds_list_destroy(shapeList);
@@ -65,6 +60,7 @@ function Shape(color = undefined) constructor {
 
     /// @function setSolid
     /// @param solid
+    /// @returns {undefined}
     static setSolid = function(solid) {
         if (solid) {
             group |= cmGroupSolid;  // Flag as solid
@@ -91,6 +87,24 @@ show_debug_message(myCircle.r);
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
     self.r1 = r1;
     self.r2 = r2;
+}
+
+/// @function Line
+function Line() : Shape() constructor {
+
+    /// @function set_points
+    /// @param x1
+    /// @param y1
+    /// @param x2
+    /// @param y2
+    /// @returns {undefined}
+    function set_points(x1, y1, x2, y2) {
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+    }
+
 }
 
 /// @function choose_profile
@@ -140,6 +154,7 @@ function __ChatterboxBufferBatch() constructor {
     __commands   = [];
 
     /// @function __Destroy
+    /// @returns {undefined}
     static __Destroy = function() {
         if (__destroyed) { return; }
         __destroyed = true;
@@ -183,4 +198,55 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
         dir[2] /= length;
     }
     return dir;
+}
+
+/// @function scr_spring
+/// @param {Id.Instance} a
+/// @param {Id.Instance} b
+/// @param {real} dst
+/// @param {real} force
+/// @param {bool} [push_out=true]
+/// @param {bool} [pull_in=true]
+function scr_spring(a, b, dst, force) {
+
+	if (!instance_exists(a) or !instance_exists(b)) {
+		return false;
+	}
+
+	var push_out = (argument_count > 4) ? argument[4] : true;
+	var pull_in = (argument_count > 5) ? argument[5] : true;
+
+	var xoff = a.x - b.x;
+	var yoff = a.y - b.y;
+
+	var actual_dist = xoff * xoff + yoff * yoff;
+	if (actual_dist == 0) {
+        return false;
+    
+    }
+	if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
+	    actual_dist = sqrt(actual_dist);
+	    var diff = actual_dist - dst; 
+	    
+		// normalize and multiply with diff and amount
+	    var norm = (force * diff) / actual_dist;
+	    xoff *= norm;
+	    yoff *= norm;
+    
+	    // calculate mass
+	    var m1, r1, r2;
+	    m1 = 1 / (b.mass + a.mass);
+	    r1 = b.mass * m1 * 0.5;
+	    r2 = a.mass * m1 * 0.5;
+    
+	    // add speeds
+	    a.velocity.x -= xoff * r1;
+	    a.velocity.y -= yoff * r1;
+	    b.velocity.x += xoff * r2;
+	    b.velocity.y += yoff * r2;
+    
+	    return true;
+	}
+
+	return false;
 }

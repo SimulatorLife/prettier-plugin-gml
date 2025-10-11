@@ -1,6 +1,6 @@
 /// @function example
 /// @param value
-/// @param other
-function example(value, other) {
-    return value + other;
+/// @param value2
+function example(value, value2) {
+    return value + value2;
 }

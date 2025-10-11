@@ -171,6 +171,14 @@ export const options = {
         default: false,
         description:
       'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
+    },
+    convertDivisionToMultiplication: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: false,
+        description:
+      "Rewrite division by a literal constant into multiplication by its reciprocal when it is safe to do so."
     }
 };
 

@@ -1,4 +1,5 @@
 {
   "logicalOperatorsStyle": "symbols",
-  "condenseLogicalExpressions": true
+  "condenseLogicalExpressions": true,
+  "allowSingleLineIfStatements": true
 }

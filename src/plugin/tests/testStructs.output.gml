@@ -59,6 +59,7 @@ function make_struct(value) {
 }
 
 /// @function reuse_struct
+/// @returns {undefined}
 function reuse_struct() {
     instance = {name: "example", score: 42};
     do_something(instance);

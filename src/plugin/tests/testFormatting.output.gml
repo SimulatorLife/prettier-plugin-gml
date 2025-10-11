@@ -6,6 +6,7 @@ for (var i = 0; i < num; i++) {
 }
 
 /// @function clearSubdiv
+/// @returns {undefined}
 static clearSubdiv = function() {
     // Clears any data structures related to the subdivision of the colmesh
     if (spHash >= 0) {
@@ -25,13 +26,14 @@ var halfWidth = myWidth * 0.5;
 enum eStates {
     STATE_IDLE = 0,
     STATE_WALK = 1,
-    STATE_RUN = 2
+    STATE_RUN  = 2
 }
 
 var currState = eStates.STATE_IDLE;
 
 /// @function changeState
 /// @param [newState=eStates.STATE_IDLE]
+/// @returns {undefined}
 function changeState(newState = eStates.STATE_IDLE) {
     currState = newState;
 }

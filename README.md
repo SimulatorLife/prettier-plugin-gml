@@ -364,6 +364,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 - `condenseLogicalExpressions` (default: `false`)
   Combines adjacent logical expressions using the same operator into a single expression. For example, `((a && b) && c)` becomes `a && b && c`. Set the option to `true` to enable the transformation, or leave it `false` to keep the original expression structure.
 
+- `convertDivisionToMultiplication` (default: `false`)
+  Rewrites division by a literal constant into multiplication by its reciprocal when it is safe to do so. For example, `x / 4` becomes `x * 0.25`. Set the option to `true` to enable the transformation, or leave it `false` to keep the original division expressions.
+
 - `preserveGlobalVarStatements` (default: `true`)
 
   Keeps `globalvar` declarations in the formatted output while still prefixing subsequent assignments with `global.`. Set the

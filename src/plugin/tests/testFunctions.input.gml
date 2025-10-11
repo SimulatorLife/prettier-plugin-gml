@@ -74,6 +74,16 @@ function Oval(r1 = 1, r2 = 1) : Shape() constructor {
     self.r2 = r2
 	 }
 
+/// @function Line
+function Line() : Shape() constructor {
+    function set_points(x1, y1, x2, y2) {
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+    }
+}
+
 function choose_profile(settings, fallback = undefined){
 var config=settings??global.default_settings
 var themeCandidate=config.theme_override??fallback.theme_override;
@@ -164,4 +174,57 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
         dir[2] /= length;
     }
     return dir;
+}
+
+/// @function scr_spring
+/// @param {Id.Instance} a
+/// @param {Id.Instance} b
+/// @param {real} distance
+/// @param {real} force
+/// @param {bool} [push_out=true]
+/// @param {bool} [pull_in=true]
+function scr_spring(a, b, dst, force) {
+
+	if(!instance_exists(a) or !instance_exists(b)){
+		return false;
+	}
+
+	var push_out = true;
+	if (argument_count > 4)
+	    push_out = argument[4];
+	var pull_in = true;
+	if (argument_count > 5)
+	    pull_in = argument[5];
+
+	var xoff = a.x - b.x;
+	var yoff = a.y - b.y;
+
+	var actual_dist = xoff * xoff + yoff * yoff;
+	if (actual_dist == 0) return false;
+	if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
+	    actual_dist = sqrt(actual_dist);
+	    var diff = actual_dist - dst; 
+	    
+		// normalize and multiply with diff and amount
+	    var norm = force * diff / actual_dist;
+	    xoff *= norm;
+	    yoff *= norm;
+    
+	    // calculate mass
+	    var m1, r1, r2;
+	    m1 = 1 / (b.mass+a.mass);
+	    r1=(b.mass * m1) / 2;
+	    r2=(a.mass * m1) / 2;
+    
+	    // add speeds
+	    a.velocity.x -= xoff * r1;
+	    a.velocity.y -= yoff * r1;
+	    b.velocity.x += xoff * r2;
+	    b.velocity.y += yoff * r2;
+    
+	    return true;
+	}
+	return false;
+
+
 }

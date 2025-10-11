@@ -1,3 +1,3 @@
-function example(value, other, value, value) {
-    return value + other;
+function example(value, value2, value, value) {
+    return value + value2;
 }

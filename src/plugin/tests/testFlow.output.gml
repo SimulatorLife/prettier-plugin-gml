@@ -29,7 +29,7 @@ var matrix = scr_matrix_build(
     image_zscale
 );
 
-#define  SQUARE(_value)    ((_value)*(_value))
+#macro  SQUARE(_value)    ((_value)*(_value))
 var total = 0;
 var limit = argument0;
 var arr = argument1;
@@ -63,7 +63,7 @@ repeat (array_length(arr2)) {
     show_debug_message(arr2[i++]);
 }
 
-#define INCREMENT(_v) ((_v)+1)
+#macro INCREMENT(_v) ((_v)+1)
 do {
     value = INCREMENT(value);
     if (value == SQUARE(limit)) {
@@ -113,6 +113,7 @@ function bool_with_extra(condition) {
 /// @param list
 /// @param map
 /// @param grid
+/// @returns {undefined}
 function iterate_structures(list, map, grid) {
     var list_size = ds_list_size(list);
     for (var i = 0; i < list_size; i++) {
