@@ -1,3 +1,4 @@
+import { isCommentNode } from "../../../shared/comments.js";
 import { DEFAULT_LINE_COMMENT_OPTIONS } from "./line-comment-options.js";
 
 const BOILERPLATE_COMMENTS = [
@@ -87,14 +88,6 @@ const COMMENTED_OUT_CODE_PATTERNS = [
     /^#/,
     /^@/
 ];
-
-function isCommentNode(node) {
-    return (
-        node &&
-    typeof node === "object" &&
-    (node.type === "CommentBlock" || node.type === "CommentLine")
-    );
-}
 
 function formatLineComment(
     comment,
