@@ -726,10 +726,10 @@ export function print(path, options, print) {
         case "Literal": {
             // TODO add option to allow missing trailing/leading zeroes
             let value = node.value;
-            if (value.startsWith(".") && !value.startsWith("\"")) {
+            if (value.startsWith(".") && !value.startsWith('"')) {
                 value = "0" + value; // fix decimals without a leading 0
             }
-            if (value.endsWith(".") && !value.endsWith("\"")) {
+            if (value.endsWith(".") && !value.endsWith('"')) {
                 value = value + "0"; // fix decimals without a trailing 0
             }
             return concat(value);
@@ -804,7 +804,7 @@ export function print(path, options, print) {
         }
         case "TemplateStringExpression": {
             const parts = [];
-            parts.push("$\"");
+            parts.push('$"');
             node.atoms.forEach((atom, index) => {
                 if (atom.type === "TemplateStringText") {
                     parts.push(atom.value);
@@ -812,7 +812,7 @@ export function print(path, options, print) {
                     parts.push("{", path.map(print, "atoms")[index], "}");
                 }
             });
-            parts.push("\"");
+            parts.push('"');
             return concat(parts);
         }
         default:
@@ -1027,7 +1027,7 @@ function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
 
     if (
         previousNode.type === "MacroDeclaration" &&
-        nextNode.type === "MacroDeclaration"
+    nextNode.type === "MacroDeclaration"
     ) {
         return true;
     }
@@ -1162,8 +1162,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 nextNode
             );
             const shouldSkipStandardHardline =
-                shouldSuppressExtraEmptyLine &&
-                node?.type === "MacroDeclaration";
+        shouldSuppressExtraEmptyLine && node?.type === "MacroDeclaration";
 
             if (!shouldSkipStandardHardline) {
                 parts.push(hardline);
@@ -1182,8 +1181,8 @@ function printStatements(path, options, print, childrenAttribute) {
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
                 nextLineEmpty &&
-                !nextHasSyntheticDoc &&
-                !shouldSuppressExtraEmptyLine
+        !nextHasSyntheticDoc &&
+        !shouldSuppressExtraEmptyLine
             ) {
                 parts.push(hardline);
             }

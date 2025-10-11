@@ -238,7 +238,7 @@ const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 function applyJsDocReplacements(text) {
     const shouldStripEmptyParams =
-        typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
+    typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
 
     let formattedText = shouldStripEmptyParams
         ? text.replace(/\(\)\s*$/, "")

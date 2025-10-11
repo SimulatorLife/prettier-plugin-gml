@@ -332,7 +332,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Forces function call arguments to wrap once the provided count is exceeded. Set the option to `0` to keep the original
   layout when the formatter does not need to reflow the arguments.
 
-- `arrayLengthHoistFunctionSuffixes` (default: empty string)
+- `loopLengthHoistFunctionSuffixes` (default: empty string)
 
   Override the suffix that the cached loop variable receives for specific size-retrieval functions, or disable hoisting for a
   function entirely. Provide a comma-separated list of `function_name=suffix` pairs (e.g. `array_length=len,ds_queue_size=count`)

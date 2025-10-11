@@ -50,7 +50,7 @@ export const options = {
         description:
       "Condense consecutive struct property assignments into a single struct literal when possible."
     },
-    arrayLengthHoistFunctionSuffixes: {
+    loopLengthHoistFunctionSuffixes: {
         since: "0.0.0",
         type: "string",
         category: "gml",
@@ -165,7 +165,7 @@ export const defaultOptions = {
     printWidth: 120,
     optimizeArrayLengthLoops: true,
     condenseStructAssignments: true,
-    arrayLengthHoistFunctionSuffixes: "",
+    loopLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
     alignAssignmentsMinGroupSize: 3,

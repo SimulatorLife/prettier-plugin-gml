@@ -31,7 +31,7 @@ function resolveLineCommentOptions(options) {
 
     if (
         lineCommentBannerMinimumSlashes === undefined &&
-        lineCommentBannerAutofillThreshold === undefined
+    lineCommentBannerAutofillThreshold === undefined
     ) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }

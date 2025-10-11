@@ -13,7 +13,7 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
 ]);
 
 const ARRAY_LENGTH_SUFFIX_CACHE = Symbol.for(
-    "prettier-plugin-gml.arrayLengthHoistFunctionSuffixes"
+    "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
 
 function getSizeRetrievalFunctionSuffixes(options) {
@@ -22,7 +22,7 @@ function getSizeRetrievalFunctionSuffixes(options) {
     }
 
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-        options?.arrayLengthHoistFunctionSuffixes
+        options?.loopLengthHoistFunctionSuffixes
     );
 
     const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);

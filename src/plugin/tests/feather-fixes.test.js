@@ -477,7 +477,7 @@ describe("applyFeatherFixes transform", () => {
         for (const fix of gm1033Fixes) {
             assert.strictEqual(
                 typeof fix.range?.start === "number" &&
-                    typeof fix.range?.end === "number",
+          typeof fix.range?.end === "number",
                 true,
                 "Expected each GM1033 fix to include a range."
             );
