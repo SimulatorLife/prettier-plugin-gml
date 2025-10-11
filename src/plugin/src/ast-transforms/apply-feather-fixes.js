@@ -15,6 +15,18 @@ const require = createRequire(import.meta.url);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
+const DATA_STRUCTURE_ACCESSOR_TOKENS = [
+    "?",
+    "|",
+    "#",
+    "@",
+    "!",
+    "$",
+    "%",
+    "&",
+    "^",
+    "~"
+];
 const NUMERIC_STRING_LITERAL_PATTERN =
   /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const ALLOWED_DELETE_MEMBER_TYPES = new Set([
@@ -366,6 +378,11 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
 
 function createAutomaticFeatherFixHandlers() {
     return new Map([
+        [
+            "GM1028",
+            ({ ast, diagnostic }) =>
+                correctDataStructureAccessorTokens({ ast, diagnostic })
+        ],
         [
             "GM1029",
             ({ ast, diagnostic }) =>
@@ -3711,6 +3728,139 @@ function hasOriginalBlankLineBetween(beforeNode, afterNode) {
     }
 
     return afterStartLine > beforeEndLine + 1;
+}
+
+function correctDataStructureAccessorTokens({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const accessorReplacement = getAccessorReplacementFromDiagnostic(diagnostic);
+
+    if (!accessorReplacement) {
+        return [];
+    }
+
+    const { incorrectAccessor, correctAccessor } = accessorReplacement;
+
+    if (incorrectAccessor === correctAccessor) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberIndexExpression") {
+            const fix = updateMemberIndexAccessor(node, {
+                incorrectAccessor,
+                correctAccessor,
+                diagnostic
+            });
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function updateMemberIndexAccessor(
+    node,
+    { incorrectAccessor, correctAccessor, diagnostic }
+) {
+    if (!node || node.type !== "MemberIndexExpression") {
+        return null;
+    }
+
+    if (
+        typeof incorrectAccessor !== "string" ||
+    typeof correctAccessor !== "string"
+    ) {
+        return null;
+    }
+
+    if (node.accessor !== incorrectAccessor) {
+        return null;
+    }
+
+    node.accessor = correctAccessor;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: typeof node.object?.name === "string" ? node.object.name : null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function getAccessorReplacementFromDiagnostic(diagnostic) {
+    if (!diagnostic) {
+        return null;
+    }
+
+    const incorrectAccessor = extractAccessorFromExample(diagnostic.badExample);
+    const correctAccessor = extractAccessorFromExample(diagnostic.goodExample);
+
+    if (!incorrectAccessor || !correctAccessor) {
+        return null;
+    }
+
+    if (incorrectAccessor === correctAccessor) {
+        return null;
+    }
+
+    return { incorrectAccessor, correctAccessor };
+}
+
+function extractAccessorFromExample(example) {
+    if (typeof example !== "string" || example.length === 0) {
+        return null;
+    }
+
+    for (const token of DATA_STRUCTURE_ACCESSOR_TOKENS) {
+        const search = `[${token}`;
+
+        if (example.includes(search)) {
+            return search;
+        }
+    }
+
+    return null;
 }
 
 function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {

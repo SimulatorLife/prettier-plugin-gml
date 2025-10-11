@@ -545,6 +545,74 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("corrects mismatched data structure accessors using metadata", () => {
+        const metadata = getFeatherMetadata();
+        const diagnostic = (metadata?.diagnostics ?? []).find(
+            (entry) => entry?.id === "GM1028"
+        );
+
+        assert.ok(diagnostic, "Expected metadata for diagnostic GM1028 to exist.");
+        assert.ok(
+            typeof diagnostic.badExample === "string" &&
+        diagnostic.badExample.includes("[?"),
+            "Expected GM1028 bad example to include the incorrect accessor token."
+        );
+        assert.ok(
+            typeof diagnostic.goodExample === "string" &&
+        diagnostic.goodExample.includes("[|"),
+            "Expected GM1028 good example to include the corrected accessor token."
+        );
+
+        const source = [
+            "lst_instances = ds_list_create();",
+            "",
+            "if (instance_place_list(x, y, obj_enemy, lst_instances, true))",
+            "{",
+            "    var _ins = lst_instances[? 0];",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const ifStatement = (ast.body ?? []).find(
+            (node) => node?.type === "IfStatement"
+        );
+        const declaration = ifStatement?.consequent?.body?.[0];
+        const declarator = declaration?.declarations?.[0];
+        const accessorExpression = declarator?.init;
+
+        assert.ok(accessorExpression, "Expected accessor expression to exist.");
+        assert.strictEqual(accessorExpression.type, "MemberIndexExpression");
+        assert.strictEqual(accessorExpression.accessor, "[|");
+
+        const accessorFixes = Array.isArray(
+            accessorExpression._appliedFeatherDiagnostics
+        )
+            ? accessorExpression._appliedFeatherDiagnostics
+            : [];
+
+        assert.strictEqual(
+            accessorFixes.some((entry) => entry.id === "GM1028"),
+            true,
+            "Expected GM1028 fix metadata to be attached to the accessor expression."
+        );
+
+        const appliedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+
+        assert.strictEqual(
+            appliedFixes.some((entry) => entry.id === "GM1028"),
+            true,
+            "Expected GM1028 fix metadata to be attached to the root program node."
+        );
+    });
+
     it("normalizes argument built-ins flagged by GM1032", () => {
         const metadata = getFeatherMetadata();
         const diagnostic = (metadata?.diagnostics ?? []).find(
