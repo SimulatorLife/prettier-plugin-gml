@@ -316,6 +316,12 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Keeps short `if` statements such as `if (condition) { return; }` on a single line. Set the option to `false` if you prefer
   the formatter to always expand the consequent across multiple lines.
 
+- `logicalOperatorsStyle` (default: `"keywords"`)
+
+  Controls how the formatter renders logical conjunction and disjunction operators. The default `"keywords"` style rewrites
+  `&&` and `||` using GameMaker's `and`/`or` keywords, matching the plugin's historical behaviour. Switch the option to
+  `"symbols"` to preserve the original operators verbatim.
+
 - `preserveGlobalVarStatements` (default: `true`)
 
   Keeps `globalvar` declarations in the formatted output while still prefixing subsequent assignments with `global.`. Set the

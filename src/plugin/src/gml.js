@@ -66,6 +66,26 @@ export const options = {
         description:
       "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines."
     },
+    logicalOperatorsStyle: {
+        since: "0.0.0",
+        type: "choice",
+        category: "gml",
+        default: "keywords",
+        description:
+      "Controls whether logical '&&'/'||' operators are rewritten using GameMaker's word forms. Set to 'symbols' to keep the original operators while formatting.",
+        choices: [
+            {
+                value: "keywords",
+                description:
+          "Replace '&&' and '||' with the GameMaker keywords 'and' and 'or'."
+            },
+            {
+                value: "symbols",
+                description:
+          "Preserve the symbolic logical operators exactly as written in the source."
+            }
+        ]
+    },
     preserveGlobalVarStatements: {
         since: "0.0.0",
         type: "boolean",
@@ -153,6 +173,7 @@ export const defaultOptions = {
     maxParamsPerLine: 0,
     featherDuplicateParameterSuffixStart: 2,
     allowSingleLineIfStatements: true,
+    logicalOperatorsStyle: "keywords",
     preserveGlobalVarStatements: true,
     applyFeatherFixes: false
 };
