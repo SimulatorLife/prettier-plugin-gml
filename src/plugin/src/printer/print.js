@@ -22,7 +22,7 @@ import {
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
-    getArrayLengthHoistInfo,
+    getLoopLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import {
@@ -177,16 +177,17 @@ export function print(path, options, print) {
             ]);
         }
         case "ForStatement": {
-            const shouldHoistArrayLength = options?.optimizeArrayLengthLoops ?? true;
-            const sizeFunctionSuffixes = shouldHoistArrayLength
+            const shouldHoistLoopLengths =
+        options?.optimizeLoopLengthHoisting ?? true;
+            const sizeFunctionSuffixes = shouldHoistLoopLengths
                 ? getSizeRetrievalFunctionSuffixes(options)
                 : undefined;
-            const hoistInfo = shouldHoistArrayLength
-                ? getArrayLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
+            const hoistInfo = shouldHoistLoopLengths
+                ? getLoopLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
                 : null;
             if (hoistInfo) {
-                const { arrayLengthCallDoc, iteratorDoc, cachedLengthName } =
-          buildArrayLengthDocs(path, print, hoistInfo);
+                const { loopSizeCallDoc, iteratorDoc, cachedLengthName } =
+          buildLoopLengthDocs(path, print, hoistInfo);
 
                 const initDoc = path.getValue().init ? print("init") : "";
                 const updateDoc = path.getValue().update ? print("update") : "";
@@ -204,7 +205,7 @@ export function print(path, options, print) {
                 );
 
                 return concat([
-                    group(["var ", cachedLengthName, " = ", arrayLengthCallDoc, ";"]),
+                    group(["var ", cachedLengthName, " = ", loopSizeCallDoc, ";"]),
                     hardline,
                     "for (",
                     group([
@@ -2365,7 +2366,7 @@ function shouldInsertHoistedLoopSeparator(path, options) {
         return false;
     }
 
-    return options?.optimizeArrayLengthLoops ?? true;
+    return options?.optimizeLoopLengthHoisting ?? true;
 }
 
 function getNodeName(node) {
@@ -2453,22 +2454,17 @@ const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
     ["arctan2", { name: "darctan2", expectedArgs: 2 }]
 ]);
 
-function buildArrayLengthDocs(path, print, hoistInfo) {
+function buildLoopLengthDocs(path, print, hoistInfo) {
     const cachedLengthName = buildCachedSizeVariableName(
         hoistInfo.sizeIdentifierName,
         hoistInfo.cachedLengthSuffix
     );
-    const arrayLengthCallDoc = printWithoutExtraParens(
-        path,
-        print,
-        "test",
-        "right"
-    );
+    const loopSizeCallDoc = printWithoutExtraParens(path, print, "test", "right");
     const iteratorDoc = printWithoutExtraParens(path, print, "test", "left");
 
     return {
         cachedLengthName,
-        arrayLengthCallDoc,
+        loopSizeCallDoc,
         iteratorDoc
     };
 }

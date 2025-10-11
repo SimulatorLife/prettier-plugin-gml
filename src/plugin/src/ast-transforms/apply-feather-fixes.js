@@ -3167,6 +3167,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
+    !nextSibling &&
     insertionIndex > property + 1 &&
     !isTriviallyIgnorableStatement(previousSibling) &&
     !hasOriginalBlankLineBetween(previousSibling, nextSibling);
@@ -3618,6 +3619,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
+    !nextSibling &&
     insertionIndex > property + 1 &&
     !isTriviallyIgnorableStatement(previousSibling) &&
     !hasOriginalBlankLineBetween(previousSibling, nextSibling);

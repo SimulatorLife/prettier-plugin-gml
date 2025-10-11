@@ -34,13 +34,13 @@ export const printers = {
 };
 
 export const options = {
-    optimizeArrayLengthLoops: {
+    optimizeLoopLengthHoisting: {
         since: "0.0.0",
         type: "boolean",
         category: "gml",
         default: true,
         description:
-      "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
+      "Hoist supported loop size calls out of for-loop conditions by caching the result in a temporary variable."
     },
     condenseStructAssignments: {
         since: "0.0.0",
@@ -154,7 +154,7 @@ export const defaultOptions = {
     semi: true,
     trailingComma: "none",
     printWidth: 120,
-    optimizeArrayLengthLoops: true,
+    optimizeLoopLengthHoisting: true,
     condenseStructAssignments: true,
     loopLengthHoistFunctionSuffixes: "",
     lineCommentBannerMinimumSlashes: 5,
