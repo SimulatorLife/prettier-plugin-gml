@@ -27,15 +27,15 @@ jobs:
 
         Requirements:
           • Update all imports/exports so the project builds and tests still pass.
-          • Maintain architectural boundaries—keep simulation logic, UI, grid, and shared
-            utilities separated.
+          • Maintain architectural boundaries—keep parser, compiler, functional
+            test code, performance testing code, and plugin code separate.
           • When moving code, ensure barrel files/index exports remain consistent, update
             documentation and comments referencing the old location, and adjust tests or
             fixtures.
           • Include a short summary in the commit message explaining the original location, the
             new location, and the rationale.
           • If no valid candidate is found, document why in the commit message and propose a
-            future reorganization plan rather than submitting a no-op PR.
+            future reorganization plan.
 
         Avoid pure renames with no location change, avoid wide-scope refactors, and do
         not introduce new dependencies. Keep the change narrowly focused but complete for
