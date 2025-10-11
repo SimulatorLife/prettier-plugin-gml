@@ -11,7 +11,41 @@ permissions:
   issues: write
 
 jobs:
+  check_tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests_failed: ${{ steps.run_tests.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        id: run_tests
+        run: |
+          set +e
+          npm test
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Test suite exited with $status"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Test suite passed"
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
   run:
+    needs: check_tests
+    if: ${{ needs.check_tests.outputs.tests_failed == 'true' }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:
