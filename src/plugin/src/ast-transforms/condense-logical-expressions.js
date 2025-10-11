@@ -19,6 +19,22 @@ const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
 });
 
+const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
+const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
+const ARITHMETIC_OPERATORS = new Set([
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "^",
+    "<<",
+    ">>",
+    ">>>",
+    "|",
+    "&"
+]);
+
 let activeTransformationContext = null;
 
 export function condenseLogicalExpressions(ast, helpers) {
@@ -156,6 +172,75 @@ function ensureTrailingPeriod(text) {
     }
 
     return `${trimmed}.`;
+}
+
+function isBooleanBranchExpression(node, allowValueLiterals = false) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            const { value } = node;
+            if (typeof value === "boolean") {
+                return true;
+            }
+            if (typeof value === "string") {
+                const normalized = value.trim().toLowerCase();
+                return normalized === "true" || normalized === "false";
+            }
+            return allowValueLiterals;
+        }
+        case "Identifier":
+        case "MemberDotExpression":
+        case "MemberIndexExpression":
+        case "CallExpression":
+            return true;
+        case "ParenthesizedExpression":
+            return isBooleanBranchExpression(node.expression, allowValueLiterals);
+        case "UnaryExpression":
+        case "IncDecExpression": {
+            const operator = (node.operator ?? "").toLowerCase();
+            if (operator === "!" || operator === "not") {
+                return isBooleanBranchExpression(node.argument, allowValueLiterals);
+            }
+            if (allowValueLiterals && (operator === "+" || operator === "-")) {
+                return isBooleanBranchExpression(node.argument, true);
+            }
+            return false;
+        }
+        case "BinaryExpression": {
+            const operator = (node.operator ?? "").toLowerCase();
+
+            if (LOGICAL_OPERATORS.has(operator)) {
+                return (
+                    isBooleanBranchExpression(node.left, allowValueLiterals) &&
+          isBooleanBranchExpression(node.right, allowValueLiterals)
+                );
+            }
+
+            if (COMPARISON_OPERATORS.has(operator)) {
+                return (
+                    isBooleanBranchExpression(node.left, true) &&
+          isBooleanBranchExpression(node.right, true)
+                );
+            }
+
+            if (
+                allowValueLiterals &&
+        (ARITHMETIC_OPERATORS.has(operator) || operator === "**")
+            ) {
+                return (
+                    isBooleanBranchExpression(node.left, true) &&
+          isBooleanBranchExpression(node.right, true)
+                );
+            }
+
+            return false;
+        }
+        default:
+            return false;
+    }
 }
 
 function ensureCommentGroups(context) {
@@ -567,6 +652,13 @@ function tryCondenseIfStatement(
 
     if (!alternateExpression) {
     // Only condense when both branches produce a value.
+        return false;
+    }
+
+    if (
+        !isBooleanBranchExpression(consequentExpression) ||
+    !isBooleanBranchExpression(alternateExpression)
+    ) {
         return false;
     }
 
