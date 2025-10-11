@@ -682,4 +682,54 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2064Fixes[0].target, "message");
         assert.strictEqual(gm2064Fixes[0].automatic, false);
     });
+
+    it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
+        const source = [
+            "var _look_for_description = true;",
+            "",
+            "var _file = file_find_first(\"/game_data/*.bin\", fa_none);",
+            "",
+            "if (_look_for_description)",
+            "{",
+            "    _file2 = file_find_first(\"/game_data/*.json\", fa_none);",
+            "}",
+            "",
+            "file_find_close();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata to be recorded on the AST."
+        );
+
+        const ifStatement = ast.body?.find((node) => node?.type === "IfStatement");
+        assert.ok(ifStatement, "Expected an if statement in the parsed AST.");
+
+        const consequentBody = ifStatement?.consequent?.body ?? [];
+        assert.strictEqual(consequentBody.length, 2);
+
+        const [firstStatement, secondStatement] = consequentBody;
+        assert.strictEqual(firstStatement?.type, "CallExpression");
+        assert.strictEqual(firstStatement?.object?.name, "file_find_close");
+
+        const closeDiagnostics = firstStatement?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            closeDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata on the inserted file_find_close call."
+        );
+
+        assert.strictEqual(secondStatement?.type, "AssignmentExpression");
+        assert.strictEqual(secondStatement?.right?.type, "CallExpression");
+        assert.strictEqual(secondStatement?.right?.object?.name, "file_find_first");
+    });
 });
