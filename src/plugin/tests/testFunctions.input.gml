@@ -27,6 +27,7 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10,,20);
 
+/// @private
 /// @function Shape
 /// @description Base class for all shapes. Shapes can be solid or not solid.
 ///              Solid shapes will collide with other solid shapes, and

@@ -104,8 +104,7 @@ describe("applyFeatherFixes transform", () => {
     });
 
     it("converts numeric string call arguments into numeric literals for GM1029", () => {
-        const source =
-            'draw_sprite(sprite_index, image_index, "1234", "5678");';
+        const source = 'draw_sprite(sprite_index, image_index, "1234", "5678");';
 
         const ast = GMLParser.parse(source, {
             getLocations: true,
@@ -137,14 +136,8 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(metadata?.id, "GM1029");
         assert.strictEqual(metadata?.automatic, true);
         assert.strictEqual(metadata?.title, diagnostic?.title ?? null);
-        assert.strictEqual(
-            metadata?.description,
-            diagnostic?.description ?? null
-        );
-        assert.strictEqual(
-            metadata?.correction,
-            diagnostic?.correction ?? null
-        );
+        assert.strictEqual(metadata?.description, diagnostic?.description ?? null);
+        assert.strictEqual(metadata?.correction, diagnostic?.correction ?? null);
         assert.ok(metadata?.range);
         assert.strictEqual(typeof metadata.range.start, "number");
         assert.strictEqual(typeof metadata.range.end, "number");

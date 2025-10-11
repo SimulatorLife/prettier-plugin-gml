@@ -19,7 +19,7 @@ const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
 const NUMERIC_STRING_LITERAL_PATTERN =
-    /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+  /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberDotExpression",
     "MemberIndexExpression"
@@ -312,23 +312,18 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1029") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast }) => {
-                        const fixes = convertNumericStringArgumentsToNumbers({
-                            ast,
-                            diagnostic
-                        });
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = convertNumericStringArgumentsToNumbers({
+                    ast,
+                    diagnostic
+                });
 
-                        if (Array.isArray(fixes) && fixes.length > 0) {
-                            return fixes;
-                        }
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
 
-                        return registerManualFeatherFix({ ast, diagnostic });
-                    }
-            );
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
@@ -2156,7 +2151,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    if (!rawValue.startsWith("\"") || !rawValue.endsWith("\"")) {
+    if (!rawValue.startsWith('"') || !rawValue.endsWith('"')) {
         return null;
     }
 

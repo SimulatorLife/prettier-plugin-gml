@@ -37,7 +37,9 @@ const JSDOC_REPLACEMENTS = {
     "@argument": "@param",
     "@overrides": "@override",
     "@exception": "@throws",
-    "@private": "@hide"
+    "@throw": "@throws",
+    "@private": "@hide",
+    "@hidden": "@hide"
     // Add more replacements here as needed
 };
 
