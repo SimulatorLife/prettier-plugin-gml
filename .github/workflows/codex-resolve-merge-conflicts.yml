@@ -5,8 +5,8 @@ on:
     - cron: "10 * * * *"
   workflow_dispatch:
     inputs:
-      additional_context:
-        description: "Optional context to include in the Codex request."
+      target_pr_number:
+        description: "Optional PR number to target for conflict resolution."
         required: false
         default: ""
 
@@ -48,6 +48,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const marker = "<!-- codex-resolve-merge-conflicts -->";
+            const manualInputRaw = context.payload?.inputs?.target_pr_number ?? "";
+            const manualInput = typeof manualInputRaw === "string" ? manualInputRaw.trim() : "";
 
             async function fetchPullRequest(prNumber, attempts = 6) {
               for (let attempt = 0; attempt < attempts; attempt++) {
@@ -67,6 +69,86 @@ jobs:
                 { owner, repo, issue_number: prNumber, per_page: 100 }
               );
               return comments.some((comment) => comment.body && comment.body.includes(marker));
+            }
+
+            if (manualInput.length > 0) {
+              const requestedNumber = Number.parseInt(manualInput, 10);
+              if (!Number.isInteger(requestedNumber) || requestedNumber <= 0) {
+                core.warning(`Invalid target PR number provided: "${manualInput}".`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              const pr = await fetchPullRequest(requestedNumber);
+              if (!pr) {
+                core.warning(`PR #${requestedNumber} could not be retrieved.`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              if (pr.state !== "open") {
+                core.info(`PR #${requestedNumber} is not open (state: ${pr.state}).`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              if ((pr.changed_files || 0) === 0) {
+                core.info(`PR #${requestedNumber} has no file changes.`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              const mergeableState = pr.mergeable_state || "unknown";
+              if (mergeableState !== "dirty") {
+                core.info(`PR #${requestedNumber} is mergeable_state="${mergeableState}".`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              if (await hasExistingMarker(pr.number)) {
+                core.info(`A conflict resolution request already exists on PR #${requestedNumber}.`);
+                core.setOutput("found", "false");
+                core.setOutput("pr_number", "");
+                core.setOutput("head_ref", "");
+                core.setOutput("base_ref", "");
+                core.setOutput("head_sha", "");
+                core.setOutput("mergeable_state", "");
+                return;
+              }
+
+              core.info(`Using manually specified PR #${requestedNumber} (${pr.head.ref}).`);
+              core.setOutput("found", "true");
+              core.setOutput("pr_number", String(pr.number));
+              core.setOutput("head_ref", pr.head.ref);
+              core.setOutput("base_ref", pr.base.ref);
+              core.setOutput("head_sha", pr.head.sha);
+              core.setOutput("mergeable_state", mergeableState);
+              return;
             }
 
             async function findCandidate() {
@@ -122,7 +204,6 @@ jobs:
           BASE_REF: ${{ steps.select_pr.outputs.base_ref }}
           HEAD_SHA: ${{ steps.select_pr.outputs.head_sha }}
           MERGEABLE_STATE: ${{ steps.select_pr.outputs.mergeable_state }}
-          ADDITIONAL_CONTEXT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.additional_context || '' }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -139,7 +220,6 @@ jobs:
               return;
             }
 
-            const additionalContext = process.env.ADDITIONAL_CONTEXT || "";
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const marker = "<!-- codex-resolve-merge-conflicts -->";
@@ -233,13 +313,6 @@ jobs:
               `  head_sha: "${pr.head.sha}"`,
               `  mergeable_state: "${mergeableState}"`,
             ];
-
-            if (additionalContext.trim().length > 0) {
-              lines.push("  notes: |");
-              for (const line of additionalContext.split(/\r?\n/)) {
-                lines.push(`    ${line}`);
-              }
-            }
 
             lines.push("```");
 
