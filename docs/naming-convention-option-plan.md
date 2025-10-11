@@ -76,6 +76,126 @@ Introduce an opt-in Prettier plugin feature that can rewrite user-defined identi
 4. **Asset metadata updates**
    - Implement `.yy` mutation layer with dependency graph to propagate renames to referencing assets.
 
+## Incremental implementation roadmap
+
+The following roadmap refines the high-level phases into discrete, testable work items. Each step lists its primary objective, prerequisites, deliverables, and recommended validation so parallel contributors can coordinate effectively.
+
+1. **Confirm identifier casing requirements (Design Spike)**
+   - *Prerequisites:* none.
+   - *Actions:*
+     - Document canonical examples for each supported case style (camel, Pascal, snake lower/upper) and how to handle numbers, underscores, and `global.` prefixes.
+     - Capture findings in a shared spec (appendix to this plan) to guide implementation and review criteria.
+   - *Deliverables:* Reference doc + sample fixtures demonstrating expected conversions.
+   - *Validation:* Peer review of examples; optionally a lightweight script that exercises the proposed conversion helper API to confirm expectations.
+
+2. **Parser symbol table enhancement**
+   - *Prerequisites:* Step 1 case handling decisions.
+   - *Actions:*
+     - Extend parser output to include declaration scopes, identifier classifications, and source locations.
+     - Ensure existing formatter pathways remain compatible (feature flags or backwards-compatible defaults).
+   - *Deliverables:* Updated parser modules, new/updated unit tests showing correct scope tagging for representative constructs.
+   - *Validation:* Parser test suite, manual diff of formatted output on existing fixtures to guarantee no regressions.
+
+3. **Project root discovery & cache design**
+   - *Prerequisites:* Step 2 metadata availability.
+   - *Actions:*
+     - Define how the formatter locates the GameMaker project root using `options.filepath` heuristics.
+     - Draft cache file format (JSON schema) to persist identifier indexes keyed by mtimes.
+     - Design concurrency handling for multiple formatter invocations (e.g. lock files or atomic writes).
+   - *Deliverables:* Design doc + prototype module skeleton with TODO stubs for loading/saving index.
+   - *Validation:* Architectural review; unit tests for cache key computations.
+
+4. **Implement `ProjectIndex` scanning pipeline**
+   - *Prerequisites:* Step 3 design artifacts.
+   - *Actions:*
+     - Traverse `.gml` and `.yy` files to build symbol tables leveraging parser output.
+     - Integrate built-in identifier exclusion using `resources/gml-identifiers.json`.
+     - Record cross-file references and asset relationships needed for rename propagation.
+   - *Deliverables:* `src/shared/project-index` module (or equivalent) with loading, caching, and querying APIs.
+   - *Validation:* Integration tests on sample projects validating the index contents; performance benchmarks on representative project sizes.
+
+5. **Case conversion utility module**
+   - *Prerequisites:* Step 1 reference doc.
+   - *Actions:*
+     - Implement deterministic conversion helpers covering camel, Pascal, snake lower/upper along with prefix/suffix preservation rules.
+     - Expose normalization utilities to split identifiers into tokens and recombine; ensure idempotence for already-compliant names.
+   - *Deliverables:* Utility module with comprehensive unit tests (including tricky inputs like `hp2D_max` and `global.__proto`).
+   - *Validation:* Test suite + fuzz-style randomized casing conversions to confirm reversibility constraints.
+
+6. **Configuration surface & option plumbing**
+   - *Prerequisites:* Steps 2, 5 (parser data + conversion helpers).
+   - *Actions:*
+     - Add `gmlIdentifierCase` option and scope-specific sub-options to the Prettier plugin configuration.
+     - Implement validation logic that rejects unsupported combinations (e.g. enabling asset renames without dry-run acknowledgement).
+     - Wire options into the formatting pipeline so eligible identifiers are flagged for potential renaming.
+   - *Deliverables:* Updated option schema, documentation stubs, unit tests for option parsing/defaults.
+   - *Validation:* Prettier option tests; manual invocation with `--check`/`--write` ensuring defaults remain no-op.
+
+7. **Dry-run reporting channel**
+   - *Prerequisites:* Steps 4 and 6 (index + options).
+   - *Actions:*
+     - Implement a reporting layer that produces structured summaries of planned renames and conflicts without applying changes.
+     - Surface diagnostics through Prettier’s messaging hooks and optionally write JSON logs for downstream tooling.
+   - *Deliverables:* Reporter module, CLI flag handling, example logs checked into docs.
+   - *Validation:* Automated tests verifying report contents; manual dry-run on sample projects confirming no files change.
+
+8. **Local-scope rename execution**
+   - *Prerequisites:* Steps 4, 5, 6, 7.
+   - *Actions:*
+     - Apply rename transformations for local variables only, using the index to ensure scope correctness and conflict avoidance.
+     - Record skipped renames with reasons (e.g. collisions) in diagnostics.
+   - *Deliverables:* Formatter integration for locals, targeted integration tests validating AST rewrite accuracy and dry-run vs. write modes.
+   - *Validation:* Integration tests; run formatter on curated fixtures to confirm expected diffs.
+
+9. **Expand renaming to higher scopes**
+   - *Prerequisites:* Step 8 foundation working reliably.
+   - *Actions:*
+     - Sequentially enable renaming for scripts/functions, macros, enums, and instance/global variables.
+     - For each scope, add dedicated tests and conflict scenarios; adjust project index to track new reference types as needed.
+   - *Deliverables:* Incremental PRs per scope, expanded documentation describing scope-specific toggles.
+   - *Validation:* Scope-specific integration suites; regression pass on previous tests.
+
+10. **Asset rename propagation**
+    - *Prerequisites:* Steps 4 and 9 (index + reference tracking).
+    - *Actions:*
+      - Implement `.yy` mutation logic for asset names, resource paths, and disk filenames.
+      - Ensure dependent resources (e.g. object event references) are updated atomically.
+      - Add permission checks and backup/rollback safeguards before touching the filesystem.
+    - *Deliverables:* Asset mutation utilities, end-to-end tests on sample projects with asset renames, documentation covering operational caveats.
+    - *Validation:* Integration tests verifying consistent project behaviour; manual smoke test in GameMaker IDE if possible.
+
+11. **Conflict detection & resolution policies**
+    - *Prerequisites:* Steps 8–10 rename pathways.
+    - *Actions:*
+      - Implement rename-plan simulation that detects collisions, reserved word conflicts, and duplicates across scopes.
+      - Provide user-facing remediation guidance (e.g. ignoring specific identifiers, adjusting scope toggles).
+    - *Deliverables:* Conflict detection module, unit/integration tests covering edge cases, documentation describing failure scenarios.
+    - *Validation:* Automated test coverage; manual dry-run verifying conflicts halt execution safely.
+
+12. **Telemetry & performance tuning**
+    - *Prerequisites:* Steps 4–11 functional.
+    - *Actions:*
+      - Add lightweight metrics (timings, identifiers processed) to aid profiling in CI.
+      - Optimize cache invalidation and disk IO as needed based on telemetry.
+    - *Deliverables:* Instrumentation hooks, benchmark scripts, performance report documenting baseline vs. optimized runs.
+    - *Validation:* Benchmark suite execution; confirm no regressions in correctness tests.
+
+13. **Documentation completion & onboarding assets**
+    - *Prerequisites:* Major feature work (Steps 6–11).
+    - *Actions:*
+      - Update README and dedicated docs with configuration walkthroughs, dry-run workflow, troubleshooting tips.
+      - Produce migration guide or FAQ for incremental rollout strategies.
+    - *Deliverables:* Updated docs, example configuration files, possibly a tutorial video/script.
+    - *Validation:* Documentation review; ensure examples align with tested behaviour.
+
+14. **Release packaging & announcement**
+    - *Prerequisites:* All implementation steps complete, documentation ready.
+    - *Actions:*
+      - Finalize version bump, changelog entries, and upgrade notes.
+      - Coordinate release testing (formatting golden fixtures, asset rename scenario) before publishing.
+    - *Deliverables:* Changelog update, release candidate tag, announcement draft.
+    - *Validation:* CI green (format/lint/test); manual verification that dry-run and write modes behave as documented.
+
 ## Risk mitigation
 - **Collision risk:** Always compute rename plans globally before mutating. Abort formatting for files tied to unresolved conflicts and instruct the user to resolve duplicates or adjust ignore lists.
 - **Performance regression:** Cache project analysis, debounce rebuilds based on file mtimes, and expose metrics (e.g. number of identifiers processed) for profiling.
