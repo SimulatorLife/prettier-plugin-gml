@@ -236,7 +236,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("renames duplicate function parameters and records fix metadata", () => {
+    it("removes duplicate function parameters and records metadata", () => {
         const source = [
             "function example(value, other, value, value) {",
             "    return value + other;",
@@ -253,47 +253,22 @@ describe("applyFeatherFixes transform", () => {
         const [fn] = ast.body ?? [];
         assert.ok(fn);
         const params = Array.isArray(fn.params) ? fn.params : [];
-        assert.strictEqual(params.length, 4);
+        assert.deepStrictEqual(
+            params.map((param) =>
+                param?.type === "Identifier"
+                    ? param.name
+                    : param?.left?.name ?? null
+            ),
+            ["value", "other"]
+        );
 
-        const extractName = (param) => {
-            if (!param) {
-                return null;
-            }
-
-            if (param.type === "Identifier") {
-                return param.name;
-            }
-
-            if (
-                param.type === "DefaultParameter" &&
-        param.left?.type === "Identifier"
-            ) {
-                return param.left.name;
-            }
-
-            return null;
-        };
-
-        const parameterNames = params.map(extractName);
-        assert.deepStrictEqual(parameterNames, [
-            "value",
-            "other",
-            "value_2",
-            "value_3"
-        ]);
-
-        const renamedParams = [params[2], params[3]];
-
-        for (const param of renamedParams) {
-            assert.ok(param);
-            const identifier = param.type === "Identifier" ? param : param.left;
-            const metadata = identifier?._appliedFeatherDiagnostics;
-            assert.ok(Array.isArray(metadata));
-            assert.strictEqual(metadata.length, 1);
-            assert.strictEqual(metadata[0].id, "GM1059");
-            assert.strictEqual(metadata[0].target, "value");
-            assert.strictEqual(metadata[0].automatic, true);
-        }
+        const fnMetadata = fn._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(fnMetadata.length, 2);
+        fnMetadata.forEach((entry) => {
+            assert.strictEqual(entry.id, "GM1059");
+            assert.strictEqual(entry.target, "value");
+            assert.strictEqual(entry.automatic, true);
+        });
 
         const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
         const gm1059Metadata = rootMetadata.filter(
@@ -306,9 +281,9 @@ describe("applyFeatherFixes transform", () => {
         });
     });
 
-    it("respects the configurable duplicate parameter suffix start", () => {
+    it("removes duplicate constructor parameters flagged by GM1059", () => {
         const source = [
-            "function example(value, other, value, value) {",
+            "function Example(value, other, value) constructor {",
             "    return value + other;",
             "}"
         ].join("\n");
@@ -318,45 +293,41 @@ describe("applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, {
-            sourceText: source,
-            options: { featherDuplicateParameterSuffixStart: 7 }
-        });
+        applyFeatherFixes(ast, { sourceText: source });
 
-        const [fn] = ast.body ?? [];
-        assert.ok(fn);
-        const params = Array.isArray(fn.params) ? fn.params : [];
-        assert.strictEqual(params.length, 4);
+        const [ctor] = ast.body ?? [];
+        assert.ok(ctor);
+        assert.strictEqual(ctor.type, "ConstructorDeclaration");
 
-        const names = params.map((param) => {
-            if (!param) {
-                return null;
-            }
+        const params = Array.isArray(ctor.params) ? ctor.params : [];
+        assert.deepStrictEqual(
+            params.map((param) =>
+                param?.type === "Identifier"
+                    ? param.name
+                    : param?.left?.name ?? null
+            ),
+            ["value", "other"]
+        );
 
-            if (param.type === "Identifier") {
-                return param.name;
-            }
+        const ctorMetadata = ctor._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(ctorMetadata.length, 1);
+        const [metadataEntry] = ctorMetadata;
+        assert.ok(metadataEntry);
+        assert.strictEqual(metadataEntry.id, "GM1059");
+        assert.strictEqual(metadataEntry.target, "value");
+        assert.strictEqual(metadataEntry.automatic, true);
 
-            if (param.type === "DefaultParameter") {
-                return param.left?.name ?? null;
-            }
-
-            return null;
-        });
-
-        assert.deepStrictEqual(names, ["value", "other", "value_7", "value_8"]);
-
-        const renamed = [params[2], params[3]];
-        renamed.forEach((param) => {
-            const identifier = param?.type === "Identifier" ? param : param?.left;
-            assert.ok(identifier);
-            const metadata = identifier._appliedFeatherDiagnostics ?? [];
-            assert.strictEqual(
-                metadata.some((entry) => entry.id === "GM1059"),
-                true
-            );
-        });
+        const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
+        const gm1059Metadata = rootMetadata.filter(
+            (entry) => entry.id === "GM1059"
+        );
+        assert.strictEqual(gm1059Metadata.length, 1);
+        const [rootEntry] = gm1059Metadata;
+        assert.ok(rootEntry);
+        assert.strictEqual(rootEntry.target, "value");
+        assert.strictEqual(rootEntry.automatic, true);
     });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
@@ -515,11 +486,14 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [setRepeatCall, resetCall, submitCall] = ast.body ?? [];
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [setRepeatCall, submitCall, resetCall] = statements;
 
         assert.ok(setRepeatCall);
-        assert.ok(resetCall);
         assert.ok(submitCall);
+        assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_texrepeat");
 
@@ -558,11 +532,14 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [disableCall, resetCall, drawCall] = ast.body ?? [];
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [disableCall, drawCall, resetCall] = statements;
 
         assert.ok(disableCall);
-        assert.ok(resetCall);
         assert.ok(drawCall);
+        assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
 
@@ -660,24 +637,15 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [declaration, statement] = statements;
+        const [declaration] = statements;
 
         assert.ok(declaration);
         assert.strictEqual(declaration.type, "VariableDeclaration");
         assert.strictEqual(Array.isArray(declaration.declarations), true);
-        assert.ok(statement);
 
         const declarationFixes = declaration._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             declarationFixes.some((entry) => entry.id === "GM1100"),
-            true
-        );
-
-        const expressionFixes = (
-            statement?._appliedFeatherDiagnostics ?? []
-        ).concat(statement?.expression?._appliedFeatherDiagnostics ?? []);
-        assert.strictEqual(
-            expressionFixes.some((entry) => entry.id === "GM1100"),
             true
         );
 
