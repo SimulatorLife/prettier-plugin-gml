@@ -103,6 +103,49 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("marks constructor declarations for functions instantiated with new", () => {
+        const source = [
+            "function item() {",
+            "    return 42;",
+            "}",
+            "",
+            "var sword = new item();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [functionNode] = ast.body ?? [];
+
+        assert.ok(functionNode);
+        assert.strictEqual(functionNode.type, "FunctionDeclaration");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.strictEqual(functionNode.type, "ConstructorDeclaration");
+
+        const functionFixes = functionNode._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(functionFixes));
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.id === "GM1058"),
+            true
+        );
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.target === "item"),
+            true,
+            "Expected constructor fix metadata to target the function name."
+        );
+
+        const recordedIds = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            recordedIds.some((entry) => entry.id === "GM1058"),
+            true,
+            "Expected the program node to record the GM1058 constructor fix."
+        );
+    });
+
     it("renames duplicate function parameters and records fix metadata", () => {
         const source = [
             "function example(value, other, value, value) {",
@@ -224,7 +267,6 @@ describe("applyFeatherFixes transform", () => {
             );
         });
     });
-
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
