@@ -2518,8 +2518,7 @@ function expressionIsStringLike(node) {
 
     if (node.type === "BinaryExpression" && node.operator === "+") {
         return (
-            expressionIsStringLike(node.left) ||
-      expressionIsStringLike(node.right)
+            expressionIsStringLike(node.left) || expressionIsStringLike(node.right)
         );
     }
 
