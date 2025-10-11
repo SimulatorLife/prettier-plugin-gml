@@ -2322,6 +2322,34 @@ function shouldGenerateSyntheticDocForFunction(
     );
 }
 
+function findSiblingListAndIndex(parent, targetNode) {
+    if (!parent || !targetNode) {
+        return null;
+    }
+
+    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // while keeping the scan readable and short-circuiting as soon as the node
+    // is located.
+    for (const key in parent) {
+        if (!Object.hasOwn(parent, key)) {
+            continue;
+        }
+
+        const value = parent[key];
+        if (!Array.isArray(value)) {
+            continue;
+        }
+
+        for (let index = 0; index < value.length; index += 1) {
+            if (value[index] === targetNode) {
+                return { list: value, index };
+            }
+        }
+    }
+
+    return null;
+}
+
 function loopLengthNameConflicts(path, cachedLengthName) {
     if (typeof cachedLengthName !== "string" || cachedLengthName.length === 0) {
         return false;
@@ -2397,27 +2425,15 @@ function getParentStatementList(path) {
         return null;
     }
 
-    for (const key in parent) {
-        if (!Object.hasOwn(parent, key)) {
-            continue;
-        }
-
-        const value = parent[key];
-        if (!Array.isArray(value)) {
-            continue;
-        }
-
-        for (let index = 0; index < value.length; index += 1) {
-            if (value[index] === node) {
-                return {
-                    siblingList: value,
-                    nodeIndex: index
-                };
-            }
-        }
+    const siblingInfo = findSiblingListAndIndex(parent, node);
+    if (!siblingInfo) {
+        return null;
     }
 
-    return null;
+    return {
+        siblingList: siblingInfo.list,
+        nodeIndex: siblingInfo.index
+    };
 }
 
 function shouldInsertHoistedLoopSeparator(path, options) {
