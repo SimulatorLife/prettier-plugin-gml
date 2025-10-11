@@ -11,6 +11,7 @@ import { coercePositiveIntegerOption } from "../printer/option-utils.js";
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
 const DEFAULT_TRAILING_COMMENT_PADDING = 2;
+const DEFAULT_TRAILING_COMMENT_INLINE_OFFSET = 1;
 
 const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerMinimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
@@ -89,7 +90,12 @@ function getTrailingCommentPadding(options) {
 
 function getTrailingCommentInlinePadding(options) {
     const padding = getTrailingCommentPadding(options);
-    return Math.max(padding - 1, 0);
+    const inlineOffset = coercePositiveIntegerOption(
+        options?.trailingCommentInlineOffset,
+        DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
+        { zeroReplacement: 0 }
+    );
+    return Math.max(padding - inlineOffset, 0);
 }
 
 const BOILERPLATE_COMMENTS = [
@@ -400,6 +406,7 @@ export {
     collectCommentNodes,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     formatLineComment,
     getLineCommentRawText,
     getTrailingCommentInlinePadding,

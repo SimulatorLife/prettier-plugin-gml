@@ -370,6 +370,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Controls how many spaces the formatter inserts between code and any trailing end-of-line comments. Raise the value to push
   inline comments further right, or set it to `0` to keep them tight against the preceding code.
 
+- `trailingCommentInlineOffset` (default: `1`)
+
+  Adjusts how many of the trailing comment padding spaces are trimmed when applying inline comment padding. Increase the value
+  to keep inline comments closer to the code, or set it to `0` to align inline comments with the full trailing padding.
+
 - `lineCommentBannerMinimumSlashes` (default: `5`)
 
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
