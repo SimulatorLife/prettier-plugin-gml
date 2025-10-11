@@ -24,7 +24,10 @@ export const printers = {
     "gml-ast": {
         print: print,
         isBlockComment: (comment) => comment.type === "CommentBlock",
-        canAttachComment: (node) => node.type && !node.type.includes("Comment") && node.type !== "EmptyStatement",
+        canAttachComment: (node) =>
+            node.type &&
+      !node.type.includes("Comment") &&
+      node.type !== "EmptyStatement",
         printComment: printComment,
         handleComments: handleComments
     }
@@ -36,7 +39,8 @@ export const options = {
         type: "boolean",
         category: "gml",
         default: true,
-        description: "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
+        description:
+      "Hoist array_length calls out of for-loop conditions by caching the result in a temporary variable."
     },
     condenseStructAssignments: {
         since: "0.0.0",
@@ -44,7 +48,7 @@ export const options = {
         category: "gml",
         default: true,
         description:
-            "Condense consecutive struct property assignments into a single struct literal when possible."
+      "Condense consecutive struct property assignments into a single struct literal when possible."
     },
     arrayLengthHoistFunctionSuffixes: {
         since: "0.0.0",
@@ -52,7 +56,7 @@ export const options = {
         category: "gml",
         default: "",
         description:
-            "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
+      "Comma-separated overrides for cached loop size variable suffixes (e.g. 'array_length=len,ds_queue_size=count'). Use '-' as the suffix to disable a function."
     },
     allowSingleLineIfStatements: {
         since: "0.0.0",
@@ -60,14 +64,15 @@ export const options = {
         category: "gml",
         default: true,
         description:
-            "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines.",
+      "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines."
     },
     preserveGlobalVarStatements: {
         since: "0.0.0",
         type: "boolean",
         category: "gml",
         default: true,
-        description: "Preserve 'globalvar' declarations instead of eliding them during formatting.",
+        description:
+      "Preserve 'globalvar' declarations instead of eliding them during formatting."
     },
     lineCommentBannerMinimumSlashes: {
         since: "0.0.0",
@@ -76,7 +81,7 @@ export const options = {
         default: 5,
         range: { start: 1, end: Infinity },
         description:
-            "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim.",
+      "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim."
     },
     lineCommentBannerAutofillThreshold: {
         since: "0.0.0",
@@ -85,7 +90,7 @@ export const options = {
         default: 4,
         range: { start: 0, end: Infinity },
         description:
-            "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling.",
+      "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling."
     },
     alignAssignmentsMinGroupSize: {
         since: "0.0.0",
@@ -94,7 +99,16 @@ export const options = {
         default: 3,
         range: { start: 0, end: Infinity },
         description:
-            "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely.",
+      "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
+    },
+    enumTrailingCommentPadding: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 2,
+        range: { start: 0, end: Infinity },
+        description:
+      "Spaces inserted between the longest enum member name and trailing comments. Increase to push comments further right or set to 0 to minimize padding."
     },
     maxParamsPerLine: {
         since: "0.0.0",
@@ -103,7 +117,16 @@ export const options = {
         default: 0,
         range: { start: 0, end: Infinity },
         description:
-            "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable.",
+      "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
+    },
+    featherDuplicateParameterSuffixStart: {
+        since: "0.0.0",
+        type: "int",
+        category: "gml",
+        default: 2,
+        range: { start: 1, end: Infinity },
+        description:
+      "Starting numeric suffix used when renaming duplicate parameters for Feather fixes (GM1059). Increase to avoid clashes with manual naming conventions."
     },
     applyFeatherFixes: {
         since: "0.0.0",
@@ -111,7 +134,7 @@ export const options = {
         category: "gml",
         default: false,
         description:
-            "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051).",
+      "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
     }
 };
 
@@ -126,9 +149,10 @@ export const defaultOptions = {
     lineCommentBannerMinimumSlashes: 5,
     lineCommentBannerAutofillThreshold: 4,
     alignAssignmentsMinGroupSize: 3,
+    enumTrailingCommentPadding: 2,
     maxParamsPerLine: 0,
+    featherDuplicateParameterSuffixStart: 2,
     allowSingleLineIfStatements: true,
     preserveGlobalVarStatements: true,
     applyFeatherFixes: false
 };
-
