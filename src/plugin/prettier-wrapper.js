@@ -151,17 +151,19 @@ const stat = util.promisify(fs.stat);
 const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
-let projectIgnorePaths = [];
+let baseProjectIgnorePaths = [];
+const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
+const registeredIgnorePaths = new Set();
 
-async function detectIgnoreRuleNegations(ignoreFiles) {
-    ignoreRulesContainNegations = false;
-
+async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath) {
+        if (!ignoreFilePath || registeredIgnorePaths.has(ignoreFilePath)) {
             continue;
         }
+
+        registeredIgnorePaths.add(ignoreFilePath);
 
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
@@ -172,7 +174,6 @@ async function detectIgnoreRuleNegations(ignoreFiles) {
 
             if (hasNegation) {
                 ignoreRulesContainNegations = true;
-                return;
             }
         } catch {
             // Ignore missing or unreadable files.
@@ -180,8 +181,12 @@ async function detectIgnoreRuleNegations(ignoreFiles) {
     }
 }
 
-function getIgnorePathOptions() {
-    const ignoreCandidates = [ignorePath, ...projectIgnorePaths].filter(Boolean);
+function getIgnorePathOptions(additionalIgnorePaths = []) {
+    const ignoreCandidates = [
+        ignorePath,
+        ...baseProjectIgnorePaths,
+        ...additionalIgnorePaths
+    ].filter(Boolean);
     if (ignoreCandidates.length === 0) {
         return null;
     }
@@ -192,12 +197,12 @@ function getIgnorePathOptions() {
         : uniqueIgnorePaths;
 }
 
-async function shouldSkipDirectory(directory) {
+async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
     if (ignoreRulesContainNegations) {
         return false;
     }
 
-    const ignorePathOption = getIgnorePathOptions();
+    const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
     if (!ignorePathOption) {
         return false;
     }
@@ -303,7 +308,29 @@ async function ensureDirectoryExists(directory) {
     }
 }
 
-async function processDirectory(directory) {
+async function processDirectory(directory, inheritedIgnorePaths = []) {
+    let currentIgnorePaths = inheritedIgnorePaths;
+    const localIgnorePath = path.join(directory, ".prettierignore");
+    let shouldRegisterLocalIgnore = baseProjectIgnorePathSet.has(localIgnorePath);
+
+    try {
+        const ignoreStats = await stat(localIgnorePath);
+
+        if (ignoreStats.isFile()) {
+            shouldRegisterLocalIgnore = true;
+
+            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
+                currentIgnorePaths = [...inheritedIgnorePaths, localIgnorePath];
+            }
+        }
+    } catch {
+    // Ignore missing files.
+    }
+
+    if (shouldRegisterLocalIgnore) {
+        await registerIgnorePaths([localIgnorePath]);
+    }
+
     const files = await readdir(directory);
     for (const file of files) {
         const filePath = path.join(directory, file);
@@ -316,12 +343,12 @@ async function processDirectory(directory) {
         }
 
         if (stats.isDirectory()) {
-            if (await shouldSkipDirectory(filePath)) {
+            if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
                 continue;
             }
-            await processDirectory(filePath);
+            await processDirectory(filePath, currentIgnorePaths);
         } else if (shouldFormatFile(filePath)) {
-            await processFile(filePath);
+            await processFile(filePath, currentIgnorePaths);
         } else {
             skippedFileCount += 1;
         }
@@ -362,10 +389,10 @@ async function resolveFormattingOptions(filePath) {
     return mergedOptions;
 }
 
-async function processFile(filePath) {
+async function processFile(filePath, activeIgnorePaths = []) {
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
-        const ignorePathOption = getIgnorePathOptions();
+        const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
         const fileInfo = await prettier.getFileInfo(filePath, {
             ...(ignorePathOption ? { ignorePath: ignorePathOption } : {}),
             plugins: formattingOptions.plugins,
@@ -393,8 +420,12 @@ async function processFile(filePath) {
 }
 
 await ensureDirectoryExists(targetPath);
-projectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
-await detectIgnoreRuleNegations([ignorePath, ...projectIgnorePaths]);
+baseProjectIgnorePaths = await resolveProjectIgnorePaths(targetPath);
+baseProjectIgnorePathSet.clear();
+for (const projectIgnorePath of baseProjectIgnorePaths) {
+    baseProjectIgnorePathSet.add(projectIgnorePath);
+}
+await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
 await processDirectory(targetPath);
 console.debug(`Skipped ${skippedFileCount} files`);
 if (encounteredFormattingError) {
