@@ -256,6 +256,28 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("respects .prettierignore files within nested directories", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const nestedDirectory = path.join(tempDirectory, "nested");
+            await fs.mkdir(nestedDirectory);
+
+            const targetFile = path.join(nestedDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const nestedIgnorePath = path.join(nestedDirectory, ".prettierignore");
+            await fs.writeFile(nestedIgnorePath, "*.gml\n", "utf8");
+
+            await execFileAsync("node", [wrapperPath, tempDirectory]);
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.equal(formatted, "var    a=1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("ignores .prettierignore files outside the target project", async () => {
         const outerDirectory = await createTemporaryDirectory();
         const projectDirectory = await createTemporaryDirectory();
