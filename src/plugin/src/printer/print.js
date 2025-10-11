@@ -1788,22 +1788,34 @@ function getStructPropertyPrefix(node, options) {
     return prefix;
 }
 
+function getNormalizedParameterName(paramNode) {
+    if (!paramNode) {
+        return null;
+    }
+
+    const rawName = getIdentifierText(paramNode);
+    if (typeof rawName !== "string" || rawName.length === 0) {
+        return null;
+    }
+
+    const normalizedName = normalizeDocMetadataName(rawName);
+    return typeof normalizedName === "string" && normalizedName.length > 0
+        ? normalizedName
+        : null;
+}
+
 function getParameterDocInfo(paramNode, functionNode, options) {
     if (!paramNode) {
         return null;
     }
 
     if (paramNode.type === "Identifier") {
-        const rawName = getIdentifierText(paramNode);
-        const sanitizedName = stripSyntheticParameterSentinels(rawName);
-        const name = normalizeDocMetadataName(sanitizedName);
+        const name = getNormalizedParameterName(paramNode);
         return name ? { name, optional: false } : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
-        const rawName = getIdentifierText(paramNode.left);
-        const sanitizedName = stripSyntheticParameterSentinels(rawName);
-        const name = normalizeDocMetadataName(sanitizedName);
+        const name = getNormalizedParameterName(paramNode.left);
         if (!name) {
             return null;
         }
@@ -1840,10 +1852,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         return null;
     }
 
-    const rawFallbackName = getIdentifierText(paramNode);
-    const sanitizedFallbackName =
-    stripSyntheticParameterSentinels(rawFallbackName);
-    const fallbackName = normalizeDocMetadataName(sanitizedFallbackName);
+    const fallbackName = getNormalizedParameterName(paramNode);
     return fallbackName ? { name: fallbackName, optional: false } : null;
 }
 
