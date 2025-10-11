@@ -2,8 +2,8 @@ var value = 1;
 
 /// @function demo
 function demo() {
-    var other = 2;
-    switch (other) {
+    var value2 = 2;
+    switch (value2) {
         case 1:
             break;
     }

@@ -186,38 +186,48 @@ export function print(path, options, print) {
                 ? getLoopLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
                 : null;
             if (hoistInfo) {
-                const { loopSizeCallDoc, iteratorDoc, cachedLengthName } =
-          buildLoopLengthDocs(path, print, hoistInfo);
-
-                const initDoc = path.getValue().init ? print("init") : "";
-                const updateDoc = path.getValue().update ? print("update") : "";
-                const testDoc = concat([
-                    iteratorDoc,
-                    " ",
-                    path.getValue().test.operator,
-                    " ",
-                    cachedLengthName
-                ]);
-
-                const needsHoistedSeparator = shouldInsertHoistedLoopSeparator(
-                    path,
-                    options
+                const cachedLengthName = buildCachedSizeVariableName(
+                    hoistInfo.sizeIdentifierName,
+                    hoistInfo.cachedLengthSuffix
                 );
 
-                return concat([
-                    group(["var ", cachedLengthName, " = ", loopSizeCallDoc, ";"]),
-                    hardline,
-                    "for (",
-                    group([
-                        indent([
-                            ifBreak(line),
-                            concat([initDoc, ";", line, testDoc, ";", line, updateDoc])
-                        ])
-                    ]),
-                    ") ",
-                    printInBlock(path, options, print, "body"),
-                    needsHoistedSeparator ? hardline : ""
-                ]);
+                if (!loopLengthNameConflicts(path, cachedLengthName)) {
+                    const { loopSizeCallDoc, iteratorDoc } = buildLoopLengthDocs(
+                        path,
+                        print,
+                        hoistInfo
+                    );
+
+                    const initDoc = path.getValue().init ? print("init") : "";
+                    const updateDoc = path.getValue().update ? print("update") : "";
+                    const testDoc = concat([
+                        iteratorDoc,
+                        " ",
+                        path.getValue().test.operator,
+                        " ",
+                        cachedLengthName
+                    ]);
+
+                    const needsHoistedSeparator = shouldInsertHoistedLoopSeparator(
+                        path,
+                        options
+                    );
+
+                    return concat([
+                        group(["var ", cachedLengthName, " = ", loopSizeCallDoc, ";"]),
+                        hardline,
+                        "for (",
+                        group([
+                            indent([
+                                ifBreak(line),
+                                concat([initDoc, ";", line, testDoc, ";", line, updateDoc])
+                            ])
+                        ]),
+                        ") ",
+                        printInBlock(path, options, print, "body"),
+                        needsHoistedSeparator ? hardline : ""
+                    ]);
+                }
             }
 
             return concat([
@@ -2312,32 +2322,14 @@ function shouldGenerateSyntheticDocForFunction(
     );
 }
 
-function shouldInsertHoistedLoopSeparator(path, options) {
-    if (typeof path?.getValue !== "function") {
-        return false;
+function findSiblingListAndIndex(parent, targetNode) {
+    if (!parent || !targetNode) {
+        return null;
     }
 
-    const node = path.getValue();
-    if (node?.type !== "ForStatement") {
-        return false;
-    }
-
-    if (typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const parent = path.getParentNode();
-    if (!parent) {
-        return false;
-    }
-
-    // The printer calls this helper while iterating over statement lists, so
-    // avoid allocating intermediate arrays via `Object.values` + `Array.find`.
-    // A manual property scan lets us bail as soon as the matching list is
-    // located while also reusing the index we compute for the adjacency check.
-    let siblingList = null;
-    let nodeIndex = -1;
-
+    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // while keeping the scan readable and short-circuiting as soon as the node
+    // is located.
     for (const key in parent) {
         if (!Object.hasOwn(parent, key)) {
             continue;
@@ -2349,23 +2341,117 @@ function shouldInsertHoistedLoopSeparator(path, options) {
         }
 
         for (let index = 0; index < value.length; index += 1) {
-            if (value[index] === node) {
-                siblingList = value;
-                nodeIndex = index;
-                break;
+            if (value[index] === targetNode) {
+                return { list: value, index };
             }
-        }
-
-        if (siblingList) {
-            break;
         }
     }
 
-    if (!siblingList) {
+    return null;
+}
+
+function loopLengthNameConflicts(path, cachedLengthName) {
+    if (typeof cachedLengthName !== "string" || cachedLengthName.length === 0) {
         return false;
     }
 
-    const nextNode = siblingList[nodeIndex + 1];
+    const siblingInfo = getParentStatementList(path);
+    if (!siblingInfo) {
+        return false;
+    }
+
+    const { siblingList, nodeIndex } = siblingInfo;
+    for (let index = 0; index < siblingList.length; index += 1) {
+        if (index === nodeIndex) {
+            continue;
+        }
+
+        if (nodeDeclaresIdentifier(siblingList[index], cachedLengthName)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function nodeDeclaresIdentifier(node, identifierName) {
+    if (!node || typeof identifierName !== "string") {
+        return false;
+    }
+
+    if (node.type === "VariableDeclaration") {
+        const declarations = node.declarations;
+        if (!Array.isArray(declarations)) {
+            return false;
+        }
+
+        for (const declarator of declarations) {
+            if (!declarator || declarator.type !== "VariableDeclarator") {
+                continue;
+            }
+
+            const declaratorName = getIdentifierText(declarator.id);
+            if (declaratorName === identifierName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    if (node.type === "ForStatement") {
+        return nodeDeclaresIdentifier(node.init, identifierName);
+    }
+
+    const nodeIdName = getIdentifierText(node.id);
+    return nodeIdName === identifierName;
+}
+
+function getParentStatementList(path) {
+    if (
+        typeof path?.getValue !== "function" ||
+    typeof path.getParentNode !== "function"
+    ) {
+        return null;
+    }
+
+    const node = path.getValue();
+    if (!node) {
+        return null;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent) {
+        return null;
+    }
+
+    const siblingInfo = findSiblingListAndIndex(parent, node);
+    if (!siblingInfo) {
+        return null;
+    }
+
+    return {
+        siblingList: siblingInfo.list,
+        nodeIndex: siblingInfo.index
+    };
+}
+
+function shouldInsertHoistedLoopSeparator(path, options) {
+    if (typeof path?.getValue !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (node?.type !== "ForStatement") {
+        return false;
+    }
+
+    const siblingInfo = getParentStatementList(path);
+    if (!siblingInfo) {
+        return false;
+    }
+
+    const nextNode = siblingInfo.siblingList[siblingInfo.nodeIndex + 1];
     if (nextNode?.type !== "ForStatement") {
         return false;
     }

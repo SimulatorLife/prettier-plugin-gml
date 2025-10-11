@@ -16,6 +16,10 @@ import {
     getNodeStartIndex,
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
+import {
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments
+} from "./conditional-assignment-sanitizer.js";
 
 const { addTrailingComment } = util;
 
@@ -35,6 +39,13 @@ function parse(text, options) {
         }
 
         preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+    }
+
+    const sanitizedResult = sanitizeConditionalAssignments(parseSource);
+    const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+
+    if (typeof sanitizedSource === "string") {
+        parseSource = sanitizedSource;
     }
 
     const ast = GMLParser.parse(parseSource, {
@@ -58,6 +69,13 @@ function parse(text, options) {
             preprocessedFixMetadata,
             options
         });
+    }
+
+    if (indexAdjustments && indexAdjustments.length > 0) {
+        applySanitizedIndexAdjustments(ast, indexAdjustments);
+        if (preprocessedFixMetadata) {
+            applySanitizedIndexAdjustments(preprocessedFixMetadata, indexAdjustments);
+        }
     }
 
     if (options?.useStringInterpolation) {
