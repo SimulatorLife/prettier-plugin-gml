@@ -1,3 +1,4 @@
 {
-  "logicalOperatorsStyle": "symbols"
+  "logicalOperatorsStyle": "symbols",
+  "condenseLogicalExpressions": true
 }

@@ -340,6 +340,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   `&&` and `||` using GameMaker's `and`/`or` keywords, matching the plugin's historical behaviour. Switch the option to
   `"symbols"` to preserve the original operators verbatim.
 
+- `condenseLogicalExpressions` (default: `false`)
+  Combines adjacent logical expressions using the same operator into a single expression. For example, `((a && b) && c)` becomes `a && b && c`. Set the option to `true` to enable the transformation, or leave it `false` to keep the original expression structure.
+
 - `preserveGlobalVarStatements` (default: `true`)
 
   Keeps `globalvar` declarations in the formatted output while still prefixing subsequent assignments with `global.`. Set the

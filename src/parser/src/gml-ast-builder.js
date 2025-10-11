@@ -124,7 +124,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     wrapInParentheses(ctx, node) {
         return this.astNode(ctx, {
             type: "ParenthesizedExpression",
-            expression: node
+            expression: node,
+            synthetic: true
         });
     }
 

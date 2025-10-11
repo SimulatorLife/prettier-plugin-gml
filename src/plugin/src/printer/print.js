@@ -50,7 +50,7 @@ import {
 const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
 
-function resolveLogicalOperatorStyle(options) {
+function resolvelogicalOperatorsStyle(options) {
     const style = options?.logicalOperatorsStyle;
 
     if (style === LOGICAL_OPERATOR_STYLE_SYMBOLS) {
@@ -60,7 +60,7 @@ function resolveLogicalOperatorStyle(options) {
     return LOGICAL_OPERATOR_STYLE_KEYWORDS;
 }
 
-function applyLogicalOperatorStyle(operator, style) {
+function applylogicalOperatorsStyle(operator, style) {
     if (operator === "&&") {
         return style === LOGICAL_OPERATOR_STYLE_KEYWORDS ? "and" : "&&";
     }
@@ -442,6 +442,10 @@ export function print(path, options, print) {
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
         case "ParenthesizedExpression": {
+            if (shouldOmitSyntheticParens(path)) {
+                return printWithoutExtraParens(path, print, "expression");
+            }
+
             return concat([
                 "(",
                 printWithoutExtraParens(path, print, "expression"),
@@ -452,7 +456,7 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
-            const logicalOperatorStyle = resolveLogicalOperatorStyle(options);
+            const logicalOperatorsStyle = resolvelogicalOperatorsStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
@@ -489,9 +493,9 @@ export function print(path, options, print) {
                 operator = "*";
                 right = "0.5";
             } else {
-                const styledOperator = applyLogicalOperatorStyle(
+                const styledOperator = applylogicalOperatorsStyle(
                     operator,
-                    logicalOperatorStyle
+                    logicalOperatorsStyle
                 );
 
                 if (styledOperator !== operator) {
@@ -2429,6 +2433,107 @@ function printWithoutExtraParens(path, print, ...keys) {
         (childPath) => unwrapParenthesizedExpression(childPath, print),
         ...keys
     );
+}
+
+function shouldOmitSyntheticParens(path) {
+    if (!path || typeof path.getValue !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (
+        !node ||
+    node.type !== "ParenthesizedExpression" ||
+    node.synthetic !== true
+    ) {
+        return false;
+    }
+
+    if (typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (
+        !parent ||
+    parent.type !== "BinaryExpression" ||
+    parent.operator !== "+"
+    ) {
+        return false;
+    }
+
+    if (!binaryExpressionContainsString(parent)) {
+        return false;
+    }
+
+    let depth = 1;
+    while (true) {
+        const ancestor =
+      depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            ancestor.type === "ParenthesizedExpression" &&
+      ancestor.synthetic !== true
+        ) {
+            return true;
+        }
+
+        depth += 1;
+    }
+}
+
+function binaryExpressionContainsString(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (node.operator !== "+") {
+        return false;
+    }
+
+    return (
+        expressionIsStringLike(node.left) || expressionIsStringLike(node.right)
+    );
+}
+
+function expressionIsStringLike(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Literal") {
+        if (typeof node.value === "string" && /^\".*\"$/.test(node.value)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return expressionIsStringLike(node.expression);
+    }
+
+    if (node.type === "BinaryExpression" && node.operator === "+") {
+        return (
+            expressionIsStringLike(node.left) ||
+      expressionIsStringLike(node.right)
+        );
+    }
+
+    if (node.type === "CallExpression") {
+        const calleeName = getIdentifierText(node.object);
+        if (typeof calleeName === "string") {
+            const normalized = calleeName.toLowerCase();
+            if (normalized === "string" || normalized.startsWith("string_")) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 const RADIAN_TRIG_TO_DEGREE = new Map([
