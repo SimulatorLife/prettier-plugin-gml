@@ -41,6 +41,9 @@ var myCoords = func_coords(10, undefined, 20);
 
 /// @function Shape
 /// @param [color]
+/// @description Base class for all shapes. Shapes can be solid or not solid.
+///              Solid shapes will collide with other solid shapes, and
+///              non-solid shapes will not collide with anything.
 function Shape(color = undefined) constructor {
     self.color = color;
 
