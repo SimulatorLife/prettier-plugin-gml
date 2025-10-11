@@ -1,13 +1,13 @@
 import { hasComment } from "../../../shared/comments.js";
 import {
-  getSingleVariableDeclarator,
-  getIdentifierText,
-  isUndefinedLiteral,
+    getSingleVariableDeclarator,
+    getIdentifierText,
+    isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 
 const DEFAULT_HELPERS = {
-  getIdentifierText,
-  isUndefinedLiteral,
+    getIdentifierText,
+    isUndefinedLiteral
 };
 
 /**
@@ -17,629 +17,626 @@ const DEFAULT_HELPERS = {
  * @param {{ getIdentifierText?: (node: unknown) => string | null, isUndefinedLiteral?: (node: unknown) => boolean }} helpers
  */
 export function preprocessFunctionArgumentDefaults(
-  ast,
-  helpers = DEFAULT_HELPERS,
+    ast,
+    helpers = DEFAULT_HELPERS
 ) {
-  if (!ast || typeof ast !== "object") {
-    return ast;
-  }
-
-  const normalizedHelpers = {
-    getIdentifierText:
-      typeof helpers.getIdentifierText === "function"
-        ? helpers.getIdentifierText
-        : DEFAULT_HELPERS.getIdentifierText,
-    isUndefinedLiteral:
-      typeof helpers.isUndefinedLiteral === "function"
-        ? helpers.isUndefinedLiteral
-        : DEFAULT_HELPERS.isUndefinedLiteral,
-  };
-
-  traverse(ast, (node) => {
-    if (!node || node.type !== "FunctionDeclaration") {
-      return;
+    if (!ast || typeof ast !== "object") {
+        return ast;
     }
 
-    preprocessFunctionDeclaration(node, normalizedHelpers);
-  });
+    const normalizedHelpers = {
+        getIdentifierText:
+      typeof helpers.getIdentifierText === "function"
+          ? helpers.getIdentifierText
+          : DEFAULT_HELPERS.getIdentifierText,
+        isUndefinedLiteral:
+      typeof helpers.isUndefinedLiteral === "function"
+          ? helpers.isUndefinedLiteral
+          : DEFAULT_HELPERS.isUndefinedLiteral
+    };
 
-  return ast;
+    traverse(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        preprocessFunctionDeclaration(node, normalizedHelpers);
+    });
+
+    return ast;
 }
 
 function traverse(node, visitor, seen = new Set()) {
-  if (!node || typeof node !== "object") {
-    return;
-  }
-
-  if (seen.has(node)) {
-    return;
-  }
-
-  seen.add(node);
-
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      traverse(child, visitor, seen);
-    }
-    return;
-  }
-
-  visitor(node);
-
-  for (const [key, value] of Object.entries(node)) {
-    if (key === "parent") {
-      continue;
+    if (!node || typeof node !== "object") {
+        return;
     }
 
-    if (value && typeof value === "object") {
-      traverse(value, visitor, seen);
+    if (seen.has(node)) {
+        return;
     }
-  }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            traverse(child, visitor, seen);
+        }
+        return;
+    }
+
+    visitor(node);
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        if (value && typeof value === "object") {
+            traverse(value, visitor, seen);
+        }
+    }
 }
 
 function preprocessFunctionDeclaration(node, helpers) {
-  if (!node || node.type !== "FunctionDeclaration") {
-    return;
-  }
+    if (!node || node.type !== "FunctionDeclaration") {
+        return;
+    }
 
-  if (node._hasProcessedArgumentCountDefaults) {
-    return;
-  }
+    if (node._hasProcessedArgumentCountDefaults) {
+        return;
+    }
 
-  const { getIdentifierText, isUndefinedLiteral } = helpers;
+    const { getIdentifierText, isUndefinedLiteral } = helpers;
 
-  if (
-    typeof getIdentifierText !== "function" ||
+    if (
+        typeof getIdentifierText !== "function" ||
     typeof isUndefinedLiteral !== "function"
-  ) {
-    return;
-  }
+    ) {
+        return;
+    }
 
-  node._hasProcessedArgumentCountDefaults = true;
+    node._hasProcessedArgumentCountDefaults = true;
 
-  const body = node.body;
-  if (
-    !body ||
+    const body = node.body;
+    if (
+        !body ||
     body.type !== "BlockStatement" ||
     !Array.isArray(body.body) ||
     body.body.length === 0
-  ) {
-    return;
-  }
-
-  const statements = body.body;
-  const matches = [];
-
-  for (
-    let statementIndex = 0;
-    statementIndex < statements.length;
-    statementIndex++
-  ) {
-    const statement = statements[statementIndex];
-    const match = matchArgumentCountFallbackStatement(statement, helpers);
-
-    if (!match) {
-      continue;
+    ) {
+        return;
     }
 
-    matches.push({
-      ...match,
-      statementIndex,
+    const statements = body.body;
+    const matches = [];
+
+    for (
+        let statementIndex = 0;
+        statementIndex < statements.length;
+        statementIndex++
+    ) {
+        const statement = statements[statementIndex];
+        const match = matchArgumentCountFallbackStatement(statement, helpers);
+
+        if (!match) {
+            continue;
+        }
+
+        matches.push({
+            ...match,
+            statementIndex
+        });
+    }
+
+    if (matches.length === 0) {
+        return;
+    }
+
+    matches.sort((a, b) => {
+        if (a.argumentIndex !== b.argumentIndex) {
+            return a.argumentIndex - b.argumentIndex;
+        }
+
+        return a.statementIndex - b.statementIndex;
     });
-  }
 
-  if (matches.length === 0) {
-    return;
-  }
-
-  matches.sort((a, b) => {
-    if (a.argumentIndex !== b.argumentIndex) {
-      return a.argumentIndex - b.argumentIndex;
+    const params = Array.isArray(node.params) ? node.params : [];
+    if (!Array.isArray(node.params)) {
+        node.params = params;
     }
 
-    return a.statementIndex - b.statementIndex;
-  });
+    const paramInfoByName = new Map();
+    params.forEach((param, index) => {
+        const identifier = getIdentifierFromParameter(param, helpers);
+        if (!identifier) {
+            return;
+        }
 
-  const params = Array.isArray(node.params) ? node.params : [];
-  if (!Array.isArray(node.params)) {
-    node.params = params;
-  }
+        const name = getIdentifierText(identifier);
+        if (!name) {
+            return;
+        }
 
-  const paramInfoByName = new Map();
-  params.forEach((param, index) => {
-    const identifier = getIdentifierFromParameter(param, helpers);
-    if (!identifier) {
-      return;
-    }
+        paramInfoByName.set(name, { index, identifier });
+    });
 
-    const name = getIdentifierText(identifier);
-    if (!name) {
-      return;
-    }
+    const statementsToRemove = new Set();
+    let appliedChanges = false;
 
-    paramInfoByName.set(name, { index, identifier });
-  });
+    const ensureParameterInfoForMatch = (match) => {
+        if (!match) {
+            return null;
+        }
 
-  const statementsToRemove = new Set();
-  let appliedChanges = false;
+        const { targetName, argumentIndex } = match;
+        if (argumentIndex == null || argumentIndex < 0) {
+            return null;
+        }
 
-  const ensureParameterInfoForMatch = (match) => {
-    if (!match) {
-      return null;
-    }
+        const existingInfo = paramInfoByName.get(targetName);
+        if (existingInfo) {
+            return existingInfo.index === argumentIndex ? existingInfo : null;
+        }
 
-    const { targetName, argumentIndex } = match;
-    if (argumentIndex == null || argumentIndex < 0) {
-      return null;
-    }
+        if (argumentIndex > params.length) {
+            return null;
+        }
 
-    const existingInfo = paramInfoByName.get(targetName);
-    if (existingInfo) {
-      return existingInfo.index === argumentIndex ? existingInfo : null;
-    }
+        const registerInfo = (index, identifier) => {
+            const info = { index, identifier };
+            paramInfoByName.set(targetName, info);
+            return info;
+        };
 
-    if (argumentIndex > params.length) {
-      return null;
-    }
+        if (argumentIndex === params.length) {
+            const newIdentifier = {
+                type: "Identifier",
+                name: targetName
+            };
+            params.push(newIdentifier);
+            return registerInfo(argumentIndex, newIdentifier);
+        }
 
-    const registerInfo = (index, identifier) => {
-      const info = { index, identifier };
-      paramInfoByName.set(targetName, info);
-      return info;
+        const paramAtIndex = params[argumentIndex];
+        const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
+        if (!identifier) {
+            return null;
+        }
+
+        const identifierName = getIdentifierText(identifier);
+        if (!identifierName || identifierName !== targetName) {
+            return null;
+        }
+
+        return registerInfo(argumentIndex, identifier);
     };
 
-    if (argumentIndex === params.length) {
-      const newIdentifier = {
-        type: "Identifier",
-        name: targetName,
-      };
-      params.push(newIdentifier);
-      return registerInfo(argumentIndex, newIdentifier);
+    for (const match of matches) {
+        if (!match) {
+            continue;
+        }
+
+        const paramInfo = ensureParameterInfoForMatch(match);
+        if (!paramInfo) {
+            continue;
+        }
+
+        if (!match.fallbackExpression) {
+            continue;
+        }
+
+        const currentParam = node.params[paramInfo.index];
+        if (!currentParam || currentParam.type !== "Identifier") {
+            continue;
+        }
+
+        const identifier = paramInfo.identifier;
+        if (!identifier || identifier.type !== "Identifier") {
+            continue;
+        }
+
+        node.params[paramInfo.index] = {
+            type: "DefaultParameter",
+            left: identifier,
+            right: match.fallbackExpression
+        };
+
+        statementsToRemove.add(match.statementNode);
+        paramInfoByName.delete(match.targetName);
+        appliedChanges = true;
+
+        if (match.statementNode?.type === "IfStatement") {
+            const redundantVar = findRedundantVarDeclarationBefore(
+                statements,
+                match.statementIndex,
+                match.targetName,
+                helpers
+            );
+
+            if (redundantVar) {
+                statementsToRemove.add(redundantVar);
+            }
+        }
     }
 
-    const paramAtIndex = params[argumentIndex];
-    const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
-    if (!identifier) {
-      return null;
+    if (!appliedChanges || statementsToRemove.size === 0) {
+        return;
     }
 
-    const identifierName = getIdentifierText(identifier);
-    if (!identifierName || identifierName !== targetName) {
-      return null;
-    }
-
-    return registerInfo(argumentIndex, identifier);
-  };
-
-  for (const match of matches) {
-    if (!match) {
-      continue;
-    }
-
-    const paramInfo = ensureParameterInfoForMatch(match);
-    if (!paramInfo) {
-      continue;
-    }
-
-    if (!match.fallbackExpression) {
-      continue;
-    }
-
-    const currentParam = node.params[paramInfo.index];
-    if (!currentParam || currentParam.type !== "Identifier") {
-      continue;
-    }
-
-    const identifier = paramInfo.identifier;
-    if (!identifier || identifier.type !== "Identifier") {
-      continue;
-    }
-
-    node.params[paramInfo.index] = {
-      type: "DefaultParameter",
-      left: identifier,
-      right: match.fallbackExpression,
-    };
-
-    statementsToRemove.add(match.statementNode);
-    paramInfoByName.delete(match.targetName);
-    appliedChanges = true;
-
-    if (match.statementNode?.type === "IfStatement") {
-      const redundantVar = findRedundantVarDeclarationBefore(
-        statements,
-        match.statementIndex,
-        match.targetName,
-        helpers,
-      );
-
-      if (redundantVar) {
-        statementsToRemove.add(redundantVar);
-      }
-    }
-  }
-
-  if (!appliedChanges || statementsToRemove.size === 0) {
-    return;
-  }
-
-  body.body = body.body.filter(
-    (statement) => !statementsToRemove.has(statement),
-  );
+    body.body = body.body.filter(
+        (statement) => !statementsToRemove.has(statement)
+    );
 }
 
 function getIdentifierFromParameter(param, { getIdentifierText }) {
-  if (!param) {
-    return null;
-  }
-
-  if (param.type === "Identifier") {
-    return param;
-  }
-
-  if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
-    return param.left;
-  }
-
-  if (param.type === "ConstructorParentClause" && Array.isArray(param.params)) {
-    for (const childParam of param.params) {
-      const identifier = getIdentifierFromParameter(childParam, {
-        getIdentifierText,
-      });
-      if (identifier) {
-        return identifier;
-      }
+    if (!param) {
+        return null;
     }
-  }
 
-  return null;
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+        return param.left;
+    }
+
+    if (param.type === "ConstructorParentClause" && Array.isArray(param.params)) {
+        for (const childParam of param.params) {
+            const identifier = getIdentifierFromParameter(childParam, {
+                getIdentifierText
+            });
+            if (identifier) {
+                return identifier;
+            }
+        }
+    }
+
+    return null;
 }
 
 function matchArgumentCountFallbackStatement(statement, helpers) {
-  if (!statement) {
+    if (!statement) {
+        return null;
+    }
+
+    if (statement.comments && statement.comments.length > 0) {
+        return null;
+    }
+
+    if (statement.type === "VariableDeclaration") {
+        return matchArgumentCountFallbackFromVariableDeclaration(
+            statement,
+            helpers
+        );
+    }
+
+    if (statement.type === "IfStatement") {
+        return matchArgumentCountFallbackFromIfStatement(statement, helpers);
+    }
+
     return null;
-  }
-
-  if (statement.comments && statement.comments.length > 0) {
-    return null;
-  }
-
-  if (statement.type === "VariableDeclaration") {
-    return matchArgumentCountFallbackFromVariableDeclaration(
-      statement,
-      helpers,
-    );
-  }
-
-  if (statement.type === "IfStatement") {
-    return matchArgumentCountFallbackFromIfStatement(statement, helpers);
-  }
-
-  return null;
 }
 
 function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
-  if (!node || node.type !== "VariableDeclaration") {
-    return null;
-  }
+    if (!node || node.type !== "VariableDeclaration") {
+        return null;
+    }
 
-  if (node.kind !== "var") {
-    return null;
-  }
+    if (node.kind !== "var") {
+        return null;
+    }
 
-  const declarator = getSingleVariableDeclarator(node);
-  if (!declarator) {
-    return null;
-  }
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator) {
+        return null;
+    }
 
-  if (declarator.comments && declarator.comments.length > 0) {
-    return null;
-  }
+    if (declarator.comments && declarator.comments.length > 0) {
+        return null;
+    }
 
-  if (!declarator.init || declarator.init.type !== "TernaryExpression") {
-    return null;
-  }
+    if (!declarator.init || declarator.init.type !== "TernaryExpression") {
+        return null;
+    }
 
-  const guard = parseArgumentCountGuard(declarator.init.test);
-  if (!guard) {
-    return null;
-  }
+    const guard = parseArgumentCountGuard(declarator.init.test);
+    if (!guard) {
+        return null;
+    }
 
-  const consequentIsArgument = isArgumentArrayAccess(
-    declarator.init.consequent,
-    guard.argumentIndex,
-  );
-  const alternateIsArgument = isArgumentArrayAccess(
-    declarator.init.alternate,
-    guard.argumentIndex,
-  );
+    const consequentIsArgument = isArgumentArrayAccess(
+        declarator.init.consequent,
+        guard.argumentIndex
+    );
+    const alternateIsArgument = isArgumentArrayAccess(
+        declarator.init.alternate,
+        guard.argumentIndex
+    );
 
-  if (consequentIsArgument === alternateIsArgument) {
-    return null;
-  }
+    if (consequentIsArgument === alternateIsArgument) {
+        return null;
+    }
 
-  const fallbackExpression = consequentIsArgument
-    ? declarator.init.alternate
-    : declarator.init.consequent;
-  if (!fallbackExpression) {
-    return null;
-  }
+    const fallbackExpression = consequentIsArgument
+        ? declarator.init.alternate
+        : declarator.init.consequent;
+    if (!fallbackExpression) {
+        return null;
+    }
 
-  const targetName = helpers.getIdentifierText(declarator.id);
-  if (!targetName) {
-    return null;
-  }
+    const targetName = helpers.getIdentifierText(declarator.id);
+    if (!targetName) {
+        return null;
+    }
 
-  return {
-    targetName,
-    fallbackExpression,
-    argumentIndex: guard.argumentIndex,
-    statementNode: node,
-  };
+    return {
+        targetName,
+        fallbackExpression,
+        argumentIndex: guard.argumentIndex,
+        statementNode: node
+    };
 }
 
 function matchArgumentCountFallbackFromIfStatement(node, helpers) {
-  if (!node || node.type !== "IfStatement") {
-    return null;
-  }
+    if (!node || node.type !== "IfStatement") {
+        return null;
+    }
 
-  const guard = parseArgumentCountGuard(node.test);
-  if (!guard) {
-    return null;
-  }
+    const guard = parseArgumentCountGuard(node.test);
+    if (!guard) {
+        return null;
+    }
 
-  const consequentAssignment = extractAssignmentFromStatement(node.consequent);
-  const alternateAssignment = extractAssignmentFromStatement(node.alternate);
+    const consequentAssignment = extractAssignmentFromStatement(node.consequent);
+    const alternateAssignment = extractAssignmentFromStatement(node.alternate);
 
-  if (!consequentAssignment || !alternateAssignment) {
-    return null;
-  }
+    if (!consequentAssignment || !alternateAssignment) {
+        return null;
+    }
 
-  const consequentIsArgument = isArgumentArrayAccess(
-    consequentAssignment.right,
-    guard.argumentIndex,
-  );
-  const alternateIsArgument = isArgumentArrayAccess(
-    alternateAssignment.right,
-    guard.argumentIndex,
-  );
+    const consequentIsArgument = isArgumentArrayAccess(
+        consequentAssignment.right,
+        guard.argumentIndex
+    );
+    const alternateIsArgument = isArgumentArrayAccess(
+        alternateAssignment.right,
+        guard.argumentIndex
+    );
 
-  if (consequentIsArgument === alternateIsArgument) {
-    return null;
-  }
+    if (consequentIsArgument === alternateIsArgument) {
+        return null;
+    }
 
-  const argumentAssignment = consequentIsArgument
-    ? consequentAssignment
-    : alternateAssignment;
-  const fallbackAssignment = consequentIsArgument
-    ? alternateAssignment
-    : consequentAssignment;
+    const argumentAssignment = consequentIsArgument
+        ? consequentAssignment
+        : alternateAssignment;
+    const fallbackAssignment = consequentIsArgument
+        ? alternateAssignment
+        : consequentAssignment;
 
-  const targetName = helpers.getIdentifierText(argumentAssignment.left);
-  const fallbackName = helpers.getIdentifierText(fallbackAssignment.left);
+    const targetName = helpers.getIdentifierText(argumentAssignment.left);
+    const fallbackName = helpers.getIdentifierText(fallbackAssignment.left);
 
-  if (!targetName || targetName !== fallbackName) {
-    return null;
-  }
+    if (!targetName || targetName !== fallbackName) {
+        return null;
+    }
 
-  if (!fallbackAssignment.right) {
-    return null;
-  }
+    if (!fallbackAssignment.right) {
+        return null;
+    }
 
-  return {
-    targetName,
-    fallbackExpression: fallbackAssignment.right,
-    argumentIndex: guard.argumentIndex,
-    statementNode: node,
-  };
+    return {
+        targetName,
+        fallbackExpression: fallbackAssignment.right,
+        argumentIndex: guard.argumentIndex,
+        statementNode: node
+    };
 }
 
 function findRedundantVarDeclarationBefore(
-  statements,
-  currentIndex,
-  targetName,
-  helpers,
+    statements,
+    currentIndex,
+    targetName,
+    helpers
 ) {
-  if (!Array.isArray(statements) || currentIndex <= 0) {
-    return null;
-  }
+    if (!Array.isArray(statements) || currentIndex <= 0) {
+        return null;
+    }
 
-  const candidate = statements[currentIndex - 1];
+    const candidate = statements[currentIndex - 1];
 
-  if (!isStandaloneVarDeclarationForTarget(candidate, targetName, helpers)) {
-    return null;
-  }
+    if (!isStandaloneVarDeclarationForTarget(candidate, targetName, helpers)) {
+        return null;
+    }
 
-  return candidate;
+    return candidate;
 }
 
 function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
-  if (!node || node.type !== "VariableDeclaration") {
-    return false;
-  }
+    if (!node || node.type !== "VariableDeclaration") {
+        return false;
+    }
 
-  if (node.kind !== "var") {
-    return false;
-  }
+    if (node.kind !== "var") {
+        return false;
+    }
 
-  if (hasComment(node)) {
-    return false;
-  }
+    if (hasComment(node)) {
+        return false;
+    }
 
-  const declarator = getSingleVariableDeclarator(node);
-  if (!declarator) {
-    return false;
-  }
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator) {
+        return false;
+    }
 
-  if (hasComment(declarator)) {
-    return false;
-  }
+    if (hasComment(declarator)) {
+        return false;
+    }
 
-  const declaratorName = helpers.getIdentifierText(declarator.id);
+    const declaratorName = helpers.getIdentifierText(declarator.id);
 
-  if (!declaratorName || declaratorName !== targetName) {
-    return false;
-  }
+    if (!declaratorName || declaratorName !== targetName) {
+        return false;
+    }
 
-  if (declarator.init && !helpers.isUndefinedLiteral(declarator.init)) {
-    return false;
-  }
+    if (declarator.init && !helpers.isUndefinedLiteral(declarator.init)) {
+        return false;
+    }
 
-  return true;
+    return true;
 }
 
 function extractAssignmentFromStatement(statement) {
-  if (!statement) {
-    return null;
-  }
-
-  if (statement.comments && statement.comments.length > 0) {
-    return null;
-  }
-
-  if (statement.type === "AssignmentExpression") {
-    return statement;
-  }
-
-  if (statement.type === "BlockStatement") {
-    if (!Array.isArray(statement.body) || statement.body.length !== 1) {
-      return null;
+    if (!statement) {
+        return null;
     }
-    return extractAssignmentFromStatement(statement.body[0]);
-  }
 
-  if (statement.type !== "ExpressionStatement") {
-    return null;
-  }
+    if (statement.comments && statement.comments.length > 0) {
+        return null;
+    }
 
-  const expression = statement.expression;
-  if (!expression || expression.type !== "AssignmentExpression") {
-    return null;
-  }
+    if (statement.type === "AssignmentExpression") {
+        return statement;
+    }
 
-  if (expression.operator !== "=") {
-    return null;
-  }
+    if (statement.type === "BlockStatement") {
+        if (!Array.isArray(statement.body) || statement.body.length !== 1) {
+            return null;
+        }
+        return extractAssignmentFromStatement(statement.body[0]);
+    }
 
-  if (!expression.left || expression.left.type !== "Identifier") {
-    return null;
-  }
+    if (statement.type !== "ExpressionStatement") {
+        return null;
+    }
 
-  return expression;
+    const expression = statement.expression;
+    if (!expression || expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    if (expression.operator !== "=") {
+        return null;
+    }
+
+    if (!expression.left || expression.left.type !== "Identifier") {
+        return null;
+    }
+
+    return expression;
 }
 
 function parseArgumentCountGuard(node) {
-  if (!node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return parseArgumentCountGuard(node.expression);
+    }
+
+    if (node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const left = node.left;
+    if (!left || left.type !== "Identifier" || left.name !== "argument_count") {
+        return null;
+    }
+
+    const rightIndex = parseArgumentIndexValue(node.right);
+    if (rightIndex === null) {
+        return null;
+    }
+
+    if (node.operator === ">") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
+    if (node.operator === ">=") {
+        const adjusted = rightIndex - 1;
+        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
+    }
+
+    if (node.operator === "<") {
+        const adjusted = rightIndex - 1;
+        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
+    }
+
+    if (node.operator === "<=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
+    if ((node.operator === "==" || node.operator === "!=") && rightIndex === 0) {
+        return { argumentIndex: 0 };
+    }
+
     return null;
-  }
-
-  if (node.type === "ParenthesizedExpression") {
-    return parseArgumentCountGuard(node.expression);
-  }
-
-  if (node.type !== "BinaryExpression") {
-    return null;
-  }
-
-  const left = node.left;
-  if (!left || left.type !== "Identifier" || left.name !== "argument_count") {
-    return null;
-  }
-
-  const rightIndex = parseArgumentIndexValue(node.right);
-  if (rightIndex === null) {
-    return null;
-  }
-
-  if (node.operator === ">") {
-    return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
-  }
-
-  if (node.operator === ">=") {
-    const adjusted = rightIndex - 1;
-    return adjusted >= 0 ? { argumentIndex: adjusted } : null;
-  }
-
-  if (node.operator === "<") {
-    const adjusted = rightIndex - 1;
-    return adjusted >= 0 ? { argumentIndex: adjusted } : null;
-  }
-
-  if (node.operator === "<=") {
-    return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
-  }
-
-  if (
-    (node.operator === "==" || node.operator === "!=") &&
-    rightIndex === 0
-  ) {
-    return { argumentIndex: 0 };
-  }
-
-  return null;
 }
 
 function parseArgumentIndexValue(node) {
-  if (!node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return parseArgumentIndexValue(node.expression);
+    }
+
+    if (node.type === "UnaryExpression") {
+        if (node.operator !== "+" && node.operator !== "-") {
+            return null;
+        }
+
+        const argumentValue = parseArgumentIndexValue(node.argument);
+
+        if (argumentValue === null) {
+            return null;
+        }
+
+        return node.operator === "-" ? -argumentValue : argumentValue;
+    }
+
+    if (node.type === "Literal") {
+        if (typeof node.value === "number" && Number.isInteger(node.value)) {
+            return node.value;
+        }
+
+        if (typeof node.value === "string") {
+            const numeric = Number.parseInt(node.value, 10);
+            if (!Number.isNaN(numeric)) {
+                return numeric;
+            }
+        }
+    }
+
     return null;
-  }
-
-  if (node.type === "ParenthesizedExpression") {
-    return parseArgumentIndexValue(node.expression);
-  }
-
-  if (node.type === "UnaryExpression") {
-    if (node.operator !== "+" && node.operator !== "-") {
-      return null;
-    }
-
-    const argumentValue = parseArgumentIndexValue(node.argument);
-
-    if (argumentValue === null) {
-      return null;
-    }
-
-    return node.operator === "-" ? -argumentValue : argumentValue;
-  }
-
-  if (node.type === "Literal") {
-    if (typeof node.value === "number" && Number.isInteger(node.value)) {
-      return node.value;
-    }
-
-    if (typeof node.value === "string") {
-      const numeric = Number.parseInt(node.value, 10);
-      if (!Number.isNaN(numeric)) {
-        return numeric;
-      }
-    }
-  }
-
-  return null;
 }
 
 function isArgumentArrayAccess(node, expectedIndex) {
-  if (!node || node.type !== "MemberIndexExpression") {
-    return false;
-  }
+    if (!node || node.type !== "MemberIndexExpression") {
+        return false;
+    }
 
-  if (
-    !node.object ||
+    if (
+        !node.object ||
     node.object.type !== "Identifier" ||
     node.object.name !== "argument"
-  ) {
-    return false;
-  }
+    ) {
+        return false;
+    }
 
-  if (!Array.isArray(node.property) || node.property.length !== 1) {
-    return false;
-  }
+    if (!Array.isArray(node.property) || node.property.length !== 1) {
+        return false;
+    }
 
-  const indexNode = node.property[0];
-  const actualIndex = parseArgumentIndexValue(indexNode);
-  if (actualIndex === null) {
-    return false;
-  }
+    const indexNode = node.property[0];
+    const actualIndex = parseArgumentIndexValue(indexNode);
+    if (actualIndex === null) {
+        return false;
+    }
 
-  return actualIndex === expectedIndex;
+    return actualIndex === expectedIndex;
 }
