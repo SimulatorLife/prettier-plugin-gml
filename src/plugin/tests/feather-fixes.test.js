@@ -561,6 +561,83 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("preprocesses stray boolean literal statements flagged by GM1016", () => {
+        const source = [
+            "/// Feather GM1016 sample",
+            "true;",
+            "if (condition) {",
+            "    false;",
+            "    value = 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+
+        assert.notStrictEqual(
+            sourceText,
+            source,
+            "Expected GM1016 preprocessor to remove boolean literal statements."
+        );
+
+        assert.ok(
+            metadata?.GM1016?.length === 2,
+            "Expected GM1016 metadata entries for each removed statement."
+        );
+
+        const ast = GMLParser.parse(sourceText, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, {
+            sourceText,
+            preprocessedFixMetadata: metadata
+        });
+
+        const statements = ast.body ?? [];
+
+        assert.strictEqual(
+            statements.length,
+            1,
+            "Expected only the conditional statement to remain at the top level."
+        );
+
+        const [ifStatement] = statements;
+        assert.ok(ifStatement?.type === "IfStatement");
+
+        const blockBody = ifStatement?.consequent?.body ?? [];
+
+        assert.strictEqual(
+            blockBody.length,
+            1,
+            "Expected nested boolean literal statements to be removed."
+        );
+
+        const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm1016Fixes = rootDiagnostics.filter((entry) => entry.id === "GM1016");
+
+        assert.strictEqual(
+            gm1016Fixes.length,
+            2,
+            "Expected GM1016 metadata to be recorded for each removed literal."
+        );
+
+        for (const fix of gm1016Fixes) {
+            assert.strictEqual(fix.automatic, true);
+            assert.ok(fix.range);
+        }
+
+        const blockDiagnostics =
+            ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            blockDiagnostics.some((entry) => entry.id === "GM1016"),
+            true,
+            "Expected GM1016 metadata to be attached to the containing block."
+        );
+    });
+
     it("deduplicates local variables flagged by GM2044 and records metadata", () => {
         const source = [
             "function demo() {",
@@ -681,5 +758,55 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2064Fixes.length, 1);
         assert.strictEqual(gm2064Fixes[0].target, "message");
         assert.strictEqual(gm2064Fixes[0].automatic, false);
+    });
+
+    it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
+        const source = [
+            "var _look_for_description = true;",
+            "",
+            "var _file = file_find_first(\"/game_data/*.bin\", fa_none);",
+            "",
+            "if (_look_for_description)",
+            "{",
+            "    _file2 = file_find_first(\"/game_data/*.json\", fa_none);",
+            "}",
+            "",
+            "file_find_close();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata to be recorded on the AST."
+        );
+
+        const ifStatement = ast.body?.find((node) => node?.type === "IfStatement");
+        assert.ok(ifStatement, "Expected an if statement in the parsed AST.");
+
+        const consequentBody = ifStatement?.consequent?.body ?? [];
+        assert.strictEqual(consequentBody.length, 2);
+
+        const [firstStatement, secondStatement] = consequentBody;
+        assert.strictEqual(firstStatement?.type, "CallExpression");
+        assert.strictEqual(firstStatement?.object?.name, "file_find_close");
+
+        const closeDiagnostics = firstStatement?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            closeDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata on the inserted file_find_close call."
+        );
+
+        assert.strictEqual(secondStatement?.type, "AssignmentExpression");
+        assert.strictEqual(secondStatement?.right?.type, "CallExpression");
+        assert.strictEqual(secondStatement?.right?.object?.name, "file_find_first");
     });
 });
