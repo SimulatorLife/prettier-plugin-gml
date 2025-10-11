@@ -164,9 +164,9 @@ function printComment(commentPath, options) {
             // Reuse the regex match index instead of paying for another
             // `String#indexOf` scan in this hot banner-detection branch.
             const bannerStart =
-                typeof bannerMatch.index === "number"
-                    ? bannerMatch.index
-                    : rawText.indexOf(slashRun);
+        typeof bannerMatch.index === "number"
+            ? bannerMatch.index
+            : rawText.indexOf(slashRun);
             const safeBannerStart = bannerStart >= 0 ? bannerStart : 0;
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
