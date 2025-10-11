@@ -127,6 +127,15 @@ function formatLineComment(
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
+    const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
+    if (
+        docContinuationMatch &&
+    trimmedOriginal.startsWith("///") &&
+    !trimmedOriginal.includes("@")
+    ) {
+        return applyInlinePadding(comment, trimmedOriginal);
+    }
+
     const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
