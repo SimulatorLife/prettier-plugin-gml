@@ -17,7 +17,8 @@ export function setIdentifierCaseDryRunContext({
     logger = null,
     diagnostics = null,
     fsFacade = null,
-    now = null
+    now = null,
+    projectIndex = null
 } = {}) {
     const key = normaliseKey(filepath);
     contextMap.set(key, {
@@ -28,7 +29,8 @@ export function setIdentifierCaseDryRunContext({
         logger,
         diagnostics,
         fsFacade,
-        now
+        now,
+        projectIndex
     });
 }
 
@@ -41,6 +43,15 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
     const context = contextMap.get(key);
     contextMap.delete(key);
     return context;
+}
+
+export function peekIdentifierCaseDryRunContext(filepath = null) {
+    const key = normaliseKey(filepath);
+    if (!contextMap.has(key)) {
+        return null;
+    }
+
+    return contextMap.get(key);
 }
 
 export function clearIdentifierCaseDryRunContexts() {
