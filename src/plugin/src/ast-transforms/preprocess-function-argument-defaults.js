@@ -597,8 +597,8 @@ function parseArgumentCountGuard(node) {
         return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
     }
 
-    if ((node.operator === "==" || node.operator === "!=") && rightIndex === 0) {
-        return { argumentIndex: 0 };
+    if (node.operator === "==" || node.operator === "!=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
     }
 
     return null;
