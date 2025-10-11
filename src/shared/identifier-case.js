@@ -1,5 +1,5 @@
 const RESERVED_PREFIX_PATTERN =
-    /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
+  /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
 
 function extractReservedPrefix(identifier) {
     const match = identifier.match(RESERVED_PREFIX_PATTERN);
@@ -51,7 +51,8 @@ function tokenizeCore(core) {
     const tokens = [];
     for (const segment of rawSegments) {
         const caseSegments =
-            segment.match(/[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g) || [];
+      segment.match(/[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g) ||
+      [];
         for (const caseSegment of caseSegments) {
             const parts = caseSegment.match(/[A-Za-z]+|[0-9]+/g) || [];
             for (const part of parts) {
@@ -79,10 +80,10 @@ function finalizeIdentifier(normalized, base) {
         : "";
     return (
         normalized.prefix +
-        normalized.leadingUnderscores +
-        base +
-        normalized.trailingUnderscores +
-        suffix
+    normalized.leadingUnderscores +
+    base +
+    normalized.trailingUnderscores +
+    suffix
     );
 }
 
@@ -131,7 +132,7 @@ function buildPascalCase(normalized) {
 function shouldJoinForSnake(previousToken, currentToken) {
     return (
         (previousToken.type === "word" && currentToken.type === "number") ||
-        (previousToken.type === "number" && currentToken.type === "word")
+    (previousToken.type === "number" && currentToken.type === "word")
     );
 }
 
@@ -178,10 +179,15 @@ export function normalizeIdentifierCase(identifier) {
         throw new TypeError("Identifier must be a string");
     }
 
-    const { prefix, remainder: withoutPrefix } = extractReservedPrefix(identifier);
-    const { core: withoutNumericSuffix, suffixSeparator, suffixDigits } =
-        splitNumericSuffix(withoutPrefix);
-    const { core, leading, trailing } = stripEdgeUnderscores(withoutNumericSuffix);
+    const { prefix, remainder: withoutPrefix } =
+    extractReservedPrefix(identifier);
+    const {
+        core: withoutNumericSuffix,
+        suffixSeparator,
+        suffixDigits
+    } = splitNumericSuffix(withoutPrefix);
+    const { core, leading, trailing } =
+    stripEdgeUnderscores(withoutNumericSuffix);
 
     const tokens = tokenizeCore(core);
 
@@ -198,7 +204,7 @@ export function normalizeIdentifierCase(identifier) {
 
 export function formatIdentifierCase(input, style) {
     const normalized =
-        typeof input === "string" ? normalizeIdentifierCase(input) : input;
+    typeof input === "string" ? normalizeIdentifierCase(input) : input;
 
     switch (style) {
         case "camel":

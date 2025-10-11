@@ -82,5 +82,8 @@ test("numeric suffixes remain attached regardless of case", () => {
     assert.equal(normalized.prefix, "self.");
     assert.equal(formatIdentifierCase(normalized, "camel"), "self.hpValue99");
     assert.equal(formatIdentifierCase(normalized, "pascal"), "self.HpValue99");
-    assert.equal(formatIdentifierCase(normalized, "snake-lower"), "self.hp_value99");
+    assert.equal(
+        formatIdentifierCase(normalized, "snake-lower"),
+        "self.hp_value99"
+    );
 });
