@@ -1,31 +1,101 @@
-import { isCommentNode } from "../../../shared/comments.js";
-import { DEFAULT_LINE_COMMENT_OPTIONS } from "./line-comment-options.js";
+import {
+    collectCommentNodes,
+    hasComment,
+    isBlockComment,
+    isCommentNode,
+    isDocCommentLine,
+    isLineComment
+} from "../../../shared/comments.js";
+import { coercePositiveIntegerOption } from "../printer/option-utils.js";
+
+const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
+const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
+const DEFAULT_TRAILING_COMMENT_PADDING = 2;
+
+const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
+    bannerMinimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
+    bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
+});
+
+const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
+const lineCommentOptionsCache = new WeakMap();
+
+function resolveLineCommentOptions(options) {
+    if (typeof options !== "object" || options === null) {
+        return DEFAULT_LINE_COMMENT_OPTIONS;
+    }
+
+    const {
+        lineCommentBannerMinimumSlashes,
+        lineCommentBannerAutofillThreshold
+    } = options;
+
+    if (
+        lineCommentBannerMinimumSlashes === undefined &&
+    lineCommentBannerAutofillThreshold === undefined
+    ) {
+        return DEFAULT_LINE_COMMENT_OPTIONS;
+    }
+
+    const symbolCachedOptions = options[LINE_COMMENT_OPTIONS_CACHE_KEY];
+    if (symbolCachedOptions) {
+        return symbolCachedOptions;
+    }
+
+    const cachedOptions = lineCommentOptionsCache.get(options);
+    if (cachedOptions) {
+        return cachedOptions;
+    }
+
+    const bannerMinimum = coercePositiveIntegerOption(
+        lineCommentBannerMinimumSlashes,
+        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+    );
+
+    const bannerAutofillThreshold = coercePositiveIntegerOption(
+        lineCommentBannerAutofillThreshold,
+        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+        {
+            zeroReplacement: Number.POSITIVE_INFINITY
+        }
+    );
+
+    const resolvedOptions = {
+        bannerMinimum,
+        bannerAutofillThreshold
+    };
+
+    if (Object.isExtensible(options)) {
+        Object.defineProperty(options, LINE_COMMENT_OPTIONS_CACHE_KEY, {
+            value: resolvedOptions,
+            configurable: false,
+            enumerable: false,
+            writable: false
+        });
+    } else {
+        lineCommentOptionsCache.set(options, resolvedOptions);
+    }
+
+    return resolvedOptions;
+}
+
+function getTrailingCommentPadding(options) {
+    return coercePositiveIntegerOption(
+        options?.trailingCommentPadding,
+        DEFAULT_TRAILING_COMMENT_PADDING,
+        { zeroReplacement: 0 }
+    );
+}
+
+function getTrailingCommentInlinePadding(options) {
+    const padding = getTrailingCommentPadding(options);
+    return Math.max(padding - 1, 0);
+}
 
 const BOILERPLATE_COMMENTS = [
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ];
-
-function getLineCommentRawText(comment) {
-    if (!comment || typeof comment !== "object") {
-        return "";
-    }
-
-    if (comment.leadingText) {
-        return comment.leadingText;
-    }
-
-    if (comment.raw) {
-        return comment.raw;
-    }
-
-    const fallbackValue =
-    comment.value === undefined || comment.value === null
-        ? ""
-        : String(comment.value);
-
-    return `//${fallbackValue}`;
-}
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -41,12 +111,8 @@ const JSDOC_REPLACEMENTS = {
     "@throw": "@throws",
     "@private": "@hide",
     "@hidden": "@hide"
-    // Add more replacements here as needed
 };
 
-// Cache the replacement rules so applyJsDocReplacements avoids constructing
-// new RegExp instances on every invocation. The helper is on a hot path while
-// formatting doc-style comments.
 const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     ([oldWord, newWord]) => ({
         regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
@@ -88,6 +154,27 @@ const COMMENTED_OUT_CODE_PATTERNS = [
     /^#/,
     /^@/
 ];
+
+function getLineCommentRawText(comment) {
+    if (!comment || typeof comment !== "object") {
+        return "";
+    }
+
+    if (comment.leadingText) {
+        return comment.leadingText;
+    }
+
+    if (comment.raw) {
+        return comment.raw;
+    }
+
+    const fallbackValue =
+    comment.value === undefined || comment.value === null
+        ? ""
+        : String(comment.value);
+
+    return `//${fallbackValue}`;
+}
 
 function formatLineComment(
     comment,
@@ -134,8 +221,6 @@ function formatLineComment(
     const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
-        // comments like "// comment" should stay as regular comments, so bail out when the
-        // remainder begins with another slash
         if (!remainder.startsWith("/")) {
             const shouldInsertSpace = remainder.length > 0 && /\w/.test(remainder);
             const formatted = applyJsDocReplacements(
@@ -239,19 +324,6 @@ function applyInlinePadding(comment, formattedText) {
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
-/**
- * Normalizes doc-style line comments so they use canonical JSDoc tags and do not
- * preserve redundant syntax emitted by GameMaker.
- *
- * @param {string} text Raw comment text that still includes the leading slashes.
- * @returns {string} Comment text that has consistent tags and normalized type
- *     annotations.
- *
- * Why it matters: GameMaker often serializes signatures like `/// @func()` and
- * mixes tag aliases such as `@arg`. Rewriting them here prevents us from printing
- * empty parameter lists—which imply undocumented arguments—and keeps downstream
- * tooling aligned on the same tag vocabulary.
- */
 function applyJsDocReplacements(text) {
     const shouldStripEmptyParams =
     typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
@@ -285,14 +357,6 @@ function stripTrailingFunctionParameters(text) {
     );
 }
 
-/**
- * Ensures GameMaker-specific type identifiers inside `{}` blocks follow the
- * plugin's canonical casing so downstream formatters treat equivalent tokens as
- * identical.
- *
- * @param {string} text A comment line that may include type annotations.
- * @returns {string} The input text with normalized type identifiers.
- */
 function normalizeDocCommentTypeAnnotations(text) {
     if (typeof text !== "string" || text.indexOf("{") === -1) {
         return text;
@@ -332,9 +396,19 @@ function splitCommentIntoSentences(text) {
 }
 
 export {
-    getLineCommentRawText,
-    formatLineComment,
     applyInlinePadding,
+    collectCommentNodes,
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    DEFAULT_TRAILING_COMMENT_PADDING,
+    formatLineComment,
+    getLineCommentRawText,
+    getTrailingCommentInlinePadding,
+    getTrailingCommentPadding,
+    hasComment,
+    isBlockComment,
+    isCommentNode,
+    isDocCommentLine,
+    isLineComment,
     normalizeDocCommentTypeAnnotations,
-    isCommentNode
+    resolveLineCommentOptions
 };

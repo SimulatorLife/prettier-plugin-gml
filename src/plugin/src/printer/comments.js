@@ -2,13 +2,13 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
-    getLineCommentRawText,
-    formatLineComment,
     applyInlinePadding,
-    isCommentNode
-} from "./comment-utils.js";
-import { resolveLineCommentOptions } from "./line-comment-options.js";
-import { getTrailingCommentInlinePadding } from "./trailing-comment-padding.js";
+    formatLineComment,
+    getLineCommentRawText,
+    getTrailingCommentInlinePadding,
+    isCommentNode,
+    resolveLineCommentOptions
+} from "../comments/index.js";
 
 const { addDanglingComment } = util;
 

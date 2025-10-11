@@ -31,12 +31,12 @@ import {
 } from "./comments.js";
 import {
     formatLineComment,
+    getTrailingCommentPadding,
+    isCommentNode,
     normalizeDocCommentTypeAnnotations,
-    isCommentNode
-} from "./comment-utils.js";
-import { resolveLineCommentOptions } from "./line-comment-options.js";
+    resolveLineCommentOptions
+} from "../comments/index.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
-import { getTrailingCommentPadding } from "./trailing-comment-padding.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex

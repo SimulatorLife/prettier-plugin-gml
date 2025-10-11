@@ -3,7 +3,7 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
-import { collectCommentNodes } from "../../../shared/comments.js";
+import { collectCommentNodes } from "../comments/index.js";
 import {
     getFeatherDiagnostics,
     getFeatherMetadata
@@ -1306,9 +1306,9 @@ function convertMultidimensionalMemberIndex(
     const indices = Array.isArray(node.property) ? node.property : null;
 
     if (node.accessor && node.accessor !== "[") {
-        // Non-standard accessors such as '[#' (ds_grid) use comma-separated
-        // coordinates rather than nested lookups. Leave them unchanged so the
-        // grid access semantics remain intact.
+    // Non-standard accessors such as '[#' (ds_grid) use comma-separated
+    // coordinates rather than nested lookups. Leave them unchanged so the
+    // grid access semantics remain intact.
         return null;
     }
 
