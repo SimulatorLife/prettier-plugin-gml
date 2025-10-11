@@ -281,7 +281,9 @@ function printDanglingCommentsAsGroup(path, options, filter) {
     return parts;
 }
 
-function handleCommentInEmptyBody(comment /*, text, options, ast, isLastComment */) {
+function handleCommentInEmptyBody(
+    comment /*, text, options, ast, isLastComment */
+) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
 }
 
