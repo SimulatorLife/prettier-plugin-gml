@@ -1,5 +1,5 @@
 import { util } from "prettier";
-import { hasComment } from "../../../shared/comments.js";
+import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 

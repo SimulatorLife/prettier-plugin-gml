@@ -1,4 +1,4 @@
-import { hasComment as sharedHasComment } from "../../../shared/comments.js";
+import { hasComment as sharedHasComment } from "../comments/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment

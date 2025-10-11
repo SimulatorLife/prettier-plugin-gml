@@ -1,4 +1,4 @@
-import { hasComment as sharedHasComment } from "../../../shared/comments.js";
+import { hasComment as sharedHasComment } from "../comments/index.js";
 import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,

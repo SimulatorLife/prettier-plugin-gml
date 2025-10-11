@@ -1,7 +1,7 @@
 import {
     hasComment as sharedHasComment,
     isDocCommentLine
-} from "../../../shared/comments.js";
+} from "../comments/index.js";
 import {
     cloneLocation,
     getNodeStartIndex
