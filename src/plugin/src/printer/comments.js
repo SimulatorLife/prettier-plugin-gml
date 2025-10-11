@@ -10,9 +10,9 @@ import {
     isCommentNode
 } from "./comment-utils.js";
 
-const { addDanglingComment, addTrailingComment } = util;
+const { addDanglingComment } = util;
 
-const { join, indent, hardline, dedent } = builders;
+const { join, hardline } = builders;
 
 function attachDanglingCommentToEmptyNode(comment, descriptors) {
     const node = comment.enclosingNode;
@@ -281,7 +281,7 @@ function printDanglingCommentsAsGroup(path, options, filter) {
     return parts;
 }
 
-function handleCommentInEmptyBody(comment, text, options, ast, isLastComment) {
+function handleCommentInEmptyBody(comment /*, text, options, ast, isLastComment */) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
 }
 
@@ -295,11 +295,7 @@ function handleMacroComments(comment) {
 }
 
 function handleCommentAttachedToOpenBrace(
-    comment,
-    text,
-    options,
-    ast,
-    isLastComment
+    comment /*, text, options, ast, isLastComment */
 ) {
     if (comment.enclosingNode?.type !== "BlockStatement") {
         return false;
@@ -317,11 +313,7 @@ function handleCommentAttachedToOpenBrace(
 }
 
 function handleCommentInEmptyParens(
-    comment,
-    text,
-    options,
-    ast,
-    isLastComment
+    comment /*, text, options, ast, isLastComment */
 ) {
     if (comment.leadingChar != "(" || comment.trailingChar != ")") {
         return false;
@@ -331,16 +323,12 @@ function handleCommentInEmptyParens(
 }
 
 function handleCommentInEmptyLiteral(
-    comment,
-    text,
-    options,
-    ast,
-    isLastComment
+    comment /*, text, options, ast, isLastComment */
 ) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_LITERAL_TARGETS);
 }
 
-function handleOnlyComments(comment, text, options, ast, isLastComment) {
+function handleOnlyComments(comment, options, ast /*, isLastComment */) {
     if (attachDocCommentToFollowingNode(comment, options)) {
         return true;
     }

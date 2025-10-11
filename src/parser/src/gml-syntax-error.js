@@ -7,7 +7,7 @@ export default class GameMakerParseErrorListener extends antlr4.error
     }
 
     // TODO: better error messages
-    syntaxError(recognizer, offendingSymbol, line, column, msg, e) {
+    syntaxError(recognizer, offendingSymbol, line, column /* msg, error */) {
         const parser = recognizer;
         let wrongSymbol = offendingSymbol.text;
 
@@ -17,7 +17,6 @@ export default class GameMakerParseErrorListener extends antlr4.error
             wrongSymbol = `symbol '${wrongSymbol}'`;
         }
 
-        const tokens = parser.getInputStream();
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
 

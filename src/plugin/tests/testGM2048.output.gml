@@ -4,4 +4,4 @@ gpu_set_blendenable(false);
 
 gpu_set_blendenable(true);
 
-draw_self();
+draw_text(0, 0, "Hello!");

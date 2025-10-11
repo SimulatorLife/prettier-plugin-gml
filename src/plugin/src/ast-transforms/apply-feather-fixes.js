@@ -363,7 +363,7 @@ function buildFeatherFixImplementations(diagnostics) {
 
         if (diagnosticId === "GM2048") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureBlendingIsReenabled({ ast, diagnostic });
+                const fixes = ensureBlendEnableIsReset({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -559,7 +559,7 @@ function removeBooleanLiteralStatements({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        for (const value of Object.values(node)) {
             if (!value || typeof value !== "object") {
                 continue;
             }
@@ -1215,6 +1215,109 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureBlendEnableIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureBlendEnableResetAfterCall(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_blendenable")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (!shouldResetBlendEnable(args[0])) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isBlendEnableResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createBlendEnableResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -1505,109 +1608,6 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
-    attachFeatherFixMetadata(resetCall, [fixDetail]);
-
-    return fixDetail;
-}
-
-function ensureBlendingIsReenabled({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
-        return [];
-    }
-
-    const fixes = [];
-
-    const visit = (node, parent, property) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "CallExpression") {
-            const fix = ensureBlendingResetAfterCall(
-                node,
-                parent,
-                property,
-                diagnostic
-            );
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
-    };
-
-    visit(ast, null, null);
-
-    return fixes;
-}
-
-function ensureBlendingResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    if (!isIdentifierWithName(node.object, "gpu_set_blendenable")) {
-        return null;
-    }
-
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
-
-    if (args.length === 0) {
-        return null;
-    }
-
-    if (!shouldReenableBlending(args[0])) {
-        return null;
-    }
-
-    const siblings = parent;
-    const nextNode = siblings[property + 1];
-
-    if (isBlendEnableResetCall(nextNode)) {
-        return null;
-    }
-
-    const resetCall = createBlendEnableResetCall(node);
-
-    if (!resetCall) {
-        return null;
-    }
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    siblings.splice(property + 1, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -2197,6 +2197,14 @@ function createAlphaTestRefResetCall(template) {
     return callExpression;
 }
 
+function shouldResetBlendEnable(argument) {
+    if (!argument || typeof argument !== "object") {
+        return false;
+    }
+
+    return isLiteralFalse(argument) || isLiteralZero(argument);
+}
+
 function shouldResetTextureRepeat(argument) {
     if (!argument || typeof argument !== "object") {
         return false;
@@ -2207,14 +2215,6 @@ function shouldResetTextureRepeat(argument) {
     }
 
     return isLiteralTrue(argument) || isLiteralOne(argument);
-}
-
-function shouldReenableBlending(argument) {
-    if (!argument || typeof argument !== "object") {
-        return false;
-    }
-
-    return isLiteralFalse(argument) || isLiteralZero(argument);
 }
 
 function isTextureRepeatResetCall(node) {

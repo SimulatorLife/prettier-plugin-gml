@@ -309,9 +309,11 @@ describe("applyFeatherFixes transform", () => {
     });
 
     it("re-enables blending flagged by GM2048 and records metadata", () => {
-        const source = ["gpu_set_blendenable(false);", "", "draw_self();"].join(
-            "\n"
-        );
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            "draw_text(0, 0, \"Hello!\");"
+        ].join("\n");
 
         const ast = GMLParser.parse(source, {
             getLocations: true,
@@ -320,17 +322,15 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [disableCall, enableCall, drawCall] = ast.body ?? [];
+        const [disableCall, resetCall, drawCall] = ast.body ?? [];
 
         assert.ok(disableCall);
-        assert.ok(enableCall);
+        assert.ok(resetCall);
         assert.ok(drawCall);
-        assert.strictEqual(enableCall.type, "CallExpression");
-        assert.strictEqual(enableCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
 
-        const args = Array.isArray(enableCall.arguments)
-            ? enableCall.arguments
-            : [];
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.strictEqual(args.length > 0, true);
         assert.strictEqual(args[0]?.type, "Literal");
         assert.strictEqual(args[0]?.value, "true");
@@ -343,11 +343,11 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2048.target, "gpu_set_blendenable");
         assert.ok(gm2048.range);
 
-        const enableMetadata = enableCall._appliedFeatherDiagnostics ?? [];
+        const resetMetadata = resetCall._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
-            enableMetadata.some((entry) => entry.id === "GM2048"),
+            resetMetadata.some((entry) => entry.id === "GM2048"),
             true,
-            "Expected GM2048 metadata to be recorded on the inserted re-enable call."
+            "Expected GM2048 metadata to be recorded on the inserted reset call."
         );
     });
 

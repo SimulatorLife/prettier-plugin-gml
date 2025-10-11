@@ -98,7 +98,7 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
-function shouldAddNewlinesAroundStatement(node, options) {
+function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;

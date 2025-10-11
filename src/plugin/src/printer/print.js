@@ -1,24 +1,15 @@
 import { builders } from "prettier/doc";
-import { util } from "prettier";
-
 const {
     breakParent,
     join,
     line,
-    lineSuffix,
     group,
     conditionalGroup,
     indent,
-    dedent,
     ifBreak,
     hardline,
     softline,
-    literalline,
-    align,
-    dedentToRoot,
-    concat,
-    indentIfBreak,
-    lineSuffixBoundary
+    concat
 } = builders;
 
 import {
@@ -1001,11 +992,8 @@ function isComplexArgumentNode(node) {
 // variation of printElements that handles semicolons and line breaks in a program or block
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
-    let currentHadNewlineAddedBefore = false; // tracks newline added before the current node
 
     const parentNode = path.getValue();
-    const parentOfParent =
-    typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const statements =
     parentNode && Array.isArray(parentNode[childrenAttribute])
         ? parentNode[childrenAttribute]
@@ -1064,9 +1052,6 @@ function printStatements(path, options, print, childrenAttribute) {
         const currentNodeRequiresNewline =
       shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
-        // Reset flag for current node
-        currentHadNewlineAddedBefore = false;
-
         // Check if a newline should be added BEFORE the statement
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
             const hasLeadingComment = isTopLevel
@@ -1079,7 +1064,6 @@ function printStatements(path, options, print, childrenAttribute) {
         !hasLeadingComment
             ) {
                 parts.push(hardline);
-                currentHadNewlineAddedBefore = true;
             }
         }
 
@@ -1703,7 +1687,6 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
         const docName = paramInfo.optional ? `[${paramInfo.name}]` : paramInfo.name;
-        const canonicalName = getCanonicalParamNameFromText(docName);
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -2474,7 +2457,7 @@ function printSimpleDeclaration(leftDoc, rightDoc) {
 }
 
 // prints empty parens with dangling comments
-function printEmptyParens(path, options, print) {
+function printEmptyParens(path, options) {
     const printed = group(
         [
             "(",
@@ -2495,7 +2478,7 @@ function printEmptyParens(path, options, print) {
 }
 
 // prints an empty block with dangling comments
-function printEmptyBlock(path, options, print) {
+function printEmptyBlock(path, options) {
     const node = path.getValue();
     const comments = Array.isArray(node?.comments) ? node.comments : [];
     const hasPrintableComments = comments.some(isCommentNode);

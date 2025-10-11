@@ -2,7 +2,7 @@ import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserV
 import { getLineBreakCount } from "../../shared/line-breaks.js";
 
 export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
-    constructor(options) {
+    constructor() {
         super();
         this.operatorStack = [];
         this.globalIdentifiers = new Set();
