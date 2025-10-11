@@ -173,7 +173,10 @@ var message5 = greet(undefined, "Welcome");
 /// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
-    var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]) * (multiplier ?? 1);
+    var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    if (!is_undefined(multiplier)) {
+        length *= multiplier;
+    }
     if (length != 0) {
         dir[0] /= length;
         dir[1] /= length;
