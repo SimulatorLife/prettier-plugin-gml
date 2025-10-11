@@ -105,7 +105,10 @@ needs an explicit path to load it when you install from Git.
    ```
 
    Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language. Including
-   the plugin path in your Prettier configuration keeps editor integrations working even when the CLI script is not used:
+   the plugin path in your Prettier configuration keeps editor integrations working even when the CLI script is not used.
+   Create a Prettier config file (`.prettierrc`, `.prettierrc.json`, `.prettierrc.yml`, `prettier.config.{js,cjs,mjs}`, or the
+   `prettier` field inside `package.json`) in the root of your GameMaker project and add the plugin there so both the CLI and
+   editor extensions share the same settings:
 
    ```json
    {
@@ -120,6 +123,11 @@ needs an explicit path to load it when you install from Git.
      ]
    }
    ```
+
+   Add any GameMaker-specific options—such as future `gmlIdentifierCase` settings or project-wide `tabWidth` overrides—to that
+   same config file and Prettier will apply them whenever it formats files from your project directory. Remember that Prettier
+   only reads configuration files placed at or above the directory you run it from, so keeping the config next to your `.yyp`
+   ensures consistent behaviour for the CLI and IDE integrations.
 
    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
    `optimizeLoopLengthHoisting`. Override these values in your configuration to match your team conventions. Prefer a single
