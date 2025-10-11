@@ -902,4 +902,67 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(secondStatement?.right?.type, "CallExpression");
         assert.strictEqual(secondStatement?.right?.object?.name, "file_find_first");
     });
+
+    it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
+        const source =
+            "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(body.length >= 4, true, "Expected temporaries to be hoisted before the call expression.");
+
+        for (let index = 0; index < 3; index += 1) {
+            const declaration = body[index];
+            assert.ok(declaration);
+            assert.strictEqual(declaration.type, "VariableDeclaration");
+
+            const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
+            assert.strictEqual(declarators.length, 1);
+
+            const [declarator] = declarators;
+            assert.strictEqual(declarator?.id?.type, "Identifier");
+            assert.strictEqual(declarator?.id?.name, `__feather_call_arg_${index}`);
+            assert.strictEqual(declarator?.init?.type, "CallExpression");
+
+            const declarationDiagnostics = declaration._appliedFeatherDiagnostics ?? [];
+            assert.strictEqual(
+                declarationDiagnostics.some((entry) => entry.id === "GM2023"),
+                true,
+                "Expected GM2023 metadata on each hoisted declaration."
+            );
+        }
+
+        const callStatement = body[body.length - 1];
+        assert.ok(callStatement);
+        assert.strictEqual(callStatement.type, "CallExpression");
+
+        const args = Array.isArray(callStatement.arguments) ? callStatement.arguments : [];
+        assert.strictEqual(args.length, 4);
+        assert.strictEqual(args[0]?.type, "Identifier");
+        assert.strictEqual(args[0]?.name, "vb");
+        assert.strictEqual(args[1]?.name, "__feather_call_arg_0");
+        assert.strictEqual(args[2]?.name, "__feather_call_arg_1");
+        assert.strictEqual(args[3]?.name, "__feather_call_arg_2");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2023 = appliedDiagnostics.find((entry) => entry.id === "GM2023");
+
+        assert.ok(gm2023, "Expected GM2023 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2023.automatic, true);
+        assert.strictEqual(gm2023.target, "vertex_position_3d");
+
+        const callDiagnostics = callStatement._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2023"),
+            true,
+            "Expected GM2023 metadata on the transformed call expression."
+        );
+    });
 });
