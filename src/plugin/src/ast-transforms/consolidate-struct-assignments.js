@@ -1,4 +1,8 @@
-import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    cloneLocation
+} from "../../../shared/ast-locations.js";
 import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
@@ -27,7 +31,9 @@ export function consolidateStructAssignments(ast, commentTools) {
     }
 
     const normalizedCommentTools = normalizeCommentTools(commentTools);
-    const tracker = new CommentTracker(Array.isArray(ast.comments) ? ast.comments : []);
+    const tracker = new CommentTracker(
+        Array.isArray(ast.comments) ? ast.comments : []
+    );
     visit(ast, tracker, normalizedCommentTools);
     tracker.removeConsumedComments();
     return ast;
@@ -55,7 +61,12 @@ function visit(node, tracker, commentTools) {
     }
 
     for (const [key, value] of Object.entries(node)) {
-        if (key === "body" || key === "start" || key === "end" || key === "comments") {
+        if (
+            key === "body" ||
+      key === "start" ||
+      key === "end" ||
+      key === "comments"
+        ) {
             continue;
         }
         visit(value, tracker, commentTools);
@@ -166,7 +177,9 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            property.comments = Array.isArray(property.comments) ? property.comments : [];
+            property.comments = Array.isArray(property.comments)
+                ? property.comments
+                : [];
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
@@ -229,7 +242,9 @@ function collectPropertyAssignments({
         }
     }
 
-    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
+    const shouldForceBreak = properties.some(
+        (property) => property?._hasTrailingInlineComment
+    );
 
     return {
         properties,
@@ -253,11 +268,17 @@ function getStructInitializer(statement) {
             return null;
         }
 
-        if (!isNode(declarator.init) || declarator.init.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(declarator.init) ||
+      declarator.init.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
 
-        if (Array.isArray(declarator.init.properties) && declarator.init.properties.length > 0) {
+        if (
+            Array.isArray(declarator.init.properties) &&
+      declarator.init.properties.length > 0
+        ) {
             return null;
         }
 
@@ -276,11 +297,17 @@ function getStructInitializer(statement) {
             return null;
         }
 
-        if (!isNode(statement.right) || statement.right.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(statement.right) ||
+      statement.right.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
 
-        if (Array.isArray(statement.right.properties) && statement.right.properties.length > 0) {
+        if (
+            Array.isArray(statement.right.properties) &&
+      statement.right.properties.length > 0
+        ) {
             return null;
         }
 
@@ -294,7 +321,9 @@ function getStructInitializer(statement) {
 }
 
 function isIdentifierRoot(node, identifierName) {
-    return isNode(node) && node.type === IDENTIFIER && node.name === identifierName;
+    return (
+        isNode(node) && node.type === IDENTIFIER && node.name === identifierName
+    );
 }
 
 function buildPropertyFromAssignment(assignmentDetails) {
@@ -321,10 +350,14 @@ function buildPropertyFromAssignment(assignmentDetails) {
         type: "Property",
         name: propertyName,
         value: assignment.right,
-        start: cloneLocation(
-            getPreferredLocation(propertyAccess.propertyStart, assignment.start)
-        ),
-        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+        start:
+      cloneLocation(
+          getPreferredLocation(propertyAccess.propertyStart, assignment.start)
+      ) ?? null,
+        end:
+      cloneLocation(
+          getPreferredLocation(assignment.right?.end, assignment.end)
+      ) ?? null
     };
 }
 
@@ -337,7 +370,10 @@ function getStructPropertyAssignmentDetails(statement, identifierName) {
         return null;
     }
 
-    const propertyAccess = getStructPropertyAccess(statement.left, identifierName);
+    const propertyAccess = getStructPropertyAccess(
+        statement.left,
+        identifierName
+    );
     if (!propertyAccess) {
         return null;
     }
@@ -385,7 +421,10 @@ function getPropertyKeyInfo(propertyNode) {
         return null;
     }
 
-    if (propertyNode.type === IDENTIFIER && typeof propertyNode.name === "string") {
+    if (
+        propertyNode.type === IDENTIFIER &&
+    typeof propertyNode.name === "string"
+    ) {
         return {
             identifierName: propertyNode.name,
             raw: propertyNode.name,
@@ -417,8 +456,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: IDENTIFIER,
             name: identifierName,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -426,8 +465,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: LITERAL,
             value: propertyKey.raw,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -456,11 +495,17 @@ function allowTrailingCommentsBetween({
         return false;
     }
 
-    if (commentEntries.some(({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine))) {
+    if (
+        commentEntries.some(
+            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
+        )
+    ) {
         return false;
     }
 
-    const commentTarget = precedingProperty ? precedingProperty.value ?? precedingProperty : null;
+    const commentTarget = precedingProperty
+        ? (precedingProperty.value ?? precedingProperty)
+        : null;
     const attachTrailingComment = commentTools.addTrailingComment;
 
     for (const { comment } of commentEntries) {
@@ -497,13 +542,6 @@ function getPreferredLocation(primary, fallback) {
         return fallback;
     }
     return null;
-}
-
-function cloneLocation(location) {
-    if (!isNode(location)) {
-        return location ?? null;
-    }
-    return structuredClone(location);
 }
 
 function getNodeEndLine(node) {
@@ -544,8 +582,8 @@ function isAttachableTrailingComment(comment, statement) {
     const statementEndIndex = getNodeEndIndex(statement);
     if (
         typeof commentStartIndex === "number" &&
-        typeof statementEndIndex === "number" &&
-        commentStartIndex <= statementEndIndex
+    typeof statementEndIndex === "number" &&
+    commentStartIndex <= statementEndIndex
     ) {
         return false;
     }
@@ -591,14 +629,21 @@ function isNode(value) {
 
 class CommentTracker {
     constructor(comments) {
-        this.entries = comments
+        const sourceComments = Array.isArray(comments) ? comments : [];
+        this.comments = sourceComments;
+        this.entries = sourceComments
             .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
     }
 
     hasBetween(left, right) {
-        if (!this.entries.length || left == null || right == null || left >= right) {
+        if (
+            !this.entries.length ||
+      left == null ||
+      right == null ||
+      left >= right
+        ) {
             return false;
         }
         let index = this.firstGreaterThan(left);
@@ -675,7 +720,12 @@ class CommentTracker {
     }
 
     getEntriesBetween(left, right) {
-        if (!this.entries.length || left == null || right == null || left >= right) {
+        if (
+            !this.entries.length ||
+      left == null ||
+      right == null ||
+      left >= right
+        ) {
             return [];
         }
 

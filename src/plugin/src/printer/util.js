@@ -14,12 +14,16 @@ function statementShouldEndWithSemicolon(path) {
     // for single line control structures written in short form (i.e. without a block),
     // we need to make sure the single body node gets a semicolon
     if (
-        ["ForStatement", "WhileStatement", "DoUntilStatement", "IfStatement", "SwitchStatement"].includes(
-            parentNode.type
-        ) &&
-        node.type !== "BlockStatement" &&
-        node.type !== "IfStatement" &&
-        (parentNode.body === node || parentNode.alternate === node)
+        [
+            "ForStatement",
+            "WhileStatement",
+            "DoUntilStatement",
+            "IfStatement",
+            "SwitchStatement"
+        ].includes(parentNode.type) &&
+    node.type !== "BlockStatement" &&
+    node.type !== "IfStatement" &&
+    (parentNode.body === node || parentNode.alternate === node)
     ) {
         return true;
     }
@@ -94,7 +98,7 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
-function shouldAddNewlinesAroundStatement(node, options) {
+function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;

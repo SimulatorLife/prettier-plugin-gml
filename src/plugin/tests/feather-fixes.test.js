@@ -4,7 +4,10 @@ import { describe, it } from "node:test";
 
 import GMLParser from "gamemaker-language-parser";
 
-import { getFeatherMetadata } from "../src/feather/metadata.js";
+import {
+    getFeatherMetadata,
+    getFeatherDiagnosticById
+} from "../src/feather/metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
@@ -14,7 +17,9 @@ import {
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
-        const diagnostics = Array.isArray(metadata?.diagnostics) ? metadata.diagnostics : [];
+        const diagnostics = Array.isArray(metadata?.diagnostics)
+            ? metadata.diagnostics
+            : [];
         const registry = getFeatherDiagnosticFixers();
 
         assert.strictEqual(
@@ -34,11 +39,9 @@ describe("Feather diagnostic fixer registry", () => {
 
 describe("applyFeatherFixes transform", () => {
     it("removes trailing macro semicolons and records fix metadata", () => {
-        const source = [
-            "#macro SAMPLE value;",
-            "",
-            "var data = SAMPLE;"
-        ].join("\n");
+        const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join(
+            "\n"
+        );
 
         const ast = GMLParser.parse(source, {
             getLocations: true,
@@ -59,7 +62,10 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(macro.tokens));
         assert.strictEqual(macro.tokens.includes(";"), false);
         assert.strictEqual(typeof macro._featherMacroText, "string");
-        assert.strictEqual(macro._featherMacroText.trimEnd(), "#macro SAMPLE value");
+        assert.strictEqual(
+            macro._featherMacroText.trimEnd(),
+            "#macro SAMPLE value"
+        );
 
         const macroFixes = macro._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(macroFixes));
@@ -86,7 +92,10 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(macro.tokens));
         assert.strictEqual(macro.tokens.includes(";"), false);
         assert.strictEqual(typeof macro._featherMacroText, "string");
-        assert.strictEqual(macro._featherMacroText.trimEnd(), "#macro SAMPLE value // comment");
+        assert.strictEqual(
+            macro._featherMacroText.trimEnd(),
+            "#macro SAMPLE value // comment"
+        );
 
         const macroFixes = macro._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(macroFixes));
@@ -94,7 +103,217 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
-    it("renames duplicate function parameters and records fix metadata", () => {
+    it("normalizes multidimensional array indexing and records metadata", () => {
+        const source = [
+            "function fetch_value(_grid, _row, _column, _depth)",
+            "{",
+            "    var primary = _grid[_row, _column];",
+            "    var tertiary = _grid[_row, _column, _depth];",
+            "    return primary + tertiary;",
+            "}",
+            "",
+            "var nested = matrix[0, 1, 2, 3];"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const functionDeclaration = ast.body?.[0];
+        assert.ok(functionDeclaration?.body?.body);
+
+        const [primaryDeclaration, tertiaryDeclaration, returnStatement] =
+      functionDeclaration.body.body;
+
+        const primaryInit = primaryDeclaration?.declarations?.[0]?.init;
+        const tertiaryInit = tertiaryDeclaration?.declarations?.[0]?.init;
+
+        assert.strictEqual(primaryInit?.type, "MemberIndexExpression");
+        assert.strictEqual(primaryInit?.property?.length, 1);
+        assert.strictEqual(primaryInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(primaryInit.object.property?.length, 1);
+        assert.ok(Array.isArray(primaryInit._appliedFeatherDiagnostics));
+
+        assert.strictEqual(tertiaryInit?.type, "MemberIndexExpression");
+        assert.strictEqual(tertiaryInit?.property?.length, 1);
+        assert.strictEqual(tertiaryInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(tertiaryInit.object.property?.length, 1);
+        assert.strictEqual(
+            tertiaryInit.object?.object?.type,
+            "MemberIndexExpression"
+        );
+        assert.ok(Array.isArray(tertiaryInit._appliedFeatherDiagnostics));
+
+        const globalDeclaration = ast.body?.[1]?.declarations?.[0];
+        const nestedInit = globalDeclaration?.init;
+
+        assert.strictEqual(nestedInit?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.property?.length, 1);
+        assert.strictEqual(nestedInit?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.object?.property?.length, 1);
+        assert.strictEqual(
+            nestedInit?.object?.object?.type,
+            "MemberIndexExpression"
+        );
+        assert.strictEqual(
+            nestedInit?.object?.object?.object?.type,
+            "MemberIndexExpression"
+        );
+        assert.ok(Array.isArray(nestedInit._appliedFeatherDiagnostics));
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        const normalizedFixes = ast._appliedFeatherDiagnostics.filter(
+            (entry) => entry.id === "GM1036"
+        );
+        assert.strictEqual(normalizedFixes.length >= 3, true);
+
+        for (const entry of normalizedFixes) {
+            assert.strictEqual(entry.automatic, true);
+        }
+
+        assert.ok(returnStatement);
+    });
+
+    it("converts instance creation asset strings to identifiers and records metadata", () => {
+        const source = 'instance_create_depth(x, y, -100, "obj_player");';
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [callExpression] = ast.body ?? [];
+        assert.ok(callExpression);
+        const originalArgument = callExpression?.arguments?.[3];
+        assert.ok(originalArgument);
+        assert.strictEqual(originalArgument.type, "Literal");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const updatedArgument = callExpression.arguments?.[3];
+        assert.ok(updatedArgument);
+        assert.strictEqual(updatedArgument.type, "Identifier");
+        assert.strictEqual(updatedArgument.name, "obj_player");
+
+        const metadata = updatedArgument._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(metadata));
+        assert.strictEqual(metadata.length, 1);
+        const [entry] = metadata;
+        assert.strictEqual(entry.id, "GM1041");
+        assert.strictEqual(entry.target, "obj_player");
+        assert.strictEqual(entry.automatic, true);
+        assert.ok(entry.range);
+        assert.strictEqual(typeof entry.range.start, "number");
+        assert.strictEqual(typeof entry.range.end, "number");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.ok(Array.isArray(programFixes));
+        assert.ok(
+            programFixes.some(
+                (detail) =>
+                    detail.id === "GM1041" &&
+          detail.automatic === true &&
+          detail.target === "obj_player"
+            )
+        );
+    });
+
+    it("replaces invalid delete statements and records fix metadata", () => {
+        const source = [
+            "var values = [2, 403, 202, 303, 773, 573];",
+            "",
+            "delete values;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length >= 2, true);
+
+        const assignment = ast.body[1];
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+        assert.ok(assignment.left);
+        assert.strictEqual(assignment.left.type, "Identifier");
+        assert.strictEqual(assignment.left.name, "values");
+        assert.ok(assignment.right);
+        assert.strictEqual(assignment.right.type, "Literal");
+        assert.strictEqual(assignment.right.value, "undefined");
+
+        const assignmentFixes = assignment._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(assignmentFixes));
+        assert.strictEqual(assignmentFixes.length >= 1, true);
+        assert.strictEqual(
+            assignmentFixes.some((entry) => entry.id === "GM1052"),
+            true,
+            "Expected delete fixer metadata to be recorded on the assignment node."
+        );
+
+        const recordedFix = assignmentFixes.find((entry) => entry.id === "GM1052");
+        assert.ok(recordedFix);
+        assert.strictEqual(recordedFix.target, "values");
+        assert.strictEqual(recordedFix.automatic, true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1052"),
+            true,
+            "Expected delete fixer metadata to be recorded on the program node."
+        );
+    });
+
+    it("marks constructor declarations for functions instantiated with new", () => {
+        const source = [
+            "function item() {",
+            "    return 42;",
+            "}",
+            "",
+            "var sword = new item();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [functionNode] = ast.body ?? [];
+
+        assert.ok(functionNode);
+        assert.strictEqual(functionNode.type, "FunctionDeclaration");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.strictEqual(functionNode.type, "ConstructorDeclaration");
+
+        const functionFixes = functionNode._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(functionFixes));
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.id === "GM1058"),
+            true
+        );
+        assert.strictEqual(
+            functionFixes.some((entry) => entry.target === "item"),
+            true,
+            "Expected constructor fix metadata to target the function name."
+        );
+
+        const recordedIds = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            recordedIds.some((entry) => entry.id === "GM1058"),
+            true,
+            "Expected the program node to record the GM1058 constructor fix."
+        );
+    });
+
+    it("removes duplicate function parameters and records metadata", () => {
         const source = [
             "function example(value, other, value, value) {",
             "    return value + other;",
@@ -111,47 +330,75 @@ describe("applyFeatherFixes transform", () => {
         const [fn] = ast.body ?? [];
         assert.ok(fn);
         const params = Array.isArray(fn.params) ? fn.params : [];
-        assert.strictEqual(params.length, 4);
+        assert.deepStrictEqual(
+            params.map((param) =>
+                param?.type === "Identifier" ? param.name : (param?.left?.name ?? null)
+            ),
+            ["value", "other"]
+        );
 
-        const extractName = (param) => {
-            if (!param) {
-                return null;
-            }
-
-            if (param.type === "Identifier") {
-                return param.name;
-            }
-
-            if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
-                return param.left.name;
-            }
-
-            return null;
-        };
-
-        const parameterNames = params.map(extractName);
-        assert.deepStrictEqual(parameterNames, ["value", "other", "value_2", "value_3"]);
-
-        const renamedParams = [params[2], params[3]];
-
-        for (const param of renamedParams) {
-            assert.ok(param);
-            const identifier = param.type === "Identifier" ? param : param.left;
-            const metadata = identifier?._appliedFeatherDiagnostics;
-            assert.ok(Array.isArray(metadata));
-            assert.strictEqual(metadata.length, 1);
-            assert.strictEqual(metadata[0].id, "GM1059");
-            assert.strictEqual(metadata[0].target, "value");
-            assert.strictEqual(metadata[0].automatic, true);
-        }
+        const fnMetadata = fn._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(fnMetadata.length, 2);
+        fnMetadata.forEach((entry) => {
+            assert.strictEqual(entry.id, "GM1059");
+            assert.strictEqual(entry.target, "value");
+            assert.strictEqual(entry.automatic, true);
+        });
 
         const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
-        const gm1059Metadata = rootMetadata.filter((entry) => entry.id === "GM1059");
+        const gm1059Metadata = rootMetadata.filter(
+            (entry) => entry.id === "GM1059"
+        );
         assert.strictEqual(gm1059Metadata.length, 2);
         gm1059Metadata.forEach((entry) => {
             assert.strictEqual(entry.target, "value");
             assert.strictEqual(entry.automatic, true);
         });
+    });
+
+    it("removes duplicate constructor parameters flagged by GM1059", () => {
+        const source = [
+            "function Example(value, other, value) constructor {",
+            "    return value + other;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [ctor] = ast.body ?? [];
+        assert.ok(ctor);
+        assert.strictEqual(ctor.type, "ConstructorDeclaration");
+
+        const params = Array.isArray(ctor.params) ? ctor.params : [];
+        assert.deepStrictEqual(
+            params.map((param) =>
+                param?.type === "Identifier" ? param.name : (param?.left?.name ?? null)
+            ),
+            ["value", "other"]
+        );
+
+        const ctorMetadata = ctor._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(ctorMetadata.length, 1);
+        const [metadataEntry] = ctorMetadata;
+        assert.ok(metadataEntry);
+        assert.strictEqual(metadataEntry.id, "GM1059");
+        assert.strictEqual(metadataEntry.target, "value");
+        assert.strictEqual(metadataEntry.automatic, true);
+
+        const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
+        const gm1059Metadata = rootMetadata.filter(
+            (entry) => entry.id === "GM1059"
+        );
+        assert.strictEqual(gm1059Metadata.length, 1);
+        const [rootEntry] = gm1059Metadata;
+        assert.ok(rootEntry);
+        assert.strictEqual(rootEntry.target, "value");
+        assert.strictEqual(rootEntry.automatic, true);
     });
 
     it("records manual Feather fix metadata for every diagnostic", () => {
@@ -166,7 +413,9 @@ describe("applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
 
-        const recordedIds = new Set(ast._appliedFeatherDiagnostics.map((entry) => entry.id));
+        const recordedIds = new Set(
+            ast._appliedFeatherDiagnostics.map((entry) => entry.id)
+        );
         const diagnostics = getFeatherMetadata().diagnostics ?? [];
 
         assert.strictEqual(
@@ -192,6 +441,370 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("normalizes argument built-ins flagged by GM1032", () => {
+        const metadata = getFeatherMetadata();
+        const diagnostic = (metadata?.diagnostics ?? []).find(
+            (entry) => entry?.id === "GM1032"
+        );
+
+        assert.ok(
+            diagnostic,
+            "Expected GM1032 diagnostic metadata to be available."
+        );
+
+        const source = [
+            "function sample() {",
+            "    var first = argument1;",
+            "    var second = argument3;",
+            "    return argument3 + argument4;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const trackedIdentifiers = [];
+
+        const collectArgumentIdentifiers = (node) => {
+            if (!node) {
+                return;
+            }
+
+            if (Array.isArray(node)) {
+                for (const child of node) {
+                    collectArgumentIdentifiers(child);
+                }
+                return;
+            }
+
+            if (typeof node !== "object") {
+                return;
+            }
+
+            if (
+                node.type === "Identifier" &&
+        typeof node.name === "string" &&
+        /^argument\d+$/.test(node.name)
+            ) {
+                trackedIdentifiers.push({
+                    node,
+                    originalName: node.name
+                });
+            }
+
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    collectArgumentIdentifiers(value);
+                }
+            }
+        };
+
+        collectArgumentIdentifiers(ast);
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const changedIdentifiers = trackedIdentifiers.filter(
+            (entry) => entry.node.name !== entry.originalName
+        );
+
+        assert.strictEqual(
+            changedIdentifiers.length > 0,
+            true,
+            "Expected some argument built-ins to be renamed."
+        );
+
+        const changedNames = changedIdentifiers
+            .map((entry) => entry.node.name)
+            .sort();
+        const expectedNames = [
+            "argument0",
+            "argument1",
+            "argument1",
+            "argument2"
+        ].sort();
+
+        assert.deepStrictEqual(
+            changedNames,
+            expectedNames,
+            "Argument built-ins should be reindexed without gaps starting from argument0."
+        );
+
+        for (const entry of changedIdentifiers) {
+            const metadataEntries = entry.node._appliedFeatherDiagnostics;
+
+            assert.ok(
+                Array.isArray(metadataEntries),
+                "Each rewritten argument identifier should include metadata."
+            );
+            assert.strictEqual(metadataEntries.length > 0, true);
+
+            const [fixDetail] = metadataEntries;
+
+            assert.strictEqual(fixDetail.id, "GM1032");
+            assert.strictEqual(fixDetail.target, entry.node.name);
+            assert.strictEqual(fixDetail.title, diagnostic.title);
+            assert.strictEqual(fixDetail.correction, diagnostic.correction);
+            assert.strictEqual(fixDetail.description, diagnostic.description);
+            assert.strictEqual(fixDetail.automatic, true);
+        }
+
+        const applied = ast._appliedFeatherDiagnostics ?? [];
+        assert.ok(applied.some((entry) => entry.id === "GM1032"));
+    });
+
+    it("records duplicate semicolon fixes for GM1033", () => {
+        const source = [
+            "var value = 1;;",
+            "var other = 2;",
+            "",
+            "function demo() {",
+            "    ;;",
+            "    var local = 3;;",
+            "    switch (local) {",
+            "        case 1:;;",
+            "            break;",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const metadata = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+
+        const gm1033Fixes = metadata.filter((entry) => entry.id === "GM1033");
+
+        assert.ok(
+            gm1033Fixes.length > 0,
+            "Expected duplicate semicolons to be detected."
+        );
+
+        for (const fix of gm1033Fixes) {
+            assert.strictEqual(
+                typeof fix.range?.start === "number" &&
+          typeof fix.range?.end === "number",
+                true,
+                "Expected each GM1033 fix to include a range."
+            );
+        }
+    });
+
+    it("moves argument references into the preceding function body", () => {
+        const source = [
+            "function args()",
+            "{",
+            "}",
+            "",
+            "var _first_parameter = argument[0];",
+            "var _argument_total = argument_count;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [functionDeclaration, firstStatement, secondStatement] =
+      ast.body ?? [];
+
+        assert.ok(functionDeclaration);
+        assert.strictEqual(functionDeclaration.type, "FunctionDeclaration");
+        assert.strictEqual(typeof firstStatement, "object");
+        assert.strictEqual(typeof secondStatement, "object");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length > 0, true);
+        assert.strictEqual(ast.body[0], functionDeclaration);
+
+        const functionBody = functionDeclaration?.body;
+        assert.ok(functionBody);
+        assert.strictEqual(functionBody.type, "BlockStatement");
+        assert.ok(Array.isArray(functionBody.body));
+        assert.strictEqual(functionBody.body.length >= 2, true);
+        assert.strictEqual(
+            functionBody.body[functionBody.body.length - 2],
+            firstStatement
+        );
+        assert.strictEqual(
+            functionBody.body[functionBody.body.length - 1],
+            secondStatement
+        );
+
+        const firstFixes = firstStatement?._appliedFeatherDiagnostics;
+        const secondFixes = secondStatement?._appliedFeatherDiagnostics;
+
+        assert.ok(Array.isArray(firstFixes));
+        assert.strictEqual(firstFixes.length, 1);
+        assert.strictEqual(firstFixes[0].id, "GM1034");
+        assert.strictEqual(firstFixes[0].target, "argument");
+
+        assert.ok(Array.isArray(secondFixes));
+        assert.strictEqual(secondFixes.length, 1);
+        assert.strictEqual(secondFixes[0].id, "GM1034");
+        assert.strictEqual(secondFixes[0].target, "argument_count");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1034Fixes = programFixes.filter((entry) => entry.id === "GM1034");
+        assert.strictEqual(gm1034Fixes.length, 2);
+    });
+
+    it("removes duplicate macro declarations and records fix metadata", () => {
+        const source = [
+            "#macro dbg show_debug_message",
+            "#macro other value",
+            "#macro dbg show_debug_message",
+            "",
+            'dbg("hi");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const macros = Array.isArray(ast.body)
+            ? ast.body.filter((node) => node?.type === "MacroDeclaration")
+            : [];
+
+        assert.strictEqual(
+            macros.length,
+            2,
+            "Expected duplicate macro to be removed."
+        );
+
+        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+
+        assert.ok(recordedFixes.some((entry) => entry.id === "GM1038"));
+        assert.ok(
+            recordedFixes.some(
+                (entry) =>
+                    entry.id === "GM1038" &&
+          entry.target === "dbg" &&
+          entry.automatic !== false
+            ),
+            "Expected GM1038 fix metadata with automatic flag and target name."
+        );
+    });
+
+    it("normalizes missing constructor parent clauses and records fix metadata", () => {
+        const source = [
+            "function Base() {",
+            "    self.value = 1;",
+            "}",
+            "",
+            "function Child() : Base() constructor {",
+            "    constructor_apply();",
+            "}",
+            "",
+            "function Orphan() : Missing() constructor {",
+            "    constructor_apply();",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [baseFunction, childConstructor, orphanConstructor] = ast.body ?? [];
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(baseFunction);
+        assert.strictEqual(baseFunction.type, "ConstructorDeclaration");
+        assert.strictEqual(baseFunction.parent, null);
+
+        const baseFixes = baseFunction._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(baseFixes));
+        assert.strictEqual(baseFixes.length > 0, true);
+        assert.strictEqual(
+            baseFixes.some((entry) => entry.id === "GM1054"),
+            true
+        );
+
+        assert.ok(childConstructor);
+        assert.ok(childConstructor.parent);
+        assert.strictEqual(childConstructor.parent.id, "Base");
+
+        assert.ok(orphanConstructor);
+        assert.strictEqual(orphanConstructor.parent, null);
+
+        const orphanFixes = orphanConstructor._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(orphanFixes));
+        assert.strictEqual(orphanFixes.length > 0, true);
+        assert.strictEqual(orphanFixes[0].id, "GM1054");
+        assert.strictEqual(orphanFixes[0].target, "Missing");
+
+        const recordedIds = new Set(
+            ast._appliedFeatherDiagnostics?.map((entry) => entry.id)
+        );
+        assert.strictEqual(recordedIds.has("GM1054"), true);
+    });
+
+    it("reorders optional parameters after required ones and records fix metadata", () => {
+        const source = [
+            "function example(a, b = 1, c, d = 2) {",
+            "    return a + b + c + d;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [fn] = ast.body ?? [];
+        assert.ok(fn);
+
+        const parameterNames = Array.isArray(fn.params)
+            ? fn.params.map((param) => {
+                if (param?.type === "DefaultParameter") {
+                    return param.left?.name ?? null;
+                }
+
+                return param?.name ?? null;
+            })
+            : [];
+
+        assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
+
+        const defaultParameters = fn.params.filter(
+            (param) => param?.type === "DefaultParameter"
+        );
+        assert.strictEqual(defaultParameters.length, 2);
+        assert.strictEqual(defaultParameters[0].left?.name, "b");
+        assert.strictEqual(defaultParameters[1].left?.name, "d");
+
+        assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
+        assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
+        assert.strictEqual(fn._appliedFeatherDiagnostics[0].id, "GM1056");
+        assert.strictEqual(fn._appliedFeatherDiagnostics[0].target, "example");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1056"),
+            true,
+            "Expected GM1056 metadata to be recorded on the program node."
+        );
+    });
+
     it("resets texture repeat flagged by GM2056 and records metadata", () => {
         const source = [
             "gpu_set_texrepeat(true);",
@@ -206,11 +819,14 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [setRepeatCall, resetCall, submitCall] = ast.body ?? [];
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [setRepeatCall, submitCall, resetCall] = statements;
 
         assert.ok(setRepeatCall);
-        assert.ok(resetCall);
         assert.ok(submitCall);
+        assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_texrepeat");
 
@@ -239,7 +855,7 @@ describe("applyFeatherFixes transform", () => {
         const source = [
             "gpu_set_blendenable(false);",
             "",
-            "draw_self();"
+            'draw_text(0, 0, "Hello!");'
         ].join("\n");
 
         const ast = GMLParser.parse(source, {
@@ -249,15 +865,18 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [disableCall, enableCall, drawCall] = ast.body ?? [];
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [disableCall, drawCall, resetCall] = statements;
 
         assert.ok(disableCall);
-        assert.ok(enableCall);
         assert.ok(drawCall);
-        assert.strictEqual(enableCall.type, "CallExpression");
-        assert.strictEqual(enableCall.object?.name, "gpu_set_blendenable");
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
 
-        const args = Array.isArray(enableCall.arguments) ? enableCall.arguments : [];
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.strictEqual(args.length > 0, true);
         assert.strictEqual(args[0]?.type, "Literal");
         assert.strictEqual(args[0]?.value, "true");
@@ -270,11 +889,11 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2048.target, "gpu_set_blendenable");
         assert.ok(gm2048.range);
 
-        const enableMetadata = enableCall._appliedFeatherDiagnostics ?? [];
+        const resetMetadata = resetCall._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
-            enableMetadata.some((entry) => entry.id === "GM2048"),
+            resetMetadata.some((entry) => entry.id === "GM2048"),
             true,
-            "Expected GM2048 metadata to be recorded on the inserted re-enable call."
+            "Expected GM2048 metadata to be recorded on the inserted reset call."
         );
     });
 
@@ -296,7 +915,10 @@ describe("applyFeatherFixes transform", () => {
 
         const [assignment] = ast.body ?? [];
         assert.ok(assignment?.right?.type === "TernaryExpression");
-        assert.strictEqual(assignment.right.alternate.type === "UnaryExpression", true);
+        assert.strictEqual(
+            assignment.right.alternate.type === "UnaryExpression",
+            true
+        );
 
         applyFeatherFixes(ast, { sourceText: source });
 
@@ -314,20 +936,26 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(gm1063.range);
 
         const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(ternaryDiagnostics.some((entry) => entry.id === "GM1063"), true);
+        assert.strictEqual(
+            ternaryDiagnostics.some((entry) => entry.id === "GM1063"),
+            true
+        );
     });
 
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
-        const source = [
-            "var _this * something;",
-            "",
-            "    = 48;"
-        ].join("\n");
+        const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
         const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
 
-        assert.notStrictEqual(sourceText, source, "Expected GM1100 preprocessor to modify the source text.");
-        assert.ok(metadata?.GM1100?.length > 0, "Expected GM1100 metadata to be recorded by the preprocessor.");
+        assert.notStrictEqual(
+            sourceText,
+            source,
+            "Expected GM1100 preprocessor to modify the source text."
+        );
+        assert.ok(
+            metadata?.GM1100?.length > 0,
+            "Expected GM1100 metadata to be recorded by the preprocessor."
+        );
 
         const ast = GMLParser.parse(sourceText, {
             getLocations: true,
@@ -339,25 +967,30 @@ describe("applyFeatherFixes transform", () => {
             preprocessedFixMetadata: metadata
         });
 
-        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
-        const [declaration, statement] = statements;
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [declaration] = statements;
 
         assert.ok(declaration);
         assert.strictEqual(declaration.type, "VariableDeclaration");
         assert.strictEqual(Array.isArray(declaration.declarations), true);
-        assert.ok(statement);
 
         const declarationFixes = declaration._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(declarationFixes.some((entry) => entry.id === "GM1100"), true);
-
-        const expressionFixes = (statement?._appliedFeatherDiagnostics ?? [])
-            .concat(statement?.expression?._appliedFeatherDiagnostics ?? []);
-        assert.strictEqual(expressionFixes.some((entry) => entry.id === "GM1100"), true);
+        assert.strictEqual(
+            declarationFixes.some((entry) => entry.id === "GM1100"),
+            true
+        );
 
         const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1100Entries = programDiagnostics.filter((entry) => entry.id === "GM1100");
+        const gm1100Entries = programDiagnostics.filter(
+            (entry) => entry.id === "GM1100"
+        );
 
-        assert.ok(gm1100Entries.length >= 1, "Expected GM1100 metadata to be recorded on the program node.");
+        assert.ok(
+            gm1100Entries.length >= 1,
+            "Expected GM1100 metadata to be recorded on the program node."
+        );
 
         for (const entry of gm1100Entries) {
             assert.strictEqual(entry.automatic, true);
@@ -365,7 +998,7 @@ describe("applyFeatherFixes transform", () => {
             assert.strictEqual(entry.description?.includes("syntax error"), true);
         }
     });
-  
+
     it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
         const topLevelLiteral = {
             type: "ExpressionStatement",
@@ -420,21 +1053,32 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: "true;\nif (true) { false; }" });
 
-        assert.strictEqual(ast.body.length, 1, "Expected stray boolean literal to be removed from the program body.");
+        assert.strictEqual(
+            ast.body.length,
+            1,
+            "Expected stray boolean literal to be removed from the program body."
+        );
 
         const [ifStatement] = ast.body;
         assert.ok(ifStatement);
         assert.strictEqual(
-            Array.isArray(ifStatement.consequent?.body) ? ifStatement.consequent.body.length : -1,
+            Array.isArray(ifStatement.consequent?.body)
+                ? ifStatement.consequent.body.length
+                : -1,
             0,
             "Expected stray boolean literal to be removed from block statements."
         );
 
         const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const rootGM1016 = rootDiagnostics.filter((entry) => entry.id === "GM1016");
-        assert.strictEqual(rootGM1016.length, 2, "Expected GM1016 metadata to be recorded for each removed statement.");
+        assert.strictEqual(
+            rootGM1016.length,
+            2,
+            "Expected GM1016 metadata to be recorded for each removed statement."
+        );
 
-        const blockDiagnostics = ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+        const blockDiagnostics =
+      ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
             true,
@@ -442,8 +1086,338 @@ describe("applyFeatherFixes transform", () => {
         );
 
         for (const entry of rootGM1016) {
-            assert.strictEqual(entry.automatic, true, "GM1016 fixes should be marked as automatic.");
-            assert.ok(entry.range, "GM1016 fixes should capture the removed node's range.");
+            assert.strictEqual(
+                entry.automatic,
+                true,
+                "GM1016 fixes should be marked as automatic."
+            );
+            assert.ok(
+                entry.range,
+                "GM1016 fixes should capture the removed node's range."
+            );
         }
+    });
+
+    it("preprocesses stray boolean literal statements flagged by GM1016", () => {
+        const source = [
+            "/// Feather GM1016 sample",
+            "true;",
+            "if (condition) {",
+            "    false;",
+            "    value = 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+
+        assert.notStrictEqual(
+            sourceText,
+            source,
+            "Expected GM1016 preprocessor to remove boolean literal statements."
+        );
+
+        assert.ok(
+            metadata?.GM1016?.length === 2,
+            "Expected GM1016 metadata entries for each removed statement."
+        );
+
+        const ast = GMLParser.parse(sourceText, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, {
+            sourceText,
+            preprocessedFixMetadata: metadata
+        });
+
+        const statements = ast.body ?? [];
+
+        assert.strictEqual(
+            statements.length,
+            1,
+            "Expected only the conditional statement to remain at the top level."
+        );
+
+        const [ifStatement] = statements;
+        assert.ok(ifStatement?.type === "IfStatement");
+
+        const blockBody = ifStatement?.consequent?.body ?? [];
+
+        assert.strictEqual(
+            blockBody.length,
+            1,
+            "Expected nested boolean literal statements to be removed."
+        );
+
+        const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm1016Fixes = rootDiagnostics.filter(
+            (entry) => entry.id === "GM1016"
+        );
+
+        assert.strictEqual(
+            gm1016Fixes.length,
+            2,
+            "Expected GM1016 metadata to be recorded for each removed literal."
+        );
+
+        for (const fix of gm1016Fixes) {
+            assert.strictEqual(fix.automatic, true);
+            assert.ok(fix.range);
+        }
+
+        const blockDiagnostics =
+      ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            blockDiagnostics.some((entry) => entry.id === "GM1016"),
+            true,
+            "Expected GM1016 metadata to be attached to the containing block."
+        );
+    });
+
+    it("deduplicates local variables flagged by GM2044 and records metadata", () => {
+        const source = [
+            "function demo() {",
+            "    var total = 1;",
+            "    var total = 2;",
+            "    var count;",
+            "    var count;",
+            "    if (true) {",
+            "        var temp = 0;",
+            "        var temp = 1;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const functionNode = ast.body?.[0];
+        assert.ok(functionNode?.type === "FunctionDeclaration");
+
+        const statements = functionNode?.body?.body ?? [];
+        assert.strictEqual(statements.length, 4);
+
+        const totalDeclaration = statements[0];
+        assert.ok(totalDeclaration?.type === "VariableDeclaration");
+        assert.strictEqual(totalDeclaration.declarations?.[0]?.id?.name, "total");
+
+        const totalAssignment = statements[1];
+        assert.ok(totalAssignment?.type === "AssignmentExpression");
+        assert.strictEqual(totalAssignment.left?.name, "total");
+
+        const countDeclarations = statements.filter(
+            (node) =>
+                node?.type === "VariableDeclaration" &&
+        node.declarations?.[0]?.id?.name === "count"
+        );
+        assert.strictEqual(countDeclarations.length, 1);
+
+        const ifStatement = statements[3];
+        assert.strictEqual(ifStatement?.type, "IfStatement");
+
+        const innerStatements = ifStatement?.consequent?.body ?? [];
+        assert.strictEqual(innerStatements.length, 2);
+
+        const innerAssignment = innerStatements[1];
+        assert.ok(innerAssignment?.type === "AssignmentExpression");
+        assert.strictEqual(innerAssignment.left?.name, "temp");
+
+        const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2044Entries = programDiagnostics.filter(
+            (entry) => entry.id === "GM2044"
+        );
+
+        assert.ok(
+            gm2044Entries.length >= 2,
+            "Expected GM2044 metadata to be recorded at the program level."
+        );
+        assert.strictEqual(
+            gm2044Entries.every((entry) => entry.automatic === true),
+            true
+        );
+
+        const assignmentDiagnostics =
+      innerAssignment._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            assignmentDiagnostics.some((entry) => entry.id === "GM2044"),
+            true,
+            "Expected inserted assignment to record GM2044 metadata."
+        );
+    });
+
+    it("records metadata for GM2064 flagged struct properties", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "ins_companion = instance_create_layer(x, y, layer, obj_companion, {",
+            "    intro_message: message",
+            "});"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assignment = ast.body?.[0];
+        assert.ok(assignment);
+        const callExpression = assignment.right;
+        assert.ok(callExpression);
+        const structArgument = callExpression.arguments?.[4];
+        assert.ok(structArgument);
+        const [property] = structArgument.properties ?? [];
+        assert.ok(property);
+
+        const propertyMetadata = property._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(propertyMetadata.length, 1);
+
+        const [metadata] = propertyMetadata;
+        assert.strictEqual(metadata.id, "GM2064");
+        assert.strictEqual(metadata.target, "message");
+        assert.strictEqual(metadata.automatic, false);
+
+        const expectedMetadata = getFeatherDiagnosticById("GM2064");
+        assert.ok(expectedMetadata);
+        assert.strictEqual(metadata.title, expectedMetadata.title);
+        assert.strictEqual(metadata.description, expectedMetadata.description);
+        assert.strictEqual(metadata.correction, expectedMetadata.correction);
+
+        const recordedFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm2064Fixes = recordedFixes.filter((entry) => entry.id === "GM2064");
+        assert.strictEqual(gm2064Fixes.length, 1);
+        assert.strictEqual(gm2064Fixes[0].target, "message");
+        assert.strictEqual(gm2064Fixes[0].automatic, false);
+    });
+
+    it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
+        const source = [
+            "var _look_for_description = true;",
+            "",
+            'var _file = file_find_first("/game_data/*.bin", fa_none);',
+            "",
+            "if (_look_for_description)",
+            "{",
+            '    _file2 = file_find_first("/game_data/*.json", fa_none);',
+            "}",
+            "",
+            "file_find_close();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata to be recorded on the AST."
+        );
+
+        const ifStatement = ast.body?.find((node) => node?.type === "IfStatement");
+        assert.ok(ifStatement, "Expected an if statement in the parsed AST.");
+
+        const consequentBody = ifStatement?.consequent?.body ?? [];
+        assert.strictEqual(consequentBody.length, 2);
+
+        const [firstStatement, secondStatement] = consequentBody;
+        assert.strictEqual(firstStatement?.type, "CallExpression");
+        assert.strictEqual(firstStatement?.object?.name, "file_find_close");
+
+        const closeDiagnostics = firstStatement?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            closeDiagnostics.some((entry) => entry.id === "GM2031"),
+            true,
+            "Expected GM2031 metadata on the inserted file_find_close call."
+        );
+
+        assert.strictEqual(secondStatement?.type, "AssignmentExpression");
+        assert.strictEqual(secondStatement?.right?.type, "CallExpression");
+        assert.strictEqual(secondStatement?.right?.object?.name, "file_find_first");
+    });
+
+    it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
+        const source =
+      "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(
+            body.length >= 4,
+            true,
+            "Expected temporaries to be hoisted before the call expression."
+        );
+
+        for (let index = 0; index < 3; index += 1) {
+            const declaration = body[index];
+            assert.ok(declaration);
+            assert.strictEqual(declaration.type, "VariableDeclaration");
+
+            const declarators = Array.isArray(declaration.declarations)
+                ? declaration.declarations
+                : [];
+            assert.strictEqual(declarators.length, 1);
+
+            const [declarator] = declarators;
+            assert.strictEqual(declarator?.id?.type, "Identifier");
+            assert.strictEqual(declarator?.id?.name, `__feather_call_arg_${index}`);
+            assert.strictEqual(declarator?.init?.type, "CallExpression");
+
+            const declarationDiagnostics =
+        declaration._appliedFeatherDiagnostics ?? [];
+            assert.strictEqual(
+                declarationDiagnostics.some((entry) => entry.id === "GM2023"),
+                true,
+                "Expected GM2023 metadata on each hoisted declaration."
+            );
+        }
+
+        const callStatement = body[body.length - 1];
+        assert.ok(callStatement);
+        assert.strictEqual(callStatement.type, "CallExpression");
+
+        const args = Array.isArray(callStatement.arguments)
+            ? callStatement.arguments
+            : [];
+        assert.strictEqual(args.length, 4);
+        assert.strictEqual(args[0]?.type, "Identifier");
+        assert.strictEqual(args[0]?.name, "vb");
+        assert.strictEqual(args[1]?.name, "__feather_call_arg_0");
+        assert.strictEqual(args[2]?.name, "__feather_call_arg_1");
+        assert.strictEqual(args[3]?.name, "__feather_call_arg_2");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2023 = appliedDiagnostics.find((entry) => entry.id === "GM2023");
+
+        assert.ok(gm2023, "Expected GM2023 metadata to be recorded on the AST.");
+        assert.strictEqual(gm2023.automatic, true);
+        assert.strictEqual(gm2023.target, "vertex_position_3d");
+
+        const callDiagnostics = callStatement._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2023"),
+            true,
+            "Expected GM2023 metadata on the transformed call expression."
+        );
     });
 });

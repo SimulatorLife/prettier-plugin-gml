@@ -26,8 +26,9 @@ function getStartIndex(node) {
     }
 
     const isMemberAccess =
-        (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") &&
-        node.object;
+    (node.type === "MemberDotExpression" ||
+      node.type === "MemberIndexExpression") &&
+    node.object;
 
     if (isMemberAccess) {
         const objectStart = getStartIndex(node.object);
@@ -58,10 +59,23 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
+function cloneLocation(location) {
+    if (location == null) {
+        return undefined;
+    }
+
+    if (typeof location !== "object") {
+        return location;
+    }
+
+    return structuredClone(location);
+}
+
 export {
     getLocationIndex,
     getStartIndex,
     getEndIndex,
     getNodeStartIndex,
-    getNodeEndIndex
+    getNodeEndIndex,
+    cloneLocation
 };

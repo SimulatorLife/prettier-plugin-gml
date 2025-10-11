@@ -9,7 +9,11 @@ import {
     applyFeatherFixes,
     preprocessSourceForFeatherFixes
 } from "../ast-transforms/apply-feather-fixes.js";
-import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
+import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex
+} from "../../../shared/ast-locations.js";
 
 const { addTrailingComment } = util;
 
@@ -33,7 +37,9 @@ function parse(text, options) {
     });
 
     if (!ast || typeof ast !== "object") {
-        throw new Error("GameMaker parser returned no AST for the provided source.");
+        throw new Error(
+            "GameMaker parser returned no AST for the provided source."
+        );
     }
 
     if (options?.condenseStructAssignments ?? true) {
@@ -43,26 +49,22 @@ function parse(text, options) {
     if (options?.applyFeatherFixes) {
         applyFeatherFixes(ast, {
             sourceText: parseSource,
-            preprocessedFixMetadata
+            preprocessedFixMetadata,
+            options
         });
     }
+
+    preprocessFunctionArgumentDefaults(ast);
 
     return ast;
 }
 
 function locStart(node) {
-    const startIndex = getStartIndex(node);
-    return typeof startIndex === "number" ? startIndex : 0;
+    return getNodeStartIndex(node) ?? 0;
 }
 
 function locEnd(node) {
-    const endIndex = getEndIndex(node);
-    if (typeof endIndex === "number") {
-        return endIndex + 1;
-    }
-
-    const fallbackStart = getStartIndex(node);
-    return typeof fallbackStart === "number" ? fallbackStart : 0;
+    return getNodeEndIndex(node) ?? 0;
 }
 
 export const gmlParserAdapter = {
