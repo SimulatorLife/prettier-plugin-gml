@@ -348,6 +348,11 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
   Preserve banner-style comments that already have at least this many consecutive `/` characters. Decrease the value if your
   project prefers shorter banners, or raise it to require a longer prefix before a comment is treated as a banner.
 
+- `featherDuplicateParameterSuffixStart` (default: `2`)
+
+  When the optional Feather fixes rename duplicate function parameters (GM1059), start numbering replacements from this value.
+  Increase it to sidestep collisions with existing naming conventions or lower it to keep suffixes compact.
+
 - `applyFeatherFixes` (default: `false`)
 
   Enables opt-in auto-fixes that leverage the bundled GameMaker Feather metadata. When enabled the formatter removes the
