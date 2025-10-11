@@ -255,24 +255,25 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
 
     const implementationFactory = implementationRegistry.get(diagnostic?.id);
 
-    if (typeof implementationFactory === "function") {
-        const implementation = implementationFactory(diagnostic);
-
-        if (typeof implementation === "function") {
-            return (ast, context) => {
-                const fixes = implementation({
-                    ast,
-                    sourceText: context?.sourceText,
-                    preprocessedFixMetadata: context?.preprocessedFixMetadata,
-                    options: context?.options
-                });
-
-                return Array.isArray(fixes) ? fixes : [];
-            };
-        }
+    if (typeof implementationFactory !== "function") {
+        return createNoOpFixer();
     }
 
-    return createNoOpFixer();
+    const implementation = implementationFactory(diagnostic);
+    if (typeof implementation !== "function") {
+        return createNoOpFixer();
+    }
+
+    return (ast, context) => {
+        const fixes = implementation({
+            ast,
+            sourceText: context?.sourceText,
+            preprocessedFixMetadata: context?.preprocessedFixMetadata,
+            options: context?.options
+        });
+
+        return Array.isArray(fixes) ? fixes : [];
+    };
 }
 
 function createNoOpFixer() {
