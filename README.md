@@ -129,6 +129,19 @@ needs an explicit path to load it when you install from Git.
    only reads configuration files placed at or above the directory you run it from, so keeping the config next to your `.yyp`
    ensures consistent behaviour for the CLI and IDE integrations.
 
+   Running the wrapper from a local clone of this repository automatically picks up that project-level config. For example, if
+   you clone the plugin and execute:
+
+   ```bash
+   npm run format:gml -- --path "/path/to/YourGame"
+   ```
+
+   the wrapper resolves `/path/to/YourGame/.prettierrc`, merges any overrides (such as `semi`, `applyFeatherFixes`,
+   `condenseLogicalExpressions`, `optimizeLoopLengthHoisting`, or `condenseStructAssignments`), and applies them while keeping
+   the plugin path and parser locked to the bundled defaults. You only need to add the explicit `plugins` entry inside the
+   GameMaker project if you also intend to run Prettier directly from that project’s workspace (for instance via `npx prettier`
+   or an editor integration that does not go through the wrapper).
+
    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
    `optimizeLoopLengthHoisting`. Override these values in your configuration to match your team conventions. Prefer a single
    entry point? Use the bundled wrapper instead of wiring Prettier manually:

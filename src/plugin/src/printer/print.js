@@ -2728,7 +2728,7 @@ function printSimpleDeclaration(leftDoc, rightDoc) {
 }
 
 // prints empty parens with dangling comments
-function printEmptyParens(path, options) {
+function printEmptyParens(path, _print, options) {
     const printed = group(
         [
             "(",
@@ -2736,7 +2736,6 @@ function printEmptyParens(path, options) {
                 printDanglingCommentsAsGroup(
                     path,
                     options,
-                    true,
                     (comment) => !comment.attachToBrace
                 )
             ]),
