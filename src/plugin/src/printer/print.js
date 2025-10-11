@@ -2314,7 +2314,7 @@ function shouldInsertHoistedLoopSeparator(path, options) {
     let nodeIndex = -1;
 
     for (const key in parent) {
-        if (!Object.prototype.hasOwnProperty.call(parent, key)) {
+        if (!Object.hasOwn(parent, key)) {
             continue;
         }
 

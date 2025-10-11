@@ -710,11 +710,11 @@ function convertStringLiteralArgumentToIdentifier({ argument, container, index, 
         name: identifierName
     };
 
-    if (Object.prototype.hasOwnProperty.call(argument, "start")) {
+    if (Object.hasOwn(argument, "start")) {
         identifierNode.start = cloneLocation(argument.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(argument, "end")) {
+    if (Object.hasOwn(argument, "end")) {
         identifierNode.end = cloneLocation(argument.end);
     }
 
@@ -926,11 +926,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
         accessor
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         current.start = cloneLocation(template.start);
     }
 
-    if (remaining.length === 0 && Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (remaining.length === 0 && Object.hasOwn(template, "end")) {
         current.end = cloneLocation(template.end);
     }
 
@@ -944,11 +944,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             accessor
         };
 
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             next.start = cloneLocation(template.start);
         }
 
-        if (index === remaining.length - 1 && Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (index === remaining.length - 1 && Object.hasOwn(template, "end")) {
             next.end = cloneLocation(template.end);
         }
 
@@ -1504,7 +1504,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 
     functionNode.type = "ConstructorDeclaration";
 
-    if (!Object.prototype.hasOwnProperty.call(functionNode, "parent")) {
+    if (!Object.hasOwn(functionNode, "parent")) {
         functionNode.parent = null;
     }
 
@@ -2681,11 +2681,11 @@ function createFileFindFirstCall(template) {
         callExpression.arguments.push(attributes);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -2818,7 +2818,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                         if (fallback && fallback.type === "FunctionDeclaration") {
                             fallback.type = "ConstructorDeclaration";
 
-                            if (!Object.prototype.hasOwnProperty.call(fallback, "parent")) {
+                            if (!Object.hasOwn(fallback, "parent")) {
                                 fallback.parent = null;
                             }
 
@@ -3096,11 +3096,11 @@ function createEmptyStatementLike(template) {
     const empty = { type: "EmptyStatement" };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             empty.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             empty.end = cloneLocation(template.end);
         }
     }
@@ -3473,11 +3473,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             arguments: []
         };
 
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             callExpression.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             callExpression.end = cloneLocation(template.end);
         }
 
@@ -3498,11 +3498,11 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             body: [statement]
         };
 
-        if (Object.prototype.hasOwnProperty.call(statement, "start")) {
+        if (Object.hasOwn(statement, "start")) {
             block.start = cloneLocation(statement.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(statement, "end")) {
+        if (Object.hasOwn(statement, "end")) {
             block.end = cloneLocation(statement.end);
         }
 
@@ -3856,11 +3856,11 @@ function cloneIdentifier(node) {
         name: node.name
     };
 
-    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    if (Object.hasOwn(node, "start")) {
         cloned.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (Object.hasOwn(node, "end")) {
         cloned.end = cloneLocation(node.end);
     }
 
@@ -3874,7 +3874,7 @@ function copyCommentMetadata(source, target) {
 
     ["leadingComments", "trailingComments", "innerComments", "comments"].forEach(
         (key) => {
-            if (Object.prototype.hasOwnProperty.call(source, key)) {
+            if (Object.hasOwn(source, key)) {
                 target[key] = source[key];
             }
         }
@@ -4014,11 +4014,11 @@ function createAlphaTestRefResetCall(template) {
         arguments: [literalZero]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4084,11 +4084,11 @@ function createTextureRepeatResetCall(template) {
         arguments: [literalFalse]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4134,11 +4134,11 @@ function createBlendEnableResetCall(template) {
         arguments: [literalTrue]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -4154,11 +4154,11 @@ function createLiteral(value, template) {
     };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             literal.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             literal.end = cloneLocation(template.end);
         }
     }
@@ -4874,11 +4874,11 @@ function createIdentifier(name, template) {
     };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             identifier.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (Object.hasOwn(template, "end")) {
             identifier.end = cloneLocation(template.end);
         }
     }
