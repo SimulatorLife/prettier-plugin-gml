@@ -46,6 +46,31 @@ import {
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 
+const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
+const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
+
+function resolveLogicalOperatorStyle(options) {
+    const style = options?.logicalOperatorsStyle;
+
+    if (style === LOGICAL_OPERATOR_STYLE_SYMBOLS) {
+        return LOGICAL_OPERATOR_STYLE_SYMBOLS;
+    }
+
+    return LOGICAL_OPERATOR_STYLE_KEYWORDS;
+}
+
+function applyLogicalOperatorStyle(operator, style) {
+    if (operator === "&&") {
+        return style === LOGICAL_OPERATOR_STYLE_KEYWORDS ? "and" : "&&";
+    }
+
+    if (operator === "||") {
+        return style === LOGICAL_OPERATOR_STYLE_KEYWORDS ? "or" : "||";
+    }
+
+    return operator;
+}
+
 export function print(path, options, print) {
     const node = path.getValue();
 
@@ -425,6 +450,7 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
+            const logicalOperatorStyle = resolveLogicalOperatorStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
@@ -460,17 +486,21 @@ export function print(path, options, print) {
             if (canConvertDivisionToHalf) {
                 operator = "*";
                 right = "0.5";
-            } else if (operator === "&&") {
-                // TODO add option to specify if we want 'and' or '&&'
-                operator = "and";
-            } else if (operator === "||") {
-                operator = "or";
-            } else if (operator === "%") {
-                operator = "mod";
-            } else if (operator === "^^") {
-                operator = "xor";
-            } else if (operator === "<>") {
-                operator = "!=";
+            } else {
+                const styledOperator = applyLogicalOperatorStyle(
+                    operator,
+                    logicalOperatorStyle
+                );
+
+                if (styledOperator !== operator) {
+                    operator = styledOperator;
+                } else if (operator === "%") {
+                    operator = "mod";
+                } else if (operator === "^^") {
+                    operator = "xor";
+                } else if (operator === "<>") {
+                    operator = "!=";
+                }
             }
 
             return group([left, " ", group([operator, line, right])]);
