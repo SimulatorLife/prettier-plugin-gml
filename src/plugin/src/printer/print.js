@@ -47,6 +47,10 @@ import {
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import {
+    prepareIdentifierCasePlan,
+    getIdentifierCaseRenameForNode
+} from "../identifier-case/local-plan.js";
 
 const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
@@ -114,6 +118,7 @@ export function print(path, options, print) {
 
     switch (node.type) {
         case "Program": {
+            prepareIdentifierCasePlan(options);
             maybeReportIdentifierCaseDryRun(options);
             if (node.body.length === 0) {
                 return concat(printDanglingCommentsAsGroup(path, options));
@@ -782,7 +787,13 @@ export function print(path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
-            return concat([prefix, node.name]);
+            const renamed = getIdentifierCaseRenameForNode(node, options);
+            const shouldApplyRename =
+        options?.__identifierCaseDryRun === false &&
+        typeof renamed === "string" &&
+        renamed.length > 0;
+            const identifierName = shouldApplyRename ? renamed : node.name;
+            return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
             return concat(node.value);
