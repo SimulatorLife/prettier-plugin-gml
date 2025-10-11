@@ -126,7 +126,7 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(functionDeclaration?.body?.body);
 
         const [primaryDeclaration, tertiaryDeclaration, returnStatement] =
-            functionDeclaration.body.body;
+      functionDeclaration.body.body;
 
         const primaryInit = primaryDeclaration?.declarations?.[0]?.init;
         const tertiaryInit = tertiaryDeclaration?.declarations?.[0]?.init;
@@ -141,7 +141,10 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(tertiaryInit?.property?.length, 1);
         assert.strictEqual(tertiaryInit?.object?.type, "MemberIndexExpression");
         assert.strictEqual(tertiaryInit.object.property?.length, 1);
-        assert.strictEqual(tertiaryInit.object?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(
+            tertiaryInit.object?.object?.type,
+            "MemberIndexExpression"
+        );
         assert.ok(Array.isArray(tertiaryInit._appliedFeatherDiagnostics));
 
         const globalDeclaration = ast.body?.[1]?.declarations?.[0];
@@ -151,8 +154,14 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(nestedInit?.property?.length, 1);
         assert.strictEqual(nestedInit?.object?.type, "MemberIndexExpression");
         assert.strictEqual(nestedInit?.object?.property?.length, 1);
-        assert.strictEqual(nestedInit?.object?.object?.type, "MemberIndexExpression");
-        assert.strictEqual(nestedInit?.object?.object?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(
+            nestedInit?.object?.object?.type,
+            "MemberIndexExpression"
+        );
+        assert.strictEqual(
+            nestedInit?.object?.object?.object?.type,
+            "MemberIndexExpression"
+        );
         assert.ok(Array.isArray(nestedInit._appliedFeatherDiagnostics));
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
@@ -204,7 +213,10 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(programFixes));
         assert.ok(
             programFixes.some(
-                (detail) => detail.id === "GM1041" && detail.automatic === true && detail.target === "obj_player"
+                (detail) =>
+                    detail.id === "GM1041" &&
+          detail.automatic === true &&
+          detail.target === "obj_player"
             )
         );
     });
@@ -320,9 +332,7 @@ describe("applyFeatherFixes transform", () => {
         const params = Array.isArray(fn.params) ? fn.params : [];
         assert.deepStrictEqual(
             params.map((param) =>
-                param?.type === "Identifier"
-                    ? param.name
-                    : param?.left?.name ?? null
+                param?.type === "Identifier" ? param.name : (param?.left?.name ?? null)
             ),
             ["value", "other"]
         );
@@ -367,9 +377,7 @@ describe("applyFeatherFixes transform", () => {
         const params = Array.isArray(ctor.params) ? ctor.params : [];
         assert.deepStrictEqual(
             params.map((param) =>
-                param?.type === "Identifier"
-                    ? param.name
-                    : param?.left?.name ?? null
+                param?.type === "Identifier" ? param.name : (param?.left?.name ?? null)
             ),
             ["value", "other"]
         );
@@ -433,13 +441,74 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("moves argument references into the preceding function body", () => {
+        const source = [
+            "function args()",
+            "{",
+            "}",
+            "",
+            "var _first_parameter = argument[0];",
+            "var _argument_total = argument_count;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [functionDeclaration, firstStatement, secondStatement] =
+      ast.body ?? [];
+
+        assert.ok(functionDeclaration);
+        assert.strictEqual(functionDeclaration.type, "FunctionDeclaration");
+        assert.strictEqual(typeof firstStatement, "object");
+        assert.strictEqual(typeof secondStatement, "object");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(ast.body.length > 0, true);
+        assert.strictEqual(ast.body[0], functionDeclaration);
+
+        const functionBody = functionDeclaration?.body;
+        assert.ok(functionBody);
+        assert.strictEqual(functionBody.type, "BlockStatement");
+        assert.ok(Array.isArray(functionBody.body));
+        assert.strictEqual(functionBody.body.length >= 2, true);
+        assert.strictEqual(
+            functionBody.body[functionBody.body.length - 2],
+            firstStatement
+        );
+        assert.strictEqual(
+            functionBody.body[functionBody.body.length - 1],
+            secondStatement
+        );
+
+        const firstFixes = firstStatement?._appliedFeatherDiagnostics;
+        const secondFixes = secondStatement?._appliedFeatherDiagnostics;
+
+        assert.ok(Array.isArray(firstFixes));
+        assert.strictEqual(firstFixes.length, 1);
+        assert.strictEqual(firstFixes[0].id, "GM1034");
+        assert.strictEqual(firstFixes[0].target, "argument");
+
+        assert.ok(Array.isArray(secondFixes));
+        assert.strictEqual(secondFixes.length, 1);
+        assert.strictEqual(secondFixes[0].id, "GM1034");
+        assert.strictEqual(secondFixes[0].target, "argument_count");
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        const gm1034Fixes = programFixes.filter((entry) => entry.id === "GM1034");
+        assert.strictEqual(gm1034Fixes.length, 2);
+    });
+
     it("removes duplicate macro declarations and records fix metadata", () => {
         const source = [
             "#macro dbg show_debug_message",
             "#macro other value",
             "#macro dbg show_debug_message",
             "",
-            "dbg(\"hi\");"
+            'dbg("hi");'
         ].join("\n");
 
         const ast = GMLParser.parse(source, {
@@ -453,7 +522,11 @@ describe("applyFeatherFixes transform", () => {
             ? ast.body.filter((node) => node?.type === "MacroDeclaration")
             : [];
 
-        assert.strictEqual(macros.length, 2, "Expected duplicate macro to be removed.");
+        assert.strictEqual(
+            macros.length,
+            2,
+            "Expected duplicate macro to be removed."
+        );
 
         const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
             ? ast._appliedFeatherDiagnostics
@@ -464,8 +537,8 @@ describe("applyFeatherFixes transform", () => {
             recordedFixes.some(
                 (entry) =>
                     entry.id === "GM1038" &&
-                    entry.target === "dbg" &&
-                    entry.automatic !== false
+          entry.target === "dbg" &&
+          entry.automatic !== false
             ),
             "Expected GM1038 fix metadata with automatic flag and target name."
         );
@@ -625,7 +698,7 @@ describe("applyFeatherFixes transform", () => {
         const source = [
             "gpu_set_blendenable(false);",
             "",
-            "draw_text(0, 0, \"Hello!\");"
+            'draw_text(0, 0, "Hello!");'
         ].join("\n");
 
         const ast = GMLParser.parse(source, {
@@ -1073,11 +1146,11 @@ describe("applyFeatherFixes transform", () => {
         const source = [
             "var _look_for_description = true;",
             "",
-            "var _file = file_find_first(\"/game_data/*.bin\", fa_none);",
+            'var _file = file_find_first("/game_data/*.bin", fa_none);',
             "",
             "if (_look_for_description)",
             "{",
-            "    _file2 = file_find_first(\"/game_data/*.json\", fa_none);",
+            '    _file2 = file_find_first("/game_data/*.json", fa_none);',
             "}",
             "",
             "file_find_close();"
