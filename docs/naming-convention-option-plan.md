@@ -85,7 +85,7 @@ The following roadmap refines the high-level phases into discrete, testable work
    - *Actions:*
      - Document canonical examples for each supported case style (camel, Pascal, snake lower/upper) and how to handle numbers, underscores, and `global.` prefixes.
      - Capture findings in a shared spec (appendix to this plan) to guide implementation and review criteria.
-   - *Deliverables:* Reference doc + sample fixtures demonstrating expected conversions.
+   - *Deliverables:* Reference doc + sample fixtures demonstrating expected conversions. See [naming-convention-case-reference.md](./naming-convention-case-reference.md) and the example set under [examples/naming-convention](./examples/naming-convention/) (circulated for review).
    - *Validation:* Peer review of examples; optionally a lightweight script that exercises the proposed conversion helper API to confirm expectations.
 
 2. **Parser symbol table enhancement**
