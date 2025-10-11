@@ -300,7 +300,7 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (hasComment(statement)) {
         return null;
     }
 
@@ -332,7 +332,7 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
         return null;
     }
 
-    if (declarator.comments && declarator.comments.length > 0) {
+    if (hasComment(declarator)) {
         return null;
     }
 
@@ -493,7 +493,7 @@ function extractAssignmentFromStatement(statement) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (hasComment(statement)) {
         return null;
     }
 
