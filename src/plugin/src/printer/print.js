@@ -1788,22 +1788,34 @@ function getStructPropertyPrefix(node, options) {
     return prefix;
 }
 
+function getNormalizedParameterName(paramNode) {
+    if (!paramNode) {
+        return null;
+    }
+
+    const rawName = getIdentifierText(paramNode);
+    if (typeof rawName !== "string" || rawName.length === 0) {
+        return null;
+    }
+
+    const normalizedName = normalizeDocMetadataName(rawName);
+    return typeof normalizedName === "string" && normalizedName.length > 0
+        ? normalizedName
+        : null;
+}
+
 function getParameterDocInfo(paramNode, functionNode, options) {
     if (!paramNode) {
         return null;
     }
 
     if (paramNode.type === "Identifier") {
-        const rawName = getIdentifierText(paramNode);
-        const sanitizedName = stripSyntheticParameterSentinels(rawName);
-        const name = normalizeDocMetadataName(sanitizedName);
+        const name = getNormalizedParameterName(paramNode);
         return name ? { name, optional: false } : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
-        const rawName = getIdentifierText(paramNode.left);
-        const sanitizedName = stripSyntheticParameterSentinels(rawName);
-        const name = normalizeDocMetadataName(sanitizedName);
+        const name = getNormalizedParameterName(paramNode.left);
         if (!name) {
             return null;
         }
@@ -1840,10 +1852,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         return null;
     }
 
-    const rawFallbackName = getIdentifierText(paramNode);
-    const sanitizedFallbackName =
-    stripSyntheticParameterSentinels(rawFallbackName);
-    const fallbackName = normalizeDocMetadataName(sanitizedFallbackName);
+    const fallbackName = getNormalizedParameterName(paramNode);
     return fallbackName ? { name: fallbackName, optional: false } : null;
 }
 
@@ -2267,15 +2276,41 @@ function shouldInsertHoistedLoopSeparator(path, options) {
         return false;
     }
 
-    const siblingList = Object.values(parent).find(
-        (value) => Array.isArray(value) && value.includes(node)
-    );
+    // The printer calls this helper while iterating over statement lists, so
+    // avoid allocating intermediate arrays via `Object.values` + `Array.find`.
+    // A manual property scan lets us bail as soon as the matching list is
+    // located while also reusing the index we compute for the adjacency check.
+    let siblingList = null;
+    let nodeIndex = -1;
+
+    for (const key in parent) {
+        if (!Object.prototype.hasOwnProperty.call(parent, key)) {
+            continue;
+        }
+
+        const value = parent[key];
+        if (!Array.isArray(value)) {
+            continue;
+        }
+
+        for (let index = 0; index < value.length; index += 1) {
+            if (value[index] === node) {
+                siblingList = value;
+                nodeIndex = index;
+                break;
+            }
+        }
+
+        if (siblingList) {
+            break;
+        }
+    }
 
     if (!siblingList) {
         return false;
     }
 
-    const nextNode = siblingList[siblingList.indexOf(node) + 1];
+    const nextNode = siblingList[nodeIndex + 1];
     if (nextNode?.type !== "ForStatement") {
         return false;
     }
