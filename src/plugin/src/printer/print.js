@@ -36,6 +36,7 @@ import {
 } from "./comment-utils.js";
 import { resolveLineCommentOptions } from "./line-comment-options.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
+import { getTrailingCommentPadding } from "./trailing-comment-padding.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -663,7 +664,7 @@ export function print(path, options, print) {
                     return name ? name.length : 0;
                 });
                 const maxNameLength = Math.max(...nameLengths);
-                const commentPadding = getEnumTrailingCommentPadding(options);
+                const commentPadding = getTrailingCommentPadding(options);
                 node.members.forEach((member, index) => {
                     member._commentColumnTarget = maxNameLength + commentPadding;
                     member._hasTrailingComma = index !== node.members.length - 1;
@@ -1237,16 +1238,6 @@ function getAssignmentAlignmentMinimum(options) {
     return coercePositiveIntegerOption(options?.alignAssignmentsMinGroupSize, 3, {
         zeroReplacement: 0
     });
-}
-
-const DEFAULT_ENUM_TRAILING_COMMENT_PADDING = 2;
-
-function getEnumTrailingCommentPadding(options) {
-    return coercePositiveIntegerOption(
-        options?.enumTrailingCommentPadding,
-        DEFAULT_ENUM_TRAILING_COMMENT_PADDING,
-        { zeroReplacement: 0 }
-    );
 }
 
 function isSimpleAssignment(node) {
