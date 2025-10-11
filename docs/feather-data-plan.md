@@ -43,6 +43,7 @@
 ## Regeneration helper
 - Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `scripts/cache/`.
 - Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
+- See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Open questions / future research
 - The manual does not expose rule severity presets. We should inspect GameMaker IDE distributions (potentially via `@bscotch/stitch-launcher`) for config files that mirror the Message Severity table shown in the UI, so we can enrich the dataset in a later iteration.

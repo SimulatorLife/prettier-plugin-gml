@@ -40,6 +40,16 @@ needs an explicit path to load it when you install from Git.
 
 ## Quick start
 
+> Want the shortest path? Install the dependency next to your GameMaker project and run the bundled wrapper:
+>
+> ```bash
+> cd /path/to/MyGameProject
+> npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
+> node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+> ```
+>
+> The sections below expand on each step, add IDE tips, and show how to run the formatter from a local clone of this repository.
+
 ### Requirements
 
 - Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). Use the bundled `.nvmrc` when you want to align
@@ -83,8 +93,8 @@ needs an explicit path to load it when you install from Git.
    `node_modules/root`, matching the name defined in this repository’s workspace manifest. Pin the dependency to a tag or commit
    (for example `github:SimulatorLife/prettier-plugin-gml#<commit>`) if you want reproducible installs.
 
-3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Add a convenience script to your
-   `package.json` so you consistently point Prettier at the bundled plugin entry (`node_modules/root/src/plugin/src/gml.js`):
+3. Because the package is installed directly from GitHub, Prettier cannot auto-detect it. Point Prettier at the bundled plugin
+   entry (`node_modules/root/src/plugin/src/gml.js`) by wiring either a script or an explicit configuration:
 
    ```jsonc
    {
@@ -112,8 +122,8 @@ needs an explicit path to load it when you install from Git.
    ```
 
    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-   `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. Prefer a single entry
-   point? Use the bundled wrapper instead of wiring Prettier manually:
+   `optimizeArrayLengthLoops`. Override these values to match your team conventions. Prefer a single entry point? The bundled
+   wrapper keeps the configuration in one place:
 
    ```bash
    node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
@@ -121,8 +131,8 @@ needs an explicit path to load it when you install from Git.
 
    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
    matching the configured extensions (defaulting to `.gml`, or the comma-separated list provided via the
-   `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable). Pass `--extensions=.gml,.yy` to format additional file types in a
-   single run. The helper also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a
+   `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable). Pass `--extensions=.gml,.yy` to format additional file types
+   in a single run. The helper also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a
    summary of skipped paths so you can confirm non-GML assets stayed untouched.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
@@ -148,6 +158,16 @@ Prefer the raw CLI? Pass the plugin path explicitly:
 ```bash
 npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write "**/*.gml"
 ```
+
+Want the wrapper to drive everything for you (including `.prettierignore` support and multi-extension runs)? Provide the
+target project path directly:
+
+```bash
+node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+```
+
+If `--extensions` is omitted the wrapper falls back to the `.gml` default or to the comma-separated list provided via the
+`PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable.
 
 Before | After
 ------ | -----
@@ -378,9 +398,11 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
   npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
   ```
 
-- Seeing `No parser could be inferred for file ...`? Ensure you installed the plugin from the GameMaker project directory and
-  pass the plugin path to the CLI (for example `--plugin=./node_modules/root/src/plugin/src/gml.js`).
-- Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
+  - Seeing `No parser could be inferred for file ...`? Ensure you installed the plugin from the GameMaker project directory and
+    pass the plugin path to the CLI (for example `--plugin=./node_modules/root/src/plugin/src/gml.js`).
+  - Wrapper complaining about a missing target? Pass the project directory as the first argument or via `--path=...` (for example
+    `node ./node_modules/root/src/plugin/prettier-wrapper.js --path .`).
+  - Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
 
