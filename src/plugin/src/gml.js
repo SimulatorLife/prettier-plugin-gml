@@ -174,24 +174,28 @@ export const options = {
     }
 };
 
-export const defaultOptions = {
+const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
     trailingComma: "none",
-    printWidth: 120,
-    optimizeLoopLengthHoisting: true,
-    condenseStructAssignments: true,
-    loopLengthHoistFunctionSuffixes: "",
-    lineCommentBannerMinimumSlashes: 5,
-    lineCommentBannerAutofillThreshold: 4,
-    alignAssignmentsMinGroupSize: 3,
-    trailingCommentPadding: 2,
-    trailingCommentInlineOffset: 1,
-    maxParamsPerLine: 0,
-    allowSingleLineIfStatements: true,
-    logicalOperatorsStyle: "keywords",
-    condenseLogicalExpressions: false,
-    preserveGlobalVarStatements: true,
-    applyFeatherFixes: false,
-    useStringInterpolation: false
+    printWidth: 120
+};
+
+function extractOptionDefaults(optionConfigMap) {
+    const defaults = {};
+
+    for (const [name, config] of Object.entries(optionConfigMap)) {
+        if (config && Object.hasOwn(config, "default")) {
+            defaults[name] = config.default;
+        }
+    }
+
+    return defaults;
+}
+
+const gmlOptionDefaults = extractOptionDefaults(options);
+
+export const defaultOptions = {
+    ...BASE_PRETTIER_DEFAULTS,
+    ...gmlOptionDefaults
 };
