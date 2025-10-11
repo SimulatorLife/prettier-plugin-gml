@@ -103,6 +103,53 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("converts numeric string call arguments into numeric literals for GM1029", () => {
+        const source =
+            'draw_sprite(sprite_index, image_index, "1234", "5678");';
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [callExpression] = ast.body ?? [];
+        assert.ok(callExpression);
+
+        const args = Array.isArray(callExpression?.arguments)
+            ? callExpression.arguments
+            : [];
+
+        assert.strictEqual(args.length, 4);
+        assert.strictEqual(args[2]?.type, "Literal");
+        assert.strictEqual(args[3]?.type, "Literal");
+        assert.strictEqual(args[2]?.value, "1234");
+        assert.strictEqual(args[3]?.value, "5678");
+
+        const literalMetadata = args[2]?._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(literalMetadata));
+        assert.strictEqual(literalMetadata.length, 1);
+
+        const [metadata] = literalMetadata;
+        const diagnostic = getFeatherDiagnosticById("GM1029");
+
+        assert.strictEqual(metadata?.id, "GM1029");
+        assert.strictEqual(metadata?.automatic, true);
+        assert.strictEqual(metadata?.title, diagnostic?.title ?? null);
+        assert.strictEqual(
+            metadata?.description,
+            diagnostic?.description ?? null
+        );
+        assert.strictEqual(
+            metadata?.correction,
+            diagnostic?.correction ?? null
+        );
+        assert.ok(metadata?.range);
+        assert.strictEqual(typeof metadata.range.start, "number");
+        assert.strictEqual(typeof metadata.range.end, "number");
+    });
+
     it("normalizes multidimensional array indexing and records metadata", () => {
         const source = [
             "function fetch_value(_grid, _row, _column, _depth)",
