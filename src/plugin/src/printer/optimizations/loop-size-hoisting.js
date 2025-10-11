@@ -12,13 +12,13 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_grid_height", "height"]
 ]);
 
-const ARRAY_LENGTH_SUFFIX_CACHE = Symbol.for(
+const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
     "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
 
 function getSizeRetrievalFunctionSuffixes(options) {
-    if (options && options[ARRAY_LENGTH_SUFFIX_CACHE]) {
-        return options[ARRAY_LENGTH_SUFFIX_CACHE];
+    if (options && options[LOOP_SIZE_SUFFIX_CACHE]) {
+        return options[LOOP_SIZE_SUFFIX_CACHE];
     }
 
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(
@@ -36,7 +36,7 @@ function getSizeRetrievalFunctionSuffixes(options) {
 
     if (options) {
         try {
-            Object.defineProperty(options, ARRAY_LENGTH_SUFFIX_CACHE, {
+            Object.defineProperty(options, LOOP_SIZE_SUFFIX_CACHE, {
                 value: merged,
                 configurable: false,
                 enumerable: false,
@@ -81,7 +81,7 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
     return overrides;
 }
 
-function getArrayLengthHoistInfo(
+function getLoopLengthHoistInfo(
     node,
     sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
 ) {
@@ -186,6 +186,6 @@ function buildCachedSizeVariableName(baseName, suffix) {
 export {
     DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
-    getArrayLengthHoistInfo,
+    getLoopLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
 };

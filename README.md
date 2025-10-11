@@ -112,7 +112,7 @@ needs an explicit path to load it when you install from Git.
    ```
 
    The plugin defaults to `tabWidth: 4`, `semi: true`, `trailingComma: "none"`, `printWidth: 120`, and enables
-   `optimizeArrayLengthLoops`. Override these values in your configuration to match your team conventions. Prefer a single entry
+   `optimizeLoopLengthHoisting`. Override these values in your configuration to match your team conventions. Prefer a single entry
    point? Use the bundled wrapper instead of wiring Prettier manually:
 
    ```bash
@@ -300,10 +300,9 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 #### Plugin-specific options
 
-- `optimizeArrayLengthLoops` (default: `true`)
+- `optimizeLoopLengthHoisting` (default: `true`)
 
-  Hoists calls to `array_length(...)` out of matching `for` loop conditions and stores the result in a cached variable
-  (`var <array>_len = array_length(<array>);`). Disable the option to keep the original loop structure when this optimization is undesirable for your project.
+  Hoists supported loop size calls (for example `array_length(...)`, `ds_queue_size(...)`) out of matching `for` loop conditions and stores the result in a cached variable (`var <name>_<suffix> = <size_function>(...);`). Disable the option to keep the original loop structure when this optimization is undesirable for your project.
 
 - `condenseStructAssignments` (default: `true`)
 
