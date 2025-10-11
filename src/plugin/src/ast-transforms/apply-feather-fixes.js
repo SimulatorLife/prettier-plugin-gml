@@ -366,6 +366,18 @@ function buildFeatherFixImplementations(diagnostics) {
             });
             continue;
         }
+        if (diagnosticId === "GM1054") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureConstructorParentsExist({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
 
         if (diagnosticId === "GM1059") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast, options }) => {
@@ -2256,6 +2268,131 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
     };
 
     visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureConstructorParentsExist({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const constructors = new Map();
+    const functions = new Map();
+
+    const collect = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                collect(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "ConstructorDeclaration" && typeof node.id === "string") {
+            if (!constructors.has(node.id)) {
+                constructors.set(node.id, node);
+            }
+        } else if (node.type === "FunctionDeclaration" && typeof node.id === "string") {
+            if (!functions.has(node.id)) {
+                functions.set(node.id, node);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                collect(value);
+            }
+        }
+    };
+
+    collect(ast);
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "ConstructorDeclaration") {
+            const parentClause = node.parent;
+
+            if (parentClause && typeof parentClause === "object") {
+                const parentName = parentClause.id;
+
+                if (typeof parentName === "string" && parentName.length > 0) {
+                    if (!constructors.has(parentName)) {
+                        const fallback = functions.get(parentName);
+
+                        if (fallback && fallback.type === "FunctionDeclaration") {
+                            fallback.type = "ConstructorDeclaration";
+
+                            if (!Object.prototype.hasOwnProperty.call(fallback, "parent")) {
+                                fallback.parent = null;
+                            }
+
+                            constructors.set(parentName, fallback);
+                            functions.delete(parentName);
+
+                            const fixDetail = createFeatherFixDetail(diagnostic, {
+                                target: parentName,
+                                range: {
+                                    start: getNodeStartIndex(fallback),
+                                    end: getNodeEndIndex(fallback)
+                                }
+                            });
+
+                            if (fixDetail) {
+                                attachFeatherFixMetadata(fallback, [fixDetail]);
+                                fixes.push(fixDetail);
+                            }
+                        } else {
+                            const fixDetail = createFeatherFixDetail(diagnostic, {
+                                target: parentName,
+                                range: {
+                                    start: getNodeStartIndex(parentClause),
+                                    end: getNodeEndIndex(parentClause)
+                                }
+                            });
+
+                            if (fixDetail) {
+                                node.parent = null;
+                                attachFeatherFixMetadata(node, [fixDetail]);
+                                fixes.push(fixDetail);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
 
     return fixes;
 }
