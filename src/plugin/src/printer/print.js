@@ -1437,21 +1437,53 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         return null;
     }
 
-    if (declarator.init.docComments && declarator.init.docComments.length > 0) {
-        return null;
+    const hasFunctionDoc =
+        declarator.init.docComments && declarator.init.docComments.length > 0;
+
+    const rawComments = Array.isArray(node.comments) ? node.comments : [];
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const existingDocLines = [];
+    const remainingComments = [];
+
+    for (const comment of rawComments) {
+        if (!comment || comment.type !== "CommentLine") {
+            remainingComments.push(comment);
+            continue;
+        }
+
+        const formatted = formatLineComment(comment, lineCommentOptions);
+        if (
+            typeof formatted !== "string" ||
+            !formatted.trim().startsWith("///")
+        ) {
+            remainingComments.push(comment);
+            continue;
+        }
+
+        comment.printed = true;
+        existingDocLines.push(formatted);
     }
 
-    if (node.comments && node.comments.length > 0) {
+    if (existingDocLines.length > 0) {
+        node.comments = remainingComments;
+    }
+
+    if (hasFunctionDoc && existingDocLines.length === 0) {
         return null;
     }
 
     const name = declarator.id.name;
-    const syntheticLines = computeSyntheticFunctionDocLines(
-        declarator.init,
-        [],
-        options,
-        { nameOverride: name }
-    );
+    const syntheticLines =
+        existingDocLines.length > 0
+            ? mergeSyntheticDocComments(
+                declarator.init,
+                existingDocLines,
+                options,
+                { nameOverride: name }
+            )
+            : computeSyntheticFunctionDocLines(declarator.init, [], options, {
+                nameOverride: name
+            });
 
     if (syntheticLines.length === 0) {
         return null;
@@ -1560,11 +1592,17 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
-function mergeSyntheticDocComments(node, existingDocLines, options) {
+function mergeSyntheticDocComments(
+    node,
+    existingDocLines,
+    options,
+    overrides = {}
+) {
     const syntheticLines = computeSyntheticFunctionDocLines(
         node,
         existingDocLines,
-        options
+        options,
+        overrides
     );
 
     if (syntheticLines.length === 0) {
@@ -1973,7 +2011,8 @@ function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
     if (
         hasReturnsTag ||
         !functionNode ||
-        functionNode.type !== "FunctionDeclaration"
+        functionNode.type !== "FunctionDeclaration" ||
+        functionNode._suppressSyntheticReturnsDoc
     ) {
         return lines;
     }
