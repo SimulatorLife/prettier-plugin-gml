@@ -1313,6 +1313,15 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
+        const separatorStatements = (ast.body ?? []).filter(
+            (node) => node?.type === "EmptyStatement"
+        );
+        assert.strictEqual(
+            separatorStatements.length,
+            0,
+            "Expected GM2056 fix to avoid inserting separator statements."
+        );
+
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
