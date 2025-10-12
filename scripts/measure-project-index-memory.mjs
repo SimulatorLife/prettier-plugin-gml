@@ -23,7 +23,7 @@ function formatBytes(bytes) {
 
 async function measureBuildProjectIndexMemory() {
     const { buildProjectIndex } = await import(
-        "../src/shared/project-index/index.js"
+        "../src/plugin/src/project-index/index.js"
     );
 
     const fsFacade = {
