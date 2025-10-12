@@ -35,6 +35,7 @@
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:ci": "eslint . --max-warnings=0",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
