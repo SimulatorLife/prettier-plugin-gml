@@ -201,3 +201,4 @@ The following roadmap refines the high-level phases into discrete, testable work
 - **Collision risk:** Always compute rename plans globally before mutating. Abort formatting for files tied to unresolved conflicts and instruct the user to resolve duplicates or adjust ignore lists.
 - **Performance regression:** Cache project analysis, debounce rebuilds based on file mtimes, and expose metrics (e.g. number of identifiers processed) for profiling.
 - **Data corruption:** Wrap asset writes in atomic operations (temp file + rename) and create backups when altering `.yy` files. If the process fails, restore from backup.
+- **Operational precautions:** Before running automated asset renames, create a clean VCS checkpoint or manual backup of the project tree. Capture the generated rename summary so that file moves can be rolled back quickly, and verify filesystem permissions (write access to `.yy`/`.gml` files and their parent directories) prior to formatting.
