@@ -7,3 +7,17 @@ function sample() {
     var second = argument1;
     return argument1 + argument2;
 }
+
+/// @function sample2
+/// @param zero
+/// @param first
+/// @param two
+/// @param second
+/// @param argument4
+function sample2() {
+    var first = argument1;
+    var second = argument3;
+    var zero = argument0;
+    var two = argument2;
+    return second + argument4;
+}
