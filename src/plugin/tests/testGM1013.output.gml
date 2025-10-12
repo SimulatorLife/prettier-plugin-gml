@@ -1,6 +1,6 @@
 /// @function AttackController
 /// @param [attack_bonus=10]
-function AttackController (attack_bonus = 10) constructor {
+function AttackController(attack_bonus = 10) constructor {
 
     self.attack_bonus = attack_bonus;
 
