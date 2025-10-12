@@ -37,64 +37,55 @@ function getIdentifierText(node) {
         return node;
     }
 
-    // Hoist the common type lookup; many callers are hot paths that check the
-    // same field repeatedly while traversing AST nodes.
+    // Hoist the common type lookup so the switch below can reuse it without
+    // repeatedly touching the same field during hot traversal paths.
     const { type } = node;
 
-    if (type === "Identifier") {
-        const name = node.name;
-        return typeof name === "string" ? name : null;
-    }
-
-    const directName = node.name;
-    if (typeof directName === "string") {
-        return directName;
-    }
-
-    if (type === "Literal") {
-        const value = node.value;
-        return typeof value === "string" ? value : null;
-    }
-
-    if (type === "MemberDotExpression") {
-        const object = node.object;
-        const property = node.property;
-
-        if (
-            !object ||
-            object.type !== "Identifier" ||
-            !property ||
-            property.type !== "Identifier"
-        ) {
-            return null;
+    switch (type) {
+        case "Identifier": {
+            const { name } = node;
+            return typeof name === "string" ? name : null;
         }
+        case "Literal": {
+            const { value } = node;
+            return typeof value === "string" ? value : null;
+        }
+        case "MemberDotExpression": {
+            const { object, property } = node;
 
-        // String concatenation avoids the template literal machinery in this
-        // hot branch, shaving work inside tight printer loops.
-        return object.name + "_" + property.name;
+            if (
+                !object ||
+                object.type !== "Identifier" ||
+                !property ||
+                property.type !== "Identifier"
+            ) {
+                return null;
+            }
+
+            // String concatenation avoids the template literal machinery in this
+            // hot branch, shaving work inside tight printer loops.
+            return object.name + "_" + property.name;
+        }
+        case "MemberIndexExpression": {
+            const object = node.object;
+
+            if (!object || object.type !== "Identifier") {
+                return null;
+            }
+
+            const property = node.property;
+            if (!Array.isArray(property) || property.length !== 1) {
+                return null;
+            }
+
+            const indexText = getMemberIndexText(property[0]);
+            return indexText == null ? null : object.name + "_" + indexText;
+        }
+        default: {
+            const { name } = node;
+            return typeof name === "string" ? name : null;
+        }
     }
-
-    if (type === "MemberIndexExpression") {
-        const object = node.object;
-
-        if (!object || object.type !== "Identifier") {
-            return null;
-        }
-
-        const property = node.property;
-        if (!Array.isArray(property) || property.length !== 1) {
-            return null;
-        }
-
-        const indexText = getMemberIndexText(property[0]);
-        if (indexText == null) {
-            return null;
-        }
-
-        return object.name + "_" + indexText;
-    }
-
-    return null;
 }
 
 function getMemberIndexText(indexNode) {
