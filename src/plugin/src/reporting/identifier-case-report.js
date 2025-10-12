@@ -557,8 +557,14 @@ export function maybeReportIdentifierCaseDryRun(options) {
                 options.__identifierCaseConflicts ??
                 options.identifierCaseConflicts ??
                 [],
-            dryRun: options.__identifierCaseDryRun !== false,
-            logFilePath: options.__identifierCaseReportLogPath ?? null,
+            dryRun:
+                options.__identifierCaseDryRun ??
+                options.identifierCaseDryRun ??
+                undefined,
+            logFilePath:
+                options.__identifierCaseReportLogPath ??
+                options.identifierCaseReportLogPath ??
+                null,
             logger: options.logger ?? null,
             diagnostics: Array.isArray(options.diagnostics)
                 ? options.diagnostics
@@ -568,7 +574,9 @@ export function maybeReportIdentifierCaseDryRun(options) {
             now:
                 typeof options.__identifierCaseNow === "function"
                     ? options.__identifierCaseNow
-                    : null
+                    : typeof options.identifierCaseNow === "function"
+                        ? options.identifierCaseNow
+                        : null
         };
     } else {
         context = consumeIdentifierCaseDryRunContext(options.filepath ?? null);
@@ -581,7 +589,7 @@ export function maybeReportIdentifierCaseDryRun(options) {
     const {
         renamePlan,
         conflicts = [],
-        dryRun = options.__identifierCaseDryRun !== false,
+        dryRun: contextDryRun,
         logFilePath = null,
         logger = null,
         diagnostics = null,
@@ -594,7 +602,18 @@ export function maybeReportIdentifierCaseDryRun(options) {
         return null;
     }
 
-    if (dryRun === false) {
+    const optionsDryRun =
+        options.__identifierCaseDryRun ?? options.identifierCaseDryRun;
+    const shouldDryRun =
+        optionsDryRun !== undefined
+            ? optionsDryRun !== false
+            : contextDryRun !== undefined
+                ? contextDryRun !== false
+                : true;
+
+    options.__identifierCaseDryRun = shouldDryRun;
+
+    if (!shouldDryRun) {
         const result = summarizeIdentifierCasePlan({
             renamePlan,
             conflicts
@@ -611,7 +630,10 @@ export function maybeReportIdentifierCaseDryRun(options) {
         diagnostics ??
         (Array.isArray(options.diagnostics) ? options.diagnostics : null);
     const effectiveLogPath =
-        logFilePath ?? options.__identifierCaseReportLogPath ?? null;
+        logFilePath ??
+        options.__identifierCaseReportLogPath ??
+        options.identifierCaseReportLogPath ??
+        null;
     const effectiveFs =
         fsFacade ??
         options.__identifierCaseFs ??
@@ -621,7 +643,9 @@ export function maybeReportIdentifierCaseDryRun(options) {
         now ??
         (typeof options.__identifierCaseNow === "function"
             ? options.__identifierCaseNow
-            : defaultNow);
+            : typeof options.identifierCaseNow === "function"
+                ? options.identifierCaseNow
+                : defaultNow);
 
     const result = reportIdentifierCasePlan({
         renamePlan,

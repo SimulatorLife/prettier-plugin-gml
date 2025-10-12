@@ -121,6 +121,13 @@ export function prepareIdentifierCasePlan(options) {
         return;
     }
 
+    if (
+        options.__identifierCaseDryRun === undefined &&
+        options.identifierCaseDryRun !== undefined
+    ) {
+        options.__identifierCaseDryRun = options.identifierCaseDryRun;
+    }
+
     if (options.__identifierCasePlanGeneratedInternally === true) {
         return;
     }

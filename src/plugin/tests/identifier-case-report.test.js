@@ -11,6 +11,7 @@ import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
 } from "../src/reporting/identifier-case-context.js";
+import { maybeReportIdentifierCaseDryRun } from "../src/reporting/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
@@ -198,6 +199,77 @@ describe("identifier case reporting", () => {
             );
         } finally {
             clearIdentifierCaseDryRunContexts();
+            await fs.rm(tempRoot, { recursive: true, force: true });
+        }
+    });
+
+    it("honors public identifier case reporting options", async () => {
+        const renamePlan = createSampleRenamePlan();
+        const conflicts = createSampleConflicts();
+        const diagnostics = [];
+        const messages = [];
+        const writes = [];
+        const timestamp = Date.UTC(2024, 5, 1, 12, 34, 56, 789);
+
+        const logger = {
+            log(message) {
+                messages.push(message);
+            },
+            warn(message) {
+                messages.push(`WARN: ${message}`);
+            }
+        };
+
+        const fakeFs = {
+            mkdirSync(targetPath) {
+                writes.push({ type: "mkdir", targetPath });
+            },
+            writeFileSync(targetPath, contents) {
+                writes.push({ type: "write", targetPath, contents });
+            }
+        };
+
+        const tempRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "gml-identifier-report-options-")
+        );
+        const logPath = path.join(tempRoot, "logs", "identifier-case.json");
+
+        try {
+            const result = maybeReportIdentifierCaseDryRun({
+                identifierCaseRenamePlan: renamePlan,
+                identifierCaseConflicts: conflicts,
+                identifierCaseDryRun: true,
+                identifierCaseReportLogPath: logPath,
+                identifierCaseFs: fakeFs,
+                identifierCaseNow: () => timestamp,
+                diagnostics,
+                logger
+            });
+
+            assert.ok(result);
+
+            const joinedMessages = messages.join("\n");
+            assert.match(joinedMessages, /Identifier case dry-run summary/);
+            assert.match(joinedMessages, /Planned renames: 2/);
+            assert.match(joinedMessages, /Conflicts: 2/);
+
+            assert.equal(diagnostics.length, 1);
+            const diagnostic = diagnostics[0];
+            assert.equal(diagnostic.summary.renameCount, 2);
+            assert.equal(diagnostic.summary.conflictCount, 2);
+
+            const writeEntry = writes.find((entry) => entry.type === "write");
+            assert.ok(writeEntry);
+            assert.equal(writeEntry.targetPath, logPath);
+
+            const parsedLog = JSON.parse(writeEntry.contents);
+            assert.equal(parsedLog.summary.renameCount, 2);
+            assert.equal(parsedLog.summary.conflictCount, 2);
+            assert.equal(
+                parsedLog.generatedAt,
+                new Date(timestamp).toISOString()
+            );
+        } finally {
             await fs.rm(tempRoot, { recursive: true, force: true });
         }
     });
