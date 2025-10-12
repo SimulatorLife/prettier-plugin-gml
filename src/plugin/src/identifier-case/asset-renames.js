@@ -12,7 +12,7 @@ import {
     incrementFileOccurrence,
     summarizeFileOccurrences
 } from "./common.js";
-import { createAssetRenameExecutor } from "../assets/rename.js";
+import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 
 const require = createRequire(import.meta.url);
 const identifiersMetadata = require("../../../../resources/gml-identifiers.json");

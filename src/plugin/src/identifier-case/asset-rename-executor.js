@@ -9,7 +9,7 @@ import {
     existsSync as nodeExistsSync
 } from "node:fs";
 
-import { DEFAULT_WRITE_ACCESS_MODE } from "../identifier-case/common.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
 const defaultFsFacade = Object.freeze({
     readFileSync(targetPath, encoding = "utf8") {
