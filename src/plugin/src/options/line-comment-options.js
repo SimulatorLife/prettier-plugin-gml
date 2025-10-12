@@ -50,10 +50,41 @@ function readLineCommentOption(value, fallback) {
     return typeof value === "number" ? value : fallback;
 }
 
+function mergeBoilerplateFragments(
+    rawFragments,
+    { splitPattern = null, requireArrayInput = false } = {}
+) {
+    if (requireArrayInput && !Array.isArray(rawFragments)) {
+        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
+    }
+
+    const normalizedFragments = normalizeStringList(rawFragments, {
+        splitPattern,
+        allowInvalidType: true
+    });
+
+    if (normalizedFragments.length === 0) {
+        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
+    }
+
+    const merged = new Set(DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS);
+
+    for (const fragment of normalizedFragments) {
+        merged.add(fragment);
+    }
+
+    return Object.freeze(Array.from(merged));
+}
+
 function mergeLineCommentOptionOverrides(overrides) {
     if (typeof overrides !== "object" || overrides === null) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
+
+    const boilerplateFragments = mergeBoilerplateFragments(
+        overrides.boilerplateFragments,
+        { requireArrayInput: true }
+    );
 
     return createLineCommentOptions(
         readLineCommentOption(
@@ -64,12 +95,7 @@ function mergeLineCommentOptionOverrides(overrides) {
             overrides.bannerAutofillThreshold,
             DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
         ),
-        Array.isArray(overrides.boilerplateFragments)
-            ? dedupeFragments(
-                DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
-                overrides.boilerplateFragments
-            )
-            : DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
+        boilerplateFragments
     );
 }
 
@@ -144,34 +170,8 @@ const BOILERPLATE_FRAGMENTS_CACHE_KEY = Symbol.for(
 );
 const boilerplateFragmentsCache = new WeakMap();
 
-function dedupeFragments(baseFragments, extensions) {
-    const merged = new Set(baseFragments);
-
-    for (const fragment of extensions) {
-        if (typeof fragment !== "string") {
-            continue;
-        }
-
-        const trimmed = fragment.trim();
-        if (trimmed.length > 0) {
-            merged.add(trimmed);
-        }
-    }
-
-    return Object.freeze(Array.from(merged));
-}
-
 function parseBoilerplateFragments(rawValue) {
-    const fragments = normalizeStringList(rawValue, {
-        splitPattern: /,/,
-        allowInvalidType: true
-    });
-
-    if (fragments.length === 0) {
-        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
-    }
-
-    return dedupeFragments(DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS, fragments);
+    return mergeBoilerplateFragments(rawValue, { splitPattern: /,/ });
 }
 
 function getBoilerplateCommentFragments(options) {
