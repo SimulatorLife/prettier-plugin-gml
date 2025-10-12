@@ -229,7 +229,9 @@ describe("applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1010"),
+            ast._appliedFeatherDiagnostics.some(
+                (entry) => entry.id === "GM1010"
+            ),
             true,
             "Expected GM1010 metadata to be recorded on the program node."
         );
