@@ -6,7 +6,7 @@ import {
     isDocCommentLine,
     isLineComment
 } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../printer/option-utils.js";
+import { coercePositiveIntegerOption } from "../options/option-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
