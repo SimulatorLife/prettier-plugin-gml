@@ -29,7 +29,10 @@ export default class ScopeTracker {
             return null;
         }
 
-        const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown");
+        const scope = new Scope(
+            `scope-${this.scopeCounter++}`,
+            kind ?? "unknown"
+        );
         this.scopeStack.push(scope);
         if (!this.rootScope) {
             this.rootScope = scope;
@@ -77,7 +80,9 @@ export default class ScopeTracker {
         }
 
         if (typeof scopeOverride === "string") {
-            const found = this.scopeStack.find((scope) => scope.id === scopeOverride);
+            const found = this.scopeStack.find(
+                (scope) => scope.id === scopeOverride
+            );
             if (found) {
                 return found;
             }

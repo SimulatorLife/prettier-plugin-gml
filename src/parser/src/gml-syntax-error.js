@@ -39,8 +39,8 @@ export default class GameMakerParseErrorListener extends antlr4.error
 
         throw (
             `Syntax Error (line ${line}, column ${column}): ` +
-      `unexpected ${wrongSymbol}` +
-      ` while matching rule ${currentRuleFormatted}`
+            `unexpected ${wrongSymbol}` +
+            ` while matching rule ${currentRuleFormatted}`
         );
     }
 }
@@ -61,7 +61,7 @@ function getSpecificSyntaxErrorMessage({
             const openBraceToken = parser._ctx.parentCtx.openBlock().start;
             return (
                 `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
-        "missing associated closing brace for this block"
+                "missing associated closing brace for this block"
             );
         }
         case "lValueExpression": {
@@ -70,26 +70,26 @@ function getSpecificSyntaxErrorMessage({
             }
             return (
                 `Syntax Error (line ${line}, column ${column}): ` +
-        "++, -- can only be used on a variable-addressing expression"
+                "++, -- can only be used on a variable-addressing expression"
             );
         }
         case "expression": {
             return (
                 `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol} in expression`
+                `unexpected ${wrongSymbol} in expression`
             );
         }
         case "statement":
         case "program": {
             return (
                 `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol}`
+                `unexpected ${wrongSymbol}`
             );
         }
         case "parameterList": {
             return (
                 `Syntax Error (line ${line}, column ${column}): ` +
-        `unexpected ${wrongSymbol} in function parameters, expected an identifier`
+                `unexpected ${wrongSymbol} in function parameters, expected an identifier`
             );
         }
         default:

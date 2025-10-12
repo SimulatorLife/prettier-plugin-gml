@@ -78,7 +78,10 @@ test("findProjectRoot returns null when no manifest is discovered", async () => 
     const filePath = path.join(workingDir, "scratch", "notes.gml");
     const mockFs = createMockFs({
         [workingDir]: { type: "dir", entries: ["scratch"] },
-        [path.join(workingDir, "scratch")]: { type: "dir", entries: ["notes.gml"] },
+        [path.join(workingDir, "scratch")]: {
+            type: "dir",
+            entries: ["notes.gml"]
+        },
         [filePath]: { type: "file", mtimeMs: 5 }
     });
 
@@ -94,14 +97,20 @@ test("deriveCacheKey changes when manifest mtime changes", async () => {
     const initialFs = createMockFs({
         [projectRoot]: { type: "dir", entries: [manifestName, "scripts"] },
         [path.join(projectRoot, manifestName)]: { type: "file", mtimeMs: 100 },
-        [path.join(projectRoot, "scripts")]: { type: "dir", entries: ["hero.gml"] },
+        [path.join(projectRoot, "scripts")]: {
+            type: "dir",
+            entries: ["hero.gml"]
+        },
         [filePath]: { type: "file", mtimeMs: 200 }
     });
 
     const updatedFs = createMockFs({
         [projectRoot]: { type: "dir", entries: [manifestName, "scripts"] },
         [path.join(projectRoot, manifestName)]: { type: "file", mtimeMs: 150 },
-        [path.join(projectRoot, "scripts")]: { type: "dir", entries: ["hero.gml"] },
+        [path.join(projectRoot, "scripts")]: {
+            type: "dir",
+            entries: ["hero.gml"]
+        },
         [filePath]: { type: "file", mtimeMs: 200 }
     });
 
@@ -124,18 +133,30 @@ test("deriveCacheKey is stable across manifest ordering", async () => {
     const manifestB = `tools${PROJECT_MANIFEST_EXTENSION}`;
 
     const fsVariantA = createMockFs({
-        [projectRoot]: { type: "dir", entries: [manifestA, manifestB, "scripts"] },
+        [projectRoot]: {
+            type: "dir",
+            entries: [manifestA, manifestB, "scripts"]
+        },
         [path.join(projectRoot, manifestA)]: { type: "file", mtimeMs: 100 },
         [path.join(projectRoot, manifestB)]: { type: "file", mtimeMs: 200 },
-        [path.join(projectRoot, "scripts")]: { type: "dir", entries: ["hero.gml"] },
+        [path.join(projectRoot, "scripts")]: {
+            type: "dir",
+            entries: ["hero.gml"]
+        },
         [filePath]: { type: "file", mtimeMs: 300 }
     });
 
     const fsVariantB = createMockFs({
-        [projectRoot]: { type: "dir", entries: [manifestB, manifestA, "scripts"] },
+        [projectRoot]: {
+            type: "dir",
+            entries: [manifestB, manifestA, "scripts"]
+        },
         [path.join(projectRoot, manifestA)]: { type: "file", mtimeMs: 100 },
         [path.join(projectRoot, manifestB)]: { type: "file", mtimeMs: 200 },
-        [path.join(projectRoot, "scripts")]: { type: "dir", entries: ["hero.gml"] },
+        [path.join(projectRoot, "scripts")]: {
+            type: "dir",
+            entries: ["hero.gml"]
+        },
         [filePath]: { type: "file", mtimeMs: 300 }
     });
 

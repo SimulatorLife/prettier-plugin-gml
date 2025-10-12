@@ -62,9 +62,9 @@ function getIdentifierText(node) {
 
         if (
             !object ||
-      object.type !== "Identifier" ||
-      !property ||
-      property.type !== "Identifier"
+            object.type !== "Identifier" ||
+            !property ||
+            property.type !== "Identifier"
         ) {
             return null;
         }

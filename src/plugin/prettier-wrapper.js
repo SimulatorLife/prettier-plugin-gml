@@ -110,7 +110,7 @@ function parseCliArguments(args) {
 }
 
 const { targetPathInput, extensions: configuredExtensions } =
-  parseCliArguments(cliArgs);
+    parseCliArguments(cliArgs);
 
 if (!targetPathInput) {
     console.error(
@@ -121,7 +121,7 @@ if (!targetPathInput) {
 
 const targetPath = path.resolve(process.cwd(), targetPathInput);
 const targetExtensions =
-  configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
+    configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
 const targetExtensionSet = new Set(
     targetExtensions.map((extension) => extension.toLowerCase())
 );
@@ -280,7 +280,10 @@ async function resolveProjectIgnorePaths(directory) {
     const ignoreFiles = [];
 
     for (const candidateDirectory of directoriesToInspect) {
-        const ignoreCandidate = path.join(candidateDirectory, ".prettierignore");
+        const ignoreCandidate = path.join(
+            candidateDirectory,
+            ".prettierignore"
+        );
 
         try {
             const candidateStats = await stat(ignoreCandidate);
@@ -308,7 +311,8 @@ async function resolveTargetStats(target) {
 async function processDirectory(directory, inheritedIgnorePaths = []) {
     let currentIgnorePaths = inheritedIgnorePaths;
     const localIgnorePath = path.join(directory, ".prettierignore");
-    let shouldRegisterLocalIgnore = baseProjectIgnorePathSet.has(localIgnorePath);
+    let shouldRegisterLocalIgnore =
+        baseProjectIgnorePathSet.has(localIgnorePath);
 
     try {
         const ignoreStats = await stat(localIgnorePath);
@@ -321,7 +325,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
             }
         }
     } catch {
-    // Ignore missing files.
+        // Ignore missing files.
     }
 
     if (shouldRegisterLocalIgnore) {

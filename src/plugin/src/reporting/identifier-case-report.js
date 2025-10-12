@@ -76,7 +76,7 @@ function normalizeReference(reference) {
     }
 
     const occurrenceCandidate =
-    reference.occurrences ?? reference.count ?? reference.references ?? 0;
+        reference.occurrences ?? reference.count ?? reference.references ?? 0;
     const occurrences = Number.isFinite(occurrenceCandidate)
         ? Number(occurrenceCandidate)
         : 0;
@@ -113,19 +113,19 @@ function normalizeOperation(rawOperation) {
 
     const fromName = normalizeString(
         rawOperation.from?.name ??
-      rawOperation.source?.name ??
-      rawOperation.originalName ??
-      rawOperation.from ??
-      rawOperation.source ??
-      ""
+            rawOperation.source?.name ??
+            rawOperation.originalName ??
+            rawOperation.from ??
+            rawOperation.source ??
+            ""
     );
     const toName = normalizeString(
         rawOperation.to?.name ??
-      rawOperation.target?.name ??
-      rawOperation.updatedName ??
-      rawOperation.to ??
-      rawOperation.target ??
-      ""
+            rawOperation.target?.name ??
+            rawOperation.updatedName ??
+            rawOperation.to ??
+            rawOperation.target ??
+            ""
     );
 
     const references = toArray(rawOperation.references)
@@ -144,10 +144,11 @@ function normalizeOperation(rawOperation) {
 
     return {
         id:
-      normalizeString(rawOperation.id ?? rawOperation.identifier ?? "") || null,
+            normalizeString(rawOperation.id ?? rawOperation.identifier ?? "") ||
+            null,
         kind:
-      normalizeString(rawOperation.kind ?? rawOperation.type ?? "") ||
-      "identifier",
+            normalizeString(rawOperation.kind ?? rawOperation.type ?? "") ||
+            "identifier",
         scopeId: scope.id,
         scopeName: scope.displayName ?? scope.name ?? null,
         fromName: fromName || null,
@@ -175,28 +176,32 @@ function normalizeConflict(rawConflict) {
 
     return {
         code:
-      normalizeString(
-          rawConflict.code ?? rawConflict.identifier ?? rawConflict.type ?? ""
-      ) || null,
+            normalizeString(
+                rawConflict.code ??
+                    rawConflict.identifier ??
+                    rawConflict.type ??
+                    ""
+            ) || null,
         message:
-      normalizeString(rawConflict.message ?? rawConflict.reason ?? "") || "",
+            normalizeString(rawConflict.message ?? rawConflict.reason ?? "") ||
+            "",
         severity,
         scope: {
             id: scope.id,
             displayName: scope.displayName ?? scope.name ?? null
         },
         identifier:
-      normalizeString(
-          rawConflict.identifier ??
-          rawConflict.name ??
-          rawConflict.originalName ??
-          ""
-      ) || null,
+            normalizeString(
+                rawConflict.identifier ??
+                    rawConflict.name ??
+                    rawConflict.originalName ??
+                    ""
+            ) || null,
         suggestions,
         details:
-      rawConflict.details && typeof rawConflict.details === "object"
-          ? { ...rawConflict.details }
-          : null
+            rawConflict.details && typeof rawConflict.details === "object"
+                ? { ...rawConflict.details }
+                : null
     };
 }
 
@@ -303,22 +308,25 @@ export function formatIdentifierCaseSummaryText(report) {
     lines.push(`[${REPORT_NAMESPACE}] Identifier case dry-run summary:`);
 
     const renameDetails =
-    summary.renameCount > 0
-        ? ` (${summary.totalReferenceCount} reference${pluralize(
-            summary.totalReferenceCount
-        )} across ${summary.impactedFileCount} file${pluralize(
-            summary.impactedFileCount
-        )})`
-        : "";
+        summary.renameCount > 0
+            ? ` (${summary.totalReferenceCount} reference${pluralize(
+                summary.totalReferenceCount
+            )} across ${summary.impactedFileCount} file${pluralize(
+                summary.impactedFileCount
+            )})`
+            : "";
     lines.push(`  Planned renames: ${summary.renameCount}${renameDetails}`);
 
     if (summary.conflictCount > 0) {
         const severityParts = Object.entries(summary.severityCounts)
             .filter(([, count]) => count > 0)
-            .map(([severity, count]) => `${count} ${severity}${pluralize(count)}`);
+            .map(
+                ([severity, count]) =>
+                    `${count} ${severity}${pluralize(count)}`
+            );
 
         const conflictSuffix =
-      severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
+            severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
         lines.push(`  Conflicts: ${summary.conflictCount}${conflictSuffix}`);
     } else {
         lines.push("  Conflicts: none");
@@ -330,16 +338,16 @@ export function formatIdentifierCaseSummaryText(report) {
 
         for (const operation of operations) {
             const referenceSummary =
-        operation.occurrenceCount > 0
-            ? ` (${operation.occurrenceCount} reference${pluralize(
-                operation.occurrenceCount
-            )} across ${operation.referenceFileCount} file${pluralize(
-                operation.referenceFileCount
-            )})`
-            : "";
+                operation.occurrenceCount > 0
+                    ? ` (${operation.occurrenceCount} reference${pluralize(
+                        operation.occurrenceCount
+                    )} across ${operation.referenceFileCount} file${pluralize(
+                        operation.referenceFileCount
+                    )})`
+                    : "";
 
             const scopeName =
-        operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
+                operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
             const fromName = operation.fromName ?? "<unknown>";
             const toName = operation.toName ?? "<unknown>";
 
@@ -349,11 +357,11 @@ export function formatIdentifierCaseSummaryText(report) {
 
             for (const reference of operation.references) {
                 const referenceSuffix =
-          reference.occurrences > 0
-              ? ` (${reference.occurrences} reference${pluralize(
-                  reference.occurrences
-              )})`
-              : "";
+                    reference.occurrences > 0
+                        ? ` (${reference.occurrences} reference${pluralize(
+                            reference.occurrences
+                        )})`
+                        : "";
                 lines.push(`      • ${reference.filePath}${referenceSuffix}`);
             }
         }
@@ -365,7 +373,9 @@ export function formatIdentifierCaseSummaryText(report) {
 
         for (const conflict of conflicts) {
             const scopeName =
-        conflict.scope.displayName ?? conflict.scope.id ?? "<unknown scope>";
+                conflict.scope.displayName ??
+                conflict.scope.id ??
+                "<unknown scope>";
             const identifierSuffix = conflict.identifier
                 ? ` (${conflict.identifier})`
                 : "";
@@ -375,7 +385,9 @@ export function formatIdentifierCaseSummaryText(report) {
             );
 
             if (conflict.suggestions.length > 0) {
-                lines.push(`      Suggestions: ${conflict.suggestions.join(", ")}`);
+                lines.push(
+                    `      Suggestions: ${conflict.suggestions.join(", ")}`
+                );
             }
         }
     }
@@ -499,7 +511,10 @@ export function reportIdentifierCasePlan({
 
     if (logFilePath) {
         try {
-            const payload = buildLogPayload(report, new Date(now()).toISOString());
+            const payload = buildLogPayload(
+                report,
+                new Date(now()).toISOString()
+            );
             const directory = path.dirname(logFilePath);
             if (fsFacade?.mkdirSync) {
                 fsFacade.mkdirSync(directory, { recursive: true });
@@ -530,9 +545,9 @@ export function maybeReportIdentifierCaseDryRun(options) {
     }
 
     const planFromOptions =
-    options.__identifierCaseRenamePlan ??
-    options.identifierCaseRenamePlan ??
-    null;
+        options.__identifierCaseRenamePlan ??
+        options.identifierCaseRenamePlan ??
+        null;
 
     let context;
     if (planFromOptions) {
@@ -555,9 +570,7 @@ export function maybeReportIdentifierCaseDryRun(options) {
                 ? options.diagnostics
                 : null,
             fsFacade:
-                options.__identifierCaseFs ??
-                options.identifierCaseFs ??
-                null,
+                options.__identifierCaseFs ?? options.identifierCaseFs ?? null,
             now:
                 typeof options.__identifierCaseNow === "function"
                     ? options.__identifierCaseNow
@@ -577,7 +590,7 @@ export function maybeReportIdentifierCaseDryRun(options) {
         renamePlan,
         conflicts = [],
         dryRun: contextDryRun,
-        logFilePath: contextLogFilePath = null,
+        logFilePath = null,
         logger = null,
         diagnostics = null,
         fsFacade = null,
@@ -607,10 +620,10 @@ export function maybeReportIdentifierCaseDryRun(options) {
 
     const effectiveLogger = logger ?? options.logger ?? console;
     const effectiveDiagnostics =
-    diagnostics ??
-    (Array.isArray(options.diagnostics) ? options.diagnostics : null);
+        diagnostics ??
+        (Array.isArray(options.diagnostics) ? options.diagnostics : null);
     const effectiveLogPath =
-        contextLogFilePath ??
+        logFilePath ??
         options.__identifierCaseReportLogPath ??
         options.identifierCaseReportLogPath ??
         null;

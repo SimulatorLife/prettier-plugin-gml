@@ -159,7 +159,9 @@ test("buildProjectIndex collects symbols and relationships across project files"
             "expected attack declaration to be captured"
         );
 
-        const attackCalls = attackScope.scriptCalls.map((call) => call.target.name);
+        const attackCalls = attackScope.scriptCalls.map(
+            (call) => call.target.name
+        );
         assert.ok(
             attackCalls.includes("calc_damage"),
             "expected attack scope to record calc_damage call"
@@ -169,17 +171,22 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.ok(attackScript, "expected script identifiers to be collected");
         assert.ok(attackScript.declarations.length >= 1);
 
-        const calcScript = index.identifiers.scripts["scope:script:calc_damage"];
+        const calcScript =
+            index.identifiers.scripts["scope:script:calc_damage"];
         assert.ok(calcScript, "expected calc_damage script entry to exist");
         assert.ok(
             calcScript.references.some(
-                (reference) => reference.filePath === "scripts/attack/attack.gml"
+                (reference) =>
+                    reference.filePath === "scripts/attack/attack.gml"
             ),
             "expected calc_damage to record references from attack"
         );
 
         const macroIdentifiers = index.identifiers.macros.MAX_ENEMIES;
-        assert.ok(macroIdentifiers, "expected macro identifiers to be collected");
+        assert.ok(
+            macroIdentifiers,
+            "expected macro identifiers to be collected"
+        );
         assert.equal(macroIdentifiers.declarations.length, 1);
         assert.ok(macroIdentifiers.references.length >= 1);
 
@@ -200,18 +207,23 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.ok(difficultyEnum.references.length >= 1);
 
         const enumMemberEntries = Object.values(index.identifiers.enumMembers);
-        const hardMember = enumMemberEntries.find((entry) => entry.name === "Hard");
+        const hardMember = enumMemberEntries.find(
+            (entry) => entry.name === "Hard"
+        );
         assert.ok(hardMember, "expected enum member Hard to be indexed");
         assert.equal(hardMember.declarations.length, 1);
         assert.ok(hardMember.references.length >= 1);
 
-        const createFile = index.files["objects/obj_enemy/obj_enemy_Create_0.gml"];
+        const createFile =
+            index.files["objects/obj_enemy/obj_enemy_Create_0.gml"];
         assert.ok(createFile, "expected create event file to be indexed");
         assert.equal(createFile.scriptCalls.length, 1);
         assert.equal(createFile.scriptCalls[0].target.name, "attack");
         assert.equal(createFile.scriptCalls[0].isResolved, true);
 
-        const instanceEntries = Object.values(index.identifiers.instanceVariables);
+        const instanceEntries = Object.values(
+            index.identifiers.instanceVariables
+        );
         const hpInstance = instanceEntries.find((entry) => entry.name === "hp");
         assert.ok(hpInstance, "expected hp instance assignment to be tracked");
         assert.ok(hpInstance.declarations.length >= 1);
@@ -239,7 +251,8 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.deepEqual(scriptCallTargets.sort(), ["attack", "calc_damage"]);
 
         const spriteReference = index.relationships.assetReferences.find(
-            (reference) => reference.targetPath === "sprites/spr_enemy/spr_enemy.yy"
+            (reference) =>
+                reference.targetPath === "sprites/spr_enemy/spr_enemy.yy"
         );
         assert.ok(
             spriteReference,

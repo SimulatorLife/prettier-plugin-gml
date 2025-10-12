@@ -67,10 +67,10 @@ function normalizeDocCommentWhitespace(ast) {
     for (const comment of ast.comments) {
         if (
             comment?.type === "CommentLine" &&
-      typeof comment.leadingWS === "string" &&
-      /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
-          comment.leadingWS
-      )
+            typeof comment.leadingWS === "string" &&
+            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
+                comment.leadingWS
+            )
         ) {
             comment.leadingWS = "\n";
         }
@@ -93,14 +93,16 @@ function applyDocCommentUpdates(context) {
         const descriptionComment = comments.find(
             (comment) =>
                 typeof comment?.value === "string" &&
-        comment.value.includes("@description")
+                comment.value.includes("@description")
         );
 
         if (!descriptionComment) {
             continue;
         }
 
-        const originalContent = extractDescriptionContent(descriptionComment.value);
+        const originalContent = extractDescriptionContent(
+            descriptionComment.value
+        );
         const updatedContent = buildUpdatedDescription(
             update?.description ?? originalContent,
             update?.expression ?? null
@@ -197,12 +199,18 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
         case "CallExpression":
             return true;
         case "ParenthesizedExpression":
-            return isBooleanBranchExpression(node.expression, allowValueLiterals);
+            return isBooleanBranchExpression(
+                node.expression,
+                allowValueLiterals
+            );
         case "UnaryExpression":
         case "IncDecExpression": {
             const operator = (node.operator ?? "").toLowerCase();
             if (operator === "!" || operator === "not") {
-                return isBooleanBranchExpression(node.argument, allowValueLiterals);
+                return isBooleanBranchExpression(
+                    node.argument,
+                    allowValueLiterals
+                );
             }
             if (allowValueLiterals && (operator === "+" || operator === "-")) {
                 return isBooleanBranchExpression(node.argument, true);
@@ -215,24 +223,24 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
             if (LOGICAL_OPERATORS.has(operator)) {
                 return (
                     isBooleanBranchExpression(node.left, allowValueLiterals) &&
-          isBooleanBranchExpression(node.right, allowValueLiterals)
+                    isBooleanBranchExpression(node.right, allowValueLiterals)
                 );
             }
 
             if (COMPARISON_OPERATORS.has(operator)) {
                 return (
                     isBooleanBranchExpression(node.left, true) &&
-          isBooleanBranchExpression(node.right, true)
+                    isBooleanBranchExpression(node.right, true)
                 );
             }
 
             if (
                 allowValueLiterals &&
-        (ARITHMETIC_OPERATORS.has(operator) || operator === "**")
+                (ARITHMETIC_OPERATORS.has(operator) || operator === "**")
             ) {
                 return (
                     isBooleanBranchExpression(node.left, true) &&
-          isBooleanBranchExpression(node.right, true)
+                    isBooleanBranchExpression(node.right, true)
                 );
             }
 
@@ -282,7 +290,8 @@ function removeDuplicateCondensedFunctions(context) {
         for (const fn of functions) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
-        update?.hasDocComment || (commentGroups.get(fn)?.length ?? 0) > 0;
+                update?.hasDocComment ||
+                (commentGroups.get(fn)?.length ?? 0) > 0;
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -296,7 +305,8 @@ function removeDuplicateCondensedFunctions(context) {
             if (fn !== keeper) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
-          update?.hasDocComment || (commentGroups.get(fn)?.length ?? 0) > 0;
+                    update?.hasDocComment ||
+                    (commentGroups.get(fn)?.length ?? 0) > 0;
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -405,7 +415,7 @@ function extractFunctionDescription(ast, functionNode) {
     for (const comment of comments) {
         if (
             typeof comment.value === "string" &&
-      comment.value.includes("@description")
+            comment.value.includes("@description")
         ) {
             return extractDescriptionContent(comment.value);
         }
@@ -442,7 +452,11 @@ function renderDocExpression(node) {
         }
         case "UnaryExpression": {
             if (node.operator !== "!") {
-                return { text: renderSimpleNode(node), precedence: 3, wrapped: false };
+                return {
+                    text: renderSimpleNode(node),
+                    precedence: 3,
+                    wrapped: false
+                };
             }
             const argument = renderDocExpression(node.argument);
             if (!argument) {
@@ -461,13 +475,13 @@ function renderDocExpression(node) {
                 return null;
             }
             const leftText =
-        left.precedence < precedence && !left.wrapped
-            ? `(${left.text})`
-            : left.text;
+                left.precedence < precedence && !left.wrapped
+                    ? `(${left.text})`
+                    : left.text;
             const rightText =
-        right.precedence < precedence && !right.wrapped
-            ? `(${right.text})`
-            : right.text;
+                right.precedence < precedence && !right.wrapped
+                    ? `(${right.text})`
+                    : right.text;
             const operatorText = operator === "&&" ? " and " : " or ";
             return {
                 text: `${leftText}${operatorText}${rightText}`,
@@ -476,7 +490,11 @@ function renderDocExpression(node) {
             };
         }
         default:
-            return { text: renderSimpleNode(node), precedence: 4, wrapped: false };
+            return {
+                text: renderSimpleNode(node),
+                precedence: 4,
+                wrapped: false
+            };
     }
 }
 
@@ -551,9 +569,9 @@ function visit(node, helpers, parent) {
     for (const [key, value] of Object.entries(node)) {
         if (
             key === "body" ||
-      key === "start" ||
-      key === "end" ||
-      key === "comments"
+            key === "start" ||
+            key === "end" ||
+            key === "comments"
         ) {
             continue;
         }
@@ -626,7 +644,10 @@ function tryCondenseIfStatement(
     let removeFollowingReturn = false;
 
     if (statement.alternate) {
-        alternateExpression = extractReturnExpression(statement.alternate, helpers);
+        alternateExpression = extractReturnExpression(
+            statement.alternate,
+            helpers
+        );
         alternateSourceNode = statement.alternate;
         if (!alternateExpression) {
             return false;
@@ -651,13 +672,13 @@ function tryCondenseIfStatement(
     }
 
     if (!alternateExpression) {
-    // Only condense when both branches produce a value.
+        // Only condense when both branches produce a value.
         return false;
     }
 
     if (
         !isBooleanBranchExpression(consequentExpression) ||
-    !isBooleanBranchExpression(alternateExpression)
+        !isBooleanBranchExpression(alternateExpression)
     ) {
         return false;
     }
@@ -710,8 +731,8 @@ function tryCondenseIfStatement(
 
     if (
         parentNode &&
-    parentNode.type === "FunctionDeclaration" &&
-    activeTransformationContext
+        parentNode.type === "FunctionDeclaration" &&
+        activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
         const description = extractFunctionDescription(
@@ -724,7 +745,7 @@ function tryCondenseIfStatement(
                 expression: docString,
                 description,
                 hasDocComment:
-          typeof description === "string" && description.length > 0
+                    typeof description === "string" && description.length > 0
             });
             const signature = docString.replace(/\.$/, "");
             activeTransformationContext.expressionSignatures.set(
@@ -984,7 +1005,10 @@ function minimizeWithQuineMcCluskey(minterms, variableCount) {
     let current = implicants;
 
     while (current.length > 0) {
-        const { combined, leftovers } = combineImplicants(current, variableCount);
+        const { combined, leftovers } = combineImplicants(
+            current,
+            variableCount
+        );
         primes.push(...leftovers);
         current = combined;
     }
@@ -1219,7 +1243,9 @@ function simplifyBooleanExpression(expression) {
     while (iterations < 50) {
         const simplified = simplifyBooleanStep(current);
         const normalized = normalizeBooleanExpression(simplified);
-        if (booleanExpressionKey(normalized) === booleanExpressionKey(current)) {
+        if (
+            booleanExpressionKey(normalized) === booleanExpressionKey(current)
+        ) {
             return normalized;
         }
         current = normalized;
@@ -1286,7 +1312,7 @@ function simplifyBooleanStep(expression) {
 function normalizeBooleanExpression(expression) {
     if (
         expression.type !== BOOLEAN_NODE_TYPES.AND &&
-    expression.type !== BOOLEAN_NODE_TYPES.OR
+        expression.type !== BOOLEAN_NODE_TYPES.OR
     ) {
         return expression;
     }
@@ -1345,7 +1371,7 @@ function absorbOrTerms(terms) {
         const term = terms[i];
         if (
             term.type === BOOLEAN_NODE_TYPES.AND &&
-      hasContainingTerm(term.terms, terms, i)
+            hasContainingTerm(term.terms, terms, i)
         ) {
             continue;
         }
@@ -1363,7 +1389,7 @@ function absorbAndTerms(terms) {
         const term = terms[i];
         if (
             term.type === BOOLEAN_NODE_TYPES.OR &&
-      hasContainingTerm(term.terms, terms, i)
+            hasContainingTerm(term.terms, terms, i)
         ) {
             continue;
         }
@@ -1456,7 +1482,9 @@ function factorBooleanExpression(expression) {
         switch (expression.type) {
             case BOOLEAN_NODE_TYPES.AND:
             case BOOLEAN_NODE_TYPES.OR:
-                return expression.terms.map((term) => factorBooleanExpression(term));
+                return expression.terms.map((term) =>
+                    factorBooleanExpression(term)
+                );
             case BOOLEAN_NODE_TYPES.NOT:
                 return [factorBooleanExpression(expression.argument)];
             default:
@@ -1466,12 +1494,12 @@ function factorBooleanExpression(expression) {
 
     if (
         expression.type === BOOLEAN_NODE_TYPES.AND ||
-    expression.type === BOOLEAN_NODE_TYPES.OR
+        expression.type === BOOLEAN_NODE_TYPES.OR
     ) {
         const rebuilt =
-      expression.type === BOOLEAN_NODE_TYPES.AND
-          ? createBooleanAnd(factoredChildren)
-          : createBooleanOr(factoredChildren);
+            expression.type === BOOLEAN_NODE_TYPES.AND
+                ? createBooleanAnd(factoredChildren)
+                : createBooleanOr(factoredChildren);
 
         if (rebuilt.type === BOOLEAN_NODE_TYPES.OR) {
             const factored = factorOrExpression(rebuilt);
@@ -1525,7 +1553,9 @@ function factorOrExpression(expression) {
         }
 
         const factor = occurrences[0].factor;
-        const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
+        const involvedIndices = new Set(
+            occurrences.map((item) => item.termIndex)
+        );
         const residualTerms = [];
         let factorPosition = null;
 
@@ -1552,7 +1582,9 @@ function factorOrExpression(expression) {
             }
 
             residualTerms.push(
-                remaining.length === 1 ? remaining[0] : createBooleanAnd(remaining)
+                remaining.length === 1
+                    ? remaining[0]
+                    : createBooleanAnd(remaining)
             );
         }
 
@@ -1566,14 +1598,20 @@ function factorOrExpression(expression) {
 
         const factoredOr = createBooleanOr(residualTerms);
         const orderedAndTerms =
-      factorPosition > 0 ? [factoredOr, factor] : [factor, factoredOr];
+            factorPosition > 0 ? [factoredOr, factor] : [factor, factoredOr];
         const candidate =
-      otherTerms.length === 0
-          ? createBooleanAnd(orderedAndTerms)
-          : createBooleanOr([createBooleanAnd(orderedAndTerms), ...otherTerms]);
+            otherTerms.length === 0
+                ? createBooleanAnd(orderedAndTerms)
+                : createBooleanOr([
+                    createBooleanAnd(orderedAndTerms),
+                    ...otherTerms
+                ]);
 
         const simplifiedCandidate = simplifyBooleanExpression(candidate);
-        if (!best || compareExpressionComplexity(simplifiedCandidate, best) < 0) {
+        if (
+            !best ||
+            compareExpressionComplexity(simplifiedCandidate, best) < 0
+        ) {
             best = simplifiedCandidate;
         }
     }
@@ -1610,7 +1648,9 @@ function factorAndExpression(expression) {
         }
 
         const factor = occurrences[0].factor;
-        const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
+        const involvedIndices = new Set(
+            occurrences.map((item) => item.termIndex)
+        );
         const residualTerms = [];
         let factorPosition = null;
 
@@ -1636,7 +1676,9 @@ function factorAndExpression(expression) {
             }
 
             residualTerms.push(
-                remaining.length === 1 ? remaining[0] : createBooleanOr(remaining)
+                remaining.length === 1
+                    ? remaining[0]
+                    : createBooleanOr(remaining)
             );
         }
 
@@ -1650,14 +1692,20 @@ function factorAndExpression(expression) {
 
         const factoredAnd = createBooleanAnd(residualTerms);
         const orderedOrTerms =
-      factorPosition > 0 ? [factoredAnd, factor] : [factor, factoredAnd];
+            factorPosition > 0 ? [factoredAnd, factor] : [factor, factoredAnd];
         const candidate =
-      otherTerms.length === 0
-          ? createBooleanOr(orderedOrTerms)
-          : createBooleanAnd([createBooleanOr(orderedOrTerms), ...otherTerms]);
+            otherTerms.length === 0
+                ? createBooleanOr(orderedOrTerms)
+                : createBooleanAnd([
+                    createBooleanOr(orderedOrTerms),
+                    ...otherTerms
+                ]);
 
         const simplifiedCandidate = simplifyBooleanExpression(candidate);
-        if (!best || compareExpressionComplexity(simplifiedCandidate, best) < 0) {
+        if (
+            !best ||
+            compareExpressionComplexity(simplifiedCandidate, best) < 0
+        ) {
             best = simplifiedCandidate;
         }
     }
@@ -1717,7 +1765,7 @@ function computeExpressionMetrics(expression) {
 
         if (
             node.type === BOOLEAN_NODE_TYPES.AND ||
-      node.type === BOOLEAN_NODE_TYPES.OR
+            node.type === BOOLEAN_NODE_TYPES.OR
         ) {
             for (const term of node.terms) {
                 walk(term, currentDepth + 1);
@@ -1749,9 +1797,14 @@ function booleanExpressionToAst(expression, context) {
         case BOOLEAN_NODE_TYPES.CONST:
             return createBooleanLiteralAst(expression.value);
         case BOOLEAN_NODE_TYPES.VAR:
-            return cloneAstNode(context.variables[expression.variable.index]?.node);
+            return cloneAstNode(
+                context.variables[expression.variable.index]?.node
+            );
         case BOOLEAN_NODE_TYPES.NOT: {
-            const argumentAst = booleanExpressionToAst(expression.argument, context);
+            const argumentAst = booleanExpressionToAst(
+                expression.argument,
+                context
+            );
             if (!argumentAst) {
                 return null;
             }
@@ -1848,7 +1901,9 @@ function postProcessBooleanExpression(expression) {
         const transformed = transformMixedReductionPattern(
             transformXorPattern(current)
         );
-        if (booleanExpressionKey(transformed) === booleanExpressionKey(current)) {
+        if (
+            booleanExpressionKey(transformed) === booleanExpressionKey(current)
+        ) {
             return transformed;
         }
         current = transformed;
@@ -1895,7 +1950,10 @@ function transformXorPattern(expression) {
     const baseClone = cloneBooleanExpression(base);
     const andTerm = createBooleanAnd(
         baseVarIndices.map((index) =>
-            createBooleanVariable({ index, node: findVariableNode(base, index) })
+            createBooleanVariable({
+                index,
+                node: findVariableNode(base, index)
+            })
         )
     );
     const notAnd = createBooleanNot(andTerm);
@@ -1925,10 +1983,11 @@ function transformMixedReductionPattern(expression) {
 
             if (
                 baseIndices.length >= 2 &&
-        typeof positiveIndex === "number" &&
-        baseIndices.every(
-            (index) => typeof index === "number" && index < positiveIndex
-        )
+                typeof positiveIndex === "number" &&
+                baseIndices.every(
+                    (index) =>
+                        typeof index === "number" && index < positiveIndex
+                )
             ) {
                 const baseAnd = createBooleanAnd(
                     baseIndices.map((index) =>
@@ -1982,8 +2041,8 @@ function transformMixedReductionPattern(expression) {
 
     if (
         negatedOrs.some((entry) => entry.positive !== sharedPositiveIndex) ||
-    ![varA, varB].includes(negatedOrs[0].negated) ||
-    ![varA, varB].includes(negatedOrs[1].negated)
+        ![varA, varB].includes(negatedOrs[0].negated) ||
+        ![varA, varB].includes(negatedOrs[1].negated)
     ) {
         return expression;
     }
@@ -1994,8 +2053,8 @@ function transformMixedReductionPattern(expression) {
     ]);
     if (
         negatedIndices.size !== 2 ||
-    !negatedIndices.has(varA) ||
-    !negatedIndices.has(varB)
+        !negatedIndices.has(varA) ||
+        !negatedIndices.has(varB)
     ) {
         return expression;
     }
@@ -2030,7 +2089,9 @@ function isPlainOrOfVariables(expression) {
         return false;
     }
 
-    return expression.terms.every((term) => term.type === BOOLEAN_NODE_TYPES.VAR);
+    return expression.terms.every(
+        (term) => term.type === BOOLEAN_NODE_TYPES.VAR
+    );
 }
 
 function isOrOfNegatedVariables(expression) {
@@ -2041,7 +2102,7 @@ function isOrOfNegatedVariables(expression) {
     return expression.terms.every(
         (term) =>
             term.type === BOOLEAN_NODE_TYPES.NOT &&
-      term.argument?.type === BOOLEAN_NODE_TYPES.VAR
+            term.argument?.type === BOOLEAN_NODE_TYPES.VAR
     );
 }
 
@@ -2074,7 +2135,7 @@ function findVariableNode(orExpression, index) {
     for (const term of orExpression.terms) {
         if (
             term?.type === BOOLEAN_NODE_TYPES.VAR &&
-      term.variable?.index === index
+            term.variable?.index === index
         ) {
             return term.variable.node ?? null;
         }
@@ -2088,7 +2149,7 @@ function findVariableNodeFromOrTerms(negatedOrs, index) {
         for (const term of entry.term.terms) {
             if (
                 term.type === BOOLEAN_NODE_TYPES.VAR &&
-        term.variable?.index === index
+                term.variable?.index === index
             ) {
                 return term.variable.node ?? null;
             }
@@ -2108,7 +2169,7 @@ function categorizeOrTerms(terms) {
             plain.push(term.variable?.index);
         } else if (
             term.type === BOOLEAN_NODE_TYPES.NOT &&
-      term.argument?.type === BOOLEAN_NODE_TYPES.VAR
+            term.argument?.type === BOOLEAN_NODE_TYPES.VAR
         ) {
             negated.push(term.argument.variable?.index);
         } else {
@@ -2231,7 +2292,8 @@ function getAstNodeKey(node) {
         default: {
             const entries = Object.entries(node)
                 .filter(
-                    ([key]) => key !== "start" && key !== "end" && key !== "comments"
+                    ([key]) =>
+                        key !== "start" && key !== "end" && key !== "comments"
                 )
                 .map(([key, value]) => `${key}:${getAstNodeKey(value)}`)
                 .join("|");

@@ -3,10 +3,15 @@ import path from "node:path";
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
-
-const COLLISION_CONFLICT_CODE = "collision";
-const PRESERVE_CONFLICT_CODE = "preserve";
-const IGNORE_CONFLICT_CODE = "ignored";
+import {
+    COLLISION_CONFLICT_CODE,
+    PRESERVE_CONFLICT_CODE,
+    IGNORE_CONFLICT_CODE,
+    buildPatternMatchers,
+    matchesIgnorePattern,
+    createConflict
+} from "./common.js";
+import { planAssetRenames, applyAssetRenames } from "../assets/rename.js";
 
 function toPosixPath(filePath) {
     if (typeof filePath !== "string" || filePath.length === 0) {
@@ -38,7 +43,7 @@ function buildLocationKey(location) {
 
     const line = location.line ?? location.row ?? location.start ?? null;
     const column =
-    location.column ?? location.col ?? location.columnStart ?? null;
+        location.column ?? location.col ?? location.columnStart ?? null;
     const index = location.index ?? location.offset ?? null;
 
     if (line == null && column == null && index == null) {
@@ -74,7 +79,7 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         return {
             id: scopeRecord.id,
             displayName:
-        scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
         };
     }
 
@@ -82,9 +87,9 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         const parentScope = scopeMap[fileScopeId];
         return {
             id:
-        scopeId ??
-        parentScope.id ??
-        `locals:${fileRecord?.filePath ?? "<unknown>"}`,
+                scopeId ??
+                parentScope.id ??
+                `locals:${fileRecord?.filePath ?? "<unknown>"}`,
             displayName: `${parentScope.displayName ?? parentScope.name ?? fileRecord?.filePath ?? "<locals>"} (locals)`
         };
     }
@@ -93,75 +98,6 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
     return {
         id: scopeId ?? `locals:${filePath}`,
         displayName: `locals@${filePath}`
-    };
-}
-
-function escapeForRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function createPatternRegExp(pattern) {
-    if (typeof pattern !== "string" || pattern.length === 0) {
-        return null;
-    }
-
-    const escaped = escapeForRegExp(pattern.trim());
-    if (!escaped) {
-        return null;
-    }
-
-    const wildcardExpanded = escaped.replace(/\\\*/g, ".*").replace(/\\\?/g, ".");
-
-    return new RegExp(`^${wildcardExpanded}$`, "i");
-}
-
-function buildPatternMatchers(patterns) {
-    const matchers = [];
-
-    for (const pattern of patterns ?? []) {
-        const regexp = createPatternRegExp(pattern);
-        if (!regexp) {
-            continue;
-        }
-
-        matchers.push({ raw: pattern, regexp });
-    }
-
-    return matchers;
-}
-
-function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Array.isArray(matchers) || matchers.length === 0) {
-        return null;
-    }
-
-    const name = identifierName ?? "";
-    const file = filePath ?? "";
-
-    for (const matcher of matchers) {
-        if (matcher.regexp.test(name) || matcher.regexp.test(file)) {
-            return matcher.raw;
-        }
-    }
-
-    return null;
-}
-
-function createConflict({
-    code,
-    severity,
-    message,
-    scope,
-    identifier,
-    suggestions = []
-}) {
-    return {
-        code,
-        severity,
-        message,
-        scope,
-        identifier,
-        suggestions
     };
 }
 
@@ -198,7 +134,7 @@ export function prepareIdentifierCasePlan(options) {
 
     if (
         options.__identifierCaseRenamePlan &&
-    options.__identifierCasePlanGeneratedInternally !== true
+        options.__identifierCasePlanGeneratedInternally !== true
     ) {
         return;
     }
@@ -206,37 +142,24 @@ export function prepareIdentifierCasePlan(options) {
     const context = peekIdentifierCaseDryRunContext(options.filepath ?? null);
     if (
         options.__identifierCaseDryRun === undefined &&
-    context &&
-    typeof context.dryRun === "boolean"
+        context &&
+        typeof context.dryRun === "boolean"
     ) {
         options.__identifierCaseDryRun = context.dryRun;
     }
     const projectIndex =
-    options.__identifierCaseProjectIndex ??
-    options.identifierCaseProjectIndex ??
-    context?.projectIndex ??
-    null;
+        options.__identifierCaseProjectIndex ??
+        options.identifierCaseProjectIndex ??
+        context?.projectIndex ??
+        null;
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
     // `projectIndex.identifiers`. Local-scope renaming remains the only executed
     // transformation here until per-scope toggles are wired through.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
+    const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
 
-    if (!projectIndex || !projectIndex.files || localStyle === "off") {
-        return;
-    }
-
-    const relativeFilePath = resolveRelativeFilePath(
-        projectIndex.projectRoot,
-        options.filepath ?? null
-    );
-
-    if (!relativeFilePath || !projectIndex.files[relativeFilePath]) {
-        return;
-    }
-
-    const fileRecord = projectIndex.files[relativeFilePath];
     const preservedSet = new Set(normalizedOptions.preservedIdentifiers ?? []);
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []
@@ -245,6 +168,64 @@ export function prepareIdentifierCasePlan(options) {
     const renameMap = new Map();
     const operations = [];
     const conflicts = [];
+    const assetRenames = [];
+    let assetConflicts = [];
+
+    if (projectIndex && assetStyle !== "off") {
+        const assetPlan = planAssetRenames({
+            projectIndex,
+            assetStyle,
+            preservedSet,
+            ignoreMatchers
+        });
+        operations.push(...assetPlan.operations);
+        conflicts.push(...assetPlan.conflicts);
+        assetRenames.push(...assetPlan.renames);
+        assetConflicts = assetPlan.conflicts ?? [];
+    }
+
+    const hasLocalSupport =
+        projectIndex && projectIndex.files && localStyle !== "off";
+
+    let fileRecord = null;
+    let relativeFilePath = null;
+    if (hasLocalSupport) {
+        relativeFilePath = resolveRelativeFilePath(
+            projectIndex.projectRoot,
+            options.filepath ?? null
+        );
+        if (relativeFilePath && projectIndex.files[relativeFilePath]) {
+            fileRecord = projectIndex.files[relativeFilePath];
+        }
+    }
+
+    if (!fileRecord) {
+        options.__identifierCaseRenameMap = renameMap;
+        if (assetRenames.length > 0) {
+            options.__identifierCaseAssetRenames = assetRenames;
+        }
+        if (
+            options.__identifierCaseDryRun === false &&
+            assetRenames.length > 0 &&
+            assetConflicts.length === 0 &&
+            projectIndex &&
+            options.__identifierCaseAssetRenamesApplied !== true
+        ) {
+            const fsFacade =
+                options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+            const logger = options.logger ?? null;
+            const result = applyAssetRenames({
+                projectIndex,
+                renames: assetRenames,
+                fsFacade,
+                logger
+            });
+            options.__identifierCaseAssetRenameResult = result;
+            options.__identifierCaseAssetRenamesApplied = true;
+        }
+        options.__identifierCasePlanGeneratedInternally = true;
+        return;
+    }
 
     const existingNamesByScope = new Map();
     for (const declaration of fileRecord.declarations ?? []) {
@@ -307,12 +288,18 @@ export function prepareIdentifierCasePlan(options) {
             continue;
         }
 
-        const renameKey = buildRenameKey(declaration.scopeId, declaration.start);
+        const renameKey = buildRenameKey(
+            declaration.scopeId,
+            declaration.start
+        );
         if (!renameKey) {
             continue;
         }
 
-        const convertedName = formatIdentifierCase(declaration.name, localStyle);
+        const convertedName = formatIdentifierCase(
+            declaration.name,
+            localStyle
+        );
 
         if (convertedName === declaration.name) {
             continue;
@@ -363,11 +350,12 @@ export function prepareIdentifierCasePlan(options) {
             declaration.scopeId,
             fileRecord.scopeId
         );
-        const existingNames = existingNamesByScope.get(scopeGroupKey) ?? new Set();
+        const existingNames =
+            existingNamesByScope.get(scopeGroupKey) ?? new Set();
 
         if (
             existingNames.has(convertedName) &&
-      convertedName !== declaration.name
+            convertedName !== declaration.name
         ) {
             const scopeDescriptor = createScopeDescriptor(
                 projectIndex,
@@ -386,7 +374,8 @@ export function prepareIdentifierCasePlan(options) {
             continue;
         }
         const referenceKey = `${scopeGroupKey}|${declaration.name}`;
-        const relatedReferences = referencesByScopeAndName.get(referenceKey) ?? [];
+        const relatedReferences =
+            referencesByScopeAndName.get(referenceKey) ?? [];
 
         activeCandidates.push({
             declaration,
@@ -399,7 +388,7 @@ export function prepareIdentifierCasePlan(options) {
     const candidatesByScope = new Map();
     for (const candidate of activeCandidates) {
         const scopeCandidates =
-      candidatesByScope.get(candidate.scopeGroupKey) ?? new Map();
+            candidatesByScope.get(candidate.scopeGroupKey) ?? new Map();
         const existing = scopeCandidates.get(candidate.convertedName) ?? [];
         existing.push(candidate);
         scopeCandidates.set(candidate.convertedName, existing);
@@ -472,23 +461,48 @@ export function prepareIdentifierCasePlan(options) {
         }
 
         for (const reference of references) {
-            const referenceKey = buildRenameKey(reference.scopeId, reference.start);
+            const referenceKey = buildRenameKey(
+                reference.scopeId,
+                reference.start
+            );
             if (referenceKey) {
                 renameMap.set(referenceKey, convertedName);
             }
         }
     }
 
-    if (operations.length === 0 && conflicts.length === 0) {
-        options.__identifierCaseRenameMap = renameMap;
-        options.__identifierCasePlanGeneratedInternally = true;
-        return;
+    options.__identifierCaseRenameMap = renameMap;
+    if (assetRenames.length > 0) {
+        options.__identifierCaseAssetRenames = assetRenames;
     }
 
-    options.__identifierCaseRenamePlan = { operations };
-    options.__identifierCaseConflicts = conflicts;
-    options.__identifierCaseRenameMap = renameMap;
-    options.__identifierCasePlanGeneratedInternally = true;
+    if (operations.length === 0 && conflicts.length === 0) {
+        options.__identifierCasePlanGeneratedInternally = true;
+    } else {
+        options.__identifierCaseRenamePlan = { operations };
+        options.__identifierCaseConflicts = conflicts;
+        options.__identifierCasePlanGeneratedInternally = true;
+    }
+
+    if (
+        options.__identifierCaseDryRun === false &&
+        assetRenames.length > 0 &&
+        assetConflicts.length === 0 &&
+        projectIndex &&
+        options.__identifierCaseAssetRenamesApplied !== true
+    ) {
+        const fsFacade =
+            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+        const logger = options.logger ?? null;
+        const result = applyAssetRenames({
+            projectIndex,
+            renames: assetRenames,
+            fsFacade,
+            logger
+        });
+        options.__identifierCaseAssetRenameResult = result;
+        options.__identifierCaseAssetRenamesApplied = true;
+    }
 }
 
 export function getIdentifierCaseRenameForNode(node, options) {

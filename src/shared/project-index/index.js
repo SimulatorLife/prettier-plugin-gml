@@ -27,7 +27,7 @@ export function getDefaultFsFacade() {
 function isManifestEntry(entry) {
     return (
         typeof entry === "string" &&
-    entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
+        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
     );
 }
 
@@ -239,18 +239,22 @@ async function scanProjectTree(projectRoot, fsFacade) {
                 throw error;
             }
 
-            if (typeof stats?.isDirectory === "function" && stats.isDirectory()) {
+            if (
+                typeof stats?.isDirectory === "function" &&
+                stats.isDirectory()
+            ) {
                 pending.push(relativePath);
                 continue;
             }
 
             const relativePosix = toPosixPath(relativePath);
-            if (relativePosix.toLowerCase().endsWith(".yy")) {
+            const lowerPath = relativePosix.toLowerCase();
+            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
                 });
-            } else if (relativePosix.toLowerCase().endsWith(".gml")) {
+            } else if (lowerPath.endsWith(".gml")) {
                 gmlFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -268,9 +272,16 @@ async function scanProjectTree(projectRoot, fsFacade) {
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     let record = resourcesMap.get(resourcePath);
     if (!record) {
+        const lowerPath = resourcePath.toLowerCase();
+        let defaultName = path.posix.basename(resourcePath);
+        if (lowerPath.endsWith(".yy")) {
+            defaultName = path.posix.basename(resourcePath, ".yy");
+        } else if (lowerPath.endsWith(".yyp")) {
+            defaultName = path.posix.basename(resourcePath, ".yyp");
+        }
         record = {
             path: resourcePath,
-            name: resourceData.name ?? path.posix.basename(resourcePath, ".yy"),
+            name: resourceData.name ?? defaultName,
             resourceType: resourceData.resourceType ?? "unknown",
             scopes: [],
             gmlFiles: [],
@@ -283,7 +294,7 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
         }
         if (
             resourceData.resourceType &&
-      record.resourceType !== resourceData.resourceType
+            record.resourceType !== resourceData.resourceType
         ) {
             record.resourceType = resourceData.resourceType;
         }
@@ -299,7 +310,9 @@ function pushUnique(array, value) {
 }
 
 function deriveScopeId(kind, parts) {
-    const suffix = Array.isArray(parts) ? parts.join("::") : String(parts ?? "");
+    const suffix = Array.isArray(parts)
+        ? parts.join("::")
+        : String(parts ?? "");
     return `scope:${kind}:${suffix}`;
 }
 
@@ -321,17 +334,17 @@ function deriveEventDisplayName(event) {
     }
 
     const eventType =
-    typeof event?.eventType === "number"
-        ? event.eventType
-        : typeof event?.eventtype === "number"
-            ? event.eventtype
-            : null;
+        typeof event?.eventType === "number"
+            ? event.eventType
+            : typeof event?.eventtype === "number"
+                ? event.eventtype
+                : null;
     const eventNum =
-    typeof event?.eventNum === "number"
-        ? event.eventNum
-        : typeof event?.enumb === "number"
-            ? event.enumb
-            : null;
+        typeof event?.eventNum === "number"
+            ? event.eventNum
+            : typeof event?.enumb === "number"
+                ? event.enumb
+                : null;
 
     if (eventType == null && eventNum == null) {
         return "event";
@@ -361,17 +374,17 @@ function createObjectEventScopeDescriptor(
         event: {
             name: displayName,
             eventType:
-        typeof event?.eventType === "number"
-            ? event.eventType
-            : typeof event?.eventtype === "number"
-                ? event.eventtype
-                : null,
+                typeof event?.eventType === "number"
+                    ? event.eventType
+                    : typeof event?.eventtype === "number"
+                        ? event.eventtype
+                        : null,
             eventNum:
-        typeof event?.eventNum === "number"
-            ? event.eventNum
-            : typeof event?.enumb === "number"
-                ? event.enumb
-                : null
+                typeof event?.eventNum === "number"
+                    ? event.eventNum
+                    : typeof event?.enumb === "number"
+                        ? event.enumb
+                        : null
         }
     };
 }
@@ -436,7 +449,11 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
 function collectAssetReferences(json, callback, pathStack = []) {
     if (Array.isArray(json)) {
         json.forEach((entry, index) => {
-            collectAssetReferences(entry, callback, pathStack.concat(String(index)));
+            collectAssetReferences(
+                entry,
+                callback,
+                pathStack.concat(String(index))
+            );
         });
         return;
     }
@@ -511,7 +528,10 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
             pushUnique(resourceRecord.scopes, descriptor.id);
 
             scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-            scriptNameToResourcePath.set(resourceRecord.name, resourceRecord.path);
+            scriptNameToResourcePath.set(
+                resourceRecord.name,
+                resourceRecord.path
+            );
         }
 
         if (Array.isArray(parsed?.eventList) && parsed.eventList.length > 0) {
@@ -612,17 +632,17 @@ function buildLocationKey(location) {
     }
 
     const line =
-    location.line ??
-    location.row ??
-    location.start ??
-    location.first_line ??
-    null;
+        location.line ??
+        location.row ??
+        location.start ??
+        location.first_line ??
+        null;
     const column =
-    location.column ??
-    location.col ??
-    location.columnStart ??
-    location.first_column ??
-    null;
+        location.column ??
+        location.col ??
+        location.columnStart ??
+        location.first_column ??
+        null;
     const index = location.index ?? location.offset ?? null;
 
     if (line == null && column == null && index == null) {
@@ -697,7 +717,10 @@ function createEnumLookup(ast, filePath) {
 
         if (node.type === "EnumDeclaration") {
             const enumIdentifier = node.name;
-            const enumKey = buildFileLocationKey(filePath, enumIdentifier?.start);
+            const enumKey = buildFileLocationKey(
+                filePath,
+                enumIdentifier?.start
+            );
             if (enumKey) {
                 enumDeclarations.set(enumKey, {
                     key: enumKey,
@@ -758,7 +781,8 @@ function ensureScriptEntry(identifierCollections, descriptor) {
         () => ({
             id: descriptor.id,
             name: descriptor.name ?? null,
-            displayName: descriptor.displayName ?? descriptor.name ?? descriptor.id,
+            displayName:
+                descriptor.displayName ?? descriptor.name ?? descriptor.id,
             resourcePath: descriptor.resourcePath ?? null,
             declarations: [],
             references: []
@@ -857,7 +881,10 @@ function registerScriptReference({ identifierCollections, callRecord }) {
 
 function mapToObject(map, transform) {
     return Object.fromEntries(
-        Array.from(map.entries()).map(([key, value]) => [key, transform(value)])
+        Array.from(map.entries()).map(([key, value]) => [
+            key,
+            transform(value)
+        ])
     );
 }
 
@@ -897,9 +924,9 @@ function registerEnumOccurrence({
     enumLookup
 }) {
     const targetLocation =
-    role === "reference"
-        ? identifierRecord?.declaration?.start
-        : identifierRecord?.start;
+        role === "reference"
+            ? identifierRecord?.declaration?.start
+            : identifierRecord?.start;
 
     const enumKey = buildFileLocationKey(filePath, targetLocation);
     if (!enumKey) {
@@ -920,7 +947,8 @@ function registerEnumOccurrence({
     );
 
     if (enumInfo && !entry.name) {
-        entry.name = enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
+        entry.name =
+            enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
     }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
@@ -939,9 +967,9 @@ function registerEnumMemberOccurrence({
     enumLookup
 }) {
     const targetLocation =
-    role === "reference"
-        ? identifierRecord?.declaration?.start
-        : identifierRecord?.start;
+        role === "reference"
+            ? identifierRecord?.declaration?.start
+            : identifierRecord?.start;
 
     const memberKey = buildFileLocationKey(filePath, targetLocation);
     if (!memberKey) {
@@ -959,7 +987,8 @@ function registerEnumMemberOccurrence({
             name: memberInfo?.name ?? identifierRecord?.name ?? null,
             enumKey,
             enumName: memberInfo?.enumKey
-                ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+                ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)
+                    ?.name ?? null)
                 : null,
             filePath: memberInfo?.filePath ?? filePath ?? null,
             declarations: [],
@@ -969,8 +998,8 @@ function registerEnumMemberOccurrence({
 
     if (memberInfo?.enumKey && !entry.enumName) {
         entry.enumName =
-      enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
-      entry.enumName;
+            enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
+            entry.enumName;
     }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
@@ -1130,7 +1159,7 @@ function registerIdentifierOccurrence({
 
     if (
         classifications.includes("variable") &&
-    classifications.includes("global")
+        classifications.includes("global")
     ) {
         registerGlobalOccurrence({
             identifierCollections,
@@ -1275,7 +1304,10 @@ function analyseGmlAst({
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
     traverseAst(ast, (node) => {
-        if (node?.type === "Identifier" && Array.isArray(node.classifications)) {
+        if (
+            node?.type === "Identifier" &&
+            Array.isArray(node.classifications)
+        ) {
             const identifierRecord = createIdentifierRecord(node);
             const isBuiltIn = builtInNames.has(identifierRecord.name);
             identifierRecord.isBuiltIn = isBuiltIn;
@@ -1288,9 +1320,9 @@ function analyseGmlAst({
             }
 
             const isDeclaration =
-        identifierRecord.classifications.includes("declaration");
+                identifierRecord.classifications.includes("declaration");
             const isReference =
-        identifierRecord.classifications.includes("reference");
+                identifierRecord.classifications.includes("reference");
 
             if (isDeclaration) {
                 fileRecord.declarations.push(identifierRecord);
@@ -1321,7 +1353,10 @@ function analyseGmlAst({
             }
         }
 
-        if (node?.type === "CallExpression" && node.object?.type === "Identifier") {
+        if (
+            node?.type === "CallExpression" &&
+            node.object?.type === "Identifier"
+        ) {
             const callee = node.object;
             const calleeName = callee.name;
             if (typeof calleeName !== "string") {
@@ -1362,8 +1397,8 @@ function analyseGmlAst({
 
         if (
             node?.type === "AssignmentExpression" &&
-      node.left?.type === "Identifier" &&
-      scopeDescriptor?.kind === "objectEvent"
+            node.left?.type === "Identifier" &&
+            scopeDescriptor?.kind === "objectEvent"
         ) {
             const leftRecord = createIdentifierRecord(node.left);
             const classifications = Array.isArray(leftRecord.classifications)
@@ -1371,17 +1406,18 @@ function analyseGmlAst({
                 : [];
 
             const isGlobalAssignment =
-        classifications.includes("global") || leftRecord.isGlobalIdentifier;
+                classifications.includes("global") ||
+                leftRecord.isGlobalIdentifier;
             const hasDeclaration = Boolean(
                 leftRecord.declaration && leftRecord.declaration.scopeId
             );
 
             if (
                 identifierCollections &&
-        !isGlobalAssignment &&
-        !hasDeclaration &&
-        leftRecord.name &&
-        !builtInNames.has(leftRecord.name)
+                !isGlobalAssignment &&
+                !hasDeclaration &&
+                leftRecord.name &&
+                !builtInNames.has(leftRecord.name)
             ) {
                 registerInstanceAssignment({
                     identifierCollections,
@@ -1446,8 +1482,8 @@ export async function buildProjectIndex(
         }
 
         const scopeDescriptor =
-      resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-      createFileScopeDescriptor(file.relativePath);
+            resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+            createFileScopeDescriptor(file.relativePath);
 
         const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
         pushUnique(scopeRecord.filePaths, file.relativePath);
@@ -1461,7 +1497,7 @@ export async function buildProjectIndex(
 
         if (
             scopeDescriptor.kind === "script" &&
-      !fileRecord.hasSyntheticDeclaration
+            !fileRecord.hasSyntheticDeclaration
         ) {
             const syntheticDeclaration = {
                 name: scopeDescriptor.name,
@@ -1599,15 +1635,18 @@ export async function buildProjectIndex(
             declarations: entry.declarations.map((item) => ({ ...item })),
             references: entry.references.map((item) => ({ ...item }))
         })),
-        enumMembers: mapToObject(identifierCollections.enumMembers, (entry) => ({
-            key: entry.key,
-            name: entry.name ?? null,
-            enumKey: entry.enumKey ?? null,
-            enumName: entry.enumName ?? null,
-            filePath: entry.filePath ?? null,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((item) => ({ ...item }))
-        })),
+        enumMembers: mapToObject(
+            identifierCollections.enumMembers,
+            (entry) => ({
+                key: entry.key,
+                name: entry.name ?? null,
+                enumKey: entry.enumKey ?? null,
+                enumName: entry.enumName ?? null,
+                filePath: entry.filePath ?? null,
+                declarations: entry.declarations.map((item) => ({ ...item })),
+                references: entry.references.map((item) => ({ ...item }))
+            })
+        ),
         globalVariables: mapToObject(
             identifierCollections.globalVariables,
             (entry) => ({

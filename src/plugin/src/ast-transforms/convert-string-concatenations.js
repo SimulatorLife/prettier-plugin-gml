@@ -23,9 +23,9 @@ export function convertStringConcatenations(ast, helpers = DEFAULT_HELPERS) {
 
     const normalizedHelpers = {
         hasComment:
-      typeof helpers.hasComment === "function"
-          ? helpers.hasComment
-          : DEFAULT_HELPERS.hasComment
+            typeof helpers.hasComment === "function"
+                ? helpers.hasComment
+                : DEFAULT_HELPERS.hasComment
     };
 
     traverse(ast, null, null, normalizedHelpers);
@@ -149,9 +149,9 @@ function collectConcatenationParts(node, helpers, output) {
         const expression = node.expression;
         if (
             expression &&
-      typeof expression === "object" &&
-      expression.type === BINARY_EXPRESSION &&
-      expression.operator === "+"
+            typeof expression === "object" &&
+            expression.type === BINARY_EXPRESSION &&
+            expression.operator === "+"
         ) {
             return collectConcatenationParts(expression, helpers, output);
         }
@@ -306,10 +306,10 @@ function unwrapParentheses(node) {
 
     while (
         current &&
-    typeof current === "object" &&
-    current.type === PARENTHESIZED_EXPRESSION &&
-    current.expression &&
-    typeof current.expression === "object"
+        typeof current === "object" &&
+        current.type === PARENTHESIZED_EXPRESSION &&
+        current.expression &&
+        typeof current.expression === "object"
     ) {
         current = current.expression;
     }

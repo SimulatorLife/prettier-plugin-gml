@@ -84,7 +84,7 @@ function parseArgs() {
             i += 1;
         } else if (
             (arg === "--output" || arg === "-o") &&
-      i + 1 < ARGUMENTS.length
+            i + 1 < ARGUMENTS.length
         ) {
             outputPath = path.resolve(ARGUMENTS[i + 1]);
             i += 1;
@@ -264,7 +264,9 @@ function parseArrayLiteral(source, identifier) {
     const declaration = `const ${identifier} = [`;
     const start = source.indexOf(declaration);
     if (start === -1) {
-        throw new Error(`Could not locate declaration for ${identifier} in gml.js`);
+        throw new Error(
+            `Could not locate declaration for ${identifier} in gml.js`
+        );
     }
     const bracketStart = source.indexOf("[", start);
     if (bracketStart === -1) {
@@ -570,7 +572,7 @@ async function main() {
                 const normalisedPath = manualPath.replace(/\\/g, "/");
                 if (
                     !normalisedPath.startsWith("3_Scripting") ||
-          !normalisedPath.includes("4_GML_Reference")
+                    !normalisedPath.includes("4_GML_Reference")
                 ) {
                     continue;
                 }
@@ -595,8 +597,9 @@ async function main() {
 
                 const type = classifyFromPath(normalisedPath, tags);
                 const deprecated =
-          tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
-          normalisedPath.toLowerCase().includes("deprecated");
+                    tags.some((tag) =>
+                        tag.toLowerCase().includes("deprecated")
+                    ) || normalisedPath.toLowerCase().includes("deprecated");
 
                 mergeEntry(identifierMap, identifier, {
                     type,
@@ -645,7 +648,9 @@ async function main() {
         "utf8"
     );
 
-    console.log(`Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`);
+    console.log(
+        `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
+    );
     if (verbose.parsing) {
         console.log(`Completed in ${formatDuration(startTime)}.`);
     }

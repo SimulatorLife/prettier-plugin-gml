@@ -49,7 +49,7 @@ export default class GMLParser {
         } catch (error) {
             if (error) {
                 const normalisedError =
-          error instanceof Error ? error : new Error(String(error));
+                    error instanceof Error ? error : new Error(String(error));
                 throw normalisedError;
             }
             throw new Error("Unknown syntax error while parsing GML source.");
@@ -163,7 +163,9 @@ export default class GMLParser {
                 const lineBreakCount = getLineBreakCount(tokenText);
                 let node = {
                     type: "CommentBlock",
-                    value: tokenText.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
+                    value: tokenText
+                        .replace(/^[\/][\*]/, "")
+                        .replace(/[\*][\/]$/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line + lineBreakCount,
