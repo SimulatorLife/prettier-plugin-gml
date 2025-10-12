@@ -52,12 +52,16 @@ jobs:
       pr_body: "Seed PR for Codex to diagnose a failing test, repair the underlying issue, and re-verify."
       prompt: >
         Start by running the full automated test suite (`npm test`). If everything
-        passes, report that the suite is green and make no code changes. When there is a
-        failure, choose one failing test (or the smallest failing group that shares a
-        root cause) and focus solely on making it pass. Investigate the underlying bug
-        or missing functionality, fix the production code (NOT the test), and keep the
-        scope constrained to that issue so other behavior is unchanged. Do not modify
-        any golden fixtures in src/plugin/tests/*.gml, and leave existing tests intact.
-        Add targeted unit coverage only if it strengthens confidence in the fix.
-        Re-run `npm test` to confirm all suites pass before concluding, and avoid taking
-        on additional failures in the same run—focus on one issue.
+        passes, report that the suite is green and make no code changes. When there is
+        at least one failure, pick a single failing test (or the tightest failing cluster
+        with a shared root cause) and focus on the smallest missing/broken behaviour you
+        can isolate inside it. If a golden fixture encodes multiple formatting rules,
+        choose one regression to tackle—implement the underlying production fix or
+        feature for that slice, leave the rest untouched, and document any remaining
+        gaps. Never rewrite the existing golden files in `src/plugin/tests/*.gml`.
+
+        Add a new targeted test (unit or integration) that proves the repaired behaviour,
+        even if the broader fixture-driven test still fails. Re-run `npm test` (or the
+        relevant subset) to confirm that previously passing suites stay green and that
+        your new coverage passes. Stop after landing that single improvement; do not
+        chase additional failures in the same run.
