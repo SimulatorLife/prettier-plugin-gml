@@ -65,6 +65,12 @@ const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 const FUNCTION_SIGNATURE_PATTERN =
     /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
 
+// Hoist frequently used regular expressions so they are compiled once. The
+// formatter hits these helpers while iterating over comment lists, so avoiding
+// per-call RegExp construction keeps the hot path allocation-free.
+const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
+const TYPE_IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_]*/g;
+
 function getLineCommentRawText(comment) {
     if (!comment || typeof comment !== "object") {
         return "";
@@ -234,7 +240,8 @@ function normalizeDocCommentTypeAnnotations(text) {
         return text;
     }
 
-    return text.replace(/\{([^}]+)\}/g, (match, typeText) => {
+    DOC_COMMENT_TYPE_PATTERN.lastIndex = 0;
+    return text.replace(DOC_COMMENT_TYPE_PATTERN, (match, typeText) => {
         const normalized = normalizeGameMakerType(typeText);
         return `{${normalized}}`;
     });
@@ -245,7 +252,8 @@ function normalizeGameMakerType(typeText) {
         return typeText;
     }
 
-    return typeText.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (identifier) => {
+    TYPE_IDENTIFIER_PATTERN.lastIndex = 0;
+    return typeText.replace(TYPE_IDENTIFIER_PATTERN, (identifier) => {
         const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
             identifier.toLowerCase()
         );
