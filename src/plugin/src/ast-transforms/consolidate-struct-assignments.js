@@ -3,7 +3,10 @@ import {
     getNodeEndIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import {
+    getSingleVariableDeclarator,
+    isNode
+} from "../../../shared/ast-node-helpers.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -620,10 +623,6 @@ function getNodeStartLine(node) {
     }
 
     return null;
-}
-
-function isNode(value) {
-    return value != null && typeof value === "object";
 }
 
 function isLineCommentNode(comment) {

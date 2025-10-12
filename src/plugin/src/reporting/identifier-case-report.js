@@ -22,6 +22,33 @@ const defaultFsFacade = Object.freeze({
 
 const defaultNow = () => Date.now();
 
+function serializeReferenceEntries(references) {
+    if (!Array.isArray(references) || references.length === 0) {
+        return [];
+    }
+
+    return references.map((reference) => ({
+        filePath: reference.filePath,
+        occurrences: reference.occurrences
+    }));
+}
+
+function serializeConflictEntries(conflicts) {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        return [];
+    }
+
+    return conflicts.map((conflict) => ({
+        code: conflict.code,
+        message: conflict.message,
+        severity: conflict.severity,
+        scope: conflict.scope,
+        identifier: conflict.identifier,
+        suggestions: conflict.suggestions,
+        details: conflict.details
+    }));
+}
+
 function normalizeString(value) {
     if (typeof value !== "string") {
         return "";
@@ -422,20 +449,9 @@ function buildLogPayload(report, generatedAt) {
                 name: operation.toName
             },
             referenceCount: operation.occurrenceCount,
-            references: operation.references.map((reference) => ({
-                filePath: reference.filePath,
-                occurrences: reference.occurrences
-            }))
+            references: serializeReferenceEntries(operation.references)
         })),
-        conflicts: conflicts.map((conflict) => ({
-            code: conflict.code,
-            message: conflict.message,
-            severity: conflict.severity,
-            scope: conflict.scope,
-            identifier: conflict.identifier,
-            suggestions: conflict.suggestions,
-            details: conflict.details
-        }))
+        conflicts: serializeConflictEntries(conflicts)
     };
 }
 
@@ -467,20 +483,9 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
             fromName: operation.fromName,
             toName: operation.toName,
             referenceCount: operation.occurrenceCount,
-            references: operation.references.map((reference) => ({
-                filePath: reference.filePath,
-                occurrences: reference.occurrences
-            }))
+            references: serializeReferenceEntries(operation.references)
         })),
-        conflicts: report.conflicts.map((conflict) => ({
-            code: conflict.code,
-            message: conflict.message,
-            severity: conflict.severity,
-            scope: conflict.scope,
-            identifier: conflict.identifier,
-            suggestions: conflict.suggestions,
-            details: conflict.details
-        }))
+        conflicts: serializeConflictEntries(report.conflicts)
     });
 }
 

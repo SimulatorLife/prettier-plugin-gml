@@ -6,6 +6,7 @@ import {
     cloneLocation,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
+import { isNode } from "../../../shared/ast-node-helpers.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -2292,8 +2293,4 @@ function getAstNodeKey(node) {
             return `${type}:{${entries}}`;
         }
     }
-}
-
-function isNode(value) {
-    return value && typeof value === "object";
 }
