@@ -198,7 +198,9 @@ describe("applyFeatherFixes transform", () => {
         const identifierFixes = returnArgument._appliedFeatherDiagnostics ?? [];
         assert.ok(Array.isArray(identifierFixes));
 
-        const gm1023Fix = identifierFixes.find((entry) => entry.id === "GM1023");
+        const gm1023Fix = identifierFixes.find(
+            (entry) => entry.id === "GM1023"
+        );
         assert.ok(
             gm1023Fix,
             "Expected GM1023 fix metadata to be attached to the identifier."

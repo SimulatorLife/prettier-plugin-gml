@@ -2295,11 +2295,11 @@ function extractDeprecatedConstantReplacement(diagnostic) {
     const badExample =
         typeof diagnostic.badExample === "string" ? diagnostic.badExample : "";
     const correction =
-        typeof diagnostic.correction === "string"
-            ? diagnostic.correction
-            : "";
+        typeof diagnostic.correction === "string" ? diagnostic.correction : "";
     const goodExample =
-        typeof diagnostic.goodExample === "string" ? diagnostic.goodExample : "";
+        typeof diagnostic.goodExample === "string"
+            ? diagnostic.goodExample
+            : "";
 
     const deprecatedMatch = badExample.match(
         /Constant\s+'([A-Za-z_][A-Za-z0-9_]*)'\s+is\s+deprecated/
