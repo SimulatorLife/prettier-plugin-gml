@@ -3,3 +3,6 @@ set -e
 
 npm run format
 npm run lint:fix
+
+# Re-stage tracked files in case formatters rewrote them
+git add -u
