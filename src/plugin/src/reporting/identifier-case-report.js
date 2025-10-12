@@ -49,12 +49,23 @@ function serializeConflictEntries(conflicts) {
     }));
 }
 
-function normalizeString(value) {
-    if (typeof value !== "string") {
+function normalizeString(...values) {
+    if (values.length === 0) {
         return "";
     }
 
-    return value.trim();
+    if (values.length === 1) {
+        const [value] = values;
+        return typeof value === "string" ? value.trim() : "";
+    }
+
+    for (const value of values) {
+        if (typeof value === "string") {
+            return value.trim();
+        }
+    }
+
+    return "";
 }
 
 function extractOperations(plan) {
@@ -95,7 +106,9 @@ function normalizeReference(reference) {
     }
 
     const filePath = normalizeString(
-        reference.filePath ?? reference.path ?? reference.file ?? ""
+        reference.filePath,
+        reference.path,
+        reference.file
     );
 
     if (!filePath) {
@@ -120,14 +133,17 @@ function normalizeScope(scope) {
     }
 
     const displayName = normalizeString(
-        scope.displayName ?? scope.name ?? scope.scope ?? scope.path ?? ""
+        scope.displayName,
+        scope.name,
+        scope.scope,
+        scope.path
     );
-    const id = normalizeString(scope.id ?? scope.scopeId ?? "");
+    const id = normalizeString(scope.id, scope.scopeId);
 
     return {
         id: id || null,
         displayName: displayName || null,
-        name: normalizeString(scope.name ?? "") || null
+        name: normalizeString(scope.name) || null
     };
 }
 
@@ -139,20 +155,18 @@ function normalizeOperation(rawOperation) {
     const scope = normalizeScope(rawOperation.scope ?? {});
 
     const fromName = normalizeString(
-        rawOperation.from?.name ??
-            rawOperation.source?.name ??
-            rawOperation.originalName ??
-            rawOperation.from ??
-            rawOperation.source ??
-            ""
+        rawOperation.from?.name,
+        rawOperation.source?.name,
+        rawOperation.originalName,
+        rawOperation.from,
+        rawOperation.source
     );
     const toName = normalizeString(
-        rawOperation.to?.name ??
-            rawOperation.target?.name ??
-            rawOperation.updatedName ??
-            rawOperation.to ??
-            rawOperation.target ??
-            ""
+        rawOperation.to?.name,
+        rawOperation.target?.name,
+        rawOperation.updatedName,
+        rawOperation.to,
+        rawOperation.target
     );
 
     const references = toArray(rawOperation.references)
@@ -170,11 +184,9 @@ function normalizeOperation(rawOperation) {
     ).size;
 
     return {
-        id:
-            normalizeString(rawOperation.id ?? rawOperation.identifier ?? "") ||
-            null,
+        id: normalizeString(rawOperation.id, rawOperation.identifier) || null,
         kind:
-            normalizeString(rawOperation.kind ?? rawOperation.type ?? "") ||
+            normalizeString(rawOperation.kind, rawOperation.type) ||
             "identifier",
         scopeId: scope.id,
         scopeName: scope.displayName ?? scope.name ?? null,
@@ -192,7 +204,7 @@ function normalizeConflict(rawConflict) {
     }
 
     const scope = normalizeScope(rawConflict.scope ?? {});
-    const severityCandidate = normalizeString(rawConflict.severity ?? "");
+    const severityCandidate = normalizeString(rawConflict.severity);
     const severity = severityCandidate
         ? severityCandidate.toLowerCase()
         : "error";
@@ -204,14 +216,11 @@ function normalizeConflict(rawConflict) {
     return {
         code:
             normalizeString(
-                rawConflict.code ??
-                    rawConflict.identifier ??
-                    rawConflict.type ??
-                    ""
+                rawConflict.code,
+                rawConflict.identifier,
+                rawConflict.type
             ) || null,
-        message:
-            normalizeString(rawConflict.message ?? rawConflict.reason ?? "") ||
-            "",
+        message: normalizeString(rawConflict.message, rawConflict.reason) || "",
         severity,
         scope: {
             id: scope.id,
@@ -219,10 +228,9 @@ function normalizeConflict(rawConflict) {
         },
         identifier:
             normalizeString(
-                rawConflict.identifier ??
-                    rawConflict.name ??
-                    rawConflict.originalName ??
-                    ""
+                rawConflict.identifier,
+                rawConflict.name,
+                rawConflict.originalName
             ) || null,
         suggestions,
         details:
