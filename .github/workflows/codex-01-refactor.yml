@@ -1,9 +1,8 @@
 name: Codex 01 – Refactor & DRY
 on:
   schedule:
-    - cron: "0 0,12 * * *" # twice daily at 00:00, 12:00 UTC
-    - cron: "40 8 * * *" # additional run at 08:40 UTC (fills 08:20–09:00 gap)
-    - cron: "40 20 * * *" # additional run at 20:40 UTC (fills 20:20–21:00 gap)
+    - cron: "0 */3 * * *" # every 3 hours (two runs per 3-hour window via staggered start)
+    - cron: "30 1/3 * * *" # offset by 90 minutes for alternating cadence
   workflow_dispatch:
 
 permissions:
