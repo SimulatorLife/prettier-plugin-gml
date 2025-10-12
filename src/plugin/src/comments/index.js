@@ -6,6 +6,7 @@ import {
     isDocCommentLine,
     isLineComment
 } from "../../../shared/comments.js";
+import { getCachedValue } from "../../../shared/options-cache.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
@@ -49,46 +50,30 @@ function resolveLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    const symbolCachedOptions = options[LINE_COMMENT_OPTIONS_CACHE_KEY];
-    if (symbolCachedOptions) {
-        return symbolCachedOptions;
-    }
+    return getCachedValue(
+        options,
+        LINE_COMMENT_OPTIONS_CACHE_KEY,
+        lineCommentOptionsCache,
+        () => {
+            const bannerMinimum = coercePositiveIntegerOption(
+                lineCommentBannerMinimumSlashes,
+                DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+            );
 
-    const cachedOptions = lineCommentOptionsCache.get(options);
-    if (cachedOptions) {
-        return cachedOptions;
-    }
+            const bannerAutofillThreshold = coercePositiveIntegerOption(
+                lineCommentBannerAutofillThreshold,
+                DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+                {
+                    zeroReplacement: Number.POSITIVE_INFINITY
+                }
+            );
 
-    const bannerMinimum = coercePositiveIntegerOption(
-        lineCommentBannerMinimumSlashes,
-        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-    );
-
-    const bannerAutofillThreshold = coercePositiveIntegerOption(
-        lineCommentBannerAutofillThreshold,
-        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-        {
-            zeroReplacement: Number.POSITIVE_INFINITY
+            return buildLineCommentOptions(
+                bannerMinimum,
+                bannerAutofillThreshold
+            );
         }
     );
-
-    const resolvedOptions = buildLineCommentOptions(
-        bannerMinimum,
-        bannerAutofillThreshold
-    );
-
-    if (Object.isExtensible(options)) {
-        Object.defineProperty(options, LINE_COMMENT_OPTIONS_CACHE_KEY, {
-            value: resolvedOptions,
-            configurable: false,
-            enumerable: false,
-            writable: false
-        });
-    } else {
-        lineCommentOptionsCache.set(options, resolvedOptions);
-    }
-
-    return resolvedOptions;
 }
 
 function getTrailingCommentPadding(options) {
