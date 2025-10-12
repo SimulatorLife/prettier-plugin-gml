@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
+import { createMetricsTracker } from "../../../shared/metrics.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -142,6 +143,15 @@ export function prepareIdentifierCasePlan(options) {
         options.identifierCaseProjectIndex ??
         context?.projectIndex ??
         null;
+
+    const logger = options.logger ?? null;
+    const metrics = createMetricsTracker({
+        category: "identifier-case-plan",
+        logger,
+        autoLog: options.logIdentifierCaseMetrics === true
+    });
+    options.__identifierCaseMetrics = metrics;
+    const stopTotal = metrics.startTimer("preparePlan");
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
     // `projectIndex.identifiers` with dedicated identifier IDs per scope. Local-scope
     // renaming remains the only executed transformation until the scope toggles
@@ -153,10 +163,20 @@ export function prepareIdentifierCasePlan(options) {
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
     const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
 
+    metrics.setMetadata("localStyle", localStyle);
+    metrics.setMetadata("assetStyle", assetStyle);
+
     const preservedSet = new Set(normalizedOptions.preservedIdentifiers ?? []);
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []
     );
+
+    const finalizeMetrics = (extraMetadata = {}) => {
+        stopTotal();
+        const report = metrics.finalize({ metadata: extraMetadata });
+        options.__identifierCaseMetricsReport = report;
+        return report;
+    };
 
     const renameMap = new Map();
     const operations = [];
@@ -165,20 +185,37 @@ export function prepareIdentifierCasePlan(options) {
     let assetConflicts = [];
 
     if (projectIndex && assetStyle !== "off") {
-        const assetPlan = planAssetRenames({
-            projectIndex,
-            assetStyle,
-            preservedSet,
-            ignoreMatchers
-        });
+        metrics.incrementCounter("assets.projectsWithIndex");
+        const assetPlan = metrics.timeSync("assets.plan", () =>
+            planAssetRenames({
+                projectIndex,
+                assetStyle,
+                preservedSet,
+                ignoreMatchers,
+                metrics
+            })
+        );
         operations.push(...assetPlan.operations);
         conflicts.push(...assetPlan.conflicts);
         assetRenames.push(...assetPlan.renames);
         assetConflicts = assetPlan.conflicts ?? [];
+        metrics.incrementCounter(
+            "assets.operations",
+            assetPlan.operations.length
+        );
+        metrics.incrementCounter(
+            "assets.conflicts",
+            assetPlan.conflicts.length
+        );
+        metrics.incrementCounter("assets.renames", assetPlan.renames.length);
     }
 
     const hasLocalSupport =
         projectIndex && projectIndex.files && localStyle !== "off";
+
+    if (hasLocalSupport) {
+        metrics.incrementCounter("locals.supportedFiles");
+    }
 
     let fileRecord = null;
     let relativeFilePath = null;
@@ -197,6 +234,11 @@ export function prepareIdentifierCasePlan(options) {
         if (assetRenames.length > 0) {
             options.__identifierCaseAssetRenames = assetRenames;
         }
+
+        const metricsReport = finalizeMetrics({
+            resolvedFile: Boolean(fileRecord),
+            relativeFilePath
+        });
 
         if (operations.length === 0 && conflicts.length === 0) {
             // no-op
@@ -223,8 +265,15 @@ export function prepareIdentifierCasePlan(options) {
             });
             options.__identifierCaseAssetRenameResult = result;
             options.__identifierCaseAssetRenamesApplied = true;
+            metrics.incrementCounter(
+                "assets.appliedRenames",
+                result?.renames?.length ?? 0
+            );
         }
         options.__identifierCasePlanGeneratedInternally = true;
+        if (options.__identifierCaseRenamePlan) {
+            options.__identifierCaseRenamePlan.metrics = metricsReport;
+        }
         return;
     }
 
@@ -233,6 +282,8 @@ export function prepareIdentifierCasePlan(options) {
         if (!declaration || !declaration.name) {
             continue;
         }
+
+        metrics.incrementCounter("locals.declarationsScanned");
 
         const scopeKey = createScopeGroupingKey(
             declaration.scopeId,
@@ -248,6 +299,8 @@ export function prepareIdentifierCasePlan(options) {
         if (!reference || reference.isBuiltIn) {
             continue;
         }
+
+        metrics.incrementCounter("locals.referencesScanned");
 
         const classifications = Array.isArray(reference.classifications)
             ? reference.classifications
@@ -276,6 +329,8 @@ export function prepareIdentifierCasePlan(options) {
         if (!declaration || declaration.isBuiltIn) {
             continue;
         }
+
+        metrics.incrementCounter("locals.declarationCandidates");
 
         const classifications = Array.isArray(declaration.classifications)
             ? declaration.classifications
@@ -314,6 +369,7 @@ export function prepareIdentifierCasePlan(options) {
         });
 
         if (configConflict) {
+            metrics.incrementCounter("locals.configurationConflicts");
             const scopeDescriptor = createScopeDescriptor(
                 projectIndex,
                 fileRecord,
@@ -372,6 +428,7 @@ export function prepareIdentifierCasePlan(options) {
                     identifier: declaration.name
                 })
             );
+            metrics.incrementCounter("locals.collisionConflicts");
             continue;
         }
         const referenceKey = `${scopeGroupKey}|${declaration.name}`;
@@ -384,6 +441,7 @@ export function prepareIdentifierCasePlan(options) {
             references: relatedReferences,
             scopeGroupKey
         });
+        metrics.incrementCounter("locals.candidatesAccepted");
     }
 
     const candidatesByScope = new Map();
@@ -420,15 +478,18 @@ export function prepareIdentifierCasePlan(options) {
                             identifier: candidate.declaration.name
                         })
                     );
+                    metrics.incrementCounter("locals.collisionConflicts");
                 }
                 continue;
             }
 
             appliedCandidates.push(groupedCandidates[0]);
+            metrics.incrementCounter("locals.candidatesApplied");
         }
     }
 
     for (const candidate of appliedCandidates) {
+        metrics.incrementCounter("locals.operations", 1);
         const { declaration, convertedName, references } = candidate;
         const scopeDescriptor = createScopeDescriptor(
             projectIndex,
@@ -459,6 +520,7 @@ export function prepareIdentifierCasePlan(options) {
         );
         if (declarationKey) {
             renameMap.set(declarationKey, convertedName);
+            metrics.incrementCounter("locals.renameMapEntries");
         }
 
         for (const reference of references) {
@@ -468,6 +530,7 @@ export function prepareIdentifierCasePlan(options) {
             );
             if (referenceKey) {
                 renameMap.set(referenceKey, convertedName);
+                metrics.incrementCounter("locals.renameMapEntries");
             }
         }
     }
@@ -503,6 +566,22 @@ export function prepareIdentifierCasePlan(options) {
         });
         options.__identifierCaseAssetRenameResult = result;
         options.__identifierCaseAssetRenamesApplied = true;
+        metrics.incrementCounter(
+            "assets.appliedRenames",
+            result?.renames?.length ?? 0
+        );
+    }
+
+    const metricsReport = finalizeMetrics({
+        resolvedFile: Boolean(fileRecord),
+        relativeFilePath,
+        operationCount: operations.length,
+        conflictCount: conflicts.length,
+        renameEntries: renameMap.size
+    });
+
+    if (options.__identifierCaseRenamePlan) {
+        options.__identifierCaseRenamePlan.metrics = metricsReport;
     }
 }
 

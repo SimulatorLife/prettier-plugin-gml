@@ -41,3 +41,31 @@ file changes on disk, its `mtimeMs` shifts, producing a new hash and therefore a
 new cache entry.  This keeps cache coordination simple while still allowing the
 system to reuse work across parallel Prettier runs when nothing relevant has
 changed.
+
+## Metrics-driven tuning and operational heuristics
+
+Instrumentation was added to both the project index builder and the rename
+planner so we can observe timing, identifier counts, and cache behaviour in
+real projects. The collected metrics surfaced three practical improvements:
+
+1. **Built-in identifier cache invalidation** – the loader now records the
+   `mtimeMs` of `resources/gml-identifiers.json`. If the file changes between
+   runs the cache is treated as stale and reloaded; otherwise we count a cache
+   hit. The tracker exposes hit/miss/stale counters so we can detect unexpected
+   churn during benchmarking.
+2. **I/O batching with bounded concurrency** – scanning and parsing GML files
+   now honours a configurable concurrency limit (defaulting to four workers).
+   The metrics include the active concurrency to make it obvious when the
+   system is CPU- or I/O-bound. Processing happens in batches so slow network
+   storage no longer serialises the entire pipeline.
+3. **Rename planner accounting** – the identifier-case pipeline records how
+   many declarations, references, and rename operations were examined versus
+   accepted. Conflict counters (configuration, collisions, reserved words) make
+   it easy to spot tuning opportunities for ignore/preserve lists when the
+   numbers spike.
+
+The new `scripts/bench-identifier-pipeline.mjs` helper runs the project index
+twice (to observe cache reuse) and optionally executes the rename planner for a
+specific file, printing the captured metrics as structured JSON. This gives us
+an ad-hoc regression harness for spotting regressions before they make it into
+CI.

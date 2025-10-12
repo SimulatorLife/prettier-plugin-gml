@@ -111,7 +111,7 @@ function collectDirectoryEntries({ projectIndex, renames }) {
     return directories;
 }
 
-function detectAssetRenameConflicts({ projectIndex, renames }) {
+function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
     if (!projectIndex || !Array.isArray(renames) || renames.length === 0) {
         return [];
     }
@@ -175,6 +175,7 @@ function detectAssetRenameConflicts({ projectIndex, renames }) {
                             }
                         })
                     );
+                    metrics?.incrementCounter("assets.collisionConflicts");
                 }
 
                 const otherRenames = renameEntries.filter(
@@ -203,6 +204,7 @@ function detectAssetRenameConflicts({ projectIndex, renames }) {
                             }
                         })
                     );
+                    metrics?.incrementCounter("assets.collisionConflicts");
                 }
             }
         }
@@ -231,6 +233,7 @@ function detectAssetRenameConflicts({ projectIndex, renames }) {
                 }
             })
         );
+        metrics?.incrementCounter("assets.reservedConflicts");
     }
 
     return conflicts;
@@ -256,7 +259,8 @@ export function planAssetRenames({
     projectIndex,
     assetStyle,
     preservedSet = new Set(),
-    ignoreMatchers = []
+    ignoreMatchers = [],
+    metrics = null
 } = {}) {
     if (!projectIndex || !projectIndex.resources || assetStyle === "off") {
         return { operations: [], conflicts: [], renames: [] };
@@ -286,6 +290,8 @@ export function planAssetRenames({
             continue;
         }
 
+        metrics?.incrementCounter("assets.resourcesScanned");
+
         if (resourceRecord.resourceType !== "GMScript") {
             continue;
         }
@@ -297,6 +303,8 @@ export function planAssetRenames({
             continue;
         }
 
+        metrics?.incrementCounter("assets.renameCandidates");
+
         const configConflict = resolveIdentifierConfigurationConflict({
             preservedSet,
             identifierName: originalName,
@@ -305,6 +313,7 @@ export function planAssetRenames({
         });
 
         if (configConflict) {
+            metrics?.incrementCounter("assets.configurationConflicts");
             const scopeDescriptor = {
                 id: resourcePath,
                 displayName: `${resourceRecord.resourceType}.${originalName}`
@@ -355,6 +364,7 @@ export function planAssetRenames({
                     identifier: originalName
                 })
             );
+            metrics?.incrementCounter("assets.collisionConflicts");
             continue;
         }
         namesByDirectory.set(collisionKey, {
@@ -404,6 +414,8 @@ export function planAssetRenames({
             referenceMutations
         });
 
+        metrics?.incrementCounter("assets.renamesQueued");
+
         operations.push({
             id: `asset:${resourceRecord.resourceType}:${resourcePath}`,
             kind: "asset",
@@ -419,7 +431,8 @@ export function planAssetRenames({
 
     const validationConflicts = detectAssetRenameConflicts({
         projectIndex,
-        renames
+        renames,
+        metrics
     });
 
     if (validationConflicts.length > 0) {
