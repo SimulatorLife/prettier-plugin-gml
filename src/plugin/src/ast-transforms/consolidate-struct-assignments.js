@@ -7,6 +7,7 @@ import {
     getSingleVariableDeclarator,
     isNode
 } from "../../../shared/ast-node-helpers.js";
+import { getCommentArray } from "../../../shared/comments.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -37,9 +38,7 @@ export function consolidateStructAssignments(ast, commentTools) {
     }
 
     const normalizedCommentTools = normalizeCommentTools(commentTools);
-    const tracker = new CommentTracker(
-        Array.isArray(ast.comments) ? ast.comments : []
-    );
+    const tracker = new CommentTracker(getCommentArray(ast));
     visit(ast, tracker, normalizedCommentTools);
     tracker.removeConsumedComments();
     return ast;
@@ -183,9 +182,7 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            property.comments = Array.isArray(property.comments)
-                ? property.comments
-                : [];
+            property.comments = getCommentArray(property);
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;

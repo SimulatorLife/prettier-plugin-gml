@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
     collectCommentNodes,
+    getCommentArray,
     hasComment,
     isBlockComment,
     isCommentNode,
@@ -40,6 +41,18 @@ test("hasComment reports when nodes contain comments", () => {
     assert.equal(hasComment(nodeWithComment), true);
     assert.equal(hasComment(nodeWithoutComment), false);
     assert.equal(hasComment(nodeWithoutCommentsProperty), false);
+});
+
+test("getCommentArray normalizes comment collections", () => {
+    const comment = { type: "CommentLine", value: "// comment" };
+    const nodeWithComments = { comments: [comment] };
+    const nodeWithoutComments = {};
+    const nodeWithInvalidComments = { comments: "not an array" };
+
+    assert.equal(getCommentArray(nodeWithComments), nodeWithComments.comments);
+    assert.deepEqual(getCommentArray(nodeWithoutComments), []);
+    assert.deepEqual(getCommentArray(nodeWithInvalidComments), []);
+    assert.deepEqual(getCommentArray(null), []);
 });
 
 test("collectCommentNodes finds nested comment nodes", () => {
