@@ -150,7 +150,7 @@ export function createProjectIndexCoordinator() {
 }
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../resources/gml-identifiers.json", import.meta.url)
+    new URL("../../../resources/gml-identifiers.json", import.meta.url)
 );
 
 let cachedBuiltInIdentifiers = null;
