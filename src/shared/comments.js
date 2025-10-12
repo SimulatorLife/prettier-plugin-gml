@@ -64,6 +64,8 @@ export function getCommentArray(owner) {
  * @returns {Array<CommentBlockNode | CommentLineNode>}
  *          Flat list of comment nodes discovered anywhere within the supplied root.
  */
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+
 export function collectCommentNodes(root) {
     if (!root || typeof root !== "object") {
         return [];
@@ -96,7 +98,15 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        for (const value of Object.values(current)) {
+        // Avoid allocating `Object.values` on every traversal step. The
+        // collector runs frequently while preparing printer metadata, so this
+        // tight loop sticks to simple property iteration.
+        for (const key in current) {
+            if (!hasOwnProperty.call(current, key)) {
+                continue;
+            }
+
+            const value = current[key];
             if (value && typeof value === "object") {
                 stack.push(value);
             }
