@@ -110,6 +110,72 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("replaces read-only built-in assignments with local variables", () => {
+        const source = [
+            "function demo() {",
+            '    working_directory = @"PlayerData";',
+            '    var first = file_find_first(working_directory + @"/Screenshots/*.png", fa_archive);',
+            "    return working_directory;",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [functionDeclaration] = ast.body ?? [];
+        assert.ok(functionDeclaration);
+
+        const blockBody = functionDeclaration.body?.body ?? [];
+        assert.ok(Array.isArray(blockBody));
+        assert.strictEqual(blockBody.length, 3);
+
+        const [replacementDeclaration, callDeclaration, returnStatement] =
+            blockBody;
+
+        assert.ok(replacementDeclaration);
+        assert.strictEqual(replacementDeclaration.type, "VariableDeclaration");
+
+        const replacementDeclarator = replacementDeclaration.declarations?.[0];
+        assert.ok(replacementDeclarator);
+        const replacementName = replacementDeclarator.id?.name;
+        assert.strictEqual(typeof replacementName, "string");
+        assert.ok(replacementName.startsWith("__feather_working_directory"));
+
+        const callInit = callDeclaration?.declarations?.[0]?.init;
+        assert.ok(callInit);
+        assert.strictEqual(callInit.type, "CallExpression");
+
+        const firstArgument = callInit.arguments?.[0];
+        assert.ok(firstArgument);
+        assert.strictEqual(firstArgument.type, "BinaryExpression");
+        assert.strictEqual(firstArgument.left?.type, "Identifier");
+        assert.strictEqual(firstArgument.left.name, replacementName);
+
+        assert.ok(returnStatement);
+        assert.strictEqual(returnStatement.type, "ReturnStatement");
+        assert.strictEqual(returnStatement.argument?.type, "Identifier");
+        assert.strictEqual(returnStatement.argument.name, replacementName);
+
+        const statementFixes =
+            replacementDeclaration._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(statementFixes));
+        assert.strictEqual(statementFixes.length, 1);
+        assert.strictEqual(statementFixes[0].id, "GM1008");
+        assert.strictEqual(statementFixes[0].target, "working_directory");
+        assert.strictEqual(statementFixes[0].automatic, true);
+
+        const rootFixes = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            rootFixes.some((entry) => entry.id === "GM1008"),
+            true,
+            "Expected program metadata to include the GM1008 fix."
+        );
+    });
+
     it("promotes local variables used within with(other) scopes", () => {
         const source = [
             "var atk = 1;",
