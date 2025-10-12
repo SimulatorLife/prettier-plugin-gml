@@ -43,6 +43,15 @@ export function hasComment(node) {
     return comments.some(isCommentNode);
 }
 
+export function getCommentArray(owner) {
+    if (!owner || typeof owner !== "object") {
+        return [];
+    }
+
+    const { comments } = owner;
+    return Array.isArray(comments) ? comments : [];
+}
+
 /**
  * Performs a depth-first traversal to find every distinct comment node in the
  * provided AST fragment. Objects are tracked in a WeakSet so that the

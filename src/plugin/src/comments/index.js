@@ -1,5 +1,6 @@
 import {
     collectCommentNodes,
+    getCommentArray,
     hasComment,
     isBlockComment,
     isCommentNode,
@@ -30,6 +31,7 @@ export {
     DEFAULT_TRAILING_COMMENT_PADDING,
     formatLineComment,
     getLineCommentRawText,
+    getCommentArray,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     hasComment,

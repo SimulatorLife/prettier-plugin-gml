@@ -42,7 +42,7 @@ import {
     getTrailingCommentPadding,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
-import { isCommentNode } from "../../../shared/comments.js";
+import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
 import {
     getNodeStartIndex,
@@ -926,9 +926,10 @@ export function print(path, options, print) {
             return concat(["new ", print("expression"), ...argsPrinted]);
         }
         case "EnumMember": {
-            if (Array.isArray(node.comments) && node.comments.length > 0) {
+            const comments = getCommentArray(node);
+            if (comments.length > 0) {
                 const padding = getEnumMemberCommentPadding(node);
-                node.comments.forEach((comment) => {
+                comments.forEach((comment) => {
                     if (
                         comment &&
                         (comment.trailing || comment.placement === "endOfLine")
@@ -1486,7 +1487,7 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const hasFunctionDoc =
         declarator.init.docComments && declarator.init.docComments.length > 0;
 
-    const rawComments = Array.isArray(node.comments) ? node.comments : [];
+    const rawComments = getCommentArray(node);
     const lineCommentOptions = resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
@@ -3506,7 +3507,7 @@ function printEmptyParens(path, _print, options) {
 // prints an empty block with dangling comments
 function printEmptyBlock(path, options) {
     const node = path.getValue();
-    const comments = Array.isArray(node?.comments) ? node.comments : [];
+    const comments = getCommentArray(node);
     const hasPrintableComments = comments.some(isCommentNode);
 
     if (hasPrintableComments) {
