@@ -6,6 +6,12 @@
 - Keep the formatter fast: resolve identifiers lazily during development/build steps rather than at runtime inside the Prettier plugin.
 - Prefer first-party sources to minimise drift and licence risk.
 
+## Current implementation
+- The harvesting pipeline lives in [`scripts/generate-gml-identifiers.mjs`](../scripts/generate-gml-identifiers.mjs) and defaults to writing `resources/gml-identifiers.json` so downstream consumers can load a single canonical snapshot.【F:scripts/generate-gml-identifiers.mjs†L1-L55】
+- Cached manual artefacts are stored under `scripts/cache/manual/<sha>/…`, allowing repeated runs without re-downloading the same GameMaker manual revision.【F:scripts/generate-gml-identifiers.mjs†L11-L137】
+- Run the script with `--help` (or `-h`) to see the supported flags: `--ref/-r` chooses the manual tag or commit, `--output/-o` overrides the destination path, and `--force-refresh` bypasses the cache when you need a fresh snapshot.【F:scripts/generate-gml-identifiers.mjs†L19-L55】
+- `GML_MANUAL_REF` remains a convenient environment variable for CI jobs that must pin the identifiers to a specific GameMaker version.【F:scripts/generate-gml-identifiers.mjs†L19-L34】
+
 ## Primary upstream sources
 1. **YoYo Games GameMaker Manual repository** (`YoYoGames/GameMaker-Manual`)
    - The `develop` branch mirrors the HTML manual that ships with monthly releases.
@@ -37,6 +43,7 @@
 ## Regeneration helper
 - Run `npm run build:gml-identifiers` to download the latest manual artefacts (cached under `scripts/cache/`) and update `resources/gml-identifiers.json` with the consolidated identifier catalogue.
 - Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
+- See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Operational considerations
 - **Rate limiting:** Use conditional requests (ETags) or GitHub API tokens when available to avoid 60-requests-per-hour unauthenticated ceilings, especially if multiple manual files must be fetched during development.【F:docs/reserved-identifiers-plan.md†L87-L90】

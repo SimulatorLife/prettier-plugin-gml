@@ -1,0 +1,64 @@
+name: Codex 41 – Failing Test Recovery
+on:
+  schedule:
+    - cron: "15 3 * * *" # 03:15 UTC
+    - cron: "45 11 * * *" # 11:45 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  check_tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests_failed: ${{ steps.run_tests.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        id: run_tests
+        run: |
+          set +e
+          npm test
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Test suite exited with $status"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Test suite passed"
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+  run:
+    needs: check_tests
+    if: ${{ needs.check_tests.outputs.tests_failed == 'true' }}
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Recover Failing Test"
+      pr_body: "Seed PR for Codex to diagnose a failing test, repair the underlying issue, and re-verify."
+      prompt: >
+        Start by running the full automated test suite (`npm test`). If everything
+        passes, report that the suite is green and make no code changes. When there is a
+        failure, choose one failing test (or the smallest failing group that shares a
+        root cause) and focus solely on making it pass. Investigate the underlying bug
+        or missing functionality, fix the production code (NOT the test), and keep the
+        scope constrained to that issue so other behavior is unchanged. Do not modify
+        any golden fixtures in src/plugin/tests/*.gml, and leave existing tests intact.
+        Add targeted unit coverage only if it strengthens confidence in the fix.
+        Re-run `npm test` to confirm all suites pass before concluding, and avoid taking
+        on additional failures in the same run—focus on one issue.

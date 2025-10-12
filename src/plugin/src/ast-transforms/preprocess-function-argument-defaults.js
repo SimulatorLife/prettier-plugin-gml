@@ -1,14 +1,98 @@
-import { hasComment } from "../printer/util.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import { hasComment as sharedHasComment } from "../comments/index.js";
+import {
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
+    getIdentifierText as sharedGetIdentifierText,
+    isUndefinedLiteral as sharedIsUndefinedLiteral
+} from "../../../shared/ast-node-helpers.js";
+
+const DEFAULT_HELPERS = {
+    getIdentifierText: sharedGetIdentifierText,
+    isUndefinedLiteral: sharedIsUndefinedLiteral,
+    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+    hasComment: sharedHasComment
+};
 
 /**
  * Normalize function parameters by converting argument_count fallbacks into default parameters.
  *
- * @param {import("prettier").AstPath} path
- * @param {{ getIdentifierText: (node: unknown) => string | null, isUndefinedLiteral: (node: unknown) => boolean }} helpers
+ * @param {unknown} ast
+ * @param {{
+ *   getIdentifierText?: (node: unknown) => string | null,
+ *   isUndefinedLiteral?: (node: unknown) => boolean,
+ *   getSingleVariableDeclarator?: (node: unknown) => unknown,
+ *   hasComment?: (node: unknown) => boolean
+ * }} helpers
  */
-export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
-    const node = path?.getValue?.();
+export function preprocessFunctionArgumentDefaults(
+    ast,
+    helpers = DEFAULT_HELPERS
+) {
+    if (!ast || typeof ast !== "object") {
+        return ast;
+    }
+
+    const normalizedHelpers = {
+        getIdentifierText:
+            typeof helpers.getIdentifierText === "function"
+                ? helpers.getIdentifierText
+                : DEFAULT_HELPERS.getIdentifierText,
+        isUndefinedLiteral:
+            typeof helpers.isUndefinedLiteral === "function"
+                ? helpers.isUndefinedLiteral
+                : DEFAULT_HELPERS.isUndefinedLiteral,
+        getSingleVariableDeclarator:
+            typeof helpers.getSingleVariableDeclarator === "function"
+                ? helpers.getSingleVariableDeclarator
+                : DEFAULT_HELPERS.getSingleVariableDeclarator,
+        hasComment:
+            typeof helpers.hasComment === "function"
+                ? helpers.hasComment
+                : DEFAULT_HELPERS.hasComment
+    };
+
+    traverse(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        preprocessFunctionDeclaration(node, normalizedHelpers);
+    });
+
+    return ast;
+}
+
+function traverse(node, visitor, seen = new Set()) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (seen.has(node)) {
+        return;
+    }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const child of node) {
+            traverse(child, visitor, seen);
+        }
+        return;
+    }
+
+    visitor(node);
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        if (value && typeof value === "object") {
+            traverse(value, visitor, seen);
+        }
+    }
+}
+
+function preprocessFunctionDeclaration(node, helpers) {
     if (!node || node.type !== "FunctionDeclaration") {
         return;
     }
@@ -17,33 +101,44 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         return;
     }
 
-    const getIdentifierText = typeof helpers.getIdentifierText === "function"
-        ? helpers.getIdentifierText
-        : null;
-    const isUndefinedLiteral = typeof helpers.isUndefinedLiteral === "function"
-        ? helpers.isUndefinedLiteral
-        : null;
+    const {
+        getIdentifierText,
+        isUndefinedLiteral,
+        hasComment,
+        getSingleVariableDeclarator
+    } = helpers;
 
-    if (!getIdentifierText || !isUndefinedLiteral) {
+    if (
+        typeof getIdentifierText !== "function" ||
+        typeof isUndefinedLiteral !== "function" ||
+        typeof hasComment !== "function" ||
+        typeof getSingleVariableDeclarator !== "function"
+    ) {
         return;
     }
 
     node._hasProcessedArgumentCountDefaults = true;
 
     const body = node.body;
-    if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body) || body.body.length === 0) {
+    if (
+        !body ||
+        body.type !== "BlockStatement" ||
+        !Array.isArray(body.body) ||
+        body.body.length === 0
+    ) {
         return;
     }
 
     const statements = body.body;
     const matches = [];
 
-    for (let statementIndex = 0; statementIndex < statements.length; statementIndex++) {
+    for (
+        let statementIndex = 0;
+        statementIndex < statements.length;
+        statementIndex++
+    ) {
         const statement = statements[statementIndex];
-        const match = matchArgumentCountFallbackStatement(statement, {
-            getIdentifierText,
-            isUndefinedLiteral
-        });
+        const match = matchArgumentCountFallbackStatement(statement, helpers);
 
         if (!match) {
             continue;
@@ -74,7 +169,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
 
     const paramInfoByName = new Map();
     params.forEach((param, index) => {
-        const identifier = getIdentifierFromParameter(param, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(param, helpers);
         if (!identifier) {
             return;
         }
@@ -96,22 +191,24 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         }
 
         const { targetName, argumentIndex } = match;
-
         if (argumentIndex == null || argumentIndex < 0) {
             return null;
         }
 
         const existingInfo = paramInfoByName.get(targetName);
         if (existingInfo) {
-            if (existingInfo.index === argumentIndex) {
-                return existingInfo;
-            }
-            return null;
+            return existingInfo.index === argumentIndex ? existingInfo : null;
         }
 
         if (argumentIndex > params.length) {
             return null;
         }
+
+        const registerInfo = (index, identifier) => {
+            const info = { index, identifier };
+            paramInfoByName.set(targetName, info);
+            return info;
+        };
 
         if (argumentIndex === params.length) {
             const newIdentifier = {
@@ -119,13 +216,11 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 name: targetName
             };
             params.push(newIdentifier);
-            const info = { index: argumentIndex, identifier: newIdentifier };
-            paramInfoByName.set(targetName, info);
-            return info;
+            return registerInfo(argumentIndex, newIdentifier);
         }
 
         const paramAtIndex = params[argumentIndex];
-        const identifier = getIdentifierFromParameter(paramAtIndex, { getIdentifierText });
+        const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
         if (!identifier) {
             return null;
         }
@@ -135,9 +230,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
             return null;
         }
 
-        const info = { index: argumentIndex, identifier };
-        paramInfoByName.set(targetName, info);
-        return info;
+        return registerInfo(argumentIndex, identifier);
     };
 
     for (const match of matches) {
@@ -179,10 +272,7 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
                 statements,
                 match.statementIndex,
                 match.targetName,
-                {
-                    getIdentifierText,
-                    isUndefinedLiteral
-                }
+                helpers
             );
 
             if (redundantVar) {
@@ -195,7 +285,9 @@ export function preprocessFunctionArgumentDefaults(path, helpers = {}) {
         return;
     }
 
-    body.body = body.body.filter((statement) => !statementsToRemove.has(statement));
+    body.body = body.body.filter(
+        (statement) => !statementsToRemove.has(statement)
+    );
 }
 
 function getIdentifierFromParameter(param, { getIdentifierText }) {
@@ -207,13 +299,21 @@ function getIdentifierFromParameter(param, { getIdentifierText }) {
         return param;
     }
 
-    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+    if (
+        param.type === "DefaultParameter" &&
+        param.left?.type === "Identifier"
+    ) {
         return param.left;
     }
 
-    if (param.type === "ConstructorParentClause" && Array.isArray(param.params)) {
+    if (
+        param.type === "ConstructorParentClause" &&
+        Array.isArray(param.params)
+    ) {
         for (const childParam of param.params) {
-            const identifier = getIdentifierFromParameter(childParam, { getIdentifierText });
+            const identifier = getIdentifierFromParameter(childParam, {
+                getIdentifierText
+            });
             if (identifier) {
                 return identifier;
             }
@@ -228,12 +328,15 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (helpers.hasComment(statement)) {
         return null;
     }
 
     if (statement.type === "VariableDeclaration") {
-        return matchArgumentCountFallbackFromVariableDeclaration(statement, helpers);
+        return matchArgumentCountFallbackFromVariableDeclaration(
+            statement,
+            helpers
+        );
     }
 
     if (statement.type === "IfStatement") {
@@ -252,12 +355,12 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = helpers.getSingleVariableDeclarator(node);
     if (!declarator) {
         return null;
     }
 
-    if (declarator.comments && declarator.comments.length > 0) {
+    if (helpers.hasComment(declarator)) {
         return null;
     }
 
@@ -313,8 +416,14 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
         return null;
     }
 
-    const consequentAssignment = extractAssignmentFromStatement(node.consequent);
-    const alternateAssignment = extractAssignmentFromStatement(node.alternate);
+    const consequentAssignment = extractAssignmentFromStatement(
+        node.consequent,
+        helpers
+    );
+    const alternateAssignment = extractAssignmentFromStatement(
+        node.alternate,
+        helpers
+    );
 
     if (!consequentAssignment || !alternateAssignment) {
         return null;
@@ -333,8 +442,12 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
         return null;
     }
 
-    const argumentAssignment = consequentIsArgument ? consequentAssignment : alternateAssignment;
-    const fallbackAssignment = consequentIsArgument ? alternateAssignment : consequentAssignment;
+    const argumentAssignment = consequentIsArgument
+        ? consequentAssignment
+        : alternateAssignment;
+    const fallbackAssignment = consequentIsArgument
+        ? alternateAssignment
+        : consequentAssignment;
 
     const targetName = helpers.getIdentifierText(argumentAssignment.left);
     const fallbackName = helpers.getIdentifierText(fallbackAssignment.left);
@@ -355,7 +468,12 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
     };
 }
 
-function findRedundantVarDeclarationBefore(statements, currentIndex, targetName, helpers) {
+function findRedundantVarDeclarationBefore(
+    statements,
+    currentIndex,
+    targetName,
+    helpers
+) {
     if (!Array.isArray(statements) || currentIndex <= 0) {
         return null;
     }
@@ -378,16 +496,16 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
         return false;
     }
 
-    if (hasComment(node)) {
+    if (helpers.hasComment(node)) {
         return false;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = helpers.getSingleVariableDeclarator(node);
     if (!declarator) {
         return false;
     }
 
-    if (hasComment(declarator)) {
+    if (helpers.hasComment(declarator)) {
         return false;
     }
 
@@ -404,12 +522,12 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
     return true;
 }
 
-function extractAssignmentFromStatement(statement) {
+function extractAssignmentFromStatement(statement, helpers) {
     if (!statement) {
         return null;
     }
 
-    if (statement.comments && statement.comments.length > 0) {
+    if (helpers.hasComment(statement)) {
         return null;
     }
 
@@ -421,7 +539,7 @@ function extractAssignmentFromStatement(statement) {
         if (!Array.isArray(statement.body) || statement.body.length !== 1) {
             return null;
         }
-        return extractAssignmentFromStatement(statement.body[0]);
+        return extractAssignmentFromStatement(statement.body[0], helpers);
     }
 
     if (statement.type !== "ExpressionStatement") {
@@ -476,6 +594,19 @@ function parseArgumentCountGuard(node) {
         return adjusted >= 0 ? { argumentIndex: adjusted } : null;
     }
 
+    if (node.operator === "<") {
+        const adjusted = rightIndex - 1;
+        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
+    }
+
+    if (node.operator === "<=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
+    if (node.operator === "==" || node.operator === "!=") {
+        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    }
+
     return null;
 }
 
@@ -523,7 +654,11 @@ function isArgumentArrayAccess(node, expectedIndex) {
         return false;
     }
 
-    if (!node.object || node.object.type !== "Identifier" || node.object.name !== "argument") {
+    if (
+        !node.object ||
+        node.object.type !== "Identifier" ||
+        node.object.name !== "argument"
+    ) {
         return false;
     }
 
