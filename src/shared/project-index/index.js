@@ -174,12 +174,12 @@ async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade) {
         }
 
         cachedBuiltInIdentifiers = {
-            metadata: identifiers,
+            metadata: null,
             names
         };
     } catch {
         cachedBuiltInIdentifiers = {
-            metadata: {},
+            metadata: null,
             names: new Set()
         };
     }
