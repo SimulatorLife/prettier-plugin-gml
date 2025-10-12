@@ -1,12 +1,18 @@
 import { constants as fsConstants } from "node:fs";
 
+import { escapeRegExp } from "../../../shared/regexp.js";
+
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
 export const RESERVED_CONFLICT_CODE = "reserved";
 
 export function escapeForRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (typeof value !== "string") {
+        throw new TypeError("Value must be a string");
+    }
+
+    return escapeRegExp(value);
 }
 
 export function createPatternRegExp(pattern) {
