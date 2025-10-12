@@ -9,7 +9,7 @@ import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "../../scripts/utils/cli-errors.js";
+} from "../shared/cli/cli-errors.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");

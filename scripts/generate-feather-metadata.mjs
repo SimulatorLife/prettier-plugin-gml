@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
-import { CliUsageError, handleCliError } from "./utils/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
