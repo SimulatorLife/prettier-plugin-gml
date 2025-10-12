@@ -5,6 +5,11 @@ import { describe, it } from "node:test";
 import GMLParser from "gamemaker-language-parser";
 
 import {
+    getNodeEndIndex,
+    getNodeStartIndex
+} from "../../shared/ast-locations.js";
+
+import {
     getFeatherMetadata,
     getFeatherDiagnosticById
 } from "../src/feather/metadata.js";
@@ -793,6 +798,65 @@ describe("applyFeatherFixes transform", () => {
                 "Each Feather fix entry should indicate whether it was applied automatically."
             );
         }
+    });
+
+    it("captures metadata for deprecated function calls flagged by GM1017", () => {
+        const source = [
+            "/// @deprecated Use start_new_game instead.",
+            "function make_game() {",
+            "    return 1;",
+            "}",
+            "",
+            "make_game();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const callExpression = ast.body?.find(
+            (node) => node?.type === "CallExpression"
+        );
+
+        assert.ok(
+            callExpression,
+            "Expected the sample program to include a call expression."
+        );
+
+        const fixes = callExpression._appliedFeatherDiagnostics;
+
+        assert.ok(Array.isArray(fixes));
+        assert.strictEqual(fixes.length, 1);
+
+        const [fix] = fixes;
+
+        assert.strictEqual(fix.id, "GM1017");
+        assert.strictEqual(fix.target, "make_game");
+        assert.strictEqual(fix.automatic, false);
+        assert.ok(fix.range);
+        assert.strictEqual(fix.range.start, getNodeStartIndex(callExpression));
+        assert.strictEqual(fix.range.end, getNodeEndIndex(callExpression));
+
+        const metadata = getFeatherMetadata();
+        const diagnostic = metadata.diagnostics?.find(
+            (entry) => entry?.id === "GM1017"
+        );
+
+        assert.ok(diagnostic);
+        assert.strictEqual(fix.correction, diagnostic?.correction ?? null);
+
+        const programFixIds = new Set(
+            (ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id)
+        );
+
+        assert.strictEqual(
+            programFixIds.has("GM1017"),
+            true,
+            "Expected the program node to record GM1017 fix metadata."
+        );
     });
 
     it("corrects mismatched data structure accessors using metadata", () => {

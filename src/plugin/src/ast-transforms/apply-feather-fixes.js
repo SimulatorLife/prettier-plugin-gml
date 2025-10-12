@@ -373,6 +373,28 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1017") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = captureDeprecatedFunctionManualFixes({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
+
+                        if (isNonEmptyArray(fixes)) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
+            continue;
+        }
+
         registerManualOnlyFeatherFix({ registry, diagnostic });
     }
 
@@ -2589,6 +2611,229 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
+    if (
+        !diagnostic ||
+        !ast ||
+        typeof ast !== "object" ||
+        typeof sourceText !== "string"
+    ) {
+        return [];
+    }
+
+    const deprecatedFunctions = collectDeprecatedFunctionNames(ast, sourceText);
+
+    if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
+        return [];
+    }
+
+    const fixes = [];
+    const seenLocations = new Set();
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = recordDeprecatedCallMetadata(
+                node,
+                deprecatedFunctions,
+                diagnostic
+            );
+
+            if (fix) {
+                const startIndex = fix.range?.start;
+                const endIndex = fix.range?.end;
+                const locationKey = `${startIndex}:${endIndex}`;
+
+                if (!seenLocations.has(locationKey)) {
+                    seenLocations.add(locationKey);
+                    fixes.push(fix);
+                    attachFeatherFixMetadata(node, [fix]);
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const callee = node.object;
+
+    if (!callee || callee.type !== "Identifier") {
+        return null;
+    }
+
+    const functionName = callee.name;
+
+    if (!deprecatedFunctions.has(functionName)) {
+        return null;
+    }
+
+    const startIndex = getNodeStartIndex(node);
+    const endIndex = getNodeEndIndex(node);
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: functionName,
+        range: {
+            start: startIndex,
+            end: endIndex
+        },
+        automatic: false
+    });
+
+    return fixDetail;
+}
+
+function collectDeprecatedFunctionNames(ast, sourceText) {
+    const names = new Set();
+
+    if (!ast || typeof ast !== "object") {
+        return names;
+    }
+
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const body = Array.isArray(ast.body) ? ast.body : [];
+
+    if (comments.length === 0 || body.length === 0) {
+        return names;
+    }
+
+    const sortedComments = comments
+        .filter((comment) => typeof getCommentEndIndex(comment) === "number")
+        .sort(
+            (left, right) =>
+                getCommentEndIndex(left) - getCommentEndIndex(right)
+        );
+
+    const nodes = body
+        .filter((node) => node && typeof node === "object")
+        .sort((left, right) => {
+            const leftIndex = getNodeStartIndex(left);
+            const rightIndex = getNodeStartIndex(right);
+
+            if (
+                typeof leftIndex !== "number" ||
+                typeof rightIndex !== "number"
+            ) {
+                return 0;
+            }
+
+            return leftIndex - rightIndex;
+        });
+
+    let commentIndex = 0;
+
+    for (const node of nodes) {
+        if (!node || node.type !== "FunctionDeclaration") {
+            continue;
+        }
+
+        const startIndex = getNodeStartIndex(node);
+
+        if (typeof startIndex !== "number") {
+            continue;
+        }
+
+        while (
+            commentIndex < sortedComments.length &&
+            getCommentEndIndex(sortedComments[commentIndex]) < startIndex
+        ) {
+            commentIndex += 1;
+        }
+
+        const comment = sortedComments[commentIndex - 1];
+
+        if (!isDeprecatedComment(comment)) {
+            continue;
+        }
+
+        const commentEnd = getCommentEndIndex(comment);
+
+        if (typeof commentEnd !== "number") {
+            continue;
+        }
+
+        const between = sourceText.slice(commentEnd + 1, startIndex);
+
+        if (!isWhitespaceOnly(between)) {
+            continue;
+        }
+
+        const identifier =
+            typeof node.id === "string" ? node.id : node.id?.name;
+
+        if (identifier) {
+            names.add(identifier);
+        }
+    }
+
+    return names;
+}
+
+function getCommentEndIndex(comment) {
+    if (!comment) {
+        return null;
+    }
+
+    const end = comment.end;
+
+    if (typeof end === "number") {
+        return end;
+    }
+
+    if (end && typeof end.index === "number") {
+        return end.index;
+    }
+
+    return null;
+}
+
+function isDeprecatedComment(comment) {
+    if (!comment || typeof comment.value !== "string") {
+        return false;
+    }
+
+    return /@deprecated\b/i.test(comment.value);
+}
+
+function isWhitespaceOnly(text) {
+    if (typeof text !== "string") {
+        return true;
+    }
+
+    return text.trim().length === 0;
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
