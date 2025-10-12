@@ -2194,11 +2194,7 @@ function cloneAstNode(node) {
         return null;
     }
 
-    try {
-        return structuredClone(node);
-    } catch {
-        return JSON.parse(JSON.stringify(node));
-    }
+    return structuredClone(node);
 }
 
 function createBooleanConstant(value) {
@@ -2222,11 +2218,7 @@ function createBooleanOr(terms) {
 }
 
 function cloneBooleanExpression(expression) {
-    try {
-        return structuredClone(expression);
-    } catch {
-        return JSON.parse(JSON.stringify(expression));
-    }
+    return structuredClone(expression);
 }
 
 function booleanExpressionKey(expression) {
