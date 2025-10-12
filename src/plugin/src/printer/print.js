@@ -1978,6 +1978,16 @@ function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
         return lines;
     }
 
+    const body = functionNode.body;
+    const statements =
+        body?.type === "BlockStatement" && Array.isArray(body.body)
+            ? body.body
+            : null;
+
+    if (!statements || statements.length === 0) {
+        return lines;
+    }
+
     if (functionReturnsNonUndefinedValue(functionNode)) {
         return lines;
     }

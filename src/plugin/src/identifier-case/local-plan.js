@@ -3,10 +3,18 @@ import path from "node:path";
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
-
-const COLLISION_CONFLICT_CODE = "collision";
-const PRESERVE_CONFLICT_CODE = "preserve";
-const IGNORE_CONFLICT_CODE = "ignored";
+import {
+    COLLISION_CONFLICT_CODE,
+    PRESERVE_CONFLICT_CODE,
+    IGNORE_CONFLICT_CODE,
+    buildPatternMatchers,
+    matchesIgnorePattern,
+    createConflict
+} from "./common.js";
+import {
+    planAssetRenames,
+    applyAssetRenames
+} from "../assets/rename.js";
 
 function toPosixPath(filePath) {
     if (typeof filePath !== "string" || filePath.length === 0) {
@@ -96,77 +104,6 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
     };
 }
 
-function escapeForRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function createPatternRegExp(pattern) {
-    if (typeof pattern !== "string" || pattern.length === 0) {
-        return null;
-    }
-
-    const escaped = escapeForRegExp(pattern.trim());
-    if (!escaped) {
-        return null;
-    }
-
-    const wildcardExpanded = escaped
-        .replace(/\\\*/g, ".*")
-        .replace(/\\\?/g, ".");
-
-    return new RegExp(`^${wildcardExpanded}$`, "i");
-}
-
-function buildPatternMatchers(patterns) {
-    const matchers = [];
-
-    for (const pattern of patterns ?? []) {
-        const regexp = createPatternRegExp(pattern);
-        if (!regexp) {
-            continue;
-        }
-
-        matchers.push({ raw: pattern, regexp });
-    }
-
-    return matchers;
-}
-
-function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Array.isArray(matchers) || matchers.length === 0) {
-        return null;
-    }
-
-    const name = identifierName ?? "";
-    const file = filePath ?? "";
-
-    for (const matcher of matchers) {
-        if (matcher.regexp.test(name) || matcher.regexp.test(file)) {
-            return matcher.raw;
-        }
-    }
-
-    return null;
-}
-
-function createConflict({
-    code,
-    severity,
-    message,
-    scope,
-    identifier,
-    suggestions = []
-}) {
-    return {
-        code,
-        severity,
-        message,
-        scope,
-        identifier,
-        suggestions
-    };
-}
-
 function summarizeReferencesByFile(relativeFilePath, references) {
     const counts = new Map();
 
@@ -217,21 +154,8 @@ export function prepareIdentifierCasePlan(options) {
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
+    const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
 
-    if (!projectIndex || !projectIndex.files || localStyle === "off") {
-        return;
-    }
-
-    const relativeFilePath = resolveRelativeFilePath(
-        projectIndex.projectRoot,
-        options.filepath ?? null
-    );
-
-    if (!relativeFilePath || !projectIndex.files[relativeFilePath]) {
-        return;
-    }
-
-    const fileRecord = projectIndex.files[relativeFilePath];
     const preservedSet = new Set(normalizedOptions.preservedIdentifiers ?? []);
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []
@@ -240,6 +164,64 @@ export function prepareIdentifierCasePlan(options) {
     const renameMap = new Map();
     const operations = [];
     const conflicts = [];
+    const assetRenames = [];
+    let assetConflicts = [];
+
+    if (projectIndex && assetStyle !== "off") {
+        const assetPlan = planAssetRenames({
+            projectIndex,
+            assetStyle,
+            preservedSet,
+            ignoreMatchers
+        });
+        operations.push(...assetPlan.operations);
+        conflicts.push(...assetPlan.conflicts);
+        assetRenames.push(...assetPlan.renames);
+        assetConflicts = assetPlan.conflicts ?? [];
+    }
+
+    const hasLocalSupport =
+        projectIndex && projectIndex.files && localStyle !== "off";
+
+    let fileRecord = null;
+    let relativeFilePath = null;
+    if (hasLocalSupport) {
+        relativeFilePath = resolveRelativeFilePath(
+            projectIndex.projectRoot,
+            options.filepath ?? null
+        );
+        if (relativeFilePath && projectIndex.files[relativeFilePath]) {
+            fileRecord = projectIndex.files[relativeFilePath];
+        }
+    }
+
+    if (!fileRecord) {
+        options.__identifierCaseRenameMap = renameMap;
+        if (assetRenames.length > 0) {
+            options.__identifierCaseAssetRenames = assetRenames;
+        }
+        if (
+            options.__identifierCaseDryRun === false &&
+            assetRenames.length > 0 &&
+            assetConflicts.length === 0 &&
+            projectIndex &&
+            options.__identifierCaseAssetRenamesApplied !== true
+        ) {
+            const fsFacade =
+                options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+            const logger = options.logger ?? null;
+            const result = applyAssetRenames({
+                projectIndex,
+                renames: assetRenames,
+                fsFacade,
+                logger
+            });
+            options.__identifierCaseAssetRenameResult = result;
+            options.__identifierCaseAssetRenamesApplied = true;
+        }
+        options.__identifierCasePlanGeneratedInternally = true;
+        return;
+    }
 
     const existingNamesByScope = new Map();
     for (const declaration of fileRecord.declarations ?? []) {
@@ -485,16 +467,38 @@ export function prepareIdentifierCasePlan(options) {
         }
     }
 
-    if (operations.length === 0 && conflicts.length === 0) {
-        options.__identifierCaseRenameMap = renameMap;
-        options.__identifierCasePlanGeneratedInternally = true;
-        return;
+    options.__identifierCaseRenameMap = renameMap;
+    if (assetRenames.length > 0) {
+        options.__identifierCaseAssetRenames = assetRenames;
     }
 
-    options.__identifierCaseRenamePlan = { operations };
-    options.__identifierCaseConflicts = conflicts;
-    options.__identifierCaseRenameMap = renameMap;
-    options.__identifierCasePlanGeneratedInternally = true;
+    if (operations.length === 0 && conflicts.length === 0) {
+        options.__identifierCasePlanGeneratedInternally = true;
+    } else {
+        options.__identifierCaseRenamePlan = { operations };
+        options.__identifierCaseConflicts = conflicts;
+        options.__identifierCasePlanGeneratedInternally = true;
+    }
+
+    if (
+        options.__identifierCaseDryRun === false &&
+        assetRenames.length > 0 &&
+        assetConflicts.length === 0 &&
+        projectIndex &&
+        options.__identifierCaseAssetRenamesApplied !== true
+    ) {
+        const fsFacade =
+            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+        const logger = options.logger ?? null;
+        const result = applyAssetRenames({
+            projectIndex,
+            renames: assetRenames,
+            fsFacade,
+            logger
+        });
+        options.__identifierCaseAssetRenameResult = result;
+        options.__identifierCaseAssetRenamesApplied = true;
+    }
 }
 
 export function getIdentifierCaseRenameForNode(node, options) {
