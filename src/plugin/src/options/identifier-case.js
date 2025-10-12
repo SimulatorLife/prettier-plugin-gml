@@ -1,5 +1,7 @@
 // options/identifier-case.js
 
+import { normalizeStringList } from "../../../shared/string-utils.js";
+
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
 
@@ -141,30 +143,10 @@ for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
 }
 
 function normalizeList(optionName, value) {
-    if (value == null) {
-        return [];
-    }
-
-    if (Array.isArray(value)) {
-        const normalized = value
-            .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-            .filter(Boolean);
-
-        return [...new Set(normalized)];
-    }
-
-    if (typeof value === "string") {
-        const pieces = value
-            .split(/[\n,]/)
-            .map((entry) => entry.trim())
-            .filter(Boolean);
-
-        return [...new Set(pieces)];
-    }
-
-    throw new TypeError(
-        `${optionName} must be provided as a string or array of strings.`
-    );
+    return normalizeStringList(value, {
+        splitPattern: /[\n,]/,
+        errorMessage: `${optionName} must be provided as a string or array of strings.`
+    });
 }
 
 function resolveScopeSettings(options, baseStyle) {
