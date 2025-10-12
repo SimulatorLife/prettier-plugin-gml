@@ -1,9 +1,9 @@
 import prettier from "prettier";
-import path from "path";
-import process from "process";
-import fs from "fs";
-import util from "util";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import process from "node:process";
+import fs from "node:fs";
+import util from "node:util";
+import { fileURLToPath } from "node:url";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
