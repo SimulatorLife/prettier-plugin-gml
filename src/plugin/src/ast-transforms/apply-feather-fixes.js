@@ -5436,7 +5436,10 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
         }
 
         if (node.type === "BinaryExpression") {
-            const fix = coerceStringLiteralsInBinaryExpression(node, diagnostic);
+            const fix = coerceStringLiteralsInBinaryExpression(
+                node,
+                diagnostic
+            );
 
             if (fix) {
                 fixes.push(fix);
@@ -5466,7 +5469,9 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
     }
 
     const leftLiteral = isCoercibleStringLiteral(node.left) ? node.left : null;
-    const rightLiteral = isCoercibleStringLiteral(node.right) ? node.right : null;
+    const rightLiteral = isCoercibleStringLiteral(node.right)
+        ? node.right
+        : null;
 
     if (!leftLiteral && !rightLiteral) {
         return null;
@@ -5508,8 +5513,8 @@ function isCoercibleStringLiteral(node) {
         return false;
     }
 
-    if (rawValue.startsWith("@\"")) {
-        return rawValue.endsWith("\"");
+    if (rawValue.startsWith('@"')) {
+        return rawValue.endsWith('"');
     }
 
     if (rawValue.length < 2) {
@@ -5520,7 +5525,7 @@ function isCoercibleStringLiteral(node) {
     const endingQuote = rawValue[rawValue.length - 1];
 
     return (
-        (startingQuote === "\"" || startingQuote === "'") &&
+        (startingQuote === '"' || startingQuote === "'") &&
         startingQuote === endingQuote
     );
 }
@@ -7913,17 +7918,7 @@ function cloneNode(node) {
         return node;
     }
 
-    if (Array.isArray(node)) {
-        return node.map((entry) => cloneNode(entry));
-    }
-
-    const clone = {};
-
-    for (const [key, value] of Object.entries(node)) {
-        clone[key] = cloneNode(value);
-    }
-
-    return clone;
+    return structuredClone(node);
 }
 
 function createIdentifier(name, template) {
