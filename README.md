@@ -124,10 +124,18 @@ needs an explicit path to load it when you install from Git.
    }
    ```
 
-   Add any GameMaker-specific options—such as future `gmlIdentifierCase` settings or project-wide `tabWidth` overrides—to that
-   same config file and Prettier will apply them whenever it formats files from your project directory. Remember that Prettier
-   only reads configuration files placed at or above the directory you run it from, so keeping the config next to your `.yyp`
-   ensures consistent behaviour for the CLI and IDE integrations.
+   Add any GameMaker-specific options—such as `gmlIdentifierCase`,
+   `useStringInterpolation`, or project-wide `tabWidth` overrides—to that same
+   config file and Prettier will apply them whenever it formats files from your
+   project directory. Remember that Prettier only reads configuration files
+   placed at or above the directory you run it from, so keeping the config next
+   to your `.yyp` ensures consistent behaviour for the CLI and IDE integrations.
+
+   > 📘 Want a deeper dive on identifier renaming? See
+   > [Identifier Case Utility Reference](docs/identifier-case-reference.md) and
+   > [Naming Convention Case Reference](docs/naming-convention-case-reference.md)
+   > for the exact tokenisation and casing rules applied by
+   > `gmlIdentifierCase`.
 
    Running the wrapper from a local clone of this repository automatically picks up that project-level config. For example, if
    you clone the plugin and execute:
@@ -366,6 +374,26 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 - `convertDivisionToMultiplication` (default: `false`)
   Rewrites division by a literal constant into multiplication by its reciprocal when it is safe to do so. For example, `x / 4` becomes `x * 0.25`. Set the option to `true` to enable the transformation, or leave it `false` to keep the original division expressions.
+
+- `useStringInterpolation` (default: `false`)
+
+  Converts string concatenations made up entirely of string literals and simple
+  expressions into GameMaker template strings (for example,
+  `"Hello, " + name + "!"` becomes `$"Hello, {name}!"`). Leave disabled if you
+  prefer to keep concatenation operators or need to support runtimes without
+  template string support.
+
+- `gmlIdentifierCase` and scope overrides (default: `off` / `inherit`)
+
+  Enables opt-in identifier renaming across functions, structs, locals,
+  instance members, globals, assets, and macros. The base option selects the
+  target case style (camel, Pascal, snake lower, or snake upper) and the
+  per-scope overrides refine individual domains. Complementary ignore,
+  preserve, and acknowledgement flags let you exempt specific names or confirm
+  asset renames. Review the [Identifier Case Utility Reference](docs/identifier-case-reference.md)
+  and [Naming Convention Case Reference](docs/naming-convention-case-reference.md)
+  for the full behaviour matrix before enabling automatic renames in large
+  projects.
 
 - `preserveGlobalVarStatements` (default: `true`)
 
