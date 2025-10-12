@@ -9,7 +9,7 @@ import {
     PRESERVE_CONFLICT_CODE,
     IGNORE_CONFLICT_CODE,
     buildPatternMatchers,
-    matchesIgnorePattern,
+    resolveIdentifierConfigurationConflict,
     createConflict,
     incrementFileOccurrence,
     summarizeFileOccurrences
@@ -306,40 +306,40 @@ export function prepareIdentifierCasePlan(options) {
             continue;
         }
 
-        if (preservedSet.has(declaration.name)) {
-            const scopeDescriptor = createScopeDescriptor(
-                projectIndex,
-                fileRecord,
-                declaration.scopeId
-            );
-            conflicts.push(
-                createConflict({
-                    code: PRESERVE_CONFLICT_CODE,
-                    severity: "info",
-                    message: `Identifier '${declaration.name}' is preserved by configuration.`,
-                    scope: scopeDescriptor,
-                    identifier: declaration.name
-                })
-            );
-            continue;
-        }
-
-        const ignoreMatch = matchesIgnorePattern(
+        const configConflict = resolveIdentifierConfigurationConflict({
+            preservedSet,
+            identifierName: declaration.name,
             ignoreMatchers,
-            declaration.name,
-            relativeFilePath
-        );
-        if (ignoreMatch) {
+            filePath: relativeFilePath
+        });
+
+        if (configConflict) {
             const scopeDescriptor = createScopeDescriptor(
                 projectIndex,
                 fileRecord,
                 declaration.scopeId
             );
+
+            let message;
+            switch (configConflict.code) {
+                case PRESERVE_CONFLICT_CODE: {
+                    message = `Identifier '${declaration.name}' is preserved by configuration.`;
+                    break;
+                }
+                case IGNORE_CONFLICT_CODE: {
+                    message = `Identifier '${declaration.name}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
+                    break;
+                }
+                default: {
+                    message = `Identifier '${declaration.name}' cannot be renamed due to configuration.`;
+                }
+            }
+
             conflicts.push(
                 createConflict({
-                    code: IGNORE_CONFLICT_CODE,
+                    code: configConflict.code,
                     severity: "info",
-                    message: `Identifier '${declaration.name}' matches ignore pattern '${ignoreMatch}'.`,
+                    message,
                     scope: scopeDescriptor,
                     identifier: declaration.name
                 })

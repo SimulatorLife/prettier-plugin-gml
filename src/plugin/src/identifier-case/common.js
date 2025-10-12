@@ -64,6 +64,40 @@ export function matchesIgnorePattern(matchers, identifierName, filePath) {
     return null;
 }
 
+export function resolveIdentifierConfigurationConflict({
+    preservedSet,
+    identifierName,
+    ignoreMatchers,
+    filePath
+}) {
+    if (
+        identifierName != null &&
+        typeof preservedSet?.has === "function" &&
+        preservedSet.has(identifierName)
+    ) {
+        return {
+            code: PRESERVE_CONFLICT_CODE,
+            reason: "preserve"
+        };
+    }
+
+    const ignoreMatch = matchesIgnorePattern(
+        ignoreMatchers,
+        identifierName,
+        filePath
+    );
+
+    if (ignoreMatch) {
+        return {
+            code: IGNORE_CONFLICT_CODE,
+            reason: "ignore",
+            ignoreMatch
+        };
+    }
+
+    return null;
+}
+
 export function createConflict({
     code,
     severity,
