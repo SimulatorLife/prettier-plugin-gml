@@ -99,7 +99,11 @@ function getObjectAtPath(json, propertyPath) {
     for (const segment of segments) {
         if (Array.isArray(current)) {
             const index = Number(segment);
-            if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+            if (
+                !Number.isInteger(index) ||
+                index < 0 ||
+                index >= current.length
+            ) {
                 return null;
             }
             current = current[index];
@@ -315,9 +319,9 @@ export function planAssetRenames({
                 createConflict({
                     code: COLLISION_CONFLICT_CODE,
                     severity: "error",
-                    message: `Renaming '${originalName}' to '${convertedName}' collides with existing asset '${namesByDirectory.get(
-                        collisionKey
-                    ).name}'.`,
+                    message: `Renaming '${originalName}' to '${convertedName}' collides with existing asset '${
+                        namesByDirectory.get(collisionKey).name
+                    }'.`,
                     scope: scopeDescriptor,
                     identifier: originalName
                 })
@@ -329,9 +333,12 @@ export function planAssetRenames({
             path: resourcePath
         });
 
-        const inboundReferences = referencesByTargetPath.get(resourcePath) ?? [];
+        const inboundReferences =
+            referencesByTargetPath.get(resourcePath) ?? [];
         const referenceMutations = inboundReferences
-            .filter((reference) => typeof reference.fromResourcePath === "string")
+            .filter(
+                (reference) => typeof reference.fromResourcePath === "string"
+            )
             .map((reference) => ({
                 filePath: reference.fromResourcePath,
                 propertyPath: reference.propertyPath ?? "",
@@ -408,10 +415,7 @@ export function applyAssetRenames({
             continue;
         }
 
-        const resourceAbsolute = resolveAbsolutePath(
-            root,
-            rename.resourcePath
-        );
+        const resourceAbsolute = resolveAbsolutePath(root, rename.resourcePath);
         const resourceJson = readJsonFile(
             effectiveFs,
             resourceAbsolute,
@@ -456,11 +460,7 @@ export function applyAssetRenames({
             const absolutePath = resolveAbsolutePath(root, filePath);
             let targetJson;
             try {
-                targetJson = readJsonFile(
-                    effectiveFs,
-                    absolutePath,
-                    jsonCache
-                );
+                targetJson = readJsonFile(effectiveFs, absolutePath, jsonCache);
             } catch (error) {
                 if (logger && typeof logger.warn === "function") {
                     logger.warn(

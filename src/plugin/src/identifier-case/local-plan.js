@@ -11,10 +11,7 @@ import {
     matchesIgnorePattern,
     createConflict
 } from "./common.js";
-import {
-    planAssetRenames,
-    applyAssetRenames
-} from "../assets/rename.js";
+import { planAssetRenames, applyAssetRenames } from "../assets/rename.js";
 
 function toPosixPath(filePath) {
     if (typeof filePath !== "string" || filePath.length === 0) {

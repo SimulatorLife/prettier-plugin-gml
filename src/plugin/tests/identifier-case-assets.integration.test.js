@@ -125,8 +125,14 @@ describe("asset rename execution", () => {
 
             const newYyRelative = "scripts/demo_script/DemoScript.yy";
             const newGmlRelative = "scripts/demo_script/DemoScript.gml";
-            const newYyPath = path.join(projectRoot, toSystemPath(newYyRelative));
-            const newGmlPath = path.join(projectRoot, toSystemPath(newGmlRelative));
+            const newYyPath = path.join(
+                projectRoot,
+                toSystemPath(newYyRelative)
+            );
+            const newGmlPath = path.join(
+                projectRoot,
+                toSystemPath(newGmlRelative)
+            );
 
             await assertPathMissing(
                 path.join(projectRoot, "scripts/demo_script/demo_script.yy")
@@ -135,9 +141,7 @@ describe("asset rename execution", () => {
                 path.join(projectRoot, "scripts/demo_script/demo_script.gml")
             );
 
-            const renamedYy = JSON.parse(
-                await fs.readFile(newYyPath, "utf8")
-            );
+            const renamedYy = JSON.parse(await fs.readFile(newYyPath, "utf8"));
             assert.strictEqual(renamedYy.name, "DemoScript");
             assert.strictEqual(renamedYy.resourcePath, newYyRelative);
 
@@ -145,7 +149,9 @@ describe("asset rename execution", () => {
                 await fs.readFile(
                     path.join(
                         projectRoot,
-                        toSystemPath("objects/obj_controller/obj_controller.yy")
+                        toSystemPath(
+                            "objects/obj_controller/obj_controller.yy"
+                        )
                     ),
                     "utf8"
                 )

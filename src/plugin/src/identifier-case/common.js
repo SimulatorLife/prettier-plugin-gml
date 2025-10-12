@@ -18,7 +18,9 @@ export function createPatternRegExp(pattern) {
         return null;
     }
 
-    const wildcardExpanded = escaped.replace(/\\\*/g, ".*").replace(/\\\?/g, ".");
+    const wildcardExpanded = escaped
+        .replace(/\\\*/g, ".*")
+        .replace(/\\\?/g, ".");
 
     return new RegExp(`^${wildcardExpanded}$`, "i");
 }
