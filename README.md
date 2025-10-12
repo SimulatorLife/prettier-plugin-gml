@@ -558,8 +558,9 @@ npm run build:feather-metadata
 ```
 
 Both commands accept `--ref <branch|tag|commit>` to target a specific manual revision and `--force-refresh` to bypass the cached
-downloads stored in `scripts/cache/manual/`. Pass `--help` for a full argument list, including custom output destinations, and
-consult the linked plans for a deeper explanation of how each dataset is generated and consumed.
+downloads stored in `scripts/cache/manual/`. Use `--progress-bar-width <n>` (or set `GML_PROGRESS_BAR_WIDTH`) to scale the
+terminal progress indicator for narrow or wide terminals. Pass `--help` for a full argument list, including custom output
+destinations, and consult the linked plans for a deeper explanation of how each dataset is generated and consumed.
 
 ### Regenerate the parser grammar
 
