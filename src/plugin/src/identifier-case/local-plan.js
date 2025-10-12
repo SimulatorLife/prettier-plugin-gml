@@ -9,7 +9,9 @@ import {
     IGNORE_CONFLICT_CODE,
     buildPatternMatchers,
     matchesIgnorePattern,
-    createConflict
+    createConflict,
+    incrementFileOccurrence,
+    summarizeFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 
@@ -105,15 +107,10 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     const counts = new Map();
 
     for (const reference of references ?? []) {
-        const filePath = reference?.filePath ?? relativeFilePath;
-        const key = filePath ?? "<unknown>";
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+        incrementFileOccurrence(counts, reference?.filePath, relativeFilePath);
     }
 
-    return Array.from(counts.entries()).map(([filePath, occurrences]) => ({
-        filePath,
-        occurrences
-    }));
+    return summarizeFileOccurrences(counts);
 }
 
 export function prepareIdentifierCasePlan(options) {
