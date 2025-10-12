@@ -245,12 +245,13 @@ async function scanProjectTree(projectRoot, fsFacade) {
             }
 
             const relativePosix = toPosixPath(relativePath);
-            if (relativePosix.toLowerCase().endsWith(".yy")) {
+            const lowerPath = relativePosix.toLowerCase();
+            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
                 });
-            } else if (relativePosix.toLowerCase().endsWith(".gml")) {
+            } else if (lowerPath.endsWith(".gml")) {
                 gmlFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -268,9 +269,16 @@ async function scanProjectTree(projectRoot, fsFacade) {
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     let record = resourcesMap.get(resourcePath);
     if (!record) {
+        const lowerPath = resourcePath.toLowerCase();
+        let defaultName = path.posix.basename(resourcePath);
+        if (lowerPath.endsWith(".yy")) {
+            defaultName = path.posix.basename(resourcePath, ".yy");
+        } else if (lowerPath.endsWith(".yyp")) {
+            defaultName = path.posix.basename(resourcePath, ".yyp");
+        }
         record = {
             path: resourcePath,
-            name: resourceData.name ?? path.posix.basename(resourcePath, ".yy"),
+            name: resourceData.name ?? defaultName,
             resourceType: resourceData.resourceType ?? "unknown",
             scopes: [],
             gmlFiles: [],
