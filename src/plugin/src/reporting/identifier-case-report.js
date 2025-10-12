@@ -539,20 +539,31 @@ export function maybeReportIdentifierCaseDryRun(options) {
         context = {
             renamePlan: planFromOptions,
             conflicts:
-        options.__identifierCaseConflicts ??
-        options.identifierCaseConflicts ??
-        [],
-            dryRun: options.__identifierCaseDryRun !== false,
-            logFilePath: options.__identifierCaseReportLogPath ?? null,
+                options.__identifierCaseConflicts ??
+                options.identifierCaseConflicts ??
+                [],
+            dryRun:
+                options.__identifierCaseDryRun ??
+                options.identifierCaseDryRun ??
+                undefined,
+            logFilePath:
+                options.__identifierCaseReportLogPath ??
+                options.identifierCaseReportLogPath ??
+                null,
             logger: options.logger ?? null,
             diagnostics: Array.isArray(options.diagnostics)
                 ? options.diagnostics
                 : null,
-            fsFacade: options.__identifierCaseFs ?? options.identifierCaseFs ?? null,
+            fsFacade:
+                options.__identifierCaseFs ??
+                options.identifierCaseFs ??
+                null,
             now:
-        typeof options.__identifierCaseNow === "function"
-            ? options.__identifierCaseNow
-            : null
+                typeof options.__identifierCaseNow === "function"
+                    ? options.__identifierCaseNow
+                    : typeof options.identifierCaseNow === "function"
+                        ? options.identifierCaseNow
+                        : null
         };
     } else {
         context = consumeIdentifierCaseDryRunContext(options.filepath ?? null);
@@ -565,8 +576,8 @@ export function maybeReportIdentifierCaseDryRun(options) {
     const {
         renamePlan,
         conflicts = [],
-        dryRun = options.__identifierCaseDryRun !== false,
-        logFilePath = null,
+        dryRun: contextDryRun,
+        logFilePath: contextLogFilePath = null,
         logger = null,
         diagnostics = null,
         fsFacade = null,
@@ -578,7 +589,18 @@ export function maybeReportIdentifierCaseDryRun(options) {
         return null;
     }
 
-    if (dryRun === false) {
+    const optionsDryRun =
+        options.__identifierCaseDryRun ?? options.identifierCaseDryRun;
+    const shouldDryRun =
+        optionsDryRun !== undefined
+            ? optionsDryRun !== false
+            : contextDryRun !== undefined
+                ? contextDryRun !== false
+                : true;
+
+    options.__identifierCaseDryRun = shouldDryRun;
+
+    if (!shouldDryRun) {
         options.__identifierCaseReportEmitted = true;
         return null;
     }
@@ -588,17 +610,22 @@ export function maybeReportIdentifierCaseDryRun(options) {
     diagnostics ??
     (Array.isArray(options.diagnostics) ? options.diagnostics : null);
     const effectiveLogPath =
-    logFilePath ?? options.__identifierCaseReportLogPath ?? null;
+        contextLogFilePath ??
+        options.__identifierCaseReportLogPath ??
+        options.identifierCaseReportLogPath ??
+        null;
     const effectiveFs =
-    fsFacade ??
-    options.__identifierCaseFs ??
-    options.identifierCaseFs ??
-    defaultFsFacade;
+        fsFacade ??
+        options.__identifierCaseFs ??
+        options.identifierCaseFs ??
+        defaultFsFacade;
     const effectiveNow =
-    now ??
-    (typeof options.__identifierCaseNow === "function"
-        ? options.__identifierCaseNow
-        : defaultNow);
+        now ??
+        (typeof options.__identifierCaseNow === "function"
+            ? options.__identifierCaseNow
+            : typeof options.identifierCaseNow === "function"
+                ? options.identifierCaseNow
+                : defaultNow);
 
     const result = reportIdentifierCasePlan({
         renamePlan,
