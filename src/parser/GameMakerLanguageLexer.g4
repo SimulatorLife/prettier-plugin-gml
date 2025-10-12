@@ -132,7 +132,7 @@ Static:                         'static';
 Macro: '#macro' {this.ignoreNewline = false};
 EscapedNewLine: '\\';
 
-Define: '#define' -> pushMode(REGION_NAME);
+Define: '#define' -> pushMode(REGION_NAME);  // TODO: Define is NOT valid in GML – this needs to be fixed. Any use of #define should be replaced by #macro
 Region: '#region' -> pushMode(REGION_NAME);
 EndRegion: '#endregion' -> pushMode(REGION_NAME);
 
