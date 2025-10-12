@@ -12,6 +12,8 @@ import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
 } from "../src/reporting/identifier-case-context.js";
+import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
+import { maybeReportIdentifierCaseDryRun } from "../src/reporting/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
@@ -19,9 +21,8 @@ const fixturesDirectory = path.join(
     currentDirectory,
     "identifier-case-fixtures"
 );
-const localsFixturePath = path.join(fixturesDirectory, "locals.gml");
 
-async function createTempProject() {
+async function createTempProject(fixtureFileName = "locals.gml") {
     const tempRoot = await fs.mkdtemp(
         path.join(os.tmpdir(), "gml-identifier-case-")
     );
@@ -46,7 +47,8 @@ async function createTempProject() {
         })
     );
 
-    const fixtureSource = await fs.readFile(localsFixturePath, "utf8");
+    const fixturePath = path.join(fixturesDirectory, fixtureFileName);
+    const fixtureSource = await fs.readFile(fixturePath, "utf8");
     const gmlPath = await writeFile("scripts/demo/demo.gml", fixtureSource);
 
     const projectIndex = await buildProjectIndex(tempRoot);
@@ -207,6 +209,86 @@ describe("identifier case local renaming", () => {
                 "Write mode should update declaration references"
             );
             assert.strictEqual(diagnostics.length, 0);
+        } finally {
+            clearIdentifierCaseDryRunContexts();
+            await fs.rm(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    it("differentiates dry-run versus write output for eligible locals", async () => {
+        const { projectRoot, fixtureSource, gmlPath, projectIndex } =
+      await createTempProject("locals-write.gml");
+
+        const baseOptions = {
+            plugins: [pluginPath],
+            parser: "gml-parse",
+            filepath: gmlPath,
+            gmlIdentifierCase: "camel",
+            gmlIdentifierCaseAssets: "off",
+            __identifierCaseProjectIndex: projectIndex
+        };
+
+        try {
+            clearIdentifierCaseDryRunContexts();
+            setIdentifierCaseDryRunContext({
+                filepath: gmlPath,
+                projectIndex,
+                dryRun: true
+            });
+
+            const dryRunOptions = {
+                ...baseOptions,
+                __identifierCaseDryRun: true,
+                diagnostics: [],
+                logger: { log() {} }
+            };
+
+            const dryRunOutput = await prettier.format(
+                fixtureSource,
+                dryRunOptions
+            );
+
+            assert.match(dryRunOutput, /should_rename/);
+            assert.ok(
+                !dryRunOutput.includes("shouldRename"),
+                "Dry-run should preserve original identifier spelling"
+            );
+
+            clearIdentifierCaseDryRunContexts();
+            setIdentifierCaseDryRunContext({
+                filepath: gmlPath,
+                projectIndex,
+                dryRun: false
+            });
+
+            const writeOptions = {
+                ...baseOptions,
+                __identifierCaseDryRun: false,
+                diagnostics: []
+            };
+
+            const writeOutput = await prettier.format(
+                fixtureSource,
+                writeOptions
+            );
+
+            assert.match(writeOutput, /shouldRename/);
+            assert.ok(
+                !writeOutput.includes("should_rename"),
+                "Write mode should apply the converted identifier"
+            );
+
+            const writeReportOptions = {
+                ...baseOptions,
+                __identifierCaseDryRun: false
+            };
+            prepareIdentifierCasePlan(writeReportOptions);
+            const writeReport = maybeReportIdentifierCaseDryRun(
+                writeReportOptions
+            );
+            assert.ok(writeReport, "Expected write mode report to be recorded");
+            assert.strictEqual(writeReport.summary.renameCount, 1);
+            assert.strictEqual(writeReport.summary.conflictCount, 0);
         } finally {
             clearIdentifierCaseDryRunContexts();
             await fs.rm(projectRoot, { recursive: true, force: true });
