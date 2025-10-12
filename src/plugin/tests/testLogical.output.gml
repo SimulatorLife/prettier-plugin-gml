@@ -7,6 +7,12 @@ function scr_logic_absorption_or(foo, bar) {
     return foo;
 }
 
+/// @function bool_with_extra
+/// @param condition
+function bool_with_extra(condition) {
+    return condition;
+}
+
 /// @function scr_logic_absorption_and
 /// @param {bool} foo
 /// @param {bool} bar

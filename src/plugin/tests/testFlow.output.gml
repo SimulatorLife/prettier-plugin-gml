@@ -65,6 +65,7 @@ repeat (array_length(arr2)) {
 }
 
 #macro INCREMENT(_v) ((_v)+1)
+
 do {
     value = INCREMENT(value);
     if (value == SQUARE(limit)) {
@@ -94,17 +95,6 @@ function bool_with_comment(condition) {
     if (condition) {
         // comment should stop simplification
         return true;
-    } else {
-        return false;
-    }
-}
-
-/// @function bool_with_extra
-/// @param condition
-function bool_with_extra(condition) {
-    if (condition) {
-        return true;
-        condition += 1;
     } else {
         return false;
     }

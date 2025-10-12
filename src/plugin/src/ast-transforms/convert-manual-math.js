@@ -1,5 +1,9 @@
 import { hasComment as sharedHasComment } from "../comments/index.js";
-import { cloneLocation } from "../../../shared/ast-locations.js";
+import {
+    cloneLocation,
+    getNodeEndIndex,
+    getNodeStartIndex
+} from "../../../shared/ast-locations.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -21,7 +25,11 @@ const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
  * @param {{ hasComment?: (node: unknown) => boolean }} helpers - Optional
  *     helper overrides for comment detection.
  */
-export function convertManualMathExpressions(ast, helpers = DEFAULT_HELPERS) {
+export function convertManualMathExpressions(
+    ast,
+    helpers = DEFAULT_HELPERS,
+    context = null
+) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -33,12 +41,12 @@ export function convertManualMathExpressions(ast, helpers = DEFAULT_HELPERS) {
                 : DEFAULT_HELPERS.hasComment
     };
 
-    traverse(ast, null, null, normalizedHelpers, new Set());
+    traverse(ast, null, null, normalizedHelpers, new Set(), context);
 
     return ast;
 }
 
-function traverse(node, parent, key, helpers, seen) {
+function traverse(node, parent, key, helpers, seen, context) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -51,7 +59,7 @@ function traverse(node, parent, key, helpers, seen) {
 
     if (Array.isArray(node)) {
         for (let index = 0; index < node.length; index += 1) {
-            traverse(node[index], node, index, helpers, seen);
+            traverse(node[index], node, index, helpers, seen, context);
         }
         return;
     }
@@ -62,16 +70,16 @@ function traverse(node, parent, key, helpers, seen) {
         }
 
         if (value && typeof value === "object") {
-            traverse(value, node, childKey, helpers, seen);
+            traverse(value, node, childKey, helpers, seen, context);
         }
     }
 
     if (node.type === BINARY_EXPRESSION) {
-        attemptConvertSquare(node, helpers);
+        attemptConvertSquare(node, helpers, context);
     }
 }
 
-function attemptConvertSquare(node, helpers) {
+function attemptConvertSquare(node, helpers, context) {
     if (!node || node.type !== BINARY_EXPRESSION || node.operator !== "*") {
         return;
     }
@@ -99,6 +107,10 @@ function attemptConvertSquare(node, helpers) {
     }
 
     if (helpers.hasComment(left) || helpers.hasComment(right)) {
+        return;
+    }
+
+    if (hasInlineCommentBetween(rawLeft, rawRight, context)) {
         return;
     }
 
@@ -314,4 +326,34 @@ function createIdentifier(name, template) {
     }
 
     return identifier;
+}
+
+function hasInlineCommentBetween(left, right, context) {
+    if (!context || typeof context !== "object") {
+        return false;
+    }
+
+    const sourceText = context.originalText ?? context.sourceText;
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return false;
+    }
+
+    const leftEnd = getNodeEndIndex(left);
+    const rightStart = getNodeStartIndex(right);
+
+    if (
+        leftEnd == null ||
+        rightStart == null ||
+        rightStart <= leftEnd ||
+        rightStart > sourceText.length
+    ) {
+        return false;
+    }
+
+    const between = sourceText.slice(leftEnd, rightStart);
+    return (
+        between.includes("/*") ||
+        between.includes("//") ||
+        between.includes("#")
+    );
 }

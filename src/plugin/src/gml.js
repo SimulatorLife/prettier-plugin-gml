@@ -190,6 +190,14 @@ export const options = {
         default: false,
         description:
             "Rewrite division by a literal constant into multiplication by its reciprocal when it is safe to do so."
+    },
+    convertManualMathToBuiltins: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: false,
+        description:
+            "Convert bespoke math expressions into their builtin GML equivalents (e.g. collapsing repeated multiplication into sqr())."
     }
 };
 

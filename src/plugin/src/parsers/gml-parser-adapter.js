@@ -98,7 +98,10 @@ function parse(text, options) {
     }
 
     if (options?.convertManualMathToBuiltins) {
-        convertManualMathExpressions(ast);
+        convertManualMathExpressions(ast, undefined, {
+            sourceText: parseSource,
+            originalText: options?.originalText
+        });
     }
 
     preprocessFunctionArgumentDefaults(ast);

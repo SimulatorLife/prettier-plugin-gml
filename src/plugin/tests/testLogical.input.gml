@@ -10,6 +10,17 @@ function scr_logic_absorption_or(foo, bar){
     return false;
 }
 
+/// @function bool_with_extra
+/// @param condition
+function bool_with_extra(condition) {
+    if (condition) {
+        return true;
+        condition += 1;
+    } else {
+        return false;
+    }
+}
+
 /// @function scr_logic_absorption_and
 /// @param {bool} foo
 /// @param {bool} bar
