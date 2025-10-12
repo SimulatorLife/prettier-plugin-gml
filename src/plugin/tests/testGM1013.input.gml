@@ -8,7 +8,7 @@ function AttackController (attack_bonus = 10) constructor {
         // Inside a with block, 'other' will be the instance or struct that called the with() function
         with (other)
         {  // Target the calling instance
-            var total_atk = (base_atk + other.attack_bonus);
+            var total_atk = (base_atk + attack_bonus);
             hp.subtract(total_atk);  // Assumes 'hp' is a variable in the target/calling instance
         }
     }
