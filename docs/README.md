@@ -15,6 +15,9 @@ can pick the right level of detail for your task.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
+- [Identifier case rollout playbook](identifier-case-rollout.md) — A step-by-step
+  workflow for building the project index, running dry-run reports, and rolling
+  out `gmlIdentifierCase` safely.
 
 ## Planning notes
 

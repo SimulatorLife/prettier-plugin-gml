@@ -27,6 +27,11 @@ needs an explicit path to load it when you install from Git.
   - [Command line](#command-line)
   - [Visual Studio Code](#visual-studio-code)
   - [Configuration reference](#configuration-reference)
+- [Identifier case rollout](#identifier-case-rollout)
+  - [Generate a project index](#generate-a-project-index)
+  - [Dry-run locals-first renames](#dry-run-locals-first-renames)
+  - [Promote renames to write mode](#promote-renames-to-write-mode)
+  - [Migration checklist](#migration-checklist)
 - [Troubleshooting](#troubleshooting)
 - [Architecture overview](#architecture-overview)
 - [Development](#development)
@@ -457,6 +462,63 @@ check the [documentation index](docs/README.md) for in-depth notes about rename 
 All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.config.cjs`, or the `prettier` key inside
 `package.json`). Consult the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for syntax details.
 
+## Identifier case rollout
+
+The `gmlIdentifierCase` option ships in dry-run mode so you can audit rename
+plans before touching source files. The playbook below summarises the workflow;
+see [Identifier case rollout playbook](docs/identifier-case-rollout.md) for the
+full walkthrough.
+
+### Generate a project index
+
+- From the GameMaker project root run the inline Node script documented in the
+  playbook to create `.gml-reports/project-index.json`. The index enumerates
+  declarations and references so the rename planner can detect collisions.
+- Regenerate the index after adding scripts or changing resource names. Commit
+  the JSON alongside your branch if you want deterministic plans in CI.
+
+### Dry-run locals-first renames
+
+- Copy the [locals-first sample config](docs/examples/identifier-case/locals-first.prettierrc.mjs)
+  into your project as `.prettierrc.mjs` (or merge the relevant snippet). It
+  enables camelCase conversions for local variables only, keeps other scopes in
+  observation mode, and stores reports under `.gml-reports/`.
+- Run Prettier with the installed plugin path, for example:
+
+  ```bash
+  npx prettier --config ./prettierrc.mjs \
+    --plugin=./node_modules/root/src/plugin/src/gml.js \
+    --write "scripts/**/*.gml"
+  ```
+
+  Dry-run mode leaves sources untouched but prints a summary headed by
+  `[gml-identifier-case]` and writes a JSON log similar to
+  [docs/examples/identifier-case/dry-run-report.json](docs/examples/identifier-case/dry-run-report.json).
+- Share the console summary and JSON log with reviewers so they can validate the
+  plan against real usage before approving changes.
+
+### Promote renames to write mode
+
+- After peer review, set `identifierCaseDryRun: false` in your Prettier config
+  and re-run the formatter with `--write` to apply the accepted renames.
+- Keep the report log path in place—write mode still emits the JSON payload so
+  you have an audit trail of applied operations.
+- Leave `gmlIdentifierCaseAssets` set to `off` (and omit the acknowledgement
+  flag) until the team is ready to audit file-system changes triggered by asset
+  renames.
+
+### Migration checklist
+
+- Start new rollouts on feature branches with dry-run mode enabled so gameplay
+  logic remains untouched while you iterate on configuration.
+- Capture the generated project index and dry-run JSON in the branch to keep the
+  rename plan stable across machines and CI agents.
+- Schedule a teammate familiar with the affected scripts to review the dry-run
+  report before enabling write mode; peer review is the last safety net for
+  incorrect suggestions.
+- Expand scope gradually (locals → functions → structs → instances → globals →
+  macros) and repeat the dry-run + review cycle for each stage.
+
 ## Troubleshooting
 
 - Confirm Node and npm meet the version requirements. The workspace requires Node.js 18.18.0+, 20.9.0+, or 21.1.0+.
@@ -473,6 +535,11 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
   - Wrapper complaining about a missing target? Pass the project directory as the first argument or via `--path=...` (for example
     `node ./node_modules/root/src/plugin/prettier-wrapper.js --path .`).
   - Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
+- Identifier-case dry run not reporting anything? Confirm `gmlIdentifierCase` is set to a case style, the generated
+  `.gml-reports/project-index.json` exists, and your Prettier config passes it via `identifierCaseProjectIndex`.
+- Seeing unexpected rename collisions? Review the JSON log for `collision`, `ignored`, or `preserve` entries and adjust
+  `gmlIdentifierCaseIgnore` / `gmlIdentifierCasePreserve` before re-running the dry run. The
+  [Identifier case rollout playbook](docs/identifier-case-rollout.md#troubleshooting-checklist) lists additional checks.
 
 - Still stuck? [Open an issue](https://github.com/SimulatorLife/prettier-plugin-gml/issues) with reproduction details.
 
