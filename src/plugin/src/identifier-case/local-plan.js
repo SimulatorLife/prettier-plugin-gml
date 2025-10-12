@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -14,14 +15,6 @@ import {
     summarizeFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
-
-function toPosixPath(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
-        return "";
-    }
-
-    return filePath.replace(/\\+/g, "/");
-}
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (typeof absoluteFilePath !== "string" || absoluteFilePath.length === 0) {

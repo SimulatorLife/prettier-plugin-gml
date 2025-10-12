@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import GMLParser from "../../parser/gml-parser.js";
 import { cloneLocation } from "../ast-locations.js";
+import { toPosixPath } from "../path-utils.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -185,14 +186,6 @@ async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade) {
     }
 
     return cachedBuiltInIdentifiers;
-}
-
-function toPosixPath(inputPath) {
-    if (!inputPath) {
-        return "";
-    }
-
-    return inputPath.replace(/\\+/g, "/");
 }
 
 function toProjectRelativePath(projectRoot, absolutePath) {
