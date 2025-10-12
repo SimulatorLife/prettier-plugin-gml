@@ -20,53 +20,43 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
    - Ensure the chosen approach aligns with project conventions, coding standards, and the preservation of golden files.
    - Plan any follow-up actions, such as updating tests or documentation, before modifying files.
 
-4. **Implement the Resolution**
-   - **Normalize formatter-only differences before merging.** When conflicts are purely formatting-related (common when pre-commit hooks enforce different rules), make formatter normalization your first step:
-     1. Identify the authoritative formatter and linter configuration on the target branch by checking it out and syncing it locally:
-        ```bash
-        git fetch origin
-        git checkout <target-branch>
-        git pull --ff-only origin <target-branch>
-        ```
-        Review the relevant configuration files (e.g., `.prettierrc`, `eslint.config.js`, `.eslintrc.*`, `.editorconfig`, or hook revisions) to confirm which settings must be applied everywhere.
-     2. For each branch that needs to merge, create an isolated worktree that reuses the authoritative configuration:
-        ```bash
-        git worktree add ../<branch>-fmt <branch>
-        cd ../<branch>-fmt
-        git checkout <branch>
-        git checkout <target-branch> -- <formatter-config-files>
-        npm install
-        npm run format
-        npm run lint -- --fix
-        git status
-        ```
-        Replace `<formatter-config-files>` with the specific configuration paths identified in step 1. Running the formatter (`npm run format`) and fixer (`npm run lint -- --fix`) ensures consistent whitespace and style.
-     3. Commit and push the normalization for each branch so the merge sees consistent formatting:
-        ```bash
-        git add -A
-        git commit -m "Normalize formatting with <target-branch> configuration"
-        git push origin <branch>
-        cd <path-to-main-worktree>
-        git worktree remove ../<branch>-fmt
-        ```
-        Repeat for every branch participating in the merge. If your repository uses different package managers or formatter commands, substitute the equivalent commands here.
-     4. After both branches share the same formatting baseline, proceed with the merge. During the merge itself, re-run the formatter (`npm run format`) instead of hand-editing whitespace, and include any configuration updates in the resolution commit.
-   - Edit each conflicting file carefully, removing conflict markers and integrating the intended logic or content.
-   - Run formatters or linters if applicable to maintain code quality and consistency.
-   - Stage resolved files incrementally (`git add <file>`), verifying each change with `git diff --staged`.
+4. **Prepare a Clean Merge Environment**
+   - Fetch the latest refs from origin and double-check the remote you will push to:
+     ```bash
+     git remote -v
+     git fetch origin
+     ```
+   - Check out the PR branch so it tracks the remote tip (use `git switch <branch>`; if the branch does not yet exist locally, Git will create it from `origin/<branch>`). Abort if `git status --short` shows local edits or untracked files you did not create for this task.
+   - Inspect the pending diff before touching conflicts:
+     ```bash
+     git diff --stat origin/<base>...HEAD
+     ```
+     This keeps the scope tight and highlights which files truly need attention.
+   - Do **not** run formatters, generators, or package managers unless the conflict is in those artifacts. Reintroducing churn is the fastest way to blow up the diff.
 
-5. **Validate Thoroughly**
+5. **Perform the Merge Carefully**
+   - Bring the base branch into the PR branch without committing immediately so you can sanity-check the changes:
+     ```bash
+     git merge --no-commit --no-ff origin/<base>
+     ```
+     (Rebasing is acceptable if the project requires it; use `git rebase origin/<base>` with the same discipline.)
+   - Resolve conflict markers surgically. Prefer editing only the hunks that differ and keep unrelated whitespace or formatting untouched.
+   - After each file is reconciled, run `git diff` to confirm only the expected sections changed.
+   - Stage files incrementally (`git add <file>`) and keep the merge paused until everything looks correct. If you used `git merge --no-commit`, finish with `git commit` once satisfied. For rebases, continue with `git rebase --continue`.
+
+6. **Validate Thoroughly**
    - Execute relevant test suites or build commands to confirm that the resolution does not introduce regressions.
    - Re-run any scripts or generators if the conflict involved derived artifacts, ensuring outputs remain correct.
    - Double-check that no golden fixtures were modified unintentionally.
-   - For formatting-only reconciliations, compare the formatter output on both branches (e.g., by checking out the other branch in a temporary worktree) to confirm that running the agreed-upon formatter yields consistent results, and document any lingering discrepancies for follow-up.
+   - Run `git diff --stat origin/<base>...HEAD` again; the stat output should list only the files you deliberately touched.
 
-6. **Finalize the Commit History**
-   - For merges, complete the merge with a clear commit message summarizing the resolution.
+7. **Finalize the Commit History**
+   - For merges, complete the merge commit with a clear message describing the conflict resolution.
    - For rebases or cherry-picks, continue the process (`git rebase --continue`, `git cherry-pick --continue`) after staging changes.
    - If conflicts required significant rework, consider amending the commit or splitting changes for clarity.
+  - Ensure the branch is up to date: `git fetch origin` followed by `git merge --ff-only origin/<base>` (or `git rebase origin/<base>`) should report "Already up to date."
 
-7. **Document and Communicate**
+8. **Document and Communicate**
    - Note any non-obvious decisions in commit messages or PR descriptions to aid reviewers.
    - If additional follow-up tasks are necessary, create TODOs or issues as appropriate.
 
