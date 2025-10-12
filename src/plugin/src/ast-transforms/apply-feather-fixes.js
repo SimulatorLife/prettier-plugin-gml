@@ -1269,6 +1269,10 @@ function isNonEmptyArray(value) {
     return Array.isArray(value) && value.length > 0;
 }
 
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.length > 0;
+}
+
 function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -4179,7 +4183,7 @@ function extractDeprecatedConstantReplacement(diagnostic) {
 }
 
 function collectIdentifiers(example) {
-    if (typeof example !== "string" || example.length === 0) {
+    if (!isNonEmptyString(example)) {
         return new Set();
     }
 
@@ -4193,7 +4197,7 @@ function collectIdentifiers(example) {
 }
 
 function isLikelyConstant(identifier) {
-    if (typeof identifier !== "string" || identifier.length === 0) {
+    if (!isNonEmptyString(identifier)) {
         return false;
     }
 
