@@ -2799,4 +2799,69 @@ describe("applyFeatherFixes transform", () => {
             true
         );
     });
+
+    it("resets colour write enable after disabling channels and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_colourwriteenable(true, true, true, false);",
+            "",
+            "draw_sprite(sprite_index, 0, x, y);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.ok(
+            body.length >= 3,
+            "Expected colour write enable reset to be inserted."
+        );
+
+        const disableCall = body[0];
+        const resetCall = body[1];
+
+        assert.strictEqual(disableCall?.type, "CallExpression");
+        assert.strictEqual(
+            disableCall?.object?.name,
+            "gpu_set_colourwriteenable"
+        );
+        assert.strictEqual(resetCall?.type, "CallExpression");
+        assert.strictEqual(
+            resetCall?.object?.name,
+            "gpu_set_colourwriteenable"
+        );
+
+        const resetArgs = Array.isArray(resetCall?.arguments)
+            ? resetCall.arguments
+            : [];
+        assert.strictEqual(resetArgs.length >= 4, true);
+        for (let index = 0; index < 4; index += 1) {
+            const argument = resetArgs[index];
+            assert.strictEqual(argument?.type, "Literal");
+            assert.strictEqual(argument?.value, "true");
+        }
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2052 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2052"
+        );
+
+        assert.ok(
+            gm2052,
+            "Expected GM2052 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2052.automatic, true);
+        assert.ok(gm2052.range);
+
+        const callDiagnostics = resetCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2052"),
+            true
+        );
+    });
 });
