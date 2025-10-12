@@ -6,7 +6,7 @@ import {
     isDocCommentLine,
     isLineComment
 } from "../../../shared/comments.js";
-import { getCachedValue } from "../../../shared/options-cache.js";
+import { getCachedValue } from "../options/options-cache.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;

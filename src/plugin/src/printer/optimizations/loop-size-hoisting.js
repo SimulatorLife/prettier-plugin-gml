@@ -3,7 +3,7 @@
 // alongside other printer optimizations instead of the main print pipeline.
 
 import { getIdentifierText } from "../../../../shared/ast-node-helpers.js";
-import { getCachedValue } from "../../../../shared/options-cache.js";
+import { getCachedValue } from "../../options/options-cache.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
