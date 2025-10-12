@@ -690,6 +690,18 @@ function createIdentifierCollections() {
     };
 }
 
+function buildIdentifierId(scope, value) {
+    if (!scope || typeof scope !== "string") {
+        return null;
+    }
+
+    if (typeof value !== "string" || value.length === 0) {
+        return null;
+    }
+
+    return `${scope}:${value}`;
+}
+
 function createEnumLookup(ast, filePath) {
     const enumDeclarations = new Map();
     const memberDeclarations = new Map();
@@ -768,10 +780,13 @@ function ensureScriptEntry(identifierCollections, descriptor) {
         return null;
     }
 
+    const identifierId = buildIdentifierId("script", descriptor.id);
+
     return ensureCollectionEntry(
         identifierCollections.scripts,
         descriptor.id,
         () => ({
+            identifierId,
             id: descriptor.id,
             name: descriptor.name ?? null,
             displayName:
@@ -792,6 +807,10 @@ function registerScriptDeclaration({
     const entry = ensureScriptEntry(identifierCollections, descriptor);
     if (!entry) {
         return;
+    }
+
+    if (!entry.identifierId) {
+        entry.identifierId = buildIdentifierId("script", descriptor?.id ?? "");
     }
 
     if (descriptor.name && !entry.name) {
@@ -844,10 +863,13 @@ function registerScriptReference({ identifierCollections, callRecord }) {
         return;
     }
 
+    const identifierId = buildIdentifierId("script", targetScopeId);
+
     const entry = ensureCollectionEntry(
         identifierCollections.scripts,
         targetScopeId,
         () => ({
+            identifierId,
             id: targetScopeId,
             name: callRecord.target?.name ?? null,
             displayName: callRecord.target?.name
@@ -858,6 +880,10 @@ function registerScriptReference({ identifierCollections, callRecord }) {
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     if (callRecord.target?.name && !entry.name) {
         entry.name = callRecord.target.name;
@@ -891,15 +917,22 @@ function registerMacroOccurrence({
         return;
     }
 
+    const identifierId = buildIdentifierId("macro", identifierRecord.name);
+
     const entry = ensureCollectionEntry(
         identifierCollections.macros,
         identifierRecord.name,
         () => ({
+            identifierId,
             name: identifierRecord.name,
             declarations: [],
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -927,10 +960,12 @@ function registerEnumOccurrence({
     }
 
     const enumInfo = enumLookup?.enumDeclarations?.get(enumKey) ?? null;
+    const identifierId = buildIdentifierId("enum", enumKey);
     const entry = ensureCollectionEntry(
         identifierCollections.enums,
         enumKey,
         () => ({
+            identifierId,
             key: enumKey,
             name: enumInfo?.name ?? identifierRecord?.name ?? null,
             filePath: enumInfo?.filePath ?? filePath ?? null,
@@ -938,6 +973,10 @@ function registerEnumOccurrence({
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     if (enumInfo && !entry.name) {
         entry.name =
@@ -971,11 +1010,13 @@ function registerEnumMemberOccurrence({
 
     const memberInfo = enumLookup?.memberDeclarations?.get(memberKey) ?? null;
     const enumKey = memberInfo?.enumKey ?? null;
+    const identifierId = buildIdentifierId("enum-member", memberKey);
 
     const entry = ensureCollectionEntry(
         identifierCollections.enumMembers,
         memberKey,
         () => ({
+            identifierId,
             key: memberKey,
             name: memberInfo?.name ?? identifierRecord?.name ?? null,
             enumKey,
@@ -988,6 +1029,10 @@ function registerEnumMemberOccurrence({
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     if (memberInfo?.enumKey && !entry.enumName) {
         entry.enumName =
@@ -1013,15 +1058,22 @@ function registerGlobalOccurrence({
         return;
     }
 
+    const identifierId = buildIdentifierId("global", identifierRecord.name);
+
     const entry = ensureCollectionEntry(
         identifierCollections.globalVariables,
         identifierRecord.name,
         () => ({
+            identifierId,
             name: identifierRecord.name,
             declarations: [],
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1043,10 +1095,12 @@ function registerInstanceOccurrence({
     }
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
+    const identifierId = buildIdentifierId("instance", key);
     const entry = ensureCollectionEntry(
         identifierCollections.instanceVariables,
         key,
         () => ({
+            identifierId,
             key,
             name: identifierRecord.name,
             scopeId: scopeDescriptor?.id ?? null,
@@ -1055,6 +1109,10 @@ function registerInstanceOccurrence({
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1183,11 +1241,16 @@ function registerInstanceAssignment({
         return;
     }
 
+    const identifierKey = `${
+        scopeDescriptor?.id ?? "instance"
+    }:${identifierRecord.name}`;
+    const identifierId = buildIdentifierId("instance", identifierKey);
     const entry = ensureCollectionEntry(
         identifierCollections.instanceVariables,
-        `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
+        identifierKey,
         () => ({
-            key: `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
+            identifierId,
+            key: identifierKey,
             name: identifierRecord.name,
             scopeId: scopeDescriptor?.id ?? null,
             scopeKind: scopeDescriptor?.kind ?? null,
@@ -1195,6 +1258,10 @@ function registerInstanceAssignment({
             references: []
         })
     );
+
+    if (!entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
@@ -1597,6 +1664,9 @@ export async function buildProjectIndex(
 
     const identifiers = {
         scripts: mapToObject(identifierCollections.scripts, (entry) => ({
+            identifierId:
+                entry.identifierId ??
+                buildIdentifierId("script", entry.id ?? entry.name ?? ""),
             id: entry.id,
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
@@ -1617,11 +1687,17 @@ export async function buildProjectIndex(
             }))
         })),
         macros: mapToObject(identifierCollections.macros, (entry) => ({
+            identifierId:
+                entry.identifierId ??
+                buildIdentifierId("macro", entry.name ?? ""),
             name: entry.name,
             declarations: entry.declarations.map((item) => ({ ...item })),
             references: entry.references.map((item) => ({ ...item }))
         })),
         enums: mapToObject(identifierCollections.enums, (entry) => ({
+            identifierId:
+                entry.identifierId ??
+                buildIdentifierId("enum", entry.key ?? entry.name ?? ""),
             key: entry.key,
             name: entry.name ?? null,
             filePath: entry.filePath ?? null,
@@ -1631,6 +1707,9 @@ export async function buildProjectIndex(
         enumMembers: mapToObject(
             identifierCollections.enumMembers,
             (entry) => ({
+                identifierId:
+                    entry.identifierId ??
+                    buildIdentifierId("enum-member", entry.key ?? ""),
                 key: entry.key,
                 name: entry.name ?? null,
                 enumKey: entry.enumKey ?? null,
@@ -1643,6 +1722,9 @@ export async function buildProjectIndex(
         globalVariables: mapToObject(
             identifierCollections.globalVariables,
             (entry) => ({
+                identifierId:
+                    entry.identifierId ??
+                    buildIdentifierId("global", entry.name ?? ""),
                 name: entry.name,
                 declarations: entry.declarations.map((item) => ({ ...item })),
                 references: entry.references.map((item) => ({ ...item }))
@@ -1651,6 +1733,9 @@ export async function buildProjectIndex(
         instanceVariables: mapToObject(
             identifierCollections.instanceVariables,
             (entry) => ({
+                identifierId:
+                    entry.identifierId ??
+                    buildIdentifierId("instance", entry.key ?? ""),
                 key: entry.key,
                 name: entry.name ?? null,
                 scopeId: entry.scopeId ?? null,
