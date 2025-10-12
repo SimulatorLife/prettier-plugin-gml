@@ -15,7 +15,7 @@ jobs:
     secrets: inherit
     with:
       pr_title: "Codex: Targeted Micro-Optimization"
-      pr_body: "Seed PR for Codex to implement a localized, measurable micro-optimization atop current master."
+      pr_body: "Seed PR for Codex to implement a localized, measurable micro-optimization."
       prompt: >
         Identify and optimize one specific micro-hot path (a tight loop, inner
         render/update step, or small utility on a critical code path) and deliver at
