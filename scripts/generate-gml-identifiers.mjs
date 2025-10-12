@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
 import { CliUsageError, handleCliError } from "./utils/cli-errors.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    resolveProgressBarWidth
+} from "./utils/progress-bar.js";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
@@ -12,7 +16,6 @@ const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
 
 const KB = 1024;
 const MB = KB * 1024;
-const PROGRESS_BAR_WIDTH = 24;
 
 function assertSupportedNodeVersion() {
     const [major, minor] = process.versions.node
@@ -62,6 +65,7 @@ function getUsage() {
         "  --output, -o <path>       Output JSON path. Defaults to resources/gml-identifiers.json.",
         "  --force-refresh           Ignore cached manual artefacts and re-download.",
         "  --quiet                   Suppress progress logging (for CI).",
+        "  --progress-bar-width <n>  Width of the terminal progress bar (default: 24).",
         "  --help, -h                Show this help message."
     ].join("\n");
 }
@@ -70,6 +74,13 @@ function parseArgs() {
     let ref = process.env.GML_MANUAL_REF ?? null;
     let outputPath = OUTPUT_DEFAULT;
     let forceRefresh = false;
+    let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
+    if (process.env.GML_PROGRESS_BAR_WIDTH !== undefined) {
+        progressBarWidth = resolveProgressBarWidth(
+            process.env.GML_PROGRESS_BAR_WIDTH,
+            { usage: getUsage() }
+        );
+    }
     const verbose = {
         resolveRef: true,
         downloads: true,
@@ -95,6 +106,17 @@ function parseArgs() {
             verbose.downloads = false;
             verbose.parsing = false;
             verbose.progressBar = false;
+        } else if (arg === "--progress-bar-width") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError(
+                    "--progress-bar-width requires a numeric value.",
+                    { usage: getUsage() }
+                );
+            }
+            progressBarWidth = resolveProgressBarWidth(ARGUMENTS[i + 1], {
+                usage: getUsage()
+            });
+            i += 1;
         } else if (arg === "--help" || arg === "-h") {
             console.log(getUsage());
             process.exit(0);
@@ -105,7 +127,7 @@ function parseArgs() {
         }
     }
 
-    return { ref, outputPath, forceRefresh, verbose };
+    return { ref, outputPath, forceRefresh, verbose, progressBarWidth };
 }
 
 const BASE_HEADERS = {
@@ -194,16 +216,19 @@ function formatBytes(text) {
     return `${size}B`;
 }
 
-function renderProgressBar(label, current, total) {
-    if (!process.stdout.isTTY) {
+function renderProgressBar(
+    label,
+    current,
+    total,
+    width = DEFAULT_PROGRESS_BAR_WIDTH
+) {
+    if (!process.stdout.isTTY || width <= 0) {
         return;
     }
     const denominator = total > 0 ? total : 1;
     const ratio = Math.min(Math.max(current / denominator, 0), 1);
-    const filled = Math.round(ratio * PROGRESS_BAR_WIDTH);
-    const bar = `${"#".repeat(filled)}${"-".repeat(
-        Math.max(PROGRESS_BAR_WIDTH - filled, 0)
-    )}`;
+    const filled = Math.round(ratio * width);
+    const bar = `${"#".repeat(filled)}${"-".repeat(Math.max(width - filled, 0))}`;
     const message = `${label} [${bar}] ${current}/${total}`;
     process.stdout.write(`\r${message}`);
     if (current >= total) {
@@ -423,7 +448,8 @@ function normaliseIdentifier(name) {
 async function main() {
     assertSupportedNodeVersion();
 
-    const { ref, outputPath, forceRefresh, verbose } = parseArgs();
+    const { ref, outputPath, forceRefresh, verbose, progressBarWidth } =
+        parseArgs();
     const startTime = Date.now();
 
     const manualRef = await resolveManualRef(ref, { verbose });
@@ -466,7 +492,8 @@ async function main() {
             renderProgressBar(
                 "Downloading manual assets",
                 fetchedCount,
-                downloadsTotal
+                downloadsTotal,
+                progressBarWidth
             );
         } else if (verbose.downloads) {
             console.log(`✓ ${asset.path}`);
