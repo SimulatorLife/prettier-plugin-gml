@@ -1,313 +1,565 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import prettier from 'prettier';
-import { describe, it } from 'mocha';
+import prettier from "prettier";
+import { describe, it } from "node:test";
 
-const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
-const pluginPath = path.resolve(currentDirectory, '../src/gml.js');
-const fileEncoding = 'utf8';
-const fixtureExtension = '.gml';
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const fileEncoding = "utf8";
+const fixtureExtension = ".gml";
 
 async function readFixture(filePath) {
-  const contents = await fs.readFile(filePath, fileEncoding);
-  if (typeof contents !== 'string') {
-    throw new TypeError(`Expected fixture '${filePath}' to be read as a string.`);
-  }
-  return contents.trim();
+    const contents = await fs.readFile(filePath, fileEncoding);
+    if (typeof contents !== "string") {
+        throw new TypeError(
+            `Expected fixture '${filePath}' to be read as a string.`
+        );
+    }
+    return contents.trim();
 }
 
 async function tryLoadOptions(baseName) {
-  const optionsFile = `${baseName}.options.json`;
-  const optionsPath = path.join(currentDirectory, optionsFile);
+    const optionsFile = `${baseName}.options.json`;
+    const optionsPath = path.join(currentDirectory, optionsFile);
 
-  try {
-    const contents = await fs.readFile(optionsPath, fileEncoding);
-    if (!contents) {
-      return null;
+    try {
+        const contents = await fs.readFile(optionsPath, fileEncoding);
+        if (!contents) {
+            return null;
+        }
+
+        const parsed = JSON.parse(contents);
+        if (parsed && typeof parsed === "object") {
+            return parsed;
+        }
+    } catch (error) {
+        if (error && error.code === "ENOENT") {
+            return null;
+        }
+
+        throw error;
     }
 
-    const parsed = JSON.parse(contents);
-    if (parsed && typeof parsed === 'object') {
-      return parsed;
-    }
-  } catch (error) {
-    if (error && error.code === 'ENOENT') {
-      return null;
-    }
-
-    throw error;
-  }
-
-  return null;
+    return null;
 }
 
 async function loadTestCases() {
-  const entries = await fs.readdir(currentDirectory);
-  const caseMap = new Map();
+    const entries = await fs.readdir(currentDirectory);
+    const caseMap = new Map();
 
-  for (const entry of entries) {
-    if (!entry.endsWith(fixtureExtension)) {
-      continue;
-    }
-
-    if (entry.endsWith(`.input${fixtureExtension}`)) {
-      const baseName = entry.replace(`.input${fixtureExtension}`, '');
-      const existing = caseMap.get(baseName) ?? {};
-      caseMap.set(baseName, { ...existing, inputFile: entry });
-      continue;
-    }
-
-    if (entry.endsWith(`.output${fixtureExtension}`)) {
-      const baseName = entry.replace(`.output${fixtureExtension}`, '');
-      const existing = caseMap.get(baseName) ?? {};
-      caseMap.set(baseName, { ...existing, outputFile: entry });
-      continue;
-    }
-
-    const baseName = entry.replace(fixtureExtension, '');
-    const existing = caseMap.get(baseName) ?? {};
-    caseMap.set(baseName, { ...existing, singleFile: entry });
-  }
-
-  const sortedBaseNames = [...caseMap.keys()].sort();
-
-  return Promise.all(
-    sortedBaseNames.map(async (baseName) => {
-      const { inputFile, outputFile, singleFile } = caseMap.get(baseName);
-
-      if (singleFile && (inputFile || outputFile)) {
-        throw new Error(
-          `Fixture '${baseName}' has both standalone and input/output files. Please keep only one style.`
-        );
-      }
-
-      if (singleFile) {
-        const singlePath = path.join(currentDirectory, singleFile);
-        const [rawInput, expectedOutput] = await Promise.all([
-          fs.readFile(singlePath, fileEncoding),
-          readFixture(singlePath),
-        ]);
-
-        if (typeof rawInput !== 'string') {
-          throw new TypeError(`Expected fixture '${singlePath}' to be read as a string.`);
+    for (const entry of entries) {
+        if (!entry.endsWith(fixtureExtension)) {
+            continue;
         }
 
-        const options = await tryLoadOptions(baseName);
+        if (entry.endsWith(`.input${fixtureExtension}`)) {
+            const baseName = entry.replace(`.input${fixtureExtension}`, "");
+            const existing = caseMap.get(baseName) ?? {};
+            caseMap.set(baseName, { ...existing, inputFile: entry });
+            continue;
+        }
 
-        return { baseName, inputSource: rawInput, expectedOutput, options };
-      }
+        if (entry.endsWith(`.output${fixtureExtension}`)) {
+            const baseName = entry.replace(`.output${fixtureExtension}`, "");
+            const existing = caseMap.get(baseName) ?? {};
+            caseMap.set(baseName, { ...existing, outputFile: entry });
+            continue;
+        }
 
-      if (!inputFile || !outputFile) {
-        throw new Error(
-          `Fixture '${baseName}' is missing its ${inputFile ? 'output' : 'input'} file.`
-        );
-      }
+        const baseName = entry.replace(fixtureExtension, "");
+        const existing = caseMap.get(baseName) ?? {};
+        caseMap.set(baseName, { ...existing, singleFile: entry });
+    }
 
-      const inputPath = path.join(currentDirectory, inputFile);
-      const outputPath = path.join(currentDirectory, outputFile);
+    const sortedBaseNames = [...caseMap.keys()].sort();
 
-      const [rawInput, expectedOutput] = await Promise.all([
-        fs.readFile(inputPath, fileEncoding),
-        readFixture(outputPath),
-      ]);
+    return Promise.all(
+        sortedBaseNames.map(async (baseName) => {
+            const { inputFile, outputFile, singleFile } = caseMap.get(baseName);
 
-      if (typeof rawInput !== 'string') {
-        throw new TypeError(`Expected fixture '${inputPath}' to be read as a string.`);
-      }
+            if (singleFile && (inputFile || outputFile)) {
+                throw new Error(
+                    `Fixture '${baseName}' has both standalone and input/output files. Please keep only one style.`
+                );
+            }
 
-      const options = await tryLoadOptions(baseName);
+            if (singleFile) {
+                const singlePath = path.join(currentDirectory, singleFile);
+                const [rawInput, expectedOutput] = await Promise.all([
+                    fs.readFile(singlePath, fileEncoding),
+                    readFixture(singlePath)
+                ]);
 
-      return { baseName, inputSource: rawInput, expectedOutput, options };
-    })
-  );
+                if (typeof rawInput !== "string") {
+                    throw new TypeError(
+                        `Expected fixture '${singlePath}' to be read as a string.`
+                    );
+                }
+
+                const options = await tryLoadOptions(baseName);
+
+                return {
+                    baseName,
+                    inputSource: rawInput,
+                    expectedOutput,
+                    options
+                };
+            }
+
+            if (!inputFile || !outputFile) {
+                throw new Error(
+                    `Fixture '${baseName}' is missing its ${inputFile ? "output" : "input"} file.`
+                );
+            }
+
+            const inputPath = path.join(currentDirectory, inputFile);
+            const outputPath = path.join(currentDirectory, outputFile);
+
+            const [rawInput, expectedOutput] = await Promise.all([
+                fs.readFile(inputPath, fileEncoding),
+                readFixture(outputPath)
+            ]);
+
+            if (typeof rawInput !== "string") {
+                throw new TypeError(
+                    `Expected fixture '${inputPath}' to be read as a string.`
+                );
+            }
+
+            const options = await tryLoadOptions(baseName);
+
+            return { baseName, inputSource: rawInput, expectedOutput, options };
+        })
+    );
 }
 
 async function formatWithPlugin(source, overrides) {
-  const formatted = await prettier.format(source, {
-    plugins: [pluginPath],
-    parser: 'gml-parse',
-    ...(overrides ?? {}),
-  });
+    const formatted = await prettier.format(source, {
+        plugins: [pluginPath],
+        parser: "gml-parse",
+        ...(overrides ?? {})
+    });
 
-  if (typeof formatted !== 'string') {
-    throw new TypeError('Prettier returned a non-string result when formatting GML.');
-  }
+    if (typeof formatted !== "string") {
+        throw new TypeError(
+            "Prettier returned a non-string result when formatting GML."
+        );
+    }
 
-  return formatted.trim();
+    return formatted.trim();
 }
 
 const testCases = await loadTestCases();
 
-describe('Prettier GameMaker plugin fixtures', () => {
-  for (const { baseName, inputSource, expectedOutput, options } of testCases) {
-    it(`formats ${baseName}`, async () => {
-      const formatted = await formatWithPlugin(inputSource, options);
-      const expected = expectedOutput.trim();
+describe("Prettier GameMaker plugin fixtures", () => {
+    for (const {
+        baseName,
+        inputSource,
+        expectedOutput,
+        options
+    } of testCases) {
+        it(`formats ${baseName}`, async () => {
+            const formatted = await formatWithPlugin(inputSource, options);
+            const expected = expectedOutput.trim();
 
-      if (formatted === expected) {
-        return;
-      }
+            if (formatted === expected) {
+                return;
+            }
 
-      const formattedLines = formatted.split('\n');
-      const expectedLines = expected.split('\n');
-      const maxLineCount = Math.max(formattedLines.length, expectedLines.length);
+            const formattedLines = formatted.split("\n");
+            const expectedLines = expected.split("\n");
+            const maxLineCount = Math.max(
+                formattedLines.length,
+                expectedLines.length
+            );
 
-      for (let index = 0; index < maxLineCount; index += 1) {
-        const lineNumber = index + 1;
-        const actualLine = formattedLines[index];
-        const expectedLine = expectedLines[index];
+            for (let index = 0; index < maxLineCount; index += 1) {
+                const lineNumber = index + 1;
+                const actualLine = formattedLines[index];
+                const expectedLine = expectedLines[index];
 
-        if (expectedLine === undefined) {
-          assert.fail(`Expected line ${lineNumber} is missing.`);
-        }
+                if (expectedLine === undefined) {
+                    assert.fail(`Expected line ${lineNumber} is missing.`);
+                }
 
-        if (actualLine === undefined) {
-          assert.fail(`Received line ${lineNumber} is missing.`);
-        }
+                if (actualLine === undefined) {
+                    assert.fail(`Received line ${lineNumber} is missing.`);
+                }
 
-        if (actualLine.trim() !== expectedLine.trim()) {
-          assert.strictEqual(
-            actualLine,
-            expectedLine,
-            `Line ${lineNumber} does not match.`
-          );
-        }
-      }
-    });
-  }
+                if (actualLine.trim() !== expectedLine.trim()) {
+                    assert.strictEqual(
+                        actualLine,
+                        expectedLine,
+                        `Line ${lineNumber} does not match.`
+                    );
+                }
+            }
+        });
+    }
 
-  it("preserves 'globalvar' declarations by default", async () => {
-    const source = [
-      'globalvar foo, bar;',
-      'foo = 1;',
-      'bar = 2;',
-      '',
-    ].join('\n');
+    it("preserves 'globalvar' declarations by default", async () => {
+        const source = ["globalvar foo, bar;", "foo = 1;", "bar = 2;", ""].join(
+            "\n"
+        );
 
-    const formatted = await formatWithPlugin(source);
+        const formatted = await formatWithPlugin(source);
 
-    assert.ok(
-      /globalvar foo, bar;/.test(formatted),
-      "Expected formatted output to retain the 'globalvar' declaration."
-    );
-    assert.ok(
-      /global\.foo = 1;/.test(formatted) && /global\.bar = 2;/.test(formatted),
-      "Expected formatter to continue prefixing global assignments."
-    );
-  });
-
-  it('converts argument_count fallback conditionals into default parameters', async () => {
-    const source = [
-      'function example(arg) {',
-      '    if (argument_count > 0) {',
-      '        arg = argument[0];',
-      '    } else {',
-      '        arg = "default";',
-      '    }',
-      '}',
-    ].join('\n');
-
-    const formatted = await formatWithPlugin(source);
-
-    const expected = [
-      '/// @function example',
-      '/// @param [arg="default"]',
-      'function example(arg = "default") {}',
-    ].join('\n');
-
-    assert.strictEqual(formatted, expected);
-  });
-
-  it("can elide 'globalvar' declarations when disabled", async () => {
-    const source = [
-      'globalvar foo, bar;',
-      'foo = 1;',
-      'bar = 2;',
-      '',
-    ].join('\n');
-
-    const formatted = await formatWithPlugin(source, { preserveGlobalVarStatements: false });
-
-    assert.ok(
-      !/globalvar\s+foo,\s*bar;/.test(formatted),
-      "Expected formatter to omit 'globalvar' declarations when disabled."
-    );
-  });
-
-  it('respects enum trailing comment padding overrides', async () => {
-    const source = [
-      'enum Alignment {',
-      '    Left, // left comment',
-      '    Right // right comment',
-      '}',
-      '',
-    ].join('\n');
-
-    const defaultFormatted = await formatWithPlugin(source);
-    const compactFormatted = await formatWithPlugin(source, {
-      enumTrailingCommentPadding: 0,
+        assert.ok(
+            /globalvar foo, bar;/.test(formatted),
+            "Expected formatted output to retain the 'globalvar' declaration."
+        );
+        assert.ok(
+            /global\.foo = 1;/.test(formatted) &&
+                /global\.bar = 2;/.test(formatted),
+            "Expected formatter to continue prefixing global assignments."
+        );
     });
 
-    const defaultLine = defaultFormatted
-      .split('\n')
-      .find((line) => line.includes('Left'));
-    const compactLine = compactFormatted
-      .split('\n')
-      .find((line) => line.includes('Left'));
+    it("preserves parentheses in @description tags", async () => {
+        const source = [
+            "/// @description Draw()",
+            "function draw() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
 
-    assert.ok(defaultLine && compactLine, 'Expected formatted enum members to be present.');
+        const formatted = await formatWithPlugin(source);
 
-    const defaultColumn = defaultLine.indexOf('//');
-    const compactColumn = compactLine.indexOf('//');
+        assert.ok(
+            formatted.includes("/// @description Draw()"),
+            "Expected @description comments to retain trailing parentheses"
+        );
+    });
 
-    assert.ok(
-      defaultColumn > compactColumn,
-      'Expected reduced padding to move the trailing comment closer to the enum member name.'
-    );
-  });
+    it("converts argument_count fallback conditionals into default parameters", async () => {
+        const source = [
+            "function example(arg) {",
+            "    if (argument_count > 0) {",
+            "        arg = argument[0];",
+            "    } else {",
+            '        arg = "default";',
+            "    }",
+            "}"
+        ].join("\n");
 
-  it('strips trailing macro semicolons when Feather fixes are applied', async () => {
-    const source = [
-      '#macro FOO(value) (value + 1);',
-      '#macro BAR 100;',
-      '',
-      'var result = FOO(1) + BAR;',
-    ].join('\n');
+        const formatted = await formatWithPlugin(source);
 
-    const formatted = await formatWithPlugin(source, { applyFeatherFixes: true });
+        const expected = [
+            "/// @function example",
+            '/// @param [arg="default"]',
+            'function example(arg = "default") {}'
+        ].join("\n");
 
-    const expected = [
-      '#macro FOO(value) (value + 1)',
-      '',
-      '#macro BAR 100',
-      '',
-      'var result = FOO(1) + BAR;',
-    ].join('\n');
+        assert.strictEqual(formatted, expected);
+    });
 
-    assert.strictEqual(formatted, expected);
-  });
+    it("converts argument_count equality fallbacks into default parameters", async () => {
+        const source = [
+            "function equalityExample(arg) {",
+            "    if (argument_count == 0) {",
+            '        arg = "fallback";',
+            "    } else {",
+            "        arg = argument[0];",
+            "    }",
+            "}"
+        ].join("\n");
 
-  it('strips trailing macro semicolons before inline comments when Feather fixes are applied', async () => {
-    const source = [
-      '#macro FOO(value) (value + 1); // comment',
-      '#macro BAR value + 2;',
-      '',
-      'var result = FOO(3) + BAR;',
-    ].join('\n');
+        const formatted = await formatWithPlugin(source);
 
-    const formatted = await formatWithPlugin(source, { applyFeatherFixes: true });
+        const expected = [
+            "/// @function equalityExample",
+            '/// @param [arg="fallback"]',
+            'function equalityExample(arg = "fallback") {}'
+        ].join("\n");
 
-    const expected = [
-      '#macro FOO(value) (value + 1) // comment',
-      '',
-      '#macro BAR value + 2',
-      '',
-      'var result = FOO(3) + BAR;',
-    ].join('\n');
+        assert.strictEqual(formatted, expected);
+    });
 
-    assert.strictEqual(formatted, expected);
-  });
+    it("converts argument_count inequality fallbacks into default parameters", async () => {
+        const source = [
+            "function inequalityExample(arg) {",
+            "    if (argument_count != 0) {",
+            "        arg = argument[0];",
+            "    } else {",
+            '        arg = "fallback";',
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "/// @function inequalityExample",
+            '/// @param [arg="fallback"]',
+            'function inequalityExample(arg = "fallback") {}'
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("converts argument_count equality fallbacks targeting later arguments into default parameters", async () => {
+        const source = [
+            "function equalityExample(arg0, arg1) {",
+            "    if (argument_count == 1) {",
+            '        arg1 = "fallback";',
+            "    } else {",
+            "        arg1 = argument[1];",
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "/// @function equalityExample",
+            "/// @param arg0",
+            '/// @param [arg1="fallback"]',
+            'function equalityExample(arg0, arg1 = "fallback") {}'
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("converts argument_count inequality fallbacks targeting later arguments into default parameters", async () => {
+        const source = [
+            "function inequalityExample(arg0, arg1) {",
+            "    if (argument_count != 1) {",
+            "        arg1 = argument[1];",
+            "    } else {",
+            '        arg1 = "fallback";',
+            "    }",
+            "}"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "/// @function inequalityExample",
+            "/// @param arg0",
+            '/// @param [arg1="fallback"]',
+            'function inequalityExample(arg0, arg1 = "fallback") {}'
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("converts argument_count fallbacks guarded by <= or < comparisons", async () => {
+        const source = [
+            "function fallbackLeq(existing) {",
+            "    var second;",
+            "    if (argument_count <= 1) {",
+            '        second = "fallback";',
+            "    } else {",
+            "        second = argument[1];",
+            "    }",
+            "    return existing + second;",
+            "}",
+            "",
+            "function fallbackLt(existing) {",
+            "    var second;",
+            "    if (argument_count < 2) {",
+            '        second = "fallback";',
+            "    } else {",
+            "        second = argument[1];",
+            "    }",
+            "    return existing + second;",
+            "}"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "/// @function fallbackLeq",
+            "/// @param existing",
+            '/// @param [second="fallback"]',
+            'function fallbackLeq(existing, second = "fallback") {',
+            "    return existing + second;",
+            "}",
+            "",
+            "/// @function fallbackLt",
+            "/// @param existing",
+            '/// @param [second="fallback"]',
+            'function fallbackLt(existing, second = "fallback") {',
+            "    return existing + second;",
+            "}"
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("can elide 'globalvar' declarations when disabled", async () => {
+        const source = ["globalvar foo, bar;", "foo = 1;", "bar = 2;", ""].join(
+            "\n"
+        );
+
+        const formatted = await formatWithPlugin(source, {
+            preserveGlobalVarStatements: false
+        });
+
+        assert.ok(
+            !/globalvar\s+foo,\s*bar;/.test(formatted),
+            "Expected formatter to omit 'globalvar' declarations when disabled."
+        );
+    });
+
+    it("respects trailing comment padding overrides for enums", async () => {
+        const source = [
+            "enum Alignment {",
+            "    Left, // left comment",
+            "    Right // right comment",
+            "}",
+            ""
+        ].join("\n");
+
+        const defaultFormatted = await formatWithPlugin(source);
+        const compactFormatted = await formatWithPlugin(source, {
+            trailingCommentPadding: 0
+        });
+
+        const defaultLine = defaultFormatted
+            .split("\n")
+            .find((line) => line.includes("Left"));
+        const compactLine = compactFormatted
+            .split("\n")
+            .find((line) => line.includes("Left"));
+
+        assert.ok(
+            defaultLine && compactLine,
+            "Expected formatted enum members to be present."
+        );
+
+        const defaultColumn = defaultLine.indexOf("//");
+        const compactColumn = compactLine.indexOf("//");
+
+        assert.ok(
+            defaultColumn > compactColumn,
+            "Expected reduced padding to move the trailing comment closer to the enum member name."
+        );
+    });
+
+    it("applies trailing comment padding to inline comments", async () => {
+        const source = [
+            "var foo = 1; // comment",
+            "var bar = 2; // comment",
+            ""
+        ].join("\n");
+
+        const defaultFormatted = await formatWithPlugin(source);
+        const expandedFormatted = await formatWithPlugin(source, {
+            trailingCommentPadding: 5
+        });
+
+        const defaultLine = defaultFormatted.split("\n")[0];
+        const expandedLine = expandedFormatted.split("\n")[0];
+
+        assert.ok(
+            defaultLine.includes("//") && expandedLine.includes("//"),
+            "Expected formatted inline comments to be present."
+        );
+
+        const defaultColumn = defaultLine.indexOf("//");
+        const expandedColumn = expandedLine.indexOf("//");
+
+        assert.ok(
+            expandedColumn > defaultColumn,
+            "Expected increased padding to move the trailing comment further right."
+        );
+    });
+
+    it("respects the trailing comment inline offset option", async () => {
+        const source = ["var foo = 1; // inline", ""].join("\n");
+
+        const defaultFormatted = await formatWithPlugin(source);
+        const alignedFormatted = await formatWithPlugin(source, {
+            trailingCommentInlineOffset: 0
+        });
+
+        const defaultColumn = defaultFormatted.split("\n")[0].indexOf("//");
+        const alignedColumn = alignedFormatted.split("\n")[0].indexOf("//");
+
+        assert.ok(
+            alignedColumn > defaultColumn,
+            "Expected removing the inline offset to shift the inline comment further right."
+        );
+    });
+
+    it("strips trailing macro semicolons when Feather fixes are applied", async () => {
+        const source = [
+            "#macro FOO(value) (value + 1);",
+            "#macro BAR 100;",
+            "",
+            "var result = FOO(1) + BAR;"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source, {
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "#macro FOO(value) (value + 1)",
+            "#macro BAR 100",
+            "",
+            "var result = FOO(1) + BAR;"
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("strips trailing macro semicolons before inline comments when Feather fixes are applied", async () => {
+        const source = [
+            "#macro FOO(value) (value + 1); // comment",
+            "#macro BAR value + 2;",
+            "",
+            "var result = FOO(3) + BAR;"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source, {
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "#macro FOO(value) (value + 1) // comment",
+            "#macro BAR value + 2",
+            "",
+            "var result = FOO(3) + BAR;"
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("rewrites safe string concatenations into template strings when enabled", async () => {
+        const source = 'var message = "Hello " + name + "!";\n';
+
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: true
+        });
+
+        assert.strictEqual(formatted, 'var message = $"Hello {name}!";');
+    });
+
+    it("leaves concatenations unchanged when string interpolation is disabled", async () => {
+        const source = 'var message = "Hello " + name + "!";\n';
+
+        const baseline = await formatWithPlugin(source);
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: false
+        });
+
+        assert.strictEqual(formatted, baseline);
+    });
+
+    it("skips concatenations that include non-string expressions", async () => {
+        const source = 'var summary = "Score: " + playerName + 42;\n';
+
+        const baseline = await formatWithPlugin(source);
+        const formatted = await formatWithPlugin(source, {
+            useStringInterpolation: true
+        });
+
+        assert.strictEqual(formatted, baseline);
+    });
 });
