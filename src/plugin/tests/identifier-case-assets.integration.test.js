@@ -12,6 +12,7 @@ import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/reporting/identifier-case-context.js";
+import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
@@ -93,6 +94,151 @@ async function createAssetRenameProject() {
     };
 }
 
+async function createAssetCollisionProject() {
+    const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), "gml-asset-collision-")
+    );
+
+    const writeFile = async (relativePath, contents) => {
+        const absolutePath = path.join(tempRoot, relativePath);
+        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+        await fs.writeFile(absolutePath, contents, "utf8");
+        return absolutePath;
+    };
+
+    await writeFile(
+        "MyGame.yyp",
+        JSON.stringify(
+            {
+                name: "MyGame",
+                resourceType: "GMProject",
+                resources: [
+                    {
+                        id: {
+                            name: "demo_script",
+                            path: "scripts/demo_script/demo_script.yy"
+                        }
+                    },
+                    {
+                        id: {
+                            name: "DemoScript",
+                            path: "scripts/demo_script/DemoScriptExisting.yy"
+                        }
+                    }
+                ]
+            },
+            null,
+            4
+        ) + "\n"
+    );
+
+    await writeFile(
+        "scripts/demo_script/demo_script.yy",
+        JSON.stringify(
+            {
+                resourceType: "GMScript",
+                name: "demo_script",
+                resourcePath: "scripts/demo_script/demo_script.yy"
+            },
+            null,
+            4
+        ) + "\n"
+    );
+
+    await writeFile(
+        "scripts/demo_script/DemoScriptExisting.yy",
+        JSON.stringify(
+            {
+                resourceType: "GMScript",
+                name: "DemoScript",
+                resourcePath: "scripts/demo_script/DemoScriptExisting.yy"
+            },
+            null,
+            4
+        ) + "\n"
+    );
+
+    const primarySource = "function demo_script() {\n    return 1;\n}\n";
+    const secondarySource = "function DemoScript() {\n    return 2;\n}\n";
+
+    const primaryPath = await writeFile(
+        "scripts/demo_script/demo_script.gml",
+        primarySource
+    );
+    await writeFile(
+        "scripts/demo_script/DemoScriptExisting.gml",
+        secondarySource
+    );
+
+    const projectIndex = await buildProjectIndex(tempRoot);
+
+    return {
+        projectRoot: tempRoot,
+        projectIndex,
+        scriptPath: primaryPath
+    };
+}
+
+async function createAssetReservedProject() {
+    const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), "gml-asset-reserved-")
+    );
+
+    const writeFile = async (relativePath, contents) => {
+        const absolutePath = path.join(tempRoot, relativePath);
+        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+        await fs.writeFile(absolutePath, contents, "utf8");
+        return absolutePath;
+    };
+
+    await writeFile(
+        "MyGame.yyp",
+        JSON.stringify(
+            {
+                name: "MyGame",
+                resourceType: "GMProject",
+                resources: [
+                    {
+                        id: {
+                            name: "MoveContactSolid",
+                            path: "scripts/move_contact/MoveContactSolid.yy"
+                        }
+                    }
+                ]
+            },
+            null,
+            4
+        ) + "\n"
+    );
+
+    await writeFile(
+        "scripts/move_contact/MoveContactSolid.yy",
+        JSON.stringify(
+            {
+                resourceType: "GMScript",
+                name: "MoveContactSolid",
+                resourcePath: "scripts/move_contact/MoveContactSolid.yy"
+            },
+            null,
+            4
+        ) + "\n"
+    );
+
+    const source = "function MoveContactSolid() {\n    return 3;\n}\n";
+    const scriptPath = await writeFile(
+        "scripts/move_contact/MoveContactSolid.gml",
+        source
+    );
+
+    const projectIndex = await buildProjectIndex(tempRoot);
+
+    return {
+        projectRoot: tempRoot,
+        projectIndex,
+        scriptPath
+    };
+}
+
 describe("asset rename execution", () => {
     it("renames script assets and updates referencing metadata", async () => {
         const { projectRoot, projectIndex, scriptSource, scriptPath } =
@@ -171,6 +317,143 @@ describe("asset rename execution", () => {
             assert.ok(renamedGmlExists, "Expected renamed GML file to exist");
         } finally {
             clearIdentifierCaseDryRunContexts();
+            await fs.rm(projectRoot, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("asset rename conflict detection", () => {
+    it("aborts renames when converted names collide with existing assets", async () => {
+        const { projectRoot, projectIndex, scriptPath } =
+            await createAssetCollisionProject();
+
+        try {
+            const options = {
+                filepath: scriptPath,
+                gmlIdentifierCase: "off",
+                gmlIdentifierCaseAssets: "pascal",
+                gmlIdentifierCaseAcknowledgeAssetRenames: true,
+                __identifierCaseProjectIndex: projectIndex,
+                __identifierCaseDryRun: false,
+                identifierCaseFs: {
+                    renameSync() {
+                        assert.fail(
+                            "renameSync should not be called when conflicts are present"
+                        );
+                    }
+                },
+                diagnostics: []
+            };
+
+            prepareIdentifierCasePlan(options);
+
+            const conflicts = options.__identifierCaseConflicts ?? [];
+            assert.ok(
+                conflicts.length > 0,
+                "Expected collisions to be reported"
+            );
+            assert.ok(
+                conflicts.some((conflict) => conflict.code === "collision"),
+                "Expected collision conflict code"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.message.includes("collides with existing asset")
+                ),
+                "Expected conflict message to reference existing assets"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.suggestions.some((suggestion) =>
+                        suggestion.includes("gmlIdentifierCaseIgnore")
+                    )
+                ),
+                "Expected suggestion to reference ignore patterns"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.suggestions.some((suggestion) =>
+                        suggestion.includes("gmlIdentifierCaseAssets")
+                    )
+                ),
+                "Expected suggestion to mention scope toggle"
+            );
+            assert.notStrictEqual(
+                options.__identifierCaseAssetRenamesApplied,
+                true,
+                "Expected asset renames to be aborted"
+            );
+            assert.strictEqual(
+                options.__identifierCaseAssetRenameResult,
+                undefined,
+                "Expected rename executor not to run"
+            );
+        } finally {
+            await fs.rm(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    it("detects reserved-word conflicts before renaming assets", async () => {
+        const { projectRoot, projectIndex, scriptPath } =
+            await createAssetReservedProject();
+
+        try {
+            const options = {
+                filepath: scriptPath,
+                gmlIdentifierCase: "off",
+                gmlIdentifierCaseAssets: "snake-lower",
+                gmlIdentifierCaseAcknowledgeAssetRenames: true,
+                __identifierCaseProjectIndex: projectIndex,
+                __identifierCaseDryRun: false,
+                diagnostics: []
+            };
+
+            prepareIdentifierCasePlan(options);
+
+            const conflicts = options.__identifierCaseConflicts ?? [];
+            assert.ok(
+                conflicts.length > 0,
+                "Expected reserved conflict to be reported"
+            );
+            assert.ok(
+                conflicts.some((conflict) => conflict.code === "reserved"),
+                "Expected reserved conflict code"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.message.includes(
+                        "conflicts with reserved identifier"
+                    )
+                ),
+                "Expected reserved-word guidance"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.suggestions.some((suggestion) =>
+                        suggestion.includes("gmlIdentifierCaseIgnore")
+                    )
+                ),
+                "Expected ignore suggestion"
+            );
+            assert.ok(
+                conflicts.some((conflict) =>
+                    conflict.suggestions.some((suggestion) =>
+                        suggestion.includes("gmlIdentifierCaseAssets")
+                    )
+                ),
+                "Expected scope toggle suggestion"
+            );
+            assert.notStrictEqual(
+                options.__identifierCaseAssetRenamesApplied,
+                true,
+                "Reserved conflicts should abort asset renames"
+            );
+            assert.strictEqual(
+                options.__identifierCaseAssetRenameResult,
+                undefined,
+                "Expected rename executor not to run on reserved conflict"
+            );
+        } finally {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
