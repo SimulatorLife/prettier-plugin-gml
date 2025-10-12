@@ -78,31 +78,36 @@ function parseCliArguments(args) {
             continue;
         }
 
-        if (arg === "--path" && index + 1 < args.length) {
-            parsed.targetPathInput = args[index + 1];
-            index += 1;
+        const [flag, inlineValue] = arg.split("=", 2);
+        const consumeValue = () => {
+            if (inlineValue !== undefined) {
+                return inlineValue;
+            }
+
+            if (index + 1 < args.length) {
+                index += 1;
+                return args[index];
+            }
+
+            return undefined;
+        };
+
+        if (flag === "--path") {
+            const value = consumeValue();
+            if (value !== undefined) {
+                parsed.targetPathInput = value;
+            }
             continue;
         }
 
-        if (arg.startsWith("--path=")) {
-            parsed.targetPathInput = arg.slice("--path=".length);
-            continue;
-        }
-
-        if (arg === "--extensions" && index + 1 < args.length) {
-            parsed.extensions = normalizeExtensions(
-                args[index + 1],
-                DEFAULT_EXTENSIONS
-            );
-            index += 1;
-            continue;
-        }
-
-        if (arg.startsWith("--extensions=")) {
-            parsed.extensions = normalizeExtensions(
-                arg.slice("--extensions=".length),
-                DEFAULT_EXTENSIONS
-            );
+        if (flag === "--extensions") {
+            const value = consumeValue();
+            if (value !== undefined) {
+                parsed.extensions = normalizeExtensions(
+                    value,
+                    DEFAULT_EXTENSIONS
+                );
+            }
         }
     }
 
