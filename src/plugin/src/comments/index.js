@@ -56,6 +56,29 @@ function readLineCommentOption(value, fallback) {
     return typeof value === "number" ? value : fallback;
 }
 
+function mergeLineCommentOptionOverrides(overrides) {
+    if (typeof overrides !== "object" || overrides === null) {
+        return DEFAULT_LINE_COMMENT_OPTIONS;
+    }
+
+    return createLineCommentOptions(
+        readLineCommentOption(
+            overrides.bannerMinimum,
+            DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+        ),
+        readLineCommentOption(
+            overrides.bannerAutofillThreshold,
+            DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
+        ),
+        Array.isArray(overrides.boilerplateFragments)
+            ? dedupeFragments(
+                DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
+                overrides.boilerplateFragments
+            )
+            : DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
+    );
+}
+
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
 const lineCommentOptionsCache = new WeakMap();
 
@@ -92,13 +115,15 @@ function resolveLineCommentOptions(options) {
         LINE_COMMENT_OPTIONS_CACHE_KEY,
         lineCommentOptionsCache,
         () =>
-            createLineCommentOptions(
-                coerceBannerMinimum(lineCommentBannerMinimumSlashes),
-                coerceBannerAutofillThreshold(
+            mergeLineCommentOptionOverrides({
+                bannerMinimum: coerceBannerMinimum(
+                    lineCommentBannerMinimumSlashes
+                ),
+                bannerAutofillThreshold: coerceBannerAutofillThreshold(
                     lineCommentBannerAutofillThreshold
                 ),
-                getBoilerplateCommentFragments(options)
-            )
+                boilerplateFragments: getBoilerplateCommentFragments(options)
+            })
     );
 }
 
@@ -354,30 +379,13 @@ function normalizeLineCommentOptions(lineCommentOptions) {
         typeof lineCommentOptions === "number" &&
         Number.isFinite(lineCommentOptions)
     ) {
-        return createLineCommentOptions(
-            lineCommentOptions,
-            DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold,
-            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
-        );
+        return mergeLineCommentOptionOverrides({
+            bannerMinimum: lineCommentOptions
+        });
     }
 
     if (lineCommentOptions && typeof lineCommentOptions === "object") {
-        return createLineCommentOptions(
-            readLineCommentOption(
-                lineCommentOptions.bannerMinimum,
-                DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-            ),
-            readLineCommentOption(
-                lineCommentOptions.bannerAutofillThreshold,
-                DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
-            ),
-            Array.isArray(lineCommentOptions.boilerplateFragments)
-                ? dedupeFragments(
-                    DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
-                    lineCommentOptions.boilerplateFragments
-                )
-                : DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
-        );
+        return mergeLineCommentOptionOverrides(lineCommentOptions);
     }
 
     return DEFAULT_LINE_COMMENT_OPTIONS;
