@@ -405,6 +405,41 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("leaves non-numeric string operands unchanged when coercion is unnecessary", () => {
+        const source = [
+            'var base = @"PlayerData";',
+            'var combined = base + @"/Screenshots/*.png";',
+            'var appended = base + "/Manual";'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [, combinedDeclaration, appendedDeclaration] = ast.body ?? [];
+
+        const combinedInit = combinedDeclaration?.declarations?.[0]?.init;
+        assert.ok(combinedInit);
+        assert.strictEqual(combinedInit.type, "BinaryExpression");
+        assert.strictEqual(combinedInit.right?.type, "Literal");
+        assert.strictEqual(combinedInit.right?.value, '@"/Screenshots/*.png"');
+
+        const appendedInit = appendedDeclaration?.declarations?.[0]?.init;
+        assert.ok(appendedInit);
+        assert.strictEqual(appendedInit.type, "BinaryExpression");
+        assert.strictEqual(appendedInit.right?.type, "Literal");
+        assert.strictEqual(appendedInit.right?.value, '"/Manual"');
+
+        const combinedMetadata = combinedInit._appliedFeatherDiagnostics ?? [];
+        const appendedMetadata = appendedInit._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(combinedMetadata.length, 0);
+        assert.strictEqual(appendedMetadata.length, 0);
+    });
+
     it("converts string length property access into string_length calls", () => {
         const source = "var result = string(value).length;";
 

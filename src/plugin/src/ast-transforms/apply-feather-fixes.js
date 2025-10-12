@@ -6113,21 +6113,33 @@ function isCoercibleStringLiteral(node) {
         return false;
     }
 
-    if (rawValue.startsWith('@"')) {
-        return rawValue.endsWith('"');
+    let literalText = null;
+
+    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
+        literalText = rawValue.slice(2, -1);
+    } else if (rawValue.length >= 2) {
+        const startingQuote = rawValue[0];
+        const endingQuote = rawValue[rawValue.length - 1];
+
+        if (
+            (startingQuote === '"' || startingQuote === "'") &&
+            startingQuote === endingQuote
+        ) {
+            literalText = rawValue.slice(1, -1);
+        }
     }
 
-    if (rawValue.length < 2) {
+    if (literalText == null) {
         return false;
     }
 
-    const startingQuote = rawValue[0];
-    const endingQuote = rawValue[rawValue.length - 1];
+    const trimmed = literalText.trim();
 
-    return (
-        (startingQuote === '"' || startingQuote === "'") &&
-        startingQuote === endingQuote
-    );
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed);
 }
 
 function createRealCoercionCall(literal) {
