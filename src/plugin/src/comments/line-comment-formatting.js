@@ -1,7 +1,7 @@
 import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
-} from "./line-comment-options.js";
+} from "../options/line-comment-options.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",

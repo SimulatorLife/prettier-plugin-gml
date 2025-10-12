@@ -9,7 +9,7 @@ import {
 import {
     getTrailingCommentInlinePadding,
     resolveLineCommentOptions
-} from "../comments/line-comment-options.js";
+} from "../options/line-comment-options.js";
 import { isCommentNode } from "../../../shared/comments.js";
 
 const { addDanglingComment } = util;

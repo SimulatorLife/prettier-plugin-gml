@@ -14,7 +14,7 @@ import {
     getTrailingCommentPadding,
     normalizeLineCommentOptions,
     resolveLineCommentOptions
-} from "./line-comment-options.js";
+} from "../options/line-comment-options.js";
 import {
     applyInlinePadding,
     formatLineComment,
