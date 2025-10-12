@@ -36,6 +36,7 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
+const FILE_ATTRIBUTE_IDENTIFIER_PATTERN = /^fa_[A-Za-z0-9_]+$/;
 const STRING_LENGTH_CALL_BLACKLIST = new Set([
     "string_byte_at",
     "string_byte_length",
@@ -1035,6 +1036,14 @@ function createOtherMemberExpression(identifier) {
 
 function createAutomaticFeatherFixHandlers() {
     return new Map([
+        [
+            "GM1009",
+            ({ ast, diagnostic }) =>
+                convertFileAttributeAdditionsToBitwiseOr({
+                    ast,
+                    diagnostic
+                })
+        ],
         [
             "GM1021",
             ({ ast, diagnostic }) =>
@@ -2041,6 +2050,117 @@ function collectAllIdentifierNames(root) {
     visit(root);
 
     return names;
+}
+
+function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "BinaryExpression") {
+            const fix = normalizeFileAttributeAddition(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function normalizeFileAttributeAddition(node, diagnostic) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (node.operator !== "+") {
+        return null;
+    }
+
+    const leftIdentifier = unwrapIdentifierFromExpression(node.left);
+    const rightIdentifier = unwrapIdentifierFromExpression(node.right);
+
+    if (
+        !isFileAttributeIdentifier(leftIdentifier) ||
+        !isFileAttributeIdentifier(rightIdentifier)
+    ) {
+        return null;
+    }
+
+    const originalOperator = node.operator;
+    node.operator = "|";
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: originalOperator ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function unwrapIdentifierFromExpression(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return node;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return unwrapIdentifierFromExpression(node.expression);
+    }
+
+    return null;
+}
+
+function isFileAttributeIdentifier(node) {
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    if (typeof node.name !== "string") {
+        return false;
+    }
+
+    return FILE_ATTRIBUTE_IDENTIFIER_PATTERN.test(node.name);
 }
 
 function preventDivisionOrModuloByZero({ ast, diagnostic }) {
