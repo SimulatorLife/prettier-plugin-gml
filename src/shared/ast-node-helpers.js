@@ -28,6 +28,17 @@ function getSingleVariableDeclarator(node) {
     return declarator;
 }
 
+/**
+ * Normalize various identifier-like nodes to a comparable string.
+ *
+ * @param {string | null | undefined | { type?: string, name?: unknown, value?: unknown, object?: unknown, property?: unknown }} node
+ *     Any AST fragment that may carry a name. String values are returned as-is.
+ * @returns {string | null} Canonical identifier text, using underscores to
+ *     flatten member access (e.g. {@code foo.bar} -> {@code "foo_bar"}) or
+ *     {@code null} when the node does not resolve to a string name. The helper
+ *     treats unexpected node shapes defensively, which allows callers inside
+ *     hot printer paths to skip type checks without risking runtime failures.
+ */
 function getIdentifierText(node) {
     if (node == null) {
         return null;
@@ -88,6 +99,18 @@ function getIdentifierText(node) {
     }
 }
 
+/**
+ * Extract the printable index portion of a {@link MemberIndexExpression}.
+ *
+ * @param {string | null | undefined | object} indexNode Possible node nested
+ *     within {@code MemberIndexExpression.property}. Arrays are handled by the
+ *     caller; this helper focuses on the single item case enforced by the
+ *     parser.
+ * @returns {string | null} Resolved index name or {@code null} when the parser
+ *     emitted a non-string structure (for example, computed expressions). The
+ *     defensive guards let callers gracefully skip edge cases without
+ *     introducing conditional branches at the call site.
+ */
 function getMemberIndexText(indexNode) {
     if (typeof indexNode === "string") {
         return indexNode;
