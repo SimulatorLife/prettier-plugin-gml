@@ -1402,22 +1402,23 @@ function applyAssignmentAlignment(statements, options) {
             return;
         }
 
-        const shouldAlign =
+        const meetsAlignmentThreshold =
             minGroupSize > 0 && currentGroup.length >= minGroupSize;
 
-        if (!shouldAlign) {
+        if (!meetsAlignmentThreshold) {
             currentGroup.forEach((node) => {
                 node._alignAssignmentPadding = 0;
             });
-        } else {
-            const maxLength = Math.max(
-                ...currentGroup.map((node) => node.left.name.length)
-            );
-            currentGroup.forEach((node) => {
-                node._alignAssignmentPadding =
-                    maxLength - node.left.name.length;
-            });
+            currentGroup = [];
+            return;
         }
+
+        const maxLength = Math.max(
+            ...currentGroup.map((node) => node.left.name.length)
+        );
+        currentGroup.forEach((node) => {
+            node._alignAssignmentPadding = maxLength - node.left.name.length;
+        });
         currentGroup = [];
     };
 
