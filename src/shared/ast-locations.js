@@ -40,17 +40,13 @@ function getStartIndex(node) {
     return getLocationIndex(node, "start");
 }
 
-function getEndIndex(node) {
-    return getLocationIndex(node, "end");
-}
-
 function getNodeStartIndex(node) {
     const startIndex = getStartIndex(node);
     return typeof startIndex === "number" ? startIndex : null;
 }
 
 function getNodeEndIndex(node) {
-    const endIndex = getEndIndex(node);
+    const endIndex = getLocationIndex(node, "end");
     if (typeof endIndex === "number") {
         return endIndex + 1;
     }
@@ -71,11 +67,4 @@ function cloneLocation(location) {
     return structuredClone(location);
 }
 
-export {
-    getLocationIndex,
-    getStartIndex,
-    getEndIndex,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    cloneLocation
-};
+export { getNodeStartIndex, getNodeEndIndex, cloneLocation };
