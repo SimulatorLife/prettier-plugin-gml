@@ -7,7 +7,7 @@
 </p>
 
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
-repository houses the parser, printer, generated metadata, and shared helpers in one npm workspace so scripts, objects, and shaders
+repository bundles the parser, printer, generated metadata, and shared helpers in one npm workspace so scripts, objects, and shaders
 all benefit from the same formatter. The plugin is not yet published on npm; install it straight from GitHub using the
 instructions below. The formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier
 needs an explicit path to load it when you install from Git.
@@ -52,8 +52,9 @@ needs an explicit path to load it when you install from Git.
 
 ### Requirements
 
-- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). Use the bundled `.nvmrc` when you want to align
-  with the repository’s expected runtime:
+- Node.js **18.18.0** or newer (20.9.0+ recommended to track the latest LTS). The plugin targets Prettier 3, so older Node
+  releases that only support Prettier 2 will not work. Use the bundled `.nvmrc` when you want to align with the repository’s
+  expected runtime:
 
   ````bash
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
@@ -78,7 +79,8 @@ needs an explicit path to load it when you install from Git.
    > 💡 **Install the plugin next to the project you want to format.** Prettier only loads plugins that live alongside the
    > project being formatted, so avoid installing from a shared tooling repo.
 
-2. Add Prettier, the plugin, and the parser runtime to your GameMaker project:
+2. Add Prettier, the plugin, and the parser runtime to your GameMaker project. Run the install command from the directory that
+   contains your `.yyp` manifest so the dependency lands next to your GameMaker sources:
 
    ```bash
    npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
@@ -132,10 +134,10 @@ needs an explicit path to load it when you install from Git.
    to your `.yyp` ensures consistent behaviour for the CLI and IDE integrations.
 
    > 📘 Want a deeper dive on identifier renaming? See
-   > [Identifier Case Utility Reference](docs/identifier-case-reference.md) and
-   > [Naming Convention Case Reference](docs/naming-convention-case-reference.md)
-   > for the exact tokenisation and casing rules applied by
-   > `gmlIdentifierCase`.
+   > [Identifier Case Utility Reference](docs/identifier-case-reference.md),
+   > [Naming Convention Case Reference](docs/naming-convention-case-reference.md),
+   > and the [documentation index](docs/README.md) for the exact tokenisation and
+   > casing rules applied by `gmlIdentifierCase`.
 
    Running the wrapper from a local clone of this repository automatically picks up that project-level config. For example, if
    you clone the plugin and execute:
@@ -304,7 +306,9 @@ command.
   from this repository instead of a project install.
 
 See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more options, and watch the
-[GitHub releases](https://github.com/SimulatorLife/prettier-plugin-gml/releases) for plugin updates.
+[GitHub releases](https://github.com/SimulatorLife/prettier-plugin-gml/releases) for plugin updates. Curious about more
+formatter-specific tooling? Browse the [documentation index](docs/README.md) for plans and guides on metadata harvesting,
+identifier handling, and rename safety nets.
 
 ### Visual Studio Code
 
@@ -345,7 +349,8 @@ The plugin exposes standard Prettier options. Keep overrides scoped to `.gml` fi
 }
 ```
 
-Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
+Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list, and
+check the [documentation index](docs/README.md) for in-depth notes about rename safeguards and identifier casing.
 
 #### Plugin-specific options
 
@@ -473,14 +478,14 @@ All plugin options can be configured inline (e.g. via `.prettierrc`, `prettier.c
 
 ## Architecture overview
 
-- `src/parser/` — ANTLR grammar files, generated parser, and parser tests.
-- `src/plugin/` — Prettier plugin entry (`src/gml.js`), printer, comment handling, the CLI wrapper, and plugin-specific tests.
-- `src/shared/` — Utilities shared between the parser and plugin (currently newline counting helpers).
-- `resources/` — Generated data files that power formatter heuristics (for example `gml-identifiers.json` and
-  `feather-metadata.json`).
-- `scripts/` — Tooling that regenerates manual-driven metadata (for example the scrapers behind `npm run build:*`).
-- `docs/` — Planning and reference notes such as the [reserved identifier harvesting plan](docs/reserved-identifiers-plan.md)
-  and the [Feather metadata ingestion plan](docs/feather-data-plan.md).
+| Path | Purpose |
+| --- | --- |
+| `src/parser/` | ANTLR grammar files, the generated parser, and parser-focused tests that validate new syntax support. |
+| `src/plugin/` | The Prettier plugin entry (`src/gml.js`), printer, comment pipeline, CLI wrapper, and plugin-specific tests. |
+| `src/shared/` | Cross-cutting utilities reused by the parser and plugin (AST helpers, identifier casing, CLI error handling, line-break logic, and the project index helpers). |
+| `resources/` | Generated data files that power formatter heuristics (for example `gml-identifiers.json` and `feather-metadata.json`). |
+| `scripts/` | Tooling that regenerates manual-driven metadata and other derived assets exposed via `npm run build:*`. |
+| `docs/` | Guides and planning notes. Start with the [documentation index](docs/README.md) for an overview of available references. |
 
 The repository is configured as an npm workspace so the root `node_modules` folder manages dependencies for both the parser and the plugin packages.
 
@@ -492,7 +497,7 @@ The repository is configured as an npm workspace so the root `node_modules` fold
 prettier-plugin-gml/
 ├─ src/parser/   # ANTLR grammar, generated parser, and parser tests
 ├─ src/plugin/   # Prettier plugin source, printer, CLI wrapper, and plugin tests
-├─ src/shared/   # Helpers shared between the parser and the plugin
+├─ src/shared/   # Shared utilities (AST helpers, identifier casing, CLI plumbing)
 ├─ resources/    # Generated metadata consumed by the formatter
 ├─ docs/         # Design notes (e.g. reserved identifier harvesting plan)
 └─ package.json        # Workspace manifest with scripts and shared tooling
