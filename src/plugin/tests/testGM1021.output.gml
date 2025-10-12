@@ -1,7 +1,7 @@
 /// @function make_game
 /// @param genre
-function make_game(_genre) { /* ... */
-}
+/// @returns {undefined}
+function make_game(_genre) { /* ... */ }
 
 make_game("RPG");
 
