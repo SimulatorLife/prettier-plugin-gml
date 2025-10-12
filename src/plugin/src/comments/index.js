@@ -19,36 +19,15 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
 });
 
-function coerceLineCommentOption(
-    value,
-    defaultValue,
-    { zeroReplacement } = {}
-) {
-    if (zeroReplacement === undefined) {
-        return coercePositiveIntegerOption(value, defaultValue);
-    }
-
-    return coercePositiveIntegerOption(value, defaultValue, {
-        zeroReplacement
-    });
-}
-
-function buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
-    return {
-        bannerMinimum,
-        bannerAutofillThreshold
-    };
-}
-
 function coerceBannerMinimum(value) {
-    return coerceLineCommentOption(
+    return coercePositiveIntegerOption(
         value,
         DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
     );
 }
 
 function coerceBannerAutofillThreshold(value) {
-    return coerceLineCommentOption(
+    return coercePositiveIntegerOption(
         value,
         DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
         { zeroReplacement: Number.POSITIVE_INFINITY }
@@ -56,7 +35,10 @@ function coerceBannerAutofillThreshold(value) {
 }
 
 function createLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
-    return buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold);
+    return {
+        bannerMinimum,
+        bannerAutofillThreshold
+    };
 }
 
 function readLineCommentOption(value, fallback) {
@@ -98,7 +80,7 @@ function resolveLineCommentOptions(options) {
 }
 
 function getTrailingCommentPadding(options) {
-    return coerceLineCommentOption(
+    return coercePositiveIntegerOption(
         options?.trailingCommentPadding,
         DEFAULT_TRAILING_COMMENT_PADDING,
         { zeroReplacement: 0 }
@@ -107,7 +89,7 @@ function getTrailingCommentPadding(options) {
 
 function getTrailingCommentInlinePadding(options) {
     const padding = getTrailingCommentPadding(options);
-    const inlineOffset = coerceLineCommentOption(
+    const inlineOffset = coercePositiveIntegerOption(
         options?.trailingCommentInlineOffset,
         DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
         { zeroReplacement: 0 }
