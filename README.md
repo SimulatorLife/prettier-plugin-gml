@@ -534,6 +534,12 @@ Lint the JavaScript sources before submitting a change:
 npm run lint
 ```
 
+Enforce a zero-warning policy in CI or pre-push checks:
+
+```bash
+npm run lint:ci
+```
+
 Auto-fix lint violations when appropriate:
 
 ```bash
