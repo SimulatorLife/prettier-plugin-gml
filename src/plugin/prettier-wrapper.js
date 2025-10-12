@@ -1,9 +1,8 @@
 import prettier from "prettier";
 import path from "node:path";
 import process from "node:process";
-import fs from "node:fs";
-import util from "node:util";
 import { fileURLToPath } from "node:url";
+import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 
 import {
     CliUsageError,
@@ -152,13 +151,6 @@ const options = {
     ignorePath,
     noErrorOnUnmatchedPattern: true
 };
-
-// Promote filesystem helpers to promise-returning versions for async/await.
-const readdir = util.promisify(fs.readdir);
-const readFile = util.promisify(fs.readFile);
-const writeFile = util.promisify(fs.writeFile);
-const stat = util.promisify(fs.stat);
-const lstat = util.promisify(fs.lstat);
 
 let skippedFileCount = 0;
 let baseProjectIgnorePaths = [];
