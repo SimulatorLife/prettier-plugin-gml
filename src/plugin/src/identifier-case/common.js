@@ -3,6 +3,7 @@ import { constants as fsConstants } from "node:fs";
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
+export const RESERVED_CONFLICT_CODE = "reserved";
 
 export function escapeForRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -63,7 +64,8 @@ export function createConflict({
     message,
     scope,
     identifier,
-    suggestions = []
+    suggestions = [],
+    details = null
 }) {
     return {
         code,
@@ -71,7 +73,8 @@ export function createConflict({
         message,
         scope,
         identifier,
-        suggestions
+        suggestions,
+        details
     };
 }
 
