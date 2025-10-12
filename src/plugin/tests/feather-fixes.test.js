@@ -191,6 +191,50 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("coerces string literal operands flagged by GM1010", () => {
+        const source = 'result = 5 + "5";';
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [assignment] = ast.body ?? [];
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+
+        const binary = assignment.right;
+        assert.ok(binary);
+        assert.strictEqual(binary.type, "BinaryExpression");
+        assert.strictEqual(binary.operator, "+");
+
+        const coerced = binary.right;
+        assert.ok(coerced);
+        assert.strictEqual(coerced.type, "CallExpression");
+        assert.strictEqual(coerced.object?.type, "Identifier");
+        assert.strictEqual(coerced.object?.name, "real");
+        assert.ok(Array.isArray(coerced.arguments));
+        assert.strictEqual(coerced.arguments.length, 1);
+        assert.strictEqual(coerced.arguments[0]?.type, "Literal");
+        assert.strictEqual(coerced.arguments[0]?.value, '"5"');
+
+        const metadata = binary._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(metadata));
+        assert.strictEqual(metadata.length, 1);
+        assert.strictEqual(metadata[0].id, "GM1010");
+        assert.strictEqual(metadata[0].target, "+");
+        assert.strictEqual(metadata[0].automatic, true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1010"),
+            true,
+            "Expected GM1010 metadata to be recorded on the program node."
+        );
+    });
+
     it("converts string length property access into string_length calls", () => {
         const source = "var result = string(value).length;";
 
