@@ -153,8 +153,10 @@ export function prepareIdentifierCasePlan(options) {
         context?.projectIndex ??
         null;
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
-    // `projectIndex.identifiers`. Local-scope renaming remains the only executed
-    // transformation here until per-scope toggles are wired through.
+    // the project-wide aggregates on `projectIndex.identifiers` as well as the
+    // per-scope buckets at `projectIndex.scopes[scopeId].identifiers`. Local-scope
+    // renaming remains the only executed transformation here until the
+    // corresponding per-scope toggles graduate from reporting into mutation.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";

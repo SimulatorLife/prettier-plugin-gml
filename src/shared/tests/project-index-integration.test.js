@@ -167,6 +167,50 @@ test("buildProjectIndex collects symbols and relationships across project files"
             "expected attack scope to record calc_damage call"
         );
 
+        assert.ok(
+            attackScope.identifiers,
+            "expected scope identifiers to exist"
+        );
+        const attackScopeScriptIdentifiers =
+            attackScope.identifiers.scripts?.["scope:script:attack"] ?? null;
+        assert.ok(
+            attackScopeScriptIdentifiers,
+            "expected attack scope to expose its script identifier entry"
+        );
+        assert.equal(
+            attackScopeScriptIdentifiers.declarations.length >= 1,
+            true
+        );
+
+        const metaScope = index.scopes["scope:script:meta"];
+        assert.ok(metaScope, "expected meta scope to be present");
+        assert.ok(
+            metaScope.identifiers?.macros?.MAX_ENEMIES,
+            "expected macros to be tracked on the meta scope"
+        );
+        assert.ok(
+            metaScope.identifiers?.globalVariables?.enemy_limit,
+            "expected global declarations to be tracked on the meta scope"
+        );
+        const metaEnums = Object.values(metaScope.identifiers?.enums ?? {});
+        assert.ok(
+            metaEnums.some((entry) => entry.name === "Difficulty"),
+            "expected Difficulty enum to be available on the meta scope"
+        );
+
+        const createScope =
+            index.scopes["scope:object:obj_enemy::Create_0"] ?? null;
+        assert.ok(
+            createScope,
+            "expected obj_enemy Create event scope to be present"
+        );
+        const scopeInstanceMap =
+            createScope.identifiers?.instanceVariables ?? {};
+        assert.ok(
+            scopeInstanceMap["scope:object:obj_enemy::Create_0:hp"],
+            "expected hp instance field to be tracked on the event scope"
+        );
+
         const attackScript = index.identifiers.scripts["scope:script:attack"];
         assert.ok(attackScript, "expected script identifiers to be collected");
         assert.ok(attackScript.declarations.length >= 1);

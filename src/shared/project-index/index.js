@@ -697,6 +697,15 @@ function createIdentifierCollections() {
     };
 }
 
+function getIdentifierCollectionTargets(...candidates) {
+    return candidates.filter(
+        (candidate) =>
+            candidate &&
+            typeof candidate === "object" &&
+            Object.keys(candidate).length > 0
+    );
+}
+
 function createEnumLookup(ast, filePath) {
     const enumDeclarations = new Map();
     const memberDeclarations = new Map();
@@ -794,36 +803,47 @@ function registerScriptDeclaration({
     identifierCollections,
     descriptor,
     declarationRecord,
-    filePath
+    filePath,
+    scopeIdentifierCollections
 }) {
-    const entry = ensureScriptEntry(identifierCollections, descriptor);
-    if (!entry) {
-        return;
-    }
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
+    );
 
-    if (descriptor.name && !entry.name) {
-        entry.name = descriptor.name;
-    }
-    if (descriptor.displayName && !entry.displayName) {
-        entry.displayName = descriptor.displayName;
-    }
-    if (descriptor.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = descriptor.resourcePath;
-    }
+    for (const collections of targets) {
+        const entry = ensureScriptEntry(collections, descriptor);
+        if (!entry) {
+            continue;
+        }
 
-    if (!declarationRecord) {
-        return;
-    }
+        if (descriptor.name && !entry.name) {
+            entry.name = descriptor.name;
+        }
+        if (descriptor.displayName && !entry.displayName) {
+            entry.displayName = descriptor.displayName;
+        }
+        if (descriptor.resourcePath && !entry.resourcePath) {
+            entry.resourcePath = descriptor.resourcePath;
+        }
 
-    const clone = cloneIdentifierForCollections(declarationRecord, filePath);
-    const locationKey = buildLocationKey(clone.start);
-    const hasExisting = entry.declarations.some((existing) => {
-        const existingKey = buildLocationKey(existing.start);
-        return existingKey && locationKey && existingKey === locationKey;
-    });
+        if (!declarationRecord) {
+            continue;
+        }
 
-    if (!hasExisting) {
-        entry.declarations.push(clone);
+        const clone = cloneIdentifierForCollections(
+            declarationRecord,
+            filePath
+        );
+        const locationKey = buildLocationKey(clone.start);
+        const hasExisting = entry.declarations.some((existing) => {
+            const existingKey = buildLocationKey(existing.start);
+            return existingKey && locationKey && existingKey === locationKey;
+        });
+
+        if (!hasExisting) {
+            entry.declarations.push(clone);
+        }
     }
 }
 
@@ -845,37 +865,48 @@ function cloneScriptReference(callRecord) {
     };
 }
 
-function registerScriptReference({ identifierCollections, callRecord }) {
+function registerScriptReference({
+    identifierCollections,
+    callRecord,
+    scopeIdentifierCollections
+}) {
     const targetScopeId = callRecord?.target?.scopeId;
     if (!targetScopeId) {
         return;
     }
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.scripts,
-        targetScopeId,
-        () => ({
-            id: targetScopeId,
-            name: callRecord.target?.name ?? null,
-            displayName: callRecord.target?.name
-                ? `script.${callRecord.target.name}`
-                : targetScopeId,
-            resourcePath: callRecord.target?.resourcePath ?? null,
-            declarations: [],
-            references: []
-        })
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    if (callRecord.target?.name && !entry.name) {
-        entry.name = callRecord.target.name;
-    }
-    if (callRecord.target?.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = callRecord.target.resourcePath;
-    }
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.scripts,
+            targetScopeId,
+            () => ({
+                id: targetScopeId,
+                name: callRecord.target?.name ?? null,
+                displayName: callRecord.target?.name
+                    ? `script.${callRecord.target.name}`
+                    : targetScopeId,
+                resourcePath: callRecord.target?.resourcePath ?? null,
+                declarations: [],
+                references: []
+            })
+        );
 
-    const reference = cloneScriptReference(callRecord);
-    if (reference) {
-        entry.references.push(reference);
+        if (callRecord.target?.name && !entry.name) {
+            entry.name = callRecord.target.name;
+        }
+        if (callRecord.target?.resourcePath && !entry.resourcePath) {
+            entry.resourcePath = callRecord.target.resourcePath;
+        }
+
+        const reference = cloneScriptReference(callRecord);
+        if (reference) {
+            entry.references.push(reference);
+        }
     }
 }
 
@@ -888,31 +919,124 @@ function mapToObject(map, transform) {
     );
 }
 
+function toSerializableMap(map) {
+    return map instanceof Map ? map : new Map();
+}
+
+function serializeIdentifierCollections(identifierCollections) {
+    if (!identifierCollections) {
+        return {
+            scripts: {},
+            macros: {},
+            enums: {},
+            enumMembers: {},
+            globalVariables: {},
+            instanceVariables: {}
+        };
+    }
+
+    const scriptsMap = toSerializableMap(identifierCollections.scripts);
+    const macrosMap = toSerializableMap(identifierCollections.macros);
+    const enumsMap = toSerializableMap(identifierCollections.enums);
+    const enumMembersMap = toSerializableMap(identifierCollections.enumMembers);
+    const globalVariablesMap = toSerializableMap(
+        identifierCollections.globalVariables
+    );
+    const instanceVariablesMap = toSerializableMap(
+        identifierCollections.instanceVariables
+    );
+
+    return {
+        scripts: mapToObject(scriptsMap, (entry) => ({
+            id: entry.id,
+            name: entry.name ?? null,
+            displayName: entry.displayName ?? entry.name ?? entry.id,
+            resourcePath: entry.resourcePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((reference) => ({
+                filePath: reference.filePath ?? null,
+                scopeId: reference.scopeId ?? null,
+                targetName: reference.targetName ?? null,
+                targetResourcePath: reference.targetResourcePath ?? null,
+                location: reference.location
+                    ? {
+                        start: cloneLocation(reference.location.start),
+                        end: cloneLocation(reference.location.end)
+                    }
+                    : null,
+                isResolved: reference.isResolved ?? false
+            }))
+        })),
+        macros: mapToObject(macrosMap, (entry) => ({
+            name: entry.name,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        enums: mapToObject(enumsMap, (entry) => ({
+            key: entry.key,
+            name: entry.name ?? null,
+            filePath: entry.filePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        enumMembers: mapToObject(enumMembersMap, (entry) => ({
+            key: entry.key,
+            name: entry.name ?? null,
+            enumKey: entry.enumKey ?? null,
+            enumName: entry.enumName ?? null,
+            filePath: entry.filePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        globalVariables: mapToObject(globalVariablesMap, (entry) => ({
+            name: entry.name,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        instanceVariables: mapToObject(instanceVariablesMap, (entry) => ({
+            key: entry.key,
+            name: entry.name ?? null,
+            scopeId: entry.scopeId ?? null,
+            scopeKind: entry.scopeKind ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        }))
+    };
+}
+
 function registerMacroOccurrence({
     identifierCollections,
     identifierRecord,
     filePath,
-    role
+    role,
+    scopeIdentifierCollections
 }) {
     if (!identifierRecord?.name) {
         return;
     }
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.macros,
-        identifierRecord.name,
-        () => ({
-            name: identifierRecord.name,
-            declarations: [],
-            references: []
-        })
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.macros,
+            identifierRecord.name,
+            () => ({
+                name: identifierRecord.name,
+                declarations: [],
+                references: []
+            })
+        );
+
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+        if (role === "declaration") {
+            entry.declarations.push(clone);
+        } else if (role === "reference") {
+            entry.references.push(clone);
+        }
     }
 }
 
@@ -921,7 +1045,8 @@ function registerEnumOccurrence({
     identifierRecord,
     filePath,
     role,
-    enumLookup
+    enumLookup,
+    scopeIdentifierCollections
 }) {
     const targetLocation =
         role === "reference"
@@ -934,28 +1059,31 @@ function registerEnumOccurrence({
     }
 
     const enumInfo = enumLookup?.enumDeclarations?.get(enumKey) ?? null;
-    const entry = ensureCollectionEntry(
-        identifierCollections.enums,
-        enumKey,
-        () => ({
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
+    );
+
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(collections.enums, enumKey, () => ({
             key: enumKey,
             name: enumInfo?.name ?? identifierRecord?.name ?? null,
             filePath: enumInfo?.filePath ?? filePath ?? null,
             declarations: [],
             references: []
-        })
-    );
+        }));
 
-    if (enumInfo && !entry.name) {
-        entry.name =
-            enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
-    }
+        if (enumInfo && !entry.name) {
+            entry.name =
+                enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
+        }
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+        if (role === "declaration") {
+            entry.declarations.push(clone);
+        } else if (role === "reference") {
+            entry.references.push(clone);
+        }
     }
 }
 
@@ -964,7 +1092,8 @@ function registerEnumMemberOccurrence({
     identifierRecord,
     filePath,
     role,
-    enumLookup
+    enumLookup,
+    scopeIdentifierCollections
 }) {
     const targetLocation =
         role === "reference"
@@ -979,34 +1108,41 @@ function registerEnumMemberOccurrence({
     const memberInfo = enumLookup?.memberDeclarations?.get(memberKey) ?? null;
     const enumKey = memberInfo?.enumKey ?? null;
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.enumMembers,
-        memberKey,
-        () => ({
-            key: memberKey,
-            name: memberInfo?.name ?? identifierRecord?.name ?? null,
-            enumKey,
-            enumName: memberInfo?.enumKey
-                ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)
-                    ?.name ?? null)
-                : null,
-            filePath: memberInfo?.filePath ?? filePath ?? null,
-            declarations: [],
-            references: []
-        })
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    if (memberInfo?.enumKey && !entry.enumName) {
-        entry.enumName =
-            enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
-            entry.enumName;
-    }
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.enumMembers,
+            memberKey,
+            () => ({
+                key: memberKey,
+                name: memberInfo?.name ?? identifierRecord?.name ?? null,
+                enumKey,
+                enumName: memberInfo?.enumKey
+                    ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)
+                        ?.name ?? null)
+                    : null,
+                filePath: memberInfo?.filePath ?? filePath ?? null,
+                declarations: [],
+                references: []
+            })
+        );
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
+        if (memberInfo?.enumKey && !entry.enumName) {
+            entry.enumName =
+                enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
+                entry.enumName;
+        }
+
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+        if (role === "declaration") {
+            entry.declarations.push(clone);
+        } else if (role === "reference") {
+            entry.references.push(clone);
+        }
     }
 }
 
@@ -1014,27 +1150,35 @@ function registerGlobalOccurrence({
     identifierCollections,
     identifierRecord,
     filePath,
-    role
+    role,
+    scopeIdentifierCollections
 }) {
     if (!identifierRecord?.name) {
         return;
     }
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.globalVariables,
-        identifierRecord.name,
-        () => ({
-            name: identifierRecord.name,
-            declarations: [],
-            references: []
-        })
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.globalVariables,
+            identifierRecord.name,
+            () => ({
+                name: identifierRecord.name,
+                declarations: [],
+                references: []
+            })
+        );
+
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+        if (role === "declaration") {
+            entry.declarations.push(clone);
+        } else if (role === "reference") {
+            entry.references.push(clone);
+        }
     }
 }
 
@@ -1043,31 +1187,39 @@ function registerInstanceOccurrence({
     identifierRecord,
     filePath,
     role,
-    scopeDescriptor
+    scopeDescriptor,
+    scopeIdentifierCollections
 }) {
     if (!identifierRecord?.name) {
         return;
     }
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
-    const entry = ensureCollectionEntry(
-        identifierCollections.instanceVariables,
-        key,
-        () => ({
-            key,
-            name: identifierRecord.name,
-            scopeId: scopeDescriptor?.id ?? null,
-            scopeKind: scopeDescriptor?.kind ?? null,
-            declarations: [],
-            references: []
-        })
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.instanceVariables,
+            key,
+            () => ({
+                key,
+                name: identifierRecord.name,
+                scopeId: scopeDescriptor?.id ?? null,
+                scopeKind: scopeDescriptor?.kind ?? null,
+                declarations: [],
+                references: []
+            })
+        );
+
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+        if (role === "declaration") {
+            entry.declarations.push(clone);
+        } else if (role === "reference") {
+            entry.references.push(clone);
+        }
     }
 }
 
@@ -1109,7 +1261,8 @@ function registerIdentifierOccurrence({
     filePath,
     role,
     enumLookup,
-    scopeDescriptor
+    scopeDescriptor,
+    scopeIdentifierCollections
 }) {
     if (!identifierRecord || !identifierCollections) {
         return;
@@ -1124,7 +1277,8 @@ function registerIdentifierOccurrence({
             identifierCollections,
             descriptor: scopeDescriptor,
             declarationRecord: identifierRecord,
-            filePath
+            filePath,
+            scopeIdentifierCollections
         });
     }
 
@@ -1133,7 +1287,8 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role,
+            scopeIdentifierCollections
         });
     }
 
@@ -1143,7 +1298,8 @@ function registerIdentifierOccurrence({
             identifierRecord,
             filePath,
             role,
-            enumLookup
+            enumLookup,
+            scopeIdentifierCollections
         });
     }
 
@@ -1153,7 +1309,8 @@ function registerIdentifierOccurrence({
             identifierRecord,
             filePath,
             role,
-            enumLookup
+            enumLookup,
+            scopeIdentifierCollections
         });
     }
 
@@ -1165,7 +1322,8 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role,
+            scopeIdentifierCollections
         });
     }
 
@@ -1175,7 +1333,8 @@ function registerIdentifierOccurrence({
             identifierRecord,
             filePath,
             role: "reference",
-            scopeDescriptor
+            scopeDescriptor,
+            scopeIdentifierCollections
         });
     }
 }
@@ -1184,35 +1343,44 @@ function registerInstanceAssignment({
     identifierCollections,
     identifierRecord,
     filePath,
-    scopeDescriptor
+    scopeDescriptor,
+    scopeIdentifierCollections
 }) {
     if (!identifierCollections || !identifierRecord || !identifierRecord.name) {
         return;
     }
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.instanceVariables,
-        `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
-        () => ({
-            key: `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
-            name: identifierRecord.name,
-            scopeId: scopeDescriptor?.id ?? null,
-            scopeKind: scopeDescriptor?.kind ?? null,
-            declarations: [],
-            references: []
-        })
+    const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
+    const targets = getIdentifierCollectionTargets(
+        identifierCollections,
+        scopeIdentifierCollections
     );
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    for (const collections of targets) {
+        const entry = ensureCollectionEntry(
+            collections.instanceVariables,
+            key,
+            () => ({
+                key,
+                name: identifierRecord.name,
+                scopeId: scopeDescriptor?.id ?? null,
+                scopeKind: scopeDescriptor?.kind ?? null,
+                declarations: [],
+                references: []
+            })
+        );
 
-    const hasExisting = entry.declarations.some((existing) => {
-        const existingKey = buildLocationKey(existing.start);
-        const currentKey = buildLocationKey(clone.start);
-        return existingKey && currentKey && existingKey === currentKey;
-    });
+        const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
-    if (!hasExisting) {
-        entry.declarations.push(clone);
+        const hasExisting = entry.declarations.some((existing) => {
+            const existingKey = buildLocationKey(existing.start);
+            const currentKey = buildLocationKey(clone.start);
+            return existingKey && currentKey && existingKey === currentKey;
+        });
+
+        if (!hasExisting) {
+            entry.declarations.push(clone);
+        }
     }
 }
 
@@ -1230,9 +1398,12 @@ function ensureScopeRecord(scopeMap, descriptor) {
             declarations: [],
             references: [],
             ignoredIdentifiers: [],
-            scriptCalls: []
+            scriptCalls: [],
+            identifiers: createIdentifierCollections()
         };
         scopeMap.set(descriptor.id, scopeRecord);
+    } else if (!scopeRecord.identifiers) {
+        scopeRecord.identifiers = createIdentifierCollections();
     }
     return scopeRecord;
 }
@@ -1334,7 +1505,9 @@ function analyseGmlAst({
                     filePath: fileRecord?.filePath ?? null,
                     role: "declaration",
                     enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord,
+                    scopeIdentifierCollections:
+                        scopeRecord?.identifiers ?? null
                 });
             }
 
@@ -1348,7 +1521,9 @@ function analyseGmlAst({
                     filePath: fileRecord?.filePath ?? null,
                     role: "reference",
                     enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord,
+                    scopeIdentifierCollections:
+                        scopeRecord?.identifiers ?? null
                 });
             }
         }
@@ -1423,7 +1598,9 @@ function analyseGmlAst({
                     identifierCollections,
                     identifierRecord: leftRecord,
                     filePath: fileRecord?.filePath ?? null,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord,
+                    scopeIdentifierCollections:
+                        scopeRecord?.identifiers ?? null
                 });
             }
         }
@@ -1516,7 +1693,8 @@ export async function buildProjectIndex(
                 identifierCollections,
                 descriptor: scopeDescriptor,
                 declarationRecord: syntheticDeclaration,
-                filePath: file.relativePath
+                filePath: file.relativePath,
+                scopeIdentifierCollections: scopeRecord.identifiers ?? null
             });
         }
 
@@ -1541,9 +1719,13 @@ export async function buildProjectIndex(
     }
 
     for (const callRecord of relationships.scriptCalls) {
+        const targetScopeIdentifiers = callRecord?.target?.scopeId
+            ? (scopeMap.get(callRecord.target.scopeId)?.identifiers ?? null)
+            : null;
         registerScriptReference({
             identifierCollections,
-            callRecord
+            callRecord,
+            scopeIdentifierCollections: targetScopeIdentifiers
         });
     }
 
@@ -1581,7 +1763,8 @@ export async function buildProjectIndex(
                 ignoredIdentifiers: record.ignoredIdentifiers.map((item) => ({
                     ...item
                 })),
-                scriptCalls: record.scriptCalls.map((call) => ({ ...call }))
+                scriptCalls: record.scriptCalls.map((call) => ({ ...call })),
+                identifiers: serializeIdentifierCollections(record.identifiers)
             }
         ])
     );
@@ -1602,71 +1785,7 @@ export async function buildProjectIndex(
         ])
     );
 
-    const identifiers = {
-        scripts: mapToObject(identifierCollections.scripts, (entry) => ({
-            id: entry.id,
-            name: entry.name ?? null,
-            displayName: entry.displayName ?? entry.name ?? entry.id,
-            resourcePath: entry.resourcePath ?? null,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((reference) => ({
-                filePath: reference.filePath ?? null,
-                scopeId: reference.scopeId ?? null,
-                targetName: reference.targetName ?? null,
-                targetResourcePath: reference.targetResourcePath ?? null,
-                location: reference.location
-                    ? {
-                        start: cloneLocation(reference.location.start),
-                        end: cloneLocation(reference.location.end)
-                    }
-                    : null,
-                isResolved: reference.isResolved ?? false
-            }))
-        })),
-        macros: mapToObject(identifierCollections.macros, (entry) => ({
-            name: entry.name,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((item) => ({ ...item }))
-        })),
-        enums: mapToObject(identifierCollections.enums, (entry) => ({
-            key: entry.key,
-            name: entry.name ?? null,
-            filePath: entry.filePath ?? null,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((item) => ({ ...item }))
-        })),
-        enumMembers: mapToObject(
-            identifierCollections.enumMembers,
-            (entry) => ({
-                key: entry.key,
-                name: entry.name ?? null,
-                enumKey: entry.enumKey ?? null,
-                enumName: entry.enumName ?? null,
-                filePath: entry.filePath ?? null,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
-            })
-        ),
-        globalVariables: mapToObject(
-            identifierCollections.globalVariables,
-            (entry) => ({
-                name: entry.name,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
-            })
-        ),
-        instanceVariables: mapToObject(
-            identifierCollections.instanceVariables,
-            (entry) => ({
-                key: entry.key,
-                name: entry.name ?? null,
-                scopeId: entry.scopeId ?? null,
-                scopeKind: entry.scopeKind ?? null,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
-            })
-        )
-    };
+    const identifiers = serializeIdentifierCollections(identifierCollections);
 
     return {
         projectRoot: resolvedRoot,

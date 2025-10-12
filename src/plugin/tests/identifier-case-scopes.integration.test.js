@@ -13,6 +13,10 @@ const fixturesDirectory = path.join(
     "identifier-case-fixtures"
 );
 const scopeFixturePath = path.join(fixturesDirectory, "scope-collisions.gml");
+const instanceFixturePath = path.join(
+    fixturesDirectory,
+    "instance-collisions.gml"
+);
 
 async function createScopeFixtureProject() {
     const tempRoot = await fs.mkdtemp(
@@ -37,6 +41,48 @@ async function createScopeFixtureProject() {
 
     const fixtureSource = await fs.readFile(scopeFixturePath, "utf8");
     await writeFile("scripts/scopeTester/scopeTester.gml", fixtureSource);
+
+    return { projectRoot: tempRoot, fixtureSource };
+}
+
+async function createInstanceFixtureProject() {
+    const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), "gml-instance-tests-")
+    );
+
+    const writeFile = async (relativePath, contents) => {
+        const absolutePath = path.join(tempRoot, relativePath);
+        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+        await fs.writeFile(absolutePath, contents, "utf8");
+        return absolutePath;
+    };
+
+    await writeFile(
+        "MyGame.yyp",
+        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
+    );
+
+    await writeFile(
+        "objects/obj_scope/obj_scope.yy",
+        JSON.stringify({
+            resourceType: "GMObject",
+            name: "obj_scope",
+            eventList: [
+                {
+                    name: "Create_0",
+                    eventType: 0,
+                    eventNum: 0,
+                    eventId: {
+                        name: "Create_0",
+                        path: "objects/obj_scope/obj_scope_Create_0.gml"
+                    }
+                }
+            ]
+        })
+    );
+
+    const fixtureSource = await fs.readFile(instanceFixturePath, "utf8");
+    await writeFile("objects/obj_scope/obj_scope_Create_0.gml", fixtureSource);
 
     return { projectRoot: tempRoot, fixtureSource };
 }
@@ -96,6 +142,47 @@ describe("project index scope tracking", () => {
                 index.identifiers.scripts["scope:script:scopeTester"];
             assert.ok(scriptEntry, "expected script entry for scopeTester");
             assert.equal(scriptEntry.declarations.length >= 1, true);
+        } finally {
+            await fs.rm(projectRoot, { recursive: true, force: true });
+        }
+    });
+
+    it("tracks instance field collisions within object scopes", async () => {
+        const { projectRoot } = await createInstanceFixtureProject();
+
+        try {
+            const index = await buildProjectIndex(projectRoot);
+
+            const createScope =
+                index.scopes["scope:object:obj_scope::Create_0"] ?? null;
+            assert.ok(createScope, "expected object scope to be present");
+
+            const instanceMap =
+                createScope.identifiers?.instanceVariables ?? {};
+            const hpValueEntry =
+                instanceMap["scope:object:obj_scope::Create_0:hpValue"] ?? null;
+            const hpSnakeEntry =
+                instanceMap["scope:object:obj_scope::Create_0:hp_value"] ??
+                null;
+            assert.ok(
+                hpValueEntry,
+                "expected camelCase instance variable to be tracked"
+            );
+            assert.ok(
+                hpSnakeEntry,
+                "expected snake_case instance variable to be tracked"
+            );
+
+            const projectInstanceMap =
+                index.identifiers.instanceVariables ?? {};
+            assert.ok(
+                projectInstanceMap["scope:object:obj_scope::Create_0:hpValue"],
+                "expected project-level instance map to include hpValue"
+            );
+            assert.ok(
+                projectInstanceMap["scope:object:obj_scope::Create_0:hp_value"],
+                "expected project-level instance map to include hp_value"
+            );
         } finally {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }

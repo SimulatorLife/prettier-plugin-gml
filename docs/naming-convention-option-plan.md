@@ -111,6 +111,7 @@ The following roadmap refines the high-level phases into discrete, testable work
      - Traverse `.gml` and `.yy` files to build symbol tables leveraging parser output.
      - Integrate built-in identifier exclusion using `resources/gml-identifiers.json`.
      - Record cross-file references and asset relationships needed for rename propagation.
+     - Surface per-scope identifier collections (scripts, macros, enums, globals, instance fields) under `ProjectIndex.scopes[scopeId].identifiers` alongside the project-wide aggregates for downstream tooling.
    - *Deliverables:* `src/shared/project-index` module (or equivalent) with loading, caching, and querying APIs.
    - *Validation:* Integration tests on sample projects validating the index contents; performance benchmarks on representative project sizes.
 
@@ -151,7 +152,7 @@ The following roadmap refines the high-level phases into discrete, testable work
    - *Prerequisites:* Step 8 foundation working reliably.
    - *Actions:*
      - Sequentially enable renaming for scripts/functions, macros, enums, and instance/global variables.
-     - Leverage the `ProjectIndex.identifiers` buckets for each scope to surface potential collisions before conversion.
+     - Leverage the `ProjectIndex.identifiers` buckets and the per-scope mirrors on `ProjectIndex.scopes[scopeId].identifiers` to surface potential collisions before conversion.
      - For each scope, add dedicated tests and conflict scenarios; adjust project index to track new reference types as needed.
    - *Deliverables:* Incremental PRs per scope, expanded documentation describing scope-specific toggles.
    - *Validation:* Scope-specific integration suites; regression pass on previous tests.
