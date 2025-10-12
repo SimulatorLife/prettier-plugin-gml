@@ -14,9 +14,15 @@ const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
 const DEFAULT_TRAILING_COMMENT_PADDING = 2;
 const DEFAULT_TRAILING_COMMENT_INLINE_OFFSET = 1;
 
+const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
+    "Script assets have changed for v2.3.0",
+    "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
+]);
+
 const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerMinimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
-    bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
+    bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+    boilerplateFragments: DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS
 });
 
 function coerceBannerMinimum(value) {
@@ -34,10 +40,15 @@ function coerceBannerAutofillThreshold(value) {
     );
 }
 
-function createLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
+function createLineCommentOptions(
+    bannerMinimum,
+    bannerAutofillThreshold,
+    boilerplateFragments = DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS
+) {
     return {
         bannerMinimum,
-        bannerAutofillThreshold
+        bannerAutofillThreshold,
+        boilerplateFragments
     };
 }
 
@@ -55,13 +66,24 @@ function resolveLineCommentOptions(options) {
 
     const {
         lineCommentBannerMinimumSlashes,
-        lineCommentBannerAutofillThreshold
+        lineCommentBannerAutofillThreshold,
+        lineCommentBoilerplateFragments
     } = options;
 
-    if (
+    const hasBannerOverride = !(
         lineCommentBannerMinimumSlashes === undefined &&
         lineCommentBannerAutofillThreshold === undefined
-    ) {
+    );
+
+    const hasBoilerplateOverride = (() => {
+        if (typeof lineCommentBoilerplateFragments === "string") {
+            return lineCommentBoilerplateFragments.trim().length > 0;
+        }
+
+        return lineCommentBoilerplateFragments !== undefined;
+    })();
+
+    if (!hasBannerOverride && !hasBoilerplateOverride) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -74,7 +96,8 @@ function resolveLineCommentOptions(options) {
                 coerceBannerMinimum(lineCommentBannerMinimumSlashes),
                 coerceBannerAutofillThreshold(
                     lineCommentBannerAutofillThreshold
-                )
+                ),
+                getBoilerplateCommentFragments(options)
             )
     );
 }
@@ -97,10 +120,54 @@ function getTrailingCommentInlinePadding(options) {
     return Math.max(padding - inlineOffset, 0);
 }
 
-const BOILERPLATE_COMMENTS = [
-    "Script assets have changed for v2.3.0",
-    "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
-];
+const BOILERPLATE_FRAGMENTS_CACHE_KEY = Symbol.for(
+    "prettier-plugin-gml.lineCommentBoilerplateFragments"
+);
+const boilerplateFragmentsCache = new WeakMap();
+
+function dedupeFragments(baseFragments, extensions) {
+    const merged = new Set(baseFragments);
+
+    for (const fragment of extensions) {
+        if (typeof fragment !== "string") {
+            continue;
+        }
+
+        const trimmed = fragment.trim();
+        if (trimmed.length > 0) {
+            merged.add(trimmed);
+        }
+    }
+
+    return Object.freeze(Array.from(merged));
+}
+
+function parseBoilerplateFragments(rawValue) {
+    if (typeof rawValue !== "string") {
+        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
+    }
+
+    const fragments = rawValue
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+
+    if (fragments.length === 0) {
+        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
+    }
+
+    return dedupeFragments(DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS, fragments);
+}
+
+function getBoilerplateCommentFragments(options) {
+    return getCachedValue(
+        options,
+        BOILERPLATE_FRAGMENTS_CACHE_KEY,
+        boilerplateFragmentsCache,
+        () =>
+            parseBoilerplateFragments(options?.lineCommentBoilerplateFragments)
+    );
+}
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -185,7 +252,8 @@ function formatLineComment(
     comment,
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
-    const { bannerMinimum } = normalizeLineCommentOptions(lineCommentOptions);
+    const { bannerMinimum, boilerplateFragments } =
+        normalizeLineCommentOptions(lineCommentOptions);
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
@@ -196,7 +264,7 @@ function formatLineComment(
         ? leadingSlashMatch[0].length
         : 0;
 
-    for (const lineFragment of BOILERPLATE_COMMENTS) {
+    for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
             console.log(`Removed boilerplate comment: ${lineFragment}`);
             return "";
@@ -288,7 +356,8 @@ function normalizeLineCommentOptions(lineCommentOptions) {
     ) {
         return createLineCommentOptions(
             lineCommentOptions,
-            DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
+            DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold,
+            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
         );
     }
 
@@ -301,7 +370,13 @@ function normalizeLineCommentOptions(lineCommentOptions) {
             readLineCommentOption(
                 lineCommentOptions.bannerAutofillThreshold,
                 DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
-            )
+            ),
+            Array.isArray(lineCommentOptions.boilerplateFragments)
+                ? dedupeFragments(
+                    DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
+                    lineCommentOptions.boilerplateFragments
+                )
+                : DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments
         );
     }
 
