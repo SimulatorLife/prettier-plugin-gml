@@ -8,7 +8,7 @@ import {
     IGNORE_CONFLICT_CODE,
     RESERVED_CONFLICT_CODE,
     createConflict,
-    matchesIgnorePattern,
+    resolveIdentifierConfigurationConflict,
     incrementFileOccurrence,
     summarizeFileOccurrences
 } from "./common.js";
@@ -297,38 +297,39 @@ export function planAssetRenames({
             continue;
         }
 
-        if (preservedSet.has(originalName)) {
-            const scopeDescriptor = {
-                id: resourcePath,
-                displayName: `${resourceRecord.resourceType}.${originalName}`
-            };
-            conflicts.push(
-                createConflict({
-                    code: PRESERVE_CONFLICT_CODE,
-                    severity: "info",
-                    message: `Asset '${originalName}' is preserved by configuration.`,
-                    scope: scopeDescriptor,
-                    identifier: originalName
-                })
-            );
-            continue;
-        }
-
-        const ignoreMatch = matchesIgnorePattern(
+        const configConflict = resolveIdentifierConfigurationConflict({
+            preservedSet,
+            identifierName: originalName,
             ignoreMatchers,
-            originalName,
-            resourcePath
-        );
-        if (ignoreMatch) {
+            filePath: resourcePath
+        });
+
+        if (configConflict) {
             const scopeDescriptor = {
                 id: resourcePath,
                 displayName: `${resourceRecord.resourceType}.${originalName}`
             };
+
+            let message;
+            switch (configConflict.code) {
+                case PRESERVE_CONFLICT_CODE: {
+                    message = `Asset '${originalName}' is preserved by configuration.`;
+                    break;
+                }
+                case IGNORE_CONFLICT_CODE: {
+                    message = `Asset '${originalName}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
+                    break;
+                }
+                default: {
+                    message = `Asset '${originalName}' cannot be renamed due to configuration.`;
+                }
+            }
+
             conflicts.push(
                 createConflict({
-                    code: IGNORE_CONFLICT_CODE,
+                    code: configConflict.code,
                     severity: "info",
-                    message: `Asset '${originalName}' matches ignore pattern '${ignoreMatch}'.`,
+                    message,
                     scope: scopeDescriptor,
                     identifier: originalName
                 })
