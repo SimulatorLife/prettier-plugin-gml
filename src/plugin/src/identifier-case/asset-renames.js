@@ -17,7 +17,7 @@ import {
     createConflict,
     matchesIgnorePattern,
     DEFAULT_WRITE_ACCESS_MODE
-} from "../identifier-case/common.js";
+} from "./common.js";
 
 const defaultFsFacade = Object.freeze({
     readFileSync(targetPath, encoding = "utf8") {
