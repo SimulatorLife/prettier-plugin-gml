@@ -30,6 +30,7 @@ var matrix = scr_matrix_build(
 );
 
 #macro  SQUARE(_value)    ((_value)*(_value))
+
 var total = 0;
 var limit = argument0;
 var arr = argument1;
