@@ -314,7 +314,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("converts room navigation arithmetic into built-in helpers", () => {
+    it("converts room navigation arithmetic into dedicated helpers", () => {
         const source = [
             "var next_room = room + 1;",
             "var previous_room = room - 1;",
@@ -328,64 +328,90 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const [nextDeclaration, previousDeclaration, gotoCall] = ast.body ?? [];
+        const [nextDeclaration, previousDeclaration, gotoStatement] =
+            ast.body ?? [];
 
         assert.ok(nextDeclaration);
         assert.strictEqual(nextDeclaration.type, "VariableDeclaration");
+
         const [nextDeclarator] = nextDeclaration.declarations ?? [];
         assert.ok(nextDeclarator);
+
         const nextInitializer = nextDeclarator.init;
         assert.ok(nextInitializer);
         assert.strictEqual(nextInitializer.type, "CallExpression");
         assert.strictEqual(nextInitializer.object?.name, "room_next");
-        assert.strictEqual(nextInitializer.arguments?.length, 1);
-        assert.strictEqual(nextInitializer.arguments[0]?.name, "room");
+        assert.ok(Array.isArray(nextInitializer.arguments));
+        assert.strictEqual(nextInitializer.arguments.length, 1);
+
+        const [nextArgument] = nextInitializer.arguments;
+        assert.ok(nextArgument);
+        assert.strictEqual(nextArgument.type, "Identifier");
+        assert.strictEqual(nextArgument.name, "room");
 
         const nextFixes = Array.isArray(
             nextInitializer._appliedFeatherDiagnostics
         )
             ? nextInitializer._appliedFeatherDiagnostics
             : [];
+
         assert.strictEqual(
             nextFixes.some((entry) => entry.id === "GM1009"),
             true,
-            "Expected room_next conversion to record GM1009 metadata."
+            "Expected GM1009 fix metadata for the converted room_next helper."
         );
 
         assert.ok(previousDeclaration);
+        assert.strictEqual(previousDeclaration.type, "VariableDeclaration");
+
         const [previousDeclarator] = previousDeclaration.declarations ?? [];
         assert.ok(previousDeclarator);
+
         const previousInitializer = previousDeclarator.init;
         assert.ok(previousInitializer);
         assert.strictEqual(previousInitializer.type, "CallExpression");
         assert.strictEqual(previousInitializer.object?.name, "room_previous");
-        assert.strictEqual(previousInitializer.arguments?.length, 1);
-        assert.strictEqual(previousInitializer.arguments[0]?.name, "room");
+        assert.ok(Array.isArray(previousInitializer.arguments));
+        assert.strictEqual(previousInitializer.arguments.length, 1);
+
+        const [previousArgument] = previousInitializer.arguments;
+        assert.ok(previousArgument);
+        assert.strictEqual(previousArgument.type, "Identifier");
+        assert.strictEqual(previousArgument.name, "room");
 
         const previousFixes = Array.isArray(
             previousInitializer._appliedFeatherDiagnostics
         )
             ? previousInitializer._appliedFeatherDiagnostics
             : [];
+
         assert.strictEqual(
             previousFixes.some((entry) => entry.id === "GM1009"),
             true,
-            "Expected room_previous conversion to record GM1009 metadata."
+            "Expected GM1009 fix metadata for the converted room_previous helper."
         );
 
-        assert.ok(gotoCall);
-        assert.strictEqual(gotoCall.type, "CallExpression");
-        assert.strictEqual(gotoCall.object?.name, "room_goto_next");
-        assert.ok(Array.isArray(gotoCall.arguments));
-        assert.strictEqual(gotoCall.arguments.length, 0);
+        const expressionStatement =
+            gotoStatement?.type === "ExpressionStatement"
+                ? gotoStatement.expression
+                : gotoStatement;
 
-        const gotoFixes = Array.isArray(gotoCall._appliedFeatherDiagnostics)
-            ? gotoCall._appliedFeatherDiagnostics
+        assert.ok(expressionStatement);
+        assert.strictEqual(expressionStatement.type, "CallExpression");
+        assert.strictEqual(expressionStatement.object?.name, "room_goto_next");
+        assert.ok(Array.isArray(expressionStatement.arguments));
+        assert.strictEqual(expressionStatement.arguments.length, 0);
+
+        const gotoFixes = Array.isArray(
+            expressionStatement._appliedFeatherDiagnostics
+        )
+            ? expressionStatement._appliedFeatherDiagnostics
             : [];
+
         assert.strictEqual(
             gotoFixes.some((entry) => entry.id === "GM1009"),
             true,
-            "Expected room_goto conversion to record GM1009 metadata."
+            "Expected GM1009 fix metadata for the converted room_goto helper."
         );
     });
 

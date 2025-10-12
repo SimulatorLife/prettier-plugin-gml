@@ -9,6 +9,7 @@ import {
     formatCliError,
     handleCliError
 } from "../shared/cli/cli-errors.js";
+import { normalizeStringList } from "../shared/string-utils.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
@@ -24,10 +25,10 @@ function normalizeExtensions(
         return fallbackExtensions;
     }
 
-    const candidateValues = rawExtensions
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
+    const candidateValues = normalizeStringList(rawExtensions, {
+        splitPattern: /,/,
+        allowInvalidType: true
+    });
 
     if (candidateValues.length === 0) {
         return fallbackExtensions;

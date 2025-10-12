@@ -2204,6 +2204,22 @@ function unwrapIdentifierFromExpression(node) {
     return null;
 }
 
+function unwrapLiteralFromExpression(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        return node;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return unwrapLiteralFromExpression(node.expression);
+    }
+
+    return null;
+}
+
 function isFileAttributeIdentifier(node) {
     if (!node || node.type !== "Identifier") {
         return false;
@@ -2435,29 +2451,64 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         return null;
     }
 
-    const baseIdentifier = unwrapIdentifierFromExpression(node.left);
+    const leftIdentifier = unwrapIdentifierFromExpression(node.left);
+    const rightIdentifier = unwrapIdentifierFromExpression(node.right);
+    const leftLiteral = unwrapLiteralFromExpression(node.left);
+    const rightLiteral = unwrapLiteralFromExpression(node.right);
 
-    if (!isIdentifierWithName(baseIdentifier, "room")) {
-        return null;
+    if (isIdentifierWithName(leftIdentifier, "room")) {
+        if (node.operator === "+") {
+            if (isLiteralOne(rightLiteral)) {
+                return { direction: "next", baseIdentifier: leftIdentifier };
+            }
+
+            if (isNegativeOneLiteral(rightLiteral)) {
+                return {
+                    direction: "previous",
+                    baseIdentifier: leftIdentifier
+                };
+            }
+        }
+
+        if (node.operator === "-") {
+            if (isLiteralOne(rightLiteral)) {
+                return {
+                    direction: "previous",
+                    baseIdentifier: leftIdentifier
+                };
+            }
+
+            if (isNegativeOneLiteral(rightLiteral)) {
+                return { direction: "next", baseIdentifier: leftIdentifier };
+            }
+        }
     }
 
-    if (node.operator === "+") {
-        if (isLiteralOne(node.right)) {
-            return { direction: "next", baseIdentifier };
+    if (isIdentifierWithName(rightIdentifier, "room")) {
+        if (node.operator === "+") {
+            if (isLiteralOne(leftLiteral)) {
+                return { direction: "next", baseIdentifier: rightIdentifier };
+            }
+
+            if (isNegativeOneLiteral(leftLiteral)) {
+                return {
+                    direction: "previous",
+                    baseIdentifier: rightIdentifier
+                };
+            }
         }
 
-        if (isNegativeOneLiteral(node.right)) {
-            return { direction: "previous", baseIdentifier };
-        }
-    }
+        if (node.operator === "-") {
+            if (isLiteralOne(leftLiteral)) {
+                return {
+                    direction: "previous",
+                    baseIdentifier: rightIdentifier
+                };
+            }
 
-    if (node.operator === "-") {
-        if (isLiteralOne(node.right)) {
-            return { direction: "previous", baseIdentifier };
-        }
-
-        if (isNegativeOneLiteral(node.right)) {
-            return { direction: "next", baseIdentifier };
+            if (isNegativeOneLiteral(leftLiteral)) {
+                return { direction: "next", baseIdentifier: rightIdentifier };
+            }
         }
     }
 

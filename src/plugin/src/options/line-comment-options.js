@@ -1,5 +1,6 @@
 import { getCachedValue } from "../options/options-cache.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { normalizeStringList } from "../../../shared/string-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
@@ -161,14 +162,10 @@ function dedupeFragments(baseFragments, extensions) {
 }
 
 function parseBoilerplateFragments(rawValue) {
-    if (typeof rawValue !== "string") {
-        return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
-    }
-
-    const fragments = rawValue
-        .split(",")
-        .map((entry) => entry.trim())
-        .filter((entry) => entry.length > 0);
+    const fragments = normalizeStringList(rawValue, {
+        splitPattern: /,/,
+        allowInvalidType: true
+    });
 
     if (fragments.length === 0) {
         return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
