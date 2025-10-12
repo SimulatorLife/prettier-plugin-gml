@@ -1,0 +1,67 @@
+name: Codex 41 – Failing Test Recovery
+on:
+  schedule:
+    - cron: "0 */3 * * *" # every 3 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  check_tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests_failed: ${{ steps.run_tests.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        id: run_tests
+        run: |
+          set +e
+          npm test
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Test suite exited with $status"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Test suite passed"
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+  run:
+    needs: check_tests
+    if: ${{ needs.check_tests.outputs.tests_failed == 'true' }}
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Recover Failing Test"
+      pr_body: "Seed PR for Codex to diagnose a failing test, repair the underlying issue, and re-verify."
+      prompt: >
+        Start by running the full automated test suite (`npm test`). If everything
+        passes, report that the suite is green and make no code changes. When there is
+        at least one failure, pick a single failing test (or the tightest failing cluster
+        with a shared root cause) and focus on the smallest missing/broken behaviour you
+        can isolate inside it. If a golden fixture encodes multiple formatting rules,
+        choose one regression to tackle—implement the underlying production fix or
+        feature for that slice, leave the rest untouched, and document any remaining
+        gaps. Never rewrite the existing golden files in `src/plugin/tests/*.gml`.
+
+        Add a new targeted test (unit or integration) that proves the repaired behaviour,
+        even if the broader fixture-driven test still fails. Re-run `npm test` (or the
+        relevant subset) to confirm that previously passing suites stay green and that
+        your new coverage passes. Stop after landing that single improvement; do not
+        chase additional failures in the same run.
