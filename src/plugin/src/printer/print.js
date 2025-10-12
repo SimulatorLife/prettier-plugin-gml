@@ -1665,8 +1665,13 @@ function mergeSyntheticDocComments(
     const isParamLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
+    const isDescriptionLine = (line) =>
+        typeof line === "string" &&
+        /^\/\/\/\s*@description\b/i.test(line.trim());
+
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    let returnsLines = [];
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
@@ -1787,6 +1792,26 @@ function mergeSyntheticDocComments(
         otherLines = normalizedOtherLines;
     }
 
+    if (otherLines.length > 0) {
+        const nonReturnLines = [];
+        const extractedReturns = [];
+
+        for (const line of otherLines) {
+            const metadata = parseDocCommentMetadata(line);
+            if (metadata?.tag === "returns") {
+                extractedReturns.push(line);
+                continue;
+            }
+
+            nonReturnLines.push(line);
+        }
+
+        if (extractedReturns.length > 0) {
+            otherLines = nonReturnLines;
+            returnsLines = extractedReturns;
+        }
+    }
+
     const syntheticParamNames = new Set(
         otherLines
             .map((line) => getParamCanonicalName(line))
@@ -1848,6 +1873,24 @@ function mergeSyntheticDocComments(
         ...mergedLines.slice(insertionIndex)
     ];
 
+    if (returnsLines.length > 0) {
+        let appendIndex = result.length;
+
+        while (
+            appendIndex > 0 &&
+            typeof result[appendIndex - 1] === "string" &&
+            result[appendIndex - 1].trim() === ""
+        ) {
+            appendIndex -= 1;
+        }
+
+        result = [
+            ...result.slice(0, appendIndex),
+            ...returnsLines,
+            ...result.slice(appendIndex)
+        ];
+    }
+
     const paramDocsByCanonical = new Map();
 
     for (const line of result) {
@@ -1902,7 +1945,198 @@ function mergeSyntheticDocComments(
         finalDocs.push(...orderedParamDocs);
     }
 
-    result = finalDocs;
+    let reorderedDocs = finalDocs;
+
+    const descriptionStartIndex = reorderedDocs.findIndex(isDescriptionLine);
+    if (descriptionStartIndex !== -1) {
+        let descriptionEndIndex = descriptionStartIndex + 1;
+
+        while (
+            descriptionEndIndex < reorderedDocs.length &&
+            typeof reorderedDocs[descriptionEndIndex] === "string" &&
+            reorderedDocs[descriptionEndIndex].startsWith("///") &&
+            !parseDocCommentMetadata(reorderedDocs[descriptionEndIndex])
+        ) {
+            descriptionEndIndex += 1;
+        }
+
+        const descriptionBlock = reorderedDocs.slice(
+            descriptionStartIndex,
+            descriptionEndIndex
+        );
+        const docsWithoutDescription = [
+            ...reorderedDocs.slice(0, descriptionStartIndex),
+            ...reorderedDocs.slice(descriptionEndIndex)
+        ];
+
+        let lastParamIndex = -1;
+        for (let index = 0; index < docsWithoutDescription.length; index += 1) {
+            if (
+                typeof docsWithoutDescription[index] === "string" &&
+                isParamLine(docsWithoutDescription[index])
+            ) {
+                lastParamIndex = index;
+            }
+        }
+
+        const insertionAfterParams =
+            lastParamIndex === -1
+                ? docsWithoutDescription.length
+                : lastParamIndex + 1;
+
+        reorderedDocs = [
+            ...docsWithoutDescription.slice(0, insertionAfterParams),
+            ...descriptionBlock,
+            ...docsWithoutDescription.slice(insertionAfterParams)
+        ];
+    }
+
+    reorderedDocs = reorderedDocs.map((line) => {
+        if (!isParamLine(line) || typeof line !== "string") {
+            return line;
+        }
+
+        const match = line.match(
+            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\S+)(.*)$/i
+        );
+        if (!match) {
+            return normalizeDocCommentTypeAnnotations(line);
+        }
+
+        const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
+            match;
+        let normalizedTypeSection = rawTypeSection.trim();
+        if (
+            normalizedTypeSection.startsWith("{") &&
+            normalizedTypeSection.endsWith("}")
+        ) {
+            const innerType = normalizedTypeSection.slice(
+                1,
+                normalizedTypeSection.length - 1
+            );
+            const normalizedInner = innerType.replace(/\|/g, ",");
+            normalizedTypeSection = `{${normalizedInner}}`;
+        }
+        const typePart =
+            normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
+        const normalizedName = rawName.trim();
+        const remainderText = remainder.trim();
+        const hasDescription = remainderText.length > 0;
+        const normalizedDescription = hasDescription
+            ? remainderText.replace(/^[-\s]+/, "")
+            : "";
+        const descriptionPart = hasDescription
+            ? ` - ${normalizedDescription}`
+            : "";
+
+        const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
+        return normalizeDocCommentTypeAnnotations(updatedLine);
+    });
+
+    const wrappedDocs = [];
+    const wrapWidth = 100;
+
+    const wrapSegments = (text, available) => {
+        if (available <= 0) {
+            return [text];
+        }
+
+        const words = text.split(/\s+/).filter((word) => word.length > 0);
+        if (words.length === 0) {
+            return [];
+        }
+
+        const segments = [];
+        let current = words[0];
+
+        for (let index = 1; index < words.length; index += 1) {
+            const word = words[index];
+            if (current.length + 1 + word.length > available) {
+                segments.push(current);
+                current = word;
+            } else {
+                current += ` ${word}`;
+            }
+        }
+
+        segments.push(current);
+        return segments;
+    };
+
+    for (let index = 0; index < reorderedDocs.length; index += 1) {
+        const line = reorderedDocs[index];
+        if (typeof line === "string" && isDescriptionLine(line)) {
+            const blockLines = [line];
+            let lookahead = index + 1;
+
+            while (lookahead < reorderedDocs.length) {
+                const nextLine = reorderedDocs[lookahead];
+                if (
+                    typeof nextLine === "string" &&
+                    nextLine.startsWith("///") &&
+                    !parseDocCommentMetadata(nextLine)
+                ) {
+                    blockLines.push(nextLine);
+                    lookahead += 1;
+                    continue;
+                }
+                break;
+            }
+
+            index = lookahead - 1;
+
+            const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
+            if (!prefixMatch) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const prefix = prefixMatch[1];
+            const continuationPrefix =
+                "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+            const descriptionText = blockLines
+                .map((docLine, blockIndex) => {
+                    if (blockIndex === 0) {
+                        return docLine.slice(prefix.length).trim();
+                    }
+
+                    return docLine.slice(continuationPrefix.length).trim();
+                })
+                .filter((segment) => segment.length > 0)
+                .join(" ");
+
+            if (descriptionText.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const available = Math.max(wrapWidth - prefix.length, 16);
+            const segments = wrapSegments(descriptionText, available);
+
+            if (segments.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            wrappedDocs.push(`${prefix}${segments[0]}`);
+            for (
+                let segmentIndex = 1;
+                segmentIndex < segments.length;
+                segmentIndex += 1
+            ) {
+                wrappedDocs.push(
+                    `${continuationPrefix}${segments[segmentIndex]}`
+                );
+            }
+            continue;
+        }
+
+        wrappedDocs.push(line);
+    }
+
+    reorderedDocs = wrappedDocs;
+
+    result = reorderedDocs;
 
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
