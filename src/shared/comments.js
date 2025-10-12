@@ -1,3 +1,19 @@
+/**
+ * @typedef {object} CommentLineNode
+ * @property {"CommentLine"} type
+ * @property {string} value
+ * @property {number} [start]
+ * @property {number} [end]
+ */
+
+/**
+ * @typedef {object} CommentBlockNode
+ * @property {"CommentBlock"} type
+ * @property {string} value
+ * @property {number} [start]
+ * @property {number} [end]
+ */
+
 export function isCommentNode(node) {
     return (
         !!node &&
@@ -27,6 +43,18 @@ export function hasComment(node) {
     return comments.some(isCommentNode);
 }
 
+/**
+ * Performs a depth-first traversal to find every distinct comment node in the
+ * provided AST fragment. Objects are tracked in a WeakSet so that the
+ * traversal can safely follow parent/child references without re-visiting
+ * nodes; this prevents infinite loops on cyclic structures that sometimes
+ * appear in parser output while still returning each comment exactly once.
+ *
+ * @param {unknown} root Root node (or array of nodes) to inspect. Non-object
+ *                       values are ignored.
+ * @returns {Array<CommentBlockNode | CommentLineNode>}
+ *          Flat list of comment nodes discovered anywhere within the supplied root.
+ */
 export function collectCommentNodes(root) {
     if (!root || typeof root !== "object") {
         return [];
