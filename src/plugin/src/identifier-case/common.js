@@ -75,5 +75,38 @@ export function createConflict({
     };
 }
 
+function resolveFileOccurrenceKey(filePath, fallbackPath) {
+    if (typeof filePath === "string" && filePath.length > 0) {
+        return filePath;
+    }
+
+    if (typeof fallbackPath === "string" && fallbackPath.length > 0) {
+        return fallbackPath;
+    }
+
+    if (fallbackPath === null) {
+        return null;
+    }
+
+    return "<unknown>";
+}
+
+export function incrementFileOccurrence(counts, filePath, fallbackPath) {
+    const key = resolveFileOccurrenceKey(filePath, fallbackPath);
+    if (key === null) {
+        return false;
+    }
+
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    return true;
+}
+
+export function summarizeFileOccurrences(counts) {
+    return Array.from(counts.entries()).map(([filePath, occurrences]) => ({
+        filePath,
+        occurrences
+    }));
+}
+
 export const DEFAULT_WRITE_ACCESS_MODE =
     typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;

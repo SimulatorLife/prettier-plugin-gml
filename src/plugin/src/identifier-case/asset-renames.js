@@ -16,6 +16,8 @@ import {
     IGNORE_CONFLICT_CODE,
     createConflict,
     matchesIgnorePattern,
+    incrementFileOccurrence,
+    summarizeFileOccurrences,
     DEFAULT_WRITE_ACCESS_MODE
 } from "./common.js";
 
@@ -207,21 +209,17 @@ function ensureWritableFile(fsFacade, filePath) {
 function summarizeReferences(referenceMutations, resourcePath) {
     const counts = new Map();
     if (resourcePath) {
-        counts.set(resourcePath, 1);
+        incrementFileOccurrence(counts, resourcePath);
     }
 
     for (const mutation of referenceMutations ?? []) {
         if (!mutation?.filePath) {
             continue;
         }
-        const current = counts.get(mutation.filePath) ?? 0;
-        counts.set(mutation.filePath, current + 1);
+        incrementFileOccurrence(counts, mutation.filePath);
     }
 
-    return Array.from(counts.entries()).map(([filePath, occurrences]) => ({
-        filePath,
-        occurrences
-    }));
+    return summarizeFileOccurrences(counts);
 }
 
 export function planAssetRenames({
