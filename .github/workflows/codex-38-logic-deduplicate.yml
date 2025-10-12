@@ -1,7 +1,7 @@
 name: Codex 38 – Logic Deduplication
 on:
   schedule:
-    - cron: "45 3,15 * * *" # twice daily at 03:45, 15:45 UTC
+    - cron: "0 */3 * * *" # every 3 hours
   workflow_dispatch:
 
 permissions:
