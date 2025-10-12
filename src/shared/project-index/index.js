@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import GMLParser from "../../parser/gml-parser.js";
 import { cloneLocation } from "../ast-locations.js";
 import { toPosixPath } from "../path-utils.js";
+import { createMetricsTracker } from "../metrics.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -156,9 +157,22 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 
 let cachedBuiltInIdentifiers = null;
 
-async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade) {
+async function loadBuiltInIdentifiers(
+    fsFacade = defaultFsFacade,
+    metrics = null
+) {
+    const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+
     if (cachedBuiltInIdentifiers) {
-        return cachedBuiltInIdentifiers;
+        const cachedMtime = cachedBuiltInIdentifiers.metadata?.mtimeMs ?? null;
+        if (cachedMtime === currentMtime) {
+            metrics?.recordCacheHit("builtInIdentifiers");
+            return cachedBuiltInIdentifiers;
+        }
+
+        metrics?.recordCacheStale("builtInIdentifiers");
+    } else {
+        metrics?.recordCacheMiss("builtInIdentifiers");
     }
 
     try {
@@ -175,12 +189,12 @@ async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade) {
         }
 
         cachedBuiltInIdentifiers = {
-            metadata: null,
+            metadata: { mtimeMs: currentMtime },
             names
         };
     } catch {
         cachedBuiltInIdentifiers = {
-            metadata: null,
+            metadata: { mtimeMs: currentMtime },
             names: new Set()
         };
     }
@@ -209,7 +223,7 @@ function normaliseResourcePath(rawPath, { projectRoot } = {}) {
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
-async function scanProjectTree(projectRoot, fsFacade) {
+async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -218,6 +232,7 @@ async function scanProjectTree(projectRoot, fsFacade) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
         const entries = await listDirectory(fsFacade, absoluteDir);
+        metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
             const relativePath = path.join(relativeDir, entry);
@@ -227,6 +242,7 @@ async function scanProjectTree(projectRoot, fsFacade) {
                 stats = await fsFacade.stat(absolutePath);
             } catch (error) {
                 if (error && error.code === "ENOENT") {
+                    metrics?.incrementCounter("io.skippedMissingEntries");
                     continue;
                 }
                 throw error;
@@ -247,11 +263,13 @@ async function scanProjectTree(projectRoot, fsFacade) {
                     absolutePath,
                     relativePath: relativePosix
                 });
+                metrics?.incrementCounter("files.yyDiscovered");
             } else if (lowerPath.endsWith(".gml")) {
                 gmlFiles.push({
                     absolutePath,
                     relativePath: relativePosix
                 });
+                metrics?.incrementCounter("files.gmlDiscovered");
             }
         }
     }
@@ -1359,7 +1377,8 @@ function analyseGmlAst({
     scriptNameToScopeId,
     scriptNameToResourcePath,
     identifierCollections,
-    scopeDescriptor
+    scopeDescriptor,
+    metrics = null
 }) {
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
@@ -1372,7 +1391,10 @@ function analyseGmlAst({
             const isBuiltIn = builtInNames.has(identifierRecord.name);
             identifierRecord.isBuiltIn = isBuiltIn;
 
+            metrics?.incrementCounter("identifiers.encountered");
+
             if (isBuiltIn) {
+                metrics?.incrementCounter("identifiers.builtInSkipped");
                 identifierRecord.reason = "built-in";
                 fileRecord.ignoredIdentifiers.push(identifierRecord);
                 scopeRecord.ignoredIdentifiers.push(identifierRecord);
@@ -1385,6 +1407,7 @@ function analyseGmlAst({
                 identifierRecord.classifications.includes("reference");
 
             if (isDeclaration) {
+                metrics?.incrementCounter("identifiers.declarations");
                 fileRecord.declarations.push(identifierRecord);
                 scopeRecord.declarations.push(identifierRecord);
 
@@ -1399,6 +1422,7 @@ function analyseGmlAst({
             }
 
             if (isReference) {
+                metrics?.incrementCounter("identifiers.references");
                 fileRecord.references.push(identifierRecord);
                 scopeRecord.references.push(identifierRecord);
 
@@ -1453,6 +1477,7 @@ function analyseGmlAst({
             fileRecord.scriptCalls.push(callRecord);
             scopeRecord.scriptCalls.push(callRecord);
             relationships.scriptCalls.push(callRecord);
+            metrics?.incrementCounter("scriptCalls.discovered");
         }
 
         if (
@@ -1485,6 +1510,7 @@ function analyseGmlAst({
                     filePath: fileRecord?.filePath ?? null,
                     scopeDescriptor: scopeDescriptor ?? scopeRecord
                 });
+                metrics?.incrementCounter("identifiers.instanceAssignments");
             }
         }
     });
@@ -1501,24 +1527,91 @@ function cloneAssetReference(reference) {
     };
 }
 
+function clampConcurrency(value, { min = 1, max = 16, fallback = 4 } = {}) {
+    const numeric = Number(value ?? fallback);
+    if (!Number.isFinite(numeric) || numeric < min) {
+        return min;
+    }
+    if (numeric > max) {
+        return max;
+    }
+    return numeric;
+}
+
+async function processWithConcurrency(items, limit, worker) {
+    if (!Array.isArray(items) || items.length === 0) {
+        return;
+    }
+
+    const size = Math.max(1, Math.min(limit, items.length));
+    let index = 0;
+
+    async function run() {
+        while (true) {
+            const currentIndex = index;
+            if (currentIndex >= items.length) {
+                return;
+            }
+            index += 1;
+             
+            await worker(items[currentIndex], currentIndex);
+        }
+    }
+
+    const tasks = [];
+    for (let i = 0; i < size; i += 1) {
+        tasks.push(run());
+    }
+    await Promise.all(tasks);
+}
+
 export async function buildProjectIndex(
     projectRoot,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     if (!projectRoot) {
         throw new Error("projectRoot must be provided to buildProjectIndex");
     }
 
     const resolvedRoot = path.resolve(projectRoot);
-    const builtInIdentifiers = await loadBuiltInIdentifiers(fsFacade);
+    const logger = options?.logger ?? null;
+    const metrics =
+        options?.metrics ??
+        createMetricsTracker({
+            category: "project-index",
+            logger,
+            autoLog: options?.logMetrics === true
+        });
+
+    const stopTotal = metrics.startTimer("total");
+
+    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
+        loadBuiltInIdentifiers(fsFacade, metrics)
+    );
     const builtInNames = builtInIdentifiers.names ?? new Set();
 
-    const { yyFiles, gmlFiles } = await scanProjectTree(resolvedRoot, fsFacade);
-    const resourceAnalysis = await analyseResourceFiles({
-        projectRoot: resolvedRoot,
-        yyFiles,
-        fsFacade
-    });
+    const { yyFiles, gmlFiles } = await metrics.timeAsync(
+        "scanProjectTree",
+        () => scanProjectTree(resolvedRoot, fsFacade, metrics)
+    );
+    metrics.setMetadata("yyFileCount", yyFiles.length);
+    metrics.setMetadata("gmlFileCount", gmlFiles.length);
+
+    const resourceAnalysis = await metrics.timeAsync(
+        "analyseResourceFiles",
+        () =>
+            analyseResourceFiles({
+                projectRoot: resolvedRoot,
+                yyFiles,
+                fsFacade
+            })
+    );
+
+    metrics.incrementCounter(
+        "resources.total",
+        resourceAnalysis.resourcesMap.size
+    );
 
     const scopeMap = new Map();
     const filesMap = new Map();
@@ -1530,16 +1623,29 @@ export async function buildProjectIndex(
     };
     const identifierCollections = createIdentifierCollections();
 
-    for (const file of gmlFiles) {
+    const concurrencySettings = options?.concurrency ?? {};
+    const gmlConcurrency = clampConcurrency(
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing ?? 4,
+        { fallback: 4 }
+    );
+    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+
+    await processWithConcurrency(gmlFiles, gmlConcurrency, async (file) => {
+        metrics.incrementCounter("files.gmlProcessed");
         let contents;
         try {
-            contents = await fsFacade.readFile(file.absolutePath, "utf8");
+            contents = await metrics.timeAsync("fs.readGml", () =>
+                fsFacade.readFile(file.absolutePath, "utf8")
+            );
         } catch (error) {
             if (error && error.code === "ENOENT") {
-                continue;
+                metrics.incrementCounter("files.missingDuringRead");
+                return;
             }
             throw error;
         }
+
+        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
 
         const scopeDescriptor =
             resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
@@ -1580,27 +1686,39 @@ export async function buildProjectIndex(
             });
         }
 
-        const ast = GMLParser.parse(contents, {
-            getComments: false,
-            getLocations: true,
-            simplifyLocations: false,
-            getIdentifierMetadata: true
-        });
+        const ast = metrics.timeSync("gml.parse", () =>
+            GMLParser.parse(contents, {
+                getComments: false,
+                getLocations: true,
+                simplifyLocations: false,
+                getIdentifierMetadata: true
+            })
+        );
 
-        analyseGmlAst({
-            ast,
-            builtInNames,
-            scopeRecord,
-            fileRecord,
-            relationships,
-            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
-            identifierCollections,
-            scopeDescriptor
-        });
-    }
+        metrics.timeSync("gml.analyse", () =>
+            analyseGmlAst({
+                ast,
+                builtInNames,
+                scopeRecord,
+                fileRecord,
+                relationships,
+                scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+                scriptNameToResourcePath:
+                    resourceAnalysis.scriptNameToResourcePath,
+                identifierCollections,
+                scopeDescriptor,
+                metrics
+            })
+        );
+    });
 
     for (const callRecord of relationships.scriptCalls) {
+        metrics.incrementCounter("scriptCalls.total");
+        if (callRecord.isResolved) {
+            metrics.incrementCounter("scriptCalls.resolved");
+        } else {
+            metrics.incrementCounter("scriptCalls.unresolved");
+        }
         registerScriptReference({
             identifierCollections,
             callRecord
@@ -1746,7 +1864,8 @@ export async function buildProjectIndex(
         )
     };
 
-    return {
+    stopTotal();
+    const projectIndex = {
         projectRoot: resolvedRoot,
         resources,
         scopes,
@@ -1754,4 +1873,12 @@ export async function buildProjectIndex(
         relationships,
         identifiers
     };
+
+    const metricsReport = metrics.finalize();
+    projectIndex.metrics = metricsReport;
+    if (typeof options?.onMetrics === "function") {
+        options.onMetrics(metricsReport, projectIndex);
+    }
+
+    return projectIndex;
 }
