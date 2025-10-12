@@ -122,6 +122,14 @@ export const options = {
         description:
             "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling."
     },
+    lineCommentBoilerplateFragments: {
+        since: "0.0.0",
+        type: "string",
+        category: "gml",
+        default: "",
+        description:
+            "Comma-separated substrings that mark trimmed line comments as boilerplate to remove. Provide additional fragments to extend the built-in filter."
+    },
     alignAssignmentsMinGroupSize: {
         since: "0.0.0",
         type: "int",
