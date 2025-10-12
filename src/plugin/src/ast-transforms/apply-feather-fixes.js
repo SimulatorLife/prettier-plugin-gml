@@ -2104,8 +2104,19 @@ function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
             return;
         }
 
+        if (node.type === "CallExpression") {
+            const callFix = normalizeRoomGotoCall(node, diagnostic);
+
+            if (callFix) {
+                fixes.push(callFix);
+                return;
+            }
+        }
+
         if (node.type === "BinaryExpression") {
-            const fix = normalizeFileAttributeAddition(node, diagnostic);
+            const fix =
+                normalizeFileAttributeAddition(node, diagnostic) ??
+                normalizeRoomNavigationBinaryExpression(node, diagnostic);
 
             if (fix) {
                 fixes.push(fix);
@@ -2164,6 +2175,134 @@ function normalizeFileAttributeAddition(node, diagnostic) {
     return fixDetail;
 }
 
+function normalizeRoomNavigationBinaryExpression(node, diagnostic) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const navigationInfo = getRoomNavigationInfoFromBinaryExpression(node);
+
+    if (!navigationInfo) {
+        return null;
+    }
+
+    const originalOperator = node.operator ?? null;
+    const startIndex = getNodeStartIndex(node);
+    const endIndex = getNodeEndIndex(node);
+
+    const calleeIdentifier = createIdentifier(
+        navigationInfo.calleeName,
+        navigationInfo.argumentIdentifier
+    );
+
+    if (!calleeIdentifier) {
+        return null;
+    }
+
+    const argument = cloneIdentifier(navigationInfo.argumentIdentifier);
+
+    if (!argument) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: calleeIdentifier,
+        arguments: [argument]
+    };
+
+    if (Object.hasOwn(node, "start")) {
+        callExpression.start = cloneLocation(node.start);
+    }
+
+    if (Object.hasOwn(node, "end")) {
+        callExpression.end = cloneLocation(node.end);
+    }
+
+    copyCommentMetadata(node, callExpression);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: originalOperator,
+        range: {
+            start: startIndex,
+            end: endIndex
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    Object.assign(node, callExpression);
+    delete node.left;
+    delete node.right;
+    delete node.operator;
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function normalizeRoomGotoCall(node, diagnostic) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "room_goto")) {
+        return null;
+    }
+
+    if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+        return null;
+    }
+
+    const argumentExpression = unwrapParenthesizedExpression(node.arguments[0]);
+
+    if (!argumentExpression || argumentExpression.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const navigationInfo =
+        getRoomNavigationInfoFromBinaryExpression(argumentExpression);
+
+    if (!navigationInfo) {
+        return null;
+    }
+
+    const replacementName =
+        navigationInfo.calleeName === "room_next"
+            ? "room_goto_next"
+            : "room_goto_previous";
+
+    const replacementIdentifier = createIdentifier(
+        replacementName,
+        node.object
+    );
+
+    if (!replacementIdentifier) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    node.object = replacementIdentifier;
+    node.arguments = [];
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
 function unwrapIdentifierFromExpression(node) {
     if (!node || typeof node !== "object") {
         return null;
@@ -2180,6 +2319,22 @@ function unwrapIdentifierFromExpression(node) {
     return null;
 }
 
+function unwrapLiteralFromExpression(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        return node;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return unwrapLiteralFromExpression(node.expression);
+    }
+
+    return null;
+}
+
 function isFileAttributeIdentifier(node) {
     if (!node || node.type !== "Identifier") {
         return false;
@@ -2190,6 +2345,55 @@ function isFileAttributeIdentifier(node) {
     }
 
     return FILE_ATTRIBUTE_IDENTIFIER_PATTERN.test(node.name);
+}
+
+function getRoomNavigationInfoFromBinaryExpression(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const leftIdentifier = unwrapIdentifierFromExpression(node.left);
+    const rightIdentifier = unwrapIdentifierFromExpression(node.right);
+    const leftLiteral = unwrapLiteralFromExpression(node.left);
+    const rightLiteral = unwrapLiteralFromExpression(node.right);
+
+    if (isRoomIdentifier(leftIdentifier) && isLiteralOne(rightLiteral)) {
+        if (node.operator === "+") {
+            return {
+                calleeName: "room_next",
+                argumentIdentifier: leftIdentifier
+            };
+        }
+
+        if (node.operator === "-") {
+            return {
+                calleeName: "room_previous",
+                argumentIdentifier: leftIdentifier
+            };
+        }
+    }
+
+    if (isLiteralOne(leftLiteral) && isRoomIdentifier(rightIdentifier)) {
+        if (node.operator === "+") {
+            return {
+                calleeName: "room_next",
+                argumentIdentifier: rightIdentifier
+            };
+        }
+
+        if (node.operator === "-") {
+            return {
+                calleeName: "room_previous",
+                argumentIdentifier: rightIdentifier
+            };
+        }
+    }
+
+    return null;
+}
+
+function isRoomIdentifier(node) {
+    return isIdentifierWithName(node, "room");
 }
 
 function preventDivisionOrModuloByZero({ ast, diagnostic }) {
