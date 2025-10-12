@@ -2556,4 +2556,87 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2023 metadata on the transformed call expression."
         );
     });
+
+    it("coalesces undefined fallbacks flagged by GM2061", () => {
+        const source = [
+            "array = modify_array(array);",
+            "",
+            "if (array == undefined) array = [];"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 1);
+
+        const [assignment] = body;
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+        assert.strictEqual(assignment.operator, "=");
+
+        const coalesced = assignment.right;
+        assert.ok(coalesced);
+        assert.strictEqual(coalesced.type, "BinaryExpression");
+        assert.strictEqual(coalesced.operator, "??");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2061 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2061"
+        );
+        assert.ok(
+            gm2061,
+            "Expected GM2061 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2061.automatic, true);
+        assert.strictEqual(gm2061.target, "array");
+        assert.ok(gm2061.range);
+
+        const assignmentDiagnostics =
+            assignment._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            assignmentDiagnostics.some((entry) => entry.id === "GM2061"),
+            true
+        );
+    });
+
+    it("replaces undefined guards with nullish assignment for GM2061", () => {
+        const source = "if (value == undefined) value = compute();";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 1);
+
+        const [assignment] = body;
+        assert.ok(assignment);
+        assert.strictEqual(assignment.type, "AssignmentExpression");
+        assert.strictEqual(assignment.operator, "??=");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2061 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2061"
+        );
+        assert.ok(
+            gm2061,
+            "Expected GM2061 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2061.target, "value");
+
+        const assignmentDiagnostics =
+            assignment._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            assignmentDiagnostics.some((entry) => entry.id === "GM2061"),
+            true
+        );
+    });
 });

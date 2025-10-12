@@ -1253,6 +1253,11 @@ function createAutomaticFeatherFixHandlers() {
                 ensureTextureRepeatIsReset({ ast, diagnostic })
         ],
         [
+            "GM2061",
+            ({ ast, diagnostic }) =>
+                convertNullishCoalesceOpportunities({ ast, diagnostic })
+        ],
+        [
             "GM2064",
             ({ ast, diagnostic }) =>
                 annotateInstanceVariableStructAssignments({ ast, diagnostic })
@@ -5559,6 +5564,281 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(withStatement, [fixDetail]);
 
     return fixDetail;
+}
+
+function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return false;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; ) {
+                const mutated = visit(node[index], node, index);
+                if (mutated) {
+                    continue;
+                }
+                index += 1;
+            }
+            return false;
+        }
+
+        if (typeof node !== "object") {
+            return false;
+        }
+
+        if (node.type === "IfStatement") {
+            const result = convertNullishIfStatement(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (result && result.fix) {
+                fixes.push(result.fix);
+                return result.mutatedParent === true;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+
+        return false;
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertNullishIfStatement(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "IfStatement" || node.alternate) {
+        return null;
+    }
+
+    const comparison = unwrapParenthesizedExpression(node.test);
+
+    if (!comparison || comparison.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (comparison.operator !== "==") {
+        return null;
+    }
+
+    const identifierInfo = extractUndefinedComparisonIdentifier(comparison);
+
+    if (!identifierInfo) {
+        return null;
+    }
+
+    const consequentAssignment = extractConsequentAssignment(node.consequent);
+
+    if (!consequentAssignment || consequentAssignment.operator !== "=") {
+        return null;
+    }
+
+    const assignmentIdentifier = consequentAssignment.left;
+
+    if (
+        !isIdentifier(assignmentIdentifier) ||
+        assignmentIdentifier.name !== identifierInfo.name
+    ) {
+        return null;
+    }
+
+    const fallbackExpression = consequentAssignment.right;
+
+    if (!fallbackExpression) {
+        return null;
+    }
+
+    const previousNode = parent[property - 1];
+
+    if (
+        previousNode &&
+        previousNode.type === "AssignmentExpression" &&
+        previousNode.operator === "=" &&
+        isIdentifier(previousNode.left) &&
+        previousNode.left.name === identifierInfo.name &&
+        previousNode.right
+    ) {
+        const previousRight = previousNode.right;
+
+        const binaryExpression = {
+            type: "BinaryExpression",
+            operator: "??",
+            left: previousRight,
+            right: fallbackExpression
+        };
+
+        if (Object.prototype.hasOwnProperty.call(previousRight, "start")) {
+            binaryExpression.start = cloneLocation(previousRight.start);
+        } else if (
+            Object.prototype.hasOwnProperty.call(previousNode, "start")
+        ) {
+            binaryExpression.start = cloneLocation(previousNode.start);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(fallbackExpression, "end")) {
+            binaryExpression.end = cloneLocation(fallbackExpression.end);
+        } else if (
+            Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
+        ) {
+            binaryExpression.end = cloneLocation(consequentAssignment.end);
+        }
+
+        previousNode.right = binaryExpression;
+
+        if (Object.prototype.hasOwnProperty.call(node, "end")) {
+            previousNode.end = cloneLocation(node.end);
+        } else if (
+            Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
+        ) {
+            previousNode.end = cloneLocation(consequentAssignment.end);
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: identifierInfo.name,
+            range: {
+                start: getNodeStartIndex(previousNode),
+                end: getNodeEndIndex(previousNode)
+            }
+        });
+
+        if (!fixDetail) {
+            return null;
+        }
+
+        parent.splice(property, 1);
+        attachFeatherFixMetadata(previousNode, [fixDetail]);
+
+        return { fix: fixDetail, mutatedParent: true };
+    }
+
+    const nullishAssignment = {
+        type: "AssignmentExpression",
+        operator: "??=",
+        left: assignmentIdentifier,
+        right: fallbackExpression
+    };
+
+    if (Object.prototype.hasOwnProperty.call(consequentAssignment, "start")) {
+        nullishAssignment.start = cloneLocation(consequentAssignment.start);
+    } else if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        nullishAssignment.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        nullishAssignment.end = cloneLocation(node.end);
+    } else if (
+        Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
+    ) {
+        nullishAssignment.end = cloneLocation(consequentAssignment.end);
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: identifierInfo.name,
+        range: {
+            start: getNodeStartIndex(nullishAssignment),
+            end: getNodeEndIndex(nullishAssignment)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    parent[property] = nullishAssignment;
+    attachFeatherFixMetadata(nullishAssignment, [fixDetail]);
+
+    return { fix: fixDetail, mutatedParent: false };
+}
+
+function unwrapParenthesizedExpression(node) {
+    let current = node;
+
+    while (current && current.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current;
+}
+
+function extractUndefinedComparisonIdentifier(expression) {
+    if (!expression || expression.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const { left, right } = expression;
+
+    if (isIdentifier(left) && isUndefinedLiteral(right)) {
+        return { node: left, name: left.name };
+    }
+
+    if (isIdentifier(right) && isUndefinedLiteral(left)) {
+        return { node: right, name: right.name };
+    }
+
+    return null;
+}
+
+function isUndefinedLiteral(node) {
+    if (!node) {
+        return false;
+    }
+
+    if (node.type === "Literal") {
+        return node.value === "undefined" || node.value === undefined;
+    }
+
+    if (isIdentifier(node)) {
+        return node.name === "undefined";
+    }
+
+    return false;
+}
+
+function extractConsequentAssignment(consequent) {
+    if (!consequent || typeof consequent !== "object") {
+        return null;
+    }
+
+    if (consequent.type === "AssignmentExpression") {
+        return consequent;
+    }
+
+    if (consequent.type === "BlockStatement") {
+        const statements = Array.isArray(consequent.body)
+            ? consequent.body.filter(Boolean)
+            : [];
+
+        if (statements.length !== 1) {
+            return null;
+        }
+
+        const [single] = statements;
+
+        if (single && single.type === "AssignmentExpression") {
+            return single;
+        }
+    }
+
+    return null;
 }
 
 function ensureBlendEnableIsReset({ ast, diagnostic }) {
