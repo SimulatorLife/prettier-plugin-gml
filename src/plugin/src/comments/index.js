@@ -18,6 +18,17 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
 });
 
+function buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
+    return {
+        bannerMinimum,
+        bannerAutofillThreshold
+    };
+}
+
+function readLineCommentOption(value, fallback) {
+    return typeof value === "number" ? value : fallback;
+}
+
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
 const lineCommentOptionsCache = new WeakMap();
 
@@ -61,10 +72,10 @@ function resolveLineCommentOptions(options) {
         }
     );
 
-    const resolvedOptions = {
+    const resolvedOptions = buildLineCommentOptions(
         bannerMinimum,
         bannerAutofillThreshold
-    };
+    );
 
     if (Object.isExtensible(options)) {
         Object.defineProperty(options, LINE_COMMENT_OPTIONS_CACHE_KEY, {
@@ -279,25 +290,23 @@ function normalizeLineCommentOptions(lineCommentOptions) {
         typeof lineCommentOptions === "number" &&
     Number.isFinite(lineCommentOptions)
     ) {
-        return {
-            ...DEFAULT_LINE_COMMENT_OPTIONS,
-            bannerMinimum: lineCommentOptions
-        };
+        return buildLineCommentOptions(
+            lineCommentOptions,
+            DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
+        );
     }
 
     if (lineCommentOptions && typeof lineCommentOptions === "object") {
-        const { bannerMinimum, bannerAutofillThreshold } = lineCommentOptions;
-
-        return {
-            bannerMinimum:
-        typeof bannerMinimum === "number"
-            ? bannerMinimum
-            : DEFAULT_LINE_COMMENT_OPTIONS.bannerMinimum,
-            bannerAutofillThreshold:
-        typeof bannerAutofillThreshold === "number"
-            ? bannerAutofillThreshold
-            : DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
-        };
+        return buildLineCommentOptions(
+            readLineCommentOption(
+                lineCommentOptions.bannerMinimum,
+                DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+            ),
+            readLineCommentOption(
+                lineCommentOptions.bannerAutofillThreshold,
+                DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
+            )
+        );
     }
 
     return DEFAULT_LINE_COMMENT_OPTIONS;
