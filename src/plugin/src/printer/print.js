@@ -41,7 +41,7 @@ import {
 import {
     getTrailingCommentPadding,
     resolveLineCommentOptions
-} from "../comments/line-comment-options.js";
+} from "../options/line-comment-options.js";
 import { isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
 import {
