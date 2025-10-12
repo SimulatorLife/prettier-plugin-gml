@@ -197,6 +197,14 @@ export function prepareIdentifierCasePlan(options) {
         if (assetRenames.length > 0) {
             options.__identifierCaseAssetRenames = assetRenames;
         }
+
+        if (operations.length === 0 && conflicts.length === 0) {
+            // no-op
+        } else {
+            options.__identifierCaseRenamePlan = { operations };
+            options.__identifierCaseConflicts = conflicts;
+        }
+
         if (
             options.__identifierCaseDryRun === false &&
             assetRenames.length > 0 &&
