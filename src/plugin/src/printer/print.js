@@ -26,16 +26,23 @@ import {
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import {
+    getEnumMemberCommentPadding,
+    getEnumNameAlignmentPadding,
+    prepareEnumMembersForPrinting
+} from "./enum-alignment.js";
+import {
     printDanglingComments,
     printDanglingCommentsAsGroup
 } from "./comments.js";
 import {
     formatLineComment,
+    normalizeDocCommentTypeAnnotations
+} from "../comments/line-comment-formatting.js";
+import {
     getTrailingCommentPadding,
-    isCommentNode,
-    normalizeDocCommentTypeAnnotations,
     resolveLineCommentOptions
-} from "../comments/index.js";
+} from "../comments/line-comment-options.js";
+import { isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
 import {
     getNodeStartIndex,
@@ -797,21 +804,11 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            if (Array.isArray(node.members) && node.members.length > 0) {
-                const nameLengths = node.members.map((member) => {
-                    const name = getNodeName(member.name);
-                    return name ? name.length : 0;
-                });
-                const maxNameLength = Math.max(...nameLengths);
-                const commentPadding = getTrailingCommentPadding(options);
-                node.members.forEach((member, index) => {
-                    member._commentColumnTarget =
-                        maxNameLength + commentPadding;
-                    member._hasTrailingComma =
-                        index !== node.members.length - 1;
-                    member._nameLengthForAlignment = nameLengths[index];
-                });
-            }
+            prepareEnumMembersForPrinting(
+                node.members,
+                getTrailingCommentPadding(options),
+                getNodeName
+            );
             return concat([
                 "enum ",
                 print("name"),
@@ -930,11 +927,7 @@ export function print(path, options, print) {
         }
         case "EnumMember": {
             if (Array.isArray(node.comments) && node.comments.length > 0) {
-                const baseLength =
-                    (node._nameLengthForAlignment || 0) +
-                    (node._hasTrailingComma ? 1 : 0);
-                const targetColumn = node._commentColumnTarget || 0;
-                const padding = Math.max(targetColumn - baseLength - 1, 0);
+                const padding = getEnumMemberCommentPadding(node);
                 node.comments.forEach((comment) => {
                     if (
                         comment &&
@@ -944,8 +937,13 @@ export function print(path, options, print) {
                     }
                 });
             }
+            const extraPadding = getEnumNameAlignmentPadding(node);
+            let nameDoc = print("name");
+            if (extraPadding > 0) {
+                nameDoc = concat([nameDoc, " ".repeat(extraPadding)]);
+            }
             return concat(
-                printSimpleDeclaration(print("name"), print("initializer"))
+                printSimpleDeclaration(nameDoc, print("initializer"))
             );
         }
         case "CatchClause": {
