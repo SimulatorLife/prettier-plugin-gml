@@ -614,8 +614,15 @@ export function maybeReportIdentifierCaseDryRun(options) {
     options.__identifierCaseDryRun = shouldDryRun;
 
     if (!shouldDryRun) {
+        const result = summarizeIdentifierCasePlan({
+            renamePlan,
+            conflicts
+        });
+
         options.__identifierCaseReportEmitted = true;
-        return null;
+        options.__identifierCaseReportResult = result;
+
+        return result;
     }
 
     const effectiveLogger = logger ?? options.logger ?? console;
