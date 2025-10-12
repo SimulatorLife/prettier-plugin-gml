@@ -580,6 +580,18 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
     };
 }
 
+function cloneIdentifierDeclaration(declaration) {
+    if (!declaration || typeof declaration !== "object") {
+        return null;
+    }
+
+    return {
+        start: cloneLocation(declaration.start),
+        end: cloneLocation(declaration.end),
+        scopeId: declaration.scopeId ?? null
+    };
+}
+
 function createIdentifierRecord(node) {
     return {
         name: node?.name ?? null,
@@ -588,8 +600,591 @@ function createIdentifierRecord(node) {
         scopeId: node?.scopeId ?? null,
         classifications: Array.isArray(node?.classifications)
             ? [...node.classifications]
-            : []
+            : [],
+        declaration: cloneIdentifierDeclaration(node?.declaration),
+        isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
+}
+
+function buildLocationKey(location) {
+    if (!location || typeof location !== "object") {
+        return null;
+    }
+
+    const line =
+    location.line ??
+    location.row ??
+    location.start ??
+    location.first_line ??
+    null;
+    const column =
+    location.column ??
+    location.col ??
+    location.columnStart ??
+    location.first_column ??
+    null;
+    const index = location.index ?? location.offset ?? null;
+
+    if (line == null && column == null && index == null) {
+        return null;
+    }
+
+    return [line ?? "", column ?? "", index ?? ""].join(":");
+}
+
+function buildFileLocationKey(filePath, location) {
+    const locationKey = buildLocationKey(location);
+    if (!locationKey) {
+        return null;
+    }
+
+    return `${filePath ?? "<unknown>"}::${locationKey}`;
+}
+
+function cloneIdentifierForCollections(record, filePath) {
+    return {
+        name: record?.name ?? null,
+        filePath: filePath ?? null,
+        scopeId: record?.scopeId ?? null,
+        start: cloneLocation(record?.start),
+        end: cloneLocation(record?.end),
+        classifications: Array.isArray(record?.classifications)
+            ? [...record.classifications]
+            : [],
+        declaration: record?.declaration ? { ...record.declaration } : null,
+        isBuiltIn: record?.isBuiltIn ?? false,
+        reason: record?.reason ?? null,
+        isSynthetic: record?.isSynthetic ?? false,
+        isGlobalIdentifier: record?.isGlobalIdentifier ?? false
+    };
+}
+
+function ensureCollectionEntry(map, key, initializer) {
+    if (!map.has(key)) {
+        map.set(key, initializer());
+    }
+    return map.get(key);
+}
+
+function createIdentifierCollections() {
+    return {
+        scripts: new Map(),
+        macros: new Map(),
+        enums: new Map(),
+        enumMembers: new Map(),
+        globalVariables: new Map(),
+        instanceVariables: new Map()
+    };
+}
+
+function createEnumLookup(ast, filePath) {
+    const enumDeclarations = new Map();
+    const memberDeclarations = new Map();
+
+    const visitStack = [ast];
+    const seen = new Set();
+
+    while (visitStack.length > 0) {
+        const node = visitStack.pop();
+        if (!node || typeof node !== "object") {
+            continue;
+        }
+
+        if (seen.has(node)) {
+            continue;
+        }
+        seen.add(node);
+
+        if (node.type === "EnumDeclaration") {
+            const enumIdentifier = node.name;
+            const enumKey = buildFileLocationKey(filePath, enumIdentifier?.start);
+            if (enumKey) {
+                enumDeclarations.set(enumKey, {
+                    key: enumKey,
+                    name: enumIdentifier?.name ?? null,
+                    filePath: filePath ?? null
+                });
+
+                const members = Array.isArray(node.members) ? node.members : [];
+                for (const member of members) {
+                    const memberIdentifier = member?.name ?? null;
+                    if (!memberIdentifier) {
+                        continue;
+                    }
+                    const memberKey = buildFileLocationKey(
+                        filePath,
+                        memberIdentifier.start
+                    );
+                    if (!memberKey) {
+                        continue;
+                    }
+
+                    memberDeclarations.set(memberKey, {
+                        key: memberKey,
+                        name: memberIdentifier.name ?? null,
+                        enumKey,
+                        filePath: filePath ?? null
+                    });
+                }
+            }
+        }
+
+        const values = Object.values(node);
+        for (const value of values) {
+            if (Array.isArray(value)) {
+                for (let index = value.length - 1; index >= 0; index -= 1) {
+                    const child = value[index];
+                    if (child && typeof child === "object") {
+                        visitStack.push(child);
+                    }
+                }
+            } else if (value && typeof value === "object") {
+                visitStack.push(value);
+            }
+        }
+    }
+
+    return { enumDeclarations, memberDeclarations };
+}
+
+function ensureScriptEntry(identifierCollections, descriptor) {
+    if (!descriptor || !descriptor.id || descriptor.kind !== "script") {
+        return null;
+    }
+
+    return ensureCollectionEntry(
+        identifierCollections.scripts,
+        descriptor.id,
+        () => ({
+            id: descriptor.id,
+            name: descriptor.name ?? null,
+            displayName: descriptor.displayName ?? descriptor.name ?? descriptor.id,
+            resourcePath: descriptor.resourcePath ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+}
+
+function registerScriptDeclaration({
+    identifierCollections,
+    descriptor,
+    declarationRecord,
+    filePath
+}) {
+    const entry = ensureScriptEntry(identifierCollections, descriptor);
+    if (!entry) {
+        return;
+    }
+
+    if (descriptor.name && !entry.name) {
+        entry.name = descriptor.name;
+    }
+    if (descriptor.displayName && !entry.displayName) {
+        entry.displayName = descriptor.displayName;
+    }
+    if (descriptor.resourcePath && !entry.resourcePath) {
+        entry.resourcePath = descriptor.resourcePath;
+    }
+
+    if (!declarationRecord) {
+        return;
+    }
+
+    const clone = cloneIdentifierForCollections(declarationRecord, filePath);
+    const locationKey = buildLocationKey(clone.start);
+    const hasExisting = entry.declarations.some((existing) => {
+        const existingKey = buildLocationKey(existing.start);
+        return existingKey && locationKey && existingKey === locationKey;
+    });
+
+    if (!hasExisting) {
+        entry.declarations.push(clone);
+    }
+}
+
+function cloneScriptReference(callRecord) {
+    if (!callRecord) {
+        return null;
+    }
+
+    return {
+        filePath: callRecord.from?.filePath ?? null,
+        scopeId: callRecord.from?.scopeId ?? null,
+        targetName: callRecord.target?.name ?? null,
+        targetResourcePath: callRecord.target?.resourcePath ?? null,
+        location: {
+            start: cloneLocation(callRecord.location?.start),
+            end: cloneLocation(callRecord.location?.end)
+        },
+        isResolved: Boolean(callRecord.isResolved)
+    };
+}
+
+function registerScriptReference({ identifierCollections, callRecord }) {
+    const targetScopeId = callRecord?.target?.scopeId;
+    if (!targetScopeId) {
+        return;
+    }
+
+    const entry = ensureCollectionEntry(
+        identifierCollections.scripts,
+        targetScopeId,
+        () => ({
+            id: targetScopeId,
+            name: callRecord.target?.name ?? null,
+            displayName: callRecord.target?.name
+                ? `script.${callRecord.target.name}`
+                : targetScopeId,
+            resourcePath: callRecord.target?.resourcePath ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+
+    if (callRecord.target?.name && !entry.name) {
+        entry.name = callRecord.target.name;
+    }
+    if (callRecord.target?.resourcePath && !entry.resourcePath) {
+        entry.resourcePath = callRecord.target.resourcePath;
+    }
+
+    const reference = cloneScriptReference(callRecord);
+    if (reference) {
+        entry.references.push(reference);
+    }
+}
+
+function mapToObject(map, transform) {
+    return Object.fromEntries(
+        Array.from(map.entries()).map(([key, value]) => [key, transform(value)])
+    );
+}
+
+function registerMacroOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role
+}) {
+    if (!identifierRecord?.name) {
+        return;
+    }
+
+    const entry = ensureCollectionEntry(
+        identifierCollections.macros,
+        identifierRecord.name,
+        () => ({
+            name: identifierRecord.name,
+            declarations: [],
+            references: []
+        })
+    );
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    if (role === "declaration") {
+        entry.declarations.push(clone);
+    } else if (role === "reference") {
+        entry.references.push(clone);
+    }
+}
+
+function registerEnumOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role,
+    enumLookup
+}) {
+    const targetLocation =
+    role === "reference"
+        ? identifierRecord?.declaration?.start
+        : identifierRecord?.start;
+
+    const enumKey = buildFileLocationKey(filePath, targetLocation);
+    if (!enumKey) {
+        return;
+    }
+
+    const enumInfo = enumLookup?.enumDeclarations?.get(enumKey) ?? null;
+    const entry = ensureCollectionEntry(
+        identifierCollections.enums,
+        enumKey,
+        () => ({
+            key: enumKey,
+            name: enumInfo?.name ?? identifierRecord?.name ?? null,
+            filePath: enumInfo?.filePath ?? filePath ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+
+    if (enumInfo && !entry.name) {
+        entry.name = enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
+    }
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    if (role === "declaration") {
+        entry.declarations.push(clone);
+    } else if (role === "reference") {
+        entry.references.push(clone);
+    }
+}
+
+function registerEnumMemberOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role,
+    enumLookup
+}) {
+    const targetLocation =
+    role === "reference"
+        ? identifierRecord?.declaration?.start
+        : identifierRecord?.start;
+
+    const memberKey = buildFileLocationKey(filePath, targetLocation);
+    if (!memberKey) {
+        return;
+    }
+
+    const memberInfo = enumLookup?.memberDeclarations?.get(memberKey) ?? null;
+    const enumKey = memberInfo?.enumKey ?? null;
+
+    const entry = ensureCollectionEntry(
+        identifierCollections.enumMembers,
+        memberKey,
+        () => ({
+            key: memberKey,
+            name: memberInfo?.name ?? identifierRecord?.name ?? null,
+            enumKey,
+            enumName: memberInfo?.enumKey
+                ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+                : null,
+            filePath: memberInfo?.filePath ?? filePath ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+
+    if (memberInfo?.enumKey && !entry.enumName) {
+        entry.enumName =
+      enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
+      entry.enumName;
+    }
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    if (role === "declaration") {
+        entry.declarations.push(clone);
+    } else if (role === "reference") {
+        entry.references.push(clone);
+    }
+}
+
+function registerGlobalOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role
+}) {
+    if (!identifierRecord?.name) {
+        return;
+    }
+
+    const entry = ensureCollectionEntry(
+        identifierCollections.globalVariables,
+        identifierRecord.name,
+        () => ({
+            name: identifierRecord.name,
+            declarations: [],
+            references: []
+        })
+    );
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    if (role === "declaration") {
+        entry.declarations.push(clone);
+    } else if (role === "reference") {
+        entry.references.push(clone);
+    }
+}
+
+function registerInstanceOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role,
+    scopeDescriptor
+}) {
+    if (!identifierRecord?.name) {
+        return;
+    }
+
+    const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
+    const entry = ensureCollectionEntry(
+        identifierCollections.instanceVariables,
+        key,
+        () => ({
+            key,
+            name: identifierRecord.name,
+            scopeId: scopeDescriptor?.id ?? null,
+            scopeKind: scopeDescriptor?.kind ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+    if (role === "declaration") {
+        entry.declarations.push(clone);
+    } else if (role === "reference") {
+        entry.references.push(clone);
+    }
+}
+
+function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
+    if (!identifierRecord || role !== "reference") {
+        return false;
+    }
+
+    if (!scopeDescriptor || scopeDescriptor.kind !== "objectEvent") {
+        return false;
+    }
+
+    const classifications = Array.isArray(identifierRecord.classifications)
+        ? identifierRecord.classifications
+        : [];
+
+    if (classifications.includes("global")) {
+        return false;
+    }
+
+    if (identifierRecord.declaration && identifierRecord.declaration.scopeId) {
+        return false;
+    }
+
+    if (identifierRecord.isBuiltIn) {
+        return false;
+    }
+
+    if (!classifications.includes("reference")) {
+        return false;
+    }
+
+    return true;
+}
+
+function registerIdentifierOccurrence({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    role,
+    enumLookup,
+    scopeDescriptor
+}) {
+    if (!identifierRecord || !identifierCollections) {
+        return;
+    }
+
+    const classifications = Array.isArray(identifierRecord.classifications)
+        ? identifierRecord.classifications
+        : [];
+
+    if (role === "declaration" && classifications.includes("script")) {
+        registerScriptDeclaration({
+            identifierCollections,
+            descriptor: scopeDescriptor,
+            declarationRecord: identifierRecord,
+            filePath
+        });
+    }
+
+    if (classifications.includes("macro")) {
+        registerMacroOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath,
+            role
+        });
+    }
+
+    if (classifications.includes("enum")) {
+        registerEnumOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath,
+            role,
+            enumLookup
+        });
+    }
+
+    if (classifications.includes("enum-member")) {
+        registerEnumMemberOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath,
+            role,
+            enumLookup
+        });
+    }
+
+    if (
+        classifications.includes("variable") &&
+    classifications.includes("global")
+    ) {
+        registerGlobalOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath,
+            role
+        });
+    }
+
+    if (shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor })) {
+        registerInstanceOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath,
+            role: "reference",
+            scopeDescriptor
+        });
+    }
+}
+
+function registerInstanceAssignment({
+    identifierCollections,
+    identifierRecord,
+    filePath,
+    scopeDescriptor
+}) {
+    if (!identifierCollections || !identifierRecord || !identifierRecord.name) {
+        return;
+    }
+
+    const entry = ensureCollectionEntry(
+        identifierCollections.instanceVariables,
+        `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
+        () => ({
+            key: `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`,
+            name: identifierRecord.name,
+            scopeId: scopeDescriptor?.id ?? null,
+            scopeKind: scopeDescriptor?.kind ?? null,
+            declarations: [],
+            references: []
+        })
+    );
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+
+    const hasExisting = entry.declarations.some((existing) => {
+        const existingKey = buildLocationKey(existing.start);
+        const currentKey = buildLocationKey(clone.start);
+        return existingKey && currentKey && existingKey === currentKey;
+    });
+
+    if (!hasExisting) {
+        entry.declarations.push(clone);
+    }
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
@@ -673,8 +1268,12 @@ function analyseGmlAst({
     fileRecord,
     relationships,
     scriptNameToScopeId,
-    scriptNameToResourcePath
+    scriptNameToResourcePath,
+    identifierCollections,
+    scopeDescriptor
 }) {
+    const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
+
     traverseAst(ast, (node) => {
         if (node?.type === "Identifier" && Array.isArray(node.classifications)) {
             const identifierRecord = createIdentifierRecord(node);
@@ -696,11 +1295,29 @@ function analyseGmlAst({
             if (isDeclaration) {
                 fileRecord.declarations.push(identifierRecord);
                 scopeRecord.declarations.push(identifierRecord);
+
+                registerIdentifierOccurrence({
+                    identifierCollections,
+                    identifierRecord,
+                    filePath: fileRecord?.filePath ?? null,
+                    role: "declaration",
+                    enumLookup,
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                });
             }
 
             if (isReference) {
                 fileRecord.references.push(identifierRecord);
                 scopeRecord.references.push(identifierRecord);
+
+                registerIdentifierOccurrence({
+                    identifierCollections,
+                    identifierRecord,
+                    filePath: fileRecord?.filePath ?? null,
+                    role: "reference",
+                    enumLookup,
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                });
             }
         }
 
@@ -741,6 +1358,38 @@ function analyseGmlAst({
             fileRecord.scriptCalls.push(callRecord);
             scopeRecord.scriptCalls.push(callRecord);
             relationships.scriptCalls.push(callRecord);
+        }
+
+        if (
+            node?.type === "AssignmentExpression" &&
+      node.left?.type === "Identifier" &&
+      scopeDescriptor?.kind === "objectEvent"
+        ) {
+            const leftRecord = createIdentifierRecord(node.left);
+            const classifications = Array.isArray(leftRecord.classifications)
+                ? leftRecord.classifications
+                : [];
+
+            const isGlobalAssignment =
+        classifications.includes("global") || leftRecord.isGlobalIdentifier;
+            const hasDeclaration = Boolean(
+                leftRecord.declaration && leftRecord.declaration.scopeId
+            );
+
+            if (
+                identifierCollections &&
+        !isGlobalAssignment &&
+        !hasDeclaration &&
+        leftRecord.name &&
+        !builtInNames.has(leftRecord.name)
+            ) {
+                registerInstanceAssignment({
+                    identifierCollections,
+                    identifierRecord: leftRecord,
+                    filePath: fileRecord?.filePath ?? null,
+                    scopeDescriptor: scopeDescriptor ?? scopeRecord
+                });
+            }
         }
     });
 }
@@ -783,6 +1432,7 @@ export async function buildProjectIndex(
             cloneAssetReference(reference)
         )
     };
+    const identifierCollections = createIdentifierCollections();
 
     for (const file of gmlFiles) {
         let contents;
@@ -801,6 +1451,7 @@ export async function buildProjectIndex(
 
         const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
         pushUnique(scopeRecord.filePaths, file.relativePath);
+        ensureScriptEntry(identifierCollections, scopeDescriptor);
 
         const fileRecord = ensureFileRecord(
             filesMap,
@@ -824,6 +1475,13 @@ export async function buildProjectIndex(
             fileRecord.declarations.push({ ...syntheticDeclaration });
             scopeRecord.declarations.push({ ...syntheticDeclaration });
             fileRecord.hasSyntheticDeclaration = true;
+
+            registerScriptDeclaration({
+                identifierCollections,
+                descriptor: scopeDescriptor,
+                declarationRecord: syntheticDeclaration,
+                filePath: file.relativePath
+            });
         }
 
         const ast = GMLParser.parse(contents, {
@@ -840,7 +1498,16 @@ export async function buildProjectIndex(
             fileRecord,
             relationships,
             scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath
+            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
+            identifierCollections,
+            scopeDescriptor
+        });
+    }
+
+    for (const callRecord of relationships.scriptCalls) {
+        registerScriptReference({
+            identifierCollections,
+            callRecord
         });
     }
 
@@ -899,11 +1566,75 @@ export async function buildProjectIndex(
         ])
     );
 
+    const identifiers = {
+        scripts: mapToObject(identifierCollections.scripts, (entry) => ({
+            id: entry.id,
+            name: entry.name ?? null,
+            displayName: entry.displayName ?? entry.name ?? entry.id,
+            resourcePath: entry.resourcePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((reference) => ({
+                filePath: reference.filePath ?? null,
+                scopeId: reference.scopeId ?? null,
+                targetName: reference.targetName ?? null,
+                targetResourcePath: reference.targetResourcePath ?? null,
+                location: reference.location
+                    ? {
+                        start: cloneLocation(reference.location.start),
+                        end: cloneLocation(reference.location.end)
+                    }
+                    : null,
+                isResolved: reference.isResolved ?? false
+            }))
+        })),
+        macros: mapToObject(identifierCollections.macros, (entry) => ({
+            name: entry.name,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        enums: mapToObject(identifierCollections.enums, (entry) => ({
+            key: entry.key,
+            name: entry.name ?? null,
+            filePath: entry.filePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        enumMembers: mapToObject(identifierCollections.enumMembers, (entry) => ({
+            key: entry.key,
+            name: entry.name ?? null,
+            enumKey: entry.enumKey ?? null,
+            enumName: entry.enumName ?? null,
+            filePath: entry.filePath ?? null,
+            declarations: entry.declarations.map((item) => ({ ...item })),
+            references: entry.references.map((item) => ({ ...item }))
+        })),
+        globalVariables: mapToObject(
+            identifierCollections.globalVariables,
+            (entry) => ({
+                name: entry.name,
+                declarations: entry.declarations.map((item) => ({ ...item })),
+                references: entry.references.map((item) => ({ ...item }))
+            })
+        ),
+        instanceVariables: mapToObject(
+            identifierCollections.instanceVariables,
+            (entry) => ({
+                key: entry.key,
+                name: entry.name ?? null,
+                scopeId: entry.scopeId ?? null,
+                scopeKind: entry.scopeKind ?? null,
+                declarations: entry.declarations.map((item) => ({ ...item })),
+                references: entry.references.map((item) => ({ ...item }))
+            })
+        )
+    };
+
     return {
         projectRoot: resolvedRoot,
         resources,
         scopes,
         files,
-        relationships
+        relationships,
+        identifiers
     };
 }
