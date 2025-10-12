@@ -26,3 +26,15 @@ test("adds synthetic @returns doc for functions without return value", async () 
         "Synthetic doc comments should describe undefined returns."
     );
 });
+
+test("adds synthetic @returns doc for empty function bodies", async () => {
+    const source = "function noop() {}\n";
+    const formatted = await formatWithPlugin(source);
+    const trimmed = formatted.trim();
+
+    assert.match(
+        trimmed,
+        /^\/\/\/ @function noop\n\/\/\/ @returns \{undefined\}\nfunction noop\(\) \{\}/,
+        "Synthetic doc comments should annotate empty functions with undefined returns."
+    );
+});

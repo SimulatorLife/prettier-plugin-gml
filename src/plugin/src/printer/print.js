@@ -1984,8 +1984,12 @@ function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
             ? body.body
             : null;
 
-    if (!statements || statements.length === 0) {
-        return lines;
+    if (!statements) {
+        return [...lines, "/// @returns {undefined}"];
+    }
+
+    if (statements.length === 0) {
+        return [...lines, "/// @returns {undefined}"];
     }
 
     if (functionReturnsNonUndefinedValue(functionNode)) {
