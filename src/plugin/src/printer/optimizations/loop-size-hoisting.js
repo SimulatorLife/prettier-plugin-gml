@@ -1,15 +1,15 @@
 // Helpers for detecting and naming cached loop size variables.
-// This logic analyses the AST rather than producing Prettier docs, so it lives
+// This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
 import { getIdentifierText } from "../../../../shared/ast-node-helpers.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
-    ["ds_list_size", "size"],
-    ["ds_map_size", "size"],
+    ["ds_grid_height", "height"],
     ["ds_grid_width", "width"],
-    ["ds_grid_height", "height"]
+    ["ds_list_size", "size"],
+    ["ds_map_size", "size"]
 ]);
 
 const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(

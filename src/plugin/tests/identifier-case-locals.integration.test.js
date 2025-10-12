@@ -230,7 +230,7 @@ describe("identifier case local renaming", () => {
 
     it("differentiates dry-run versus write output for eligible locals", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-      await createTempProject("locals-write.gml");
+            await createTempProject("locals-write.gml");
 
         const baseOptions = {
             plugins: [pluginPath],
@@ -296,9 +296,8 @@ describe("identifier case local renaming", () => {
                 __identifierCaseDryRun: false
             };
             prepareIdentifierCasePlan(writeReportOptions);
-            const writeReport = maybeReportIdentifierCaseDryRun(
-                writeReportOptions
-            );
+            const writeReport =
+                maybeReportIdentifierCaseDryRun(writeReportOptions);
             assert.ok(writeReport, "Expected write mode report to be recorded");
             assert.strictEqual(writeReport.summary.renameCount, 1);
             assert.strictEqual(writeReport.summary.conflictCount, 0);
