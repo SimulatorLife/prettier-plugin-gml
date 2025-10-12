@@ -1986,7 +1986,21 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @function ${functionName}`);
     }
 
+    const implicitArgumentDocNames = collectImplicitArgumentDocNames(
+        node,
+        options
+    );
+
     if (!Array.isArray(node.params)) {
+        for (const docName of implicitArgumentDocNames) {
+            if (documentedParamNames.has(docName)) {
+                continue;
+            }
+
+            documentedParamNames.add(docName);
+            lines.push(`/// @param ${docName}`);
+        }
+
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag);
     }
 
@@ -2026,9 +2040,138 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
+    for (const docName of implicitArgumentDocNames) {
+        if (documentedParamNames.has(docName)) {
+            continue;
+        }
+
+        documentedParamNames.add(docName);
+        lines.push(`/// @param ${docName}`);
+    }
+
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag).map((line) =>
         normalizeDocCommentTypeAnnotations(line)
     );
+}
+
+function collectImplicitArgumentDocNames(functionNode, options) {
+    if (
+        !functionNode ||
+        functionNode.type !== "FunctionDeclaration" ||
+        options?.applyFeatherFixes !== true
+    ) {
+        return [];
+    }
+
+    const referencedIndices = new Set();
+    const aliasByIndex = new Map();
+
+    const visit = (node, parent) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (node === functionNode) {
+            visit(functionNode.body, node);
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child, parent);
+            }
+            return;
+        }
+
+        if (
+            node !== functionNode &&
+            (node.type === "FunctionDeclaration" ||
+                node.type === "FunctionExpression" ||
+                node.type === "ConstructorDeclaration")
+        ) {
+            return;
+        }
+
+        if (node.type === "VariableDeclarator") {
+            const aliasIndex = getArgumentIndexFromNode(node.init);
+            if (
+                aliasIndex !== null &&
+                node.id?.type === "Identifier" &&
+                !aliasByIndex.has(aliasIndex)
+            ) {
+                const aliasName = normalizeDocMetadataName(node.id.name);
+                if (typeof aliasName === "string" && aliasName.length > 0) {
+                    aliasByIndex.set(aliasIndex, aliasName);
+                }
+            }
+        }
+
+        const directIndex = getArgumentIndexFromNode(node);
+        if (directIndex !== null) {
+            referencedIndices.add(directIndex);
+        }
+
+        for (const value of Object.values(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            visit(value, node);
+        }
+    };
+
+    visit(functionNode.body, functionNode);
+
+    if (referencedIndices.size === 0) {
+        return [];
+    }
+
+    const sortedIndices = [...referencedIndices].sort(
+        (left, right) => left - right
+    );
+    return sortedIndices.map((index) => {
+        const alias = aliasByIndex.get(index);
+        return alias && alias.length > 0 ? alias : `argument${index}`;
+    });
+}
+
+function getArgumentIndexFromNode(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return getArgumentIndexFromIdentifier(node.name);
+    }
+
+    if (
+        node.type === "MemberIndexExpression" &&
+        node.object?.type === "Identifier" &&
+        node.object.name === "argument" &&
+        Array.isArray(node.property) &&
+        node.property.length === 1 &&
+        node.property[0]?.type === "Literal"
+    ) {
+        const literal = node.property[0];
+        const parsed = Number.parseInt(literal.value, 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    return null;
+}
+
+function getArgumentIndexFromIdentifier(name) {
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    const match = name.match(/^argument(\d+)$/);
+    if (!match) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
