@@ -12,6 +12,7 @@ import {
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
+import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -94,6 +95,10 @@ function parse(text, options) {
 
     if (options?.condenseLogicalExpressions) {
         condenseLogicalExpressions(ast);
+    }
+
+    if (options?.convertManualMathToBuiltins) {
+        convertManualMathExpressions(ast);
     }
 
     preprocessFunctionArgumentDefaults(ast);

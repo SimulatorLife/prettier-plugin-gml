@@ -1,8 +1,8 @@
-name: Codex 01 – Refactor & DRY
+name: Codex 01 – DRY
 on:
   schedule:
-    - cron: "0 */3 * * *" # every 3 hours (two runs per 3-hour window via staggered start)
-    - cron: "30 1/3 * * *" # offset by 90 minutes for alternating cadence
+    - cron: "0 */2 * * *" # every 2 hours (two runs per 2-hour window via staggered start)
+    - cron: "30 1/2 * * *" # offset by 30 minutes for alternating cadence
   workflow_dispatch:
 
 permissions:
