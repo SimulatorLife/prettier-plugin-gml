@@ -26,6 +26,27 @@ function buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
     };
 }
 
+function coerceBannerMinimum(value) {
+    return coercePositiveIntegerOption(
+        value,
+        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
+    );
+}
+
+function coerceBannerAutofillThreshold(value) {
+    return coercePositiveIntegerOption(
+        value,
+        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
+        {
+            zeroReplacement: Number.POSITIVE_INFINITY
+        }
+    );
+}
+
+function createLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
+    return buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold);
+}
+
 function readLineCommentOption(value, fallback) {
     return typeof value === "number" ? value : fallback;
 }
@@ -54,25 +75,13 @@ function resolveLineCommentOptions(options) {
         options,
         LINE_COMMENT_OPTIONS_CACHE_KEY,
         lineCommentOptionsCache,
-        () => {
-            const bannerMinimum = coercePositiveIntegerOption(
-                lineCommentBannerMinimumSlashes,
-                DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-            );
-
-            const bannerAutofillThreshold = coercePositiveIntegerOption(
-                lineCommentBannerAutofillThreshold,
-                DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-                {
-                    zeroReplacement: Number.POSITIVE_INFINITY
-                }
-            );
-
-            return buildLineCommentOptions(
-                bannerMinimum,
-                bannerAutofillThreshold
-            );
-        }
+        () =>
+            createLineCommentOptions(
+                coerceBannerMinimum(lineCommentBannerMinimumSlashes),
+                coerceBannerAutofillThreshold(
+                    lineCommentBannerAutofillThreshold
+                )
+            )
     );
 }
 
@@ -283,14 +292,14 @@ function normalizeLineCommentOptions(lineCommentOptions) {
         typeof lineCommentOptions === "number" &&
         Number.isFinite(lineCommentOptions)
     ) {
-        return buildLineCommentOptions(
+        return createLineCommentOptions(
             lineCommentOptions,
             DEFAULT_LINE_COMMENT_OPTIONS.bannerAutofillThreshold
         );
     }
 
     if (lineCommentOptions && typeof lineCommentOptions === "object") {
-        return buildLineCommentOptions(
+        return createLineCommentOptions(
             readLineCommentOption(
                 lineCommentOptions.bannerMinimum,
                 DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
