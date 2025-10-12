@@ -1517,6 +1517,88 @@ describe("applyFeatherFixes transform", () => {
         }
     });
 
+    it("normalizes zero denominators flagged by GM1015 and records metadata", () => {
+        const source = [
+            "var total = 10 / 0;",
+            "total /= 0;",
+            "total = total % (0);",
+            "total %= (-0);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [declaration, assignment, moduloAssignment, moduloCompound] =
+            ast.body ?? [];
+
+        const binary = declaration?.declarations?.[0]?.init;
+        assert.strictEqual(binary?.type, "BinaryExpression");
+        assert.strictEqual(binary?.right?.type, "Literal");
+        assert.strictEqual(binary?.right?.value, "1");
+
+        assert.strictEqual(assignment?.type, "AssignmentExpression");
+        assert.strictEqual(assignment?.right?.type, "Literal");
+        assert.strictEqual(assignment?.right?.value, "1");
+
+        const moduloBinary = moduloAssignment?.right;
+        assert.strictEqual(moduloBinary?.type, "BinaryExpression");
+        assert.strictEqual(
+            moduloBinary?.right?.type,
+            "ParenthesizedExpression"
+        );
+        assert.strictEqual(moduloBinary?.right?.expression?.type, "Literal");
+        assert.strictEqual(moduloBinary?.right?.expression?.value, "1");
+
+        const moduloCompoundRight = moduloCompound?.right;
+        assert.strictEqual(
+            moduloCompoundRight?.type,
+            "ParenthesizedExpression"
+        );
+        const moduloCompoundUnary = moduloCompoundRight?.expression;
+        assert.strictEqual(moduloCompoundUnary?.type, "UnaryExpression");
+        assert.strictEqual(moduloCompoundUnary?.argument?.type, "Literal");
+        assert.strictEqual(moduloCompoundUnary?.argument?.value, "1");
+
+        const binaryFixes = binary?._appliedFeatherDiagnostics ?? [];
+        const divideAssignFixes = assignment?._appliedFeatherDiagnostics ?? [];
+        const moduloBinaryFixes =
+            moduloBinary?._appliedFeatherDiagnostics ?? [];
+        const moduloCompoundFixes =
+            moduloCompound?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            binaryFixes.some((fix) => fix.id === "GM1015"),
+            true
+        );
+        assert.strictEqual(
+            divideAssignFixes.some((fix) => fix.id === "GM1015"),
+            true
+        );
+        assert.strictEqual(
+            moduloBinaryFixes.some((fix) => fix.id === "GM1015"),
+            true
+        );
+        assert.strictEqual(
+            moduloCompoundFixes.some((fix) => fix.id === "GM1015"),
+            true
+        );
+
+        const applied = ast._appliedFeatherDiagnostics ?? [];
+        const gm1015Fixes = applied.filter((entry) => entry.id === "GM1015");
+
+        assert.strictEqual(gm1015Fixes.length >= 4, true);
+
+        for (const entry of gm1015Fixes) {
+            assert.strictEqual(entry.target, "0");
+            assert.notStrictEqual(entry.range, null);
+            assert.strictEqual(entry.automatic, true);
+        }
+    });
+
     it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
         const topLevelLiteral = {
             type: "ExpressionStatement",
