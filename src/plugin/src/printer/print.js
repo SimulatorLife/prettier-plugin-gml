@@ -1765,6 +1765,7 @@ function computeSyntheticFunctionDocLines(
       typeof meta.name === "string" &&
       meta.name.trim().length > 0
     );
+    const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
@@ -1795,7 +1796,7 @@ function computeSyntheticFunctionDocLines(
     }
 
     if (!Array.isArray(node.params)) {
-        return lines;
+        return maybeAppendReturnsDoc(lines, node, hasReturnsTag);
     }
 
     for (const param of node.params) {
@@ -1829,7 +1830,96 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
-    return lines.map((line) => normalizeDocCommentTypeAnnotations(line));
+    return maybeAppendReturnsDoc(lines, node, hasReturnsTag).map((line) =>
+        normalizeDocCommentTypeAnnotations(line)
+    );
+}
+
+function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
+    if (!Array.isArray(lines)) {
+        return [];
+    }
+
+    if (
+        hasReturnsTag ||
+    !functionNode ||
+    functionNode.type !== "FunctionDeclaration"
+    ) {
+        return lines;
+    }
+
+    if (functionReturnsNonUndefinedValue(functionNode)) {
+        return lines;
+    }
+
+    return [...lines, "/// @returns {undefined}"];
+}
+
+function functionReturnsNonUndefinedValue(functionNode) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+        return false;
+    }
+
+    const body = functionNode.body;
+    if (body?.type !== "BlockStatement" || !Array.isArray(body.body)) {
+        return false;
+    }
+
+    const stack = [...body.body];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (visited.has(current)) {
+            continue;
+        }
+        visited.add(current);
+
+        switch (current.type) {
+            case "FunctionDeclaration":
+            case "ConstructorDeclaration":
+            case "FunctionExpression":
+                continue;
+            case "ReturnStatement": {
+                const argument = current.argument;
+                if (!argument) {
+                    continue;
+                }
+
+                if (!isUndefinedLiteral(argument)) {
+                    return true;
+                }
+
+                continue;
+            }
+            default:
+                break;
+        }
+
+        for (const value of Object.values(current)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (let index = 0; index < value.length; index += 1) {
+                    const child = value[index];
+                    if (child && typeof child === "object") {
+                        stack.push(child);
+                    }
+                }
+                continue;
+            }
+
+            stack.push(value);
+        }
+    }
+
+    return false;
 }
 
 function parseDocCommentMetadata(line) {
