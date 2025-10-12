@@ -26,9 +26,9 @@ function getStartIndex(node) {
     }
 
     const isMemberAccess =
-    (node.type === "MemberDotExpression" ||
-      node.type === "MemberIndexExpression") &&
-    node.object;
+        (node.type === "MemberDotExpression" ||
+            node.type === "MemberIndexExpression") &&
+        node.object;
 
     if (isMemberAccess) {
         const objectStart = getStartIndex(node.object);

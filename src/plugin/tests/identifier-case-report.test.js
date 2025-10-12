@@ -136,8 +136,7 @@ describe("identifier case reporting", () => {
 
         try {
             const formatted = await formatWithReporter({
-                source:
-          "function attack(target) {\n    return calc_damage(target);\n}\n",
+                source: "function attack(target) {\n    return calc_damage(target);\n}\n",
                 renamePlan,
                 conflicts,
                 dryRun: true,
@@ -159,8 +158,14 @@ describe("identifier case reporting", () => {
                 joinedMessages,
                 /Planned renames: 2 \(4 references across 2 files\)/i
             );
-            assert.match(joinedMessages, /Conflicts: 2 \(1 error, 1 warning\)/i);
-            assert.match(joinedMessages, /script\.attack: calc_damage -> calcDamage/);
+            assert.match(
+                joinedMessages,
+                /Conflicts: 2 \(1 error, 1 warning\)/i
+            );
+            assert.match(
+                joinedMessages,
+                /script\.attack: calc_damage -> calcDamage/
+            );
             assert.match(
                 joinedMessages,
                 /macro\.damage_cap: damage_cap -> DAMAGE_CAP/
@@ -210,15 +215,18 @@ describe("identifier case reporting", () => {
 
         try {
             const formatted = await formatWithReporter({
-                source:
-          "function attack(target) {\n    return calc_damage(target);\n}\n",
+                source: "function attack(target) {\n    return calc_damage(target);\n}\n",
                 renamePlan,
                 conflicts,
                 dryRun: false,
                 diagnostics,
                 logPath: null,
                 logger,
-                filepath: path.join(os.tmpdir(), "dry-run-write-mode", "attack.gml")
+                filepath: path.join(
+                    os.tmpdir(),
+                    "dry-run-write-mode",
+                    "attack.gml"
+                )
             });
 
             assert.match(formatted, /function attack\(target\)/);

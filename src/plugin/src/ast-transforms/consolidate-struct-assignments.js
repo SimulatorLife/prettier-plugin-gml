@@ -10,7 +10,10 @@ const FALLBACK_COMMENT_TOOLS = Object.freeze({
 });
 
 function normalizeCommentTools(commentTools) {
-    if (!commentTools || typeof commentTools.addTrailingComment !== "function") {
+    if (
+        !commentTools ||
+        typeof commentTools.addTrailingComment !== "function"
+    ) {
         return FALLBACK_COMMENT_TOOLS;
     }
 
@@ -63,9 +66,9 @@ function visit(node, tracker, commentTools) {
     for (const [key, value] of Object.entries(node)) {
         if (
             key === "body" ||
-      key === "start" ||
-      key === "end" ||
-      key === "comments"
+            key === "start" ||
+            key === "end" ||
+            key === "comments"
         ) {
             continue;
         }
@@ -191,7 +194,8 @@ function collectPropertyAssignments({
                 comment._structPropertyHandled = false;
                 property.comments.push(comment);
             }
-            const lastComment = attachableComments[attachableComments.length - 1];
+            const lastComment =
+                attachableComments[attachableComments.length - 1];
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd != null ? commentEnd : end;
         } else {
@@ -270,14 +274,14 @@ function getStructInitializer(statement) {
 
         if (
             !isNode(declarator.init) ||
-      declarator.init.type !== STRUCT_EXPRESSION
+            declarator.init.type !== STRUCT_EXPRESSION
         ) {
             return null;
         }
 
         if (
             Array.isArray(declarator.init.properties) &&
-      declarator.init.properties.length > 0
+            declarator.init.properties.length > 0
         ) {
             return null;
         }
@@ -299,14 +303,14 @@ function getStructInitializer(statement) {
 
         if (
             !isNode(statement.right) ||
-      statement.right.type !== STRUCT_EXPRESSION
+            statement.right.type !== STRUCT_EXPRESSION
         ) {
             return null;
         }
 
         if (
             Array.isArray(statement.right.properties) &&
-      statement.right.properties.length > 0
+            statement.right.properties.length > 0
         ) {
             return null;
         }
@@ -351,13 +355,16 @@ function buildPropertyFromAssignment(assignmentDetails) {
         name: propertyName,
         value: assignment.right,
         start:
-      cloneLocation(
-          getPreferredLocation(propertyAccess.propertyStart, assignment.start)
-      ) ?? null,
+            cloneLocation(
+                getPreferredLocation(
+                    propertyAccess.propertyStart,
+                    assignment.start
+                )
+            ) ?? null,
         end:
-      cloneLocation(
-          getPreferredLocation(assignment.right?.end, assignment.end)
-      ) ?? null
+            cloneLocation(
+                getPreferredLocation(assignment.right?.end, assignment.end)
+            ) ?? null
     };
 }
 
@@ -423,7 +430,7 @@ function getPropertyKeyInfo(propertyNode) {
 
     if (
         propertyNode.type === IDENTIFIER &&
-    typeof propertyNode.name === "string"
+        typeof propertyNode.name === "string"
     ) {
         return {
             identifierName: propertyNode.name,
@@ -433,7 +440,10 @@ function getPropertyKeyInfo(propertyNode) {
         };
     }
 
-    if (propertyNode.type === LITERAL && typeof propertyNode.value === "string") {
+    if (
+        propertyNode.type === LITERAL &&
+        typeof propertyNode.value === "string"
+    ) {
         const unquoted = stripStringQuotes(propertyNode.value);
         return {
             identifierName: unquoted,
@@ -497,7 +507,8 @@ function allowTrailingCommentsBetween({
 
     if (
         commentEntries.some(
-            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
+            ({ comment }) =>
+                !isTrailingLineCommentOnLine(comment, expectedLine)
         )
     ) {
         return false;
@@ -582,8 +593,8 @@ function isAttachableTrailingComment(comment, statement) {
     const statementEndIndex = getNodeEndIndex(statement);
     if (
         typeof commentStartIndex === "number" &&
-    typeof statementEndIndex === "number" &&
-    commentStartIndex <= statementEndIndex
+        typeof statementEndIndex === "number" &&
+        commentStartIndex <= statementEndIndex
     ) {
         return false;
     }
@@ -640,9 +651,9 @@ class CommentTracker {
     hasBetween(left, right) {
         if (
             !this.entries.length ||
-      left == null ||
-      right == null ||
-      left >= right
+            left == null ||
+            right == null ||
+            left >= right
         ) {
             return false;
         }
@@ -722,9 +733,9 @@ class CommentTracker {
     getEntriesBetween(left, right) {
         if (
             !this.entries.length ||
-      left == null ||
-      right == null ||
-      left >= right
+            left == null ||
+            right == null ||
+            left >= right
         ) {
             return [];
         }

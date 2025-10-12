@@ -149,11 +149,11 @@ export function sanitizeConditionalAssignments(sourceText) {
 
         if (
             (character === "i" || character === "I") &&
-      (nextCharacter === "f" || nextCharacter === "F")
+            (nextCharacter === "f" || nextCharacter === "F")
         ) {
             const prevCharacter = index > 0 ? sourceText[index - 1] : "";
             const followingCharacter =
-        index + 2 < length ? sourceText[index + 2] : "";
+                index + 2 < length ? sourceText[index + 2] : "";
 
             if (!isWordChar(prevCharacter) && !isWordChar(followingCharacter)) {
                 append(character);
@@ -223,7 +223,8 @@ export function sanitizeConditionalAssignments(sourceText) {
             if (character === "=") {
                 const prevCharacter = index > 0 ? sourceText[index - 1] : "";
                 const shouldSkip =
-          nextCharacter === "=" || assignmentGuardCharacters.has(prevCharacter);
+                    nextCharacter === "=" ||
+                    assignmentGuardCharacters.has(prevCharacter);
 
                 if (!shouldSkip) {
                     append("=");

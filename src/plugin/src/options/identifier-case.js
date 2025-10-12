@@ -1,7 +1,7 @@
 // options/identifier-case.js
 
 const IDENTIFIER_CASE_DESCRIPTION =
-  "Sets the preferred casing style to apply when renaming identifiers.";
+    "Sets the preferred casing style to apply when renaming identifiers.";
 
 export const IDENTIFIER_CASE_STYLES = Object.freeze([
     "off",
@@ -27,7 +27,7 @@ export const IDENTIFIER_CASE_BASE_OPTION_NAME = "gmlIdentifierCase";
 export const IDENTIFIER_CASE_IGNORE_OPTION_NAME = "gmlIdentifierCaseIgnore";
 export const IDENTIFIER_CASE_PRESERVE_OPTION_NAME = "gmlIdentifierCasePreserve";
 export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME =
-  "gmlIdentifierCaseAcknowledgeAssetRenames";
+    "gmlIdentifierCaseAcknowledgeAssetRenames";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -106,7 +106,7 @@ export const identifierCaseOptions = {
         category: "gml",
         default: "off",
         description:
-      "Configures the default identifier case conversion style applied to eligible declarations.",
+            "Configures the default identifier case conversion style applied to eligible declarations.",
         choices: IDENTIFIER_CASE_STYLE_CHOICES
     },
     [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: {
@@ -115,7 +115,7 @@ export const identifierCaseOptions = {
         category: "gml",
         default: "",
         description:
-      "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
+            "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
     },
     [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
@@ -123,7 +123,7 @@ export const identifierCaseOptions = {
         category: "gml",
         default: "",
         description:
-      "Comma- or newline-separated list of identifier names that must be preserved without renaming."
+            "Comma- or newline-separated list of identifier names that must be preserved without renaming."
     },
     [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
@@ -131,7 +131,7 @@ export const identifierCaseOptions = {
         category: "gml",
         default: false,
         description:
-      "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
+            "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
     }
 };
 
@@ -176,16 +176,16 @@ function resolveScopeSettings(options, baseStyle) {
         const configuredValue = options?.[optionName];
 
         const normalizedValue =
-      configuredValue === undefined
-          ? IDENTIFIER_CASE_INHERIT_VALUE
-          : configuredValue;
+            configuredValue === undefined
+                ? IDENTIFIER_CASE_INHERIT_VALUE
+                : configuredValue;
 
         scopeSettings[scope] = normalizedValue;
 
         scopeStyles[scope] =
-      normalizedValue === IDENTIFIER_CASE_INHERIT_VALUE
-          ? baseStyle
-          : normalizedValue;
+            normalizedValue === IDENTIFIER_CASE_INHERIT_VALUE
+                ? baseStyle
+                : normalizedValue;
     }
 
     return { scopeSettings, scopeStyles };
@@ -214,7 +214,7 @@ export function normalizeIdentifierCaseOptions(options = {}) {
 
     const effectiveAssetStyle = scopeStyles.assets;
     const assetRenamesEnabled =
-    effectiveAssetStyle && effectiveAssetStyle !== "off";
+        effectiveAssetStyle && effectiveAssetStyle !== "off";
 
     if (assetRenamesEnabled && !assetRenamesAcknowledged) {
         throw new Error(

@@ -21,9 +21,9 @@ function statementShouldEndWithSemicolon(path) {
             "IfStatement",
             "SwitchStatement"
         ].includes(parentNode.type) &&
-    node.type !== "BlockStatement" &&
-    node.type !== "IfStatement" &&
-    (parentNode.body === node || parentNode.alternate === node)
+        node.type !== "BlockStatement" &&
+        node.type !== "IfStatement" &&
+        (parentNode.body === node || parentNode.alternate === node)
     ) {
         return true;
     }

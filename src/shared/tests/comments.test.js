@@ -13,7 +13,10 @@ import {
 test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode(null), false);
     assert.equal(isCommentNode({ type: "Program" }), false);
-    assert.equal(isCommentNode({ type: "CommentLine", value: "example" }), true);
+    assert.equal(
+        isCommentNode({ type: "CommentLine", value: "example" }),
+        true
+    );
     assert.equal(isCommentNode({ type: "CommentBlock" }), true);
 });
 

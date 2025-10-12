@@ -74,7 +74,8 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
             continue;
         }
 
-        const normalizedSuffix = trimmedSuffix.length > 0 ? trimmedSuffix : "len";
+        const normalizedSuffix =
+            trimmedSuffix.length > 0 ? trimmedSuffix : "len";
         overrides.set(normalizedName, normalizedSuffix);
     }
 
@@ -141,14 +142,18 @@ function getLoopLengthHoistInfo(
         const argument = update.argument;
         if (
             !argument ||
-      argument.type !== "Identifier" ||
-      argument.name !== iterator.name
+            argument.type !== "Identifier" ||
+            argument.name !== iterator.name
         ) {
             return null;
         }
     } else if (update.type === "AssignmentExpression") {
         const left = update.left;
-        if (!left || left.type !== "Identifier" || left.name !== iterator.name) {
+        if (
+            !left ||
+            left.type !== "Identifier" ||
+            left.name !== iterator.name
+        ) {
             return null;
         }
 

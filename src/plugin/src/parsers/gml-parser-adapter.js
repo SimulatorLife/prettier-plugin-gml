@@ -27,14 +27,21 @@ function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
 
-    if (options && typeof options === "object" && options.originalText == null) {
+    if (
+        options &&
+        typeof options === "object" &&
+        options.originalText == null
+    ) {
         options.originalText = text;
     }
 
     if (options?.applyFeatherFixes) {
         const preprocessResult = preprocessSourceForFeatherFixes(text);
 
-        if (preprocessResult && typeof preprocessResult.sourceText === "string") {
+        if (
+            preprocessResult &&
+            typeof preprocessResult.sourceText === "string"
+        ) {
             parseSource = preprocessResult.sourceText;
         }
 
@@ -74,7 +81,10 @@ function parse(text, options) {
     if (indexAdjustments && indexAdjustments.length > 0) {
         applySanitizedIndexAdjustments(ast, indexAdjustments);
         if (preprocessedFixMetadata) {
-            applySanitizedIndexAdjustments(preprocessedFixMetadata, indexAdjustments);
+            applySanitizedIndexAdjustments(
+                preprocessedFixMetadata,
+                indexAdjustments
+            );
         }
     }
 

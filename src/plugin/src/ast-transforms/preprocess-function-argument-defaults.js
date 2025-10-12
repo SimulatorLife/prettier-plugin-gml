@@ -33,21 +33,21 @@ export function preprocessFunctionArgumentDefaults(
 
     const normalizedHelpers = {
         getIdentifierText:
-      typeof helpers.getIdentifierText === "function"
-          ? helpers.getIdentifierText
-          : DEFAULT_HELPERS.getIdentifierText,
+            typeof helpers.getIdentifierText === "function"
+                ? helpers.getIdentifierText
+                : DEFAULT_HELPERS.getIdentifierText,
         isUndefinedLiteral:
-      typeof helpers.isUndefinedLiteral === "function"
-          ? helpers.isUndefinedLiteral
-          : DEFAULT_HELPERS.isUndefinedLiteral,
+            typeof helpers.isUndefinedLiteral === "function"
+                ? helpers.isUndefinedLiteral
+                : DEFAULT_HELPERS.isUndefinedLiteral,
         getSingleVariableDeclarator:
-      typeof helpers.getSingleVariableDeclarator === "function"
-          ? helpers.getSingleVariableDeclarator
-          : DEFAULT_HELPERS.getSingleVariableDeclarator,
+            typeof helpers.getSingleVariableDeclarator === "function"
+                ? helpers.getSingleVariableDeclarator
+                : DEFAULT_HELPERS.getSingleVariableDeclarator,
         hasComment:
-      typeof helpers.hasComment === "function"
-          ? helpers.hasComment
-          : DEFAULT_HELPERS.hasComment
+            typeof helpers.hasComment === "function"
+                ? helpers.hasComment
+                : DEFAULT_HELPERS.hasComment
     };
 
     traverse(ast, (node) => {
@@ -110,9 +110,9 @@ function preprocessFunctionDeclaration(node, helpers) {
 
     if (
         typeof getIdentifierText !== "function" ||
-    typeof isUndefinedLiteral !== "function" ||
-    typeof hasComment !== "function" ||
-    typeof getSingleVariableDeclarator !== "function"
+        typeof isUndefinedLiteral !== "function" ||
+        typeof hasComment !== "function" ||
+        typeof getSingleVariableDeclarator !== "function"
     ) {
         return;
     }
@@ -122,9 +122,9 @@ function preprocessFunctionDeclaration(node, helpers) {
     const body = node.body;
     if (
         !body ||
-    body.type !== "BlockStatement" ||
-    !Array.isArray(body.body) ||
-    body.body.length === 0
+        body.type !== "BlockStatement" ||
+        !Array.isArray(body.body) ||
+        body.body.length === 0
     ) {
         return;
     }
@@ -299,11 +299,17 @@ function getIdentifierFromParameter(param, { getIdentifierText }) {
         return param;
     }
 
-    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+    if (
+        param.type === "DefaultParameter" &&
+        param.left?.type === "Identifier"
+    ) {
         return param.left;
     }
 
-    if (param.type === "ConstructorParentClause" && Array.isArray(param.params)) {
+    if (
+        param.type === "ConstructorParentClause" &&
+        Array.isArray(param.params)
+    ) {
         for (const childParam of param.params) {
             const identifier = getIdentifierFromParameter(childParam, {
                 getIdentifierText
@@ -650,8 +656,8 @@ function isArgumentArrayAccess(node, expectedIndex) {
 
     if (
         !node.object ||
-    node.object.type !== "Identifier" ||
-    node.object.name !== "argument"
+        node.object.type !== "Identifier" ||
+        node.object.name !== "argument"
     ) {
         return false;
     }

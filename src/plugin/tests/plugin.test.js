@@ -101,7 +101,12 @@ async function loadTestCases() {
 
                 const options = await tryLoadOptions(baseName);
 
-                return { baseName, inputSource: rawInput, expectedOutput, options };
+                return {
+                    baseName,
+                    inputSource: rawInput,
+                    expectedOutput,
+                    options
+                };
             }
 
             if (!inputFile || !outputFile) {
@@ -150,7 +155,12 @@ async function formatWithPlugin(source, overrides) {
 const testCases = await loadTestCases();
 
 describe("Prettier GameMaker plugin fixtures", () => {
-    for (const { baseName, inputSource, expectedOutput, options } of testCases) {
+    for (const {
+        baseName,
+        inputSource,
+        expectedOutput,
+        options
+    } of testCases) {
         it(`formats ${baseName}`, async () => {
             const formatted = await formatWithPlugin(inputSource, options);
             const expected = expectedOutput.trim();
@@ -202,7 +212,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "Expected formatted output to retain the 'globalvar' declaration."
         );
         assert.ok(
-            /global\.foo = 1;/.test(formatted) && /global\.bar = 2;/.test(formatted),
+            /global\.foo = 1;/.test(formatted) &&
+                /global\.bar = 2;/.test(formatted),
             "Expected formatter to continue prefixing global assignments."
         );
     });

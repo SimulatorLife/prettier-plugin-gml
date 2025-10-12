@@ -38,7 +38,7 @@ function buildLocationKey(location) {
 
     const line = location.line ?? location.row ?? location.start ?? null;
     const column =
-    location.column ?? location.col ?? location.columnStart ?? null;
+        location.column ?? location.col ?? location.columnStart ?? null;
     const index = location.index ?? location.offset ?? null;
 
     if (line == null && column == null && index == null) {
@@ -74,7 +74,7 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         return {
             id: scopeRecord.id,
             displayName:
-        scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
         };
     }
 
@@ -82,9 +82,9 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         const parentScope = scopeMap[fileScopeId];
         return {
             id:
-        scopeId ??
-        parentScope.id ??
-        `locals:${fileRecord?.filePath ?? "<unknown>"}`,
+                scopeId ??
+                parentScope.id ??
+                `locals:${fileRecord?.filePath ?? "<unknown>"}`,
             displayName: `${parentScope.displayName ?? parentScope.name ?? fileRecord?.filePath ?? "<locals>"} (locals)`
         };
     }
@@ -110,7 +110,9 @@ function createPatternRegExp(pattern) {
         return null;
     }
 
-    const wildcardExpanded = escaped.replace(/\\\*/g, ".*").replace(/\\\?/g, ".");
+    const wildcardExpanded = escaped
+        .replace(/\\\*/g, ".*")
+        .replace(/\\\?/g, ".");
 
     return new RegExp(`^${wildcardExpanded}$`, "i");
 }
@@ -191,7 +193,7 @@ export function prepareIdentifierCasePlan(options) {
 
     if (
         options.__identifierCaseRenamePlan &&
-    options.__identifierCasePlanGeneratedInternally !== true
+        options.__identifierCasePlanGeneratedInternally !== true
     ) {
         return;
     }
@@ -199,16 +201,16 @@ export function prepareIdentifierCasePlan(options) {
     const context = peekIdentifierCaseDryRunContext(options.filepath ?? null);
     if (
         options.__identifierCaseDryRun === undefined &&
-    context &&
-    typeof context.dryRun === "boolean"
+        context &&
+        typeof context.dryRun === "boolean"
     ) {
         options.__identifierCaseDryRun = context.dryRun;
     }
     const projectIndex =
-    options.__identifierCaseProjectIndex ??
-    options.identifierCaseProjectIndex ??
-    context?.projectIndex ??
-    null;
+        options.__identifierCaseProjectIndex ??
+        options.identifierCaseProjectIndex ??
+        context?.projectIndex ??
+        null;
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
     // `projectIndex.identifiers`. Local-scope renaming remains the only executed
     // transformation here until per-scope toggles are wired through.
@@ -300,12 +302,18 @@ export function prepareIdentifierCasePlan(options) {
             continue;
         }
 
-        const renameKey = buildRenameKey(declaration.scopeId, declaration.start);
+        const renameKey = buildRenameKey(
+            declaration.scopeId,
+            declaration.start
+        );
         if (!renameKey) {
             continue;
         }
 
-        const convertedName = formatIdentifierCase(declaration.name, localStyle);
+        const convertedName = formatIdentifierCase(
+            declaration.name,
+            localStyle
+        );
 
         if (convertedName === declaration.name) {
             continue;
@@ -356,11 +364,12 @@ export function prepareIdentifierCasePlan(options) {
             declaration.scopeId,
             fileRecord.scopeId
         );
-        const existingNames = existingNamesByScope.get(scopeGroupKey) ?? new Set();
+        const existingNames =
+            existingNamesByScope.get(scopeGroupKey) ?? new Set();
 
         if (
             existingNames.has(convertedName) &&
-      convertedName !== declaration.name
+            convertedName !== declaration.name
         ) {
             const scopeDescriptor = createScopeDescriptor(
                 projectIndex,
@@ -379,7 +388,8 @@ export function prepareIdentifierCasePlan(options) {
             continue;
         }
         const referenceKey = `${scopeGroupKey}|${declaration.name}`;
-        const relatedReferences = referencesByScopeAndName.get(referenceKey) ?? [];
+        const relatedReferences =
+            referencesByScopeAndName.get(referenceKey) ?? [];
 
         activeCandidates.push({
             declaration,
@@ -392,7 +402,7 @@ export function prepareIdentifierCasePlan(options) {
     const candidatesByScope = new Map();
     for (const candidate of activeCandidates) {
         const scopeCandidates =
-      candidatesByScope.get(candidate.scopeGroupKey) ?? new Map();
+            candidatesByScope.get(candidate.scopeGroupKey) ?? new Map();
         const existing = scopeCandidates.get(candidate.convertedName) ?? [];
         existing.push(candidate);
         scopeCandidates.set(candidate.convertedName, existing);
@@ -465,7 +475,10 @@ export function prepareIdentifierCasePlan(options) {
         }
 
         for (const reference of references) {
-            const referenceKey = buildRenameKey(reference.scopeId, reference.start);
+            const referenceKey = buildRenameKey(
+                reference.scopeId,
+                reference.start
+            );
             if (referenceKey) {
                 renameMap.set(referenceKey, convertedName);
             }

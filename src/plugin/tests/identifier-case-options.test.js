@@ -34,7 +34,7 @@ describe("gml identifier case option normalization", () => {
             [IDENTIFIER_CASE_BASE_OPTION_NAME]: "pascal",
             [getIdentifierCaseScopeOptionName("globals")]: "snake-upper",
             [getIdentifierCaseScopeOptionName("locals")]:
-        IDENTIFIER_CASE_INHERIT_VALUE,
+                IDENTIFIER_CASE_INHERIT_VALUE,
             [getIdentifierCaseScopeOptionName("functions")]: "camel",
             [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: "temp_, debug",
             [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: ["hp", "PlayerScore"],
@@ -61,7 +61,7 @@ describe("gml identifier case option normalization", () => {
                 normalizeIdentifierCaseOptions({
                     [IDENTIFIER_CASE_BASE_OPTION_NAME]: "camel",
                     [getIdentifierCaseScopeOptionName("assets")]:
-            IDENTIFIER_CASE_INHERIT_VALUE
+                        IDENTIFIER_CASE_INHERIT_VALUE
                 }),
             /acknowledging asset renames/i
         );

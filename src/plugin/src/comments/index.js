@@ -44,7 +44,7 @@ function resolveLineCommentOptions(options) {
 
     if (
         lineCommentBannerMinimumSlashes === undefined &&
-    lineCommentBannerAutofillThreshold === undefined
+        lineCommentBannerAutofillThreshold === undefined
     ) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
@@ -186,9 +186,9 @@ function getLineCommentRawText(comment) {
     }
 
     const fallbackValue =
-    comment.value === undefined || comment.value === null
-        ? ""
-        : String(comment.value);
+        comment.value === undefined || comment.value === null
+            ? ""
+            : String(comment.value);
 
     return `//${fallbackValue}`;
 }
@@ -204,7 +204,9 @@ function formatLineComment(
     const rawValue = typeof comment.value === "string" ? comment.value : "";
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
-    const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
+    const leadingSlashCount = leadingSlashMatch
+        ? leadingSlashMatch[0].length
+        : 0;
 
     for (const lineFragment of BOILERPLATE_COMMENTS) {
         if (trimmedValue.includes(lineFragment)) {
@@ -220,8 +222,8 @@ function formatLineComment(
 
     if (
         trimmedOriginal.startsWith("///") &&
-    !trimmedOriginal.includes("@") &&
-    leadingSlashCount >= bannerMinimum
+        !trimmedOriginal.includes("@") &&
+        leadingSlashCount >= bannerMinimum
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -229,8 +231,8 @@ function formatLineComment(
     const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
     if (
         docContinuationMatch &&
-    trimmedOriginal.startsWith("///") &&
-    !trimmedOriginal.includes("@")
+        trimmedOriginal.startsWith("///") &&
+        !trimmedOriginal.includes("@")
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -239,7 +241,8 @@ function formatLineComment(
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
         if (!remainder.startsWith("/")) {
-            const shouldInsertSpace = remainder.length > 0 && /\w/.test(remainder);
+            const shouldInsertSpace =
+                remainder.length > 0 && /\w/.test(remainder);
             const formatted = applyJsDocReplacements(
                 `///${shouldInsertSpace ? " " : ""}${remainder}`
             );
@@ -250,12 +253,14 @@ function formatLineComment(
     const regexPattern = /^\/+(\s*)@/;
     const match = trimmedValue.match(regexPattern);
     if (match) {
-        let formattedCommentLine = "///" + trimmedValue.replace(regexPattern, " @");
+        let formattedCommentLine =
+            "///" + trimmedValue.replace(regexPattern, " @");
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
-    const isInlineComment = comment && typeof comment.inlinePadding === "number";
+    const isInlineComment =
+        comment && typeof comment.inlinePadding === "number";
     const sentences = !isInlineComment
         ? splitCommentIntoSentences(trimmedValue)
         : [trimmedValue];
@@ -277,9 +282,12 @@ function formatLineComment(
 
     if (
         coreValue.length > 0 &&
-    (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))
+        (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))
     ) {
-        return applyInlinePadding(comment, `//${leadingWhitespace}${coreValue}`);
+        return applyInlinePadding(
+            comment,
+            `//${leadingWhitespace}${coreValue}`
+        );
     }
 
     return applyInlinePadding(comment, "// " + trimmedValue);
@@ -288,7 +296,7 @@ function formatLineComment(
 function normalizeLineCommentOptions(lineCommentOptions) {
     if (
         typeof lineCommentOptions === "number" &&
-    Number.isFinite(lineCommentOptions)
+        Number.isFinite(lineCommentOptions)
     ) {
         return buildLineCommentOptions(
             lineCommentOptions,
@@ -328,8 +336,8 @@ function looksLikeCommentedOutCode(text) {
 function applyInlinePadding(comment, formattedText) {
     if (
         comment &&
-    typeof comment.inlinePadding === "number" &&
-    comment.inlinePadding > 0
+        typeof comment.inlinePadding === "number" &&
+        comment.inlinePadding > 0
     ) {
         return " ".repeat(comment.inlinePadding) + formattedText;
     }
@@ -341,7 +349,7 @@ const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 function applyJsDocReplacements(text) {
     const shouldStripEmptyParams =
-    typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
+        typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
 
     let formattedText = shouldStripEmptyParams
         ? text.replace(/\(\)\s*$/, "")
@@ -358,7 +366,7 @@ function applyJsDocReplacements(text) {
 }
 
 const FUNCTION_SIGNATURE_PATTERN =
-  /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
+    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
 
 function stripTrailingFunctionParameters(text) {
     if (typeof text !== "string" || !/@function\b/i.test(text)) {

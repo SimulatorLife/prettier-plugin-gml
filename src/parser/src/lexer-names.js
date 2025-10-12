@@ -15,7 +15,7 @@ export const OPEN_PAREN = Lexer.literalNames[Lexer.OpenParen];
 export const CLOSE_PAREN = Lexer.literalNames[Lexer.CloseParen];
 export const OPEN_BRACE = Lexer.literalNames[Lexer.OpenBrace];
 export const TEMPLATE_STRING_END_EXPRESSION =
-  Lexer.literalNames[Lexer.TemplateStringEndExpression];
+    Lexer.literalNames[Lexer.TemplateStringEndExpression];
 export const CLOSE_BRACE = Lexer.literalNames[Lexer.CloseBrace];
 export const BEGIN = Lexer.literalNames[Lexer.Begin];
 export const END = Lexer.literalNames[Lexer.End];
@@ -38,11 +38,11 @@ export const POWER = Lexer.literalNames[Lexer.Power];
 export const QUESTION_MARK = Lexer.literalNames[Lexer.QuestionMark];
 export const NULL_COALESCE = Lexer.literalNames[Lexer.NullCoalesce];
 export const NULL_COALESCING_ASSIGN =
-  Lexer.literalNames[Lexer.NullCoalescingAssign];
+    Lexer.literalNames[Lexer.NullCoalescingAssign];
 export const RIGHT_SHIFT_ARITHMETIC =
-  Lexer.literalNames[Lexer.RightShiftArithmetic];
+    Lexer.literalNames[Lexer.RightShiftArithmetic];
 export const LEFT_SHIFT_ARITHMETIC =
-  Lexer.literalNames[Lexer.LeftShiftArithmetic];
+    Lexer.literalNames[Lexer.LeftShiftArithmetic];
 export const LESS_THAN = Lexer.literalNames[Lexer.LessThan];
 export const MORE_THAN = Lexer.literalNames[Lexer.MoreThan];
 export const LESS_THAN_EQUALS = Lexer.literalNames[Lexer.LessThanEquals];
@@ -61,9 +61,9 @@ export const PLUS_ASSIGN = Lexer.literalNames[Lexer.PlusAssign];
 export const MINUS_ASSIGN = Lexer.literalNames[Lexer.MinusAssign];
 export const MODULUS_ASSIGN = Lexer.literalNames[Lexer.ModulusAssign];
 export const LEFT_SHIFT_ARITHMETIC_ASSIGN =
-  Lexer.literalNames[Lexer.LeftShiftArithmeticAssign];
+    Lexer.literalNames[Lexer.LeftShiftArithmeticAssign];
 export const RIGHT_SHIFT_ARITHMETIC_ASSIGN =
-  Lexer.literalNames[Lexer.RightShiftArithmeticAssign];
+    Lexer.literalNames[Lexer.RightShiftArithmeticAssign];
 export const BIT_AND_ASSIGN = Lexer.literalNames[Lexer.BitAndAssign];
 export const BIT_XOR_ASSIGN = Lexer.literalNames[Lexer.BitXorAssign];
 export const BIT_OR_ASSIGN = Lexer.literalNames[Lexer.BitOrAssign];
@@ -115,17 +115,17 @@ export const END_REGION = Lexer.literalNames[Lexer.EndRegion];
 export const IDENTIFIER = Lexer.literalNames[Lexer.Identifier];
 export const STRING_LITERAL = Lexer.literalNames[Lexer.StringLiteral];
 export const TEMPLATE_STRING_START =
-  Lexer.literalNames[Lexer.TemplateStringStart];
+    Lexer.literalNames[Lexer.TemplateStringStart];
 export const VERBATIM_STRING_LITERAL =
-  Lexer.literalNames[Lexer.VerbatimStringLiteral];
+    Lexer.literalNames[Lexer.VerbatimStringLiteral];
 export const WHITE_SPACES = Lexer.literalNames[Lexer.WhiteSpaces];
 export const LINE_TERMINATOR = Lexer.literalNames[Lexer.LineTerminator];
 export const UNEXPECTED_CHARACTER =
-  Lexer.literalNames[Lexer.UnexpectedCharacter];
+    Lexer.literalNames[Lexer.UnexpectedCharacter];
 export const REGION_CHARACTERS = Lexer.literalNames[Lexer.RegionCharacters];
 export const REGION_EOL = Lexer.literalNames[Lexer.RegionEOL];
 export const TEMPLATE_STRING_END = Lexer.literalNames[Lexer.TemplateStringEnd];
 export const TEMPLATE_STRING_START_EXPRESSION =
-  Lexer.literalNames[Lexer.TemplateStringStartExpression];
+    Lexer.literalNames[Lexer.TemplateStringStartExpression];
 export const TEMPLATE_STRING_TEXT =
-  Lexer.literalNames[Lexer.TemplateStringText];
+    Lexer.literalNames[Lexer.TemplateStringText];

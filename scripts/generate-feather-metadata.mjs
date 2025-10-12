@@ -55,13 +55,12 @@ const ARGUMENTS = process.argv.slice(2);
 
 const FEATHER_PAGES = {
     diagnostics:
-    "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
     directives:
-    "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
-    naming:
-    "Manual/contents/Setting_Up_And_Version_Information/IDE_Preferences/Feather_Settings.htm",
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
+    naming: "Manual/contents/Setting_Up_And_Version_Information/IDE_Preferences/Feather_Settings.htm",
     typeSystem:
-    "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
 function getUsage() {
@@ -95,7 +94,7 @@ function parseArgs() {
             i += 1;
         } else if (
             (arg === "--output" || arg === "-o") &&
-      i + 1 < ARGUMENTS.length
+            i + 1 < ARGUMENTS.length
         ) {
             outputPath = path.resolve(ARGUMENTS[i + 1]);
             i += 1;
@@ -369,7 +368,9 @@ function createBlock($, node) {
     if (type === "list") {
         block.items = $node
             .children("li")
-            .map((_, item) => extractText($(item), { preserveLineBreaks: false }))
+            .map((_, item) =>
+                extractText($(item), { preserveLineBreaks: false })
+            )
             .get()
             .filter(Boolean);
         if (!block.items.length && !text) {
@@ -409,7 +410,9 @@ function collectBlocksAfter($, element, { stopTags = [] } = {}) {
                 break;
             }
             const classAttr = node.attribs?.class ?? "";
-            const classList = classAttr ? classAttr.split(/\s+/).filter(Boolean) : [];
+            const classList = classAttr
+                ? classAttr.split(/\s+/).filter(Boolean)
+                : [];
             if (tagName === "div" && classList.includes("footer")) {
                 break;
             }
@@ -429,8 +432,8 @@ function normaliseTextBlock(block) {
     }
     if (
         block.type === "list" &&
-    Array.isArray(block.items) &&
-    block.items.length > 0
+        Array.isArray(block.items) &&
+        block.items.length > 0
     ) {
         return block.items.join("\n").trim() || null;
     }
@@ -517,12 +520,17 @@ function parseDiagnostics(html) {
             return;
         }
         const [, id, title] = match;
-        const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+        const blocks = collectBlocksAfter($, element, {
+            stopTags: ["h3", "h2"]
+        });
 
         const exampleHeadingIndex = blocks.findIndex(
-            (block) => block.type === "heading" && /example/i.test(block.text ?? "")
+            (block) =>
+                block.type === "heading" && /example/i.test(block.text ?? "")
         );
-        const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+        const firstCodeIndex = blocks.findIndex(
+            (block) => block.type === "code"
+        );
 
         let trailingStart = blocks.length;
         if (exampleHeadingIndex >= 0) {
@@ -613,10 +621,10 @@ function parseNamingRules(html) {
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
     const requiresMessage =
-    (overview && overview.includes("GM2017")) ||
-    notes.find((note) => note.includes("GM2017"))
-        ? "GM2017"
-        : null;
+        (overview && overview.includes("GM2017")) ||
+        notes.find((note) => note.includes("GM2017"))
+            ? "GM2017"
+            : null;
 
     const mainList = heading.nextAll("ul").first();
     let namingStyleOptions = [];
@@ -661,16 +669,23 @@ function parseNamingRules(html) {
         mainList.children("li").each((_, item) => {
             const $item = $(item);
             const title =
-        $item
-            .children("strong")
-            .first()
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim() || null;
-            const description = extractText($item, { preserveLineBreaks: true });
-            let normalisedDescription = normaliseMultilineText(description ?? "");
+                $item
+                    .children("strong")
+                    .first()
+                    .text()
+                    .replace(/\u00a0/g, " ")
+                    .trim() || null;
+            const description = extractText($item, {
+                preserveLineBreaks: true
+            });
+            let normalisedDescription = normaliseMultilineText(
+                description ?? ""
+            );
             if (title && normalisedDescription) {
-                const prefixPattern = new RegExp(`^${escapeRegex(title)}\s*:?\s*`, "i");
+                const prefixPattern = new RegExp(
+                    `^${escapeRegex(title)}\s*:?\s*`,
+                    "i"
+                );
                 normalisedDescription = normalisedDescription.replace(
                     prefixPattern,
                     ""
@@ -684,7 +699,9 @@ function parseNamingRules(html) {
                     .children("li")
                     .map((__, option) =>
                         normaliseMultilineText(
-                            extractText($(option), { preserveLineBreaks: false })
+                            extractText($(option), {
+                                preserveLineBreaks: false
+                            })
                         )
                     )
                     .get()
@@ -774,7 +791,9 @@ function parseBaseTypeTable($, table) {
         }
         const name = extractText(cells.eq(0), { preserveLineBreaks: false });
         const specifierExamples = splitCellLines(cells.eq(1));
-        const description = extractText(cells.eq(2), { preserveLineBreaks: false });
+        const description = extractText(cells.eq(2), {
+            preserveLineBreaks: false
+        });
         baseTypes.push({ name, specifierExamples, description });
     });
     return baseTypes;
@@ -804,7 +823,9 @@ function parseTypeValidationTable($, table) {
             if (cells.length === 0) {
                 return;
             }
-            const from = extractText(cells.eq(0), { preserveLineBreaks: false });
+            const from = extractText(cells.eq(0), {
+                preserveLineBreaks: false
+            });
             if (!from) {
                 return;
             }
@@ -812,7 +833,7 @@ function parseTypeValidationTable($, table) {
             columns.forEach((column, columnIndex) => {
                 const cell = cells.eq(columnIndex + 1);
                 const outcome =
-          extractText(cell, { preserveLineBreaks: false }) || null;
+                    extractText(cell, { preserveLineBreaks: false }) || null;
                 const style = cell.attr("style") || null;
                 results[column] = {
                     outcome,
@@ -869,7 +890,9 @@ function parseTypeSystem(html) {
         if (!title) {
             return;
         }
-        const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+        const blocks = collectBlocksAfter($, element, {
+            stopTags: ["h3", "h2"]
+        });
         const content = normaliseContent(blocks);
         specifierSections.push({
             id: $(element).attr("id") || slugify(title),
@@ -887,9 +910,13 @@ function parseTypeSystem(html) {
     let typeValidation = null;
     let typeValidationBlocks = [];
     if (typeValidationHeading.length > 0) {
-        typeValidationBlocks = collectBlocksAfter($, typeValidationHeading.get(0), {
-            stopTags: ["table", "h2"]
-        });
+        typeValidationBlocks = collectBlocksAfter(
+            $,
+            typeValidationHeading.get(0),
+            {
+                stopTags: ["table", "h2"]
+            }
+        );
         const validationTable = typeValidationHeading.nextAll("table").first();
         typeValidation = parseTypeValidationTable($, validationTable);
     }
@@ -910,7 +937,8 @@ function parseTypeSystem(html) {
         specifierSections,
         typeValidation: typeValidation
             ? {
-                description: joinSections(typeValidationContent.paragraphs) || null,
+                description:
+                      joinSections(typeValidationContent.paragraphs) || null,
                 notes: typeValidationContent.notes,
                 codeExamples: typeValidationContent.codeExamples,
                 lists: typeValidationContent.lists,

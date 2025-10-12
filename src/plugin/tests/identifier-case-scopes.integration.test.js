@@ -15,7 +15,9 @@ const fixturesDirectory = path.join(
 const scopeFixturePath = path.join(fixturesDirectory, "scope-collisions.gml");
 
 async function createScopeFixtureProject() {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-scope-tests-"));
+    const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), "gml-scope-tests-")
+    );
     const writeFile = async (relativePath, contents) => {
         const absolutePath = path.join(tempRoot, relativePath);
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -47,8 +49,14 @@ describe("project index scope tracking", () => {
             const index = await buildProjectIndex(projectRoot);
 
             const macros = index.identifiers.macros;
-            assert.ok(macros.MAX_COUNT, "expected MAX_COUNT macro to be indexed");
-            assert.ok(macros.max_count, "expected max_count macro to be indexed");
+            assert.ok(
+                macros.MAX_COUNT,
+                "expected MAX_COUNT macro to be indexed"
+            );
+            assert.ok(
+                macros.max_count,
+                "expected max_count macro to be indexed"
+            );
             assert.equal(macros.MAX_COUNT.declarations.length, 1);
             assert.equal(macros.max_count.declarations.length, 1);
 
@@ -84,7 +92,8 @@ describe("project index scope tracking", () => {
                 "expected both Easy members to be tracked"
             );
 
-            const scriptEntry = index.identifiers.scripts["scope:script:scopeTester"];
+            const scriptEntry =
+                index.identifiers.scripts["scope:script:scopeTester"];
             assert.ok(scriptEntry, "expected script entry for scopeTester");
             assert.equal(scriptEntry.declarations.length >= 1, true);
         } finally {

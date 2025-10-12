@@ -62,7 +62,7 @@ async function createTempProject() {
 describe("identifier case local renaming", () => {
     it("reports planned renames and conflicts during dry-run", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-      await createTempProject();
+            await createTempProject();
 
         const consoleMessages = [];
         const originalConsoleLog = console.log;
@@ -100,7 +100,10 @@ describe("identifier case local renaming", () => {
                 logger
             };
 
-            const formatted = await prettier.format(fixtureSource, formatOptions);
+            const formatted = await prettier.format(
+                fixtureSource,
+                formatOptions
+            );
 
             assert.ok(
                 formatted.includes("counter_value"),
@@ -111,7 +114,8 @@ describe("identifier case local renaming", () => {
                 "Dry-run should not apply rename targets"
             );
 
-            const combinedMessages = messages.length > 0 ? messages : consoleMessages;
+            const combinedMessages =
+                messages.length > 0 ? messages : consoleMessages;
             assert.ok(
                 combinedMessages.length > 0,
                 "Expected reporting output to be logged"
@@ -127,8 +131,14 @@ describe("identifier case local renaming", () => {
                     (entry) => entry?.code === "gml-identifier-case-summary"
                 );
                 if (summaryDiagnostic) {
-                    assert.strictEqual(summaryDiagnostic.summary.renameCount, 1);
-                    assert.strictEqual(summaryDiagnostic.summary.conflictCount, 3);
+                    assert.strictEqual(
+                        summaryDiagnostic.summary.renameCount,
+                        1
+                    );
+                    assert.strictEqual(
+                        summaryDiagnostic.summary.conflictCount,
+                        3
+                    );
 
                     const renamePlan = summaryDiagnostic.renames ?? [];
                     assert.strictEqual(renamePlan.length, 1);
@@ -171,7 +181,7 @@ describe("identifier case local renaming", () => {
 
     it("applies local identifier renames when write mode is enabled", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-      await createTempProject();
+            await createTempProject();
 
         try {
             clearIdentifierCaseDryRunContexts();
@@ -194,7 +204,10 @@ describe("identifier case local renaming", () => {
                 diagnostics
             };
 
-            const formatted = await prettier.format(fixtureSource, formatOptions);
+            const formatted = await prettier.format(
+                fixtureSource,
+                formatOptions
+            );
 
             assert.match(formatted, /counterValue/);
             assert.match(formatted, /preserve_me/);

@@ -1,8 +1,8 @@
 export function isCommentNode(node) {
     return (
         !!node &&
-    typeof node === "object" &&
-    (node.type === "CommentBlock" || node.type === "CommentLine")
+        typeof node === "object" &&
+        (node.type === "CommentBlock" || node.type === "CommentLine")
     );
 }
 
@@ -72,7 +72,7 @@ export function collectCommentNodes(root) {
 export function isDocCommentLine(comment) {
     return (
         isLineComment(comment) &&
-    typeof comment.value === "string" &&
-    comment.value.startsWith("/ @")
+        typeof comment.value === "string" &&
+        comment.value.startsWith("/ @")
     );
 }

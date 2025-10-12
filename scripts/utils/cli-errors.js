@@ -20,8 +20,8 @@ function formatErrorValue(value, seen) {
 
     if (
         valueType === "number" ||
-    valueType === "boolean" ||
-    valueType === "bigint"
+        valueType === "boolean" ||
+        valueType === "bigint"
     ) {
         return String(value);
     }
@@ -36,7 +36,7 @@ function formatErrorValue(value, seen) {
         const sections = [];
         const name = typeof value.name === "string" ? value.name.trim() : "";
         const message =
-      typeof value.message === "string" ? value.message.trim() : "";
+            typeof value.message === "string" ? value.message.trim() : "";
 
         let header = "";
         if (name && message) {
@@ -146,9 +146,9 @@ export function handleCliError(error, { exitCode = 1, prefix } = {}) {
     }
 
     const usage =
-    error && typeof error === "object" && typeof error.usage === "string"
-        ? error.usage
-        : null;
+        error && typeof error === "object" && typeof error.usage === "string"
+            ? error.usage
+            : null;
 
     if (usage) {
         if (lines.length > 0 && lines[lines.length - 1] !== "") {

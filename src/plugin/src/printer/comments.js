@@ -26,7 +26,8 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         }
 
         const collection = node[property];
-        const isEmptyArray = Array.isArray(collection) && collection.length === 0;
+        const isEmptyArray =
+            Array.isArray(collection) && collection.length === 0;
         const isCollectionMissing = collection == null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
@@ -147,7 +148,8 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
-            const { bannerMinimum, bannerAutofillThreshold } = lineCommentOptions;
+            const { bannerMinimum, bannerAutofillThreshold } =
+                lineCommentOptions;
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/\/+)/);
 
@@ -164,17 +166,17 @@ function printComment(commentPath, options) {
             // Reuse the regex match index instead of paying for another
             // `String#indexOf` scan in this hot banner-detection branch.
             const bannerStart =
-        typeof bannerMatch.index === "number"
-            ? bannerMatch.index
-            : rawText.indexOf(slashRun);
+                typeof bannerMatch.index === "number"
+                    ? bannerMatch.index
+                    : rawText.indexOf(slashRun);
             const safeBannerStart = bannerStart >= 0 ? bannerStart : 0;
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
             const shouldAutofillBanner =
-        slashCount >= bannerAutofillThreshold &&
-        bannerMinimum > slashCount &&
-        remainderTrimmed.length > 0 &&
-        !remainderTrimmed.startsWith("@");
+                slashCount >= bannerAutofillThreshold &&
+                bannerMinimum > slashCount &&
+                remainderTrimmed.length > 0 &&
+                !remainderTrimmed.startsWith("@");
 
             if (shouldAutofillBanner) {
                 const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
@@ -196,8 +198,8 @@ function applyTrailingCommentPadding(comment, options) {
 
     const isTrailingComment = Boolean(
         comment.trailing ||
-      comment.placement === "endOfLine" ||
-      comment._structPropertyTrailing
+            comment.placement === "endOfLine" ||
+            comment._structPropertyTrailing
     );
 
     if (!isTrailingComment) {
@@ -226,9 +228,9 @@ function collectDanglingComments(path, filter) {
         }
         if (
             comment &&
-      !comment.leading &&
-      !comment.trailing &&
-      (!filter || filter(comment))
+            !comment.leading &&
+            !comment.trailing &&
+            (!filter || filter(comment))
         ) {
             entries.push({
                 commentIndex: commentPath.getName(),
@@ -393,7 +395,7 @@ function attachDocCommentToFollowingNode(comment, options) {
 
     comment.printed = true;
     const docComments =
-    followingNode.docComments ?? (followingNode.docComments = []);
+        followingNode.docComments ?? (followingNode.docComments = []);
     docComments.push(comment);
     return true;
 }
@@ -409,7 +411,7 @@ function isDocCommentCandidate(comment, followingNode) {
 
     return (
         followingNode.type === "FunctionDeclaration" ||
-    followingNode.type === "ConstructorDeclaration"
+        followingNode.type === "ConstructorDeclaration"
     );
 }
 
@@ -421,8 +423,8 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
     for (const node of [enclosingNode, followingNode]) {
         if (
             node?.type === "Program" &&
-      Array.isArray(node.body) &&
-      node.body.length === 0
+            Array.isArray(node.body) &&
+            node.body.length === 0
         ) {
             return node;
         }

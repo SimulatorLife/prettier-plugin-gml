@@ -94,7 +94,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         const cloned = { ...role };
         if (role.tags != null) {
-            cloned.tags = Array.isArray(role.tags) ? [...role.tags] : [role.tags];
+            cloned.tags = Array.isArray(role.tags)
+                ? [...role.tags]
+                : [role.tags];
         }
 
         return cloned;
@@ -150,13 +152,13 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         if (!operator || !leftNode || !rightNode) return false;
 
         let leftOp =
-      leftNode.type === "BinaryExpression"
-          ? this.operators[leftNode.operator]
-          : { prec: 0, assoc: "left" };
+            leftNode.type === "BinaryExpression"
+                ? this.operators[leftNode.operator]
+                : { prec: 0, assoc: "left" };
         let rightOp =
-      rightNode.type === "BinaryExpression"
-          ? this.operators[rightNode.operator]
-          : { prec: 0, assoc: "left" };
+            rightNode.type === "BinaryExpression"
+                ? this.operators[rightNode.operator]
+                : { prec: 0, assoc: "left" };
         let currOp = this.operators[operator];
 
         if (currOp.assoc === "left") {
@@ -177,7 +179,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // This method will be the primary method handling the binary expressions
     handleBinaryExpression(ctx, isEmbeddedExpression = false) {
-    // Check if the expression is defined and is a function
+        // Check if the expression is defined and is a function
         if (!ctx || !Object.hasOwn(ctx, "expression")) {
             return this.visit(ctx);
         }
@@ -198,11 +200,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         } else {
             // For two child expressions, check if each is a binary expression
             let leftIsBinary =
-        Object.hasOwn(childExpressions[0], "expression") &&
-        typeof childExpressions[0].expression === "function";
+                Object.hasOwn(childExpressions[0], "expression") &&
+                typeof childExpressions[0].expression === "function";
             let rightIsBinary =
-        Object.hasOwn(childExpressions[1], "expression") &&
-        typeof childExpressions[1].expression === "function";
+                Object.hasOwn(childExpressions[1], "expression") &&
+                typeof childExpressions[1].expression === "function";
 
             leftNode = leftIsBinary
                 ? this.handleBinaryExpression(childExpressions[0], true)
@@ -225,7 +227,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         if (
             isEmbeddedExpression &&
-      this.needsParentheses(operator, leftNode, rightNode)
+            this.needsParentheses(operator, leftNode, rightNode)
         ) {
             node = this.wrapInParentheses(ctx, node);
         }
@@ -634,7 +636,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                     () => this.visit(identifierCtx)
                 );
 
-                if (identifier && identifier.type === "Identifier" && identifier.name) {
+                if (
+                    identifier &&
+                    identifier.type === "Identifier" &&
+                    identifier.name
+                ) {
                     identifier.isGlobalIdentifier = true;
                     this.globalIdentifiers.add(identifier.name);
                 }
@@ -998,7 +1004,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         // check if trailingComma exists
         if (ctx.trailingComma()) {
-            argList.push(this.astNode(ctx, { type: "MissingOptionalArgument" }));
+            argList.push(
+                this.astNode(ctx, { type: "MissingOptionalArgument" })
+            );
         }
         return argList;
     }
@@ -1010,7 +1018,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             if (arg.UndefinedLiteral()) {
                 argList.push(this.visit(arg));
             } else if (!arg.expressionOrFunction()) {
-                argList.push(this.astNode(arg, { type: "MissingOptionalArgument" }));
+                argList.push(
+                    this.astNode(arg, { type: "MissingOptionalArgument" })
+                );
             } else if (arg.expressionOrFunction()) {
                 argList.push(this.visit(arg.expressionOrFunction()));
             }
@@ -1295,12 +1305,14 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         }
         if (this.isIdentifierMetadataEnabled()) {
             const role =
-        this.identifierRoles.length > 0
-            ? this.identifierRoles[this.identifierRoles.length - 1]
-            : null;
+                this.identifierRoles.length > 0
+                    ? this.identifierRoles[this.identifierRoles.length - 1]
+                    : null;
             const effectiveRole = this.cloneRole(role);
             const roleType =
-        effectiveRole.type === "declaration" ? "declaration" : "reference";
+                effectiveRole.type === "declaration"
+                    ? "declaration"
+                    : "reference";
 
             if (roleType === "declaration") {
                 this.scopeTracker.declare(name, node, effectiveRole);

@@ -138,7 +138,10 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, ["if (true) {", "  a = 1;", "}", ""].join("\n"));
+            assert.equal(
+                formatted,
+                ["if (true) {", "  a = 1;", "}", ""].join("\n")
+            );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -301,7 +304,10 @@ describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(nestedDirectory, "script.gml");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            const nestedIgnorePath = path.join(nestedDirectory, ".prettierignore");
+            const nestedIgnorePath = path.join(
+                nestedDirectory,
+                ".prettierignore"
+            );
             await fs.writeFile(nestedIgnorePath, "*.gml\n", "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
@@ -371,7 +377,10 @@ describe("Prettier wrapper CLI", () => {
             try {
                 await fs.symlink(tempDirectory, symlinkPath, "dir");
             } catch (error) {
-                if (error && (error.code === "EPERM" || error.code === "ENOSYS")) {
+                if (
+                    error &&
+                    (error.code === "EPERM" || error.code === "ENOSYS")
+                ) {
                     shouldSkip = true;
                 } else {
                     throw error;
@@ -408,9 +417,14 @@ describe("Prettier wrapper CLI", () => {
 
             try {
                 await execFileAsync("node", [wrapperPath, tempDirectory]);
-                assert.fail("Expected the wrapper to exit with a non-zero status code");
+                assert.fail(
+                    "Expected the wrapper to exit with a non-zero status code"
+                );
             } catch (error) {
-                assert.ok(error, "Expected an error to be thrown for a failing format");
+                assert.ok(
+                    error,
+                    "Expected an error to be thrown for a failing format"
+                );
                 assert.equal(
                     error.code,
                     1,
