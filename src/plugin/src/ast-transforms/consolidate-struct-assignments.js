@@ -209,37 +209,25 @@ function collectPropertyAssignments({
     }
 
     const nextStatement = statements[cursor];
-    if (nextStatement) {
-        const nextStart = getNodeStartIndex(nextStatement);
-        if (
-            !allowTrailingCommentsBetween({
-                tracker,
-                left: lastEnd,
-                right: nextStart,
-                precedingStatement: previousStatement,
-                precedingProperty: lastProperty,
-                commentTools
-            })
-        ) {
-            return null;
-        }
-    } else {
-        if (
-            !allowTrailingCommentsBetween({
-                tracker,
-                left: lastEnd,
-                right: Number.POSITIVE_INFINITY,
-                precedingStatement: previousStatement,
-                precedingProperty: lastProperty,
-                commentTools
-            })
-        ) {
-            return null;
-        }
+    const nextBoundary = nextStatement
+        ? getNodeStartIndex(nextStatement)
+        : Number.POSITIVE_INFINITY;
 
-        if (tracker.hasAfter(lastEnd)) {
-            return null;
-        }
+    if (
+        !allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: nextBoundary,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty,
+            commentTools
+        })
+    ) {
+        return null;
+    }
+
+    if (!nextStatement && tracker.hasAfter(lastEnd)) {
+        return null;
     }
 
     const shouldForceBreak = properties.some(
