@@ -8,7 +8,7 @@ import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
-} from "./utils/progress-bar.js";
+} from "../src/shared/cli/progress-bar.js";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
