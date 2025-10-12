@@ -35,6 +35,17 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const STRING_LENGTH_CALL_BLACKLIST = new Set([
+    "string_byte_at",
+    "string_byte_length",
+    "string_height",
+    "string_height_ext",
+    "string_length",
+    "string_pos",
+    "string_pos_ext",
+    "string_width",
+    "string_width_ext"
+]);
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
     "and",
@@ -494,6 +505,11 @@ function createAutomaticFeatherFixHandlers() {
                 removeDuplicateMacroDeclarations({ ast, diagnostic })
         ],
         [
+            "GM1012",
+            ({ ast, diagnostic }) =>
+                convertStringLengthPropertyAccesses({ ast, diagnostic })
+        ],
+        [
             "GM1014",
             ({ ast, diagnostic }) => addMissingEnumMembers({ ast, diagnostic })
         ],
@@ -622,6 +638,161 @@ function createAutomaticFeatherFixHandlers() {
 
 function isNonEmptyArray(value) {
     return Array.isArray(value) && value.length > 0;
+}
+
+function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "MemberDotExpression") {
+            const fix = convertLengthAccess(node, parent, property, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertLengthAccess(node, parent, property, diagnostic) {
+    if (!node || node.type !== "MemberDotExpression") {
+        return null;
+    }
+
+    if (!parent || property === undefined || property === null) {
+        return null;
+    }
+
+    if (parent.type === "AssignmentExpression" && parent.left === node) {
+        return null;
+    }
+
+    if (parent.type === "CallExpression" && parent.object === node) {
+        return null;
+    }
+
+    const propertyIdentifier = node.property;
+
+    if (!isIdentifierWithName(propertyIdentifier, "length")) {
+        return null;
+    }
+
+    const argumentExpression = node.object;
+
+    if (!argumentExpression || typeof argumentExpression !== "object") {
+        return null;
+    }
+
+    if (!isStringReturningExpression(argumentExpression)) {
+        return null;
+    }
+
+    const stringLengthIdentifier = createIdentifier(
+        "string_length",
+        propertyIdentifier
+    );
+
+    if (!stringLengthIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: stringLengthIdentifier,
+        arguments: [argumentExpression]
+    };
+
+    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+        callExpression.start = cloneLocation(node.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        callExpression.end = cloneLocation(node.end);
+    }
+
+    copyCommentMetadata(node, callExpression);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: propertyIdentifier?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (Array.isArray(parent)) {
+        parent[property] = callExpression;
+    } else if (parent && typeof property === "string") {
+        parent[property] = callExpression;
+    } else {
+        return null;
+    }
+
+    attachFeatherFixMetadata(callExpression, [fixDetail]);
+
+    return fixDetail;
+}
+
+function isStringReturningExpression(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "CallExpression") {
+        const callee = node.object;
+
+        if (isIdentifierWithName(callee, "string")) {
+            return true;
+        }
+
+        if (callee?.type === "Identifier") {
+            const name = callee.name;
+
+            if (STRING_LENGTH_CALL_BLACKLIST.has(name)) {
+                return false;
+            }
+
+            if (name.startsWith("string_")) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
