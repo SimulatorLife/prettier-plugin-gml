@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import GMLParser from "gamemaker-language-parser";
 
 import {
     getNodeEndIndex,
@@ -457,6 +458,28 @@ function buildFeatherFixImplementations(diagnostics) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1005") {
+            registerFeatherFixer(registry, diagnosticId, () => {
+                const callTemplate =
+                    createFunctionCallTemplateFromDiagnostic(diagnostic);
+
+                return ({ ast }) => {
+                    const fixes = ensureRequiredArgumentProvided({
+                        ast,
+                        diagnostic,
+                        callTemplate
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                };
+            });
             continue;
         }
 
@@ -6131,6 +6154,199 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function ensureRequiredArgumentProvided({ ast, diagnostic, callTemplate }) {
+    if (
+        !diagnostic ||
+        !ast ||
+        typeof ast !== "object" ||
+        !callTemplate?.functionName ||
+        !callTemplate.argumentTemplate
+    ) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureCallHasRequiredArgument(
+                node,
+                diagnostic,
+                callTemplate
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, callTemplate.functionName)) {
+        return null;
+    }
+
+    if (Array.isArray(node.arguments) && node.arguments.length > 0) {
+        return null;
+    }
+
+    const argumentNode = cloneNodeWithoutLocations(
+        callTemplate.argumentTemplate
+    );
+
+    if (!argumentNode || typeof argumentNode !== "object") {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    if (!Array.isArray(node.arguments)) {
+        node.arguments = [];
+    }
+
+    node.arguments.push(argumentNode);
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function createFunctionCallTemplateFromDiagnostic(diagnostic) {
+    const example =
+        typeof diagnostic?.goodExample === "string"
+            ? diagnostic.goodExample
+            : null;
+
+    if (!example) {
+        return null;
+    }
+
+    try {
+        const exampleAst = GMLParser.parse(example, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+        const callExpression = findFirstCallExpression(exampleAst);
+
+        if (!callExpression || !isIdentifier(callExpression.object)) {
+            return null;
+        }
+
+        const args = Array.isArray(callExpression.arguments)
+            ? callExpression.arguments
+            : [];
+
+        if (args.length === 0) {
+            return null;
+        }
+
+        return {
+            functionName: callExpression.object.name,
+            argumentTemplate: cloneNodeWithoutLocations(args[0])
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function findFirstCallExpression(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            const result = findFirstCallExpression(item);
+
+            if (result) {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    if (typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node;
+    }
+
+    for (const value of Object.values(node)) {
+        const result = findFirstCallExpression(value);
+
+        if (result) {
+            return result;
+        }
+    }
+
+    return null;
+}
+
+function cloneNodeWithoutLocations(node) {
+    if (!node || typeof node !== "object") {
+        return node;
+    }
+
+    if (Array.isArray(node)) {
+        return node.map((item) => cloneNodeWithoutLocations(item));
+    }
+
+    const clone = {};
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "start" || key === "end") {
+            continue;
+        }
+
+        clone[key] = cloneNodeWithoutLocations(value);
+    }
+
+    return clone;
 }
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {

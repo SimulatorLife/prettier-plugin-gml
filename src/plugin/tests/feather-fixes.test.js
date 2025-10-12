@@ -110,6 +110,46 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("inserts the missing argument for GM1005 and records fix metadata", () => {
+        const source = "draw_set_color();";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [firstStatement] = ast.body ?? [];
+        const callExpression =
+            firstStatement?.type === "ExpressionStatement"
+                ? firstStatement.expression
+                : firstStatement;
+
+        assert.ok(callExpression);
+        assert.ok(Array.isArray(callExpression.arguments));
+        assert.strictEqual(callExpression.arguments.length, 1);
+
+        const [argument] = callExpression.arguments;
+        assert.ok(argument);
+        assert.strictEqual(argument.type, "Identifier");
+        assert.strictEqual(argument.name, "c_black");
+
+        const appliedFixes = callExpression._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedFixes.some((entry) => entry.id === "GM1005"),
+            true
+        );
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some(
+                (entry) => entry.id === "GM1005"
+            ),
+            true
+        );
+    });
+
     it("removes duplicate enum members and records fix metadata", () => {
         const source = [
             "enum FRUIT {",
