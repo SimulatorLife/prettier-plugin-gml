@@ -4,11 +4,13 @@ import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
     applyInlinePadding,
     formatLineComment,
-    getLineCommentRawText,
+    getLineCommentRawText
+} from "../comments/line-comment-formatting.js";
+import {
     getTrailingCommentInlinePadding,
-    isCommentNode,
     resolveLineCommentOptions
-} from "../comments/index.js";
+} from "../comments/line-comment-options.js";
+import { isCommentNode } from "../../../shared/comments.js";
 
 const { addDanglingComment } = util;
 
