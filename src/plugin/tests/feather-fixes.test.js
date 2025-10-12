@@ -103,6 +103,59 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("renames deprecated built-in variables and records fix metadata", () => {
+        const source = [
+            "score = 0;",
+            "score = score + 1;",
+            "player.score = score;",
+            "var local_score = score;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [firstAssignment, secondAssignment, memberAssignment, declaration] =
+            ast.body ?? [];
+
+        assert.ok(firstAssignment);
+        assert.strictEqual(firstAssignment.type, "AssignmentExpression");
+        assert.strictEqual(firstAssignment.left?.name, "points");
+        assert.strictEqual(firstAssignment.right?.value, "0");
+
+        assert.ok(secondAssignment);
+        assert.strictEqual(secondAssignment.type, "AssignmentExpression");
+        assert.strictEqual(secondAssignment.left?.name, "points");
+        assert.strictEqual(secondAssignment.right?.type, "BinaryExpression");
+        assert.strictEqual(secondAssignment.right?.left?.name, "points");
+
+        assert.ok(memberAssignment);
+        assert.strictEqual(memberAssignment.type, "AssignmentExpression");
+        assert.strictEqual(memberAssignment.left?.property?.name, "score");
+        assert.strictEqual(memberAssignment.right?.name, "points");
+
+        assert.ok(declaration);
+        assert.strictEqual(declaration.type, "VariableDeclaration");
+        const [declarator] = declaration.declarations ?? [];
+        assert.strictEqual(declarator?.id?.name, "local_score");
+        assert.strictEqual(declarator?.init?.name, "points");
+
+        const identifierMetadata = firstAssignment.left?._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(identifierMetadata));
+        assert.strictEqual(identifierMetadata.length > 0, true);
+        assert.strictEqual(identifierMetadata[0].id, "GM1024");
+        assert.strictEqual(identifierMetadata[0].target, "score");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1024"),
+            true
+        );
+    });
+
     it("rewrites postfix increment statements flagged by GM1026", () => {
         const source = "pi++;";
 
