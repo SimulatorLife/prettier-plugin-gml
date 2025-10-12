@@ -1,16 +1,240 @@
 import path from "node:path";
 
+import { createRequire } from "node:module";
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,
     IGNORE_CONFLICT_CODE,
+    RESERVED_CONFLICT_CODE,
     createConflict,
     matchesIgnorePattern,
     incrementFileOccurrence,
     summarizeFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "../assets/rename.js";
+
+const require = createRequire(import.meta.url);
+const identifiersMetadata = require("../../../../resources/gml-identifiers.json");
+
+const RESERVED_IDENTIFIER_TYPES = new Set(["literal", "keyword"]);
+
+function buildReservedIdentifierSet() {
+    const identifiers = identifiersMetadata?.identifiers;
+    if (!identifiers || typeof identifiers !== "object") {
+        return new Set();
+    }
+
+    return new Set(
+        Object.entries(identifiers)
+            .filter(([name, info]) => {
+                if (typeof name !== "string" || name.length === 0) {
+                    return false;
+                }
+
+                const type = typeof info?.type === "string" ? info.type : "";
+                return !RESERVED_IDENTIFIER_TYPES.has(type.toLowerCase());
+            })
+            .map(([name]) => name.toLowerCase())
+    );
+}
+
+const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierSet();
+
+function isReservedIdentifierName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    if (RESERVED_IDENTIFIER_NAMES.size === 0) {
+        return false;
+    }
+
+    return RESERVED_IDENTIFIER_NAMES.has(name.toLowerCase());
+}
+
+function buildAssetConflictSuggestions(identifierName) {
+    const suggestions = [];
+
+    if (typeof identifierName === "string" && identifierName.length > 0) {
+        suggestions.push(`Add '${identifierName}' to gmlIdentifierCaseIgnore`);
+    }
+
+    suggestions.push(
+        'Disable asset renames by setting gmlIdentifierCaseAssets to "off"'
+    );
+
+    return suggestions;
+}
+
+function collectDirectoryEntries({ projectIndex, renames }) {
+    const renameByResourcePath = new Map();
+    for (const rename of renames ?? []) {
+        if (!rename?.resourcePath) {
+            continue;
+        }
+        renameByResourcePath.set(rename.resourcePath, rename);
+    }
+
+    const resources = projectIndex?.resources ?? {};
+    const directories = new Map();
+
+    for (const [resourcePath, resourceRecord] of Object.entries(resources)) {
+        if (
+            !resourceRecord ||
+            resourceRecord.resourceType !== "GMScript" ||
+            typeof resourceRecord.name !== "string"
+        ) {
+            continue;
+        }
+
+        const rename = renameByResourcePath.get(resourcePath) ?? null;
+        const finalName = rename?.toName ?? resourceRecord.name;
+        if (typeof finalName !== "string" || finalName.length === 0) {
+            continue;
+        }
+
+        const directory = path.posix.dirname(resourcePath);
+        const list = directories.get(directory) ?? [];
+        list.push({
+            directory,
+            resourcePath,
+            resourceType: resourceRecord.resourceType,
+            originalName: resourceRecord.name,
+            finalName,
+            isRename: Boolean(rename),
+            rename
+        });
+        directories.set(directory, list);
+    }
+
+    return directories;
+}
+
+function detectAssetRenameConflicts({ projectIndex, renames }) {
+    if (!projectIndex || !Array.isArray(renames) || renames.length === 0) {
+        return [];
+    }
+
+    const directories = collectDirectoryEntries({ projectIndex, renames });
+    const conflicts = [];
+
+    for (const entries of directories.values()) {
+        const byLowerName = new Map();
+        for (const entry of entries) {
+            const key = entry.finalName.toLowerCase();
+            const bucket = byLowerName.get(key) ?? [];
+            bucket.push(entry);
+            byLowerName.set(key, bucket);
+        }
+
+        for (const bucket of byLowerName.values()) {
+            if (bucket.length <= 1) {
+                continue;
+            }
+
+            const renameEntries = bucket.filter((entry) => entry.isRename);
+            if (renameEntries.length === 0) {
+                continue;
+            }
+
+            const existingEntries = bucket.filter((entry) => !entry.isRename);
+
+            for (const renameEntry of renameEntries) {
+                const scopeDescriptor = {
+                    id: renameEntry.resourcePath,
+                    displayName: `${renameEntry.resourceType}.${renameEntry.originalName}`
+                };
+                const suggestions = buildAssetConflictSuggestions(
+                    renameEntry.originalName
+                );
+
+                if (existingEntries.length > 0) {
+                    const otherNames = existingEntries
+                        .map(
+                            (entry) =>
+                                `'${entry.originalName}' (${entry.resourcePath})`
+                        )
+                        .join(", ");
+                    conflicts.push(
+                        createConflict({
+                            code: COLLISION_CONFLICT_CODE,
+                            severity: "error",
+                            message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with existing asset ${otherNames}.`,
+                            scope: scopeDescriptor,
+                            identifier: renameEntry.originalName,
+                            suggestions,
+                            details: {
+                                targetName: renameEntry.finalName,
+                                conflicts: existingEntries.map((entry) => ({
+                                    resourcePath: entry.resourcePath,
+                                    originalName: entry.originalName,
+                                    finalName: entry.finalName,
+                                    isRename: entry.isRename
+                                }))
+                            }
+                        })
+                    );
+                }
+
+                const otherRenames = renameEntries.filter(
+                    (entry) => entry !== renameEntry
+                );
+                if (otherRenames.length > 0) {
+                    const otherNames = otherRenames
+                        .map((entry) => `'${entry.originalName}'`)
+                        .join(", ");
+                    conflicts.push(
+                        createConflict({
+                            code: COLLISION_CONFLICT_CODE,
+                            severity: "error",
+                            message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with ${otherNames} targeting the same name.`,
+                            scope: scopeDescriptor,
+                            identifier: renameEntry.originalName,
+                            suggestions,
+                            details: {
+                                targetName: renameEntry.finalName,
+                                conflicts: otherRenames.map((entry) => ({
+                                    resourcePath: entry.resourcePath,
+                                    originalName: entry.originalName,
+                                    finalName: entry.finalName,
+                                    isRename: entry.isRename
+                                }))
+                            }
+                        })
+                    );
+                }
+            }
+        }
+    }
+
+    for (const rename of renames) {
+        if (!rename?.toName || !isReservedIdentifierName(rename.toName)) {
+            continue;
+        }
+
+        const scopeDescriptor = {
+            id: rename.resourcePath,
+            displayName: `${rename.resourceType}.${rename.fromName}`
+        };
+
+        conflicts.push(
+            createConflict({
+                code: RESERVED_CONFLICT_CODE,
+                severity: "error",
+                message: `Renaming '${rename.fromName}' to '${rename.toName}' conflicts with reserved identifier '${rename.toName}'.`,
+                scope: scopeDescriptor,
+                identifier: rename.fromName,
+                suggestions: buildAssetConflictSuggestions(rename.fromName),
+                details: {
+                    targetName: rename.toName
+                }
+            })
+        );
+    }
+
+    return conflicts;
+}
 
 function summarizeReferences(referenceMutations, resourcePath) {
     const counts = new Map();
@@ -54,7 +278,7 @@ export function planAssetRenames({
 
     const operations = [];
     const conflicts = [];
-    const renames = [];
+    let renames = [];
     const namesByDirectory = new Map();
 
     for (const [resourcePath, resourceRecord] of Object.entries(resources)) {
@@ -190,6 +414,16 @@ export function planAssetRenames({
             to: { name: convertedName },
             references: summarizeReferences(referenceMutations, resourcePath)
         });
+    }
+
+    const validationConflicts = detectAssetRenameConflicts({
+        projectIndex,
+        renames
+    });
+
+    if (validationConflicts.length > 0) {
+        conflicts.push(...validationConflicts);
+        renames = [];
     }
 
     return { operations, conflicts, renames };
