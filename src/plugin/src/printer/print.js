@@ -26,16 +26,23 @@ import {
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import {
+    getEnumMemberCommentPadding,
+    getEnumNameAlignmentPadding,
+    prepareEnumMembersForPrinting
+} from "./enum-alignment.js";
+import {
     printDanglingComments,
     printDanglingCommentsAsGroup
 } from "./comments.js";
 import {
     formatLineComment,
+    normalizeDocCommentTypeAnnotations
+} from "../comments/line-comment-formatting.js";
+import {
     getTrailingCommentPadding,
-    isCommentNode,
-    normalizeDocCommentTypeAnnotations,
     resolveLineCommentOptions
-} from "../comments/index.js";
+} from "../comments/line-comment-options.js";
+import { isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "./option-utils.js";
 import {
     getNodeStartIndex,
@@ -163,12 +170,22 @@ export function print(path, options, print) {
             );
 
             if (node.alternate != null) {
-                // don't add braces to else-if
-                const elseBlock =
-                    node.alternate.type === "IfStatement"
-                        ? print("alternate")
-                        : printInBlock(path, options, print, "alternate");
-                parts.push([" else ", elseBlock]);
+                const alternateNode = node.alternate;
+
+                let elseDoc;
+                if (alternateNode.type === "IfStatement") {
+                    // don't add braces to else-if chains
+                    elseDoc = print("alternate");
+                } else if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
+                    elseDoc = path.call(
+                        (alternatePath) => alternatePath.call(print, "body", 0),
+                        "alternate"
+                    );
+                } else {
+                    elseDoc = printInBlock(path, options, print, "alternate");
+                }
+
+                parts.push([" else ", elseDoc]);
             }
             return concat(parts);
         }
@@ -787,21 +804,11 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            if (Array.isArray(node.members) && node.members.length > 0) {
-                const nameLengths = node.members.map((member) => {
-                    const name = getNodeName(member.name);
-                    return name ? name.length : 0;
-                });
-                const maxNameLength = Math.max(...nameLengths);
-                const commentPadding = getTrailingCommentPadding(options);
-                node.members.forEach((member, index) => {
-                    member._commentColumnTarget =
-                        maxNameLength + commentPadding;
-                    member._hasTrailingComma =
-                        index !== node.members.length - 1;
-                    member._nameLengthForAlignment = nameLengths[index];
-                });
-            }
+            prepareEnumMembersForPrinting(
+                node.members,
+                getTrailingCommentPadding(options),
+                getNodeName
+            );
             return concat([
                 "enum ",
                 print("name"),
@@ -850,7 +857,13 @@ export function print(path, options, print) {
             return concat(["#endregion", print("name")]);
         }
         case "DefineStatement": {
-            return concat(["#define", print("name")]);
+            // GameMaker Studio has historically supported both `#define` and
+            // `#macro` directives. The formatter normalises legacy `#define`
+            // entries to the modern `#macro` spelling so that the generated
+            // output matches GameMaker's current syntax expectations and the
+            // existing golden fixtures. Preserve the original spacing and
+            // payload by reusing the captured `name` token text.
+            return concat(["#macro", print("name")]);
         }
         case "DeleteStatement": {
             return concat(["delete ", print("argument")]);
@@ -914,11 +927,7 @@ export function print(path, options, print) {
         }
         case "EnumMember": {
             if (Array.isArray(node.comments) && node.comments.length > 0) {
-                const baseLength =
-                    (node._nameLengthForAlignment || 0) +
-                    (node._hasTrailingComma ? 1 : 0);
-                const targetColumn = node._commentColumnTarget || 0;
-                const padding = Math.max(targetColumn - baseLength - 1, 0);
+                const padding = getEnumMemberCommentPadding(node);
                 node.comments.forEach((comment) => {
                     if (
                         comment &&
@@ -928,8 +937,13 @@ export function print(path, options, print) {
                     }
                 });
             }
+            const extraPadding = getEnumNameAlignmentPadding(node);
+            let nameDoc = print("name");
+            if (extraPadding > 0) {
+                nameDoc = concat([nameDoc, " ".repeat(extraPadding)]);
+            }
             return concat(
-                printSimpleDeclaration(print("name"), print("initializer"))
+                printSimpleDeclaration(nameDoc, print("initializer"))
             );
         }
         case "CatchClause": {
@@ -1115,6 +1129,24 @@ function printInBlock(path, options, print, expressionKey) {
     } else {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
+}
+
+function shouldPrintBlockAlternateAsElseIf(node) {
+    if (!node || node.type !== "BlockStatement") {
+        return false;
+    }
+
+    if (hasComment(node)) {
+        return false;
+    }
+
+    const body = Array.isArray(node.body) ? node.body : [];
+    if (body.length !== 1) {
+        return false;
+    }
+
+    const [onlyStatement] = body;
+    return onlyStatement?.type === "IfStatement";
 }
 
 // print a delimited sequence of elements
@@ -1368,22 +1400,23 @@ function applyAssignmentAlignment(statements, options) {
             return;
         }
 
-        const shouldAlign =
+        const meetsAlignmentThreshold =
             minGroupSize > 0 && currentGroup.length >= minGroupSize;
 
-        if (!shouldAlign) {
+        if (!meetsAlignmentThreshold) {
             currentGroup.forEach((node) => {
                 node._alignAssignmentPadding = 0;
             });
-        } else {
-            const maxLength = Math.max(
-                ...currentGroup.map((node) => node.left.name.length)
-            );
-            currentGroup.forEach((node) => {
-                node._alignAssignmentPadding =
-                    maxLength - node.left.name.length;
-            });
+            currentGroup = [];
+            return;
         }
+
+        const maxLength = Math.max(
+            ...currentGroup.map((node) => node.left.name.length)
+        );
+        currentGroup.forEach((node) => {
+            node._alignAssignmentPadding = maxLength - node.left.name.length;
+        });
         currentGroup = [];
     };
 
@@ -1437,21 +1470,53 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         return null;
     }
 
-    if (declarator.init.docComments && declarator.init.docComments.length > 0) {
-        return null;
+    const hasFunctionDoc =
+        declarator.init.docComments && declarator.init.docComments.length > 0;
+
+    const rawComments = Array.isArray(node.comments) ? node.comments : [];
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const existingDocLines = [];
+    const remainingComments = [];
+
+    for (const comment of rawComments) {
+        if (!comment || comment.type !== "CommentLine") {
+            remainingComments.push(comment);
+            continue;
+        }
+
+        const formatted = formatLineComment(comment, lineCommentOptions);
+        if (
+            typeof formatted !== "string" ||
+            !formatted.trim().startsWith("///")
+        ) {
+            remainingComments.push(comment);
+            continue;
+        }
+
+        comment.printed = true;
+        existingDocLines.push(formatted);
     }
 
-    if (node.comments && node.comments.length > 0) {
+    if (existingDocLines.length > 0) {
+        node.comments = remainingComments;
+    }
+
+    if (hasFunctionDoc && existingDocLines.length === 0) {
         return null;
     }
 
     const name = declarator.id.name;
-    const syntheticLines = computeSyntheticFunctionDocLines(
-        declarator.init,
-        [],
-        options,
-        { nameOverride: name }
-    );
+    const syntheticLines =
+        existingDocLines.length > 0
+            ? mergeSyntheticDocComments(
+                declarator.init,
+                existingDocLines,
+                options,
+                { nameOverride: name }
+            )
+            : computeSyntheticFunctionDocLines(declarator.init, [], options, {
+                nameOverride: name
+            });
 
     if (syntheticLines.length === 0) {
         return null;
@@ -1560,11 +1625,17 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
-function mergeSyntheticDocComments(node, existingDocLines, options) {
+function mergeSyntheticDocComments(
+    node,
+    existingDocLines,
+    options,
+    overrides = {}
+) {
     const syntheticLines = computeSyntheticFunctionDocLines(
         node,
         existingDocLines,
-        options
+        options,
+        overrides
     );
 
     if (syntheticLines.length === 0) {
@@ -1920,7 +1991,21 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @function ${functionName}`);
     }
 
+    const implicitArgumentDocNames = collectImplicitArgumentDocNames(
+        node,
+        options
+    );
+
     if (!Array.isArray(node.params)) {
+        for (const docName of implicitArgumentDocNames) {
+            if (documentedParamNames.has(docName)) {
+                continue;
+            }
+
+            documentedParamNames.add(docName);
+            lines.push(`/// @param ${docName}`);
+        }
+
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag);
     }
 
@@ -1960,9 +2045,138 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
+    for (const docName of implicitArgumentDocNames) {
+        if (documentedParamNames.has(docName)) {
+            continue;
+        }
+
+        documentedParamNames.add(docName);
+        lines.push(`/// @param ${docName}`);
+    }
+
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag).map((line) =>
         normalizeDocCommentTypeAnnotations(line)
     );
+}
+
+function collectImplicitArgumentDocNames(functionNode, options) {
+    if (
+        !functionNode ||
+        functionNode.type !== "FunctionDeclaration" ||
+        options?.applyFeatherFixes !== true
+    ) {
+        return [];
+    }
+
+    const referencedIndices = new Set();
+    const aliasByIndex = new Map();
+
+    const visit = (node, parent) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (node === functionNode) {
+            visit(functionNode.body, node);
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child, parent);
+            }
+            return;
+        }
+
+        if (
+            node !== functionNode &&
+            (node.type === "FunctionDeclaration" ||
+                node.type === "FunctionExpression" ||
+                node.type === "ConstructorDeclaration")
+        ) {
+            return;
+        }
+
+        if (node.type === "VariableDeclarator") {
+            const aliasIndex = getArgumentIndexFromNode(node.init);
+            if (
+                aliasIndex !== null &&
+                node.id?.type === "Identifier" &&
+                !aliasByIndex.has(aliasIndex)
+            ) {
+                const aliasName = normalizeDocMetadataName(node.id.name);
+                if (typeof aliasName === "string" && aliasName.length > 0) {
+                    aliasByIndex.set(aliasIndex, aliasName);
+                }
+            }
+        }
+
+        const directIndex = getArgumentIndexFromNode(node);
+        if (directIndex !== null) {
+            referencedIndices.add(directIndex);
+        }
+
+        for (const value of Object.values(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            visit(value, node);
+        }
+    };
+
+    visit(functionNode.body, functionNode);
+
+    if (referencedIndices.size === 0) {
+        return [];
+    }
+
+    const sortedIndices = [...referencedIndices].sort(
+        (left, right) => left - right
+    );
+    return sortedIndices.map((index) => {
+        const alias = aliasByIndex.get(index);
+        return alias && alias.length > 0 ? alias : `argument${index}`;
+    });
+}
+
+function getArgumentIndexFromNode(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "Identifier") {
+        return getArgumentIndexFromIdentifier(node.name);
+    }
+
+    if (
+        node.type === "MemberIndexExpression" &&
+        node.object?.type === "Identifier" &&
+        node.object.name === "argument" &&
+        Array.isArray(node.property) &&
+        node.property.length === 1 &&
+        node.property[0]?.type === "Literal"
+    ) {
+        const literal = node.property[0];
+        const parsed = Number.parseInt(literal.value, 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    return null;
+}
+
+function getArgumentIndexFromIdentifier(name) {
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    const match = name.match(/^argument(\d+)$/);
+    if (!match) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
@@ -1973,7 +2187,8 @@ function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
     if (
         hasReturnsTag ||
         !functionNode ||
-        functionNode.type !== "FunctionDeclaration"
+        functionNode.type !== "FunctionDeclaration" ||
+        functionNode._suppressSyntheticReturnsDoc
     ) {
         return lines;
     }

@@ -151,6 +151,8 @@ The following roadmap refines the high-level phases into discrete, testable work
    - *Prerequisites:* Step 8 foundation working reliably.
    - *Actions:*
      - Sequentially enable renaming for scripts/functions, macros, enums, and instance/global variables.
+     - ProjectIndex now publishes per-scope identifier buckets (with stable `identifierId` values) so that rename planners can
+       reason about collisions and resource paths before executing conversions.
      - Leverage the `ProjectIndex.identifiers` buckets for each scope to surface potential collisions before conversion.
      - For each scope, add dedicated tests and conflict scenarios; adjust project index to track new reference types as needed.
    - *Deliverables:* Incremental PRs per scope, expanded documentation describing scope-specific toggles.

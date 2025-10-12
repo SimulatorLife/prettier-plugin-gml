@@ -4,11 +4,13 @@ import { getLineBreakCount } from "../../../shared/line-breaks.js";
 import {
     applyInlinePadding,
     formatLineComment,
-    getLineCommentRawText,
+    getLineCommentRawText
+} from "../comments/line-comment-formatting.js";
+import {
     getTrailingCommentInlinePadding,
-    isCommentNode,
     resolveLineCommentOptions
-} from "../comments/index.js";
+} from "../comments/line-comment-options.js";
+import { isCommentNode } from "../../../shared/comments.js";
 
 const { addDanglingComment } = util;
 
@@ -435,12 +437,13 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
 
 // note: this preserves non-standard whitespaces!
 function whitespaceToDoc(text) {
-    const lines = text.split(/[\r\n\u2028\u2029]/);
-
-    if (getLineBreakCount(text) === 0) {
-        return lines[0];
+    const lineBreakCount = getLineBreakCount(text);
+    if (lineBreakCount === 0) {
+        // Avoid allocating the split array for the common single-line case.
+        return text;
     }
 
+    const lines = text.split(/[\r\n\u2028\u2029]/);
     return join(hardline, lines);
 }
 

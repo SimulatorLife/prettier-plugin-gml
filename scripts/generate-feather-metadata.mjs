@@ -4,7 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
-import { CliUsageError, handleCliError } from "./utils/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    resolveProgressBarWidth
+} from "./utils/progress-bar.js";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
@@ -12,7 +16,6 @@ const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
 
 const KB = 1024;
 const MB = KB * 1024;
-const PROGRESS_BAR_WIDTH = 24;
 
 function assertSupportedNodeVersion() {
     const [major, minor] = process.versions.node
@@ -23,18 +26,18 @@ function assertSupportedNodeVersion() {
             `Unable to determine Node.js version from ${process.version}.`
         );
     }
-    const minimum = { 18: 18, 20: 9 };
+    const MINIMUM_MINOR_VERSION_BY_MAJOR = { 18: 18, 20: 9 };
     if (major < 18) {
         throw new Error(
             `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
         );
     }
-    if (major === 18 && minor < minimum[18]) {
+    if (major === 18 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[18]) {
         throw new Error(
             `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
         );
     }
-    if (major === 20 && minor < minimum[20]) {
+    if (major === 20 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[20]) {
         throw new Error(
             `Node.js 20.9.0 or newer is required. Detected ${process.version}.`
         );
@@ -72,6 +75,7 @@ function getUsage() {
         "  --output, -o <path>       Output JSON path. Defaults to resources/feather-metadata.json.",
         "  --force-refresh           Ignore cached manual artefacts and re-download.",
         "  --quiet                   Suppress progress output (useful in CI).",
+        "  --progress-bar-width <n>  Width of the terminal progress bar (default: 24).",
         "  --help, -h                Show this help message."
     ].join("\n");
 }
@@ -80,6 +84,13 @@ function parseArgs() {
     let ref = process.env.GML_MANUAL_REF ?? null;
     let outputPath = OUTPUT_DEFAULT;
     let forceRefresh = false;
+    let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
+    if (process.env.GML_PROGRESS_BAR_WIDTH !== undefined) {
+        progressBarWidth = resolveProgressBarWidth(
+            process.env.GML_PROGRESS_BAR_WIDTH,
+            { usage: getUsage() }
+        );
+    }
     const verbose = {
         resolveRef: true,
         downloads: true,
@@ -105,6 +116,17 @@ function parseArgs() {
             verbose.downloads = false;
             verbose.parsing = false;
             verbose.progressBar = false;
+        } else if (arg === "--progress-bar-width") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError(
+                    "--progress-bar-width requires a numeric value.",
+                    { usage: getUsage() }
+                );
+            }
+            progressBarWidth = resolveProgressBarWidth(ARGUMENTS[i + 1], {
+                usage: getUsage()
+            });
+            i += 1;
         } else if (arg === "--help" || arg === "-h") {
             console.log(getUsage());
             process.exit(0);
@@ -115,7 +137,7 @@ function parseArgs() {
         }
     }
 
-    return { ref, outputPath, forceRefresh, verbose };
+    return { ref, outputPath, forceRefresh, verbose, progressBarWidth };
 }
 
 const BASE_HEADERS = {
@@ -247,16 +269,19 @@ function escapeRegex(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function renderProgressBar(label, current, total) {
-    if (!process.stdout.isTTY) {
+function renderProgressBar(
+    label,
+    current,
+    total,
+    width = DEFAULT_PROGRESS_BAR_WIDTH
+) {
+    if (!process.stdout.isTTY || width <= 0) {
         return;
     }
     const clampedTotal = total > 0 ? total : 1;
     const ratio = Math.min(Math.max(current / clampedTotal, 0), 1);
-    const filled = Math.round(ratio * PROGRESS_BAR_WIDTH);
-    const bar = `${"#".repeat(filled)}${"-".repeat(
-        Math.max(PROGRESS_BAR_WIDTH - filled, 0)
-    )}`;
+    const filled = Math.round(ratio * width);
+    const bar = `${"#".repeat(filled)}${"-".repeat(Math.max(width - filled, 0))}`;
     const message = `${label} [${bar}] ${current}/${total}`;
     process.stdout.write(`\r${message}`);
     if (current >= total) {
@@ -951,7 +976,8 @@ function parseTypeSystem(html) {
 async function main() {
     assertSupportedNodeVersion();
 
-    const { ref, outputPath, forceRefresh, verbose } = parseArgs();
+    const { ref, outputPath, forceRefresh, verbose, progressBarWidth } =
+        parseArgs();
     const startTime = Date.now();
     const manualRef = await resolveManualRef(ref, { verbose });
     if (!manualRef?.sha) {
@@ -981,7 +1007,8 @@ async function main() {
             renderProgressBar(
                 "Downloading manual pages",
                 fetchedCount,
-                totalManualPages
+                totalManualPages,
+                progressBarWidth
             );
         } else if (verbose.downloads) {
             console.log(`✓ ${manualPath}`);

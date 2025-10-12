@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -9,17 +10,11 @@ import {
     IGNORE_CONFLICT_CODE,
     buildPatternMatchers,
     matchesIgnorePattern,
-    createConflict
+    createConflict,
+    incrementFileOccurrence,
+    summarizeFileOccurrences
 } from "./common.js";
-import { planAssetRenames, applyAssetRenames } from "../assets/rename.js";
-
-function toPosixPath(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
-        return "";
-    }
-
-    return filePath.replace(/\\+/g, "/");
-}
+import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (typeof absoluteFilePath !== "string" || absoluteFilePath.length === 0) {
@@ -105,15 +100,10 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     const counts = new Map();
 
     for (const reference of references ?? []) {
-        const filePath = reference?.filePath ?? relativeFilePath;
-        const key = filePath ?? "<unknown>";
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+        incrementFileOccurrence(counts, reference?.filePath, relativeFilePath);
     }
 
-    return Array.from(counts.entries()).map(([filePath, occurrences]) => ({
-        filePath,
-        occurrences
-    }));
+    return summarizeFileOccurrences(counts);
 }
 
 export function prepareIdentifierCasePlan(options) {
@@ -153,8 +143,11 @@ export function prepareIdentifierCasePlan(options) {
         context?.projectIndex ??
         null;
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
-    // `projectIndex.identifiers`. Local-scope renaming remains the only executed
-    // transformation here until per-scope toggles are wired through.
+    // `projectIndex.identifiers` with dedicated identifier IDs per scope. Local-scope
+    // renaming remains the only executed transformation until the scope toggles
+    // (e.g. gmlIdentifierCaseFunctions, gmlIdentifierCaseMacros, etc.) are
+    // connected to the rename planner. Future stages will consult these per-scope
+    // buckets to respect collisions before enabling the additional conversions.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";

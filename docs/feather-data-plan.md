@@ -8,8 +8,8 @@
 ## Current implementation
 - [`scripts/generate-feather-metadata.mjs`](../scripts/generate-feather-metadata.mjs) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption.【F:scripts/generate-feather-metadata.mjs†L1-L63】
 - Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…`, so repeated runs avoid redundant network calls while iterating on the parser.【F:scripts/generate-feather-metadata.mjs†L11-L144】
-- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, and `--help/-h` prints the usage summary.【F:scripts/generate-feather-metadata.mjs†L26-L63】
-- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time.【F:scripts/generate-feather-metadata.mjs†L26-L41】
+- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, and `--help/-h` prints the usage summary.【F:scripts/generate-feather-metadata.mjs†L44-L111】
+- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, and `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally.【F:scripts/generate-feather-metadata.mjs†L44-L111】
 
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
