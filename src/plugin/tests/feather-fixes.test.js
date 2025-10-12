@@ -314,6 +314,81 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("converts room navigation arithmetic into built-in helpers", () => {
+        const source = [
+            "var next_room = room + 1;",
+            "var previous_room = room - 1;",
+            "room_goto(room + 1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [nextDeclaration, previousDeclaration, gotoCall] = ast.body ?? [];
+
+        assert.ok(nextDeclaration);
+        assert.strictEqual(nextDeclaration.type, "VariableDeclaration");
+        const [nextDeclarator] = nextDeclaration.declarations ?? [];
+        assert.ok(nextDeclarator);
+        const nextInitializer = nextDeclarator.init;
+        assert.ok(nextInitializer);
+        assert.strictEqual(nextInitializer.type, "CallExpression");
+        assert.strictEqual(nextInitializer.object?.name, "room_next");
+        assert.strictEqual(nextInitializer.arguments?.length, 1);
+        assert.strictEqual(nextInitializer.arguments[0]?.name, "room");
+
+        const nextFixes = Array.isArray(
+            nextInitializer._appliedFeatherDiagnostics
+        )
+            ? nextInitializer._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            nextFixes.some((entry) => entry.id === "GM1009"),
+            true,
+            "Expected room_next conversion to record GM1009 metadata."
+        );
+
+        assert.ok(previousDeclaration);
+        const [previousDeclarator] = previousDeclaration.declarations ?? [];
+        assert.ok(previousDeclarator);
+        const previousInitializer = previousDeclarator.init;
+        assert.ok(previousInitializer);
+        assert.strictEqual(previousInitializer.type, "CallExpression");
+        assert.strictEqual(previousInitializer.object?.name, "room_previous");
+        assert.strictEqual(previousInitializer.arguments?.length, 1);
+        assert.strictEqual(previousInitializer.arguments[0]?.name, "room");
+
+        const previousFixes = Array.isArray(
+            previousInitializer._appliedFeatherDiagnostics
+        )
+            ? previousInitializer._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            previousFixes.some((entry) => entry.id === "GM1009"),
+            true,
+            "Expected room_previous conversion to record GM1009 metadata."
+        );
+
+        assert.ok(gotoCall);
+        assert.strictEqual(gotoCall.type, "CallExpression");
+        assert.strictEqual(gotoCall.object?.name, "room_goto_next");
+        assert.ok(Array.isArray(gotoCall.arguments));
+        assert.strictEqual(gotoCall.arguments.length, 0);
+
+        const gotoFixes = Array.isArray(gotoCall._appliedFeatherDiagnostics)
+            ? gotoCall._appliedFeatherDiagnostics
+            : [];
+        assert.strictEqual(
+            gotoFixes.some((entry) => entry.id === "GM1009"),
+            true,
+            "Expected room_goto conversion to record GM1009 metadata."
+        );
+    });
+
     it("annotates invalid assignment targets with GM1007 metadata", () => {
         const source = [
             "var origin = new Point(0, 0);",

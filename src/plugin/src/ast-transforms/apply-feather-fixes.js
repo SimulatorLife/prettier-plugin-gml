@@ -1062,11 +1062,35 @@ function createAutomaticFeatherFixHandlers() {
     return new Map([
         [
             "GM1009",
-            ({ ast, diagnostic }) =>
-                convertFileAttributeAdditionsToBitwiseOr({
+            ({ ast, diagnostic, sourceText }) => {
+                const fixes = [];
+
+                const attributeFixes = convertFileAttributeAdditionsToBitwiseOr(
+                    {
+                        ast,
+                        diagnostic
+                    }
+                );
+
+                if (
+                    Array.isArray(attributeFixes) &&
+                    attributeFixes.length > 0
+                ) {
+                    fixes.push(...attributeFixes);
+                }
+
+                const roomFixes = convertRoomNavigationArithmetic({
                     ast,
-                    diagnostic
-                })
+                    diagnostic,
+                    sourceText
+                });
+
+                if (Array.isArray(roomFixes) && roomFixes.length > 0) {
+                    fixes.push(...roomFixes);
+                }
+
+                return fixes;
+            }
         ],
         [
             "GM1021",
@@ -2190,6 +2214,270 @@ function isFileAttributeIdentifier(node) {
     }
 
     return FILE_ATTRIBUTE_IDENTIFIER_PATTERN.test(node.name);
+}
+
+function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = rewriteRoomGotoCall({
+                node,
+                diagnostic,
+                sourceText
+            });
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        if (node.type === "BinaryExpression") {
+            const fix = rewriteRoomNavigationBinaryExpression({
+                node,
+                parent,
+                property,
+                diagnostic,
+                sourceText
+            });
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function rewriteRoomNavigationBinaryExpression({
+    node,
+    parent,
+    property,
+    diagnostic,
+    sourceText
+}) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    if (!isEligibleRoomBinaryParent(parent, property)) {
+        return null;
+    }
+
+    const navigation = resolveRoomNavigationFromBinaryExpression(node);
+
+    if (!navigation) {
+        return null;
+    }
+
+    const { direction, baseIdentifier } = navigation;
+    const replacementName =
+        direction === "previous" ? "room_previous" : "room_next";
+    const calleeIdentifier = createIdentifier(replacementName, baseIdentifier);
+    const argumentIdentifier = cloneIdentifier(baseIdentifier);
+
+    if (!calleeIdentifier || !argumentIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: calleeIdentifier,
+        arguments: [argumentIdentifier]
+    };
+
+    if (Object.hasOwn(node, "start")) {
+        callExpression.start = cloneLocation(node.start);
+    }
+
+    if (Object.hasOwn(node, "end")) {
+        callExpression.end = cloneLocation(node.end);
+    }
+
+    copyCommentMetadata(node, callExpression);
+
+    const startIndex = getNodeStartIndex(node);
+    const endIndex = getNodeEndIndex(node);
+    const range =
+        typeof startIndex === "number" && typeof endIndex === "number"
+            ? { start: startIndex, end: endIndex }
+            : null;
+
+    const target =
+        getSourceTextSlice({
+            sourceText,
+            startIndex,
+            endIndex
+        }) ?? null;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target,
+        range
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    fixDetail.replacement = replacementName;
+
+    if (Array.isArray(parent)) {
+        parent[property] = callExpression;
+    } else if (parent && typeof property === "string") {
+        parent[property] = callExpression;
+    } else {
+        return null;
+    }
+
+    attachFeatherFixMetadata(callExpression, [fixDetail]);
+
+    return fixDetail;
+}
+
+function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "room_goto")) {
+        return null;
+    }
+
+    const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+    if (args.length !== 1) {
+        return null;
+    }
+
+    const navigation = resolveRoomNavigationFromBinaryExpression(args[0]);
+
+    if (!navigation) {
+        return null;
+    }
+
+    const replacementName =
+        navigation.direction === "previous"
+            ? "room_goto_previous"
+            : "room_goto_next";
+
+    const startIndex = getNodeStartIndex(node);
+    const endIndex = getNodeEndIndex(node);
+    const range =
+        typeof startIndex === "number" && typeof endIndex === "number"
+            ? { start: startIndex, end: endIndex }
+            : null;
+
+    const target =
+        getSourceTextSlice({
+            sourceText,
+            startIndex,
+            endIndex
+        }) ??
+        node.object?.name ??
+        null;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target,
+        range
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    fixDetail.replacement = replacementName;
+
+    const updatedCallee = createIdentifier(replacementName, node.object);
+
+    if (!updatedCallee) {
+        return null;
+    }
+
+    node.object = updatedCallee;
+    node.arguments = [];
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function resolveRoomNavigationFromBinaryExpression(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const baseIdentifier = unwrapIdentifierFromExpression(node.left);
+
+    if (!isIdentifierWithName(baseIdentifier, "room")) {
+        return null;
+    }
+
+    if (node.operator === "+") {
+        if (isLiteralOne(node.right)) {
+            return { direction: "next", baseIdentifier };
+        }
+
+        if (isNegativeOneLiteral(node.right)) {
+            return { direction: "previous", baseIdentifier };
+        }
+    }
+
+    if (node.operator === "-") {
+        if (isLiteralOne(node.right)) {
+            return { direction: "previous", baseIdentifier };
+        }
+
+        if (isNegativeOneLiteral(node.right)) {
+            return { direction: "next", baseIdentifier };
+        }
+    }
+
+    return null;
+}
+
+function isEligibleRoomBinaryParent(parent, property) {
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "VariableDeclarator" && property === "init") {
+        return true;
+    }
+
+    if (parent.type === "AssignmentExpression" && property === "right") {
+        return true;
+    }
+
+    return false;
 }
 
 function preventDivisionOrModuloByZero({ ast, diagnostic }) {
