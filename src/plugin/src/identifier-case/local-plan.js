@@ -153,8 +153,11 @@ export function prepareIdentifierCasePlan(options) {
         context?.projectIndex ??
         null;
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
-    // `projectIndex.identifiers`. Local-scope renaming remains the only executed
-    // transformation here until per-scope toggles are wired through.
+    // `projectIndex.identifiers` with dedicated identifier IDs per scope. Local-scope
+    // renaming remains the only executed transformation until the scope toggles
+    // (e.g. gmlIdentifierCaseFunctions, gmlIdentifierCaseMacros, etc.) are
+    // connected to the rename planner. Future stages will consult these per-scope
+    // buckets to respect collisions before enabling the additional conversions.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
