@@ -1939,8 +1939,27 @@ function updateParamLineWithDocName(line, newDocName) {
         return `${prefix}${newDocName}`;
     }
 
-    const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
-    return `${prefix}${updatedRemainder}`;
+    const remainderWithoutName = remainder.replace(/^[^\s]*/, "");
+    const leadingWhitespaceMatch = remainderWithoutName.match(/^\s*/);
+    const leadingWhitespace = leadingWhitespaceMatch
+        ? leadingWhitespaceMatch[0]
+        : "";
+    const descriptionText = remainderWithoutName
+        .slice(leadingWhitespace.length)
+        .trim();
+
+    let formattedSuffix = "";
+    if (descriptionText.length > 0) {
+        if (descriptionText.startsWith("-")) {
+            formattedSuffix = `${leadingWhitespace}${descriptionText}`;
+        } else {
+            const separatorWhitespace =
+                leadingWhitespace.length > 0 ? leadingWhitespace : " ";
+            formattedSuffix = `${separatorWhitespace}- ${descriptionText}`;
+        }
+    }
+
+    return `${prefix}${newDocName}${formattedSuffix}`;
 }
 
 function computeSyntheticFunctionDocLines(
@@ -1964,6 +1983,9 @@ function computeSyntheticFunctionDocLines(
             meta.name.trim().length > 0
     );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
+    const hasDescriptionTag = metadata.some(
+        (meta) => meta.tag === "description"
+    );
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
@@ -2008,7 +2030,10 @@ function computeSyntheticFunctionDocLines(
             lines.push(`/// @param ${docName}`);
         }
 
-        return maybeAppendReturnsDoc(lines, node, hasReturnsTag);
+        const finalLines = hasDescriptionTag
+            ? lines
+            : maybeAppendReturnsDoc(lines, node, hasReturnsTag);
+        return finalLines;
     }
 
     for (const param of node.params) {
@@ -2056,9 +2081,11 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
-    return maybeAppendReturnsDoc(lines, node, hasReturnsTag).map((line) =>
-        normalizeDocCommentTypeAnnotations(line)
-    );
+    const finalLines = hasDescriptionTag
+        ? lines
+        : maybeAppendReturnsDoc(lines, node, hasReturnsTag);
+
+    return finalLines.map((line) => normalizeDocCommentTypeAnnotations(line));
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {

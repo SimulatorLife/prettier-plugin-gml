@@ -467,12 +467,104 @@ function normalizeGameMakerType(typeText) {
         return typeText;
     }
 
-    return typeText.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (identifier) => {
-        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
-            identifier.toLowerCase()
-        );
-        return normalized ?? identifier;
-    });
+    const normalized = typeText.replace(
+        /[A-Za-z_][A-Za-z0-9_]*/g,
+        (identifier) => {
+            const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
+                identifier.toLowerCase()
+            );
+            return normalized ?? identifier;
+        }
+    );
+
+    return normalizeGameMakerTypeUnionSeparators(normalized);
+}
+
+function normalizeGameMakerTypeUnionSeparators(typeText) {
+    if (typeof typeText !== "string") {
+        return typeText;
+    }
+
+    let depth = 0;
+    let current = "";
+    const tokens = [];
+
+    const flushCurrent = () => {
+        if (current.length === 0) {
+            return;
+        }
+
+        const trimmed = current.trim();
+        if (trimmed.length > 0) {
+            tokens.push(trimmed);
+        }
+
+        current = "";
+    };
+
+    for (let index = 0; index < typeText.length; index += 1) {
+        const char = typeText[index];
+
+        if (char === "[" || char === "(" || char === "<") {
+            depth += 1;
+            current += char;
+            continue;
+        }
+
+        if (char === "]" || char === ")" || char === ">") {
+            if (depth > 0) {
+                depth -= 1;
+            }
+            current += char;
+            continue;
+        }
+
+        if (depth === 0 && (char === "," || /\s/.test(char))) {
+            flushCurrent();
+
+            continue;
+        }
+
+        current += char;
+    }
+
+    flushCurrent();
+
+    const joinedTokens = tokens.length > 1 ? tokens.join("|") : typeText.trim();
+    const balanced = balanceBracketPairs(joinedTokens);
+
+    if (tokens.length <= 1) {
+        return balanced;
+    }
+
+    return balanced.replace(/\bId\|Instance\b/g, "Id.Instance");
+}
+
+function balanceBracketPairs(typeText) {
+    if (typeof typeText !== "string" || typeText.length === 0) {
+        return typeText;
+    }
+
+    const pairs = [
+        { open: "[", close: "]" },
+        { open: "(", close: ")" },
+        { open: "<", close: ">" }
+    ];
+
+    let balanced = typeText;
+
+    for (const { open, close } of pairs) {
+        const openCount = (balanced.match(new RegExp(`\\${open}`, "g")) ?? [])
+            .length;
+        const closeCount = (balanced.match(new RegExp(`\\${close}`, "g")) ?? [])
+            .length;
+
+        if (closeCount < openCount) {
+            balanced += close.repeat(openCount - closeCount);
+        }
+    }
+
+    return balanced;
 }
 
 function splitCommentIntoSentences(text) {
