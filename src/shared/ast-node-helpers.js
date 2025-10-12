@@ -133,4 +133,13 @@ function isUndefinedLiteral(node) {
     return value.toLowerCase() === "undefined";
 }
 
-export { getSingleVariableDeclarator, getIdentifierText, isUndefinedLiteral };
+function isNode(value) {
+    return value != null && typeof value === "object";
+}
+
+export {
+    getSingleVariableDeclarator,
+    getIdentifierText,
+    isUndefinedLiteral,
+    isNode
+};
