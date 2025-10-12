@@ -20,21 +20,46 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
    - Ensure the chosen approach aligns with project conventions, coding standards, and the preservation of golden files.
    - Plan any follow-up actions, such as updating tests or documentation, before modifying files.
 
-4. **Prepare a Clean Merge Environment**
-   - Fetch the latest refs from origin and double-check the remote you will push to:
+4. **Normalize Tooling Before the Merge**
+   - Sync the latest base branch and spin up a disposable worktree so you can confirm the formatter configuration from a clean checkout:
+     ```bash
+     git fetch origin
+     git worktree add ../base-format origin/<base>
+     (cd ../base-format && npm ci && npm run format && npm run lint -- --fix)
+     ```
+     The base worktree should end up clean; if the formatter produces real changes here, stop and raise a follow-up rather than committing against the base branch.
+   - Back in your main worktree (the PR branch), copy the authoritative formatter/linter configuration from the base worktree:
+     ```bash
+     git checkout origin/<base> -- eslint.config.js ".prettier*" .editorconfig
+     ```
+     (Adjust the list to include any other formatter, lint, or tooling configs that affect whitespace or ordering.)
+   - Install dependencies if needed and run the same normalization passes on the PR branch:
+     ```bash
+     npm ci
+     npm run format
+     npm run lint -- --fix
+     git status --short
+     ```
+     Commit or stash only the mechanical formatter output; this step ensures both branches share the same baseline before conflicts are resolved.
+   - Remove the disposable base worktree once finished:
+     ```bash
+     git worktree remove ../base-format
+     ```
+
+5. **Prepare a Clean Merge Environment**
+   - Double-check the remote you will push to and refresh refs again (lightweight after the normalization step):
      ```bash
      git remote -v
      git fetch origin
      ```
-   - Check out the PR branch so it tracks the remote tip (use `git switch <branch>`; if the branch does not yet exist locally, Git will create it from `origin/<branch>`). Abort if `git status --short` shows local edits or untracked files you did not create for this task.
+   - Check out the PR branch so it tracks the remote tip (`git switch <branch>`; use `git switch --track origin/<branch>` if it is not yet local). Abort if `git status --short` shows files you did not generate in the prior normalization step.
    - Inspect the pending diff before touching conflicts:
      ```bash
      git diff --stat origin/<base>...HEAD
      ```
      This keeps the scope tight and highlights which files truly need attention.
-   - Do **not** run formatters, generators, or package managers unless the conflict is in those artifacts. Reintroducing churn is the fastest way to blow up the diff.
 
-5. **Perform the Merge Carefully**
+6. **Perform the Merge Carefully**
    - Bring the base branch into the PR branch without committing immediately so you can sanity-check the changes:
      ```bash
      git merge --no-commit --no-ff origin/<base>
@@ -44,19 +69,19 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
    - After each file is reconciled, run `git diff` to confirm only the expected sections changed.
    - Stage files incrementally (`git add <file>`) and keep the merge paused until everything looks correct. If you used `git merge --no-commit`, finish with `git commit` once satisfied. For rebases, continue with `git rebase --continue`.
 
-6. **Validate Thoroughly**
+7. **Validate Thoroughly**
    - Execute relevant test suites or build commands to confirm that the resolution does not introduce regressions.
    - Re-run any scripts or generators if the conflict involved derived artifacts, ensuring outputs remain correct.
    - Double-check that no golden fixtures were modified unintentionally.
    - Run `git diff --stat origin/<base>...HEAD` again; the stat output should list only the files you deliberately touched.
 
-7. **Finalize the Commit History**
+8. **Finalize the Commit History**
    - For merges, complete the merge commit with a clear message describing the conflict resolution.
    - For rebases or cherry-picks, continue the process (`git rebase --continue`, `git cherry-pick --continue`) after staging changes.
    - If conflicts required significant rework, consider amending the commit or splitting changes for clarity.
-  - Ensure the branch is up to date: `git fetch origin` followed by `git merge --ff-only origin/<base>` (or `git rebase origin/<base>`) should report "Already up to date."
+   - Ensure the branch is up to date: `git fetch origin` followed by `git merge --ff-only origin/<base>` (or `git rebase origin/<base>`) should report "Already up to date."
 
-8. **Document and Communicate**
+9. **Document and Communicate**
    - Note any non-obvious decisions in commit messages or PR descriptions to aid reviewers.
    - If additional follow-up tasks are necessary, create TODOs or issues as appropriate.
 
