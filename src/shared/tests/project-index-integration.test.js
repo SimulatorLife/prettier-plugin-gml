@@ -47,6 +47,32 @@ test("buildProjectIndex collects symbols and relationships across project files"
 
         await writeFile(
             tempRoot,
+            "scripts/meta/meta.yy",
+            JSON.stringify({
+                resourceType: "GMScript",
+                name: "meta"
+            })
+        );
+        await writeFile(
+            tempRoot,
+            "scripts/meta/meta.gml",
+            [
+                "#macro MAX_ENEMIES 3",
+                "globalvar enemy_limit;",
+                "enum Difficulty {",
+                "    Easy,",
+                "    Hard",
+                "}",
+                "function meta() {",
+                "    enemy_limit = MAX_ENEMIES;",
+                "    return Difficulty.Hard;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        await writeFile(
+            tempRoot,
             "scripts/attack/attack.yy",
             JSON.stringify({
                 resourceType: "GMScript",
@@ -101,7 +127,12 @@ test("buildProjectIndex collects symbols and relationships across project files"
         await writeFile(
             tempRoot,
             "objects/obj_enemy/obj_enemy_Create_0.gml",
-            ["hp = 100;", "attack(other);", "sprite_index = spr_enemy;"].join("\n")
+            [
+                "hp = 100;",
+                "attack(other);",
+                "sprite_index = spr_enemy;",
+                "enemy_limit = enemy_limit + 1;"
+            ].join("\n")
         );
 
         await writeFile(
@@ -134,11 +165,56 @@ test("buildProjectIndex collects symbols and relationships across project files"
             "expected attack scope to record calc_damage call"
         );
 
+        const attackScript = index.identifiers.scripts["scope:script:attack"];
+        assert.ok(attackScript, "expected script identifiers to be collected");
+        assert.ok(attackScript.declarations.length >= 1);
+
+        const calcScript = index.identifiers.scripts["scope:script:calc_damage"];
+        assert.ok(calcScript, "expected calc_damage script entry to exist");
+        assert.ok(
+            calcScript.references.some(
+                (reference) => reference.filePath === "scripts/attack/attack.gml"
+            ),
+            "expected calc_damage to record references from attack"
+        );
+
+        const macroIdentifiers = index.identifiers.macros.MAX_ENEMIES;
+        assert.ok(macroIdentifiers, "expected macro identifiers to be collected");
+        assert.equal(macroIdentifiers.declarations.length, 1);
+        assert.ok(macroIdentifiers.references.length >= 1);
+
+        const globalIdentifiers = index.identifiers.globalVariables.enemy_limit;
+        assert.ok(
+            globalIdentifiers,
+            "expected global variable identifiers to be collected"
+        );
+        assert.equal(globalIdentifiers.declarations.length, 1);
+        assert.ok(globalIdentifiers.references.length >= 1);
+
+        const enumEntries = Object.values(index.identifiers.enums);
+        const difficultyEnum = enumEntries.find(
+            (entry) => entry.name === "Difficulty"
+        );
+        assert.ok(difficultyEnum, "expected Difficulty enum to be indexed");
+        assert.equal(difficultyEnum.declarations.length, 1);
+        assert.ok(difficultyEnum.references.length >= 1);
+
+        const enumMemberEntries = Object.values(index.identifiers.enumMembers);
+        const hardMember = enumMemberEntries.find((entry) => entry.name === "Hard");
+        assert.ok(hardMember, "expected enum member Hard to be indexed");
+        assert.equal(hardMember.declarations.length, 1);
+        assert.ok(hardMember.references.length >= 1);
+
         const createFile = index.files["objects/obj_enemy/obj_enemy_Create_0.gml"];
         assert.ok(createFile, "expected create event file to be indexed");
         assert.equal(createFile.scriptCalls.length, 1);
         assert.equal(createFile.scriptCalls[0].target.name, "attack");
         assert.equal(createFile.scriptCalls[0].isResolved, true);
+
+        const instanceEntries = Object.values(index.identifiers.instanceVariables);
+        const hpInstance = instanceEntries.find((entry) => entry.name === "hp");
+        assert.ok(hpInstance, "expected hp instance assignment to be tracked");
+        assert.ok(hpInstance.declarations.length >= 1);
 
         const stepFile = index.files["objects/obj_enemy/obj_enemy_Step_0.gml"];
         assert.ok(stepFile, "expected step event file to be indexed");
