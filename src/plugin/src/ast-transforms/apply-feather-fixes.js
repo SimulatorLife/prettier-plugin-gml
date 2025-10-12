@@ -373,6 +373,22 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1013") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = resolveWithOtherVariableReferences({
+                    ast,
+                    diagnostic
+                });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         const handler = AUTOMATIC_FEATHER_FIX_HANDLERS.get(diagnosticId);
 
         if (handler) {
@@ -440,6 +456,429 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
             ({ ast }) =>
                 registerManualFeatherFix({ ast, diagnostic })
     );
+}
+
+function resolveWithOtherVariableReferences({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const variableDeclarations = new Map();
+    const ancestorStack = [];
+
+    const visit = (
+        node,
+        parent,
+        property,
+        arrayOwner,
+        arrayProperty,
+        context
+    ) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(
+                    node[index],
+                    node,
+                    index,
+                    arrayOwner ?? parent,
+                    arrayProperty ?? property,
+                    context
+                );
+            }
+            return;
+        }
+
+        ancestorStack.push(node);
+
+        if (node.type === "VariableDeclaration" && node.kind === "var") {
+            recordVariableDeclaration(variableDeclarations, {
+                declaration: node,
+                parent,
+                property,
+                owner: arrayOwner ?? null
+            });
+        }
+
+        const insideWithOther = Boolean(context?.insideWithOther);
+
+        if (insideWithOther && node.type === "Identifier") {
+            convertIdentifierReference({
+                identifier: node,
+                parent,
+                property,
+                arrayOwner,
+                arrayProperty,
+                variableDeclarations,
+                diagnostic,
+                fixes,
+                ancestorStack,
+                context
+            });
+            ancestorStack.pop();
+            return;
+        }
+
+        if (
+            node.type === "WithStatement" &&
+            isWithStatementTargetingOther(node)
+        ) {
+            visit(node.test, node, "test", null, null, {
+                insideWithOther,
+                withBodies: context?.withBodies ?? []
+            });
+
+            visit(node.body, node, "body", node, "body", {
+                insideWithOther: true,
+                withBodies: [...(context?.withBodies ?? []), node.body]
+            });
+
+            ancestorStack.pop();
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                visit(value, node, key, node, key, context);
+            } else {
+                visit(value, node, key, null, null, context);
+            }
+        }
+
+        ancestorStack.pop();
+    };
+
+    visit(ast, null, null, null, null, {
+        insideWithOther: false,
+        withBodies: []
+    });
+
+    return fixes;
+}
+
+function recordVariableDeclaration(registry, context) {
+    if (!registry || !context) {
+        return;
+    }
+
+    const { declaration, parent, property, owner } = context;
+
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return;
+    }
+
+    const declarations = Array.isArray(declaration?.declarations)
+        ? declaration.declarations
+        : [];
+
+    if (declarations.length !== 1) {
+        return;
+    }
+
+    const declarator = declarations[0];
+
+    if (
+        !declarator ||
+        declarator.id?.type !== "Identifier" ||
+        !declarator.init
+    ) {
+        return;
+    }
+
+    const name = declarator.id.name;
+
+    if (!name) {
+        return;
+    }
+
+    const startIndex = getNodeStartIndex(declaration);
+    const entry = {
+        declaration,
+        declarator,
+        parent,
+        property,
+        owner,
+        startIndex: typeof startIndex === "number" ? startIndex : null,
+        replaced: false,
+        invalid: false,
+        assignment: null,
+        fixDetail: null
+    };
+
+    if (!registry.has(name)) {
+        registry.set(name, []);
+    }
+
+    registry.get(name).push(entry);
+}
+
+function convertIdentifierReference({
+    identifier,
+    parent,
+    property,
+    arrayOwner,
+    arrayProperty,
+    variableDeclarations,
+    diagnostic,
+    fixes,
+    ancestorStack,
+    context
+}) {
+    if (!identifier || identifier.type !== "Identifier") {
+        return;
+    }
+
+    const ownerNode = Array.isArray(parent) ? arrayOwner : parent;
+    const ownerProperty = Array.isArray(parent) ? arrayProperty : property;
+
+    if (
+        Array.isArray(parent) &&
+        (!ownerNode || typeof ownerNode !== "object")
+    ) {
+        return;
+    }
+
+    if (
+        !ownerNode ||
+        !shouldConvertIdentifierInWith(identifier, ownerNode, ownerProperty)
+    ) {
+        return;
+    }
+
+    const candidates = variableDeclarations.get(identifier.name);
+
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+        return;
+    }
+
+    const withBodies = Array.isArray(context?.withBodies)
+        ? context.withBodies
+        : [];
+    const identifierStart = getNodeStartIndex(identifier);
+    const identifierEnd = getNodeEndIndex(identifier);
+
+    let matchedContext = null;
+
+    for (let index = candidates.length - 1; index >= 0; index -= 1) {
+        const candidate = candidates[index];
+
+        if (!candidate || candidate.invalid) {
+            continue;
+        }
+
+        if (candidate.owner && withBodies.includes(candidate.owner)) {
+            continue;
+        }
+
+        if (candidate.owner && !ancestorStack.includes(candidate.owner)) {
+            continue;
+        }
+
+        if (
+            typeof candidate.startIndex === "number" &&
+            typeof identifierStart === "number" &&
+            candidate.startIndex > identifierStart
+        ) {
+            continue;
+        }
+
+        matchedContext = candidate;
+        break;
+    }
+
+    if (!matchedContext) {
+        return;
+    }
+
+    if (!matchedContext.replaced) {
+        const assignment = promoteVariableDeclaration(
+            matchedContext,
+            diagnostic,
+            fixes
+        );
+
+        if (!assignment) {
+            matchedContext.invalid = true;
+            return;
+        }
+    }
+
+    const memberExpression = createOtherMemberExpression(identifier);
+
+    if (Array.isArray(parent)) {
+        parent[property] = memberExpression;
+    } else if (parent && typeof parent === "object") {
+        parent[property] = memberExpression;
+    }
+
+    const range =
+        typeof identifierStart === "number" && typeof identifierEnd === "number"
+            ? { start: identifierStart, end: identifierEnd }
+            : null;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: identifier.name ?? null,
+        range
+    });
+
+    if (!fixDetail) {
+        return;
+    }
+
+    attachFeatherFixMetadata(memberExpression, [fixDetail]);
+    fixes.push(fixDetail);
+}
+
+function promoteVariableDeclaration(context, diagnostic, fixes) {
+    if (!context || context.replaced) {
+        return context?.assignment ?? null;
+    }
+
+    if (
+        !Array.isArray(context.parent) ||
+        typeof context.property !== "number"
+    ) {
+        return null;
+    }
+
+    const declaration = context.declaration;
+    const declarator = context.declarator;
+
+    if (
+        !declarator ||
+        declarator.id?.type !== "Identifier" ||
+        !declarator.init
+    ) {
+        return null;
+    }
+
+    const assignment = {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: cloneIdentifier(declarator.id),
+        right: declarator.init,
+        start: cloneLocation(declaration.start),
+        end: cloneLocation(declaration.end)
+    };
+
+    copyCommentMetadata(declaration, assignment);
+
+    context.parent[context.property] = assignment;
+
+    const startIndex = getNodeStartIndex(declaration);
+    const endIndex = getNodeEndIndex(declaration);
+    const range =
+        typeof startIndex === "number" && typeof endIndex === "number"
+            ? { start: startIndex, end: endIndex }
+            : null;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: declarator.id?.name ?? null,
+        range
+    });
+
+    if (fixDetail) {
+        attachFeatherFixMetadata(assignment, [fixDetail]);
+        fixes.push(fixDetail);
+        context.fixDetail = fixDetail;
+    }
+
+    context.replaced = true;
+    context.assignment = assignment;
+
+    return assignment;
+}
+
+function isWithStatementTargetingOther(node) {
+    if (!node || node.type !== "WithStatement") {
+        return false;
+    }
+
+    const testExpression =
+        node.test?.type === "ParenthesizedExpression"
+            ? node.test.expression
+            : node.test;
+
+    return isIdentifierWithName(testExpression, "other");
+}
+
+function shouldConvertIdentifierInWith(identifier, parent, property) {
+    if (!identifier || identifier.type !== "Identifier") {
+        return false;
+    }
+
+    if (!parent || typeof parent !== "object") {
+        return false;
+    }
+
+    if (identifier.name === "other" || identifier.name === "self") {
+        return false;
+    }
+
+    if (parent.type === "AssignmentExpression" && property === "left") {
+        return false;
+    }
+
+    if (parent.type === "CallExpression" && property === "object") {
+        return false;
+    }
+
+    if (
+        parent.type === "MemberDotExpression" ||
+        parent.type === "MemberIndexExpression"
+    ) {
+        return false;
+    }
+
+    if (
+        property === "property" ||
+        property === "id" ||
+        property === "name" ||
+        property === "params"
+    ) {
+        return false;
+    }
+
+    if (
+        parent.type === "FunctionDeclaration" ||
+        parent.type === "FunctionExpression"
+    ) {
+        if (property === "name" || property === "id") {
+            return false;
+        }
+    }
+
+    if (parent.type === "StructLiteralMember" && property === "key") {
+        return false;
+    }
+
+    return true;
+}
+
+function createOtherMemberExpression(identifier) {
+    const memberExpression = {
+        type: "MemberDotExpression",
+        object: createIdentifier("other"),
+        property: cloneIdentifier(identifier)
+    };
+
+    if (Object.hasOwn(identifier, "start")) {
+        memberExpression.start = cloneLocation(identifier.start);
+    }
+
+    if (Object.hasOwn(identifier, "end")) {
+        memberExpression.end = cloneLocation(identifier.end);
+    }
+
+    return memberExpression;
 }
 
 function createAutomaticFeatherFixHandlers() {

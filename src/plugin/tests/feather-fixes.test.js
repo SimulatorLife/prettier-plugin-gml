@@ -110,6 +110,87 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("promotes local variables used within with(other) scopes", () => {
+        const source = [
+            "var atk = 1;",
+            "",
+            "with (other)",
+            "{",
+            "    hp -= atk;",
+            "    apply_damage(atk);",
+            "}",
+            "",
+            "with (other)",
+            "{",
+            "    apply_damage(atk);",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [promotedAssignment, firstWith, secondWith] = ast.body ?? [];
+
+        assert.ok(promotedAssignment);
+        assert.strictEqual(promotedAssignment.type, "AssignmentExpression");
+        assert.strictEqual(promotedAssignment.operator, "=");
+        assert.strictEqual(promotedAssignment.left?.name, "atk");
+
+        const firstBody = firstWith?.body?.body ?? [];
+        const [damageExpression, damageCall] = firstBody;
+
+        assert.ok(damageExpression);
+        assert.strictEqual(damageExpression.type, "AssignmentExpression");
+        assert.strictEqual(damageExpression.right?.type, "MemberDotExpression");
+        assert.strictEqual(damageExpression.right?.object?.name, "other");
+        assert.strictEqual(damageExpression.right?.property?.name, "atk");
+
+        assert.ok(damageCall);
+        const firstCallArgument = damageCall.arguments?.[0];
+        assert.strictEqual(firstCallArgument?.type, "MemberDotExpression");
+        assert.strictEqual(firstCallArgument?.object?.name, "other");
+        assert.strictEqual(firstCallArgument?.property?.name, "atk");
+
+        const secondBody = secondWith?.body?.body ?? [];
+        const [secondCall] = secondBody;
+        const secondCallArgument = secondCall?.arguments?.[0];
+        assert.strictEqual(secondCallArgument?.type, "MemberDotExpression");
+        assert.strictEqual(secondCallArgument?.object?.name, "other");
+        assert.strictEqual(secondCallArgument?.property?.name, "atk");
+
+        const assignmentFixes =
+            promotedAssignment?._appliedFeatherDiagnostics ?? [];
+        assert.ok(
+            assignmentFixes.some(
+                (entry) => entry.id === "GM1013" && entry.automatic === true
+            ),
+            "Expected promoted assignment to record GM1013 metadata."
+        );
+
+        const memberFixes =
+            damageExpression.right?._appliedFeatherDiagnostics ?? [];
+        assert.ok(
+            memberFixes.some(
+                (entry) => entry.id === "GM1013" && entry.automatic === true
+            ),
+            "Expected member access to record GM1013 metadata."
+        );
+
+        const programFixes = ast._appliedFeatherDiagnostics ?? [];
+        const automaticGm1013 = programFixes.filter(
+            (entry) => entry.id === "GM1013" && entry.automatic === true
+        );
+
+        assert.ok(
+            automaticGm1013.length >= 3,
+            "Expected program metadata to include automatic GM1013 fixes."
+        );
+    });
+
     it("converts string length property access into string_length calls", () => {
         const source = "var result = string(value).length;";
 
