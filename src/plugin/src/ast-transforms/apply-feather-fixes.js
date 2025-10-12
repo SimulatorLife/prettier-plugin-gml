@@ -5,6 +5,7 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
+import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -8716,14 +8717,6 @@ function extractParameterNameFromDocRemainder(remainder) {
     const match = remainder.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)/);
 
     return match ? match[1] : null;
-}
-
-function escapeRegExp(text) {
-    if (typeof text !== "string") {
-        return "";
-    }
-
-    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {

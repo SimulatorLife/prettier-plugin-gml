@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
+import { escapeRegExp } from "../src/shared/regexp.js";
 import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
@@ -263,10 +264,6 @@ async function fetchManualFile(
         );
     }
     return content;
-}
-
-function escapeRegex(text) {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function renderProgressBar(
@@ -708,7 +705,7 @@ function parseNamingRules(html) {
             );
             if (title && normalisedDescription) {
                 const prefixPattern = new RegExp(
-                    `^${escapeRegex(title)}\s*:?\s*`,
+                    `^${escapeRegExp(title)}\s*:?\s*`,
                     "i"
                 );
                 normalisedDescription = normalisedDescription.replace(
