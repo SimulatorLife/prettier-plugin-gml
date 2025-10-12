@@ -86,3 +86,9 @@ var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_
 var calc = 3 + 4 + 5;
 var calc2 = 3 - 4 + 5;
 var calc3 = 3 * 7 * 4 * 5;
+
+// The following line should be preserved; the local variable and instance variable are different scopes and do NOT conflict
+var val = 100;
+with (instance_create_layer(x, y, "Instances", obj_Fire)) {
+    self.val = val;
+}
