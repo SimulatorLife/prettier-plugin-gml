@@ -163,12 +163,22 @@ export function print(path, options, print) {
             );
 
             if (node.alternate != null) {
-                // don't add braces to else-if
-                const elseBlock =
-                    node.alternate.type === "IfStatement"
-                        ? print("alternate")
-                        : printInBlock(path, options, print, "alternate");
-                parts.push([" else ", elseBlock]);
+                const alternateNode = node.alternate;
+
+                let elseDoc;
+                if (alternateNode.type === "IfStatement") {
+                    // don't add braces to else-if chains
+                    elseDoc = print("alternate");
+                } else if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
+                    elseDoc = path.call(
+                        (alternatePath) => alternatePath.call(print, "body", 0),
+                        "alternate"
+                    );
+                } else {
+                    elseDoc = printInBlock(path, options, print, "alternate");
+                }
+
+                parts.push([" else ", elseDoc]);
             }
             return concat(parts);
         }
@@ -1115,6 +1125,24 @@ function printInBlock(path, options, print, expressionKey) {
     } else {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
+}
+
+function shouldPrintBlockAlternateAsElseIf(node) {
+    if (!node || node.type !== "BlockStatement") {
+        return false;
+    }
+
+    if (hasComment(node)) {
+        return false;
+    }
+
+    const body = Array.isArray(node.body) ? node.body : [];
+    if (body.length !== 1) {
+        return false;
+    }
+
+    const [onlyStatement] = body;
+    return onlyStatement?.type === "IfStatement";
 }
 
 // print a delimited sequence of elements
