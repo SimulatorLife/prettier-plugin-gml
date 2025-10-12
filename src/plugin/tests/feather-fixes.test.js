@@ -110,6 +110,61 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("removes duplicate enum members and records fix metadata", () => {
+        const source = [
+            "enum FRUIT {",
+            "    APPLE,",
+            "    apple,",
+            "    BANANA,",
+            "    BANANA",
+            "}",
+            "",
+            "var result = FRUIT.BANANA;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [enumDeclaration] = ast.body ?? [];
+        assert.ok(enumDeclaration);
+        assert.strictEqual(enumDeclaration.type, "EnumDeclaration");
+
+        const members = Array.isArray(enumDeclaration.members)
+            ? enumDeclaration.members
+            : [];
+        const memberNames = members.map((member) => member?.name?.name);
+
+        assert.deepStrictEqual(
+            memberNames,
+            ["APPLE", "BANANA"],
+            "Expected duplicate enum members to be removed."
+        );
+
+        const enumFixes = enumDeclaration._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(enumFixes.length, 2);
+        assert.strictEqual(
+            enumFixes.every((entry) => entry.id === "GM1004"),
+            true
+        );
+        assert.deepStrictEqual(
+            enumFixes.map((entry) => entry.target),
+            ["apple", "BANANA"]
+        );
+
+        const recordedIds = new Set(
+            (ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id)
+        );
+        assert.strictEqual(
+            recordedIds.has("GM1004"),
+            true,
+            "Expected GM1004 fix metadata on the program node."
+        );
+    });
+
     it("replaces read-only built-in assignments with local variables", () => {
         const source = [
             "function demo() {",

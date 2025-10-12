@@ -364,6 +364,90 @@ function createNoOpFixer() {
     return () => [];
 }
 
+function removeDuplicateEnumMembers({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "EnumDeclaration") {
+            const members = Array.isArray(node.members) ? node.members : [];
+
+            if (members.length > 1) {
+                const seen = new Map();
+
+                for (let index = 0; index < members.length; index += 1) {
+                    const member = members[index];
+
+                    if (!member || typeof member !== "object") {
+                        continue;
+                    }
+
+                    const name = member.name?.name;
+
+                    if (typeof name !== "string" || name.length === 0) {
+                        continue;
+                    }
+
+                    const normalizedName = name.toLowerCase();
+
+                    if (!seen.has(normalizedName)) {
+                        seen.set(normalizedName, member);
+                        continue;
+                    }
+
+                    const fixDetail = createFeatherFixDetail(diagnostic, {
+                        target: name,
+                        range: {
+                            start: getNodeStartIndex(member),
+                            end: getNodeEndIndex(member)
+                        }
+                    });
+
+                    if (fixDetail) {
+                        fixes.push(fixDetail);
+                        attachFeatherFixMetadata(node, [fixDetail]);
+                    }
+
+                    members.splice(index, 1);
+                    index -= 1;
+                }
+
+                if (members.length === 0) {
+                    node.hasTrailingComma = false;
+                }
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
@@ -371,6 +455,19 @@ function buildFeatherFixImplementations(diagnostics) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1004") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeDuplicateEnumMembers({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 
