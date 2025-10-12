@@ -526,7 +526,7 @@ function allowTrailingCommentsBetween({
 }
 
 function isTrailingLineCommentOnLine(comment, expectedLine) {
-    if (!comment || comment.type !== "CommentLine") {
+    if (!isLineCommentNode(comment)) {
         return false;
     }
 
@@ -559,7 +559,7 @@ function getNodeEndLine(node) {
 }
 
 function isAttachableTrailingComment(comment, statement) {
-    if (!isNode(comment) || comment.type !== "CommentLine") {
+    if (!isLineCommentNode(comment)) {
         return false;
     }
 
@@ -624,6 +624,10 @@ function getNodeStartLine(node) {
 
 function isNode(value) {
     return value != null && typeof value === "object";
+}
+
+function isLineCommentNode(comment) {
+    return isNode(comment) && comment.type === "CommentLine";
 }
 
 class CommentTracker {
