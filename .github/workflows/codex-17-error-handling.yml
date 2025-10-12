@@ -1,0 +1,24 @@
+name: Codex 17 – Error Handling Consistency
+on:
+  schedule:
+    - cron: "35 9 * * *" # once daily at 09:35
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Error Handling Consistency"
+      pr_body: "Seed PR for Codex to standardize error handling."
+      prompt: >
+        Review the codebase and pinpoint an area where error handling is inconsistent,
+        ad-hoc, or missing. Refactor that area to align with a consistent project-wide
+        pattern—whether through standardized logging, safe fallbacks, or structured
+        error reporting—so issues are easier to diagnose and handle without unnecessary
+        complexity.

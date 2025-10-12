@@ -1,0 +1,26 @@
+name: Codex 40 – Memory Footprint Control
+on:
+  schedule:
+    - cron: "0 0 * * *"  # once a day
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Memory Footprint Control"
+      pr_body: "Seed PR for Codex to pinpoint unnecessary allocations or retention in the codebase and tighten memory usage without breaking functionality."
+      prompt: >
+        Audit allocation-heavy paths (e.g. cached lookup tables, unintended global variables, 
+        misused closures, unbounded caches, not releasing memory when not needed anymore, 
+        etc.) and locate one clear case of avoidable memory growth or churn. Apply a 
+        localized fix that cuts peak or steady-state usage (e.g., reuse buffers, trim stored 
+        state, clear references promptly) while maintaining deterministic updates and correct 
+        behavior. Include a reproducible measurement (heap snapshot, allocation counter, 
+        Resident Set Size) demonstrating the reduction.

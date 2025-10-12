@@ -5,19 +5,65 @@
 import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
-import { applyFeatherFixes } from "../ast-transforms/apply-feather-fixes.js";
-import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
+import {
+    applyFeatherFixes,
+    preprocessSourceForFeatherFixes
+} from "../ast-transforms/apply-feather-fixes.js";
+import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
+import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex
+} from "../../../shared/ast-locations.js";
+import {
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments
+} from "./conditional-assignment-sanitizer.js";
 
 const { addTrailingComment } = util;
 
 function parse(text, options) {
-    const ast = GMLParser.parse(text, {
+    let parseSource = text;
+    let preprocessedFixMetadata = null;
+
+    if (
+        options &&
+        typeof options === "object" &&
+        options.originalText == null
+    ) {
+        options.originalText = text;
+    }
+
+    if (options?.applyFeatherFixes) {
+        const preprocessResult = preprocessSourceForFeatherFixes(text);
+
+        if (
+            preprocessResult &&
+            typeof preprocessResult.sourceText === "string"
+        ) {
+            parseSource = preprocessResult.sourceText;
+        }
+
+        preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+    }
+
+    const sanitizedResult = sanitizeConditionalAssignments(parseSource);
+    const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+
+    if (typeof sanitizedSource === "string") {
+        parseSource = sanitizedSource;
+    }
+
+    const ast = GMLParser.parse(parseSource, {
         getLocations: true,
         simplifyLocations: false
     });
 
     if (!ast || typeof ast !== "object") {
-        throw new Error("GameMaker parser returned no AST for the provided source.");
+        throw new Error(
+            "GameMaker parser returned no AST for the provided source."
+        );
     }
 
     if (options?.condenseStructAssignments ?? true) {
@@ -26,26 +72,41 @@ function parse(text, options) {
 
     if (options?.applyFeatherFixes) {
         applyFeatherFixes(ast, {
-            sourceText: text
+            sourceText: parseSource,
+            preprocessedFixMetadata,
+            options
         });
     }
+
+    if (indexAdjustments && indexAdjustments.length > 0) {
+        applySanitizedIndexAdjustments(ast, indexAdjustments);
+        if (preprocessedFixMetadata) {
+            applySanitizedIndexAdjustments(
+                preprocessedFixMetadata,
+                indexAdjustments
+            );
+        }
+    }
+
+    if (options?.useStringInterpolation) {
+        convertStringConcatenations(ast);
+    }
+
+    if (options?.condenseLogicalExpressions) {
+        condenseLogicalExpressions(ast);
+    }
+
+    preprocessFunctionArgumentDefaults(ast);
 
     return ast;
 }
 
 function locStart(node) {
-    const startIndex = getStartIndex(node);
-    return typeof startIndex === "number" ? startIndex : 0;
+    return getNodeStartIndex(node) ?? 0;
 }
 
 function locEnd(node) {
-    const endIndex = getEndIndex(node);
-    if (typeof endIndex === "number") {
-        return endIndex + 1;
-    }
-
-    const fallbackStart = getStartIndex(node);
-    return typeof fallbackStart === "number" ? fallbackStart : 0;
+    return getNodeEndIndex(node) ?? 0;
 }
 
 export const gmlParserAdapter = {

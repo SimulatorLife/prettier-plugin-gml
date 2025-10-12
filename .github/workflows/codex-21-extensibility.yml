@@ -1,0 +1,26 @@
+name: Codex 21 – Extensibility Hooks
+on:
+  schedule:
+    - cron: "15 11 * * *" # once daily at 11:15
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Add Extensibility Hook"
+      pr_body: "Seed PR for Codex to implement a targeted extensibility improvement."
+      prompt: >
+        Identify a single hard-coded decision point that limits flexibility. Refactor it
+        into a configurable, parameterized, or hookable mechanism that preserves
+        existing behavior by default while allowing for straightforward extension. Avoid
+        overgeneralization: the change should solve one concrete extensibility gap
+        without introducing unnecessary abstraction or complexity. Keep the
+        implementation minimal, update any directly affected docs or inline comments,
+        and ensure tests and linters still pass.

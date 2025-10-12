@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 
 const helperSource = `function getNodeStartIndex(node) {
     if (!node || typeof node !== "object") {
@@ -56,7 +56,9 @@ async function loadCommentTracker() {
     const classStart = fileContents.indexOf("class CommentTracker");
 
     if (classStart === -1) {
-        throw new Error("Unable to locate CommentTracker in consolidate-struct-assignments.js");
+        throw new Error(
+            "Unable to locate CommentTracker in consolidate-struct-assignments.js"
+        );
     }
 
     const classSource = fileContents.slice(classStart);
@@ -78,5 +80,20 @@ describe("CommentTracker", () => {
         tracker.consumeEntries([tracker.entries[0]]);
 
         assert.equal(tracker.hasAfter(5), true);
+    });
+
+    it("removes consumed comments from the original collection", async () => {
+        const { CommentTracker } = await loadCommentTracker();
+
+        const comments = [{ start: { index: 10 } }, { start: { index: 20 } }];
+
+        const tracker = new CommentTracker(comments);
+        tracker.consumeEntries([tracker.entries[0]]);
+        tracker.removeConsumedComments();
+
+        assert.deepEqual(
+            comments.map((comment) => comment.start.index),
+            [20]
+        );
     });
 });

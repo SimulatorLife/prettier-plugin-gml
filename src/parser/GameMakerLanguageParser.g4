@@ -34,6 +34,7 @@ statement
     | callStatement
     | functionDeclaration
     | deleteStatement
+    | literalStatement
     ) eos?
     ;
 
@@ -118,6 +119,10 @@ returnStatement
 
 deleteStatement
     : Delete expression
+    ;
+
+literalStatement
+    : literal
     ;
 
 assignmentExpression

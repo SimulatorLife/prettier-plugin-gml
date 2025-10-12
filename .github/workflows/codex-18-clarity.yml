@@ -1,7 +1,7 @@
 name: Codex 18 – Control-Flow Clarity
 on:
   schedule:
-    - cron: "10 1,7,13,19 * * *" # four times daily at 01:10, 07:10, 13:10, 19:10 UTC
+    - cron: "0 */4 * * *" # every 4 hours
   workflow_dispatch:
 
 permissions:

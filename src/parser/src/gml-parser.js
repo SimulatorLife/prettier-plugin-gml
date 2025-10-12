@@ -17,7 +17,8 @@ export default class GMLParser {
     static optionDefaults = {
         getComments: true,
         getLocations: true,
-        simplifyLocations: true
+        simplifyLocations: true,
+        getIdentifierMetadata: false
     };
 
     static parse(
@@ -25,7 +26,8 @@ export default class GMLParser {
         options = {
             getComments: true,
             getLocations: true,
-            simplifyLocations: true
+            simplifyLocations: true,
+            getIdentifierMetadata: false
         }
     ) {
         return new this(text, options).parse();
@@ -161,7 +163,9 @@ export default class GMLParser {
                 const lineBreakCount = getLineBreakCount(tokenText);
                 let node = {
                     type: "CommentBlock",
-                    value: tokenText.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
+                    value: tokenText
+                        .replace(/^[\/][\*]/, "")
+                        .replace(/[\*][\/]$/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line + lineBreakCount,

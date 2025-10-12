@@ -1,3 +1,5 @@
+# This ignore list is intended for GameMaker projects that consume the plugin.
+# It should not be used for formatting this repository's own sources.
 **/*.yy
 **/*.old.yy
 **/*.y_input
@@ -9,4 +11,4 @@
 **/*.resource_order
 datafiles
 vector_store
-.DS_STORE
+.DS_Store

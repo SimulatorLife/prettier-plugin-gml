@@ -1,4 +1,4 @@
-// Generated from GameMakerLanguageParser.g4 by ANTLR 4.13.0
+// Generated from GameMakerLanguageParser.g4 by ANTLR 4.13.1
 // jshint ignore: start
 import antlr4 from 'antlr4';
 
@@ -227,6 +227,15 @@ export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTr
 
 	// Exit a parse tree produced by GameMakerLanguageParser#deleteStatement.
 	exitDeleteStatement(ctx) {
+	}
+
+
+	// Enter a parse tree produced by GameMakerLanguageParser#literalStatement.
+	enterLiteralStatement(ctx) {
+	}
+
+	// Exit a parse tree produced by GameMakerLanguageParser#literalStatement.
+	exitLiteralStatement(ctx) {
 	}
 
 

@@ -3,28 +3,24 @@
 import GMLParser from "../gml-parser.js";
 import fs from "fs";
 
-const options = {
-    getLocationInformation: true
-};
-
 const files = fs.readdirSync("test/input");
 
 console.profile("benchmark");
 
 for (const file of files) {
-    console.log(`\n==== Parsing ${file} ====`);
-    let input = fs.readFileSync("test/input/" + file, "utf8");
-    console.time(file);
-    let ast = GMLParser.parse(input);
-    console.timeEnd(file);
+  console.log(`\n==== Parsing ${file} ====`);
+  const input = fs.readFileSync("test/input/" + file, "utf8");
+  console.time(file);
+  GMLParser.parse(input);
+  console.timeEnd(file);
 }
 
 for (const file of files) {
-    console.log(`\n==== Parsing ${file} ====`);
-    let input = fs.readFileSync("test/input/" + file, "utf8");
-    console.time(file + " (warm)");
-    let ast = GMLParser.parse(input);
-    console.timeEnd(file  + " (warm)");
+  console.log(`\n==== Parsing ${file} ====`);
+  const input = fs.readFileSync("test/input/" + file, "utf8");
+  console.time(file + " (warm)");
+  GMLParser.parse(input);
+  console.timeEnd(file + " (warm)");
 }
 
 console.profileEnd("benchmark");

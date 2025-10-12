@@ -9,7 +9,7 @@ on:
       - codex/**
       - chore/auto-lint-format
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0,30 * * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -155,6 +155,7 @@ jobs:
             core.setOutput('state', state);
             core.setOutput('draft', draft ? 'true' : 'false');
             core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repo_full_name', pr.head.repo?.full_name || '');
             core.setOutput('number', String(n));
 
       # Temporarily disable Codex review requests while we auto-merge clean PRs.
@@ -199,6 +200,57 @@ jobs:
           script: |
             const n = Number('${{ steps.read.outputs.number }}');
             const state = '${{ steps.read.outputs.state }}'.toLowerCase();
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headRef = '${{ steps.read.outputs.head_ref }}'.trim();
+            const headRepoFullName = '${{ steps.read.outputs.head_repo_full_name }}'.trim();
+            const protectedBranches = new Set(['main', 'master']);
+
+            const deleteMergedBranch = async () => {
+              if (!headRef) {
+                core.info(`Skipping branch cleanup for PR #${n}: no head ref available.`);
+                return;
+              }
+
+              if (headRepoFullName !== `${owner}/${repo}`) {
+                core.info(`Skipping branch cleanup for PR #${n}: head '${headRef}' is not in ${owner}/${repo}.`);
+                return;
+              }
+
+              if (protectedBranches.has(headRef)) {
+                core.info(`Skipping branch cleanup for PR #${n}: '${headRef}' is a protected branch name.`);
+                return;
+              }
+
+              let branch;
+              try {
+                const response = await github.rest.repos.getBranch({ owner, repo, branch: headRef });
+                branch = response.data;
+              } catch (error) {
+                if (error.status === 404) {
+                  core.info(`Branch '${headRef}' not found; nothing to delete.`);
+                } else {
+                  core.warning(`Unable to check protection for branch '${headRef}': ${error.message}`);
+                }
+                return;
+              }
+
+              if (branch.protected) {
+                core.info(`Skipping branch cleanup for PR #${n}: '${headRef}' is protected.`);
+                return;
+              }
+
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+                core.notice(`Deleted branch '${headRef}' after merging PR #${n}.`);
+              } catch (error) {
+                if (error.status === 422) {
+                  core.info(`Branch '${headRef}' could not be deleted (possibly already removed or protected).`);
+                } else {
+                  core.warning(`Failed to delete branch '${headRef}': ${error.message}`);
+                }
+              }
+            };
 
             if (!['clean', 'unstable'].includes(state)) {
               core.notice(`Skipping auto-merge for PR #${n} because mergeable_state=${state}.`);
@@ -207,12 +259,13 @@ jobs:
 
             try {
               await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
                 pull_number: n,
                 merge_method: 'squash'
               });
               core.notice(`Auto-merged PR #${n}.`);
+              await deleteMergedBranch();
             } catch (error) {
               core.warning(`Auto-merge failed for PR #${n}: ${error.message}`);
               throw error;
@@ -240,6 +293,54 @@ jobs:
             const repo = context.repo.repo;
             const merged = [];
             const skipped = [];
+            const protectedBranches = new Set(['main', 'master']);
+
+            const deleteMergedBranch = async (branchName, headRepoFullName, prNumber) => {
+              const ref = (branchName || '').trim();
+              if (!ref) {
+                core.info(`Skipping branch cleanup for PR #${prNumber}: no head ref available.`);
+                return;
+              }
+
+              if ((headRepoFullName || '').trim() !== `${owner}/${repo}`) {
+                core.info(`Skipping branch cleanup for PR #${prNumber}: head '${ref}' is not in ${owner}/${repo}.`);
+                return;
+              }
+
+              if (protectedBranches.has(ref)) {
+                core.info(`Skipping branch cleanup for PR #${prNumber}: '${ref}' is a protected branch name.`);
+                return;
+              }
+
+              let branch;
+              try {
+                const response = await github.rest.repos.getBranch({ owner, repo, branch: ref });
+                branch = response.data;
+              } catch (error) {
+                if (error.status === 404) {
+                  core.info(`Branch '${ref}' not found; nothing to delete.`);
+                } else {
+                  core.warning(`Unable to check protection for branch '${ref}': ${error.message}`);
+                }
+                return;
+              }
+
+              if (branch.protected) {
+                core.info(`Skipping branch cleanup for PR #${prNumber}: '${ref}' is protected.`);
+                return;
+              }
+
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `heads/${ref}` });
+                core.notice(`Deleted branch '${ref}' after merging PR #${prNumber}.`);
+              } catch (error) {
+                if (error.status === 422) {
+                  core.info(`Branch '${ref}' could not be deleted (possibly already removed or protected).`);
+                } else {
+                  core.warning(`Failed to delete branch '${ref}': ${error.message}`);
+                }
+              }
+            };
 
             const openPRs = await github.paginate(
               github.rest.pulls.list,
@@ -257,6 +358,8 @@ jobs:
               try {
                 const details = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
                 const data = details.data;
+                const headRef = data.head?.ref || '';
+                const headRepoFullName = data.head?.repo?.full_name || '';
 
                 if ((data.changed_files || 0) === 0) {
                   skipped.push({ number: pr.number, reason: 'no changes' });
@@ -285,6 +388,7 @@ jobs:
                   pull_number: pr.number,
                   merge_method: 'squash'
                 });
+                await deleteMergedBranch(headRef, headRepoFullName, pr.number);
                 merged.push(pr.number);
               } catch (error) {
                 core.warning(`Failed to auto-merge PR #${pr.number}: ${error.message}`);

@@ -1,0 +1,28 @@
+name: Codex 36 – Docstrings & Comments
+on:
+  schedule:
+    - cron: "30 6,18 * * *" # twice daily at 06:30, 18:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Docstrings & Comments"
+      pr_body: "Seed PR for Codex to tighten inline documentation."
+      prompt: >
+        Concentrate on inline documentation—JSDoc blocks, function/module comments,
+        README-style API tables embedded in source, and other code-adjacent explanations.
+        Pick one focused area and make the guidance timely, precise, and easy to skim.
+        Clarify parameters and return types, describe edge cases or invariants, remove
+        stale notes, and add short “why it matters” context where behaviour is subtle.
+        Avoid broad narrative docs (handled in the core documentation workflow) and keep
+        formatting consistent with existing comment style. Deliver at least one tangible
+        improvement while keeping the code itself behaviourally unchanged and the diff
+        compact.
