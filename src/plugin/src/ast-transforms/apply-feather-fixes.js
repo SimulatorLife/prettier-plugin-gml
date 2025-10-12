@@ -412,6 +412,11 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
 function createAutomaticFeatherFixHandlers() {
     return new Map([
         [
+            "GM1021",
+            ({ ast, diagnostic }) =>
+                applyMissingFunctionCallCorrections({ ast, diagnostic })
+        ],
+        [
             "GM1023",
             ({ ast, diagnostic }) =>
                 replaceDeprecatedConstantReferences({ ast, diagnostic })
@@ -6887,6 +6892,166 @@ function attachFeatherFixMetadata(target, fixes) {
     }
 
     target[key].push(...fixes);
+}
+
+function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const replacements =
+        extractFunctionCallReplacementsFromExamples(diagnostic);
+
+    if (!(replacements instanceof Map) || replacements.size === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = correctMissingFunctionCall(
+                node,
+                replacements,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function correctMissingFunctionCall(node, replacements, diagnostic) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!(replacements instanceof Map) || replacements.size === 0) {
+        return null;
+    }
+
+    const callee = node.object;
+
+    if (!callee || callee.type !== "Identifier") {
+        return null;
+    }
+
+    const replacementName = replacements.get(callee.name);
+
+    if (!replacementName || replacementName === callee.name) {
+        return null;
+    }
+
+    const startIndex = getNodeStartIndex(callee);
+    const endIndex = getNodeEndIndex(callee);
+    const range =
+        typeof startIndex === "number" && typeof endIndex === "number"
+            ? { start: startIndex, end: endIndex }
+            : null;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: callee.name ?? null,
+        range
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    fixDetail.replacement = replacementName;
+
+    callee.name = replacementName;
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function extractFunctionCallReplacementsFromExamples(diagnostic) {
+    const replacements = new Map();
+
+    if (!diagnostic) {
+        return replacements;
+    }
+
+    const badExampleCalls = extractFunctionCallNamesFromExample(
+        diagnostic.badExample
+    );
+    const goodExampleCalls = extractFunctionCallNamesFromExample(
+        diagnostic.goodExample
+    );
+
+    const count = Math.min(badExampleCalls.length, goodExampleCalls.length);
+
+    for (let index = 0; index < count; index += 1) {
+        const typo = badExampleCalls[index];
+        const correction = goodExampleCalls[index];
+
+        if (!typo || !correction || typo === correction) {
+            continue;
+        }
+
+        if (!replacements.has(typo)) {
+            replacements.set(typo, correction);
+        }
+    }
+
+    return replacements;
+}
+
+function extractFunctionCallNamesFromExample(exampleText) {
+    if (typeof exampleText !== "string" || exampleText.length === 0) {
+        return [];
+    }
+
+    const matches = [];
+    const lines = exampleText.split(/\r?\n/);
+
+    for (const line of lines) {
+        if (!line || !line.includes("(")) {
+            continue;
+        }
+
+        const [code] = line.split("//", 1);
+        if (!code || code.trim().length === 0) {
+            continue;
+        }
+
+        const callPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?=\()/g;
+        let match;
+        while ((match = callPattern.exec(code))) {
+            matches.push(match[1]);
+        }
+    }
+
+    return matches;
 }
 
 const ARGUMENT_BUILTINS = new Set([
