@@ -1392,11 +1392,21 @@ function printStatements(path, options, print, childrenAttribute) {
 
 function applyAssignmentAlignment(statements, options) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    let currentGroup = [];
+    /** @type {Array<{ node: any, nameLength: number }>} */
+    const currentGroup = [];
+    // Tracking the longest identifier as we build the group avoids mapping over
+    // the nodes and spreading into Math.max during every flush. This helper
+    // runs in tight printer loops, so staying allocation-free keeps it cheap.
+    let currentGroupMaxLength = 0;
+
+    const resetGroup = () => {
+        currentGroup.length = 0;
+        currentGroupMaxLength = 0;
+    };
 
     const flushGroup = () => {
         if (currentGroup.length === 0) {
-            currentGroup = [];
+            resetGroup();
             return;
         }
 
@@ -1404,25 +1414,28 @@ function applyAssignmentAlignment(statements, options) {
             minGroupSize > 0 && currentGroup.length >= minGroupSize;
 
         if (!meetsAlignmentThreshold) {
-            currentGroup.forEach((node) => {
+            for (const { node } of currentGroup) {
                 node._alignAssignmentPadding = 0;
-            });
-            currentGroup = [];
+            }
+            resetGroup();
             return;
         }
 
-        const maxLength = Math.max(
-            ...currentGroup.map((node) => node.left.name.length)
-        );
-        currentGroup.forEach((node) => {
-            node._alignAssignmentPadding = maxLength - node.left.name.length;
-        });
-        currentGroup = [];
+        const targetLength = currentGroupMaxLength;
+        for (const { node, nameLength } of currentGroup) {
+            node._alignAssignmentPadding = targetLength - nameLength;
+        }
+
+        resetGroup();
     };
 
     for (const statement of statements) {
         if (isSimpleAssignment(statement)) {
-            currentGroup.push(statement);
+            const nameLength = statement.left.name.length;
+            currentGroup.push({ node: statement, nameLength });
+            if (nameLength > currentGroupMaxLength) {
+                currentGroupMaxLength = nameLength;
+            }
         } else {
             flushGroup();
         }
