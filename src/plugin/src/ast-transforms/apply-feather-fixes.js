@@ -412,6 +412,11 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
 function createAutomaticFeatherFixHandlers() {
     return new Map([
         [
+            "GM1023",
+            ({ ast, diagnostic }) =>
+                replaceDeprecatedConstantReferences({ ast, diagnostic })
+        ],
+        [
             "GM1024",
             ({ ast, diagnostic }) =>
                 replaceDeprecatedBuiltinVariables({ ast, diagnostic })
@@ -2211,6 +2216,206 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
     }
 
     return fixes;
+}
+
+function replaceDeprecatedConstantReferences({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const metadata = extractDeprecatedConstantReplacement(diagnostic);
+
+    if (!metadata) {
+        return [];
+    }
+
+    const { deprecatedConstant, replacementConstant } = metadata;
+
+    if (!deprecatedConstant || !replacementConstant) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "Identifier" && node.name === deprecatedConstant) {
+            const start = getNodeStartIndex(node);
+            const end = getNodeEndIndex(node);
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: replacementConstant,
+                range:
+                    typeof start === "number" && typeof end === "number"
+                        ? { start, end }
+                        : null
+            });
+
+            if (!fixDetail) {
+                return;
+            }
+
+            node.name = replacementConstant;
+            attachFeatherFixMetadata(node, [fixDetail]);
+            fixes.push(fixDetail);
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function extractDeprecatedConstantReplacement(diagnostic) {
+    if (!diagnostic) {
+        return null;
+    }
+
+    const badExample =
+        typeof diagnostic.badExample === "string" ? diagnostic.badExample : "";
+    const correction =
+        typeof diagnostic.correction === "string"
+            ? diagnostic.correction
+            : "";
+    const goodExample =
+        typeof diagnostic.goodExample === "string" ? diagnostic.goodExample : "";
+
+    const deprecatedMatch = badExample.match(
+        /Constant\s+'([A-Za-z_][A-Za-z0-9_]*)'\s+is\s+deprecated/
+    );
+    const replacementFromCorrection = correction.match(
+        /\b(?:modern|replacement)\s+constant\s+is\s+([A-Za-z_][A-Za-z0-9_]*)\b/i
+    );
+
+    let deprecatedConstant = deprecatedMatch?.[1] ?? null;
+    let replacementConstant = replacementFromCorrection?.[1] ?? null;
+
+    if (!replacementConstant) {
+        const replacementFromGoodExample = findReplacementConstantInExample({
+            goodExample,
+            badExample,
+            deprecatedConstant
+        });
+
+        if (replacementFromGoodExample) {
+            replacementConstant = replacementFromGoodExample;
+        }
+    }
+
+    if (!deprecatedConstant) {
+        deprecatedConstant = findDeprecatedConstantInExample({
+            badExample,
+            goodExample,
+            replacementConstant
+        });
+    }
+
+    if (!deprecatedConstant || !replacementConstant) {
+        return null;
+    }
+
+    return { deprecatedConstant, replacementConstant };
+}
+
+function collectIdentifiers(example) {
+    if (typeof example !== "string" || example.length === 0) {
+        return new Set();
+    }
+
+    const matches = example.match(/\b[A-Za-z_][A-Za-z0-9_]*\b/g);
+
+    if (!Array.isArray(matches)) {
+        return new Set();
+    }
+
+    return new Set(matches);
+}
+
+function isLikelyConstant(identifier) {
+    if (typeof identifier !== "string" || identifier.length === 0) {
+        return false;
+    }
+
+    if (/^[A-Z0-9_]+$/.test(identifier)) {
+        return true;
+    }
+
+    if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(identifier)) {
+        return true;
+    }
+
+    return false;
+}
+
+function findReplacementConstantInExample({
+    goodExample,
+    badExample,
+    deprecatedConstant
+}) {
+    const goodIdentifiers = collectIdentifiers(goodExample);
+    const badIdentifiers = collectIdentifiers(badExample);
+
+    for (const identifier of goodIdentifiers) {
+        if (identifier === deprecatedConstant) {
+            continue;
+        }
+
+        if (badIdentifiers.has(identifier)) {
+            continue;
+        }
+
+        if (isLikelyConstant(identifier)) {
+            return identifier;
+        }
+    }
+
+    return null;
+}
+
+function findDeprecatedConstantInExample({
+    badExample,
+    goodExample,
+    replacementConstant
+}) {
+    const badIdentifiers = collectIdentifiers(badExample);
+    const goodIdentifiers = collectIdentifiers(goodExample);
+
+    for (const identifier of badIdentifiers) {
+        if (identifier === replacementConstant) {
+            continue;
+        }
+
+        if (goodIdentifiers.has(identifier)) {
+            continue;
+        }
+
+        if (isLikelyConstant(identifier)) {
+            return identifier;
+        }
+    }
+
+    return null;
 }
 
 function extractFeatherPreprocessMetadata(metadata, key) {
