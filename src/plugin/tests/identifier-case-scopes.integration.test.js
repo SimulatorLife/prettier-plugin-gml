@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { buildProjectIndex } from "../src/project-index/index.js";
+import { buildProjectIndex } from "../../shared/project-index/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(

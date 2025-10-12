@@ -3,8 +3,8 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-import GMLParser from "../../../parser/gml-parser.js";
-import { cloneLocation } from "../../../shared/ast-locations.js";
+import GMLParser from "../../parser/gml-parser.js";
+import { cloneLocation } from "../ast-locations.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -150,7 +150,7 @@ export function createProjectIndexCoordinator() {
 }
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
+    new URL("../../resources/gml-identifiers.json", import.meta.url)
 );
 
 let cachedBuiltInIdentifiers = null;
