@@ -231,6 +231,49 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("replaces file attribute additions with bitwise OR operations", () => {
+        const source = [
+            "function scanArchives() {",
+            "    var attributes = fa_readonly + fa_archive;",
+            '    return file_find_first(@"/User Content/*.doc", attributes);',
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [functionDeclaration] = ast.body ?? [];
+        assert.ok(functionDeclaration);
+
+        const declaration = functionDeclaration.body?.body?.[0];
+        assert.ok(declaration);
+        assert.strictEqual(declaration.type, "VariableDeclaration");
+
+        const [declarator] = declaration.declarations ?? [];
+        assert.ok(declarator);
+
+        const initializer = declarator.init;
+        assert.ok(initializer);
+        assert.strictEqual(initializer.type, "BinaryExpression");
+        assert.strictEqual(initializer.operator, "|");
+
+        const appliedDiagnostics = Array.isArray(
+            initializer._appliedFeatherDiagnostics
+        )
+            ? initializer._appliedFeatherDiagnostics
+            : [];
+
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM1009"),
+            true,
+            "Expected GM1009 fix metadata for the converted file attribute addition."
+        );
+    });
+
     it("annotates invalid assignment targets with GM1007 metadata", () => {
         const source = [
             "var origin = new Point(0, 0);",
