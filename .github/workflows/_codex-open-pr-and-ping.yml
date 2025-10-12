@@ -145,7 +145,7 @@ jobs:
 
             const instruction = "Begin by surveying the entire codebase before narrowing to this task.";
             const body = [
-              `@codex ${instruction} ${process.env.PROMPT} Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. There is no time constraint for this task; prioritize quality and correctness over speed and take your time.`,
+              `@codex ${instruction} ${process.env.PROMPT} Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed.`,
               "",
               `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
               "",
