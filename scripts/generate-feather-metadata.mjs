@@ -7,6 +7,10 @@ import { load } from "cheerio";
 import { escapeRegExp } from "../src/shared/regexp.js";
 import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
+    MANUAL_CACHE_ROOT_ENV_VAR,
+    resolveManualCacheRoot
+} from "../src/shared/cli/manual-cache.js";
+import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
 } from "../src/shared/cli/progress-bar.js";
@@ -48,7 +52,7 @@ function assertSupportedNodeVersion() {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..");
-const CACHE_ROOT = path.join(REPO_ROOT, "scripts", "cache", "manual");
+const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
 const OUTPUT_DEFAULT = path.join(
     REPO_ROOT,
     "resources",
@@ -67,7 +71,7 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function getUsage() {
+function getUsage(cacheRoot = DEFAULT_CACHE_ROOT) {
     return [
         "Usage: node scripts/generate-feather-metadata.mjs [options]",
         "",
@@ -77,6 +81,8 @@ function getUsage() {
         "  --force-refresh           Ignore cached manual artefacts and re-download.",
         "  --quiet                   Suppress progress output (useful in CI).",
         "  --progress-bar-width <n>  Width of the terminal progress bar (default: 24).",
+        `  --cache-root <path>       Directory to store cached manual artefacts (default: ${cacheRoot}).`,
+        `                             Can also be set via ${MANUAL_CACHE_ROOT_ENV_VAR}.`,
         "  --help, -h                Show this help message."
     ].join("\n");
 }
@@ -86,10 +92,11 @@ function parseArgs() {
     let outputPath = OUTPUT_DEFAULT;
     let forceRefresh = false;
     let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
+    let cacheRoot = DEFAULT_CACHE_ROOT;
     if (process.env.GML_PROGRESS_BAR_WIDTH !== undefined) {
         progressBarWidth = resolveProgressBarWidth(
             process.env.GML_PROGRESS_BAR_WIDTH,
-            { usage: getUsage() }
+            { usage: getUsage(cacheRoot) }
         );
     }
     const verbose = {
@@ -121,24 +128,39 @@ function parseArgs() {
             if (i + 1 >= ARGUMENTS.length) {
                 throw new CliUsageError(
                     "--progress-bar-width requires a numeric value.",
-                    { usage: getUsage() }
+                    { usage: getUsage(cacheRoot) }
                 );
             }
             progressBarWidth = resolveProgressBarWidth(ARGUMENTS[i + 1], {
-                usage: getUsage()
+                usage: getUsage(cacheRoot)
             });
             i += 1;
+        } else if (arg === "--cache-root") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError("--cache-root requires a path value.", {
+                    usage: getUsage(cacheRoot)
+                });
+            }
+            cacheRoot = path.resolve(ARGUMENTS[i + 1]);
+            i += 1;
         } else if (arg === "--help" || arg === "-h") {
-            console.log(getUsage());
+            console.log(getUsage(cacheRoot));
             process.exit(0);
         } else {
             throw new CliUsageError(`Unknown argument: ${arg}`, {
-                usage: getUsage()
+                usage: getUsage(cacheRoot)
             });
         }
     }
 
-    return { ref, outputPath, forceRefresh, verbose, progressBarWidth };
+    return {
+        ref,
+        outputPath,
+        forceRefresh,
+        verbose,
+        progressBarWidth,
+        cacheRoot
+    };
 }
 
 const BASE_HEADERS = {
@@ -230,10 +252,10 @@ function formatBytes(text) {
 async function fetchManualFile(
     sha,
     filePath,
-    { forceRefresh = false, verbose }
+    { forceRefresh = false, verbose, cacheRoot = DEFAULT_CACHE_ROOT }
 ) {
     const shouldLogDetails = verbose.downloads && !verbose.progressBar;
-    const cachePath = path.join(CACHE_ROOT, sha, filePath);
+    const cachePath = path.join(cacheRoot, sha, filePath);
     if (!forceRefresh) {
         try {
             const cached = await fs.readFile(cachePath, "utf8");
@@ -973,8 +995,14 @@ function parseTypeSystem(html) {
 async function main() {
     assertSupportedNodeVersion();
 
-    const { ref, outputPath, forceRefresh, verbose, progressBarWidth } =
-        parseArgs();
+    const {
+        ref,
+        outputPath,
+        forceRefresh,
+        verbose,
+        progressBarWidth,
+        cacheRoot
+    } = parseArgs();
     const startTime = Date.now();
     const manualRef = await resolveManualRef(ref, { verbose });
     if (!manualRef?.sha) {
@@ -997,7 +1025,8 @@ async function main() {
     for (const [key, manualPath] of manualEntries) {
         htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, {
             forceRefresh,
-            verbose
+            verbose,
+            cacheRoot
         });
         fetchedCount += 1;
         if (verbose.progressBar && verbose.downloads) {

@@ -8,9 +8,9 @@
 
 ## Current implementation
 - The harvesting pipeline lives in [`scripts/generate-gml-identifiers.mjs`](../scripts/generate-gml-identifiers.mjs) and defaults to writing `resources/gml-identifiers.json` so downstream consumers can load a single canonical snapshot.【F:scripts/generate-gml-identifiers.mjs†L1-L55】
-- Cached manual artefacts are stored under `scripts/cache/manual/<sha>/…`, allowing repeated runs without re-downloading the same GameMaker manual revision.【F:scripts/generate-gml-identifiers.mjs†L11-L137】
-- Run the script with `--help` (or `-h`) to see the supported flags: `--ref/-r` chooses the manual tag or commit, `--output/-o` overrides the destination path, `--force-refresh` bypasses the cache when you need a fresh snapshot, and `--progress-bar-width` resizes the terminal progress indicator.【F:scripts/generate-gml-identifiers.mjs†L46-L110】
-- `GML_MANUAL_REF` remains a convenient environment variable for CI jobs that must pin the identifiers to a specific GameMaker version, and `GML_PROGRESS_BAR_WIDTH` lets you change the default progress bar width without passing CLI flags.【F:scripts/generate-gml-identifiers.mjs†L46-L110】
+- Cached manual artefacts are stored under `scripts/cache/manual/<sha>/…` by default, allowing repeated runs without re-downloading the same GameMaker manual revision. When that directory needs to move (e.g. on CI runners with separate scratch storage) pass `--cache-root` or set `GML_MANUAL_CACHE_ROOT` to relocate it without editing the script.【F:scripts/generate-gml-identifiers.mjs†L46-L141】【F:src/shared/cli/manual-cache.js†L1-L19】
+- Run the script with `--help` (or `-h`) to see the supported flags: `--ref/-r` chooses the manual tag or commit, `--output/-o` overrides the destination path, `--force-refresh` bypasses the cache when you need a fresh snapshot, `--progress-bar-width` resizes the terminal progress indicator, the new `--cache-root` flag relocates cached assets, and `--help/-h` prints the usage summary.【F:scripts/generate-gml-identifiers.mjs†L46-L141】
+- `GML_MANUAL_REF` remains a convenient environment variable for CI jobs that must pin the identifiers to a specific GameMaker version, `GML_PROGRESS_BAR_WIDTH` lets you change the default progress bar width without passing CLI flags, and `GML_MANUAL_CACHE_ROOT` moves the manual cache globally for all invocations.【F:scripts/generate-gml-identifiers.mjs†L46-L141】【F:src/shared/cli/manual-cache.js†L1-L19】
 
 ## Primary upstream sources
 1. **YoYo Games GameMaker Manual repository** (`YoYoGames/GameMaker-Manual`)
