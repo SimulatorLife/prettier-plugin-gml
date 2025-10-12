@@ -111,7 +111,7 @@ The following roadmap refines the high-level phases into discrete, testable work
      - Traverse `.gml` and `.yy` files to build symbol tables leveraging parser output.
      - Integrate built-in identifier exclusion using `resources/gml-identifiers.json`.
      - Record cross-file references and asset relationships needed for rename propagation.
-   - *Deliverables:* `src/plugin/src/project-index` module (or equivalent) with loading, caching, and querying APIs.
+   - *Deliverables:* `src/shared/project-index` module (or equivalent) with loading, caching, and querying APIs.
    - *Validation:* Integration tests on sample projects validating the index contents; performance benchmarks on representative project sizes.
 
 5. **Case conversion utility module**

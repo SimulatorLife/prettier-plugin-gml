@@ -6,7 +6,7 @@ import {
     deriveCacheKey,
     findProjectRoot,
     PROJECT_MANIFEST_EXTENSION
-} from "../src/project-index/index.js";
+} from "../../shared/project-index/index.js";
 
 function createMockFs(entries) {
     const normalizedEntries = new Map();

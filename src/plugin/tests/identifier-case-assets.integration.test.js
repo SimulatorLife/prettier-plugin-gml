@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import { buildProjectIndex } from "../src/project-index/index.js";
+import { buildProjectIndex } from "../../shared/project-index/index.js";
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
