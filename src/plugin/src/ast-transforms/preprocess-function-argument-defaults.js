@@ -285,6 +285,8 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
+    node._suppressSyntheticReturnsDoc = true;
+
     body.body = body.body.filter(
         (statement) => !statementsToRemove.has(statement)
     );
