@@ -1,6 +1,5 @@
 .antlr/
 *.cpuprofile
-project_structure.txt
 
 # Logs
 logs
@@ -45,6 +44,7 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+.husky/_/
 
 # Manual cache artefacts
 scripts/cache/
