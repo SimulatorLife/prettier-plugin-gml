@@ -5,6 +5,12 @@ import fs from "node:fs";
 import util from "node:util";
 import { fileURLToPath } from "node:url";
 
+import {
+    CliUsageError,
+    formatCliError,
+    handleCliError
+} from "../../scripts/utils/cli-errors.js";
+
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
 const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
@@ -62,6 +68,14 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
 
 const [, , ...cliArgs] = process.argv;
 
+const USAGE = [
+    "Usage: node src/plugin/prettier-wrapper.js [options] <path>",
+    "",
+    "Options:",
+    "  --path <path>         Directory or file to format (alias for positional).",
+    "  --extensions <list>   Comma-separated list of file extensions to format."
+].join("\n");
+
 function parseCliArguments(args) {
     const parsed = {
         targetPathInput: null,
@@ -94,43 +108,34 @@ function parseCliArguments(args) {
 
         if (flag === "--path") {
             const value = consumeValue();
-            if (value !== undefined) {
-                parsed.targetPathInput = value;
+            if (value === undefined) {
+                throw new CliUsageError("--path requires a value.", {
+                    usage: USAGE
+                });
             }
+            parsed.targetPathInput = value;
             continue;
         }
 
         if (flag === "--extensions") {
             const value = consumeValue();
-            if (value !== undefined) {
-                parsed.extensions = normalizeExtensions(
-                    value,
-                    DEFAULT_EXTENSIONS
-                );
+            if (value === undefined) {
+                throw new CliUsageError("--extensions requires a value.", {
+                    usage: USAGE
+                });
             }
+            parsed.extensions = normalizeExtensions(value, DEFAULT_EXTENSIONS);
         }
     }
 
     return parsed;
 }
 
-const { targetPathInput, extensions: configuredExtensions } =
-    parseCliArguments(cliArgs);
-
-if (!targetPathInput) {
-    console.error(
-        "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project"
-    );
-    process.exit(1);
-}
-
-const targetPath = path.resolve(process.cwd(), targetPathInput);
-const targetExtensions =
-    configuredExtensions.length > 0 ? configuredExtensions : DEFAULT_EXTENSIONS;
-const targetExtensionSet = new Set(
+let targetExtensions = DEFAULT_EXTENSIONS;
+let targetExtensionSet = new Set(
     targetExtensions.map((extension) => extension.toLowerCase())
 );
-const placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 
 function shouldFormatFile(filePath) {
     const fileExtension = path.extname(filePath).toLowerCase();
@@ -308,8 +313,9 @@ async function resolveTargetStats(target) {
     try {
         return await stat(target);
     } catch (error) {
-        console.error(`Unable to access ${target}: ${error.message}`);
-        process.exit(1);
+        throw new Error(`Unable to access ${target}: ${error.message}`, {
+            cause: error
+        });
     }
 }
 
@@ -421,36 +427,77 @@ async function processFile(filePath, activeIgnorePaths = []) {
         console.log(`Formatted ${filePath}`);
     } catch (err) {
         encounteredFormattingError = true;
-        console.error(err);
+        const formattedError = formatCliError(err);
+        const header = `Failed to format ${filePath}`;
+        if (formattedError) {
+            const indented = formattedError
+                .split("\n")
+                .map((line) => `  ${line}`)
+                .join("\n");
+            console.error(`${header}\n${indented}`);
+        } else {
+            console.error(header);
+        }
     }
 }
 
-const targetStats = await resolveTargetStats(targetPath);
-const targetIsDirectory = targetStats.isDirectory();
+async function run() {
+    const { targetPathInput, extensions: configuredExtensions } =
+        parseCliArguments(cliArgs);
 
-if (!targetIsDirectory && !targetStats.isFile()) {
-    console.error(
-        `${targetPath} is not a file or directory that can be formatted`
+    if (!targetPathInput) {
+        throw new CliUsageError(
+            "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project.",
+            { usage: USAGE }
+        );
+    }
+
+    const targetPath = path.resolve(process.cwd(), targetPathInput);
+    targetExtensions =
+        configuredExtensions.length > 0
+            ? configuredExtensions
+            : DEFAULT_EXTENSIONS;
+    targetExtensionSet = new Set(
+        targetExtensions.map((extension) => extension.toLowerCase())
     );
-    process.exit(1);
+    placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+
+    const targetStats = await resolveTargetStats(targetPath);
+    const targetIsDirectory = targetStats.isDirectory();
+
+    if (!targetIsDirectory && !targetStats.isFile()) {
+        throw new CliUsageError(
+            `${targetPath} is not a file or directory that can be formatted`,
+            { usage: USAGE }
+        );
+    }
+
+    const projectRoot = targetIsDirectory
+        ? targetPath
+        : path.dirname(targetPath);
+
+    baseProjectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
+    baseProjectIgnorePathSet.clear();
+    for (const projectIgnorePath of baseProjectIgnorePaths) {
+        baseProjectIgnorePathSet.add(projectIgnorePath);
+    }
+    await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
+    if (targetIsDirectory) {
+        await processDirectory(targetPath);
+    } else if (shouldFormatFile(targetPath)) {
+        await processFile(targetPath, baseProjectIgnorePaths);
+    } else {
+        skippedFileCount += 1;
+    }
+    console.debug(`Skipped ${skippedFileCount} files`);
+    if (encounteredFormattingError) {
+        process.exitCode = 1;
+    }
 }
 
-const projectRoot = targetIsDirectory ? targetPath : path.dirname(targetPath);
-
-baseProjectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
-baseProjectIgnorePathSet.clear();
-for (const projectIgnorePath of baseProjectIgnorePaths) {
-    baseProjectIgnorePathSet.add(projectIgnorePath);
-}
-await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
-if (targetIsDirectory) {
-    await processDirectory(targetPath);
-} else if (shouldFormatFile(targetPath)) {
-    await processFile(targetPath, baseProjectIgnorePaths);
-} else {
-    skippedFileCount += 1;
-}
-console.debug(`Skipped ${skippedFileCount} files`);
-if (encounteredFormattingError) {
-    process.exitCode = 1;
-}
+run().catch((error) => {
+    handleCliError(error, {
+        prefix: "Failed to format project.",
+        exitCode: 1
+    });
+});
