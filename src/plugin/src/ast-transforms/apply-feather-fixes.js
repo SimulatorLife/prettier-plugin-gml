@@ -4889,6 +4889,8 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
     const needsSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
+        nextSibling &&
+        !isTriviallyIgnorableStatement(nextSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (needsSeparator) {
