@@ -19,6 +19,20 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
 });
 
+function coerceLineCommentOption(
+    value,
+    defaultValue,
+    { zeroReplacement } = {}
+) {
+    if (zeroReplacement === undefined) {
+        return coercePositiveIntegerOption(value, defaultValue);
+    }
+
+    return coercePositiveIntegerOption(value, defaultValue, {
+        zeroReplacement
+    });
+}
+
 function buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
     return {
         bannerMinimum,
@@ -27,19 +41,17 @@ function buildLineCommentOptions(bannerMinimum, bannerAutofillThreshold) {
 }
 
 function coerceBannerMinimum(value) {
-    return coercePositiveIntegerOption(
+    return coerceLineCommentOption(
         value,
         DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
     );
 }
 
 function coerceBannerAutofillThreshold(value) {
-    return coercePositiveIntegerOption(
+    return coerceLineCommentOption(
         value,
         DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-        {
-            zeroReplacement: Number.POSITIVE_INFINITY
-        }
+        { zeroReplacement: Number.POSITIVE_INFINITY }
     );
 }
 
@@ -86,7 +98,7 @@ function resolveLineCommentOptions(options) {
 }
 
 function getTrailingCommentPadding(options) {
-    return coercePositiveIntegerOption(
+    return coerceLineCommentOption(
         options?.trailingCommentPadding,
         DEFAULT_TRAILING_COMMENT_PADDING,
         { zeroReplacement: 0 }
@@ -95,7 +107,7 @@ function getTrailingCommentPadding(options) {
 
 function getTrailingCommentInlinePadding(options) {
     const padding = getTrailingCommentPadding(options);
-    const inlineOffset = coercePositiveIntegerOption(
+    const inlineOffset = coerceLineCommentOption(
         options?.trailingCommentInlineOffset,
         DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
         { zeroReplacement: 0 }
