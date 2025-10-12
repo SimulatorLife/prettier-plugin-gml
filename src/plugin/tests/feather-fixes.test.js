@@ -176,6 +176,53 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("annotates invalid assignment targets with GM1007 metadata", () => {
+        const source = [
+            "var origin = new Point(0, 0);",
+            "",
+            "new Point(0, 0) = 1;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assignment = ast.body?.find(
+            (node) =>
+                node?.type === "AssignmentExpression" &&
+                node.left?.type === "NewExpression"
+        );
+
+        assert.ok(
+            assignment,
+            "Expected to locate the invalid assignment expression."
+        );
+
+        const assignmentFixes = assignment._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(assignmentFixes));
+        assert.strictEqual(assignmentFixes.length, 1);
+
+        const [fix] = assignmentFixes;
+        assert.strictEqual(fix.id, "GM1007");
+        assert.strictEqual(fix.automatic, false);
+        assert.strictEqual(fix.target, "new Point(0, 0)");
+        assert.ok(fix.range);
+        assert.strictEqual(typeof fix.range.start, "number");
+        assert.strictEqual(typeof fix.range.end, "number");
+        assert.ok(fix.range.end > fix.range.start);
+
+        const programFixes = ast._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(programFixes));
+        assert.strictEqual(
+            programFixes.some((entry) => entry.id === "GM1007"),
+            true,
+            "Expected program-level metadata to include GM1007."
+        );
+    });
+
     it("promotes local variables used within with(other) scopes", () => {
         const source = [
             "var atk = 1;",

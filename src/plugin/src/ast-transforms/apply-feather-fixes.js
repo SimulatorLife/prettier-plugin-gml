@@ -374,6 +374,28 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1007") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = flagInvalidAssignmentTargets({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
+
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM1008") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertReadOnlyBuiltInAssignments({
@@ -1458,6 +1480,137 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     if (!registry.has(diagnosticId)) {
         registry.set(diagnosticId, factory);
     }
+}
+
+function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            const fix = flagInvalidAssignmentTarget(
+                node,
+                diagnostic,
+                sourceText
+            );
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
+    if (!node || node.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    const left = node.left;
+
+    if (!left || isAssignableTarget(left)) {
+        return null;
+    }
+
+    const startIndex = getNodeStartIndex(left);
+    const endIndex = getNodeEndIndex(left);
+
+    const range =
+        typeof startIndex === "number" && typeof endIndex === "number"
+            ? {
+                start: startIndex,
+                end: endIndex
+            }
+            : null;
+
+    const targetText = getSourceTextSlice({
+        sourceText,
+        startIndex,
+        endIndex
+    });
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        automatic: false,
+        range,
+        target: targetText
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function isAssignableTarget(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "Identifier") {
+        return true;
+    }
+
+    if (
+        node.type === "MemberDotExpression" ||
+        node.type === "MemberIndexExpression"
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
+    if (typeof sourceText !== "string") {
+        return null;
+    }
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    if (startIndex < 0 || endIndex > sourceText.length) {
+        return null;
+    }
+
+    const slice = sourceText.slice(startIndex, endIndex);
+
+    if (slice.length === 0) {
+        return null;
+    }
+
+    return slice.trim() || null;
 }
 
 function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
