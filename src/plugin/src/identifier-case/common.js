@@ -1,6 +1,7 @@
 import { constants as fsConstants } from "node:fs";
 
 import { escapeRegExp } from "../../../shared/regexp.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
@@ -16,7 +17,7 @@ export function escapeForRegExp(value) {
 }
 
 export function createPatternRegExp(pattern) {
-    if (typeof pattern !== "string" || pattern.length === 0) {
+    if (!isNonEmptyString(pattern)) {
         return null;
     }
 
@@ -119,11 +120,11 @@ export function createConflict({
 }
 
 function resolveFileOccurrenceKey(filePath, fallbackPath) {
-    if (typeof filePath === "string" && filePath.length > 0) {
+    if (isNonEmptyString(filePath)) {
         return filePath;
     }
 
-    if (typeof fallbackPath === "string" && fallbackPath.length > 0) {
+    if (isNonEmptyString(fallbackPath)) {
         return fallbackPath;
     }
 

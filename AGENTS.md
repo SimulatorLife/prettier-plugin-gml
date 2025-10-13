@@ -1,6 +1,7 @@
 # Agent Instructions
-- The existing test input and output fixtures (src/plugin/tests) in this project are considered golden files and **MUST NEVER BE MODIFIED**. They capture the desired formatting for GML and must be preserved byte-for-byte. NEVER update or change these files, certainly not to "fix" a test failure.
+- The existing plugin test input and output fixtures (src/plugin/tests) and the parser input fixtures (src/parser/tests/input) in this project are considered golden files and **MUST NEVER BE MODIFIED**. They capture parsing behavior and the desired formatting for GML and must be preserved byte-for-byte. NEVER update or change these files, certainly not to "fix" a test failure.
 - You may add new tests or adjust the way tests are executed, but do not change or replace the current input/output text fixtures.
+- Do not modify the Github Actions workflows in `.github/workflows` unless explicitly instructed to do so.
 
 ## Repository & Commit Conflict Resolution Strategy
 To ensure smooth collaboration and maintain a healthy commit history, follow this structured process whenever you encounter merge, rebase, or commit conflicts within this repository:

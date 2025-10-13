@@ -143,13 +143,51 @@ function getMemberIndexText(indexNode) {
  *     empty array when no arguments exist so callers can iterate without
  *     additional null checks.
  */
+// Reuse a shared frozen array so the hot call-expression helper can return an
+// allocation-free result when arguments are missing. The printer hits this
+// helper in tight loops, so avoiding `[]` creations prevents millions of throw-
+// away arrays during large format runs.
+const SHARED_EMPTY_ARRAY = Object.freeze([]);
+
 function getCallExpressionArguments(callExpression) {
     if (!callExpression || typeof callExpression !== "object") {
-        return [];
+        return SHARED_EMPTY_ARRAY;
     }
 
     const { arguments: args } = callExpression;
-    return Array.isArray(args) ? args : [];
+    return Array.isArray(args) ? args : SHARED_EMPTY_ARRAY;
+}
+
+function getBooleanLiteralValue(node, options = {}) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const acceptBooleanPrimitives =
+        typeof options === "boolean"
+            ? options
+            : !!options?.acceptBooleanPrimitives;
+
+    const { value } = node;
+
+    if (value === true || value === false) {
+        if (!acceptBooleanPrimitives) {
+            return null;
+        }
+
+        return value ? "true" : "false";
+    }
+
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.toLowerCase();
+    return normalized === "true" || normalized === "false" ? normalized : null;
+}
+
+function isBooleanLiteral(node, options) {
+    return getBooleanLiteralValue(node, options) !== null;
 }
 
 function isUndefinedLiteral(node) {
@@ -173,6 +211,8 @@ export {
     getSingleVariableDeclarator,
     getIdentifierText,
     getCallExpressionArguments,
+    getBooleanLiteralValue,
+    isBooleanLiteral,
     isUndefinedLiteral,
     isNode
 };

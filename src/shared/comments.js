@@ -14,10 +14,12 @@
  * @property {number} [end]
  */
 
+import { asArray } from "./array-utils.js";
+import { isObjectLike } from "./object-utils.js";
+
 export function isCommentNode(node) {
     return (
-        !!node &&
-        typeof node === "object" &&
+        isObjectLike(node) &&
         (node.type === "CommentBlock" || node.type === "CommentLine")
     );
 }
@@ -30,26 +32,56 @@ export function isBlockComment(node) {
     return isCommentNode(node) && node.type === "CommentBlock";
 }
 
+/**
+ * Determines whether the provided AST node carries at least one comment.
+ *
+ * Nodes in parser output sometimes attach bookkeeping values or plain strings
+ * to their `comments` array. The scan therefore double-checks every entry with
+ * {@link isCommentNode} instead of assuming the array contents are valid. This
+ * defensive guard prevents downstream formatters from tripping over stray
+ * metadata while still treating an existing, but empty, `comments` array as
+ * "no comments".
+ *
+ * @param {unknown} node Candidate AST node to inspect. Non-object inputs are
+ *                       treated as comment-free.
+ * @returns {boolean} `true` when the node owns at least one well-formed
+ *                     comment node.
+ */
 export function hasComment(node) {
-    if (!node) {
+    const comments = getCommentArray(node);
+
+    const length = comments.length;
+    if (length === 0) {
         return false;
     }
 
-    const comments = node.comments ?? null;
-    if (!Array.isArray(comments) || comments.length === 0) {
-        return false;
+    for (let index = 0; index < length; index += 1) {
+        if (isCommentNode(comments[index])) {
+            return true;
+        }
     }
 
-    return comments.some(isCommentNode);
+    return false;
 }
 
+/**
+ * Returns the raw `comments` collection for a node while gracefully handling
+ * parser variations where the property might be missing or hold a non-array
+ * value. The returned array is the original reference so that callers can
+ * observe mutations performed by upstream tooling.
+ *
+ * @param {unknown} owner Candidate AST node whose comments should be fetched.
+ * @returns {Array<CommentBlockNode | CommentLineNode | unknown>} Either the
+ *          node's comment array or a fresh empty array when no valid
+ *          collection exists.
+ */
 export function getCommentArray(owner) {
-    if (!owner || typeof owner !== "object") {
+    if (!isObjectLike(owner)) {
         return [];
     }
 
     const { comments } = owner;
-    return Array.isArray(comments) ? comments : [];
+    return asArray(comments);
 }
 
 /**
@@ -64,10 +96,8 @@ export function getCommentArray(owner) {
  * @returns {Array<CommentBlockNode | CommentLineNode>}
  *          Flat list of comment nodes discovered anywhere within the supplied root.
  */
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
 export function collectCommentNodes(root) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return [];
     }
 
@@ -77,38 +107,23 @@ export function collectCommentNodes(root) {
 
     while (stack.length > 0) {
         const current = stack.pop();
-        if (!current || typeof current !== "object") {
-            continue;
-        }
-
-        if (visited.has(current)) {
+        if (!isObjectLike(current) || visited.has(current)) {
             continue;
         }
 
         visited.add(current);
 
-        if (Array.isArray(current)) {
-            for (const item of current) {
-                stack.push(item);
-            }
-            continue;
-        }
-
         if (isCommentNode(current)) {
             results.push(current);
         }
 
-        // Avoid allocating `Object.values` on every traversal step. The
-        // collector runs frequently while preparing printer metadata, so this
-        // tight loop sticks to simple property iteration.
-        for (const key in current) {
-            if (!hasOwnProperty.call(current, key)) {
-                continue;
-            }
+        const children = Array.isArray(current)
+            ? current
+            : Object.values(current);
 
-            const value = current[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
+        for (const child of children) {
+            if (isObjectLike(child)) {
+                stack.push(child);
             }
         }
     }
@@ -117,9 +132,9 @@ export function collectCommentNodes(root) {
 }
 
 export function isDocCommentLine(comment) {
-    return (
-        isLineComment(comment) &&
-        typeof comment.value === "string" &&
-        comment.value.startsWith("/ @")
-    );
+    if (!isLineComment(comment) || typeof comment?.value !== "string") {
+        return false;
+    }
+
+    return /^\/\s*@/.test(comment.value);
 }

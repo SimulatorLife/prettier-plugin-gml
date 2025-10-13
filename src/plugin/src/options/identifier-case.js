@@ -1,7 +1,8 @@
 // options/identifier-case.js
 
-import { normalizeStringList } from "../utils/option-utils.js";
+import { normalizeStringList } from "./option-utils.js";
 import { capitalize } from "../../../shared/string-utils.js";
+import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/index.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
@@ -35,6 +36,8 @@ export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME =
     "gmlIdentifierCaseDiscoverProject";
 export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
     "gmlIdentifierCaseProjectRoot";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -151,6 +154,15 @@ export const identifierCaseOptions = {
         default: "",
         description:
             "Overrides automatic discovery with an explicit GameMaker project root directory when building identifier indexes."
+    },
+    [IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME]: {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+        range: { start: 0, end: Infinity },
+        description:
+            "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
     }
 };
 

@@ -1,5 +1,8 @@
 import js from "@eslint/js";
-import globals from "globals";
+import { Legacy } from "@eslint/eslintrc/universal";
+
+const browserGlobals = Legacy.environments.get("browser")?.globals ?? {};
+const nodeGlobals = Legacy.environments.get("node")?.globals ?? {};
 
 export default [
     {
@@ -17,8 +20,8 @@ export default [
             ecmaVersion: 2022,
             sourceType: "module",
             globals: {
-                ...globals.browser,
-                ...globals.node
+                ...browserGlobals,
+                ...nodeGlobals
             }
         },
         rules: {

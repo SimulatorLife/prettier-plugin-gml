@@ -1,3 +1,5 @@
+import { toTrimmedString } from "../../shared/string-utils.js";
+
 const DEFAULT_INDENT = "  ";
 
 function indentBlock(text, indent = DEFAULT_INDENT) {
@@ -5,6 +7,20 @@ function indentBlock(text, indent = DEFAULT_INDENT) {
         .split("\n")
         .map((line) => `${indent}${line}`)
         .join("\n");
+}
+
+function extractStackBody(stack) {
+    if (typeof stack !== "string") {
+        return null;
+    }
+
+    const [, ...stackLines] = stack.split("\n");
+    if (stackLines.length === 0) {
+        return null;
+    }
+
+    const stackBody = stackLines.map((line) => line.trimEnd()).join("\n");
+    return stackBody || null;
 }
 
 function formatErrorValue(value, seen) {
@@ -34,9 +50,8 @@ function formatErrorValue(value, seen) {
         seen.add(value);
 
         const sections = [];
-        const name = typeof value.name === "string" ? value.name.trim() : "";
-        const message =
-            typeof value.message === "string" ? value.message.trim() : "";
+        const name = toTrimmedString(value.name);
+        const message = toTrimmedString(value.message);
 
         let header = "";
         if (name && message) {
@@ -56,17 +71,9 @@ function formatErrorValue(value, seen) {
         }
 
         const stack = typeof value.stack === "string" ? value.stack : null;
-        if (stack) {
-            const stackLines = stack.split("\n");
-            if (stackLines.length > 1) {
-                const stackBody = stackLines
-                    .slice(1)
-                    .map((line) => line.trimEnd())
-                    .join("\n");
-                if (stackBody) {
-                    sections.push(stackBody);
-                }
-            }
+        const stackBody = extractStackBody(stack);
+        if (stackBody) {
+            sections.push(stackBody);
         }
 
         if (value.cause) {

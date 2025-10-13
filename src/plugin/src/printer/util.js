@@ -1,4 +1,5 @@
 import { util } from "prettier";
+import { toTrimmedString } from "../../../shared/string-utils.js";
 import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -98,6 +99,21 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
+function getNormalizedDefineReplacementDirective(node) {
+    if (!node || node.type !== "DefineStatement") {
+        return null;
+    }
+
+    const directive = toTrimmedString(node.replacementDirective);
+    return directive ? directive.toLowerCase() : null;
+}
+
+function defineReplacementRequiresNewlines(node) {
+    const directive = getNormalizedDefineReplacementDirective(node);
+
+    return directive === "#region" || directive === "#endregion";
+}
+
 function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
@@ -108,7 +124,11 @@ function shouldAddNewlinesAroundStatement(node) {
     // once when the module is evaluated. This helper runs inside the printer's
     // statement loops, so trading `Array.includes` for a simple Set membership
     // check keeps the hot path allocation-free and branch-predictable.
-    return NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType);
+    if (NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType)) {
+        return true;
+    }
+
+    return defineReplacementRequiresNewlines(node);
 }
 
 export {
@@ -116,6 +136,7 @@ export {
     isLastStatement,
     optionalSemicolon,
     isAssignmentLikeExpression,
+    getNormalizedDefineReplacementDirective,
     hasComment,
     isNextLineEmpty,
     isPreviousLineEmpty,

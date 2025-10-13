@@ -2,11 +2,17 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
-import GMLParser from "../../parser/gml-parser.js";
-import { cloneLocation } from "../ast-locations.js";
-import { toPosixPath } from "../path-utils.js";
-import { createMetricsTracker } from "../metrics.js";
+import { cloneLocation } from "../../../shared/ast-locations.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
+import {
+    buildLocationKey,
+    buildFileLocationKey
+} from "../../../shared/location-keys.js";
+import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -36,6 +42,52 @@ const defaultFsFacade = {
 
 export function getDefaultFsFacade() {
     return defaultFsFacade;
+}
+
+const defaultProjectIndexParser = getDefaultProjectIndexParser();
+
+function isParserFacade(candidate) {
+    return (
+        !!candidate &&
+        typeof candidate === "object" &&
+        typeof candidate.parse === "function"
+    );
+}
+
+function resolveProjectIndexParser(options) {
+    if (!options || typeof options !== "object") {
+        return defaultProjectIndexParser;
+    }
+
+    const { gmlParserFacade, parserFacade, parseGml } = options;
+
+    if (isParserFacade(gmlParserFacade)) {
+        return (sourceText, context) =>
+            gmlParserFacade.parse(sourceText, context);
+    }
+
+    if (isParserFacade(parserFacade)) {
+        return (sourceText, context) => parserFacade.parse(sourceText, context);
+    }
+
+    if (typeof parseGml === "function") {
+        return parseGml;
+    }
+
+    return defaultProjectIndexParser;
+}
+
+function isFsErrorCode(error, ...codes) {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+
+    const { code } = error;
+    if (typeof code !== "string") {
+        return false;
+    }
+
+    return codes.some((candidate) => candidate === code);
 }
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
@@ -80,20 +132,19 @@ function cloneMtimeMap(source) {
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
-    const expectedKeys = Object.keys(expected).sort();
-    const actualKeys = Object.keys(actual).sort();
-    if (expectedKeys.length !== actualKeys.length) {
+    if (expected === actual) {
+        return true;
+    }
+
+    if (typeof expected !== "object" || expected === null) {
         return false;
     }
-    for (let i = 0; i < expectedKeys.length; i += 1) {
-        if (expectedKeys[i] !== actualKeys[i]) {
-            return false;
-        }
-        if (expected[expectedKeys[i]] !== actual[actualKeys[i]]) {
-            return false;
-        }
+
+    if (typeof actual !== "object" || actual === null) {
+        return false;
     }
-    return true;
+
+    return isDeepStrictEqual(expected, actual);
 }
 
 function validateCachePayload(payload) {
@@ -153,7 +204,7 @@ async function listDirectory(fsFacade, directoryPath) {
     try {
         return await fsFacade.readDir(directoryPath);
     } catch (error) {
-        if (error && (error.code === "ENOENT" || error.code === "ENOTDIR")) {
+        if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
         }
         throw error;
@@ -165,7 +216,7 @@ async function getFileMtime(fsFacade, filePath) {
         const stats = await fsFacade.stat(filePath);
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;
@@ -274,7 +325,7 @@ export async function loadProjectIndexCache(
     try {
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return {
                 status: "miss",
                 cacheFilePath,
@@ -473,8 +524,14 @@ export function createProjectIndexCoordinator(options = {}) {
         fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
-        buildIndex = buildProjectIndex
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes: rawCacheMaxSizeBytes
     } = options;
+
+    const cacheMaxSizeBytes =
+        rawCacheMaxSizeBytes === undefined
+            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
     let disposed = false;
@@ -518,12 +575,18 @@ export function createProjectIndexCoordinator(options = {}) {
                 descriptor?.buildOptions ?? {}
             );
 
+            const descriptorMaxSizeBytes =
+                descriptor?.maxSizeBytes === undefined
+                    ? cacheMaxSizeBytes
+                    : descriptor.maxSizeBytes;
+
             const saveResult = await saveCache(
                 {
                     ...descriptor,
                     projectRoot: resolvedRoot,
                     projectIndex,
-                    metricsSummary: projectIndex.metrics
+                    metricsSummary: projectIndex.metrics,
+                    maxSizeBytes: descriptorMaxSizeBytes
                 },
                 fsFacade
             ).catch((error) => {
@@ -562,7 +625,7 @@ export function createProjectIndexCoordinator(options = {}) {
 }
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../resources/gml-identifiers.json", import.meta.url)
+    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
 );
 
 let cachedBuiltInIdentifiers = null;
@@ -653,7 +716,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
             try {
                 stats = await fsFacade.stat(absolutePath);
             } catch (error) {
-                if (error && error.code === "ENOENT") {
+                if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
                     continue;
                 }
@@ -869,33 +932,51 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     return guessed;
 }
 
-function collectAssetReferences(json, callback, pathStack = []) {
-    if (Array.isArray(json)) {
-        json.forEach((entry, index) => {
-            collectAssetReferences(
-                entry,
-                callback,
-                pathStack.concat(String(index))
-            );
-        });
+function collectAssetReferences(root, callback) {
+    if (!root || typeof root !== "object") {
         return;
     }
 
-    if (!json || typeof json !== "object") {
-        return;
-    }
+    const stack = [{ value: root, path: "" }];
 
-    if (typeof json.path === "string") {
-        const propertyPath = pathStack.join(".");
-        callback({
-            propertyPath,
-            targetPath: json.path,
-            targetName: typeof json.name === "string" ? json.name : null
-        });
-    }
+    while (stack.length > 0) {
+        const { value, path } = stack.pop();
 
-    for (const key of Object.keys(json)) {
-        collectAssetReferences(json[key], callback, pathStack.concat(key));
+        if (Array.isArray(value)) {
+            for (let index = value.length - 1; index >= 0; index -= 1) {
+                const entry = value[index];
+                if (!entry || typeof entry !== "object") {
+                    continue;
+                }
+
+                stack.push({
+                    value: entry,
+                    path: path ? `${path}.${index}` : String(index)
+                });
+            }
+            continue;
+        }
+
+        if (typeof value.path === "string") {
+            callback({
+                propertyPath: path,
+                targetPath: value.path,
+                targetName: typeof value.name === "string" ? value.name : null
+            });
+        }
+
+        const entries = Object.entries(value);
+        for (let i = entries.length - 1; i >= 0; i -= 1) {
+            const [key, child] = entries[i];
+            if (!child || typeof child !== "object") {
+                continue;
+            }
+
+            stack.push({
+                value: child,
+                path: path ? `${path}.${key}` : key
+            });
+        }
     }
 }
 
@@ -911,7 +992,7 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
         try {
             rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
         } catch (error) {
-            if (error && error.code === "ENOENT") {
+            if (isFsErrorCode(error, "ENOENT")) {
                 continue;
             }
             throw error;
@@ -957,8 +1038,9 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
             );
         }
 
-        if (Array.isArray(parsed?.eventList) && parsed.eventList.length > 0) {
-            for (const event of parsed.eventList) {
+        const eventList = parsed?.eventList;
+        if (isNonEmptyArray(eventList)) {
+            for (const event of eventList) {
                 const eventGmlPath = extractEventGmlPath(
                     event,
                     resourceRecord,
@@ -1047,41 +1129,6 @@ function createIdentifierRecord(node) {
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
-}
-
-function buildLocationKey(location) {
-    if (!location || typeof location !== "object") {
-        return null;
-    }
-
-    const line =
-        location.line ??
-        location.row ??
-        location.start ??
-        location.first_line ??
-        null;
-    const column =
-        location.column ??
-        location.col ??
-        location.columnStart ??
-        location.first_column ??
-        null;
-    const index = location.index ?? location.offset ?? null;
-
-    if (line == null && column == null && index == null) {
-        return null;
-    }
-
-    return [line ?? "", column ?? "", index ?? ""].join(":");
-}
-
-function buildFileLocationKey(filePath, location) {
-    const locationKey = buildLocationKey(location);
-    if (!locationKey) {
-        return null;
-    }
-
-    return `${filePath ?? "<unknown>"}::${locationKey}`;
 }
 
 function cloneIdentifierForCollections(record, filePath) {
@@ -2279,26 +2326,29 @@ async function processWithConcurrency(items, limit, worker) {
         return;
     }
 
-    const size = Math.max(1, Math.min(limit, items.length));
-    let index = 0;
+    if (typeof worker !== "function") {
+        throw new TypeError("worker must be a function");
+    }
 
-    async function run() {
-        while (true) {
-            const currentIndex = index;
-            if (currentIndex >= items.length) {
-                return;
-            }
-            index += 1;
+    const limitValue = Number(limit);
+    const effectiveLimit =
+        Number.isFinite(limitValue) && limitValue > 0
+            ? limitValue
+            : items.length;
+    const workerCount = Math.min(
+        items.length,
+        Math.max(1, Math.ceil(effectiveLimit))
+    );
 
+    let nextIndex = 0;
+    const runWorker = async () => {
+        let currentIndex;
+        while ((currentIndex = nextIndex++) < items.length) {
             await worker(items[currentIndex], currentIndex);
         }
-    }
+    };
 
-    const tasks = [];
-    for (let i = 0; i < size; i += 1) {
-        tasks.push(run());
-    }
-    await Promise.all(tasks);
+    await Promise.all(Array.from({ length: workerCount }, runWorker));
 }
 
 export async function buildProjectIndex(
@@ -2365,6 +2415,7 @@ export async function buildProjectIndex(
         { fallback: 4 }
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    const parseProjectSource = resolveProjectIndexParser(options);
 
     await processWithConcurrency(gmlFiles, gmlConcurrency, async (file) => {
         metrics.incrementCounter("files.gmlProcessed");
@@ -2374,7 +2425,7 @@ export async function buildProjectIndex(
                 fsFacade.readFile(file.absolutePath, "utf8")
             );
         } catch (error) {
-            if (error && error.code === "ENOENT") {
+            if (isFsErrorCode(error, "ENOENT")) {
                 metrics.incrementCounter("files.missingDuringRead");
                 return;
             }
@@ -2424,11 +2475,9 @@ export async function buildProjectIndex(
         }
 
         const ast = metrics.timeSync("gml.parse", () =>
-            GMLParser.parse(contents, {
-                getComments: false,
-                getLocations: true,
-                simplifyLocations: false,
-                getIdentifierMetadata: true
+            parseProjectSource(contents, {
+                filePath: file.relativePath,
+                projectRoot: resolvedRoot
             })
         );
 

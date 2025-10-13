@@ -1,4 +1,5 @@
 import {
+    getCommentArray,
     hasComment as sharedHasComment,
     isDocCommentLine
 } from "../comments/index.js";
@@ -7,6 +8,7 @@ import {
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -61,11 +63,13 @@ export function condenseLogicalExpressions(ast, helpers) {
 }
 
 function normalizeDocCommentWhitespace(ast) {
-    if (!ast || !Array.isArray(ast.comments)) {
+    const comments = getCommentArray(ast);
+
+    if (comments.length === 0) {
         return;
     }
 
-    for (const comment of ast.comments) {
+    for (const comment of comments) {
         if (
             comment?.type === "CommentLine" &&
             typeof comment.leadingWS === "string" &&
@@ -334,12 +338,14 @@ function mapDocCommentsToFunctions(ast) {
         groups.set(fn, []);
     }
 
-    if (!Array.isArray(ast?.comments) || functions.length === 0) {
+    const astComments = getCommentArray(ast);
+
+    if (astComments.length === 0 || functions.length === 0) {
         return groups;
     }
 
     let functionIndex = 0;
-    for (const comment of ast.comments) {
+    for (const comment of astComments) {
         if (!isDocCommentLine(comment)) {
             continue;
         }
@@ -745,8 +751,7 @@ function tryCondenseIfStatement(
             activeTransformationContext.docUpdates.set(parentNode, {
                 expression: docString,
                 description,
-                hasDocComment:
-                    typeof description === "string" && description.length > 0
+                hasDocComment: isNonEmptyString(description)
             });
             const signature = docString.replace(/\.$/, "");
             activeTransformationContext.expressionSignatures.set(
@@ -766,10 +771,46 @@ function extractReturnExpression(node, helpers) {
 
     if (node.type === "BlockStatement") {
         const body = Array.isArray(node.body) ? node.body : [];
-        if (body.length !== 1) {
+        if (body.length === 0) {
             return null;
         }
-        return extractReturnExpression(body[0], helpers);
+
+        let firstStatementIndex = 0;
+        while (
+            firstStatementIndex < body.length &&
+            isIgnorableEmptyStatement(body[firstStatementIndex], helpers)
+        ) {
+            firstStatementIndex += 1;
+        }
+
+        if (firstStatementIndex >= body.length) {
+            return null;
+        }
+
+        const firstStatement = body[firstStatementIndex];
+        if (firstStatement?.type !== "ReturnStatement") {
+            return null;
+        }
+
+        const returnExpression = extractReturnExpression(
+            firstStatement,
+            helpers
+        );
+        if (!returnExpression) {
+            return null;
+        }
+
+        for (
+            let index = firstStatementIndex + 1;
+            index < body.length;
+            index += 1
+        ) {
+            if (!canDropUnreachableStatement(body[index], helpers)) {
+                return null;
+            }
+        }
+
+        return returnExpression;
     }
 
     if (node.type !== "ReturnStatement") {
@@ -786,6 +827,63 @@ function extractReturnExpression(node, helpers) {
     }
 
     return argument;
+}
+
+function isIgnorableEmptyStatement(node, helpers) {
+    if (!isNode(node) || node.type !== "EmptyStatement") {
+        return false;
+    }
+
+    return canDropUnreachableStatement(node, helpers);
+}
+
+function canDropUnreachableStatement(node, helpers) {
+    if (!isNode(node) || typeof node.type !== "string") {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    if (Array.isArray(node.docComments) && node.docComments.length > 0) {
+        return false;
+    }
+
+    switch (node.type) {
+        case "EmptyStatement":
+            return true;
+        case "ReturnStatement": {
+            const argument = node.argument ?? null;
+            if (argument && helpers.hasComment(argument)) {
+                return false;
+            }
+            return true;
+        }
+        case "VariableDeclaration": {
+            const declarations = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+            for (const declarator of declarations) {
+                if (!isNode(declarator)) {
+                    continue;
+                }
+                if (helpers.hasComment(declarator)) {
+                    return false;
+                }
+                if (
+                    declarator.init &&
+                    isNode(declarator.init) &&
+                    helpers.hasComment(declarator.init)
+                ) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        default:
+            return node.type.endsWith("Expression");
+    }
 }
 
 function createBooleanContext() {

@@ -1,5 +1,7 @@
+#!/usr/bin/env node
+
 // Measure the heap impact of building the project index. This script imports the
-// shared project-index module and triggers the `buildProjectIndex` helper using
+// plugin's project-index module and triggers the `buildProjectIndex` helper using
 // a stubbed file-system facade so the benchmark focuses on identifier caching.
 
 if (typeof global.gc !== "function") {
@@ -23,7 +25,7 @@ function formatBytes(bytes) {
 
 async function measureBuildProjectIndexMemory() {
     const { buildProjectIndex } = await import(
-        "../src/shared/project-index/index.js"
+        "../src/plugin/src/project-index/index.js"
     );
 
     const fsFacade = {

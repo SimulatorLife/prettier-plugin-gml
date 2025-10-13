@@ -7,9 +7,9 @@
 
 ## Current implementation
 - [`scripts/generate-feather-metadata.mjs`](../scripts/generate-feather-metadata.mjs) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption.【F:scripts/generate-feather-metadata.mjs†L1-L63】
-- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can now be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere.【F:scripts/generate-feather-metadata.mjs†L44-L156】【F:src/shared/cli/manual-cache.js†L1-L19】
-- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, the new `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary.【F:scripts/generate-feather-metadata.mjs†L44-L162】
-- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, and `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts.【F:scripts/generate-feather-metadata.mjs†L44-L162】【F:src/shared/cli/manual-cache.js†L1-L19】
+- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can now be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere.【F:scripts/generate-feather-metadata.mjs†L44-L156】【F:scripts/cli/manual-cache.js†L1-L19】
+- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, `--manual-repo` targets a different GitHub repository, the new `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary.【F:scripts/generate-feather-metadata.mjs†L66-L217】
+- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, `GML_MANUAL_REPO` to point at a forked manual repository, and `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts.【F:scripts/generate-feather-metadata.mjs†L66-L217】【F:scripts/cli/manual-cache.js†L1-L19】
 
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
@@ -19,13 +19,13 @@
    - `Feather_Directives` explains project-level overrides (`// Feather ignore …`, `// Feather use …`) including path glob syntax, so we can understand how to map diagnostics to suppressions and profiles.【40be1b†L1-L44】
    - `Feather_Data_Types` details the base types, specifiers, and collection syntax recognised by the language server, which we can lift to inform formatter-aware type hints later.【ec129e†L1-L80】
 2. **Existing identifier harvesting script**
-   - `scripts/generate-gml-identifiers.mjs` already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.【F:scripts/generate-gml-identifiers.mjs†L1-L138】
+- `scripts/generate-gml-identifiers.mjs` already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.【F:scripts/generate-gml-identifiers.mjs†L1-L206】
 
 ## Extraction pipeline outline
 1. **Version selection & caching**
-   - Follow the identifier script's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.【F:scripts/generate-gml-identifiers.mjs†L21-L139】
+- Follow the identifier script's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.【F:scripts/generate-gml-identifiers.mjs†L21-L206】
 2. **Data acquisition**
-   - Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【F:scripts/generate-gml-identifiers.mjs†L121-L139】【6f027d†L1-L10】
+- Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【F:scripts/generate-gml-identifiers.mjs†L327-L368】【6f027d†L1-L10】
    - Keep the fetch list configurable so we can add/remove topics without touching code (e.g. JSON manifest describing each page and the section(s) to extract).
 3. **HTML parsing**
    - Use a resilient HTML parser (Cheerio or `linkedom`) to traverse headings, paragraphs, tables, and code blocks. RoboHelp exports are consistent (nested `<h3>`, `<p class="code">`, `<table>` blocks), so we can map DOM structures to structured records.

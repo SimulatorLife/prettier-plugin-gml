@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { performance } from "node:perf_hooks";
 import { getIdentifierText } from "../src/shared/ast-node-helpers.js";
 

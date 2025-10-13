@@ -2,7 +2,9 @@
 
 Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
-can pick the right level of detail for your task.
+can pick the right level of detail for your task. Looking for installation or
+contributor setup steps? The [repository README](../README.md) captures the
+quick-start flow, formatter configuration, and day-to-day development commands.
 
 ## Reference guides
 
@@ -12,6 +14,15 @@ can pick the right level of detail for your task.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
+- [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
+  steps for pruning unused code surfaced by the formatter’s metadata reports.
+
+## Usage & rollout
+
+- [Identifier-case rollout playbook](identifier-case-rollout.md) — Step-by-step
+  instructions for enabling automatic renames, understanding the
+  auto-discovery bootstrap, and keeping cache hygiene under control across
+  local machines and CI.
 
 ## Planning notes
 
@@ -22,8 +33,10 @@ can pick the right level of detail for your task.
   collects built-in Feather debugger metadata and how the generated files are
   versioned.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
-  proposed approach for caching project discovery so concurrent formatter runs
-  can reuse work safely.
+  shipped cache shape plus the instrumentation used to keep bootstrap behaviour
+  predictable.
+- [Project Index next steps](project-index-next-steps.md) — Tracks remaining
+  follow-up work now that cache persistence and discovery ship in the plugin.
 
 ## Metadata tooling
 

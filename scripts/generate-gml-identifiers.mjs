@@ -4,19 +4,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
-import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/plugin/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
-} from "../src/shared/cli/progress-bar.js";
+} from "./cli/progress-bar.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
-} from "../src/shared/cli/manual-cache.js";
-
-const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
-const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
-const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
+} from "./cli/manual-cache.js";
+import {
+    DEFAULT_MANUAL_REPO,
+    MANUAL_REPO_ENV_VAR,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository
+} from "./cli/manual-repo.js";
 
 const KB = 1024;
 const MB = KB * 1024;
@@ -60,7 +62,11 @@ const OUTPUT_DEFAULT = path.join(
 
 const ARGUMENTS = process.argv.slice(2);
 
-function getUsage(cacheRoot = DEFAULT_CACHE_ROOT) {
+function getUsage({
+    cacheRoot = DEFAULT_CACHE_ROOT,
+    manualRepo = DEFAULT_MANUAL_REPO,
+    progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH
+} = {}) {
     return [
         "Usage: node scripts/generate-gml-identifiers.mjs [options]",
         "",
@@ -69,11 +75,36 @@ function getUsage(cacheRoot = DEFAULT_CACHE_ROOT) {
         "  --output, -o <path>       Output JSON path. Defaults to resources/gml-identifiers.json.",
         "  --force-refresh           Ignore cached manual artefacts and re-download.",
         "  --quiet                   Suppress progress logging (for CI).",
-        "  --progress-bar-width <n>  Width of the terminal progress bar (default: 24).",
+        `  --progress-bar-width <n>  Width of the terminal progress bar (default: ${progressBarWidth}).`,
+        `  --manual-repo <owner/name> GitHub repository hosting the manual (default: ${manualRepo}).`,
+        `                             Can also be set via ${MANUAL_REPO_ENV_VAR}.`,
         `  --cache-root <path>       Directory to store cached manual artefacts (default: ${cacheRoot}).`,
         `                             Can also be set via ${MANUAL_CACHE_ROOT_ENV_VAR}.`,
         "  --help, -h                Show this help message."
     ].join("\n");
+}
+
+function resolveManualRepoValue(rawValue, { usage, source = "cli" } = {}) {
+    const normalized = normalizeManualRepository(rawValue);
+    if (normalized) {
+        return normalized;
+    }
+
+    let received;
+    if (rawValue === undefined) {
+        received = "undefined";
+    } else if (rawValue === null) {
+        received = "null";
+    } else {
+        received = `'${rawValue}'`;
+    }
+    const requirement =
+        source === "env"
+            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
+            : "--manual-repo requires a GitHub repository in 'owner/name' format";
+    throw new CliUsageError(`${requirement} (received ${received}).`, {
+        usage
+    });
 }
 
 function parseArgs() {
@@ -82,11 +113,21 @@ function parseArgs() {
     let forceRefresh = false;
     let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
     let cacheRoot = DEFAULT_CACHE_ROOT;
+    let manualRepo = DEFAULT_MANUAL_REPO;
+
+    const usage = () => getUsage({ cacheRoot, manualRepo, progressBarWidth });
+
     if (process.env.GML_PROGRESS_BAR_WIDTH !== undefined) {
         progressBarWidth = resolveProgressBarWidth(
             process.env.GML_PROGRESS_BAR_WIDTH,
-            { usage: getUsage(cacheRoot) }
+            { usage: usage() }
         );
+    }
+    if (process.env[MANUAL_REPO_ENV_VAR] !== undefined) {
+        manualRepo = resolveManualRepoValue(process.env[MANUAL_REPO_ENV_VAR], {
+            usage: usage(),
+            source: "env"
+        });
     }
     const verbose = {
         resolveRef: true,
@@ -117,27 +158,38 @@ function parseArgs() {
             if (i + 1 >= ARGUMENTS.length) {
                 throw new CliUsageError(
                     "--progress-bar-width requires a numeric value.",
-                    { usage: getUsage(cacheRoot) }
+                    { usage: usage() }
                 );
             }
             progressBarWidth = resolveProgressBarWidth(ARGUMENTS[i + 1], {
-                usage: getUsage(cacheRoot)
+                usage: usage()
+            });
+            i += 1;
+        } else if (arg === "--manual-repo") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError(
+                    "--manual-repo requires a repository value.",
+                    { usage: usage() }
+                );
+            }
+            manualRepo = resolveManualRepoValue(ARGUMENTS[i + 1], {
+                usage: usage()
             });
             i += 1;
         } else if (arg === "--cache-root") {
             if (i + 1 >= ARGUMENTS.length) {
                 throw new CliUsageError("--cache-root requires a path value.", {
-                    usage: getUsage(cacheRoot)
+                    usage: usage()
                 });
             }
             cacheRoot = path.resolve(ARGUMENTS[i + 1]);
             i += 1;
         } else if (arg === "--help" || arg === "-h") {
-            console.log(getUsage(cacheRoot));
+            console.log(usage());
             process.exit(0);
         } else {
             throw new CliUsageError(`Unknown argument: ${arg}`, {
-                usage: getUsage(cacheRoot)
+                usage: usage()
             });
         }
     }
@@ -148,7 +200,8 @@ function parseArgs() {
         forceRefresh,
         verbose,
         progressBarWidth,
-        cacheRoot
+        cacheRoot,
+        manualRepo
     };
 }
 
@@ -183,7 +236,7 @@ async function ensureDir(dirPath) {
     await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function resolveManualRef(ref, { verbose }) {
+async function resolveManualRef(ref, { verbose, apiRoot }) {
     if (verbose.resolveRef) {
         console.log(
             ref
@@ -192,15 +245,15 @@ async function resolveManualRef(ref, { verbose }) {
         );
     }
     if (ref) {
-        return resolveCommitFromRef(ref);
+        return resolveCommitFromRef(ref, { apiRoot });
     }
 
-    const latestTagUrl = `${API_ROOT}/tags?per_page=1`;
+    const latestTagUrl = `${apiRoot}/tags?per_page=1`;
     const body = await curlRequest(latestTagUrl, { acceptJson: true });
     const tags = JSON.parse(body);
     if (!Array.isArray(tags) || tags.length === 0) {
         console.warn("No manual tags found; defaulting to 'develop' branch.");
-        return resolveCommitFromRef("develop");
+        return resolveCommitFromRef("develop", { apiRoot });
     }
     const { name, commit } = tags[0];
     return {
@@ -209,8 +262,8 @@ async function resolveManualRef(ref, { verbose }) {
     };
 }
 
-async function resolveCommitFromRef(ref) {
-    const url = `${API_ROOT}/commits/${encodeURIComponent(ref)}`;
+async function resolveCommitFromRef(ref, { apiRoot }) {
+    const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
     const body = await curlRequest(url, { acceptJson: true });
     const payload = JSON.parse(body);
     if (!payload?.sha) {
@@ -273,7 +326,7 @@ function timeSync(label, fn, { verbose }) {
 async function fetchManualFile(
     sha,
     filePath,
-    { forceRefresh = false, verbose, cacheRoot = DEFAULT_CACHE_ROOT }
+    { forceRefresh = false, verbose, cacheRoot = DEFAULT_CACHE_ROOT, rawRoot }
 ) {
     const shouldLogDetails = verbose.downloads && !verbose.progressBar;
     const cachePath = path.join(cacheRoot, sha, filePath);
@@ -295,7 +348,8 @@ async function fetchManualFile(
     if (shouldLogDetails) {
         console.log(`[download] ${filePath}…`);
     }
-    const url = `${RAW_ROOT}/${sha}/${filePath}`;
+    const resolvedRawRoot = rawRoot ?? buildManualRepositoryEndpoints().rawRoot;
+    const url = `${resolvedRawRoot}/${sha}/${filePath}`;
     const content = await curlRequest(url);
     await ensureDir(path.dirname(cachePath));
     await fs.writeFile(cachePath, content, "utf8");
@@ -476,11 +530,13 @@ async function main() {
         forceRefresh,
         verbose,
         progressBarWidth,
-        cacheRoot
+        cacheRoot,
+        manualRepo
     } = parseArgs();
+    const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
     const startTime = Date.now();
 
-    const manualRef = await resolveManualRef(ref, { verbose });
+    const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
     if (!manualRef.sha) {
         throw new Error(
             `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`
@@ -513,7 +569,7 @@ async function main() {
         fetchedPayloads[asset.key] = await fetchManualFile(
             manualRef.sha,
             asset.path,
-            { forceRefresh, verbose, cacheRoot }
+            { forceRefresh, verbose, cacheRoot, rawRoot }
         );
         fetchedCount += 1;
         if (verbose.progressBar && verbose.downloads) {
@@ -691,7 +747,7 @@ async function main() {
             manualRef: manualRef.ref,
             commitSha: manualRef.sha,
             generatedAt: new Date().toISOString(),
-            source: MANUAL_REPO
+            source: manualRepo
         },
         identifiers: Object.fromEntries(sortedIdentifiers)
     };

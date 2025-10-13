@@ -12,7 +12,8 @@ import {
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     PROJECT_INDEX_CACHE_SCHEMA_VERSION
-} from "../project-index/index.js";
+} from "../src/project-index/index.js";
+import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
@@ -24,6 +25,14 @@ function createProjectIndex(projectRoot, metrics = null) {
         identifiers: {},
         metrics
     };
+}
+
+function createDeferred() {
+    let resolve;
+    const promise = new Promise((res) => {
+        resolve = res;
+    });
+    return { promise, resolve };
 }
 
 async function withTempDir(run) {
@@ -63,6 +72,85 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
 
         assert.equal(loadResult.status, "hit");
         assert.deepEqual(loadResult.projectIndex.metrics, metrics);
+    });
+});
+
+test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
+    await withTempDir(async (projectRoot) => {
+        const saveResult = await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {},
+            sourceMtimes: {},
+            projectIndex: createProjectIndex(projectRoot),
+            maxSizeBytes: 1
+        });
+
+        assert.equal(saveResult.status, "skipped");
+        assert.equal(saveResult.reason, "payload-too-large");
+        assert.ok(saveResult.size > 1);
+    });
+});
+
+test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestPath = path.join(projectRoot, "project.yyp");
+        await writeFile(manifestPath, "{}");
+        const scriptsDir = path.join(projectRoot, "scripts");
+        await mkdir(scriptsDir, { recursive: true });
+        const scriptPath = path.join(scriptsDir, "main.gml");
+        await writeFile(scriptPath, "// script\n");
+
+        async function runCase(rawValue) {
+            const descriptors = [];
+            const coordinator = {
+                async ensureReady(descriptor) {
+                    descriptors.push(descriptor);
+                    return { projectIndex: null, source: null, cache: null };
+                },
+                dispose() {}
+            };
+
+            const options = {
+                filepath: scriptPath,
+                __identifierCaseProjectIndexCoordinator: coordinator
+            };
+            if (rawValue !== undefined) {
+                options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
+            }
+
+            await bootstrapProjectIndex(options);
+
+            return { options, descriptor: descriptors[0] ?? {} };
+        }
+
+        {
+            const { options, descriptor } = await runCase("16");
+            assert.equal(options.__identifierCaseProjectIndexCacheMaxBytes, 16);
+            assert.equal(descriptor.maxSizeBytes, 16);
+        }
+
+        {
+            const { options, descriptor } = await runCase("0");
+            assert.strictEqual(
+                options.__identifierCaseProjectIndexCacheMaxBytes,
+                null
+            );
+            assert.strictEqual(descriptor.maxSizeBytes, null);
+        }
+
+        {
+            const { options, descriptor } = await runCase(" ");
+            assert.equal(
+                Object.prototype.hasOwnProperty.call(
+                    options,
+                    "__identifierCaseProjectIndexCacheMaxBytes"
+                ),
+                false
+            );
+            assert.equal("maxSizeBytes" in descriptor, false);
+        }
     });
 });
 
@@ -151,6 +239,41 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
     });
 });
 
+test("loadProjectIndexCache treats differently ordered mtime maps as equal", async () => {
+    await withTempDir(async (projectRoot) => {
+        await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {
+                "project.yyp": 100,
+                "assets/project_extra.yyp": 200
+            },
+            sourceMtimes: {
+                "scripts/main.gml": 300,
+                "scripts/secondary.gml": 400
+            },
+            projectIndex: createProjectIndex(projectRoot)
+        });
+
+        const loadResult = await loadProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {
+                "assets/project_extra.yyp": 200,
+                "project.yyp": 100
+            },
+            sourceMtimes: {
+                "scripts/secondary.gml": 400,
+                "scripts/main.gml": 300
+            }
+        });
+
+        assert.equal(loadResult.status, "hit");
+    });
+});
+
 test("loadProjectIndexCache handles corrupted cache payloads", async () => {
     await withTempDir(async (projectRoot) => {
         const cacheDir = path.join(projectRoot, PROJECT_INDEX_CACHE_DIRECTORY);
@@ -179,6 +302,13 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     const storedPayloads = new Map();
     let buildCount = 0;
     const cacheFilePath = path.join(os.tmpdir(), "virtual-cache.json");
+    // The test previously relied on real timers to keep the first build pending
+    // long enough for a concurrent ensureReady call to observe the shared
+    // in-flight promise. That approach was prone to races when event loop
+    // scheduling varied, so explicit deferred promises keep the orchestration
+    // deterministic.
+    const buildHasStarted = createDeferred();
+    const releaseBuild = createDeferred();
 
     const coordinator = createProjectIndexCoordinator({
         loadCache: async (descriptor) => {
@@ -222,7 +352,8 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
         },
         buildIndex: async (root) => {
             buildCount += 1;
-            await new Promise((resolve) => setTimeout(resolve, 20));
+            buildHasStarted.resolve();
+            await releaseBuild.promise;
             return createProjectIndex(root, { buildCount });
         }
     });
@@ -236,9 +367,15 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     };
 
     try {
+        const firstPromise = coordinator.ensureReady(descriptor);
+        await buildHasStarted.promise;
+        const secondPromise = coordinator.ensureReady(descriptor);
+
+        releaseBuild.resolve();
+
         const [first, second] = await Promise.all([
-            coordinator.ensureReady(descriptor),
-            coordinator.ensureReady(descriptor)
+            firstPromise,
+            secondPromise
         ]);
 
         assert.equal(buildCount, 1);
@@ -254,4 +391,61 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     }
 
     await assert.rejects(coordinator.ensureReady(descriptor), /disposed/i);
+});
+
+test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {
+    const savedDescriptors = [];
+    const coordinator = createProjectIndexCoordinator({
+        cacheMaxSizeBytes: 42,
+        loadCache: async () => ({
+            status: "miss",
+            cacheFilePath: "virtual-cache.json",
+            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+        }),
+        saveCache: async (descriptor) => {
+            savedDescriptors.push(descriptor);
+            return {
+                status: "written",
+                cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
+                size: 0
+            };
+        },
+        buildIndex: async () => createProjectIndex("/project")
+    });
+
+    await coordinator.ensureReady({ projectRoot: "/project" });
+
+    assert.equal(savedDescriptors.length, 1);
+    assert.equal(savedDescriptors[0].maxSizeBytes, 42);
+    coordinator.dispose();
+});
+
+test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", async () => {
+    const savedDescriptors = [];
+    const coordinator = createProjectIndexCoordinator({
+        cacheMaxSizeBytes: 42,
+        loadCache: async () => ({
+            status: "miss",
+            cacheFilePath: "virtual-cache.json",
+            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+        }),
+        saveCache: async (descriptor) => {
+            savedDescriptors.push(descriptor);
+            return {
+                status: "written",
+                cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
+                size: 0
+            };
+        },
+        buildIndex: async () => createProjectIndex("/project")
+    });
+
+    await coordinator.ensureReady({
+        projectRoot: "/project",
+        maxSizeBytes: 99
+    });
+
+    assert.equal(savedDescriptors.length, 1);
+    assert.equal(savedDescriptors[0].maxSizeBytes, 99);
+    coordinator.dispose();
 });

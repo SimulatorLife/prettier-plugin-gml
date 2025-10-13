@@ -11,9 +11,11 @@ import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     normalizeLineCommentOptions,
+    getLineCommentCodeDetectionPatterns,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 import {
@@ -29,9 +31,11 @@ export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     formatLineComment,
     getLineCommentRawText,
     getCommentArray,
+    getLineCommentCodeDetectionPatterns,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     hasComment,

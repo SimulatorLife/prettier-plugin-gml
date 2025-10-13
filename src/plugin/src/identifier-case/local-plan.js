@@ -2,7 +2,10 @@ import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/metrics.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
+import { buildLocationKey } from "../../../shared/location-keys.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -23,35 +26,18 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
-    if (typeof absoluteFilePath !== "string" || absoluteFilePath.length === 0) {
+    if (!isNonEmptyString(absoluteFilePath)) {
         return null;
     }
 
     const resolvedFile = path.resolve(absoluteFilePath);
 
-    if (typeof projectRoot === "string" && projectRoot.length > 0) {
+    if (isNonEmptyString(projectRoot)) {
         const resolvedRoot = path.resolve(projectRoot);
         return toPosixPath(path.relative(resolvedRoot, resolvedFile));
     }
 
     return toPosixPath(resolvedFile);
-}
-
-function buildLocationKey(location) {
-    if (!location || typeof location !== "object") {
-        return null;
-    }
-
-    const line = location.line ?? location.row ?? location.start ?? null;
-    const column =
-        location.column ?? location.col ?? location.columnStart ?? null;
-    const index = location.index ?? location.offset ?? null;
-
-    if (line == null && column == null && index == null) {
-        return null;
-    }
-
-    return [line ?? "", column ?? "", index ?? ""].join(":");
 }
 
 function buildRenameKey(_scopeId, location) {
@@ -64,7 +50,7 @@ function buildRenameKey(_scopeId, location) {
 }
 
 function createScopeGroupingKey(scopeId, fallback) {
-    if (scopeId && typeof scopeId === "string") {
+    if (isNonEmptyString(scopeId)) {
         return scopeId;
     }
 
@@ -112,15 +98,55 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     return summarizeFileOccurrences(counts);
 }
 
+function applyAssetRenamesIfEligible({
+    options,
+    projectIndex,
+    assetRenames,
+    assetConflicts,
+    metrics
+}) {
+    if (
+        options.__identifierCaseDryRun === false &&
+        assetRenames.length > 0 &&
+        (assetConflicts ?? []).length === 0 &&
+        projectIndex &&
+        options.__identifierCaseAssetRenamesApplied !== true
+    ) {
+        const fsFacade =
+            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+        const logger = options.logger ?? null;
+        const result = applyAssetRenames({
+            projectIndex,
+            renames: assetRenames,
+            fsFacade,
+            logger
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenameResult",
+            result
+        );
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenamesApplied",
+            true
+        );
+        metrics.incrementCounter(
+            "assets.appliedRenames",
+            result?.renames?.length ?? 0
+        );
+    }
+}
+
 function getObjectValues(object) {
-    if (!object || typeof object !== "object") {
+    if (!isObjectLike(object)) {
         return [];
     }
     return Object.values(object);
 }
 
 function resolveIdentifierEntryName(entry) {
-    if (!entry || typeof entry !== "object") {
+    if (!isObjectLike(entry)) {
         return null;
     }
 
@@ -215,7 +241,7 @@ function getDeclarationFilePath(entry) {
 }
 
 function getReferenceLocation(reference) {
-    if (!reference || typeof reference !== "object") {
+    if (!isObjectLike(reference)) {
         return null;
     }
     if (reference.start) {
@@ -709,7 +735,7 @@ export async function prepareIdentifierCasePlan(options) {
             context.dryRun
         );
     }
-    applyBootstrappedProjectIndex(options);
+    applyBootstrappedProjectIndex(options, setIdentifierCaseOption);
 
     let projectIndex =
         options.__identifierCaseProjectIndex ??
@@ -757,9 +783,9 @@ export async function prepareIdentifierCasePlan(options) {
         shouldPlanGlobals;
 
     if (!projectIndex && requiresProjectIndex) {
-        await bootstrapProjectIndex(options);
+        await bootstrapProjectIndex(options, setIdentifierCaseOption);
         projectIndex =
-            applyBootstrappedProjectIndex(options) ??
+            applyBootstrappedProjectIndex(options, setIdentifierCaseOption) ??
             options.identifierCaseProjectIndex ??
             context?.projectIndex ??
             null;
@@ -898,37 +924,13 @@ export async function prepareIdentifierCasePlan(options) {
             );
         }
 
-        if (
-            options.__identifierCaseDryRun === false &&
-            assetRenames.length > 0 &&
-            assetConflicts.length === 0 &&
-            projectIndex &&
-            options.__identifierCaseAssetRenamesApplied !== true
-        ) {
-            const fsFacade =
-                options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
-            const logger = options.logger ?? null;
-            const result = applyAssetRenames({
-                projectIndex,
-                renames: assetRenames,
-                fsFacade,
-                logger
-            });
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseAssetRenameResult",
-                result
-            );
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseAssetRenamesApplied",
-                true
-            );
-            metrics.incrementCounter(
-                "assets.appliedRenames",
-                result?.renames?.length ?? 0
-            );
-        }
+        applyAssetRenamesIfEligible({
+            options,
+            projectIndex,
+            assetRenames,
+            assetConflicts,
+            metrics
+        });
         setIdentifierCaseOption(
             options,
             "__identifierCasePlanGeneratedInternally",
@@ -1229,37 +1231,13 @@ export async function prepareIdentifierCasePlan(options) {
         );
     }
 
-    if (
-        options.__identifierCaseDryRun === false &&
-        assetRenames.length > 0 &&
-        assetConflicts.length === 0 &&
-        projectIndex &&
-        options.__identifierCaseAssetRenamesApplied !== true
-    ) {
-        const fsFacade =
-            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
-        const logger = options.logger ?? null;
-        const result = applyAssetRenames({
-            projectIndex,
-            renames: assetRenames,
-            fsFacade,
-            logger
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenameResult",
-            result
-        );
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenamesApplied",
-            true
-        );
-        metrics.incrementCounter(
-            "assets.appliedRenames",
-            result?.renames?.length ?? 0
-        );
-    }
+    applyAssetRenamesIfEligible({
+        options,
+        projectIndex,
+        assetRenames,
+        assetConflicts,
+        metrics
+    });
 
     const metricsReport = finalizeMetrics({
         resolvedFile: Boolean(fileRecord),

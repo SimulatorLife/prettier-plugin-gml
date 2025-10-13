@@ -19,6 +19,16 @@ import {
     preprocessSourceForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
+function isEventInheritedCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const callee = node.object;
+
+    return callee?.type === "Identifier" && callee.name === "event_inherited";
+}
+
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
@@ -1389,7 +1399,7 @@ describe("applyFeatherFixes transform", () => {
             "Expected manual Feather fix metadata to be captured for every diagnostic."
         );
 
-        ["GM2054", "GM2020", "GM1042"].forEach((id) => {
+        ["GM2054", "GM2020", "GM2042", "GM1042"].forEach((id) => {
             assert.strictEqual(
                 recordedIds.has(id),
                 true,
@@ -1404,6 +1414,86 @@ describe("applyFeatherFixes transform", () => {
                 "Each Feather fix entry should indicate whether it was applied automatically."
             );
         }
+    });
+
+    it("inserts surface target resets for GM2046 sequences and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "surface_set_target(sf);",
+            "draw_clear_alpha(c_blue, 1);",
+            "draw_circle(50, 50, 20, false);",
+            "vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const setIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_set_target"
+        );
+        const resetIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(
+            setIndex >= 0,
+            "Expected surface_set_target call to be present in the AST."
+        );
+        assert.ok(
+            resetIndex > setIndex,
+            "Expected surface_reset_target to be inserted after the setter."
+        );
+
+        const resetCall = body[resetIndex];
+        assert.ok(Array.isArray(resetCall?.arguments));
+        assert.strictEqual(
+            resetCall.arguments.length,
+            0,
+            "Reset call should not include arguments."
+        );
+
+        const vertexCall = body[resetIndex + 1];
+        assert.strictEqual(
+            vertexCall?.object?.name,
+            "vertex_submit",
+            "Expected reset call to appear before vertex submission."
+        );
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2046 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2046"
+        );
+
+        assert.ok(
+            gm2046,
+            "Expected GM2046 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2046.automatic, true);
+        assert.strictEqual(gm2046.target, "sf");
+
+        const resetDiagnostics = Array.isArray(
+            resetCall?._appliedFeatherDiagnostics
+        )
+            ? resetCall._appliedFeatherDiagnostics
+            : [];
+
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2046"),
+            true,
+            "Expected GM2046 metadata to be attached to the inserted reset call."
+        );
     });
 
     it("captures metadata for deprecated function calls flagged by GM1017", () => {
@@ -2098,13 +2188,16 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [enableCall, resetCall, drawCall] = statements;
+        const [enableCall, drawCall, resetCall] = statements;
 
         assert.ok(enableCall);
-        assert.ok(resetCall);
         assert.ok(drawCall);
+        assert.ok(resetCall);
         assert.strictEqual(enableCall.type, "CallExpression");
         assert.strictEqual(enableCall.object?.name, "gpu_set_alphatestenable");
+
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_alphatestenable");
@@ -2139,6 +2232,115 @@ describe("applyFeatherFixes transform", () => {
             resetMetadata.some((entry) => entry.id === "GM2053"),
             true,
             "Expected GM2053 metadata to be recorded on the inserted reset call."
+        );
+    });
+
+    it("inserts a separator before GM2053 resets appended at the end of a block", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const resetIndex = body.findIndex((node) => {
+            if (!node || node.type !== "CallExpression") {
+                return false;
+            }
+
+            if (node.object?.type !== "Identifier") {
+                return false;
+            }
+
+            if (node.object.name !== "gpu_set_alphatestenable") {
+                return false;
+            }
+
+            const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+            if (args.length === 0) {
+                return false;
+            }
+
+            const [firstArg] = args;
+
+            if (!firstArg || firstArg.type !== "Literal") {
+                return false;
+            }
+
+            return firstArg.value === false || firstArg.value === "false";
+        });
+
+        assert.ok(
+            resetIndex >= 0,
+            "Expected to locate the inserted alpha test enable reset call."
+        );
+
+        const separator = body[resetIndex - 1];
+
+        assert.ok(
+            separator,
+            "Expected a separator node before the inserted alpha test enable reset call."
+        );
+
+        assert.strictEqual(
+            separator.type,
+            "EmptyStatement",
+            "Expected an EmptyStatement separator before the inserted alpha test enable reset call."
+        );
+    });
+
+    it("ensures vertex format definitions are closed and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "vertex_format_begin();",
+            "",
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_add_texcoord();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const insertedCall = body[body.length - 1];
+
+        assert.ok(insertedCall);
+        assert.strictEqual(insertedCall.type, "CallExpression");
+        assert.strictEqual(insertedCall.object?.name, "vertex_format_end");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2015 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2015"
+        );
+
+        assert.ok(
+            gm2015,
+            "Expected GM2015 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2015.automatic, true);
+        assert.ok(gm2015.range);
+
+        const nodeDiagnostics = insertedCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            nodeDiagnostics.some((entry) => entry.id === "GM2015"),
+            true,
+            "Expected GM2015 metadata to be attached to the inserted call."
         );
     });
 
@@ -2191,6 +2393,98 @@ describe("applyFeatherFixes transform", () => {
             ternaryDiagnostics.some((entry) => entry.id === "GM1063"),
             true
         );
+    });
+
+    it("inserts a draw_primitive_begin call when fixing GM2028 and records metadata", () => {
+        const source = ["/// Draw Event", "", "draw_primitive_end();"].join(
+            "\n"
+        );
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(body.length, 2);
+
+        const [beginCall, endCall] = body;
+        assert.ok(beginCall);
+        assert.strictEqual(beginCall.type, "CallExpression");
+        assert.strictEqual(beginCall.object?.name, "draw_primitive_begin");
+
+        const beginArgs = Array.isArray(beginCall.arguments)
+            ? beginCall.arguments
+            : [];
+        assert.strictEqual(beginArgs.length, 1);
+        assert.strictEqual(beginArgs[0]?.type, "Identifier");
+        assert.strictEqual(beginArgs[0]?.name, "pr_linelist");
+
+        assert.ok(endCall);
+        assert.strictEqual(endCall.type, "CallExpression");
+        assert.strictEqual(endCall.object?.name, "draw_primitive_end");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2028 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2028"
+        );
+
+        assert.ok(
+            gm2028,
+            "Expected GM2028 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2028.automatic, true);
+
+        const beginDiagnostics = beginCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            beginDiagnostics.some((entry) => entry.id === "GM2028"),
+            true
+        );
+    });
+
+    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_cullmode(cull_clockwise);",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.strictEqual(body.length >= 3, true);
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
+        assert.strictEqual(resetCall.arguments?.[0]?.name, "cull_noculling");
+
+        const callDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2051"),
+            true
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2051 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2051"
+        );
+        assert.ok(
+            gm2051,
+            "Expected GM2051 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2051.automatic, true);
+        assert.ok(gm2051.range);
     });
 
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
@@ -2700,6 +2994,78 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata", () => {
+        const source = [
+            "gpu_push_state();",
+            "",
+            "if (show_name)",
+            "{",
+            "    draw_text(x, y, name);",
+            "    gpu_pop_state();",
+            "}",
+            "",
+            "draw_sprite(sprite_index, 0, x, y);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        const ifIndex = body.findIndex((node) => node?.type === "IfStatement");
+        assert.notStrictEqual(
+            ifIndex,
+            -1,
+            "Expected the sample to include an if statement."
+        );
+
+        const ifStatement = body[ifIndex];
+        const consequentBody = Array.isArray(ifStatement?.consequent?.body)
+            ? ifStatement.consequent.body
+            : [];
+
+        assert.strictEqual(
+            consequentBody.some(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "gpu_pop_state"
+            ),
+            false,
+            "Expected gpu_pop_state call to be removed from the conditional branch."
+        );
+
+        const insertedCall = body[ifIndex + 1];
+
+        assert.ok(
+            insertedCall,
+            "Expected gpu_pop_state call to be inserted after the if statement."
+        );
+        assert.strictEqual(insertedCall?.type, "CallExpression");
+        assert.strictEqual(insertedCall?.object?.name, "gpu_pop_state");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2035 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2035"
+        );
+
+        assert.ok(
+            gm2035,
+            "Expected GM2035 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2035.automatic, true);
+
+        const callDiagnostics = insertedCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2035"),
+            true,
+            "Expected the inserted call to record GM2035 metadata."
+        );
+    });
+
     it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
         const source =
             "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
@@ -2879,20 +3245,23 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const body = ast.body ?? [];
+        const body = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
         assert.ok(
             body.length >= 3,
             "Expected colour write enable reset to be inserted."
         );
 
-        const disableCall = body[0];
-        const resetCall = body[1];
+        const [disableCall, drawCall, resetCall] = body;
 
         assert.strictEqual(disableCall?.type, "CallExpression");
         assert.strictEqual(
             disableCall?.object?.name,
             "gpu_set_colourwriteenable"
         );
+        assert.strictEqual(drawCall?.type, "CallExpression");
+        assert.strictEqual(drawCall?.object?.name, "draw_sprite");
         assert.strictEqual(resetCall?.type, "CallExpression");
         assert.strictEqual(
             resetCall?.object?.name,
@@ -2927,4 +3296,482 @@ describe("applyFeatherFixes transform", () => {
             true
         );
     });
+
+    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_cullmode(cull_clockwise);",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.strictEqual(body.length >= 3, true);
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
+        assert.strictEqual(resetCall.arguments?.[0]?.name, "cull_noculling");
+
+        const callDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2051"),
+            true
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2051 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2051"
+        );
+        assert.ok(
+            gm2051,
+            "Expected GM2051 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2051.automatic, true);
+        assert.ok(gm2051.range);
+    });
+
+    it("balances gpu_push_state/gpu_pop_state pairs flagged by GM2042", () => {
+        const source = [
+            "if (situation_1)",
+            "{",
+            "    gpu_push_state();",
+            "    gpu_push_state();",
+            "",
+            '    draw_text(x, y, "Hi");',
+            "",
+            "    gpu_pop_state();",
+            "}",
+            "",
+            "if (situation_2)",
+            "{",
+            "    gpu_push_state();",
+            "",
+            "    draw_circle(x, y, 10, false);",
+            "",
+            "    gpu_pop_state();",
+            "    gpu_pop_state();",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [firstIf, secondIf] = ast.body ?? [];
+        assert.ok(firstIf?.consequent?.type === "BlockStatement");
+        assert.ok(secondIf?.consequent?.type === "BlockStatement");
+
+        const firstBlockStatements = firstIf.consequent.body ?? [];
+        const secondBlockStatements = secondIf.consequent.body ?? [];
+
+        const firstBlockPushes = firstBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_push_state"
+        );
+        const firstBlockPops = firstBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_pop_state"
+        );
+
+        assert.strictEqual(firstBlockPushes.length, 2);
+        assert.strictEqual(firstBlockPops.length, 2);
+
+        const secondBlockPushes = secondBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_push_state"
+        );
+        const secondBlockPops = secondBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_pop_state"
+        );
+
+        assert.strictEqual(secondBlockPushes.length, 1);
+        assert.strictEqual(secondBlockPops.length, 1);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2042 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2042"
+        );
+
+        assert.ok(
+            gm2042,
+            "Expected GM2042 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2042.automatic, true);
+    });
+
+    it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
+        const source = [
+            "/// Room Start Event",
+            "",
+            "if (should_run)",
+            "{",
+            "    event_inherited();",
+            '    show_debug_message("branch");',
+            "}",
+            "",
+            "event_inherited();",
+            "",
+            'show_debug_message("Ready");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(
+            statements.some((statement) => isEventInheritedCall(statement)),
+            false,
+            "Expected top-level event_inherited calls to be removed."
+        );
+
+        const branch = statements.find(
+            (statement) => statement?.type === "IfStatement"
+        );
+        assert.ok(branch);
+
+        const branchBody = Array.isArray(branch?.consequent?.body)
+            ? branch.consequent.body
+            : [];
+        assert.strictEqual(
+            branchBody.some((statement) => isEventInheritedCall(statement)),
+            false,
+            "Expected event_inherited calls inside blocks to be removed."
+        );
+
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics
+            : [];
+        const gm2040Fixes = appliedDiagnostics.filter(
+            (entry) => entry.id === "GM2040"
+        );
+
+        assert.strictEqual(
+            gm2040Fixes.length,
+            2,
+            "Expected two GM2040 fixes to be recorded."
+        );
+
+        for (const entry of gm2040Fixes) {
+            assert.strictEqual(
+                entry.automatic,
+                true,
+                "GM2040 fixes should be automatic."
+            );
+            assert.strictEqual(entry.target, "event_inherited");
+            assert.ok(
+                entry.range,
+                "GM2040 fixes should include range metadata."
+            );
+        }
+    });
+
+    it("removes stray file_find_next calls flagged by GM2033", () => {
+        const source = [
+            "fnames = [];",
+            "",
+            'var _fname = file_find_first("*.txt", fa_none);',
+            "",
+            'while (_fname != "")',
+            "{",
+            "    array_push(fnames, _fname);",
+            "",
+            "    _fname = file_find_next();",
+            "}",
+            "",
+            "file_find_close();",
+            "",
+            "file_find_next();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(
+            statements.some(
+                (statement) =>
+                    statement?.type === "CallExpression" &&
+                    statement?.object?.name === "file_find_next"
+            ),
+            false,
+            "Expected trailing file_find_next() call to be removed."
+        );
+
+        const diagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2033 = diagnostics.find((entry) => entry.id === "GM2033");
+
+        assert.ok(
+            gm2033,
+            "Expected GM2033 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2033.automatic, true);
+        assert.strictEqual(gm2033.target, "file_find_next");
+        assert.ok(gm2033.range);
+    });
+
+    it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
+        const source = [
+            "draw_primitive_begin(pr_linelist);",
+            "",
+            "if (should_draw)",
+            "{",
+            "    draw_primitive_end();",
+            "}",
+            "else",
+            "{",
+            "    draw_vertex(0, 0);",
+            "}",
+            "",
+            'draw_text(0, 0, "done");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const statements = ast.body ?? [];
+        assert.strictEqual(statements.length >= 3, true);
+
+        const conditional = statements[1];
+        assert.ok(conditional?.type === "IfStatement");
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [beginCall, fixedConditional, trailingCall] = ast.body ?? [];
+        assert.ok(isCallExpression(beginCall));
+        assert.ok(fixedConditional?.type === "IfStatement");
+        assert.ok(isCallExpression(trailingCall));
+        assert.strictEqual(trailingCall.object?.name, "draw_primitive_end");
+
+        const consequentBody = fixedConditional.consequent?.body ?? [];
+        const alternateBody = fixedConditional.alternate?.body ?? [];
+
+        assert.strictEqual(consequentBody.some(isDrawPrimitiveEndName), false);
+        assert.strictEqual(alternateBody.some(isDrawPrimitiveEndName), false);
+
+        const conditionalDiagnostics =
+            trailingCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            conditionalDiagnostics.some((entry) => entry.id === "GM2030"),
+            true,
+            "Expected GM2030 metadata to be recorded on the lifted call."
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2030"),
+            true,
+            "Expected GM2030 metadata to be recorded on the program node."
+        );
+    });
+
+    it("wraps draw vertex calls flagged by GM2029 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "draw_vertex(room_width / 4, room_height / 4);",
+            "draw_vertex(room_width / 2, room_height / 4);",
+            "draw_vertex(room_width / 4, room_height / 2);",
+            "",
+            "draw_primitive_begin(pr_trianglelist);",
+            "draw_primitive_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.ok(
+            statements.length >= 5,
+            "Expected the sample program to include draw calls."
+        );
+
+        const [firstStatement] = statements;
+        assert.strictEqual(
+            firstStatement?.object?.name,
+            "draw_primitive_begin"
+        );
+
+        const vertexCalls = statements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name?.startsWith("draw_vertex")
+        );
+        assert.strictEqual(
+            vertexCalls.length >= 3,
+            true,
+            "Expected draw_vertex calls to remain present."
+        );
+
+        for (const vertex of vertexCalls) {
+            const vertexDiagnostics = vertex?._appliedFeatherDiagnostics ?? [];
+            assert.strictEqual(
+                vertexDiagnostics.some(
+                    (entry) =>
+                        entry.id === "GM2029" && entry.automatic === true
+                ),
+                true,
+                "Expected each draw_vertex call to record GM2029 metadata."
+            );
+        }
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2029"),
+            true,
+            "Expected GM2029 metadata to be recorded on the AST."
+        );
+
+        const lastStatement = statements[statements.length - 1];
+        assert.strictEqual(lastStatement?.object?.name, "draw_primitive_end");
+    });
+
+    it("resets draw_set_halign calls flagged by GM2026 and records metadata", () => {
+        const source = [
+            "draw_set_halign(fa_right);",
+            "",
+            'draw_text(room_width - 5, 5, "In the top-right corner");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const calls = Array.isArray(ast.body)
+            ? ast.body.filter((node) => node?.type === "CallExpression")
+            : [];
+
+        assert.strictEqual(calls.length, 3);
+
+        const resetCall = calls[calls.length - 1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.object?.name, "draw_set_halign");
+        assert.ok(Array.isArray(resetCall.arguments));
+        assert.strictEqual(resetCall.arguments[0]?.name, "fa_left");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2026 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2026"
+        );
+
+        assert.ok(
+            gm2026,
+            "Expected GM2026 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2026.automatic, true);
+        assert.strictEqual(gm2026.target, "draw_set_halign");
+        assert.ok(gm2026.range);
+
+        const resetDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2026"),
+            true
+        );
+    });
+
+    it("converts GM2016 assignments to local declarations outside the Create event", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "health = 100;",
+            "",
+            "/// Step Event",
+            "",
+            "ammo = 0;",
+            "",
+            "ammo += 1;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [createAssignment, localizedVariable, additiveAssignment] =
+            ast.body ?? [];
+
+        assert.ok(createAssignment);
+        assert.strictEqual(createAssignment.type, "AssignmentExpression");
+
+        assert.ok(localizedVariable);
+        assert.strictEqual(localizedVariable.type, "VariableDeclaration");
+        assert.strictEqual(localizedVariable.kind, "var");
+
+        const declarations = localizedVariable.declarations ?? [];
+        assert.strictEqual(Array.isArray(declarations), true);
+        assert.strictEqual(declarations.length, 1);
+
+        const declarator = declarations[0];
+        assert.ok(declarator);
+        assert.strictEqual(declarator.id?.name, "ammo");
+        assert.ok(additiveAssignment);
+        assert.strictEqual(additiveAssignment.type, "AssignmentExpression");
+        assert.strictEqual(additiveAssignment.operator, "+=");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2016 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2016"
+        );
+
+        assert.ok(
+            gm2016,
+            "Expected GM2016 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2016.automatic, true);
+        assert.strictEqual(gm2016.target, "ammo");
+        assert.ok(gm2016.range);
+
+        const declarationDiagnostics =
+            localizedVariable._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            declarationDiagnostics.some((entry) => entry.id === "GM2016"),
+            true,
+            "Expected GM2016 metadata to be recorded on the transformed declaration."
+        );
+    });
 });
+
+function isCallExpression(node) {
+    return !!node && node.type === "CallExpression";
+}
+
+function isDrawPrimitiveEndName(node) {
+    return isCallExpression(node) && node.object?.name === "draw_primitive_end";
+}

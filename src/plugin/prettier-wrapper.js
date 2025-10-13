@@ -4,12 +4,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 
+import { asArray } from "../shared/array-utils.js";
+
 import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "../shared/cli/cli-errors.js";
-import { normalizeStringList } from "./src/utils/option-utils.js";
+} from "./cli/cli-errors.js";
+import { normalizeStringList } from "./src/options/option-utils.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
@@ -379,10 +381,8 @@ async function resolveFormattingOptions(filePath) {
         filepath: filePath
     };
 
-    const basePlugins = Array.isArray(options.plugins) ? options.plugins : [];
-    const resolvedPlugins = Array.isArray(resolvedConfig?.plugins)
-        ? resolvedConfig.plugins
-        : [];
+    const basePlugins = asArray(options.plugins);
+    const resolvedPlugins = asArray(resolvedConfig?.plugins);
     const combinedPlugins = [...new Set([...basePlugins, ...resolvedPlugins])];
 
     if (combinedPlugins.length > 0) {

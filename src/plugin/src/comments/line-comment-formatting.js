@@ -1,7 +1,9 @@
 import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -58,13 +60,6 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
-const COMMENTED_OUT_CODE_PATTERNS = [
-    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
-    /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
-    /^[{}()[\].]/,
-    /^#/
-];
-
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 const FUNCTION_SIGNATURE_PATTERN =
@@ -77,7 +72,7 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const TYPE_IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 function getLineCommentRawText(comment) {
-    if (!comment || typeof comment !== "object") {
+    if (!isObjectLike(comment)) {
         return "";
     }
 
@@ -101,8 +96,14 @@ function formatLineComment(
     comment,
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
-    const { bannerMinimum, boilerplateFragments } =
-        normalizeLineCommentOptions(lineCommentOptions);
+    const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
+    const { bannerMinimum, boilerplateFragments } = normalizedOptions;
+    const codeDetectionPatterns =
+        normalizedOptions.codeDetectionPatterns ??
+        (lineCommentOptions && typeof lineCommentOptions === "object"
+            ? lineCommentOptions.codeDetectionPatterns
+            : undefined) ??
+        DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
@@ -165,7 +166,7 @@ function formatLineComment(
     }
 
     const isInlineComment =
-        comment && typeof comment.inlinePadding === "number";
+        isObjectLike(comment) && typeof comment.inlinePadding === "number";
     const sentences = !isInlineComment
         ? splitCommentIntoSentences(trimmedValue)
         : [trimmedValue];
@@ -187,7 +188,8 @@ function formatLineComment(
 
     if (
         coreValue.length > 0 &&
-        (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))
+        (trimmedValue.startsWith("//") ||
+            looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
         return applyInlinePadding(
             comment,
@@ -199,12 +201,13 @@ function formatLineComment(
 }
 
 function applyInlinePadding(comment, formattedText) {
-    if (
-        comment &&
-        typeof comment.inlinePadding === "number" &&
-        comment.inlinePadding > 0
-    ) {
-        return " ".repeat(comment.inlinePadding) + formattedText;
+    if (!isObjectLike(comment)) {
+        return formattedText;
+    }
+
+    const { inlinePadding } = comment;
+    if (typeof inlinePadding === "number" && inlinePadding > 0) {
+        return " ".repeat(inlinePadding) + formattedText;
     }
 
     return formattedText;
@@ -266,7 +269,7 @@ function normalizeGameMakerType(typeText) {
     });
 }
 
-function looksLikeCommentedOutCode(text) {
+function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     if (typeof text !== "string") {
         return false;
     }
@@ -276,7 +279,22 @@ function looksLikeCommentedOutCode(text) {
         return false;
     }
 
-    return COMMENTED_OUT_CODE_PATTERNS.some((pattern) => pattern.test(trimmed));
+    const patterns = Array.isArray(codeDetectionPatterns)
+        ? codeDetectionPatterns
+        : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+
+    for (const pattern of patterns) {
+        if (!(pattern instanceof RegExp)) {
+            continue;
+        }
+
+        pattern.lastIndex = 0;
+        if (pattern.test(trimmed)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function splitCommentIntoSentences(text) {
