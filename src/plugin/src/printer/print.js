@@ -50,6 +50,7 @@ import {
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
 import {
+    getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
     isUndefinedLiteral
@@ -2944,7 +2945,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;
     }
@@ -2958,9 +2959,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    const wrappedArgs = Array.isArray(firstArg.arguments)
-        ? firstArg.arguments
-        : [];
+    const wrappedArgs = getCallExpressionArguments(firstArg);
     if (wrappedArgs.length !== 1) {
         return false;
     }
@@ -2970,7 +2969,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
 }
 
 function applyOuterTrigConversion(node, conversionMap) {
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;
     }
@@ -2994,9 +2993,7 @@ function applyOuterTrigConversion(node, conversionMap) {
         return false;
     }
 
-    const innerArgs = Array.isArray(firstArg.arguments)
-        ? firstArg.arguments
-        : [];
+    const innerArgs = getCallExpressionArguments(firstArg);
     if (
         typeof mapping.expectedArgs === "number" &&
         innerArgs.length !== mapping.expectedArgs
