@@ -247,15 +247,28 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         coordinatorOverride ??
         createProjectIndexCoordinator(coordinatorOptions);
 
+    const buildOptions = {
+        logger: options?.logger ?? null,
+        logMetrics: options?.logIdentifierCaseMetrics === true
+    };
+
+    const parserFacadeOverride =
+        options.identifierCaseProjectIndexParserFacade ??
+        options.gmlParserFacade ??
+        options.parserFacade ??
+        null;
+    if (parserFacadeOverride != null) {
+        buildOptions.gmlParserFacade = parserFacadeOverride;
+    } else if (typeof options.parseGml === "function") {
+        buildOptions.parseGml = options.parseGml;
+    }
+
     const descriptor = {
         projectRoot,
         cacheFilePath: options?.identifierCaseProjectIndexCachePath ?? null,
         formatterVersion: getFormatterVersion(options) ?? undefined,
         pluginVersion: getPluginVersion(options) ?? undefined,
-        buildOptions: {
-            logger: options?.logger ?? null,
-            logMetrics: options?.logIdentifierCaseMetrics === true
-        }
+        buildOptions
     };
 
     if (cacheMaxSizeBytes !== undefined) {
