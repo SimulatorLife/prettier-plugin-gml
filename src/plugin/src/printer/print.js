@@ -1261,15 +1261,32 @@ function isComplexArgumentNode(node) {
 }
 
 // variation of printElements that handles semicolons and line breaks in a program or block
+function isMacroLikeStatement(node) {
+    if (!node || typeof node.type !== "string") {
+        return false;
+    }
+
+    if (node.type === "MacroDeclaration") {
+        return true;
+    }
+
+    if (node.type === "DefineStatement") {
+        const directive = node.replacementDirective;
+
+        if (typeof directive === "string") {
+            return directive.trim().toLowerCase() === "#macro";
+        }
+    }
+
+    return false;
+}
+
 function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
     if (!previousNode || !nextNode) {
         return false;
     }
 
-    if (
-        previousNode.type === "MacroDeclaration" &&
-        nextNode.type === "MacroDeclaration"
-    ) {
+    if (isMacroLikeStatement(previousNode) && isMacroLikeStatement(nextNode)) {
         return true;
     }
 
@@ -1435,10 +1452,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 node,
                 nextNode
             );
-            const nextNodeIsMacro = nextNode?.type === "MacroDeclaration";
+            const nextNodeIsMacro = isMacroLikeStatement(nextNode);
             const shouldSkipStandardHardline =
                 shouldSuppressExtraEmptyLine &&
-                node?.type === "MacroDeclaration" &&
+                isMacroLikeStatement(node) &&
                 !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
@@ -1466,7 +1483,18 @@ function printStatements(path, options, print, childrenAttribute) {
                 isSanitizedMacro &&
                 macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
-            if (currentNodeRequiresNewline && !nextLineEmpty) {
+            const isMacroLikeNode = isMacroLikeStatement(node);
+            const shouldForceMacroPadding =
+                isMacroLikeNode &&
+                !nextNodeIsMacro &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine;
+
+            if (shouldForceMacroPadding) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
