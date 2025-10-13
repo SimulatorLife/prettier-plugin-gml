@@ -3470,7 +3470,7 @@ function shouldOmitSyntheticParens(path) {
             expression.operator === "*" &&
             isNumericComputationNode(expression)
         ) {
-            return true;
+            return false;
         }
     }
 
