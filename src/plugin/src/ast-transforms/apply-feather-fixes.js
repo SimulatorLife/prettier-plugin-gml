@@ -6,7 +6,10 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
-import { getCallExpressionArguments } from "../../../shared/ast-node-helpers.js";
+import {
+    getCallExpressionArguments,
+    isBooleanLiteral
+} from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
@@ -4199,7 +4202,7 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
 
         const expression = node.expression;
 
-        if (!isBooleanLiteral(expression)) {
+        if (!isBooleanLiteral(expression, true)) {
             return null;
         }
 
@@ -4522,23 +4525,6 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
     visit(ast);
 
     return bestMatch;
-}
-
-function isBooleanLiteral(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    if (node.type !== "Literal") {
-        return false;
-    }
-
-    return (
-        node.value === true ||
-        node.value === false ||
-        node.value === "true" ||
-        node.value === "false"
-    );
 }
 
 function hasDisabledColourChannel(args) {
