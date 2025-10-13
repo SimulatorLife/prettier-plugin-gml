@@ -2235,6 +2235,70 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("inserts a separator before GM2053 resets appended at the end of a block", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const resetIndex = body.findIndex((node) => {
+            if (!node || node.type !== "CallExpression") {
+                return false;
+            }
+
+            if (node.object?.type !== "Identifier") {
+                return false;
+            }
+
+            if (node.object.name !== "gpu_set_alphatestenable") {
+                return false;
+            }
+
+            const args = Array.isArray(node.arguments) ? node.arguments : [];
+
+            if (args.length === 0) {
+                return false;
+            }
+
+            const [firstArg] = args;
+
+            if (!firstArg || firstArg.type !== "Literal") {
+                return false;
+            }
+
+            return firstArg.value === false || firstArg.value === "false";
+        });
+
+        assert.ok(
+            resetIndex >= 0,
+            "Expected to locate the inserted alpha test enable reset call."
+        );
+
+        const separator = body[resetIndex - 1];
+
+        assert.ok(
+            separator,
+            "Expected a separator node before the inserted alpha test enable reset call."
+        );
+
+        assert.strictEqual(
+            separator.type,
+            "EmptyStatement",
+            "Expected an EmptyStatement separator before the inserted alpha test enable reset call."
+        );
+    });
+
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
             "/// Create Event",
