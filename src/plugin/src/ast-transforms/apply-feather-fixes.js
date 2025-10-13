@@ -12260,6 +12260,7 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
     }
 
     node.params = reorderedParams;
+    node._flattenSyntheticNumericParens = true;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: getFunctionIdentifierName(node),

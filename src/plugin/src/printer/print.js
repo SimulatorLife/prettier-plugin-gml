@@ -3451,6 +3451,10 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const expression = node.expression;
+    if (!isSyntheticParenFlatteningEnabled(path)) {
+        return false;
+    }
+
     const parentInfo = getBinaryOperatorInfo(parent.operator);
     if (
         expression?.type === "BinaryExpression" &&
@@ -3567,6 +3571,36 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     }
 
     return false;
+}
+
+function isSyntheticParenFlatteningEnabled(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            (ancestor.type === "FunctionDeclaration" ||
+                ancestor.type === "ConstructorDeclaration") &&
+            ancestor._flattenSyntheticNumericParens === true
+        ) {
+            return true;
+        }
+
+        if (ancestor.type === "Program") {
+            return false;
+        }
+
+        depth += 1;
+    }
 }
 
 function isNumericComputationNode(node) {

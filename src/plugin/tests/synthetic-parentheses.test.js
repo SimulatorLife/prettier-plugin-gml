@@ -39,6 +39,21 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     );
 });
 
+test("preserves synthetic addition parentheses outside flatten contexts", async () => {
+    const source = ["var value = a + b + c;", ""].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var value = (a + b) + c;",
+        "Addition grouping inserted by the parser should remain when optional parameter rewrites are inactive."
+    );
+});
+
 test("retains synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",
