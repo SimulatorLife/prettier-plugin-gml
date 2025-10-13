@@ -9,8 +9,9 @@
 A [Prettier](https://prettier.io/) plugin that understands [GameMaker Language](https://manual.gamemaker.io/) (GML) files. This
 repository bundles the parser, printer, generated metadata, and shared helpers in one npm workspace so scripts, objects, and shaders
 all benefit from the same formatter. The plugin is not yet published on npm; install it straight from GitHub using the
-instructions below. The formatter package (`prettier-plugin-gamemaker`) currently ships as part of this workspace, so Prettier
-needs an explicit path to load it when you install from Git.
+instructions below. The formatter package (`prettier-plugin-gamemaker`) ships inside this workspace, so Prettier needs an
+explicit path to load it when you install from Git. Prefer an overview of the supporting tools? Start with the
+[documentation index](docs/README.md) for links to naming guides, rollout playbooks, and metadata plans.
 
 > ⚠️ The formatter is still experimental. Commit your work or keep backups handy before formatting large projects.
 
@@ -113,9 +114,9 @@ needs an explicit path to load it when you install from Git.
 
    Add an explicit override if you want to pin `.gml` files to the bundled parser or customise options per language. Including
    the plugin path in your Prettier configuration keeps editor integrations working even when the CLI script is not used.
-   Create a Prettier config file (`.prettierrc`, `.prettierrc.json`, `.prettierrc.yml`, `prettier.config.{js,cjs,mjs}`, or the
-   `prettier` field inside `package.json`) in the root of your GameMaker project and add the plugin there so both the CLI and
-   editor extensions share the same settings:
+   Place a Prettier config file (`.prettierrc`, `.prettierrc.json`, `.prettierrc.yml`, `prettier.config.{js,cjs,mjs}`, or the
+   `prettier` field inside `package.json`) in the root of your GameMaker project so both the CLI and editor extensions share the
+   same settings:
 
    ```json
    {
@@ -278,6 +279,9 @@ command.
   ```bash
   npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
   ```
+
+- Prefer using a workspace wrapper? `npm run format:gml -- --check --path .` runs the same validation through the helper while
+  honouring any default extensions you configured.
 
 ## Usage tips
 
@@ -625,6 +629,7 @@ Run an individual suite when iterating on a component:
 ```bash
 npm run test:plugin
 npm run test:parser
+npm run test:shared
 ```
 
 Lint the JavaScript sources before submitting a change:
@@ -639,11 +644,8 @@ Enforce a zero-warning policy in CI or pre-push checks:
 npm run lint:ci
 ```
 
-Auto-fix lint violations when appropriate:
-
-```bash
-npm run lint:fix
-```
+Need a quick safety check before committing? `npm run format:check` ensures the repository already matches our Prettier
+configuration, and `npm run lint:fix` auto-applies straightforward ESLint fixes.
 
 The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
 flags such as watch mode or filtering individual tests:
@@ -651,6 +653,7 @@ flags such as watch mode or filtering individual tests:
 ```bash
 npm run test --workspace src/plugin -- --watch
 npm run test --workspace src/parser -- --watch
+npm run test --workspace src/shared -- --watch
 ```
 
 Fixtures under `src/plugin/tests` capture golden formatter output. Update them only when intentionally changing the emitted

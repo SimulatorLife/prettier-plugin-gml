@@ -2,7 +2,9 @@
 
 Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
-can pick the right level of detail for your task.
+can pick the right level of detail for your task. Looking for installation or
+contributor setup steps? The [repository README](../README.md) captures the
+quick-start flow, formatter configuration, and day-to-day development commands.
 
 ## Reference guides
 
@@ -12,6 +14,8 @@ can pick the right level of detail for your task.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
+- [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
+  steps for pruning unused code surfaced by the formatter’s metadata reports.
 
 ## Usage & rollout
 
