@@ -38,7 +38,7 @@ export function consolidateStructAssignments(ast, commentTools) {
     }
 
     const normalizedCommentTools = normalizeCommentTools(commentTools);
-    const tracker = new CommentTracker(getCommentArray(ast));
+    const tracker = new CommentTracker(ast);
     visit(ast, tracker, normalizedCommentTools);
     tracker.removeConsumedComments();
     return ast;
@@ -627,8 +627,26 @@ function isLineCommentNode(comment) {
 }
 
 class CommentTracker {
-    constructor(comments) {
-        const sourceComments = Array.isArray(comments) ? comments : [];
+    constructor(ownerOrComments) {
+        const sourceComments = (() => {
+            if (typeof getCommentArray === "function") {
+                const normalized = getCommentArray(ownerOrComments);
+                if (Array.isArray(normalized)) {
+                    return normalized;
+                }
+            }
+
+            if (Array.isArray(ownerOrComments)) {
+                return ownerOrComments;
+            }
+
+            if (!ownerOrComments || typeof ownerOrComments !== "object") {
+                return [];
+            }
+
+            const { comments } = ownerOrComments;
+            return Array.isArray(comments) ? comments : [];
+        })();
         this.comments = sourceComments;
         this.entries = sourceComments
             .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
@@ -754,7 +772,7 @@ class CommentTracker {
     }
 
     removeConsumedComments() {
-        if (!Array.isArray(this.comments) || this.comments.length === 0) {
+        if (this.comments.length === 0) {
             return;
         }
 
