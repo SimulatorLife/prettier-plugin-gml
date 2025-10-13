@@ -211,14 +211,21 @@ If `--extensions` is omitted the wrapper falls back to the `.gml` default or to 
 <summary><strong>Before formatting</strong></summary>
 
 ```gml
-var enemy = argument0; var damage = argument1
-
-with(enemy)
-{
-          self.hp-=damage
-        if(self.hp<=0){instance_destroy(self)}
+#define  LEGACY_MACRO 123456789
+#define region Utility Scripts
+var util = function(val) {
+        return val * LEGACY_MACRO;
 }
+#define    end region Utility Scripts
+#define 123 not valid
+
+#region A region
+#macro VALID_MACRO 1
+var sentinel = true;
+#endregion End regions can also have comments
 ```
+
+<p align="right"><a href="src/plugin/tests/define-normalization.input.gml">View fixture</a></p>
 
 </details>
 
@@ -226,16 +233,26 @@ with(enemy)
 <summary><strong>After formatting</strong></summary>
 
 ```gml
-var enemy = argument0;
-var damage = argument1;
+#macro  LEGACY_MACRO 123456789
 
-with (enemy) {
-    self.hp -= damage;
-    if (self.hp <= 0) {
-        instance_destroy(self);
-    }
+#region Utility Scripts
+
+var util = function(val) {
+        return val * LEGACY_MACRO;
 }
+
+#endregion Utility Scripts
+
+#region A region
+
+#macro VALID_MACRO 1
+
+var sentinel = true;
+
+#endregion End regions can also have comments
 ```
+
+<p align="right"><a href="src/plugin/tests/define-normalization.output.gml">View fixture</a></p>
 
 </details>
 
