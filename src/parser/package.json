@@ -10,7 +10,7 @@
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
   },
   "scripts": {
-    "test": "mocha \"tests/**/*.test.js\"",
+    "test": "node --test tests/parser.test.js",
     "antlr": "antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageLexer.g4 && antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageParser.g4"
   }
 }

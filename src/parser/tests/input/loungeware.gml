@@ -37,7 +37,8 @@ function ___init_advanced_text(){
     // -------------------------------------------------------------------------------------
     function ___draw_text_advanced(x, y, line_height, is_alive, string_complete, str, _OPT_aliveshakeval, _OPT_scale, _OPT_letter_spacing, 
         _c = draw_get_colour(), _a = draw_get_alpha(), _font = draw_get_font(), _halign = draw_get_halign(), _valign = draw_get_valign()){
-        if (0) return argument[0];
+        gml_pragma("forceinline");
+            if (0) return argument[0];
         
         // fix broken end tag on string
         str = ___DTA_fix_end_tag(str);

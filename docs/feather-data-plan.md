@@ -5,6 +5,12 @@
 - Capture the rules that affect formatter output: message catalogue (GM* diagnostics), naming-style presets, suppress/override directives, and Feather's type taxonomy.
 - Produce a machine-readable artefact (stored as `resources/feather-metadata.json`) that can be regenerated against any GameMaker release tag and consumed by future formatting heuristics.
 
+## Current implementation
+- [`scripts/generate-feather-metadata.mjs`](../scripts/generate-feather-metadata.mjs) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption.【F:scripts/generate-feather-metadata.mjs†L1-L63】
+- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can now be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere.【F:scripts/generate-feather-metadata.mjs†L44-L156】【F:scripts/cli/manual-cache.js†L1-L19】
+- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, the new `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary.【F:scripts/generate-feather-metadata.mjs†L44-L162】
+- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, and `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts.【F:scripts/generate-feather-metadata.mjs†L44-L162】【F:scripts/cli/manual-cache.js†L1-L19】
+
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
    - The manual repository already exposes multiple Feather-specific HTML topics: `Feather_Messages`, `Feather_Directives`, `Feather_Features`, `Feather_Data_Types`, and the IDE preference page that enumerates naming-rule controls.【6f027d†L1-L10】
@@ -37,6 +43,7 @@
 ## Regeneration helper
 - Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `scripts/cache/`.
 - Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
+- See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Open questions / future research
 - The manual does not expose rule severity presets. We should inspect GameMaker IDE distributions (potentially via `@bscotch/stitch-launcher`) for config files that mirror the Message Severity table shown in the UI, so we can enrich the dataset in a later iteration.
