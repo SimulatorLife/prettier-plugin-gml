@@ -1,3 +1,5 @@
+import { capitalize } from "./string-utils.js";
+
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
 
@@ -65,14 +67,6 @@ function tokenizeCore(core) {
     }
 
     return tokens;
-}
-
-function capitalize(value) {
-    if (!value) {
-        return value;
-    }
-
-    return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function finalizeIdentifier(normalized, base) {

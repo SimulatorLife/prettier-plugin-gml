@@ -1,5 +1,13 @@
 const DEFAULT_SPLIT_PATTERN = /[\n,]/;
 
+function capitalize(value) {
+    if (typeof value !== "string" || value.length === 0) {
+        return value;
+    }
+
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function normalizeStringList(
     value,
     {
@@ -44,4 +52,4 @@ function normalizeStringList(
     return [...seen];
 }
 
-export { normalizeStringList };
+export { normalizeStringList, capitalize };
