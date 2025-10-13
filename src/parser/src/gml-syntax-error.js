@@ -1,7 +1,8 @@
 import antlr4 from "antlr4";
 
-export default class GameMakerParseErrorListener extends antlr4.error
-    .ErrorListener {
+const { ErrorListener } = antlr4.error;
+
+export default class GameMakerParseErrorListener extends ErrorListener {
     constructor() {
         super();
     }
