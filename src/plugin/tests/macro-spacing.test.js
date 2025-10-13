@@ -37,3 +37,29 @@ test("macro declarations stay separated on consecutive lines", async () => {
         )
     );
 });
+
+test("Feather-sanitized macros preserve blank lines before following statements", async () => {
+    const source = [
+        "#macro FOO(value) (value + 1);",
+        "#macro BAR 100;",
+        "",
+        "var result = FOO(1) + BAR;"
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "#macro FOO(value) (value + 1)",
+            "#macro BAR 100",
+            "",
+            "var result = FOO(1) + BAR;",
+            ""
+        ].join("\n")
+    );
+});
