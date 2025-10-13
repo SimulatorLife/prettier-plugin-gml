@@ -7534,6 +7534,25 @@ function ensureAlphaTestEnableResetAfterCall(
 
     let insertionIndex = insertionInfo.index;
 
+    const previousSibling =
+        siblings[insertionIndex - 1] ?? siblings[property] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const shouldInsertSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        (!nextSibling || !isTriviallyIgnorableStatement(nextSibling)) &&
+        !isAlphaTestDisableCall(nextSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (shouldInsertSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
