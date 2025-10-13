@@ -1437,7 +1437,7 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-function applyAssignmentAlignment(statements, options) {
+export function applyAssignmentAlignment(statements, options) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
     /** @type {Array<{ node: any, nameLength: number }>} */
     const currentGroup = [];
@@ -1457,11 +1457,12 @@ function applyAssignmentAlignment(statements, options) {
             return;
         }
 
+        const groupEntries = currentGroup.slice();
         const meetsAlignmentThreshold =
-            minGroupSize > 0 && currentGroup.length >= minGroupSize;
+            minGroupSize > 0 && groupEntries.length >= minGroupSize;
 
         if (!meetsAlignmentThreshold) {
-            for (const { node } of currentGroup) {
+            for (const { node } of groupEntries) {
                 node._alignAssignmentPadding = 0;
             }
             resetGroup();
@@ -1469,7 +1470,7 @@ function applyAssignmentAlignment(statements, options) {
         }
 
         const targetLength = currentGroupMaxLength;
-        for (const { node, nameLength } of currentGroup) {
+        for (const { node, nameLength } of groupEntries) {
             node._alignAssignmentPadding = targetLength - nameLength;
         }
 
