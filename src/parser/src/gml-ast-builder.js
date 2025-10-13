@@ -144,6 +144,47 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return object;
     }
 
+    createIdentifierLocation(token) {
+        if (!token) {
+            return null;
+        }
+
+        const startIndex =
+            token.start != null
+                ? token.start
+                : token.startIndex != null
+                    ? token.startIndex
+                    : null;
+        const stopIndex =
+            token.stop != null
+                ? token.stop
+                : token.stopIndex != null
+                    ? token.stopIndex
+                    : startIndex;
+        const identifierLength =
+            startIndex != null && stopIndex != null
+                ? stopIndex - startIndex + 1
+                : null;
+
+        const start = {
+            line: token.line,
+            index: startIndex
+        };
+        if (token.column != null) {
+            start.column = token.column;
+        }
+
+        const end = {
+            line: token.line,
+            index: stopIndex != null ? stopIndex + 1 : null
+        };
+        if (start.column != null && identifierLength != null) {
+            end.column = start.column + identifierLength;
+        }
+
+        return { start, end };
+    }
+
     visitBinaryExpression(ctx) {
         return this.handleBinaryExpression(ctx);
     }
@@ -1134,9 +1175,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#functionDeclaration.
     visitFunctionDeclaration(ctx) {
         let id = null;
+        let idLocation = null;
 
         if (ctx.Identifier() != null) {
-            id = ctx.Identifier().getText();
+            const identifierNode = ctx.Identifier();
+            id = identifierNode.getText();
+            idLocation = this.createIdentifierLocation(identifierNode.symbol);
         }
 
         const paramListCtx = ctx.parameterList();
@@ -1161,6 +1205,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             return this.astNode(ctx, {
                 type: "ConstructorDeclaration",
                 id: id,
+                idLocation: idLocation,
                 params: params,
                 parent: this.visit(ctx.constructorClause()),
                 body: body,
@@ -1171,6 +1216,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "FunctionDeclaration",
             id: id,
+            idLocation: idLocation,
             params: params,
             body: body,
             hasTrailingComma: hasTrailingComma

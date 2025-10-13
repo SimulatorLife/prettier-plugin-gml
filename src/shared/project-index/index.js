@@ -1132,6 +1132,210 @@ function buildIdentifierId(scope, value) {
     return `${scope}:${value}`;
 }
 
+function computeLineOffsets(source) {
+    const offsets = [0];
+
+    if (typeof source !== "string" || source.length === 0) {
+        return offsets;
+    }
+
+    for (let index = 0; index < source.length; index += 1) {
+        const codePoint = source.charCodeAt(index);
+
+        if (codePoint === 0x0d /* \r */) {
+            const nextCodePoint = source.charCodeAt(index + 1);
+            if (nextCodePoint === 0x0a /* \n */) {
+                offsets.push(index + 2);
+                index += 1;
+            } else {
+                offsets.push(index + 1);
+            }
+            continue;
+        }
+
+        if (
+            codePoint === 0x0a /* \n */ ||
+            codePoint === 0x2028 ||
+            codePoint === 0x2029
+        ) {
+            offsets.push(index + 1);
+        }
+    }
+
+    return offsets;
+}
+
+function buildLocationFromIndex(index, lineOffsets) {
+    if (typeof index !== "number" || index < 0) {
+        return null;
+    }
+
+    const offsets = Array.isArray(lineOffsets) ? lineOffsets : [0];
+
+    let low = 0;
+    let high = offsets.length - 1;
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const value = offsets[mid];
+        if (value <= index) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    const resolvedLineIndex = Math.max(0, Math.min(offsets.length - 1, high));
+    const lineStart = offsets[resolvedLineIndex] ?? 0;
+    const lineNumber = resolvedLineIndex + 1;
+    const column = index - lineStart;
+
+    return {
+        line: lineNumber,
+        column,
+        index
+    };
+}
+
+function isIdentifierBoundary(character) {
+    if (!character) {
+        return true;
+    }
+
+    return !/[0-9A-Za-z_]/.test(character);
+}
+
+function findIdentifierLocation({
+    source,
+    name,
+    searchStart,
+    searchEnd,
+    lineOffsets
+}) {
+    if (typeof source !== "string" || typeof name !== "string") {
+        return null;
+    }
+
+    const effectiveStart = Math.max(0, searchStart ?? 0);
+    const effectiveEnd = Math.min(
+        source.length,
+        searchEnd == null ? source.length : searchEnd
+    );
+
+    let index = source.indexOf(name, effectiveStart);
+    while (index !== -1 && index < effectiveEnd) {
+        const before = index > 0 ? source[index - 1] : "";
+        const after =
+            index + name.length < source.length
+                ? source[index + name.length]
+                : "";
+
+        if (isIdentifierBoundary(before) && isIdentifierBoundary(after)) {
+            const start = buildLocationFromIndex(index, lineOffsets);
+            const end = buildLocationFromIndex(
+                index + Math.max(0, name.length - 1),
+                lineOffsets
+            );
+
+            if (start && end) {
+                return { start, end };
+            }
+        }
+
+        index = source.indexOf(name, index + 1);
+    }
+
+    return null;
+}
+
+function removeSyntheticScriptDeclarations(collection, { name, scopeId }) {
+    if (!Array.isArray(collection)) {
+        return;
+    }
+
+    for (let index = collection.length - 1; index >= 0; index -= 1) {
+        const entry = collection[index];
+        if (!entry || !entry.isSynthetic) {
+            continue;
+        }
+        if (name && entry.name && entry.name !== name) {
+            continue;
+        }
+        if (scopeId && entry.scopeId && entry.scopeId !== scopeId) {
+            continue;
+        }
+        collection.splice(index, 1);
+    }
+}
+
+function createFunctionLikeIdentifierRecord({
+    node,
+    scopeRecord,
+    fileRecord,
+    classification,
+    source,
+    lineOffsets
+}) {
+    if (!node || !scopeRecord || !fileRecord) {
+        return null;
+    }
+
+    const rawName =
+        typeof node.id === "string"
+            ? node.id
+            : typeof node.id?.name === "string"
+                ? node.id.name
+                : null;
+
+    if (!rawName) {
+        return null;
+    }
+
+    const headerStart = node.start?.index ?? 0;
+    const headerEnd =
+        node.body?.start?.index ?? node.end?.index ?? source?.length ?? 0;
+
+    const location = findIdentifierLocation({
+        source,
+        name: rawName,
+        searchStart: headerStart,
+        searchEnd: headerEnd,
+        lineOffsets
+    });
+
+    if (!location) {
+        return null;
+    }
+
+    const classificationArray = Array.isArray(classification)
+        ? classification
+        : [classification];
+    const classificationTags = ["identifier", "declaration"];
+    for (const tag of classificationArray) {
+        if (tag && !classificationTags.includes(tag)) {
+            classificationTags.push(tag);
+        }
+    }
+
+    const start = cloneLocation(location.start);
+    const end = cloneLocation(location.end);
+
+    return {
+        name: rawName,
+        start,
+        end,
+        scopeId: scopeRecord.id,
+        classifications: classificationTags,
+        declaration: {
+            start: cloneLocation(start),
+            end: cloneLocation(end),
+            scopeId: scopeRecord.id
+        },
+        isBuiltIn: false,
+        isSynthetic: false,
+        filePath: fileRecord.filePath
+    };
+}
+
 function createEnumLookup(ast, filePath) {
     const enumDeclarations = new Map();
     const memberDeclarations = new Map();
@@ -1223,7 +1427,8 @@ function ensureScriptEntry(identifierCollections, descriptor) {
                 descriptor.displayName ?? descriptor.name ?? descriptor.id,
             resourcePath: descriptor.resourcePath ?? null,
             declarations: [],
-            references: []
+            references: [],
+            declarationKinds: []
         })
     );
 }
@@ -1258,6 +1463,11 @@ function registerScriptDeclaration({
     }
 
     const clone = cloneIdentifierForCollections(declarationRecord, filePath);
+    if (clone && clone.isSynthetic !== true) {
+        entry.declarations = entry.declarations.filter(
+            (existing) => existing && existing.isSynthetic !== true
+        );
+    }
     const locationKey = buildLocationKey(clone.start);
     const hasExisting = entry.declarations.some((existing) => {
         const existingKey = buildLocationKey(existing.start);
@@ -1266,6 +1476,20 @@ function registerScriptDeclaration({
 
     if (!hasExisting) {
         entry.declarations.push(clone);
+    }
+
+    const declarationTags = Array.isArray(clone.classifications)
+        ? clone.classifications
+        : [];
+    for (const tag of declarationTags) {
+        if (
+            tag &&
+            tag !== "identifier" &&
+            tag !== "declaration" &&
+            !entry.declarationKinds.includes(tag)
+        ) {
+            entry.declarationKinds.push(tag);
+        }
     }
 }
 
@@ -1329,11 +1553,11 @@ function registerScriptReference({ identifierCollections, callRecord }) {
 }
 
 function mapToObject(map, transform) {
+    const entries = Array.from(map.entries()).sort(([a], [b]) =>
+        typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0
+    );
     return Object.fromEntries(
-        Array.from(map.entries()).map(([key, value]) => [
-            key,
-            transform(value)
-        ])
+        entries.map(([key, value]) => [key, transform(value)])
     );
 }
 
@@ -1794,11 +2018,69 @@ function analyseGmlAst({
     scriptNameToResourcePath,
     identifierCollections,
     scopeDescriptor,
-    metrics = null
+    metrics = null,
+    sourceContents = "",
+    lineOffsets = null
 }) {
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
     traverseAst(ast, (node) => {
+        if (
+            scopeDescriptor?.kind === "script" &&
+            (node?.type === "FunctionDeclaration" ||
+                node?.type === "ConstructorDeclaration")
+        ) {
+            const classificationTags =
+                node.type === "ConstructorDeclaration"
+                    ? ["constructor", "struct", "script"]
+                    : ["script"];
+            const declarationRecord = createFunctionLikeIdentifierRecord({
+                node,
+                scopeRecord,
+                fileRecord,
+                classification: classificationTags,
+                source: sourceContents,
+                lineOffsets
+            });
+
+            if (declarationRecord) {
+                removeSyntheticScriptDeclarations(fileRecord.declarations, {
+                    name: declarationRecord.name,
+                    scopeId: scopeRecord.id
+                });
+                removeSyntheticScriptDeclarations(scopeRecord.declarations, {
+                    name: declarationRecord.name,
+                    scopeId: scopeRecord.id
+                });
+
+                const declarationKey = buildLocationKey(
+                    declarationRecord.start
+                );
+                const fileHasExisting = fileRecord.declarations.some(
+                    (existing) =>
+                        buildLocationKey(existing.start) === declarationKey
+                );
+                if (!fileHasExisting) {
+                    fileRecord.declarations.push({ ...declarationRecord });
+                }
+
+                const scopeHasExisting = scopeRecord.declarations.some(
+                    (existing) =>
+                        buildLocationKey(existing.start) === declarationKey
+                );
+                if (!scopeHasExisting) {
+                    scopeRecord.declarations.push({ ...declarationRecord });
+                }
+
+                registerScriptDeclaration({
+                    identifierCollections,
+                    descriptor: scopeDescriptor,
+                    declarationRecord,
+                    filePath: fileRecord?.filePath ?? null
+                });
+            }
+        }
+
         if (
             node?.type === "Identifier" &&
             Array.isArray(node.classifications)
@@ -1894,6 +2176,44 @@ function analyseGmlAst({
             scopeRecord.scriptCalls.push(callRecord);
             relationships.scriptCalls.push(callRecord);
             metrics?.incrementCounter("scriptCalls.discovered");
+        }
+
+        if (
+            node?.type === "NewExpression" &&
+            node.expression?.type === "Identifier"
+        ) {
+            const callee = node.expression;
+            const calleeName = callee.name;
+            if (typeof calleeName === "string") {
+                const targetScopeId =
+                    scriptNameToScopeId.get(calleeName) ?? null;
+                const targetResourcePath = targetScopeId
+                    ? (scriptNameToResourcePath.get(calleeName) ?? null)
+                    : null;
+
+                const callRecord = {
+                    kind: "script",
+                    from: {
+                        filePath: fileRecord.filePath,
+                        scopeId: scopeRecord.id
+                    },
+                    target: {
+                        name: calleeName,
+                        scopeId: targetScopeId,
+                        resourcePath: targetResourcePath
+                    },
+                    isResolved: Boolean(targetScopeId),
+                    location: {
+                        start: cloneLocation(callee.start),
+                        end: cloneLocation(callee.end)
+                    }
+                };
+
+                fileRecord.scriptCalls.push(callRecord);
+                scopeRecord.scriptCalls.push(callRecord);
+                relationships.scriptCalls.push(callRecord);
+                metrics?.incrementCounter("scriptCalls.discovered");
+            }
         }
 
         if (
@@ -2062,6 +2382,7 @@ export async function buildProjectIndex(
         }
 
         metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        const lineOffsets = computeLineOffsets(contents);
 
         const scopeDescriptor =
             resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
@@ -2123,7 +2444,9 @@ export async function buildProjectIndex(
                     resourceAnalysis.scriptNameToResourcePath,
                 identifierCollections,
                 scopeDescriptor,
-                metrics
+                metrics,
+                sourceContents: contents,
+                lineOffsets
             })
         );
     });
@@ -2205,6 +2528,9 @@ export async function buildProjectIndex(
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
+            declarationKinds: Array.isArray(entry.declarationKinds)
+                ? entry.declarationKinds.slice()
+                : [],
             declarations: entry.declarations.map((item) => ({ ...item })),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
