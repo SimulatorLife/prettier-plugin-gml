@@ -559,6 +559,28 @@ describe("Prettier GameMaker plugin fixtures", () => {
         assert.strictEqual(formatted, expected);
     });
 
+    it("avoids duplicating blank lines after macros when Feather fixes strip semicolons", async () => {
+        const source = [
+            "#macro FOO(value) (value + 1);",
+            "#macro BAR value + 2;",
+            "",
+            "var total = FOO(3) + BAR;"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source, {
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "#macro FOO(value) (value + 1)",
+            "#macro BAR value + 2",
+            "",
+            "var total = FOO(3) + BAR;"
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
     it("rewrites safe string concatenations into template strings when enabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 

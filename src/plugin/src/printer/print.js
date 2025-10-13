@@ -1379,13 +1379,18 @@ function printStatements(path, options, print, childrenAttribute) {
                 nextLineProbeIndex
             );
 
+            const isSanitizedMacro =
+                node?.type === "MacroDeclaration" &&
+                typeof node._featherMacroText === "string";
+
             if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
                 nextLineEmpty &&
                 !nextHasSyntheticDoc &&
-                !shouldSuppressExtraEmptyLine
+                !shouldSuppressExtraEmptyLine &&
+                !isSanitizedMacro
             ) {
                 parts.push(hardline);
             }
