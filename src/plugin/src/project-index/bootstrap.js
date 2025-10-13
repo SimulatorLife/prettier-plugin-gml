@@ -45,6 +45,15 @@ function createSkipResult(reason) {
     };
 }
 
+function storeBootstrapResult(options, result) {
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseProjectIndexBootstrap",
+        result
+    );
+    return result;
+}
+
 function resolveProjectRoot(options) {
     if (isNonEmptyString(options?.__identifierCaseProjectRoot)) {
         return path.resolve(options.__identifierCaseProjectRoot);
@@ -70,7 +79,7 @@ export async function bootstrapProjectIndex(options = {}) {
     if (options.__identifierCaseProjectIndex) {
         const projectRoot =
             options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
-        const result = {
+        return storeBootstrapResult(options, {
             status: "ready",
             reason: "provided",
             projectRoot,
@@ -78,23 +87,14 @@ export async function bootstrapProjectIndex(options = {}) {
             source: "provided",
             cache: null,
             dispose() {}
-        };
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseProjectIndexBootstrap",
-            result
-        );
-        return result;
+        });
     }
 
     if (options.gmlIdentifierCaseDiscoverProject === false) {
-        const result = createSkipResult("discovery-disabled");
-        setIdentifierCaseOption(
+        return storeBootstrapResult(
             options,
-            "__identifierCaseProjectIndexBootstrap",
-            result
+            createSkipResult("discovery-disabled")
         );
-        return result;
     }
 
     const fsFacade = getFsFacade(options);
@@ -105,13 +105,10 @@ export async function bootstrapProjectIndex(options = {}) {
     if (!projectRoot) {
         const filepath = options?.filepath ?? null;
         if (!isNonEmptyString(filepath)) {
-            const result = createSkipResult("missing-filepath");
-            setIdentifierCaseOption(
+            return storeBootstrapResult(
                 options,
-                "__identifierCaseProjectIndexBootstrap",
-                result
+                createSkipResult("missing-filepath")
             );
-            return result;
         }
 
         projectRoot = await findProjectRoot(
@@ -119,13 +116,10 @@ export async function bootstrapProjectIndex(options = {}) {
             fsFacade ?? undefined
         );
         if (!projectRoot) {
-            const result = createSkipResult("project-root-not-found");
-            setIdentifierCaseOption(
+            return storeBootstrapResult(
                 options,
-                "__identifierCaseProjectIndexBootstrap",
-                result
+                createSkipResult("project-root-not-found")
             );
-            return result;
         }
 
         rootResolution = "discovered";
@@ -157,7 +151,7 @@ export async function bootstrapProjectIndex(options = {}) {
             coordinator.dispose();
         };
 
-    const result = {
+    const result = storeBootstrapResult(options, {
         status: ready?.projectIndex ? "ready" : "skipped",
         reason: ready?.projectIndex ? rootResolution : "no-project-index",
         projectRoot,
@@ -166,13 +160,7 @@ export async function bootstrapProjectIndex(options = {}) {
         cache: ready?.cache ?? null,
         coordinator,
         dispose
-    };
-
-    setIdentifierCaseOption(
-        options,
-        "__identifierCaseProjectIndexBootstrap",
-        result
-    );
+    });
 
     if (result.projectIndex) {
         setIdentifierCaseOption(
