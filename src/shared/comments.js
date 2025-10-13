@@ -95,8 +95,6 @@ export function getCommentArray(owner) {
  * @returns {Array<CommentBlockNode | CommentLineNode>}
  *          Flat list of comment nodes discovered anywhere within the supplied root.
  */
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
 export function collectCommentNodes(root) {
     if (!isObjectLike(root)) {
         return [];
@@ -108,42 +106,23 @@ export function collectCommentNodes(root) {
 
     while (stack.length > 0) {
         const current = stack.pop();
-        if (!isObjectLike(current)) {
-            continue;
-        }
-
-        if (visited.has(current)) {
+        if (!isObjectLike(current) || visited.has(current)) {
             continue;
         }
 
         visited.add(current);
 
-        if (Array.isArray(current)) {
-            // Manual index iteration avoids the iterator machinery that
-            // `for..of` introduces. The collector runs in hot printer paths, so
-            // caching the array length and pushing via simple index lookups
-            // keeps this branch allocation-free.
-            for (let idx = 0, length = current.length; idx < length; idx += 1) {
-                stack.push(current[idx]);
-            }
-            continue;
-        }
-
         if (isCommentNode(current)) {
             results.push(current);
         }
 
-        // Avoid allocating `Object.values` on every traversal step. The
-        // collector runs frequently while preparing printer metadata, so this
-        // tight loop sticks to simple property iteration.
-        for (const key in current) {
-            if (!hasOwnProperty.call(current, key)) {
-                continue;
-            }
+        const children = Array.isArray(current)
+            ? current
+            : Object.values(current);
 
-            const value = current[key];
-            if (isObjectLike(value)) {
-                stack.push(value);
+        for (const child of children) {
+            if (isObjectLike(child)) {
+                stack.push(child);
             }
         }
     }
