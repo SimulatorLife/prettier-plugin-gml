@@ -15,7 +15,7 @@ jobs:
     secrets: inherit
     with:
       pr_title: "Codex: Helper Substitution"
-      pr_body: "Seed PR for Codex to replace manual logic with existing helpers atop current master."
+      pr_body: "Seed PR for Codex to replace manual logic with existing helpers."
       prompt: >
         Identify code that reimplements behaviour already provided by a shared helper or
         well-supported platform API (serialization, cloning, range checks, deep merges,
