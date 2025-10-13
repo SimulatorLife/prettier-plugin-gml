@@ -6918,10 +6918,18 @@ function ensureAlphaTestEnableResetAfterCall(
 
     const siblings = parent;
 
-    for (let index = property + 1; index < siblings.length; index += 1) {
-        if (isAlphaTestEnableResetCall(siblings[index])) {
-            return null;
-        }
+    const insertionInfo = computeStateResetInsertionIndex({
+        siblings,
+        startIndex: property + 1,
+        isResetCall: isAlphaTestEnableResetCall
+    });
+
+    if (!insertionInfo) {
+        return null;
+    }
+
+    if (insertionInfo.alreadyReset) {
+        return null;
     }
 
     const resetCall = createAlphaTestEnableResetCall(node);
@@ -6942,7 +6950,25 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    let insertionIndex = insertionInfo.index;
+
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const shouldInsertSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (shouldInsertSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -7212,9 +7238,18 @@ function ensureColourWriteEnableResetAfterCall(
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
 
-    if (isColourWriteEnableResetCall(nextNode)) {
+    const insertionInfo = computeStateResetInsertionIndex({
+        siblings,
+        startIndex: property + 1,
+        isResetCall: isColourWriteEnableResetCall
+    });
+
+    if (!insertionInfo) {
+        return null;
+    }
+
+    if (insertionInfo.alreadyReset) {
         return null;
     }
 
@@ -7236,7 +7271,25 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    let insertionIndex = insertionInfo.index;
+
+    const previousSibling = siblings[insertionIndex - 1] ?? node;
+    const nextSibling = siblings[insertionIndex] ?? null;
+    const shouldInsertSeparator =
+        insertionIndex > property + 1 &&
+        !isTriviallyIgnorableStatement(previousSibling) &&
+        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+
+    if (shouldInsertSeparator) {
+        siblings.splice(
+            insertionIndex,
+            0,
+            createEmptyStatementLike(previousSibling)
+        );
+        insertionIndex += 1;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -7923,6 +7976,56 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function computeStateResetInsertionIndex({
+    siblings,
+    startIndex,
+    isResetCall
+}) {
+    if (!Array.isArray(siblings)) {
+        return null;
+    }
+
+    let insertionIndex = siblings.length;
+
+    for (let index = startIndex; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (typeof isResetCall === "function" && isResetCall(sibling)) {
+            return { alreadyReset: true };
+        }
+
+        if (isExitLikeStatement(sibling)) {
+            insertionIndex = index;
+            break;
+        }
+    }
+
+    while (
+        insertionIndex > startIndex &&
+        insertionIndex <= siblings.length &&
+        isTriviallyIgnorableStatement(siblings[insertionIndex - 1])
+    ) {
+        insertionIndex -= 1;
+    }
+
+    return { index: insertionIndex };
+}
+
+function isExitLikeStatement(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    switch (node.type) {
+        case "ReturnStatement":
+        case "ThrowStatement":
+        case "ExitStatement":
+            return true;
+        default:
+            return false;
+    }
 }
 
 function isTriviallyIgnorableStatement(node) {
