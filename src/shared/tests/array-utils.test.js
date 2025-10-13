@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { toArray } from "../array-utils.js";
+import { isNonEmptyArray, toArray } from "../array-utils.js";
 
 test("toArray wraps non-array values", () => {
     assert.deepEqual(toArray("value"), ["value"]);
@@ -17,4 +17,10 @@ test("toArray preserves arrays", () => {
 test("toArray normalizes nullish values to empty arrays", () => {
     assert.deepEqual(toArray(null), []);
     assert.deepEqual(toArray(undefined), []);
+});
+
+test("isNonEmptyArray identifies arrays with elements", () => {
+    assert.equal(isNonEmptyArray([0]), true);
+    assert.equal(isNonEmptyArray([]), false);
+    assert.equal(isNonEmptyArray(null), false);
 });

@@ -50,6 +50,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -250,7 +251,7 @@ export function print(path, options, print) {
             const caseText = node.test !== null ? "case " : "default";
             const parts = [[hardline, caseText, print("test"), ":"]];
             const caseBody = node.body;
-            if (Array.isArray(caseBody) && caseBody.length > 0) {
+            if (isNonEmptyArray(caseBody)) {
                 parts.push([
                     indent([
                         hardline,
@@ -412,10 +413,7 @@ export function print(path, options, print) {
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
-            if (
-                Array.isArray(node.docComments) &&
-                node.docComments.length > 0
-            ) {
+            if (isNonEmptyArray(node.docComments)) {
                 const firstDocComment = node.docComments[0];
                 if (
                     firstDocComment &&
@@ -3406,11 +3404,11 @@ function normalizeDocMetadataName(name) {
 }
 
 function docHasTrailingComment(doc) {
-    if (Array.isArray(doc) && doc.length > 0) {
+    if (isNonEmptyArray(doc)) {
         const lastItem = doc[doc.length - 1];
-        if (Array.isArray(lastItem) && lastItem.length > 0) {
+        if (isNonEmptyArray(lastItem)) {
             const commentArr = lastItem[0];
-            if (Array.isArray(commentArr) && commentArr.length > 0) {
+            if (isNonEmptyArray(commentArr)) {
                 return commentArr.some((item) => {
                     return (
                         typeof item === "string" &&
