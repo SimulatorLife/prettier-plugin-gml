@@ -1,6 +1,19 @@
 import { isObjectLike } from "../../../shared/object-utils.js";
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
+const sharedCache = new WeakMap();
+
+function getCacheStore(candidate) {
+    if (
+        candidate &&
+        typeof candidate.get === "function" &&
+        typeof candidate.set === "function"
+    ) {
+        return candidate;
+    }
+
+    return sharedCache;
+}
 
 function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
     if (typeof computeValue !== "function") {
@@ -11,43 +24,31 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
         return computeValue();
     }
 
-    if (hasOwnProperty.call(options, cacheKey)) {
+    if (cacheKey != null && hasOwnProperty.call(options, cacheKey)) {
         return options[cacheKey];
     }
 
-    if (
-        fallbackCache &&
-        typeof fallbackCache.has === "function" &&
-        typeof fallbackCache.get === "function" &&
-        fallbackCache.has(options)
-    ) {
-        return fallbackCache.get(options);
+    const cache = getCacheStore(fallbackCache);
+    if (cache.has(options)) {
+        return cache.get(options);
     }
 
     const computed = computeValue();
 
-    if (Object.isExtensible(options)) {
+    if (cacheKey != null && Object.isExtensible(options)) {
         try {
             Object.defineProperty(options, cacheKey, {
-                value: computed,
                 configurable: false,
                 enumerable: false,
-                writable: false
+                writable: false,
+                value: computed
             });
-            return computed;
         } catch {
-            // Ignore failures and fall back to the WeakMap path below.
+            // ignore define failures and fall back to the cache store
         }
     }
 
-    if (
-        fallbackCache &&
-        typeof fallbackCache.set === "function" &&
-        typeof fallbackCache.has === "function"
-    ) {
-        fallbackCache.set(options, computed);
-    }
-
+    cache.set(options, computed);
     return computed;
 }
 
