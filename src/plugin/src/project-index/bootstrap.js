@@ -75,17 +75,22 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         return undefined;
     }
 
-    const typeError = () =>
-        new Error(
-            `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`
-        );
-    const rangeError = (received) =>
-        new Error(
-            `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`
-        );
+    const typeMessage = `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`;
+    const rangeMessage = (received) =>
+        `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
 
-    let numericValue;
-    let receivedForError = rawValue;
+    if (typeof rawValue === "number") {
+        if (!Number.isFinite(rawValue)) {
+            throw new Error(typeMessage);
+        }
+
+        const normalized = Math.trunc(rawValue);
+        if (normalized < 0) {
+            throw new Error(rangeMessage(rawValue));
+        }
+
+        return normalized === 0 ? null : normalized;
+    }
 
     if (typeof rawValue === "string") {
         const trimmed = rawValue.trim();
@@ -93,28 +98,21 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
             return undefined;
         }
 
-        numericValue = Number(trimmed);
-        receivedForError = `'${rawValue}'`;
-
+        const numericValue = Number(trimmed);
+        const received = `'${rawValue}'`;
         if (!Number.isFinite(numericValue)) {
-            throw rangeError(receivedForError);
-        }
-    } else if (typeof rawValue === "number") {
-        if (!Number.isFinite(rawValue)) {
-            throw typeError();
+            throw new Error(rangeMessage(received));
         }
 
-        numericValue = rawValue;
-    } else {
-        throw typeError();
+        const normalized = Math.trunc(numericValue);
+        if (normalized < 0) {
+            throw new Error(rangeMessage(received));
+        }
+
+        return normalized === 0 ? null : normalized;
     }
 
-    const normalized = Math.trunc(numericValue);
-    if (normalized < 0) {
-        throw rangeError(receivedForError);
-    }
-
-    return normalized === 0 ? null : normalized;
+    throw new Error(typeMessage);
 }
 
 function resolveCacheMaxSizeBytes(options) {
