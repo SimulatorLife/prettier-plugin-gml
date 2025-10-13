@@ -66,6 +66,24 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
     });
 });
 
+test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
+    await withTempDir(async (projectRoot) => {
+        const saveResult = await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {},
+            sourceMtimes: {},
+            projectIndex: createProjectIndex(projectRoot),
+            maxSizeBytes: 1
+        });
+
+        assert.equal(saveResult.status, "skipped");
+        assert.equal(saveResult.reason, "payload-too-large");
+        assert.ok(saveResult.size > 1);
+    });
+});
+
 test("loadProjectIndexCache reports version mismatches", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
@@ -254,4 +272,61 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     }
 
     await assert.rejects(coordinator.ensureReady(descriptor), /disposed/i);
+});
+
+test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {
+    const savedDescriptors = [];
+    const coordinator = createProjectIndexCoordinator({
+        cacheMaxSizeBytes: 42,
+        loadCache: async () => ({
+            status: "miss",
+            cacheFilePath: "virtual-cache.json",
+            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+        }),
+        saveCache: async (descriptor) => {
+            savedDescriptors.push(descriptor);
+            return {
+                status: "written",
+                cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
+                size: 0
+            };
+        },
+        buildIndex: async () => createProjectIndex("/project")
+    });
+
+    await coordinator.ensureReady({ projectRoot: "/project" });
+
+    assert.equal(savedDescriptors.length, 1);
+    assert.equal(savedDescriptors[0].maxSizeBytes, 42);
+    coordinator.dispose();
+});
+
+test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", async () => {
+    const savedDescriptors = [];
+    const coordinator = createProjectIndexCoordinator({
+        cacheMaxSizeBytes: 42,
+        loadCache: async () => ({
+            status: "miss",
+            cacheFilePath: "virtual-cache.json",
+            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+        }),
+        saveCache: async (descriptor) => {
+            savedDescriptors.push(descriptor);
+            return {
+                status: "written",
+                cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
+                size: 0
+            };
+        },
+        buildIndex: async () => createProjectIndex("/project")
+    });
+
+    await coordinator.ensureReady({
+        projectRoot: "/project",
+        maxSizeBytes: 99
+    });
+
+    assert.equal(savedDescriptors.length, 1);
+    assert.equal(savedDescriptors[0].maxSizeBytes, 99);
+    coordinator.dispose();
 });

@@ -3,6 +3,11 @@ import path from "node:path";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
 
+const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
+    "__identifierCaseProjectIndexCacheMaxBytes";
+const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+
 function getFsFacade(options) {
     return options?.__identifierCaseFs ?? options?.identifierCaseFs ?? null;
 }
@@ -64,6 +69,81 @@ function storeBootstrapResult(options, result, storeOption) {
     return result;
 }
 
+function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
+    if (rawValue === undefined || rawValue === null) {
+        return undefined;
+    }
+
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+        const normalized = Math.trunc(rawValue);
+        if (normalized < 0) {
+            throw new Error(
+                `${optionName} must be provided as a non-negative integer (received ${rawValue}). Set to 0 to disable the size limit.`
+            );
+        }
+        return normalized === 0 ? null : normalized;
+    }
+
+    if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+        if (trimmed === "") {
+            return undefined;
+        }
+
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed)) {
+            throw new Error(
+                `${optionName} must be provided as a non-negative integer (received '${rawValue}'). Set to 0 to disable the size limit.`
+            );
+        }
+
+        const normalized = Math.trunc(parsed);
+        if (normalized < 0) {
+            throw new Error(
+                `${optionName} must be provided as a non-negative integer (received '${rawValue}'). Set to 0 to disable the size limit.`
+            );
+        }
+
+        return normalized === 0 ? null : normalized;
+    }
+
+    throw new Error(
+        `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`
+    );
+}
+
+function resolveCacheMaxSizeBytes(options) {
+    if (!options || typeof options !== "object") {
+        return undefined;
+    }
+
+    if (
+        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME] !==
+        undefined
+    ) {
+        const stored =
+            options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
+        if (stored === null) {
+            return null;
+        }
+
+        return normalizeCacheMaxSizeBytes(stored, {
+            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+        });
+    }
+
+    if (options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME] === undefined) {
+        return undefined;
+    }
+
+    return normalizeCacheMaxSizeBytes(
+        options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME],
+        {
+            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+        }
+    );
+}
+
 function resolveProjectRoot(options) {
     if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
         return path.resolve(options.__identifierCaseProjectRoot);
@@ -117,6 +197,16 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     let projectRoot = resolveProjectRoot(options);
     let rootResolution = projectRoot ? "configured" : null;
 
+    const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
+    if (cacheMaxSizeBytes !== undefined) {
+        storeOptionValue(
+            storeOption,
+            options,
+            PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
+            cacheMaxSizeBytes
+        );
+    }
+
     if (!projectRoot) {
         const filepath = options?.filepath ?? null;
         if (!isNonEmptyTrimmedString(filepath)) {
@@ -145,9 +235,14 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     const coordinatorOverride =
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
+    const coordinatorOptions = { fsFacade: fsFacade ?? undefined };
+    if (cacheMaxSizeBytes !== undefined) {
+        coordinatorOptions.cacheMaxSizeBytes = cacheMaxSizeBytes;
+    }
+
     const coordinator =
         coordinatorOverride ??
-        createProjectIndexCoordinator({ fsFacade: fsFacade ?? undefined });
+        createProjectIndexCoordinator(coordinatorOptions);
 
     const descriptor = {
         projectRoot,
@@ -159,6 +254,10 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             logMetrics: options?.logIdentifierCaseMetrics === true
         }
     };
+
+    if (cacheMaxSizeBytes !== undefined) {
+        descriptor.maxSizeBytes = cacheMaxSizeBytes;
+    }
 
     const ready = await coordinator.ensureReady(descriptor);
 

@@ -490,8 +490,14 @@ export function createProjectIndexCoordinator(options = {}) {
         fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
-        buildIndex = buildProjectIndex
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes: rawCacheMaxSizeBytes
     } = options;
+
+    const cacheMaxSizeBytes =
+        rawCacheMaxSizeBytes === undefined
+            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
     let disposed = false;
@@ -535,12 +541,18 @@ export function createProjectIndexCoordinator(options = {}) {
                 descriptor?.buildOptions ?? {}
             );
 
+            const descriptorMaxSizeBytes =
+                descriptor?.maxSizeBytes === undefined
+                    ? cacheMaxSizeBytes
+                    : descriptor.maxSizeBytes;
+
             const saveResult = await saveCache(
                 {
                     ...descriptor,
                     projectRoot: resolvedRoot,
                     projectIndex,
-                    metricsSummary: projectIndex.metrics
+                    metricsSummary: projectIndex.metrics,
+                    maxSizeBytes: descriptorMaxSizeBytes
                 },
                 fsFacade
             ).catch((error) => {
