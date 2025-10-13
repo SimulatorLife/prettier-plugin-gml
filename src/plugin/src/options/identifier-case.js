@@ -1,6 +1,9 @@
 // options/identifier-case.js
 
-import { normalizeStringList } from "../../../shared/string-utils.js";
+import {
+    normalizeStringList,
+    capitalize
+} from "../../../shared/string-utils.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
@@ -72,10 +75,6 @@ export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
         }
     }
 );
-
-function capitalize(value) {
-    return value.charAt(0).toUpperCase() + value.slice(1);
-}
 
 function getScopeOptionName(scope) {
     return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${capitalize(scope)}`;
