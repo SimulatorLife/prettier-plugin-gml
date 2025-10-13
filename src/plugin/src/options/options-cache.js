@@ -52,4 +52,18 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
     return computed;
 }
 
-export { getCachedValue };
+function createCachedOptionResolver({ cacheKey = null, cache, compute } = {}) {
+    if (typeof compute !== "function") {
+        throw new TypeError("compute must be a function");
+    }
+
+    const fallbackCache = cache ?? new WeakMap();
+
+    return function resolveCachedOption(options) {
+        return getCachedValue(options, cacheKey, fallbackCache, () =>
+            compute(options)
+        );
+    };
+}
+
+export { getCachedValue, createCachedOptionResolver };

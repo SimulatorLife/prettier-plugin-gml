@@ -1,6 +1,6 @@
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { getCachedValue } from "./options-cache.js";
+import { createCachedOptionResolver } from "./options-cache.js";
 import {
     coercePositiveIntegerOption,
     normalizeStringList
@@ -123,7 +123,28 @@ function mergeLineCommentOptionOverrides(overrides) {
 }
 
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
-const lineCommentOptionsCache = new WeakMap();
+
+const resolveLineCommentOptionsCached = createCachedOptionResolver({
+    cacheKey: LINE_COMMENT_OPTIONS_CACHE_KEY,
+    compute: (options = {}) => {
+        const hasCodeDetectionOverrideValue = hasCodeDetectionOverride(
+            options.lineCommentCodeDetectionPatterns
+        );
+
+        return mergeLineCommentOptionOverrides({
+            bannerMinimum: coerceBannerMinimum(
+                options.lineCommentBannerMinimumSlashes
+            ),
+            bannerAutofillThreshold: coerceBannerAutofillThreshold(
+                options.lineCommentBannerAutofillThreshold
+            ),
+            boilerplateFragments: getBoilerplateCommentFragments(options),
+            codeDetectionPatterns: hasCodeDetectionOverrideValue
+                ? getLineCommentCodeDetectionPatterns(options)
+                : undefined
+        });
+    }
+});
 
 function hasBoilerplateOverride(value) {
     if (typeof value === "string") {
@@ -164,24 +185,7 @@ function resolveLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    return getCachedValue(
-        options,
-        LINE_COMMENT_OPTIONS_CACHE_KEY,
-        lineCommentOptionsCache,
-        () =>
-            mergeLineCommentOptionOverrides({
-                bannerMinimum: coerceBannerMinimum(
-                    lineCommentBannerMinimumSlashes
-                ),
-                bannerAutofillThreshold: coerceBannerAutofillThreshold(
-                    lineCommentBannerAutofillThreshold
-                ),
-                boilerplateFragments: getBoilerplateCommentFragments(options),
-                codeDetectionPatterns: hasCodeDetectionOverrideValue
-                    ? getLineCommentCodeDetectionPatterns(options)
-                    : undefined
-            })
-    );
+    return resolveLineCommentOptionsCached(options);
 }
 
 function getTrailingCommentPadding(options) {
@@ -205,26 +209,32 @@ function getTrailingCommentInlinePadding(options) {
 const BOILERPLATE_FRAGMENTS_CACHE_KEY = Symbol.for(
     "prettier-plugin-gml.lineCommentBoilerplateFragments"
 );
-const boilerplateFragmentsCache = new WeakMap();
+
+const getBoilerplateCommentFragmentsCached = createCachedOptionResolver({
+    cacheKey: BOILERPLATE_FRAGMENTS_CACHE_KEY,
+    compute: (options) =>
+        parseBoilerplateFragments(options?.lineCommentBoilerplateFragments)
+});
 
 function parseBoilerplateFragments(rawValue) {
     return mergeBoilerplateFragments(rawValue, { splitPattern: /,/ });
 }
 
 function getBoilerplateCommentFragments(options) {
-    return getCachedValue(
-        options,
-        BOILERPLATE_FRAGMENTS_CACHE_KEY,
-        boilerplateFragmentsCache,
-        () =>
-            parseBoilerplateFragments(options?.lineCommentBoilerplateFragments)
-    );
+    return getBoilerplateCommentFragmentsCached(options);
 }
 
 const CODE_DETECTION_PATTERNS_CACHE_KEY = Symbol.for(
     "prettier-plugin-gml.lineCommentCodeDetectionPatterns"
 );
-const codeDetectionPatternCache = new WeakMap();
+
+const getLineCommentCodeDetectionPatternsCached = createCachedOptionResolver({
+    cacheKey: CODE_DETECTION_PATTERNS_CACHE_KEY,
+    compute: (options) =>
+        mergeCodeDetectionPatterns(options?.lineCommentCodeDetectionPatterns, {
+            allowStringLists: true
+        })
+});
 
 function mergeCodeDetectionPatterns(
     rawValue,
@@ -313,16 +323,7 @@ function hasCodeDetectionOverride(value) {
 }
 
 function getLineCommentCodeDetectionPatterns(options) {
-    return getCachedValue(
-        options,
-        CODE_DETECTION_PATTERNS_CACHE_KEY,
-        codeDetectionPatternCache,
-        () =>
-            mergeCodeDetectionPatterns(
-                options?.lineCommentCodeDetectionPatterns,
-                { allowStringLists: true }
-            )
-    );
+    return getLineCommentCodeDetectionPatternsCached(options);
 }
 
 function normalizeLineCommentOptions(lineCommentOptions) {

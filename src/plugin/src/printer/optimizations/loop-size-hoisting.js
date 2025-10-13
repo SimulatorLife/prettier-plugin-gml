@@ -6,7 +6,7 @@ import {
     getIdentifierText,
     getCallExpressionArguments
 } from "../../../../shared/ast-node-helpers.js";
-import { getCachedValue } from "../../options/options-cache.js";
+import { createCachedOptionResolver } from "../../options/options-cache.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -19,30 +19,29 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
 const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
     "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
-const loopSizeSuffixCache = new WeakMap();
+
+const getSizeRetrievalFunctionSuffixesCached = createCachedOptionResolver({
+    cacheKey: LOOP_SIZE_SUFFIX_CACHE,
+    compute: (options = {}) => {
+        const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+            options.loopLengthHoistFunctionSuffixes
+        );
+
+        const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+        for (const [functionName, suffix] of overrides) {
+            if (suffix === null) {
+                merged.delete(functionName);
+            } else {
+                merged.set(functionName, suffix);
+            }
+        }
+
+        return merged;
+    }
+});
 
 function getSizeRetrievalFunctionSuffixes(options) {
-    return getCachedValue(
-        options,
-        LOOP_SIZE_SUFFIX_CACHE,
-        loopSizeSuffixCache,
-        () => {
-            const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-                options?.loopLengthHoistFunctionSuffixes
-            );
-
-            const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-            for (const [functionName, suffix] of overrides) {
-                if (suffix === null) {
-                    merged.delete(functionName);
-                } else {
-                    merged.set(functionName, suffix);
-                }
-            }
-
-            return merged;
-        }
-    );
+    return getSizeRetrievalFunctionSuffixesCached(options);
 }
 
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
