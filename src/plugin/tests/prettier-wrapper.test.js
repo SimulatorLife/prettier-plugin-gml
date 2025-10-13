@@ -408,6 +408,105 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("reverts formatted files when configured to revert on parser errors", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const formattedBeforeFailure = path.join(
+                tempDirectory,
+                "aaa_formatted.gml"
+            );
+            const parseFailure = path.join(tempDirectory, "zzz_failure.gml");
+
+            await fs.writeFile(formattedBeforeFailure, "var    a=1;\n", "utf8");
+            await fs.writeFile(parseFailure, "if (\n", "utf8");
+
+            try {
+                await execFileAsync("node", [
+                    wrapperPath,
+                    "--on-parse-error=revert",
+                    tempDirectory
+                ]);
+                assert.fail(
+                    "Expected the wrapper to exit with a non-zero status code"
+                );
+            } catch (error) {
+                assert.ok(error, "Expected an error to be thrown");
+                assert.equal(error.code, 1, "Expected a non-zero exit code");
+                assert.ok(
+                    error.stdout.includes(
+                        `Formatted ${formattedBeforeFailure}`
+                    ),
+                    "Expected the formatted file to be processed before the failure"
+                );
+                const formattedContents = await fs.readFile(
+                    formattedBeforeFailure,
+                    "utf8"
+                );
+                assert.equal(
+                    formattedContents,
+                    "var    a=1;\n",
+                    "Expected reverted file contents to match the original"
+                );
+                const failureContents = await fs.readFile(parseFailure, "utf8");
+                assert.equal(
+                    failureContents,
+                    "if (\n",
+                    "Expected the failing file to remain untouched"
+                );
+                assert.ok(
+                    /Reverting 1 formatted file/.test(error.stderr),
+                    "Expected stderr to mention that files were reverted"
+                );
+            }
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("aborts formatting additional files when configured to abort on parser errors", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const parseFailure = path.join(tempDirectory, "aaa_failure.gml");
+            const pendingFormat = path.join(tempDirectory, "bbb_pending.gml");
+
+            await fs.writeFile(parseFailure, "if (\n", "utf8");
+            await fs.writeFile(pendingFormat, "var    b=2;\n", "utf8");
+
+            try {
+                await execFileAsync("node", [
+                    wrapperPath,
+                    "--on-parse-error=abort",
+                    tempDirectory
+                ]);
+                assert.fail(
+                    "Expected the wrapper to exit with a non-zero status code"
+                );
+            } catch (error) {
+                assert.ok(error, "Expected an error to be thrown");
+                assert.equal(error.code, 1, "Expected a non-zero exit code");
+                const pendingContents = await fs.readFile(
+                    pendingFormat,
+                    "utf8"
+                );
+                assert.equal(
+                    pendingContents,
+                    "var    b=2;\n",
+                    "Expected formatting to abort before touching later files"
+                );
+                const failureContents = await fs.readFile(parseFailure, "utf8");
+                assert.equal(
+                    failureContents,
+                    "if (\n",
+                    "Expected the failing file to remain untouched"
+                );
+            }
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("exits with a non-zero status when formatting fails", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
