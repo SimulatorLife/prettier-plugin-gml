@@ -16,11 +16,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         this.operators = {
             // Highest Precedence
-            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
-            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
+            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
             "~": { prec: 14, assoc: "right", type: "unary" },
             "!": { prec: 14, assoc: "right", type: "unary" },
-            // '-': { prec: 14, assoc: 'left', type: 'unary' }, // Negate
+            // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
             "*": { prec: 13, assoc: "left", type: "arithmetic" },
             "/": { prec: 13, assoc: "left", type: "arithmetic" },
             div: { prec: 13, assoc: "left", type: "arithmetic" },
@@ -46,7 +46,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             or: { prec: 5, assoc: "left", type: "logical" },
             "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
             "*=": { prec: 1, assoc: "right", type: "assign" },
-            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to '=' in GML
+            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to "=" in GML
             "=": { prec: 1, assoc: "right", type: "assign" },
             "/=": { prec: 1, assoc: "right", type: "assign" },
             "%=": { prec: 1, assoc: "right", type: "assign" },
