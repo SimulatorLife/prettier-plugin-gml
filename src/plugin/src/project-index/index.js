@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
-import GMLParser from "../../../parser/gml-parser.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
@@ -12,6 +11,7 @@ import {
     buildLocationKey,
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
+import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -41,6 +41,39 @@ const defaultFsFacade = {
 
 export function getDefaultFsFacade() {
     return defaultFsFacade;
+}
+
+const defaultProjectIndexParser = getDefaultProjectIndexParser();
+
+function isParserFacade(candidate) {
+    return (
+        !!candidate &&
+        typeof candidate === "object" &&
+        typeof candidate.parse === "function"
+    );
+}
+
+function resolveProjectIndexParser(options) {
+    if (!options || typeof options !== "object") {
+        return defaultProjectIndexParser;
+    }
+
+    const { gmlParserFacade, parserFacade, parseGml } = options;
+
+    if (isParserFacade(gmlParserFacade)) {
+        return (sourceText, context) =>
+            gmlParserFacade.parse(sourceText, context);
+    }
+
+    if (isParserFacade(parserFacade)) {
+        return (sourceText, context) => parserFacade.parse(sourceText, context);
+    }
+
+    if (typeof parseGml === "function") {
+        return parseGml;
+    }
+
+    return defaultProjectIndexParser;
 }
 
 function isFsErrorCode(error, ...codes) {
@@ -2060,6 +2093,7 @@ export async function buildProjectIndex(
         { fallback: 4 }
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    const parseProjectSource = resolveProjectIndexParser(options);
 
     await processWithConcurrency(gmlFiles, gmlConcurrency, async (file) => {
         metrics.incrementCounter("files.gmlProcessed");
@@ -2118,11 +2152,9 @@ export async function buildProjectIndex(
         }
 
         const ast = metrics.timeSync("gml.parse", () =>
-            GMLParser.parse(contents, {
-                getComments: false,
-                getLocations: true,
-                simplifyLocations: false,
-                getIdentifierMetadata: true
+            parseProjectSource(contents, {
+                filePath: file.relativePath,
+                projectRoot: resolvedRoot
             })
         );
 
