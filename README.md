@@ -170,8 +170,10 @@ explicit path to load it when you install from Git. Prefer an overview of the su
    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
    matching the configured extensions (defaulting to `.gml`, or the comma-separated list provided via the
    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable). Pass `--extensions=.gml,.yy` to format additional file types
-   in a single run. The helper also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a
-   summary of skipped paths so you can confirm non-GML assets stayed untouched.
+   in a single run. Control how the wrapper responds to parser failures via `--on-parse-error=<mode>` or by exporting
+   `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`. Choose between `skip` (default), `abort`, or `revert` to match your workflow. The helper
+   also honours `.prettierignore` entries from both repositories, skips symbolic links, and prints a summary of skipped paths so
+   you can confirm non-GML assets stayed untouched.
 
 4. Keep the package up to date alongside Prettier. Re-run the install command whenever you want to pull a newer revision of the
    plugin:
@@ -205,7 +207,8 @@ node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.g
 ```
 
 If `--extensions` is omitted the wrapper falls back to the `.gml` default or to the comma-separated list provided via the
-`PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable.
+`PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable. Specify `--on-parse-error` (or set
+`PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`) when you want the CLI to `skip`, `abort`, or `revert` after encountering a parser error.
 
 <details>
 <summary><strong>Before formatting</strong></summary>
@@ -260,7 +263,9 @@ additional dependencies alongside that project:
     formatted output back to the target project, and leaves that project’s `package.json` untouched. The wrapper mirrors the
     CLI behaviour (`--path` or a positional path argument) and logs any skipped non-GML files so you can confirm only `.gml`
     sources were ignored. Supply `--extensions=.gml,.yy` when you want to cover multiple languages at once, or export
-    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` to reuse the same list on future runs.
+    `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` to reuse the same list on future runs. Pair it with
+    `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` (or pass `--on-parse-error` on the command line) to decide whether parser failures
+    should `skip`, `abort`, or `revert` the current run.
 
 ### Optional: global install
 

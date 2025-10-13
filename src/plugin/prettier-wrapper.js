@@ -19,6 +19,32 @@ const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
+const ParseErrorAction = Object.freeze({
+    REVERT: "revert",
+    SKIP: "skip",
+    ABORT: "abort"
+});
+
+const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
+
+function normalizeParseErrorAction(value, fallbackValue) {
+    if (value == null) {
+        return fallbackValue;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+
+    if (normalized.length === 0) {
+        return fallbackValue;
+    }
+
+    if (VALID_PARSE_ERROR_ACTIONS.has(normalized)) {
+        return normalized;
+    }
+
+    return null;
+}
+
 function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
@@ -68,20 +94,28 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
     FALLBACK_EXTENSIONS
 );
 
+const DEFAULT_PARSE_ERROR_ACTION =
+    normalizeParseErrorAction(
+        process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
+        ParseErrorAction.SKIP
+    ) ?? ParseErrorAction.SKIP;
+
 const [, , ...cliArgs] = process.argv;
 
 const USAGE = [
     "Usage: node src/plugin/prettier-wrapper.js [options] <path>",
     "",
     "Options:",
-    "  --path <path>         Directory or file to format (alias for positional).",
-    "  --extensions <list>   Comma-separated list of file extensions to format."
+    "  --path <path>             Directory or file to format (alias for positional).",
+    "  --extensions <list>       Comma-separated list of file extensions to format.",
+    "  --on-parse-error <mode>   How to handle parser failures: revert, skip, or abort."
 ].join("\n");
 
 function parseCliArguments(args) {
     const parsed = {
         targetPathInput: null,
-        extensions: DEFAULT_EXTENSIONS
+        extensions: DEFAULT_EXTENSIONS,
+        onParseError: DEFAULT_PARSE_ERROR_ACTION
     };
 
     for (let index = 0; index < args.length; index += 1) {
@@ -127,6 +161,31 @@ function parseCliArguments(args) {
                 });
             }
             parsed.extensions = normalizeExtensions(value, DEFAULT_EXTENSIONS);
+            continue;
+        }
+
+        if (flag === "--on-parse-error") {
+            const value = consumeValue();
+            if (value === undefined) {
+                throw new CliUsageError("--on-parse-error requires a value.", {
+                    usage: USAGE
+                });
+            }
+            const normalized = normalizeParseErrorAction(
+                value,
+                DEFAULT_PARSE_ERROR_ACTION
+            );
+            if (!normalized) {
+                throw new CliUsageError(
+                    `--on-parse-error must be one of: ${[
+                        ...VALID_PARSE_ERROR_ACTIONS
+                    ]
+                        .sort()
+                        .join(", ")}.`,
+                    { usage: USAGE }
+                );
+            }
+            parsed.onParseError = normalized;
         }
     }
 
@@ -161,6 +220,72 @@ const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
 const registeredIgnorePaths = new Set();
+let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
+let abortRequested = false;
+let revertTriggered = false;
+const formattedFileOriginalContents = new Map();
+
+function recordFormattedFileOriginalContents(filePath, contents) {
+    if (!formattedFileOriginalContents.has(filePath)) {
+        formattedFileOriginalContents.set(filePath, contents);
+    }
+}
+
+async function revertFormattedFiles() {
+    if (formattedFileOriginalContents.size === 0) {
+        return;
+    }
+
+    const revertEntries = [...formattedFileOriginalContents.entries()];
+    formattedFileOriginalContents.clear();
+
+    console.warn(
+        `Reverting ${revertEntries.length} formatted ${
+            revertEntries.length === 1 ? "file" : "files"
+        } due to parser failure.`
+    );
+
+    for (const [filePath, originalContents] of revertEntries) {
+        try {
+            await writeFile(filePath, originalContents);
+            console.warn(`Reverted ${filePath}`);
+        } catch (revertError) {
+            const message =
+                revertError && typeof revertError.message === "string"
+                    ? revertError.message
+                    : String(revertError ?? "");
+            console.error(
+                `Failed to revert ${filePath}: ${message || "Unknown error"}`
+            );
+        }
+    }
+}
+
+async function handleFormattingError(error, filePath) {
+    encounteredFormattingError = true;
+    const formattedError = formatCliError(error);
+    const header = `Failed to format ${filePath}`;
+
+    if (formattedError) {
+        const indented = formattedError
+            .split("\n")
+            .map((line) => `  ${line}`)
+            .join("\n");
+        console.error(`${header}\n${indented}`);
+    } else {
+        console.error(header);
+    }
+
+    if (parseErrorAction === ParseErrorAction.REVERT) {
+        if (!revertTriggered) {
+            revertTriggered = true;
+            abortRequested = true;
+            await revertFormattedFiles();
+        }
+    } else if (parseErrorAction === ParseErrorAction.ABORT) {
+        abortRequested = true;
+    }
+}
 
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
@@ -315,6 +440,9 @@ async function resolveTargetStats(target) {
 }
 
 async function processDirectory(directory, inheritedIgnorePaths = []) {
+    if (abortRequested) {
+        return;
+    }
     let currentIgnorePaths = inheritedIgnorePaths;
     const localIgnorePath = path.join(directory, ".prettierignore");
     let shouldRegisterLocalIgnore =
@@ -340,6 +468,9 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
 
     const files = await readdir(directory);
     for (const file of files) {
+        if (abortRequested) {
+            return;
+        }
         const filePath = path.join(directory, file);
         const stats = await lstat(filePath);
 
@@ -354,8 +485,14 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
                 continue;
             }
             await processDirectory(filePath, currentIgnorePaths);
+            if (abortRequested) {
+                return;
+            }
         } else if (shouldFormatFile(filePath)) {
             await processFile(filePath, currentIgnorePaths);
+            if (abortRequested) {
+                return;
+            }
         } else {
             skippedFileCount += 1;
         }
@@ -395,6 +532,9 @@ async function resolveFormattingOptions(filePath) {
 }
 
 async function processFile(filePath, activeIgnorePaths = []) {
+    if (abortRequested) {
+        return;
+    }
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
         const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
@@ -416,27 +556,20 @@ async function processFile(filePath, activeIgnorePaths = []) {
             return;
         }
 
+        recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (err) {
-        encounteredFormattingError = true;
-        const formattedError = formatCliError(err);
-        const header = `Failed to format ${filePath}`;
-        if (formattedError) {
-            const indented = formattedError
-                .split("\n")
-                .map((line) => `  ${line}`)
-                .join("\n");
-            console.error(`${header}\n${indented}`);
-        } else {
-            console.error(header);
-        }
+        await handleFormattingError(err, filePath);
     }
 }
 
 async function run() {
-    const { targetPathInput, extensions: configuredExtensions } =
-        parseCliArguments(cliArgs);
+    const {
+        targetPathInput,
+        extensions: configuredExtensions,
+        onParseError
+    } = parseCliArguments(cliArgs);
 
     if (!targetPathInput) {
         throw new CliUsageError(
@@ -454,6 +587,12 @@ async function run() {
         targetExtensions.map((extension) => extension.toLowerCase())
     );
     placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+    parseErrorAction = onParseError;
+    abortRequested = false;
+    revertTriggered = false;
+    formattedFileOriginalContents.clear();
+    skippedFileCount = 0;
+    encounteredFormattingError = false;
 
     const targetStats = await resolveTargetStats(targetPath);
     const targetIsDirectory = targetStats.isDirectory();
