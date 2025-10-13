@@ -2836,6 +2836,78 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata", () => {
+        const source = [
+            "gpu_push_state();",
+            "",
+            "if (show_name)",
+            "{",
+            "    draw_text(x, y, name);",
+            "    gpu_pop_state();",
+            "}",
+            "",
+            "draw_sprite(sprite_index, 0, x, y);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        const ifIndex = body.findIndex((node) => node?.type === "IfStatement");
+        assert.notStrictEqual(
+            ifIndex,
+            -1,
+            "Expected the sample to include an if statement."
+        );
+
+        const ifStatement = body[ifIndex];
+        const consequentBody = Array.isArray(ifStatement?.consequent?.body)
+            ? ifStatement.consequent.body
+            : [];
+
+        assert.strictEqual(
+            consequentBody.some(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "gpu_pop_state"
+            ),
+            false,
+            "Expected gpu_pop_state call to be removed from the conditional branch."
+        );
+
+        const insertedCall = body[ifIndex + 1];
+
+        assert.ok(
+            insertedCall,
+            "Expected gpu_pop_state call to be inserted after the if statement."
+        );
+        assert.strictEqual(insertedCall?.type, "CallExpression");
+        assert.strictEqual(insertedCall?.object?.name, "gpu_pop_state");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2035 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2035"
+        );
+
+        assert.ok(
+            gm2035,
+            "Expected GM2035 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2035.automatic, true);
+
+        const callDiagnostics = insertedCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2035"),
+            true,
+            "Expected the inserted call to record GM2035 metadata."
+        );
+    });
+
     it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
         const source =
             "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
