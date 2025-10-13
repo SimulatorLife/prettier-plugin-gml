@@ -3,6 +3,7 @@ import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -71,7 +72,7 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const TYPE_IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 function getLineCommentRawText(comment) {
-    if (!comment || typeof comment !== "object") {
+    if (!isObjectLike(comment)) {
         return "";
     }
 
@@ -165,7 +166,7 @@ function formatLineComment(
     }
 
     const isInlineComment =
-        comment && typeof comment.inlinePadding === "number";
+        isObjectLike(comment) && typeof comment.inlinePadding === "number";
     const sentences = !isInlineComment
         ? splitCommentIntoSentences(trimmedValue)
         : [trimmedValue];
@@ -200,12 +201,13 @@ function formatLineComment(
 }
 
 function applyInlinePadding(comment, formattedText) {
-    if (
-        comment &&
-        typeof comment.inlinePadding === "number" &&
-        comment.inlinePadding > 0
-    ) {
-        return " ".repeat(comment.inlinePadding) + formattedText;
+    if (!isObjectLike(comment)) {
+        return formattedText;
+    }
+
+    const { inlinePadding } = comment;
+    if (typeof inlinePadding === "number" && inlinePadding > 0) {
+        return " ".repeat(inlinePadding) + formattedText;
     }
 
     return formattedText;
