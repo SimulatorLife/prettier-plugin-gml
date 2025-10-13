@@ -31,12 +31,9 @@ export function isBlockComment(node) {
 }
 
 export function hasComment(node) {
-    if (!node) {
-        return false;
-    }
+    const comments = getCommentArray(node);
 
-    const comments = node.comments ?? null;
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (comments.length === 0) {
         return false;
     }
 
