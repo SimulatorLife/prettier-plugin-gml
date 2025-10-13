@@ -7,6 +7,20 @@ function indentBlock(text, indent = DEFAULT_INDENT) {
         .join("\n");
 }
 
+function extractStackBody(stack) {
+    if (typeof stack !== "string") {
+        return null;
+    }
+
+    const [, ...stackLines] = stack.split("\n");
+    if (stackLines.length === 0) {
+        return null;
+    }
+
+    const stackBody = stackLines.map((line) => line.trimEnd()).join("\n");
+    return stackBody || null;
+}
+
 function formatErrorValue(value, seen) {
     if (value == null) {
         return "Unknown error";
@@ -56,17 +70,9 @@ function formatErrorValue(value, seen) {
         }
 
         const stack = typeof value.stack === "string" ? value.stack : null;
-        if (stack) {
-            const stackLines = stack.split("\n");
-            if (stackLines.length > 1) {
-                const stackBody = stackLines
-                    .slice(1)
-                    .map((line) => line.trimEnd())
-                    .join("\n");
-                if (stackBody) {
-                    sections.push(stackBody);
-                }
-            }
+        const stackBody = extractStackBody(stack);
+        if (stackBody) {
+            sections.push(stackBody);
         }
 
         if (value.cause) {
