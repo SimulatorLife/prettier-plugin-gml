@@ -2,7 +2,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { buildProjectIndex } from "../src/shared/project-index/index.js";
+import { buildProjectIndex } from "../src/plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../src/plugin/src/identifier-case/local-plan.js";
 
 function createConsoleLogger(verbose) {

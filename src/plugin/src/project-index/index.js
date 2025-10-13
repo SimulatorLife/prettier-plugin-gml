@@ -3,11 +3,14 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-import GMLParser from "../../parser/gml-parser.js";
-import { cloneLocation } from "../ast-locations.js";
-import { toPosixPath } from "../path-utils.js";
-import { createMetricsTracker } from "../metrics.js";
-import { buildLocationKey, buildFileLocationKey } from "../location-keys.js";
+import GMLParser from "../../../parser/gml-parser.js";
+import { cloneLocation } from "../../../shared/ast-locations.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
+import { createMetricsTracker } from "../../../shared/metrics.js";
+import {
+    buildLocationKey,
+    buildFileLocationKey
+} from "../../../shared/location-keys.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -563,7 +566,7 @@ export function createProjectIndexCoordinator(options = {}) {
 }
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../resources/gml-identifiers.json", import.meta.url)
+    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
 );
 
 let cachedBuiltInIdentifiers = null;
