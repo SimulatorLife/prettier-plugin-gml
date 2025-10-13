@@ -63,9 +63,11 @@ import {
     applyIdentifierCasePlanSnapshot
 } from "../identifier-case/local-plan.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
+import {
+    LogicalOperatorsStyle,
+    normalizeLogicalOperatorsStyle
+} from "../options/logical-operators-style.js";
 
-const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
-const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
 const preservedUndefinedDefaultParameters = new WeakSet();
 
 function stripTrailingLineTerminators(value) {
@@ -104,22 +106,16 @@ const BINARY_OPERATOR_INFO = new Map([
 ]);
 
 function resolvelogicalOperatorsStyle(options) {
-    const style = options?.logicalOperatorsStyle;
-
-    if (style === LOGICAL_OPERATOR_STYLE_SYMBOLS) {
-        return LOGICAL_OPERATOR_STYLE_SYMBOLS;
-    }
-
-    return LOGICAL_OPERATOR_STYLE_KEYWORDS;
+    return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
 
 function applylogicalOperatorsStyle(operator, style) {
     if (operator === "&&") {
-        return style === LOGICAL_OPERATOR_STYLE_KEYWORDS ? "and" : "&&";
+        return style === LogicalOperatorsStyle.KEYWORDS ? "and" : "&&";
     }
 
     if (operator === "||") {
-        return style === LOGICAL_OPERATOR_STYLE_KEYWORDS ? "or" : "||";
+        return style === LogicalOperatorsStyle.KEYWORDS ? "or" : "||";
     }
 
     return operator;

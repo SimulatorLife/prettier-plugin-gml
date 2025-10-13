@@ -4,6 +4,7 @@ import { gmlParserAdapter } from "./parsers/gml-parser-adapter.js";
 import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./printer/comments.js";
 import { identifierCaseOptions } from "./options/identifier-case.js";
+import { LogicalOperatorsStyle } from "./options/logical-operators-style.js";
 
 export const languages = [
     {
@@ -72,17 +73,17 @@ export const options = {
         since: "0.0.0",
         type: "choice",
         category: "gml",
-        default: "keywords",
+        default: LogicalOperatorsStyle.KEYWORDS,
         description:
             "Controls whether logical '&&'/'||' operators are rewritten using GameMaker's word forms. Set to 'symbols' to keep the original operators while formatting.",
         choices: [
             {
-                value: "keywords",
+                value: LogicalOperatorsStyle.KEYWORDS,
                 description:
                     "Replace '&&' and '||' with the GameMaker keywords 'and' and 'or'."
             },
             {
-                value: "symbols",
+                value: LogicalOperatorsStyle.SYMBOLS,
                 description:
                     "Preserve the symbolic logical operators exactly as written in the source."
             }
