@@ -8,7 +8,7 @@ import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
-} from "../src/shared/cli/progress-bar.js";
+} from "./cli/progress-bar.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
