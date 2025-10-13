@@ -14,10 +14,11 @@
  * @property {number} [end]
  */
 
+import { isObjectLike } from "./object-utils.js";
+
 export function isCommentNode(node) {
     return (
-        !!node &&
-        typeof node === "object" &&
+        isObjectLike(node) &&
         (node.type === "CommentBlock" || node.type === "CommentLine")
     );
 }
@@ -48,7 +49,7 @@ export function hasComment(node) {
 }
 
 export function getCommentArray(owner) {
-    if (!owner || typeof owner !== "object") {
+    if (!isObjectLike(owner)) {
         return [];
     }
 
@@ -71,7 +72,7 @@ export function getCommentArray(owner) {
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 export function collectCommentNodes(root) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return [];
     }
 
@@ -81,7 +82,7 @@ export function collectCommentNodes(root) {
 
     while (stack.length > 0) {
         const current = stack.pop();
-        if (!current || typeof current !== "object") {
+        if (!isObjectLike(current)) {
             continue;
         }
 
@@ -115,7 +116,7 @@ export function collectCommentNodes(root) {
             }
 
             const value = current[key];
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 stack.push(value);
             }
         }

@@ -11,6 +11,7 @@ import {
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isCommentNode } from "../../../shared/comments.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const { addDanglingComment } = util;
 
@@ -130,7 +131,7 @@ const handleComments = {
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
     if (!isCommentNode(comment)) {
-        if (comment && typeof comment === "object") {
+        if (isObjectLike(comment)) {
             comment.printed = true;
         }
         return "";
@@ -194,7 +195,7 @@ function printComment(commentPath, options) {
 }
 
 function applyTrailingCommentPadding(comment, options) {
-    if (!comment || typeof comment !== "object") {
+    if (!isObjectLike(comment)) {
         return;
     }
 
