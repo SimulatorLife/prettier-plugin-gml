@@ -30,6 +30,10 @@ export const IDENTIFIER_CASE_IGNORE_OPTION_NAME = "gmlIdentifierCaseIgnore";
 export const IDENTIFIER_CASE_PRESERVE_OPTION_NAME = "gmlIdentifierCasePreserve";
 export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME =
     "gmlIdentifierCaseAcknowledgeAssetRenames";
+export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME =
+    "gmlIdentifierCaseDiscoverProject";
+export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
+    "gmlIdentifierCaseProjectRoot";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -134,6 +138,22 @@ export const identifierCaseOptions = {
         default: false,
         description:
             "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
+    },
+    [IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME]: {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description:
+            "Automatically search for the nearest GameMaker project manifest (.yyp) when preparing identifier case plans."
+    },
+    [IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME]: {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "path",
+        category: "gml",
+        default: "",
+        description:
+            "Overrides automatic discovery with an explicit GameMaker project root directory when building identifier indexes."
     }
 };
 

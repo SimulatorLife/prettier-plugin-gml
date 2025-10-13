@@ -66,7 +66,7 @@ async function run() {
             logger
         };
 
-        prepareIdentifierCasePlan(renameOptions);
+        await prepareIdentifierCasePlan(renameOptions);
 
         results.renamePlan = formatMetrics(
             "identifier-case-plan",

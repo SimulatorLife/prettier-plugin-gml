@@ -6,6 +6,11 @@ import { createMetricsTracker } from "../../../shared/metrics.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
+    bootstrapProjectIndex,
+    applyBootstrappedProjectIndex
+} from "../project-index/bootstrap.js";
+import { setIdentifierCaseOption } from "./option-store.js";
+import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,
     IGNORE_CONFLICT_CODE,
@@ -107,7 +112,7 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     return summarizeFileOccurrences(counts);
 }
 
-export function prepareIdentifierCasePlan(options) {
+export async function prepareIdentifierCasePlan(options) {
     if (!options) {
         return;
     }
@@ -116,7 +121,11 @@ export function prepareIdentifierCasePlan(options) {
         options.__identifierCaseDryRun === undefined &&
         options.identifierCaseDryRun !== undefined
     ) {
-        options.__identifierCaseDryRun = options.identifierCaseDryRun;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseDryRun",
+            options.identifierCaseDryRun
+        );
     }
 
     if (options.__identifierCasePlanGeneratedInternally === true) {
@@ -136,9 +145,15 @@ export function prepareIdentifierCasePlan(options) {
         context &&
         typeof context.dryRun === "boolean"
     ) {
-        options.__identifierCaseDryRun = context.dryRun;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseDryRun",
+            context.dryRun
+        );
     }
-    const projectIndex =
+    applyBootstrappedProjectIndex(options);
+
+    let projectIndex =
         options.__identifierCaseProjectIndex ??
         options.identifierCaseProjectIndex ??
         context?.projectIndex ??
@@ -150,7 +165,7 @@ export function prepareIdentifierCasePlan(options) {
         logger,
         autoLog: options.logIdentifierCaseMetrics === true
     });
-    options.__identifierCaseMetrics = metrics;
+    setIdentifierCaseOption(options, "__identifierCaseMetrics", metrics);
     const stopTotal = metrics.startTimer("preparePlan");
     // Scripts, macros, enums, globals, and instance assignments are now tracked via
     // `projectIndex.identifiers` with dedicated identifier IDs per scope. Local-scope
@@ -163,6 +178,18 @@ export function prepareIdentifierCasePlan(options) {
     const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
     const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
 
+    const shouldPlanLocals = localStyle !== "off";
+    const shouldPlanAssets = assetStyle !== "off";
+
+    if (!projectIndex && (shouldPlanLocals || shouldPlanAssets)) {
+        await bootstrapProjectIndex(options);
+        projectIndex =
+            applyBootstrappedProjectIndex(options) ??
+            options.identifierCaseProjectIndex ??
+            context?.projectIndex ??
+            null;
+    }
+
     metrics.setMetadata("localStyle", localStyle);
     metrics.setMetadata("assetStyle", assetStyle);
 
@@ -174,7 +201,11 @@ export function prepareIdentifierCasePlan(options) {
     const finalizeMetrics = (extraMetadata = {}) => {
         stopTotal();
         const report = metrics.finalize({ metadata: extraMetadata });
-        options.__identifierCaseMetricsReport = report;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseMetricsReport",
+            report
+        );
         return report;
     };
 
@@ -230,9 +261,17 @@ export function prepareIdentifierCasePlan(options) {
     }
 
     if (!fileRecord) {
-        options.__identifierCaseRenameMap = renameMap;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseRenameMap",
+            renameMap
+        );
         if (assetRenames.length > 0) {
-            options.__identifierCaseAssetRenames = assetRenames;
+            setIdentifierCaseOption(
+                options,
+                "__identifierCaseAssetRenames",
+                assetRenames
+            );
         }
 
         const metricsReport = finalizeMetrics({
@@ -243,8 +282,14 @@ export function prepareIdentifierCasePlan(options) {
         if (operations.length === 0 && conflicts.length === 0) {
             // no-op
         } else {
-            options.__identifierCaseRenamePlan = { operations };
-            options.__identifierCaseConflicts = conflicts;
+            setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+                operations
+            });
+            setIdentifierCaseOption(
+                options,
+                "__identifierCaseConflicts",
+                conflicts
+            );
         }
 
         if (
@@ -263,14 +308,26 @@ export function prepareIdentifierCasePlan(options) {
                 fsFacade,
                 logger
             });
-            options.__identifierCaseAssetRenameResult = result;
-            options.__identifierCaseAssetRenamesApplied = true;
+            setIdentifierCaseOption(
+                options,
+                "__identifierCaseAssetRenameResult",
+                result
+            );
+            setIdentifierCaseOption(
+                options,
+                "__identifierCaseAssetRenamesApplied",
+                true
+            );
             metrics.incrementCounter(
                 "assets.appliedRenames",
                 result?.renames?.length ?? 0
             );
         }
-        options.__identifierCasePlanGeneratedInternally = true;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
         if (options.__identifierCaseRenamePlan) {
             options.__identifierCaseRenamePlan.metrics = metricsReport;
         }
@@ -535,17 +592,35 @@ export function prepareIdentifierCasePlan(options) {
         }
     }
 
-    options.__identifierCaseRenameMap = renameMap;
+    setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
     if (assetRenames.length > 0) {
-        options.__identifierCaseAssetRenames = assetRenames;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenames",
+            assetRenames
+        );
     }
 
     if (operations.length === 0 && conflicts.length === 0) {
-        options.__identifierCasePlanGeneratedInternally = true;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
     } else {
-        options.__identifierCaseRenamePlan = { operations };
-        options.__identifierCaseConflicts = conflicts;
-        options.__identifierCasePlanGeneratedInternally = true;
+        setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+            operations
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseConflicts",
+            conflicts
+        );
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
     }
 
     if (
@@ -564,8 +639,16 @@ export function prepareIdentifierCasePlan(options) {
             fsFacade,
             logger
         });
-        options.__identifierCaseAssetRenameResult = result;
-        options.__identifierCaseAssetRenamesApplied = true;
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenameResult",
+            result
+        );
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenamesApplied",
+            true
+        );
         metrics.incrementCounter(
             "assets.appliedRenames",
             result?.renames?.length ?? 0
@@ -600,5 +683,178 @@ export function getIdentifierCaseRenameForNode(node, options) {
         return null;
     }
 
-    return renameMap.get(key) ?? null;
+    const renameTarget = renameMap.get(key) ?? null;
+    if (!renameTarget) {
+        return null;
+    }
+
+    const planSnapshot = options.__identifierCasePlanSnapshot ?? null;
+
+    if (options.__identifierCaseDryRun === true) {
+        return null;
+    }
+
+    if (planSnapshot?.dryRun === true) {
+        return null;
+    }
+
+    return renameTarget;
+}
+
+export function captureIdentifierCasePlanSnapshot(options) {
+    if (!options || typeof options !== "object") {
+        return null;
+    }
+
+    const snapshot = {
+        projectIndex: options.__identifierCaseProjectIndex ?? null,
+        projectRoot: options.__identifierCaseProjectRoot ?? null,
+        bootstrap: options.__identifierCaseProjectIndexBootstrap ?? null,
+        renameMap: options.__identifierCaseRenameMap ?? null,
+        renamePlan: options.__identifierCaseRenamePlan ?? null,
+        conflicts: options.__identifierCaseConflicts ?? null,
+        metricsReport: options.__identifierCaseMetricsReport ?? null,
+        metrics: options.__identifierCaseMetrics ?? null,
+        assetRenames: options.__identifierCaseAssetRenames ?? null,
+        assetRenameResult: options.__identifierCaseAssetRenameResult ?? null,
+        assetRenamesApplied:
+            options.__identifierCaseAssetRenamesApplied ?? null,
+        dryRun:
+            options.__identifierCaseDryRun !== undefined
+                ? options.__identifierCaseDryRun
+                : null,
+        planGenerated: options.__identifierCasePlanGeneratedInternally === true
+    };
+
+    return snapshot;
+}
+
+export function applyIdentifierCasePlanSnapshot(snapshot, options) {
+    if (!snapshot || !options || typeof options !== "object") {
+        return;
+    }
+
+    if (snapshot.projectIndex && !options.__identifierCaseProjectIndex) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseProjectIndex",
+            snapshot.projectIndex
+        );
+    }
+
+    if (snapshot.projectRoot && !options.__identifierCaseProjectRoot) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseProjectRoot",
+            snapshot.projectRoot
+        );
+    }
+
+    if (snapshot.bootstrap && !options.__identifierCaseProjectIndexBootstrap) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseProjectIndexBootstrap",
+            snapshot.bootstrap
+        );
+    }
+
+    setIdentifierCaseOption(options, "__identifierCasePlanSnapshot", snapshot);
+    Object.defineProperty(options, "__identifierCasePlanSnapshot", {
+        value: snapshot,
+        writable: true,
+        configurable: true,
+        enumerable: false
+    });
+
+    if (snapshot.renameMap && !options.__identifierCaseRenameMap) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseRenameMap",
+            snapshot.renameMap
+        );
+    }
+
+    if (snapshot.renamePlan && !options.__identifierCaseRenamePlan) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseRenamePlan",
+            snapshot.renamePlan
+        );
+    }
+
+    if (snapshot.conflicts && !options.__identifierCaseConflicts) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseConflicts",
+            snapshot.conflicts
+        );
+    }
+
+    if (snapshot.metricsReport && !options.__identifierCaseMetricsReport) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseMetricsReport",
+            snapshot.metricsReport
+        );
+    }
+
+    if (snapshot.metrics && !options.__identifierCaseMetrics) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseMetrics",
+            snapshot.metrics
+        );
+    }
+
+    if (snapshot.assetRenames && !options.__identifierCaseAssetRenames) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenames",
+            snapshot.assetRenames
+        );
+    }
+
+    if (
+        snapshot.assetRenameResult &&
+        !options.__identifierCaseAssetRenameResult
+    ) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenameResult",
+            snapshot.assetRenameResult
+        );
+    }
+
+    if (
+        snapshot.assetRenamesApplied != null &&
+        options.__identifierCaseAssetRenamesApplied == null
+    ) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenamesApplied",
+            snapshot.assetRenamesApplied
+        );
+    }
+
+    if (snapshot.dryRun !== null) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseDryRun",
+            snapshot.dryRun
+        );
+        Object.defineProperty(options, "__identifierCaseDryRun", {
+            value: snapshot.dryRun,
+            writable: true,
+            configurable: true,
+            enumerable: false
+        });
+    }
+
+    if (snapshot.planGenerated) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
+    }
 }

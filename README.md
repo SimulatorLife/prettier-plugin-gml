@@ -483,11 +483,19 @@ full walkthrough.
 
 ### Generate a project index
 
-- From the GameMaker project root run the inline Node script documented in the
-  playbook to create `.gml-reports/project-index.json`. The index enumerates
-  declarations and references so the rename planner can detect collisions.
-- Regenerate the index after adding scripts or changing resource names. Commit
-  the JSON alongside your branch if you want deterministic plans in CI.
+- The formatter now auto-discovers the closest `.yyp` manifest when formatting a
+  file with identifier-case features enabled. The first run builds a
+  project-wide index, stores it under
+  `.prettier-plugin-gml/project-index-cache.json`, and reuses that cache on
+  subsequent invocations.
+- Override the discovery directory with `gmlIdentifierCaseProjectRoot`, or set
+  `gmlIdentifierCaseDiscoverProject: false` to opt back into manual index
+  management. Supplying `identifierCaseProjectIndex` still bypasses the
+  bootstrap entirely if you need a pre-generated index for deterministic CI
+  runs.
+- The [Identifier case rollout playbook](docs/identifier-case-rollout.md)
+  expands on the automatic cache lifecycle and shows how to keep manual
+  snapshots when you need an audit trail.
 
 ### Dry-run locals-first renames
 
@@ -547,8 +555,9 @@ full walkthrough.
   - Wrapper complaining about a missing target? Pass the project directory as the first argument or via `--path=...` (for example
     `node ./node_modules/root/src/plugin/prettier-wrapper.js --path .`).
   - Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
-- Identifier-case dry run not reporting anything? Confirm `gmlIdentifierCase` is set to a case style, the generated
-  `.gml-reports/project-index.json` exists, and your Prettier config passes it via `identifierCaseProjectIndex`.
+- Identifier-case dry run not reporting anything? Confirm `gmlIdentifierCase` is set to a case style and that the formatter can
+  discover your `.yyp` manifest. Override discovery with `gmlIdentifierCaseProjectRoot`, or supply
+  `identifierCaseProjectIndex`/`gmlIdentifierCaseDiscoverProject: false` when you need to manage the index manually.
 - Seeing unexpected rename collisions? Review the JSON log for `collision`, `ignored`, or `preserve` entries and adjust
   `gmlIdentifierCaseIgnore` / `gmlIdentifierCasePreserve` before re-running the dry run. The
   [Identifier case rollout playbook](docs/identifier-case-rollout.md#troubleshooting-checklist) lists additional checks.

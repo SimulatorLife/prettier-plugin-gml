@@ -295,7 +295,7 @@ describe("identifier case local renaming", () => {
                 ...baseOptions,
                 __identifierCaseDryRun: false
             };
-            prepareIdentifierCasePlan(writeReportOptions);
+            await prepareIdentifierCasePlan(writeReportOptions);
             const writeReport =
                 maybeReportIdentifierCaseDryRun(writeReportOptions);
             assert.ok(writeReport, "Expected write mode report to be recorded");
