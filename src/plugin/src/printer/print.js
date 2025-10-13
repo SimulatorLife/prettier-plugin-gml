@@ -43,7 +43,7 @@ import {
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "./option-utils.js";
+import { coercePositiveIntegerOption } from "../utils/option-utils.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
