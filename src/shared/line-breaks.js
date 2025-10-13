@@ -1,3 +1,5 @@
+import { isNonEmptyString } from "./string-utils.js";
+
 // Shared text utility helpers related to line break detection.
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
@@ -14,7 +16,7 @@ const LINE_SEPARATOR = "\u2028".charCodeAt(0);
 const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
 
 export function getLineBreakCount(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return 0;
     }
 
