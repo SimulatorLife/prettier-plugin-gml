@@ -3,6 +3,7 @@ import path from "node:path";
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../../../shared/metrics.js";
+import { buildLocationKey } from "../../../shared/location-keys.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -35,23 +36,6 @@ function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     }
 
     return toPosixPath(resolvedFile);
-}
-
-function buildLocationKey(location) {
-    if (!location || typeof location !== "object") {
-        return null;
-    }
-
-    const line = location.line ?? location.row ?? location.start ?? null;
-    const column =
-        location.column ?? location.col ?? location.columnStart ?? null;
-    const index = location.index ?? location.offset ?? null;
-
-    if (line == null && column == null && index == null) {
-        return null;
-    }
-
-    return [line ?? "", column ?? "", index ?? ""].join(":");
 }
 
 function buildRenameKey(_scopeId, location) {
