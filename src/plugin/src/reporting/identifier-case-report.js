@@ -40,10 +40,6 @@ function getNormalizedOperations(report) {
     return readArrayProperty(report, "operations") ?? [];
 }
 
-function getNormalizedReferences(operation) {
-    return readArrayProperty(operation, "references") ?? [];
-}
-
 function getNormalizedConflicts(conflicts) {
     return Array.isArray(conflicts) ? conflicts : [];
 }
@@ -404,19 +400,22 @@ export function formatIdentifierCaseSummaryText(report) {
     return lines;
 }
 
-function buildLogPayload(report, generatedAt) {
-    const { summary } = report;
+function getNormalizedReportCollections(report) {
     const operations = getNormalizedOperations(report);
-    const conflicts = getNormalizedConflicts(report.conflicts);
+    const conflicts = getNormalizedConflicts(report?.conflicts);
+
+    return { operations, conflicts };
+}
+
+function buildLogPayload(report, generatedAt) {
+    const { summary = {} } = report ?? {};
+    const { operations, conflicts } = getNormalizedReportCollections(report);
 
     return {
         version: LOG_VERSION,
         generatedAt,
         summary: {
-            renameCount: summary.renameCount,
-            impactedFileCount: summary.impactedFileCount,
-            totalReferenceCount: summary.totalReferenceCount,
-            conflictCount: summary.conflictCount,
+            ...summary,
             severityCounts: { ...summary.severityCounts }
         },
         renames: operations.map((operation) => ({
@@ -433,7 +432,7 @@ function buildLogPayload(report, generatedAt) {
                 name: operation.toName
             },
             referenceCount: operation.occurrenceCount,
-            references: getNormalizedReferences(operation)
+            references: operation.references ?? []
         })),
         conflicts
     };
@@ -444,7 +443,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         return;
     }
 
-    const conflicts = getNormalizedConflicts(report.conflicts);
+    const { operations, conflicts } = getNormalizedReportCollections(report);
 
     const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
@@ -459,7 +458,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         summary: {
             ...report.summary
         },
-        renames: getNormalizedOperations(report).map((operation) => ({
+        renames: operations.map((operation) => ({
             id: operation.id,
             kind: operation.kind,
             scopeId: operation.scopeId,
@@ -467,7 +466,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
             fromName: operation.fromName,
             toName: operation.toName,
             referenceCount: operation.occurrenceCount,
-            references: getNormalizedReferences(operation)
+            references: operation.references ?? []
         })),
         conflicts
     });
