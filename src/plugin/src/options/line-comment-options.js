@@ -1,3 +1,4 @@
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { getCachedValue } from "./options-cache.js";
 import {
     coercePositiveIntegerOption,
@@ -106,7 +107,7 @@ const lineCommentOptionsCache = new WeakMap();
 
 function hasBoilerplateOverride(value) {
     if (typeof value === "string") {
-        return value.trim().length > 0;
+        return isNonEmptyTrimmedString(value);
     }
 
     return value !== undefined;

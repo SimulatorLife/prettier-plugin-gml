@@ -45,6 +45,7 @@ import {
 } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -2251,10 +2252,7 @@ function computeSyntheticFunctionDocLines(
         : [];
 
     const hasFunctionTag = metadata.some(
-        (meta) =>
-            meta.tag === "function" &&
-            typeof meta.name === "string" &&
-            meta.name.trim().length > 0
+        (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
     );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const documentedParamNames = new Set();
