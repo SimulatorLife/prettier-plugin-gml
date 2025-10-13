@@ -2098,13 +2098,16 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [enableCall, resetCall, drawCall] = statements;
+        const [enableCall, drawCall, resetCall] = statements;
 
         assert.ok(enableCall);
-        assert.ok(resetCall);
         assert.ok(drawCall);
+        assert.ok(resetCall);
         assert.strictEqual(enableCall.type, "CallExpression");
         assert.strictEqual(enableCall.object?.name, "gpu_set_alphatestenable");
+
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_alphatestenable");
@@ -2922,20 +2925,23 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const body = ast.body ?? [];
+        const body = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
         assert.ok(
             body.length >= 3,
             "Expected colour write enable reset to be inserted."
         );
 
-        const disableCall = body[0];
-        const resetCall = body[1];
+        const [disableCall, drawCall, resetCall] = body;
 
         assert.strictEqual(disableCall?.type, "CallExpression");
         assert.strictEqual(
             disableCall?.object?.name,
             "gpu_set_colourwriteenable"
         );
+        assert.strictEqual(drawCall?.type, "CallExpression");
+        assert.strictEqual(drawCall?.object?.name, "draw_sprite");
         assert.strictEqual(resetCall?.type, "CallExpression");
         assert.strictEqual(
             resetCall?.object?.name,
