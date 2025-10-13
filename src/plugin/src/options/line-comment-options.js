@@ -17,6 +17,13 @@ const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
 ]);
 
+const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
+    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
+    /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
+    /^[{}()[\].]/,
+    /^#/
+]);
+
 const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     bannerMinimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
     bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
@@ -90,7 +97,7 @@ function mergeLineCommentOptionOverrides(overrides) {
         { requireArrayInput: true }
     );
 
-    return createLineCommentOptions(
+    const merged = createLineCommentOptions(
         readLineCommentOption(
             overrides.bannerMinimum,
             DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
@@ -101,6 +108,18 @@ function mergeLineCommentOptionOverrides(overrides) {
         ),
         boilerplateFragments
     );
+
+    if (overrides.codeDetectionPatterns === undefined) {
+        return merged;
+    }
+
+    return {
+        ...merged,
+        codeDetectionPatterns: mergeCodeDetectionPatterns(
+            overrides.codeDetectionPatterns,
+            { allowStringLists: true }
+        )
+    };
 }
 
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
@@ -122,7 +141,8 @@ function resolveLineCommentOptions(options) {
     const {
         lineCommentBannerMinimumSlashes,
         lineCommentBannerAutofillThreshold,
-        lineCommentBoilerplateFragments
+        lineCommentBoilerplateFragments,
+        lineCommentCodeDetectionPatterns
     } = options;
 
     const hasBannerOverride =
@@ -132,7 +152,15 @@ function resolveLineCommentOptions(options) {
         lineCommentBoilerplateFragments
     );
 
-    if (!hasBannerOverride && !hasBoilerplateOverrideValue) {
+    const hasCodeDetectionOverrideValue = hasCodeDetectionOverride(
+        lineCommentCodeDetectionPatterns
+    );
+
+    if (
+        !hasBannerOverride &&
+        !hasBoilerplateOverrideValue &&
+        !hasCodeDetectionOverrideValue
+    ) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -148,7 +176,10 @@ function resolveLineCommentOptions(options) {
                 bannerAutofillThreshold: coerceBannerAutofillThreshold(
                     lineCommentBannerAutofillThreshold
                 ),
-                boilerplateFragments: getBoilerplateCommentFragments(options)
+                boilerplateFragments: getBoilerplateCommentFragments(options),
+                codeDetectionPatterns: hasCodeDetectionOverrideValue
+                    ? getLineCommentCodeDetectionPatterns(options)
+                    : undefined
             })
     );
 }
@@ -190,6 +221,110 @@ function getBoilerplateCommentFragments(options) {
     );
 }
 
+const CODE_DETECTION_PATTERNS_CACHE_KEY = Symbol.for(
+    "prettier-plugin-gml.lineCommentCodeDetectionPatterns"
+);
+const codeDetectionPatternCache = new WeakMap();
+
+function mergeCodeDetectionPatterns(
+    rawValue,
+    { allowStringLists = false } = {}
+) {
+    if (rawValue == null) {
+        return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+    }
+
+    let entries = null;
+
+    if (Array.isArray(rawValue)) {
+        entries = rawValue;
+    } else if (rawValue instanceof RegExp) {
+        entries = [rawValue];
+    } else if (allowStringLists) {
+        entries = normalizeStringList(rawValue, { allowInvalidType: true });
+    }
+
+    if (!entries || entries.length === 0) {
+        return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+    }
+
+    const merged = [...DEFAULT_COMMENTED_OUT_CODE_PATTERNS];
+    const seen = new Set(merged.map((pattern) => pattern.toString()));
+
+    for (const entry of entries) {
+        const pattern = coerceRegExp(entry);
+        if (!pattern) {
+            continue;
+        }
+
+        const key = pattern.toString();
+        if (seen.has(key)) {
+            continue;
+        }
+
+        merged.push(pattern);
+        seen.add(key);
+    }
+
+    return Object.freeze(merged);
+}
+
+function coerceRegExp(value) {
+    if (value instanceof RegExp) {
+        return value;
+    }
+
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    const literalMatch = trimmed.match(/^\/(.*)\/([a-z]*)$/i);
+    if (literalMatch) {
+        const [, source, flags = ""] = literalMatch;
+        try {
+            return new RegExp(source, flags);
+        } catch {
+            return null;
+        }
+    }
+
+    try {
+        return new RegExp(trimmed);
+    } catch {
+        return null;
+    }
+}
+
+function hasCodeDetectionOverride(value) {
+    if (Array.isArray(value)) {
+        return value.length > 0;
+    }
+
+    if (value instanceof RegExp) {
+        return true;
+    }
+
+    return isNonEmptyTrimmedString(value);
+}
+
+function getLineCommentCodeDetectionPatterns(options) {
+    return getCachedValue(
+        options,
+        CODE_DETECTION_PATTERNS_CACHE_KEY,
+        codeDetectionPatternCache,
+        () =>
+            mergeCodeDetectionPatterns(
+                options?.lineCommentCodeDetectionPatterns,
+                { allowStringLists: true }
+            )
+    );
+}
+
 function normalizeLineCommentOptions(lineCommentOptions) {
     if (
         typeof lineCommentOptions === "number" &&
@@ -211,8 +346,10 @@ export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
+    getLineCommentCodeDetectionPatterns,
     normalizeLineCommentOptions,
     resolveLineCommentOptions
 };

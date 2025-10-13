@@ -1,4 +1,5 @@
 import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
@@ -58,13 +59,6 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
-const COMMENTED_OUT_CODE_PATTERNS = [
-    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
-    /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
-    /^[{}()[\].]/,
-    /^#/
-];
-
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 const FUNCTION_SIGNATURE_PATTERN =
@@ -101,8 +95,14 @@ function formatLineComment(
     comment,
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
-    const { bannerMinimum, boilerplateFragments } =
-        normalizeLineCommentOptions(lineCommentOptions);
+    const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
+    const { bannerMinimum, boilerplateFragments } = normalizedOptions;
+    const codeDetectionPatterns =
+        normalizedOptions.codeDetectionPatterns ??
+        (lineCommentOptions && typeof lineCommentOptions === "object"
+            ? lineCommentOptions.codeDetectionPatterns
+            : undefined) ??
+        DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const trimmedValue = comment.value.trim();
@@ -187,7 +187,8 @@ function formatLineComment(
 
     if (
         coreValue.length > 0 &&
-        (trimmedValue.startsWith("//") || looksLikeCommentedOutCode(coreValue))
+        (trimmedValue.startsWith("//") ||
+            looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
         return applyInlinePadding(
             comment,
@@ -266,7 +267,7 @@ function normalizeGameMakerType(typeText) {
     });
 }
 
-function looksLikeCommentedOutCode(text) {
+function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     if (typeof text !== "string") {
         return false;
     }
@@ -276,7 +277,22 @@ function looksLikeCommentedOutCode(text) {
         return false;
     }
 
-    return COMMENTED_OUT_CODE_PATTERNS.some((pattern) => pattern.test(trimmed));
+    const patterns = Array.isArray(codeDetectionPatterns)
+        ? codeDetectionPatterns
+        : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+
+    for (const pattern of patterns) {
+        if (!(pattern instanceof RegExp)) {
+            continue;
+        }
+
+        pattern.lastIndex = 0;
+        if (pattern.test(trimmed)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function splitCommentIntoSentences(text) {

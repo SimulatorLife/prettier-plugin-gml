@@ -131,6 +131,14 @@ export const options = {
         description:
             "Comma-separated substrings that mark trimmed line comments as boilerplate to remove. Provide additional fragments to extend the built-in filter."
     },
+    lineCommentCodeDetectionPatterns: {
+        since: "0.0.0",
+        type: "string",
+        category: "gml",
+        default: "",
+        description:
+            "Comma-separated regular expressions that extend the built-in detector for commented-out code. Entries like '/^SQL:/i' keep matching comments verbatim."
+    },
     alignAssignmentsMinGroupSize: {
         since: "0.0.0",
         type: "int",
