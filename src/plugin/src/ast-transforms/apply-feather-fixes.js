@@ -45,6 +45,8 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
+const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
 const FILE_ATTRIBUTE_IDENTIFIER_PATTERN = /^fa_[A-Za-z0-9_]+$/;
 const STRING_LENGTH_CALL_BLACKLIST = new Set([
@@ -612,6 +614,19 @@ function buildFeatherFixImplementations(diagnostics) {
                     ast,
                     diagnostic
                 });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
+        if (diagnosticId === "GM2033") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
                 if (Array.isArray(fixes) && fixes.length > 0) {
                     return fixes;
@@ -9723,6 +9738,165 @@ function getCallExpression(node) {
         if (expression && expression.type === "CallExpression") {
             return expression;
         }
+    }
+
+    return null;
+}
+
+function removeDanglingFileFindCalls({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            if (isStatementList(parent, property)) {
+                sanitizeFileFindCalls(node, parent, fixes, diagnostic, ast);
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function sanitizeFileFindCalls(
+    statements,
+    parent,
+    fixes,
+    diagnostic,
+    metadataRoot
+) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return;
+    }
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (!isFileFindBlockFunctionCall(statement)) {
+            continue;
+        }
+
+        if (!hasPrecedingFileFindClose(statements, index)) {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: getCallExpressionCalleeName(statement),
+            range: {
+                start: getNodeStartIndex(statement),
+                end: getNodeEndIndex(statement)
+            }
+        });
+
+        if (!fixDetail) {
+            continue;
+        }
+
+        const metadataTarget =
+            parent && typeof parent === "object" ? parent : null;
+        if (metadataTarget && metadataTarget !== metadataRoot) {
+            attachFeatherFixMetadata(metadataTarget, [fixDetail]);
+        }
+
+        statements.splice(index, 1);
+        index -= 1;
+
+        fixes.push(fixDetail);
+    }
+}
+
+function isStatementList(parent, property) {
+    if (!parent || typeof property === "number") {
+        return false;
+    }
+
+    if (property === "body") {
+        return parent.type === "Program" || parent.type === "BlockStatement";
+    }
+
+    if (property === "consequent" && parent.type === "SwitchCase") {
+        return true;
+    }
+
+    return false;
+}
+
+function isFileFindBlockFunctionCall(statement) {
+    if (!statement || typeof statement !== "object") {
+        return false;
+    }
+
+    const calleeName = getCallExpressionCalleeName(statement);
+
+    if (!calleeName) {
+        return false;
+    }
+
+    return FILE_FIND_BLOCK_CALL_TARGETS.has(calleeName);
+}
+
+function hasPrecedingFileFindClose(statements, index) {
+    for (let offset = index - 1; offset >= 0; offset -= 1) {
+        const candidate = statements[offset];
+
+        if (
+            isCallExpressionStatementWithName(
+                candidate,
+                FILE_FIND_CLOSE_FUNCTION_NAME
+            )
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isCallExpressionStatementWithName(statement, name) {
+    if (!statement || typeof statement !== "object" || !name) {
+        return false;
+    }
+
+    const calleeName = getCallExpressionCalleeName(statement);
+
+    return calleeName === name;
+}
+
+function getCallExpressionCalleeName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node.object?.name ?? null;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        return getCallExpressionCalleeName(node.expression);
     }
 
     return null;

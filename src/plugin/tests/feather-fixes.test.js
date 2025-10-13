@@ -3329,4 +3329,52 @@ describe("applyFeatherFixes transform", () => {
             );
         }
     });
+
+    it("removes stray file_find_next calls flagged by GM2033", () => {
+        const source = [
+            "fnames = [];",
+            "",
+            'var _fname = file_find_first("*.txt", fa_none);',
+            "",
+            'while (_fname != "")',
+            "{",
+            "    array_push(fnames, _fname);",
+            "",
+            "    _fname = file_find_next();",
+            "}",
+            "",
+            "file_find_close();",
+            "",
+            "file_find_next();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(
+            statements.some(
+                (statement) =>
+                    statement?.type === "CallExpression" &&
+                    statement?.object?.name === "file_find_next"
+            ),
+            false,
+            "Expected trailing file_find_next() call to be removed."
+        );
+
+        const diagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2033 = diagnostics.find((entry) => entry.id === "GM2033");
+
+        assert.ok(
+            gm2033,
+            "Expected GM2033 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2033.automatic, true);
+        assert.strictEqual(gm2033.target, "file_find_next");
+        assert.ok(gm2033.range);
+    });
 });
