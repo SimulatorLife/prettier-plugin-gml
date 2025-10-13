@@ -86,37 +86,13 @@ function macroTextHasExplicitTrailingBlankLine(text) {
         return false;
     }
 
-    let newlineCount = 0;
-
-    for (let index = text.length - 1; index >= 0; index -= 1) {
-        const charCode = text.charCodeAt(index);
-
-        if (charCode === 10) {
-            newlineCount += 1;
-
-            if (newlineCount >= 2) {
-                return true;
-            }
-
-            if (index > 0 && text.charCodeAt(index - 1) === 13) {
-                index -= 1;
-            }
-
-            continue;
-        }
-
-        if (charCode === 13) {
-            continue;
-        }
-
-        if (charCode === 9 || charCode === 32) {
-            continue;
-        }
-
-        break;
+    const trailingWhitespace = text.match(/[\t \r\n]+$/);
+    if (!trailingWhitespace) {
+        return false;
     }
 
-    return false;
+    const newlineMatches = trailingWhitespace[0].match(/\r?\n/g);
+    return (newlineMatches?.length ?? 0) >= 2;
 }
 
 const BINARY_OPERATOR_INFO = new Map([
