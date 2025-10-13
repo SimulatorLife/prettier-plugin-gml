@@ -51,7 +51,7 @@ explicit path to load it when you install from Git. Prefer an overview of the su
 > ```bash
 > cd /path/to/MyGameProject
 > npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
-> node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+> node ./node_modules/root/src/cli/prettier-wrapper.js --path .
 > ```
 >
 > The sections below expand on each step, add IDE tips, and show how to run the formatter from a local clone of this repository.
@@ -164,7 +164,7 @@ explicit path to load it when you install from Git. Prefer an overview of the su
    entry point? Use the bundled wrapper instead of wiring Prettier manually:
 
    ```bash
-   node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+   node ./node_modules/root/src/cli/prettier-wrapper.js --path .
    ```
 
    The wrapper mirrors the CLI behaviour, automatically reuses your project’s `.prettierrc` overrides, and formats every file
@@ -203,7 +203,7 @@ Want the wrapper to drive everything for you (including `.prettierignore` suppor
 target project path directly:
 
 ```bash
-node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+node ./node_modules/root/src/cli/prettier-wrapper.js --path . --extensions=.gml,.yy
 ```
 
 If `--extensions` is omitted the wrapper falls back to the `.gml` default or to the comma-separated list provided via the
@@ -340,7 +340,7 @@ command.
 - Format a whole project with the wrapper helper from any checkout:
 
   ```bash
-  node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/prettier-wrapper.js --path . --extensions=.gml,.yy
   ```
 
   The wrapper expands glob patterns, merges plugin paths discovered via `resolveConfig`, and prints a skipped-file summary so
@@ -595,7 +595,7 @@ full walkthrough.
   - Seeing `No parser could be inferred for file ...`? Ensure you installed the plugin from the GameMaker project directory and
     pass the plugin path to the CLI (for example `--plugin=./node_modules/root/src/plugin/src/gml.js`).
   - Wrapper complaining about a missing target? Pass the project directory as the first argument or via `--path=...` (for example
-    `node ./node_modules/root/src/plugin/prettier-wrapper.js --path .`).
+    `node ./node_modules/root/src/cli/prettier-wrapper.js --path .`).
   - Using `zsh` and seeing `no matches found`? Quote the dependency specifiers: `npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"`.
 - Identifier-case dry run not reporting anything? Confirm `gmlIdentifierCase` is set to a case style and that the formatter can
   discover your `.yyp` manifest. Override discovery with `gmlIdentifierCaseProjectRoot`, or supply
