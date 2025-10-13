@@ -7366,7 +7366,11 @@ function ensureLocalVariablesAreDeclaredBeforeUse({ ast, diagnostic }) {
             }
 
             if (Array.isArray(value)) {
-                for (let childIndex = 0; childIndex < value.length; childIndex += 1) {
+                for (
+                    let childIndex = 0;
+                    childIndex < value.length;
+                    childIndex += 1
+                ) {
                     visitNode(value[childIndex], node, key, value, childIndex);
                 }
                 continue;
@@ -7501,7 +7505,9 @@ function getSingleVariableDeclarator(node) {
         return null;
     }
 
-    const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+    const declarations = Array.isArray(node.declarations)
+        ? node.declarations
+        : [];
 
     if (declarations.length !== 1) {
         return null;
@@ -7613,7 +7619,10 @@ function convertPrecedingAssignmentToVariableDeclaration({
     return fixDetail;
 }
 
-function createVariableDeclarationFromAssignment(assignmentNode, declaratorTemplate) {
+function createVariableDeclarationFromAssignment(
+    assignmentNode,
+    declaratorTemplate
+) {
     if (!assignmentNode || assignmentNode.type !== "AssignmentExpression") {
         return null;
     }
@@ -7697,11 +7706,17 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
     for (let index = 0; index < limit; index += 1) {
         const node = container[index];
 
-        if (!node || node.type !== "VariableDeclaration" || node.kind !== "var") {
+        if (
+            !node ||
+            node.type !== "VariableDeclaration" ||
+            node.kind !== "var"
+        ) {
             continue;
         }
 
-        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+        const declarations = Array.isArray(node.declarations)
+            ? node.declarations
+            : [];
 
         for (const declarator of declarations) {
             if (!declarator || declarator.type !== "VariableDeclarator") {
@@ -7793,7 +7808,10 @@ function hoistVariableDeclarationOutOfBlock({
         return null;
     }
 
-    if (!Array.isArray(statementContainer) || typeof statementIndex !== "number") {
+    if (
+        !Array.isArray(statementContainer) ||
+        typeof statementIndex !== "number"
+    ) {
         return null;
     }
 
@@ -7846,7 +7864,10 @@ function hoistVariableDeclarationOutOfBlock({
 }
 
 function createHoistedVariableDeclaration(declaratorTemplate) {
-    if (!declaratorTemplate || declaratorTemplate.type !== "VariableDeclarator") {
+    if (
+        !declaratorTemplate ||
+        declaratorTemplate.type !== "VariableDeclarator"
+    ) {
         return null;
     }
 
