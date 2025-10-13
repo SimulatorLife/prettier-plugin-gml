@@ -8,7 +8,7 @@ import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "../shared/cli/cli-errors.js";
+} from "./cli/cli-errors.js";
 import { normalizeStringList } from "./src/options/option-utils.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
