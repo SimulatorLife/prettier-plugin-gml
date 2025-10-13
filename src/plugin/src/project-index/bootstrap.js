@@ -1,9 +1,7 @@
 import path from "node:path";
 
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
-function isNonEmptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
-}
 
 function getFsFacade(options) {
     return options?.__identifierCaseFs ?? options?.identifierCaseFs ?? null;
@@ -67,11 +65,11 @@ function storeBootstrapResult(options, result, storeOption) {
 }
 
 function resolveProjectRoot(options) {
-    if (isNonEmptyString(options?.__identifierCaseProjectRoot)) {
+    if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
         return path.resolve(options.__identifierCaseProjectRoot);
     }
 
-    if (isNonEmptyString(options?.gmlIdentifierCaseProjectRoot)) {
+    if (isNonEmptyTrimmedString(options?.gmlIdentifierCaseProjectRoot)) {
         const configuredRoot = options.gmlIdentifierCaseProjectRoot.trim();
         return path.resolve(configuredRoot);
     }
@@ -121,7 +119,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
 
     if (!projectRoot) {
         const filepath = options?.filepath ?? null;
-        if (!isNonEmptyString(filepath)) {
+        if (!isNonEmptyTrimmedString(filepath)) {
             return storeBootstrapResult(
                 options,
                 createSkipResult("missing-filepath"),

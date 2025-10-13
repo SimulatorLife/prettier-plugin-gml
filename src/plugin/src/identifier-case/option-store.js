@@ -1,3 +1,5 @@
+import { isNonEmptyString } from "../../../shared/string-utils.js";
+
 const optionStoreMap = new Map();
 
 function getStoreKey(options) {
@@ -9,7 +11,7 @@ function getStoreKey(options) {
         return options.__identifierCaseOptionsStoreKey;
     }
 
-    if (typeof options.filepath === "string" && options.filepath.length > 0) {
+    if (isNonEmptyString(options.filepath)) {
         return options.filepath;
     }
 

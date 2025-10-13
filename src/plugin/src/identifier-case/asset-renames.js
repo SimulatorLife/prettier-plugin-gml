@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { createRequire } from "node:module";
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,
@@ -28,7 +29,7 @@ function buildReservedIdentifierSet() {
     return new Set(
         Object.entries(identifiers)
             .filter(([name, info]) => {
-                if (typeof name !== "string" || name.length === 0) {
+                if (!isNonEmptyString(name)) {
                     return false;
                 }
 
@@ -42,7 +43,7 @@ function buildReservedIdentifierSet() {
 const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierSet();
 
 function isReservedIdentifierName(name) {
-    if (typeof name !== "string" || name.length === 0) {
+    if (!isNonEmptyString(name)) {
         return false;
     }
 
@@ -56,7 +57,7 @@ function isReservedIdentifierName(name) {
 function buildAssetConflictSuggestions(identifierName) {
     const suggestions = [];
 
-    if (typeof identifierName === "string" && identifierName.length > 0) {
+    if (isNonEmptyString(identifierName)) {
         suggestions.push(`Add '${identifierName}' to gmlIdentifierCaseIgnore`);
     }
 
@@ -90,7 +91,7 @@ function collectDirectoryEntries({ projectIndex, renames }) {
 
         const rename = renameByResourcePath.get(resourcePath) ?? null;
         const finalName = rename?.toName ?? resourceRecord.name;
-        if (typeof finalName !== "string" || finalName.length === 0) {
+        if (!isNonEmptyString(finalName)) {
             continue;
         }
 
