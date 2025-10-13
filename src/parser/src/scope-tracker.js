@@ -1,5 +1,6 @@
 import { cloneLocation } from "../../shared/ast-locations.js";
 import { isObjectLike } from "../../shared/object-utils.js";
+import { toArray } from "../../shared/array-utils.js";
 
 class Scope {
     constructor(id, kind) {
@@ -7,14 +8,6 @@ class Scope {
         this.kind = kind;
         this.declarations = new Map();
     }
-}
-
-function toArray(value) {
-    if (value == null) {
-        return [];
-    }
-
-    return Array.isArray(value) ? value : [value];
 }
 
 export default class ScopeTracker {
