@@ -685,29 +685,23 @@ function parseArgumentCountGuard(node) {
         return null;
     }
 
-    if (node.operator === ">") {
-        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
+    let argumentIndex = rightIndex;
+
+    switch (node.operator) {
+        case ">=":
+        case "<":
+            argumentIndex -= 1;
+            break;
+        case ">":
+        case "<=":
+        case "==":
+        case "!=":
+            break;
+        default:
+            return null;
     }
 
-    if (node.operator === ">=") {
-        const adjusted = rightIndex - 1;
-        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
-    }
-
-    if (node.operator === "<") {
-        const adjusted = rightIndex - 1;
-        return adjusted >= 0 ? { argumentIndex: adjusted } : null;
-    }
-
-    if (node.operator === "<=") {
-        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
-    }
-
-    if (node.operator === "==" || node.operator === "!=") {
-        return rightIndex >= 0 ? { argumentIndex: rightIndex } : null;
-    }
-
-    return null;
+    return argumentIndex >= 0 ? { argumentIndex } : null;
 }
 
 /**
