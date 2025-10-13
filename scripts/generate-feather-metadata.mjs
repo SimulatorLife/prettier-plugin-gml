@@ -9,7 +9,7 @@ import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
-} from "../src/shared/cli/manual-cache.js";
+} from "./cli/manual-cache.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth

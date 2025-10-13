@@ -12,7 +12,7 @@ import {
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
-} from "../src/shared/cli/manual-cache.js";
+} from "./cli/manual-cache.js";
 
 const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
