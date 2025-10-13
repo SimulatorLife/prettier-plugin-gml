@@ -1,7 +1,7 @@
 name: Codex 04 – Style Consistency Pass
 on:
   schedule:
-    - cron: "0 */5 * * *" # every 5 hours
+    - cron: "20 */2 * * *" # every 2 hours, offset by 20 minutes
   workflow_dispatch:
 
 permissions:
