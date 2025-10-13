@@ -3,13 +3,15 @@
   "private": true,
   "main": "src/plugin/index.js",
   "workspaces": [
+    "src/cli",
     "src/plugin",
     "src/parser"
   ],
   "config": {
     "root_path": ".",
     "plugin_path": "src/plugin",
-    "parser_path": "src/parser"
+    "parser_path": "src/parser",
+    "cli_path": "src/cli"
   },
   "type": "module",
   "repository": {
@@ -36,14 +38,15 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:ci": "eslint . --max-warnings=0",
-    "test": "npm run test:shared && npm run test:parser && npm run test:plugin",
+    "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
-    "format:gml": "node ./src/plugin/prettier-wrapper.js",
+    "format:gml": "node ./src/cli/prettier-wrapper.js",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
     "test:plugin": "cd src/plugin && npm test",
+    "test:cli": "cd src/cli && npm test",
     "build": "npm run build:antlr && npm run build:gml-identifiers && npm run build:feather-metadata",
     "build:antlr": "cd src/parser && npm run antlr",
     "build:gml-identifiers": "node ./scripts/generate-gml-identifiers.mjs",
