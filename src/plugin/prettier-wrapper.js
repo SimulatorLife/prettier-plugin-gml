@@ -9,7 +9,7 @@ import {
     formatCliError,
     handleCliError
 } from "../shared/cli/cli-errors.js";
-import { normalizeStringList } from "./src/utils/option-utils.js";
+import { normalizeStringList } from "./src/options/option-utils.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
