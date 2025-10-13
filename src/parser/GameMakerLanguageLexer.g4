@@ -132,7 +132,7 @@ Static:                         'static';
 Macro: '#macro' {this.ignoreNewline = false};
 EscapedNewLine: '\\';
 
-Define: '#define' -> pushMode(REGION_NAME);  // TODO: Define is NOT valid in GML – this needs to be fixed. Any use of #define should be replaced by #macro
+Define: '#define' -> pushMode(REGION_NAME);  // Legacy #define directives are normalised later to #macro/#region or dropped entirely
 Region: '#region' -> pushMode(REGION_NAME);
 EndRegion: '#endregion' -> pushMode(REGION_NAME);
 

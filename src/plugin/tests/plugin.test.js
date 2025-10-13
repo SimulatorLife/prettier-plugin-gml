@@ -263,6 +263,46 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("normalises legacy #define directives", async () => {
+        const source = [
+            "#define region Toolbox",
+            "#define endregion Toolbox",
+            "#define LEGACY_MACRO VALUE",
+            "#define 123 bad news",
+            "var value = LEGACY_MACRO;"
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+        const lines = formatted.split("\n");
+
+        assert.ok(
+            !formatted.includes("#define"),
+            "Expected all legacy #define directives to be rewritten or removed."
+        );
+        assert.ok(
+            lines.includes("#region Toolbox"),
+            "Expected region-style directives to become #region."
+        );
+        assert.ok(
+            lines.includes("#endregion Toolbox"),
+            "Expected endregion directives to become #endregion."
+        );
+        assert.ok(
+            lines.includes("#macro LEGACY_MACRO VALUE"),
+            "Expected macro-style directives to become #macro."
+        );
+        assert.ok(
+            lines.some((line) => line === "var value = LEGACY_MACRO;"),
+            "Expected statements following removed directives to stay adjacent."
+        );
+        const macroIndex = lines.indexOf("#macro LEGACY_MACRO VALUE");
+        assert.strictEqual(
+            lines[macroIndex + 1],
+            "var value = LEGACY_MACRO;",
+            "Expected removed directives not to leave blank lines behind."
+        );
+    });
+
     it("converts argument_count fallback conditionals into default parameters", async () => {
         const source = [
             "function example(arg) {",
