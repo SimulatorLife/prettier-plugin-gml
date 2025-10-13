@@ -78,13 +78,12 @@ function mergeBoilerplateFragments(
         return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
     }
 
-    const merged = new Set(DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS);
+    const merged = [
+        ...DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
+        ...normalizedFragments
+    ];
 
-    for (const fragment of normalizedFragments) {
-        merged.add(fragment);
-    }
-
-    return Object.freeze(Array.from(merged));
+    return Object.freeze(Array.from(new Set(merged)));
 }
 
 function mergeLineCommentOptionOverrides(overrides) {
