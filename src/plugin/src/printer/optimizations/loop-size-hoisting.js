@@ -126,37 +126,7 @@ function getLoopLengthHoistInfo(
         return null;
     }
 
-    const update = node.update;
-    if (!update) {
-        return null;
-    }
-
-    if (update.type === "IncDecStatement") {
-        const argument = update.argument;
-        if (
-            !argument ||
-            argument.type !== "Identifier" ||
-            argument.name !== iterator.name
-        ) {
-            return null;
-        }
-    } else if (update.type === "AssignmentExpression") {
-        const left = update.left;
-        if (
-            !left ||
-            left.type !== "Identifier" ||
-            left.name !== iterator.name
-        ) {
-            return null;
-        }
-
-        const operator = update.operator;
-        // Direct comparison avoids allocating a Set for every assignment-style
-        // update, keeping this hot path allocation-free.
-        if (operator !== "+=" && operator !== "-=") {
-            return null;
-        }
-    } else {
+    if (!isIteratorUpdateMatching(node.update, iterator.name)) {
         return null;
     }
 
@@ -179,6 +149,35 @@ function buildCachedSizeVariableName(baseName, suffix) {
     }
 
     return `${baseName}_${normalizedSuffix}`;
+}
+
+function isIteratorUpdateMatching(update, iteratorName) {
+    if (!update) {
+        return false;
+    }
+
+    if (update.type === "IncDecStatement") {
+        const argument = update.argument;
+        return (
+            !!argument &&
+            argument.type === "Identifier" &&
+            argument.name === iteratorName
+        );
+    }
+
+    if (update.type !== "AssignmentExpression") {
+        return false;
+    }
+
+    const left = update.left;
+    if (!left || left.type !== "Identifier" || left.name !== iteratorName) {
+        return false;
+    }
+
+    const operator = update.operator;
+    // Direct comparison avoids allocating a Set for every assignment-style
+    // update, keeping this hot path allocation-free.
+    return operator === "+=" || operator === "-=";
 }
 
 export {
