@@ -32,7 +32,8 @@ import {
 } from "./enum-alignment.js";
 import {
     printDanglingComments,
-    printDanglingCommentsAsGroup
+    printDanglingCommentsAsGroup,
+    printComment
 } from "./comments.js";
 import {
     formatLineComment,
@@ -3762,8 +3763,14 @@ function printEmptyParens(path, _print, options) {
 }
 
 // prints an empty block with dangling comments
-function printEmptyBlock(path, options) {
+function printEmptyBlock(path, options, print) {
     const node = path.getValue();
+    const inlineCommentDoc = maybePrintInlineEmptyBlockComment(path, options);
+
+    if (inlineCommentDoc) {
+        return inlineCommentDoc;
+    }
+
     const comments = getCommentArray(node);
     const hasPrintableComments = comments.some(isCommentNode);
 
@@ -3787,6 +3794,99 @@ function printEmptyBlock(path, options) {
     } else {
         return "{}";
     }
+}
+
+function maybePrintInlineEmptyBlockComment(path, options) {
+    const node = path.getValue();
+    if (!node) {
+        return null;
+    }
+
+    const comments = getCommentArray(node);
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return null;
+    }
+
+    const inlineIndex = findInlineBlockCommentIndex(comments);
+
+    if (inlineIndex < 0) {
+        return null;
+    }
+
+    const comment = comments[inlineIndex];
+    const leadingSpacing = getInlineBlockCommentSpacing(comment.leadingWS, " ");
+    const trailingSpacing = getInlineBlockCommentSpacing(
+        comment.trailingWS,
+        " "
+    );
+
+    return [
+        "{",
+        leadingSpacing,
+        path.call(
+            (commentPath) => printComment(commentPath, options),
+            "comments",
+            inlineIndex
+        ),
+        trailingSpacing,
+        "}"
+    ];
+}
+
+function findInlineBlockCommentIndex(comments) {
+    let inlineIndex = -1;
+
+    for (let index = 0; index < comments.length; index += 1) {
+        const comment = comments[index];
+
+        if (!isCommentNode(comment)) {
+            continue;
+        }
+
+        if (!isInlineEmptyBlockComment(comment)) {
+            return -1;
+        }
+
+        if (inlineIndex !== -1) {
+            return -1;
+        }
+
+        inlineIndex = index;
+    }
+
+    return inlineIndex;
+}
+
+function isInlineEmptyBlockComment(comment) {
+    if (!comment || comment.type !== "CommentBlock") {
+        return false;
+    }
+
+    if (hasLineBreak(comment.leadingWS) || hasLineBreak(comment.trailingWS)) {
+        return false;
+    }
+
+    if (typeof comment.lineCount === "number" && comment.lineCount > 1) {
+        return false;
+    }
+
+    if (typeof comment.value === "string" && hasLineBreak(comment.value)) {
+        return false;
+    }
+
+    return true;
+}
+
+function getInlineBlockCommentSpacing(text, fallback) {
+    if (typeof text !== "string" || text.length === 0) {
+        return fallback;
+    }
+
+    return hasLineBreak(text) ? fallback : text;
+}
+
+function hasLineBreak(text) {
+    return typeof text === "string" && /[\r\n\u2028\u2029]/.test(text);
 }
 
 function isInLValueChain(path) {
