@@ -12,6 +12,22 @@ function normalizeLabel(label) {
     return typeof label === "string" && label.length > 0 ? label : "unknown";
 }
 
+function mergeObjectEntries(target, source) {
+    if (!source || typeof source !== "object") {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(source)) {
+        target[key] = value;
+    }
+}
+
+const DEFAULT_CACHE_KEYS = ["hits", "misses", "stale"];
+
+function toPlainObject(map) {
+    return Object.fromEntries(map);
+}
+
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
@@ -19,14 +35,28 @@ export function createMetricsTracker({
 } = {}) {
     const startTime = nowMs();
     const timings = new Map();
-    const counters = Object.create(null);
-    const caches = Object.create(null);
+    const counters = new Map();
+    const caches = new Map();
     const metadata = Object.create(null);
 
-    function recordTiming(label, durationMs) {
+    function incrementMapCounter(store, label, amount = 1) {
         const normalized = normalizeLabel(label);
-        const previous = timings.get(normalized) ?? 0;
-        timings.set(normalized, previous + Math.max(0, durationMs));
+        const previous = store.get(normalized) ?? 0;
+        store.set(normalized, previous + amount);
+    }
+
+    function ensureCacheStats(cacheName) {
+        const normalized = normalizeLabel(cacheName);
+        let cacheStats = caches.get(normalized);
+        if (!cacheStats) {
+            cacheStats = new Map(DEFAULT_CACHE_KEYS.map((key) => [key, 0]));
+            caches.set(normalized, cacheStats);
+        }
+        return cacheStats;
+    }
+
+    function recordTiming(label, durationMs) {
+        incrementMapCounter(timings, label, Math.max(0, durationMs));
     }
 
     function startTimer(label) {
@@ -55,20 +85,12 @@ export function createMetricsTracker({
     }
 
     function incrementCounter(label, amount = 1) {
-        const normalized = normalizeLabel(label);
-        const previous = counters[normalized] ?? 0;
-        counters[normalized] = previous + amount;
+        incrementMapCounter(counters, label, amount);
     }
 
     function recordCacheEvent(cacheName, key) {
-        const normalized = normalizeLabel(cacheName);
-        const existing = caches[normalized] ?? {
-            hits: 0,
-            misses: 0,
-            stale: 0
-        };
-        existing[key] += 1;
-        caches[normalized] = existing;
+        const stats = ensureCacheStats(cacheName);
+        stats.set(key, (stats.get(key) ?? 0) + 1);
     }
 
     function snapshot(extra = {}) {
@@ -76,35 +98,23 @@ export function createMetricsTracker({
         const summary = {
             category,
             totalTimeMs: endTime - startTime,
-            timings: Object.fromEntries(timings),
-            counters: { ...counters },
+            timings: toPlainObject(timings),
+            counters: toPlainObject(counters),
             caches: Object.fromEntries(
-                Object.entries(caches).map(([name, value]) => [
+                Array.from(caches, ([name, stats]) => [
                     name,
-                    { ...value }
+                    toPlainObject(stats)
                 ])
             ),
             metadata: { ...metadata }
         };
 
         if (extra && typeof extra === "object") {
-            if (extra.timings) {
-                for (const [label, value] of Object.entries(extra.timings)) {
-                    summary.timings[label] = value;
-                }
-            }
-            if (extra.counters) {
-                for (const [label, value] of Object.entries(extra.counters)) {
-                    summary.counters[label] = value;
-                }
-            }
-            if (extra.caches) {
-                for (const [label, value] of Object.entries(extra.caches)) {
-                    summary.caches[label] = value;
-                }
-            }
+            mergeObjectEntries(summary.timings, extra.timings);
+            mergeObjectEntries(summary.counters, extra.counters);
+            mergeObjectEntries(summary.caches, extra.caches);
             if (extra.metadata) {
-                Object.assign(summary.metadata, extra.metadata);
+                mergeObjectEntries(summary.metadata, extra.metadata);
             }
         }
 
@@ -115,14 +125,13 @@ export function createMetricsTracker({
         if (!logger || typeof logger.debug !== "function") {
             return;
         }
-        const report = snapshot(extra);
-        logger.debug(`[${category}] ${message}`, report);
+        logger.debug(`[${category}] ${message}`, snapshot(extra));
     }
 
     function finalize(extra = {}) {
         const report = snapshot(extra);
-        if (autoLog) {
-            logSummary("summary", extra);
+        if (autoLog && logger && typeof logger.debug === "function") {
+            logger.debug(`[${category}] summary`, report);
         }
         return report;
     }
