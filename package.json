@@ -41,6 +41,7 @@
     "test:parser": "cd src/parser && npm test",
     "format:gml": "node ./src/plugin/prettier-wrapper.js",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
+    "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
     "test:plugin": "cd src/plugin && npm test",
     "build": "npm run build:antlr && npm run build:gml-identifiers && npm run build:feather-metadata",

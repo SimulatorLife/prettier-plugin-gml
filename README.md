@@ -677,6 +677,12 @@ expects the `antlr` CLI in your `PATH`.
   npm run example:plugin
   ```
 
+- Audit repository formatting without writing changes:
+
+  ```bash
+  npm run format:check
+  ```
+
 - Manually invoke the raw Prettier CLI with the local plugin:
 
   ```bash
