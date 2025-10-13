@@ -126,7 +126,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return null;
     }
 
-    // add context data to the node
+    // Add context metadata to the node.
     astNode(ctx, object) {
         object.start = { line: ctx.start.line, index: ctx.start.start };
         if (ctx.stop) {
@@ -149,24 +149,26 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     }
 
     needsParentheses(operator, leftNode, rightNode) {
-        if (!operator || !leftNode || !rightNode) return false;
+        if (!operator || !leftNode || !rightNode) {
+            return false;
+        }
 
-        let leftOp =
+        const leftOp =
             leftNode.type === "BinaryExpression"
                 ? this.operators[leftNode.operator]
                 : { prec: 0, assoc: "left" };
-        let rightOp =
+        const rightOp =
             rightNode.type === "BinaryExpression"
                 ? this.operators[rightNode.operator]
                 : { prec: 0, assoc: "left" };
-        let currOp = this.operators[operator];
+        const currOp = this.operators[operator];
 
         if (currOp.assoc === "left") {
             return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;
-        } else {
-            // For right-associative operators
-            return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
         }
+
+        // For right-associative operators
+        return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
     }
 
     wrapInParentheses(ctx, node) {
