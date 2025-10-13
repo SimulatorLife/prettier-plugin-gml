@@ -2,6 +2,6 @@
 
 gpu_set_alphatestenable(true);
 
-gpu_set_alphatestenable(false);
-
 draw_self();
+
+gpu_set_alphatestenable(false);
