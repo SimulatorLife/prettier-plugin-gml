@@ -9,7 +9,11 @@ class Scope {
 }
 
 function toArray(value) {
-    return Array.isArray(value) ? value.slice() : value != null ? [value] : [];
+    if (value == null) {
+        return [];
+    }
+
+    return Array.isArray(value) ? value : [value];
 }
 
 export default class ScopeTracker {
