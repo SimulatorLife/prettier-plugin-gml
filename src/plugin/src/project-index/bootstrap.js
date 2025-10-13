@@ -4,8 +4,6 @@ import {
     findProjectRoot,
     createProjectIndexCoordinator
 } from "../../../shared/project-index/index.js";
-import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
-
 function isNonEmptyString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
@@ -45,8 +43,25 @@ function createSkipResult(reason) {
     };
 }
 
-function storeBootstrapResult(options, result) {
-    setIdentifierCaseOption(
+function defaultStoreOption(options, key, value) {
+    if (!options || typeof options !== "object") {
+        return;
+    }
+
+    options[key] = value;
+}
+
+function storeOptionValue(storeOption, options, key, value) {
+    if (typeof storeOption === "function") {
+        storeOption(options, key, value);
+    } else {
+        defaultStoreOption(options, key, value);
+    }
+}
+
+function storeBootstrapResult(options, result, storeOption) {
+    storeOptionValue(
+        storeOption,
         options,
         "__identifierCaseProjectIndexBootstrap",
         result
@@ -67,7 +82,7 @@ function resolveProjectRoot(options) {
     return null;
 }
 
-export async function bootstrapProjectIndex(options = {}) {
+export async function bootstrapProjectIndex(options = {}, storeOption) {
     if (!options || typeof options !== "object") {
         return createSkipResult("invalid-options");
     }
@@ -79,21 +94,26 @@ export async function bootstrapProjectIndex(options = {}) {
     if (options.__identifierCaseProjectIndex) {
         const projectRoot =
             options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
-        return storeBootstrapResult(options, {
-            status: "ready",
-            reason: "provided",
-            projectRoot,
-            projectIndex: options.__identifierCaseProjectIndex,
-            source: "provided",
-            cache: null,
-            dispose() {}
-        });
+        return storeBootstrapResult(
+            options,
+            {
+                status: "ready",
+                reason: "provided",
+                projectRoot,
+                projectIndex: options.__identifierCaseProjectIndex,
+                source: "provided",
+                cache: null,
+                dispose() {}
+            },
+            storeOption
+        );
     }
 
     if (options.gmlIdentifierCaseDiscoverProject === false) {
         return storeBootstrapResult(
             options,
-            createSkipResult("discovery-disabled")
+            createSkipResult("discovery-disabled"),
+            storeOption
         );
     }
 
@@ -107,7 +127,8 @@ export async function bootstrapProjectIndex(options = {}) {
         if (!isNonEmptyString(filepath)) {
             return storeBootstrapResult(
                 options,
-                createSkipResult("missing-filepath")
+                createSkipResult("missing-filepath"),
+                storeOption
             );
         }
 
@@ -118,7 +139,8 @@ export async function bootstrapProjectIndex(options = {}) {
         if (!projectRoot) {
             return storeBootstrapResult(
                 options,
-                createSkipResult("project-root-not-found")
+                createSkipResult("project-root-not-found"),
+                storeOption
             );
         }
 
@@ -151,24 +173,30 @@ export async function bootstrapProjectIndex(options = {}) {
             coordinator.dispose();
         };
 
-    const result = storeBootstrapResult(options, {
-        status: ready?.projectIndex ? "ready" : "skipped",
-        reason: ready?.projectIndex ? rootResolution : "no-project-index",
-        projectRoot,
-        projectIndex: ready?.projectIndex ?? null,
-        source: ready?.source ?? rootResolution,
-        cache: ready?.cache ?? null,
-        coordinator,
-        dispose
-    });
+    const result = storeBootstrapResult(
+        options,
+        {
+            status: ready?.projectIndex ? "ready" : "skipped",
+            reason: ready?.projectIndex ? rootResolution : "no-project-index",
+            projectRoot,
+            projectIndex: ready?.projectIndex ?? null,
+            source: ready?.source ?? rootResolution,
+            cache: ready?.cache ?? null,
+            coordinator,
+            dispose
+        },
+        storeOption
+    );
 
     if (result.projectIndex) {
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectIndex",
             result.projectIndex
         );
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectRoot",
             projectRoot
@@ -178,7 +206,7 @@ export async function bootstrapProjectIndex(options = {}) {
     return result;
 }
 
-export function applyBootstrappedProjectIndex(options) {
+export function applyBootstrappedProjectIndex(options, storeOption) {
     if (!options || typeof options !== "object") {
         return null;
     }
@@ -188,7 +216,8 @@ export function applyBootstrappedProjectIndex(options) {
         bootstrapResult?.projectIndex &&
         !options.__identifierCaseProjectIndex
     ) {
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectIndex",
             bootstrapResult.projectIndex
@@ -197,7 +226,8 @@ export function applyBootstrappedProjectIndex(options) {
             bootstrapResult.projectRoot &&
             !options.__identifierCaseProjectRoot
         ) {
-            setIdentifierCaseOption(
+            storeOptionValue(
+                storeOption,
                 options,
                 "__identifierCaseProjectRoot",
                 bootstrapResult.projectRoot

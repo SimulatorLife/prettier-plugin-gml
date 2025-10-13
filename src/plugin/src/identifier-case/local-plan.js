@@ -151,7 +151,7 @@ export async function prepareIdentifierCasePlan(options) {
             context.dryRun
         );
     }
-    applyBootstrappedProjectIndex(options);
+    applyBootstrappedProjectIndex(options, setIdentifierCaseOption);
 
     let projectIndex =
         options.__identifierCaseProjectIndex ??
@@ -182,9 +182,9 @@ export async function prepareIdentifierCasePlan(options) {
     const shouldPlanAssets = assetStyle !== "off";
 
     if (!projectIndex && (shouldPlanLocals || shouldPlanAssets)) {
-        await bootstrapProjectIndex(options);
+        await bootstrapProjectIndex(options, setIdentifierCaseOption);
         projectIndex =
-            applyBootstrappedProjectIndex(options) ??
+            applyBootstrappedProjectIndex(options, setIdentifierCaseOption) ??
             options.identifierCaseProjectIndex ??
             context?.projectIndex ??
             null;

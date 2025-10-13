@@ -21,11 +21,10 @@ import {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
 } from "./conditional-assignment-sanitizer.js";
-import { bootstrapProjectIndex } from "../project-index/bootstrap.js";
 import {
-    prepareIdentifierCasePlan,
-    captureIdentifierCasePlanSnapshot
-} from "../identifier-case/local-plan.js";
+    prepareIdentifierCaseEnvironment,
+    attachIdentifierCasePlanSnapshot
+} from "../identifier-case/environment.js";
 
 const { addTrailingComment } = util;
 
@@ -42,8 +41,7 @@ async function parse(text, options) {
     }
 
     if (options) {
-        await bootstrapProjectIndex(options);
-        await prepareIdentifierCasePlan(options);
+        await prepareIdentifierCaseEnvironment(options);
     }
 
     if (options?.applyFeatherFixes) {
@@ -71,16 +69,7 @@ async function parse(text, options) {
         simplifyLocations: false
     });
 
-    if (ast && typeof ast === "object") {
-        const snapshot = captureIdentifierCasePlanSnapshot(options);
-        if (snapshot) {
-            Object.defineProperty(ast, "__identifierCasePlanSnapshot", {
-                value: snapshot,
-                enumerable: false,
-                configurable: true
-            });
-        }
-    }
+    attachIdentifierCasePlanSnapshot(ast, options);
 
     if (!ast || typeof ast !== "object") {
         throw new Error(
