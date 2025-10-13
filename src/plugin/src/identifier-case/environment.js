@@ -1,4 +1,5 @@
 import { bootstrapProjectIndex } from "../project-index/bootstrap.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
@@ -9,7 +10,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
         return;
     }
 
-    await bootstrapProjectIndex(options);
+    await bootstrapProjectIndex(options, setIdentifierCaseOption);
     await prepareIdentifierCasePlan(options);
 }
 
