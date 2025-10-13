@@ -3803,7 +3803,7 @@ function maybePrintInlineEmptyBlockComment(path, options) {
     }
 
     const comments = getCommentArray(node);
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (comments.length === 0) {
         return null;
     }
 
