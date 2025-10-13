@@ -1,0 +1,27 @@
+name: Codex 73 – Stringly Typed Flags
+on:
+  schedule:
+    - cron: "45 8 * * *"  # once a day at 08:45
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Stringly Typed Flags"
+      pr_body: >
+        Seed PR for Codex to replace a brittle magic string flag with a safer
+        enum/constant approach and validation.
+      prompt: >
+        Locate code that branches on raw string literals to determine behaviour.
+        Introduce a typed alternative (enum object, constant map, schema) that
+        centralises valid values, validates inputs, and updates call sites. Add
+        regression coverage showing that invalid strings now fail fast while
+        valid ones keep working. Limit the change to one representative flag or
+        option to keep the diff focused.

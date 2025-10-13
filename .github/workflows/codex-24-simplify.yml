@@ -1,0 +1,27 @@
+name: Codex 24 – Overengineered Block Cleanup
+
+on:
+  schedule:
+    # hourly cadence
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Overengineered Block Cleanup"
+      pr_body: "Seed PR for Codex to condense an overly bespoke or long-winded code path into something idiomatic."
+      prompt: |
+        Locate a single block, function, or file whose implementation is noticeably over-engineered: bespoke helpers,
+        verbose control flow, redundant state tracking, or other non-Pythonic patterns that obscure the intent. Refactor
+        that one target into a concise, idiomatic solution that keeps behaviour intact while improving readability and
+        maintainability. Avoid sweeping rewrites—focus on the clumsiest area you can make elegant without touching
+        unrelated code. Make sure tests still pass and explain the original issues and the leaner approach in the commit
+        message.
