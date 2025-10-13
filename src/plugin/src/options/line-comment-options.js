@@ -1,4 +1,4 @@
-import { getCachedValue } from "../options/options-cache.js";
+import { getCachedValue } from "./options-cache.js";
 import {
     coercePositiveIntegerOption,
     normalizeStringList
