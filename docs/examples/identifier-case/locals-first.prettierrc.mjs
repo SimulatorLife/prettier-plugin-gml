@@ -1,5 +1,5 @@
-import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildProjectIndex } from "./node_modules/root/src/plugin/src/project-index/index.js";
