@@ -10,7 +10,10 @@ import {
     getCallExpressionArguments,
     isBooleanLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    isNonEmptyTrimmedString
+} from "../../../shared/string-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
 import {
@@ -2093,10 +2096,7 @@ function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
 }
 
 function createReadOnlyReplacementName(originalName, nameRegistry) {
-    const baseName =
-        typeof originalName === "string" && originalName.length > 0
-            ? originalName
-            : "value";
+    const baseName = isNonEmptyString(originalName) ? originalName : "value";
     const sanitized = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
     let candidate = `__feather_${sanitized}`;
     let suffix = 1;
@@ -5075,7 +5075,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 
         if (Array.isArray(initialNames)) {
             for (const name of initialNames) {
-                if (typeof name === "string" && name.length > 0) {
+                if (isNonEmptyString(name)) {
                     scope.set(name, true);
                 }
             }
@@ -5089,7 +5089,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     };
 
     const declareLocal = (name) => {
-        if (typeof name !== "string" || name.length === 0) {
+        if (!isNonEmptyString(name)) {
             return true;
         }
 
@@ -6934,7 +6934,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             if (parentClause && typeof parentClause === "object") {
                 const parentName = parentClause.id;
 
-                if (typeof parentName === "string" && parentName.length > 0) {
+                if (isNonEmptyString(parentName)) {
                     if (!constructors.has(parentName)) {
                         const fallback = functions.get(parentName);
 
@@ -10765,11 +10765,11 @@ function buildMacroReplacementText({
 
     const baseText = getMacroBaseText(macro, sourceText);
 
-    if (typeof baseText !== "string" || baseText.length === 0) {
+    if (!isNonEmptyString(baseText)) {
         return null;
     }
 
-    if (typeof originalName === "string" && originalName.length > 0) {
+    if (isNonEmptyString(originalName)) {
         const nameIndex = baseText.indexOf(originalName);
 
         if (nameIndex >= 0) {
@@ -10789,10 +10789,7 @@ function getMacroBaseText(macro, sourceText) {
         return null;
     }
 
-    if (
-        typeof macro._featherMacroText === "string" &&
-        macro._featherMacroText.length > 0
-    ) {
+    if (isNonEmptyString(macro._featherMacroText)) {
         return macro._featherMacroText;
     }
 
