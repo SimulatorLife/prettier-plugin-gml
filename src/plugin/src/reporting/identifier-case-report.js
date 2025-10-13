@@ -52,15 +52,6 @@ function serializeConflictEntries(conflicts) {
 }
 
 function normalizeString(...values) {
-    if (values.length === 0) {
-        return "";
-    }
-
-    if (values.length === 1) {
-        const [value] = values;
-        return typeof value === "string" ? value.trim() : "";
-    }
-
     for (const value of values) {
         if (typeof value === "string") {
             return value.trim();
