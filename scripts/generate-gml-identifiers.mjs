@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
-import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/plugin/cli/cli-errors.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
