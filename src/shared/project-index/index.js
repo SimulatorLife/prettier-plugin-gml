@@ -7,6 +7,7 @@ import GMLParser from "../../parser/gml-parser.js";
 import { cloneLocation } from "../ast-locations.js";
 import { toPosixPath } from "../path-utils.js";
 import { createMetricsTracker } from "../metrics.js";
+import { buildLocationKey, buildFileLocationKey } from "../location-keys.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -1047,41 +1048,6 @@ function createIdentifierRecord(node) {
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
-}
-
-function buildLocationKey(location) {
-    if (!location || typeof location !== "object") {
-        return null;
-    }
-
-    const line =
-        location.line ??
-        location.row ??
-        location.start ??
-        location.first_line ??
-        null;
-    const column =
-        location.column ??
-        location.col ??
-        location.columnStart ??
-        location.first_column ??
-        null;
-    const index = location.index ?? location.offset ?? null;
-
-    if (line == null && column == null && index == null) {
-        return null;
-    }
-
-    return [line ?? "", column ?? "", index ?? ""].join(":");
-}
-
-function buildFileLocationKey(filePath, location) {
-    const locationKey = buildLocationKey(location);
-    if (!locationKey) {
-        return null;
-    }
-
-    return `${filePath ?? "<unknown>"}::${locationKey}`;
 }
 
 function cloneIdentifierForCollections(record, filePath) {
