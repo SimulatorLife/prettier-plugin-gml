@@ -1,4 +1,5 @@
 import {
+    getCommentArray,
     hasComment as sharedHasComment,
     isDocCommentLine
 } from "../comments/index.js";
@@ -62,11 +63,13 @@ export function condenseLogicalExpressions(ast, helpers) {
 }
 
 function normalizeDocCommentWhitespace(ast) {
-    if (!ast || !Array.isArray(ast.comments)) {
+    const comments = getCommentArray(ast);
+
+    if (comments.length === 0) {
         return;
     }
 
-    for (const comment of ast.comments) {
+    for (const comment of comments) {
         if (
             comment?.type === "CommentLine" &&
             typeof comment.leadingWS === "string" &&
@@ -335,12 +338,14 @@ function mapDocCommentsToFunctions(ast) {
         groups.set(fn, []);
     }
 
-    if (!Array.isArray(ast?.comments) || functions.length === 0) {
+    const astComments = getCommentArray(ast);
+
+    if (astComments.length === 0 || functions.length === 0) {
         return groups;
     }
 
     let functionIndex = 0;
-    for (const comment of ast.comments) {
+    for (const comment of astComments) {
         if (!isDocCommentLine(comment)) {
             continue;
         }
