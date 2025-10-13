@@ -407,9 +407,27 @@ function getNormalizedReportCollections(report) {
     return { operations, conflicts };
 }
 
+function buildRenameSummary(operation) {
+    return {
+        id: operation.id,
+        kind: operation.kind,
+        scopeId: operation.scopeId ?? null,
+        scopeName: operation.scopeName ?? null,
+        fromName: operation.fromName ?? null,
+        toName: operation.toName ?? null,
+        referenceCount: operation.occurrenceCount ?? 0,
+        references: operation.references ?? []
+    };
+}
+
+function buildRenameSummaries(operations) {
+    return operations.map(buildRenameSummary);
+}
+
 function buildLogPayload(report, generatedAt) {
     const { summary = {} } = report ?? {};
     const { operations, conflicts } = getNormalizedReportCollections(report);
+    const renames = buildRenameSummaries(operations);
 
     return {
         version: LOG_VERSION,
@@ -418,21 +436,21 @@ function buildLogPayload(report, generatedAt) {
             ...summary,
             severityCounts: { ...summary.severityCounts }
         },
-        renames: operations.map((operation) => ({
-            id: operation.id,
-            kind: operation.kind,
+        renames: renames.map((rename) => ({
+            id: rename.id,
+            kind: rename.kind,
             scope: {
-                id: operation.scopeId,
-                displayName: operation.scopeName
+                id: rename.scopeId,
+                displayName: rename.scopeName
             },
             from: {
-                name: operation.fromName
+                name: rename.fromName
             },
             to: {
-                name: operation.toName
+                name: rename.toName
             },
-            referenceCount: operation.occurrenceCount,
-            references: operation.references ?? []
+            referenceCount: rename.referenceCount,
+            references: rename.references
         })),
         conflicts
     };
@@ -444,6 +462,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
     }
 
     const { operations, conflicts } = getNormalizedReportCollections(report);
+    const renames = buildRenameSummaries(operations);
 
     const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
@@ -458,16 +477,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         summary: {
             ...report.summary
         },
-        renames: operations.map((operation) => ({
-            id: operation.id,
-            kind: operation.kind,
-            scopeId: operation.scopeId,
-            scopeName: operation.scopeName,
-            fromName: operation.fromName,
-            toName: operation.toName,
-            referenceCount: operation.occurrenceCount,
-            references: operation.references ?? []
-        })),
+        renames,
         conflicts
     });
 }
