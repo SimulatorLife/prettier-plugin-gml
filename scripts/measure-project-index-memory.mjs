@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // Measure the heap impact of building the project index. This script imports the
 // plugin's project-index module and triggers the `buildProjectIndex` helper using
 // a stubbed file-system facade so the benchmark focuses on identifier caching.
