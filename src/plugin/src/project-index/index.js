@@ -42,6 +42,19 @@ export function getDefaultFsFacade() {
     return defaultFsFacade;
 }
 
+function isFsErrorCode(error, ...codes) {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+
+    const { code } = error;
+    if (typeof code !== "string") {
+        return false;
+    }
+
+    return codes.some((candidate) => candidate === code);
+}
+
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
@@ -157,7 +170,7 @@ async function listDirectory(fsFacade, directoryPath) {
     try {
         return await fsFacade.readDir(directoryPath);
     } catch (error) {
-        if (error && (error.code === "ENOENT" || error.code === "ENOTDIR")) {
+        if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
         }
         throw error;
@@ -169,7 +182,7 @@ async function getFileMtime(fsFacade, filePath) {
         const stats = await fsFacade.stat(filePath);
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;
@@ -278,7 +291,7 @@ export async function loadProjectIndexCache(
     try {
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return {
                 status: "miss",
                 cacheFilePath,
@@ -657,7 +670,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
             try {
                 stats = await fsFacade.stat(absolutePath);
             } catch (error) {
-                if (error && error.code === "ENOENT") {
+                if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
                     continue;
                 }
@@ -915,7 +928,7 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
         try {
             rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
         } catch (error) {
-            if (error && error.code === "ENOENT") {
+            if (isFsErrorCode(error, "ENOENT")) {
                 continue;
             }
             throw error;
@@ -2023,7 +2036,7 @@ export async function buildProjectIndex(
                 fsFacade.readFile(file.absolutePath, "utf8")
             );
         } catch (error) {
-            if (error && error.code === "ENOENT") {
+            if (isFsErrorCode(error, "ENOENT")) {
                 metrics.incrementCounter("files.missingDuringRead");
                 return;
             }
