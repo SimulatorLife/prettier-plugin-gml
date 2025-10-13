@@ -1,9 +1,10 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const optionStoreMap = new Map();
 
 function getStoreKey(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -19,8 +20,12 @@ function getStoreKey(options) {
 }
 
 function updateStore(options, key, value) {
+    if (!isObjectLike(options)) {
+        return;
+    }
+
     const store = options.__identifierCaseOptionsStore;
-    if (store && typeof store === "object") {
+    if (isObjectLike(store)) {
         store[key] = value;
     }
 
@@ -33,7 +38,7 @@ function updateStore(options, key, value) {
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return;
     }
 
