@@ -1,4 +1,6 @@
 import { util } from "prettier";
+import { toTrimmedString } from "../../../shared/string-utils.js";
+import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -13,9 +15,13 @@ function statementShouldEndWithSemicolon(path) {
     // for single line control structures written in short form (i.e. without a block),
     // we need to make sure the single body node gets a semicolon
     if (
-        ["ForStatement", "WhileStatement", "DoUntilStatement", "IfStatement", "SwitchStatement"].includes(
-            parentNode.type
-        ) &&
+        [
+            "ForStatement",
+            "WhileStatement",
+            "DoUntilStatement",
+            "IfStatement",
+            "SwitchStatement"
+        ].includes(parentNode.type) &&
         node.type !== "BlockStatement" &&
         node.type !== "IfStatement" &&
         (parentNode.body === node || parentNode.alternate === node)
@@ -86,23 +92,43 @@ function isAssignmentLikeExpression(nodeType) {
 }
 
 // These top-level statements are surrounded by empty lines by default.
-function shouldAddNewlinesAroundStatement(node, options) {
+const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
+    "FunctionDeclaration",
+    "ConstructorDeclaration",
+    "RegionStatement",
+    "EndRegionStatement"
+]);
+
+function getNormalizedDefineReplacementDirective(node) {
+    if (!node || node.type !== "DefineStatement") {
+        return null;
+    }
+
+    const directive = toTrimmedString(node.replacementDirective);
+    return directive ? directive.toLowerCase() : null;
+}
+
+function defineReplacementRequiresNewlines(node) {
+    const directive = getNormalizedDefineReplacementDirective(node);
+
+    return directive === "#region" || directive === "#endregion";
+}
+
+function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;
     }
 
-    return [
-        "FunctionDeclaration",
-        "ConstructorDeclaration",
-        "RegionStatement",
-        "EndRegionStatement"
-    ].includes(nodeType);
-}
+    // Avoid allocating an array for every call by reusing a Set that is created
+    // once when the module is evaluated. This helper runs inside the printer's
+    // statement loops, so trading `Array.includes` for a simple Set membership
+    // check keeps the hot path allocation-free and branch-predictable.
+    if (NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType)) {
+        return true;
+    }
 
-function hasComment(node) {
-    const comments = node.comments ?? null;
-    return comments && Array.isArray(comments) && comments.length > 0;
+    return defineReplacementRequiresNewlines(node);
 }
 
 export {
@@ -110,6 +136,7 @@ export {
     isLastStatement,
     optionalSemicolon,
     isAssignmentLikeExpression,
+    getNormalizedDefineReplacementDirective,
     hasComment,
     isNextLineEmpty,
     isPreviousLineEmpty,
