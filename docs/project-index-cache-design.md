@@ -69,3 +69,38 @@ twice (to observe cache reuse) and optionally executes the rename planner for a
 specific file, printing the captured metrics as structured JSON. This gives us
 an ad-hoc regression harness for spotting regressions before they make it into
 CI.
+
+## Cache persistence schema
+
+The persisted cache now lives inside `.prettier-plugin-gml/project-index-cache.json`
+at the project root. Each payload is versioned (`schemaVersion`) so future
+changes can coexist with older formatter releases. The remaining metadata
+captures everything needed to validate a cache hit without rebuilding the index:
+
+- `projectRoot` – canonical absolute path for the project that produced the
+  cache file.
+- `formatterVersion` / `pluginVersion` – surface compatibility mismatches
+  between the host Prettier binary and the plugin bundle.
+- `manifestMtimes` / `sourceMtimes` – normalised maps of `mtimeMs` readings for
+  `.yyp` manifests and the formatted source file(s).
+- `metricsSummary` – condensed snapshot of the metrics captured during the
+  build, re-attached to the in-memory project index when a cache hit occurs.
+- `projectIndex` – the actual index data structure with the metrics removed
+  (they are stored separately as noted above).
+
+`loadProjectIndexCache` validates this schema and returns typed miss reasons so
+callers can distinguish corruption (`invalid-json`/`invalid-schema`) from stale
+inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
+`saveProjectIndexCache` writes the payload via a temporary file followed by an
+atomic rename and refuses to persist entries that exceed the configured size
+limit (8 MiB by default) to avoid unbounded disk growth.
+
+## Coordination and locking
+
+`createProjectIndexCoordinator` guards concurrent builds for the same
+`projectRoot`. Calls to `ensureReady(projectRoot, …)` share in-flight work via an
+in-process mutex so only one formatter worker rebuilds the index while others
+await the result. When the build completes, the coordinator persists the cache
+before unblocking queued calls. A `dispose()` hook clears in-memory state so
+long-lived processes (tests, language servers) can release resources explicitly
+between runs.
