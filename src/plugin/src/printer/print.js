@@ -462,7 +462,36 @@ export function print(path, options, print) {
                 parts.push(hardline);
             }
 
-            parts.push(["function", node.id ? " " : "", print("id")]);
+            let functionNameDoc = "";
+            if (typeof node.id === "string" && node.id.length > 0) {
+                let renamed = null;
+                if (node.idLocation && node.idLocation.start) {
+                    renamed = getIdentifierCaseRenameForNode(
+                        {
+                            start: node.idLocation.start,
+                            scopeId: node.scopeId ?? null
+                        },
+                        options
+                    );
+                }
+                functionNameDoc =
+                    typeof renamed === "string" && renamed.length > 0
+                        ? renamed
+                        : node.id;
+            } else if (node.id) {
+                functionNameDoc = print("id");
+            }
+
+            const hasFunctionName =
+                typeof functionNameDoc === "string"
+                    ? functionNameDoc.length > 0
+                    : Boolean(functionNameDoc);
+
+            parts.push([
+                "function",
+                hasFunctionName ? " " : "",
+                functionNameDoc
+            ]);
 
             if (node.params.length > 0) {
                 parts.push(
@@ -885,7 +914,36 @@ export function print(path, options, print) {
                         node.end.index + 1
                     );
 
-            return concat(stripTrailingLineTerminators(macroText));
+            if (typeof node._featherMacroText === "string") {
+                return concat(stripTrailingLineTerminators(macroText));
+            }
+
+            let textToPrint = macroText;
+
+            if (node.name && node.name.start && node.name.end) {
+                const renamed = getIdentifierCaseRenameForNode(
+                    node.name,
+                    options
+                );
+                if (typeof renamed === "string" && renamed.length > 0) {
+                    const nameStartIndex = node.name.start.index;
+                    const nameEndIndex = node.name.end.index;
+                    if (
+                        typeof nameStartIndex === "number" &&
+                        typeof nameEndIndex === "number" &&
+                        nameStartIndex >= node.start.index &&
+                        nameEndIndex >= nameStartIndex
+                    ) {
+                        const relativeStart = nameStartIndex - node.start.index;
+                        const relativeEnd = nameEndIndex - node.start.index + 1;
+                        const before = textToPrint.slice(0, relativeStart);
+                        const after = textToPrint.slice(relativeEnd);
+                        textToPrint = `${before}${renamed}${after}`;
+                    }
+                }
+            }
+
+            return concat(stripTrailingLineTerminators(textToPrint));
         }
         case "RegionStatement": {
             return concat(["#region", print("name")]);
