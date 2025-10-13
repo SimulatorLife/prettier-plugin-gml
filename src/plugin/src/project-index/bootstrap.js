@@ -75,21 +75,19 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         return undefined;
     }
 
-    const buildRangeError = (received) =>
+    const typeError = () =>
+        new Error(
+            `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`
+        );
+    const rangeError = (received) =>
         new Error(
             `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`
         );
 
-    let numericValue = rawValue;
+    let numericValue;
     let receivedForError = rawValue;
 
-    if (typeof rawValue === "number") {
-        if (!Number.isFinite(rawValue)) {
-            throw new Error(
-                `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`
-            );
-        }
-    } else if (typeof rawValue === "string") {
+    if (typeof rawValue === "string") {
         const trimmed = rawValue.trim();
         if (trimmed === "") {
             return undefined;
@@ -99,17 +97,21 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         receivedForError = `'${rawValue}'`;
 
         if (!Number.isFinite(numericValue)) {
-            throw buildRangeError(receivedForError);
+            throw rangeError(receivedForError);
         }
+    } else if (typeof rawValue === "number") {
+        if (!Number.isFinite(rawValue)) {
+            throw typeError();
+        }
+
+        numericValue = rawValue;
     } else {
-        throw new Error(
-            `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`
-        );
+        throw typeError();
     }
 
     const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
-        throw buildRangeError(receivedForError);
+        throw rangeError(receivedForError);
     }
 
     return normalized === 0 ? null : normalized;
