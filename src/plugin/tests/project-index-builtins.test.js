@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { buildProjectIndex } from "../../plugin/src/project-index/index.js";
+import { buildProjectIndex } from "../src/project-index/index.js";
 
 test("buildProjectIndex excludes built-in script calls", async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "project-index-"));
