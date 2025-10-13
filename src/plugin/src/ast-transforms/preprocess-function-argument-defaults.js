@@ -13,15 +13,30 @@ const DEFAULT_HELPERS = {
 };
 
 /**
- * Normalize function parameters by converting argument_count fallbacks into default parameters.
+ * @typedef {object} ArgumentCountFallbackMatch
+ * @property {string} targetName Identifier on the left-hand side of the guard.
+ * @property {number} argumentIndex Position in the callee's parameter list that the guard inspects.
+ * @property {import("estree").Expression} fallbackExpression Expression that should become the default value.
+ * @property {unknown} statementNode AST node that produced the fallback (used for clean-up once rewritten).
+ */
+
+/**
+ * @typedef {object} ArgumentCountGuardResult
+ * @property {number} argumentIndex Zero-based index derived from the `argument_count` comparison.
+ */
+
+/**
+ * Normalize function parameters by converting `argument_count` fallbacks into default parameters.
+ * This runs before printing so downstream stages can rely on the canonical default-parameter shape.
  *
- * @param {unknown} ast
+ * @param {unknown} ast Any AST node or array representing a program fragment.
  * @param {{
  *   getIdentifierText?: (node: unknown) => string | null,
  *   isUndefinedLiteral?: (node: unknown) => boolean,
  *   getSingleVariableDeclarator?: (node: unknown) => unknown,
  *   hasComment?: (node: unknown) => boolean
  * }} helpers
+ * @returns {unknown} The original AST reference so callers can chain transformations.
  */
 export function preprocessFunctionArgumentDefaults(
     ast,
@@ -61,6 +76,17 @@ export function preprocessFunctionArgumentDefaults(
     return ast;
 }
 
+/**
+ * Depth-first traversal that tolerates parent pointers and other cycles.
+ * The traversal only recurses into object-valued properties to avoid
+ * coercing primitives into wrapper objects.
+ *
+ * @param {unknown} node Root node to visit.
+ * @param {(node: unknown) => void} visitor Callback invoked for every object node.
+ * @param {Set<object>} [seen]
+ *        Optional accumulator used to de-duplicate visited objects between recursive calls.
+ * @returns {void}
+ */
 function traverse(node, visitor, seen = new Set()) {
     if (!node || typeof node !== "object") {
         return;
@@ -92,6 +118,14 @@ function traverse(node, visitor, seen = new Set()) {
     }
 }
 
+/**
+ * Converts legacy `argument_count` fallbacks within a single declaration into
+ * default parameters where possible. Mutates the declaration in-place.
+ *
+ * @param {unknown} node Candidate function declaration.
+ * @param {typeof DEFAULT_HELPERS} helpers Normalized helper bag used by the outer transform.
+ * @returns {void}
+ */
 function preprocessFunctionDeclaration(node, helpers) {
     if (!node || node.type !== "FunctionDeclaration") {
         return;
@@ -292,6 +326,11 @@ function preprocessFunctionDeclaration(node, helpers) {
     );
 }
 
+/**
+ * @param {unknown} param Raw parameter node.
+ * @param {{ getIdentifierText: (node: unknown) => string | null }} context
+ * @returns {import("estree").Identifier | null}
+ */
 function getIdentifierFromParameter(param, { getIdentifierText }) {
     if (!param) {
         return null;
@@ -325,6 +364,14 @@ function getIdentifierFromParameter(param, { getIdentifierText }) {
     return null;
 }
 
+/**
+ * Checks whether a statement represents an `argument_count` fallback and, if so,
+ * captures the pieces needed to rewrite it as a default parameter.
+ *
+ * @param {unknown} statement Statement drawn from the function body.
+ * @param {typeof DEFAULT_HELPERS} helpers Helper bag used to inspect nodes.
+ * @returns {ArgumentCountFallbackMatch | null}
+ */
 function matchArgumentCountFallbackStatement(statement, helpers) {
     if (!statement) {
         return null;
@@ -348,6 +395,13 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
     return null;
 }
 
+/**
+ * Matches fallbacks of the form `var foo = argument_count > n ? argument[n] : expr;`.
+ *
+ * @param {unknown} node Variable declaration to inspect.
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {ArgumentCountFallbackMatch | null}
+ */
 function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
@@ -408,6 +462,14 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
     };
 }
 
+/**
+ * Matches fallbacks encoded as an if/else guard that assigns the argument or
+ * a fallback expression to the same identifier in both branches.
+ *
+ * @param {unknown} node IfStatement to inspect.
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {ArgumentCountFallbackMatch | null}
+ */
 function matchArgumentCountFallbackFromIfStatement(node, helpers) {
     if (!node || node.type !== "IfStatement") {
         return null;
@@ -470,6 +532,16 @@ function matchArgumentCountFallbackFromIfStatement(node, helpers) {
     };
 }
 
+/**
+ * Finds a `var <target>;` declaration immediately preceding the fallback. These
+ * declarations become redundant once the default parameter is synthesized.
+ *
+ * @param {unknown[]} statements Function body statements.
+ * @param {number} currentIndex Index of the fallback currently being processed.
+ * @param {string} targetName Identifier that receives the default value.
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {unknown | null}
+ */
 function findRedundantVarDeclarationBefore(
     statements,
     currentIndex,
@@ -489,6 +561,15 @@ function findRedundantVarDeclarationBefore(
     return candidate;
 }
 
+/**
+ * Determines whether the provided node is a bare `var <target>;` declaration
+ * with no initializer or comments that could carry semantic meaning.
+ *
+ * @param {unknown} node
+ * @param {string} targetName
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {boolean}
+ */
 function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
     if (!node || node.type !== "VariableDeclaration") {
         return false;
@@ -524,6 +605,15 @@ function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
     return true;
 }
 
+/**
+ * Extracts the underlying assignment expression from a statement wrapper
+ * (expression statement or one-line block). Returns `null` for non-identifer
+ * assignments, which ensures callers only rewrite simple `foo = ...` shapes.
+ *
+ * @param {unknown} statement
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {import("estree").AssignmentExpression | null}
+ */
 function extractAssignmentFromStatement(statement, helpers) {
     if (!statement) {
         return null;
@@ -564,6 +654,14 @@ function extractAssignmentFromStatement(statement, helpers) {
     return expression;
 }
 
+/**
+ * Parses the conditional guard wrapped around `argument_count` checks. Only
+ * simple comparisons that uniquely point at a parameter index are supported;
+ * other operators are ignored so we do not misinterpret complex control flow.
+ *
+ * @param {unknown} node Expression used in the guard.
+ * @returns {ArgumentCountGuardResult | null}
+ */
 function parseArgumentCountGuard(node) {
     if (!node) {
         return null;
@@ -612,6 +710,14 @@ function parseArgumentCountGuard(node) {
     return null;
 }
 
+/**
+ * Extracts a numeric index from a literal or unary expression. The function is
+ * intentionally strict so that approximate matches (e.g. non-integers) do not
+ * get rewritten.
+ *
+ * @param {unknown} node Potential index expression.
+ * @returns {number | null}
+ */
 function parseArgumentIndexValue(node) {
     if (!node) {
         return null;
@@ -651,6 +757,13 @@ function parseArgumentIndexValue(node) {
     return null;
 }
 
+/**
+ * Checks whether a node reads `argument[<index>]` with a resolvable index.
+ *
+ * @param {unknown} node
+ * @param {number} expectedIndex
+ * @returns {boolean}
+ */
 function isArgumentArrayAccess(node, expectedIndex) {
     if (!node || node.type !== "MemberIndexExpression") {
         return false;
