@@ -610,6 +610,22 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2028") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensurePrimitiveBeginPrecedesEnd({
+                    ast,
+                    diagnostic
+                });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({
@@ -7097,6 +7113,124 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
     return fixes;
 }
 
+function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            if (isStatementArray({ node, parent, property })) {
+                let index = 0;
+
+                while (index < node.length) {
+                    const statement = node[index];
+
+                    if (isDrawPrimitiveEndCall(statement)) {
+                        const fix = ensurePrimitiveBeginBeforeEnd({
+                            statements: node,
+                            index,
+                            endCall: statement,
+                            diagnostic
+                        });
+
+                        if (fix) {
+                            fixes.push(fix);
+                        }
+                    }
+
+                    visit(node[index], node, index);
+                    index += 1;
+                }
+
+                return;
+            }
+
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensurePrimitiveBeginBeforeEnd({
+    statements,
+    index,
+    endCall,
+    diagnostic
+}) {
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return null;
+    }
+
+    if (!endCall || !isDrawPrimitiveEndCall(endCall)) {
+        return null;
+    }
+
+    let unmatchedBegins = 0;
+
+    for (let position = 0; position < index; position += 1) {
+        const statement = statements[position];
+
+        if (isDrawPrimitiveBeginCall(statement)) {
+            unmatchedBegins += 1;
+            continue;
+        }
+
+        if (isDrawPrimitiveEndCall(statement) && unmatchedBegins > 0) {
+            unmatchedBegins -= 1;
+        }
+    }
+
+    if (unmatchedBegins > 0) {
+        return null;
+    }
+
+    const beginCall = createPrimitiveBeginCall(endCall);
+
+    if (!beginCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: endCall?.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(endCall),
+            end: getNodeEndIndex(endCall)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    statements.splice(index, 0, beginCall);
+    attachFeatherFixMetadata(beginCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureDrawPrimitiveEndCallsAreBalanced({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -10772,6 +10906,43 @@ function isCallExpressionWithName(node, name) {
     }
 
     return isIdentifierWithName(node.object, name);
+}
+
+function createPrimitiveBeginCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = createIdentifier(
+        "draw_primitive_begin",
+        template.object
+    );
+
+    if (!identifier) {
+        return null;
+    }
+
+    const primitiveType = createIdentifier("pr_linelist");
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [primitiveType].filter(Boolean)
+    };
+
+    if (Object.hasOwn(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.hasOwn(template, "end")) {
+        const referenceLocation = template.start ?? template.end;
+
+        if (referenceLocation) {
+            callExpression.end = cloneLocation(referenceLocation);
+        }
+    }
+
+    return callExpression;
 }
 
 function isLiteralZero(node) {
