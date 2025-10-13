@@ -2,7 +2,10 @@
 // This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
-import { getIdentifierText } from "../../../../shared/ast-node-helpers.js";
+import {
+    getIdentifierText,
+    getCallExpressionArguments
+} from "../../../../shared/ast-node-helpers.js";
 import { getCachedValue } from "../../options/options-cache.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
@@ -107,9 +110,7 @@ function getLoopLengthHoistInfo(
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments)
-        ? callExpression.arguments
-        : [];
+    const args = getCallExpressionArguments(callExpression);
     if (args.length !== 1) {
         return null;
     }
