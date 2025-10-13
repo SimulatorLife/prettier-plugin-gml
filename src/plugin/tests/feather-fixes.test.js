@@ -1389,7 +1389,7 @@ describe("applyFeatherFixes transform", () => {
             "Expected manual Feather fix metadata to be captured for every diagnostic."
         );
 
-        ["GM2054", "GM2020", "GM1042"].forEach((id) => {
+        ["GM2054", "GM2020", "GM2042", "GM1042"].forEach((id) => {
             assert.strictEqual(
                 recordedIds.has(id),
                 true,
@@ -3098,5 +3098,83 @@ describe("applyFeatherFixes transform", () => {
         );
         assert.strictEqual(gm2051.automatic, true);
         assert.ok(gm2051.range);
+    });
+
+    it("balances gpu_push_state/gpu_pop_state pairs flagged by GM2042", () => {
+        const source = [
+            "if (situation_1)",
+            "{",
+            "    gpu_push_state();",
+            "    gpu_push_state();",
+            "",
+            '    draw_text(x, y, "Hi");',
+            "",
+            "    gpu_pop_state();",
+            "}",
+            "",
+            "if (situation_2)",
+            "{",
+            "    gpu_push_state();",
+            "",
+            "    draw_circle(x, y, 10, false);",
+            "",
+            "    gpu_pop_state();",
+            "    gpu_pop_state();",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [firstIf, secondIf] = ast.body ?? [];
+        assert.ok(firstIf?.consequent?.type === "BlockStatement");
+        assert.ok(secondIf?.consequent?.type === "BlockStatement");
+
+        const firstBlockStatements = firstIf.consequent.body ?? [];
+        const secondBlockStatements = secondIf.consequent.body ?? [];
+
+        const firstBlockPushes = firstBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_push_state"
+        );
+        const firstBlockPops = firstBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_pop_state"
+        );
+
+        assert.strictEqual(firstBlockPushes.length, 2);
+        assert.strictEqual(firstBlockPops.length, 2);
+
+        const secondBlockPushes = secondBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_push_state"
+        );
+        const secondBlockPops = secondBlockStatements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "gpu_pop_state"
+        );
+
+        assert.strictEqual(secondBlockPushes.length, 1);
+        assert.strictEqual(secondBlockPops.length, 1);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2042 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2042"
+        );
+
+        assert.ok(
+            gm2042,
+            "Expected GM2042 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2042.automatic, true);
     });
 });
