@@ -1,8 +1,17 @@
-#macro  LEGACY_MACRO(value) ((value) * 2)
-#region Utility Scripts
-#endregion Utility Scripts
-#region AlreadyValid
+#macro  LEGACY_MACRO 123456789
 
-#macro STILL_VALID 1
+#region Utility Scripts
+
+var util = function(val) {
+	return val * LEGACY_MACRO;
+}
+
+#endregion
+
+#region A region
+
+#macro VALID_MACRO 1
 
 var sentinel = true;
+
+#endregion
