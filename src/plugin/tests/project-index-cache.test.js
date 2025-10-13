@@ -12,7 +12,7 @@ import {
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     PROJECT_INDEX_CACHE_SCHEMA_VERSION
-} from "../../plugin/src/project-index/index.js";
+} from "../src/project-index/index.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
