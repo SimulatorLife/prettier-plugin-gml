@@ -2193,6 +2193,49 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_cullmode(cull_clockwise);",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.strictEqual(body.length >= 3, true);
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
+        assert.strictEqual(resetCall.arguments?.[0]?.name, "cull_noculling");
+
+        const callDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2051"),
+            true
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2051 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2051"
+        );
+        assert.ok(
+            gm2051,
+            "Expected GM2051 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2051.automatic, true);
+        assert.ok(gm2051.range);
+    });
+
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
@@ -2926,5 +2969,48 @@ describe("applyFeatherFixes transform", () => {
             callDiagnostics.some((entry) => entry.id === "GM2052"),
             true
         );
+    });
+
+    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_cullmode(cull_clockwise);",
+            "",
+            "vertex_submit(vb, pr_trianglelist, tex);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = ast.body ?? [];
+        assert.strictEqual(body.length >= 3, true);
+
+        const resetCall = body[1];
+        assert.ok(resetCall);
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
+        assert.strictEqual(resetCall.arguments?.[0]?.name, "cull_noculling");
+
+        const callDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            callDiagnostics.some((entry) => entry.id === "GM2051"),
+            true
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2051 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2051"
+        );
+        assert.ok(
+            gm2051,
+            "Expected GM2051 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2051.automatic, true);
+        assert.ok(gm2051.range);
     });
 });
