@@ -1,9 +1,7 @@
 // options/identifier-case.js
 
-import {
-    normalizeStringList,
-    capitalize
-} from "../../../shared/string-utils.js";
+import { normalizeStringList } from "../utils/option-utils.js";
+import { capitalize } from "../../../shared/string-utils.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
