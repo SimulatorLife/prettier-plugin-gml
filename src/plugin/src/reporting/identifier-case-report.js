@@ -13,6 +13,16 @@ import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
 
+function readArrayProperty(owner, propertyName) {
+    const collection = owner?.[propertyName];
+
+    if (Array.isArray(collection)) {
+        return collection;
+    }
+
+    return null;
+}
+
 const defaultFsFacade = Object.freeze({
     mkdirSync(targetPath) {
         nodeMkdirSync(targetPath, { recursive: true });
@@ -25,11 +35,11 @@ const defaultFsFacade = Object.freeze({
 const defaultNow = () => Date.now();
 
 function getNormalizedOperations(report) {
-    return Array.isArray(report?.operations) ? report.operations : [];
+    return readArrayProperty(report, "operations") ?? [];
 }
 
 function getNormalizedReferences(operation) {
-    return Array.isArray(operation?.references) ? operation.references : [];
+    return readArrayProperty(operation, "references") ?? [];
 }
 
 function getNormalizedConflicts(conflicts) {
@@ -53,12 +63,13 @@ function extractOperations(plan) {
         return plan;
     }
 
-    const { operations, renames } = plan;
-    if (Array.isArray(operations)) {
+    const operations = readArrayProperty(plan, "operations");
+    if (operations) {
         return operations;
     }
 
-    if (Array.isArray(renames)) {
+    const renames = readArrayProperty(plan, "renames");
+    if (renames) {
         return renames;
     }
 
