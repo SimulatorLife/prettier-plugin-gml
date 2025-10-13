@@ -857,13 +857,25 @@ export function print(path, options, print) {
             return concat(["#endregion", print("name")]);
         }
         case "DefineStatement": {
-            // GameMaker Studio has historically supported both `#define` and
-            // `#macro` directives. The formatter normalises legacy `#define`
-            // entries to the modern `#macro` spelling so that the generated
-            // output matches GameMaker's current syntax expectations and the
-            // existing golden fixtures. Preserve the original spacing and
-            // payload by reusing the captured `name` token text.
-            return concat(["#macro", print("name")]);
+            const directive =
+                typeof node.replacementDirective === "string"
+                    ? node.replacementDirective
+                    : "#macro";
+            const suffixDoc =
+                typeof node.replacementSuffix === "string"
+                    ? node.replacementSuffix
+                    : print("name");
+
+            if (typeof suffixDoc === "string") {
+                const needsSeparator =
+                    suffixDoc.length > 0 && !/^\s/.test(suffixDoc);
+
+                return needsSeparator
+                    ? concat([directive, " ", suffixDoc])
+                    : concat([directive, suffixDoc]);
+            }
+
+            return concat([directive, suffixDoc]);
         }
         case "DeleteStatement": {
             return concat(["delete ", print("argument")]);

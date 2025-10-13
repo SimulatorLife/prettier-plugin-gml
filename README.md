@@ -315,6 +315,18 @@ See the [Prettier CLI docs](https://prettier.io/docs/en/cli.html) for more optio
 formatter-specific tooling? Browse the [documentation index](docs/README.md) for plans and guides on metadata harvesting,
 identifier handling, and rename safety nets.
 
+### Legacy `#define` directives
+
+GameMaker Studio 2 rejects `#define` statements, so the formatter automatically normalises them while preserving the
+surrounding whitespace:
+
+- Macro-style directives are rewritten as `#macro` declarations so compiled builds remain valid.
+- Markers that look like region headers or footers are converted to `#region`/`#endregion`.
+- Lines that do not match either pattern are dropped entirely so stray `#define` placeholders cannot break builds.
+
+Add a comment explaining the original intent if you run into a line that the formatter removes—the deleted directive was
+never valid GML and GameMaker would have rejected it at compile time.
+
 ### Visual Studio Code
 
 1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.

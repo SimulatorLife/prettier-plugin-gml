@@ -1389,10 +1389,46 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
     // Visit a parse tree produced by GameMakerLanguageParser#defineStatement.
     visitDefineStatement(ctx) {
-        return this.astNode(ctx, {
-            type: "DefineStatement",
-            name: ctx.RegionCharacters().getText()
-        });
+        const regionCharacters = ctx.RegionCharacters();
+        const rawText = regionCharacters ? regionCharacters.getText() : "";
+        const trimmed = rawText.trim();
+
+        if (trimmed.length === 0) {
+            return null;
+        }
+
+        const regionMatch = rawText.match(/^\s*region\b(.*)$/i);
+        if (regionMatch) {
+            return this.astNode(ctx, {
+                type: "DefineStatement",
+                name: rawText,
+                replacementDirective: "#region",
+                replacementSuffix: regionMatch[1] ?? ""
+            });
+        }
+
+        const endRegionMatch = rawText.match(
+            /^\s*(?:end\s*region|endregion)\b(.*)$/i
+        );
+        if (endRegionMatch) {
+            return this.astNode(ctx, {
+                type: "DefineStatement",
+                name: rawText,
+                replacementDirective: "#endregion",
+                replacementSuffix: endRegionMatch[1] ?? ""
+            });
+        }
+
+        if (/^\s*[A-Za-z_][A-Za-z0-9_]*\b/.test(rawText)) {
+            return this.astNode(ctx, {
+                type: "DefineStatement",
+                name: rawText,
+                replacementDirective: "#macro",
+                replacementSuffix: rawText
+            });
+        }
+
+        return null;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#regionStatement.
