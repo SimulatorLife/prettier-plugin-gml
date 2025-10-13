@@ -6,6 +6,7 @@ import {
     getNodeStartIndex,
     cloneLocation
 } from "../../../shared/ast-locations.js";
+import { getCallExpressionArguments } from "../../../shared/ast-node-helpers.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
 import {
@@ -7132,9 +7133,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
             return null;
         }
 
-        const args = Array.isArray(callExpression.arguments)
-            ? callExpression.arguments
-            : [];
+        const args = getCallExpressionArguments(callExpression);
 
         if (args.length === 0) {
             return null;

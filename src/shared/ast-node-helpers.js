@@ -134,6 +134,24 @@ function getMemberIndexText(indexNode) {
     return getIdentifierText(indexNode);
 }
 
+/**
+ * Safely read the argument array from a call-like AST node.
+ *
+ * @param {object | null | undefined} callExpression Potential call expression
+ *     node that may expose an {@code arguments} array.
+ * @returns {Array<unknown>} Normalized argument collection. Returns a shared
+ *     empty array when no arguments exist so callers can iterate without
+ *     additional null checks.
+ */
+function getCallExpressionArguments(callExpression) {
+    if (!callExpression || typeof callExpression !== "object") {
+        return [];
+    }
+
+    const { arguments: args } = callExpression;
+    return Array.isArray(args) ? args : [];
+}
+
 function isUndefinedLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -154,6 +172,7 @@ function isNode(value) {
 export {
     getSingleVariableDeclarator,
     getIdentifierText,
+    getCallExpressionArguments,
     isUndefinedLiteral,
     isNode
 };
