@@ -1,4 +1,5 @@
 import { cloneLocation } from "../../shared/ast-locations.js";
+import { isObjectLike } from "../../shared/object-utils.js";
 
 class Scope {
     constructor(id, kind) {
@@ -77,7 +78,7 @@ export default class ScopeTracker {
             return this.rootScope ?? this.currentScope();
         }
 
-        if (typeof scopeOverride === "object" && scopeOverride !== null) {
+        if (isObjectLike(scopeOverride)) {
             if (typeof scopeOverride.id === "string") {
                 return scopeOverride;
             }

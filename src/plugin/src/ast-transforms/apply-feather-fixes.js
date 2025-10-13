@@ -14,6 +14,7 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString
 } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
 import {
@@ -3710,7 +3711,7 @@ function convertMultidimensionalMemberIndex(
 
     if (Array.isArray(parent)) {
         parent[property] = nestedExpression;
-    } else if (typeof parent === "object" && parent !== null) {
+    } else if (isObjectLike(parent)) {
         parent[property] = nestedExpression;
     }
 
