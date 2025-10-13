@@ -26,6 +26,14 @@ function createProjectIndex(projectRoot, metrics = null) {
     };
 }
 
+function createDeferred() {
+    let resolve;
+    const promise = new Promise((res) => {
+        resolve = res;
+    });
+    return { promise, resolve };
+}
+
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-cache-"));
     try {
@@ -197,6 +205,13 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     const storedPayloads = new Map();
     let buildCount = 0;
     const cacheFilePath = path.join(os.tmpdir(), "virtual-cache.json");
+    // The test previously relied on real timers to keep the first build pending
+    // long enough for a concurrent ensureReady call to observe the shared
+    // in-flight promise. That approach was prone to races when event loop
+    // scheduling varied, so explicit deferred promises keep the orchestration
+    // deterministic.
+    const buildHasStarted = createDeferred();
+    const releaseBuild = createDeferred();
 
     const coordinator = createProjectIndexCoordinator({
         loadCache: async (descriptor) => {
@@ -240,7 +255,8 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
         },
         buildIndex: async (root) => {
             buildCount += 1;
-            await new Promise((resolve) => setTimeout(resolve, 20));
+            buildHasStarted.resolve();
+            await releaseBuild.promise;
             return createProjectIndex(root, { buildCount });
         }
     });
@@ -254,9 +270,15 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     };
 
     try {
+        const firstPromise = coordinator.ensureReady(descriptor);
+        await buildHasStarted.promise;
+        const secondPromise = coordinator.ensureReady(descriptor);
+
+        releaseBuild.resolve();
+
         const [first, second] = await Promise.all([
-            coordinator.ensureReady(descriptor),
-            coordinator.ensureReady(descriptor)
+            firstPromise,
+            secondPromise
         ]);
 
         assert.equal(buildCount, 1);
