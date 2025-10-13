@@ -101,7 +101,7 @@ describe("identifier case asset conflict planning", () => {
                 diagnostics: []
             };
 
-            prepareIdentifierCasePlan(options);
+            await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
             assert.ok(

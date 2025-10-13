@@ -345,7 +345,7 @@ describe("asset rename conflict detection", () => {
                 diagnostics: []
             };
 
-            prepareIdentifierCasePlan(options);
+            await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
             assert.ok(
@@ -408,7 +408,7 @@ describe("asset rename conflict detection", () => {
                 diagnostics: []
             };
 
-            prepareIdentifierCasePlan(options);
+            await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
             assert.ok(

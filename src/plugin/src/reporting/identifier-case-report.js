@@ -6,6 +6,8 @@ import {
     writeFileSync as nodeWriteFileSync
 } from "node:fs";
 
+import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 
 const REPORT_NAMESPACE = "gml-identifier-case";
@@ -622,9 +624,9 @@ export function maybeReportIdentifierCaseDryRun(options) {
             ? optionsDryRun !== false
             : contextDryRun !== undefined
                 ? contextDryRun !== false
-                : true;
+                : false;
 
-    options.__identifierCaseDryRun = shouldDryRun;
+    setIdentifierCaseOption(options, "__identifierCaseDryRun", shouldDryRun);
 
     if (!shouldDryRun) {
         const result = summarizeIdentifierCasePlan({
@@ -632,8 +634,12 @@ export function maybeReportIdentifierCaseDryRun(options) {
             conflicts
         });
 
-        options.__identifierCaseReportEmitted = true;
-        options.__identifierCaseReportResult = result;
+        setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseReportResult",
+            result
+        );
 
         return result;
     }
@@ -670,8 +676,8 @@ export function maybeReportIdentifierCaseDryRun(options) {
         now: effectiveNow
     });
 
-    options.__identifierCaseReportEmitted = true;
-    options.__identifierCaseReportResult = result;
+    setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
+    setIdentifierCaseOption(options, "__identifierCaseReportResult", result);
 
     return result;
 }
