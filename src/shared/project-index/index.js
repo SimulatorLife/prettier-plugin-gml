@@ -157,6 +157,8 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 
 let cachedBuiltInIdentifiers = null;
 
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
     metrics = null
@@ -1337,7 +1339,7 @@ function traverseAst(root, visitor) {
     }
 
     const stack = [root];
-    const seen = new Set();
+    const seen = new WeakSet();
 
     while (stack.length > 0) {
         const node = stack.pop();
@@ -1352,10 +1354,14 @@ function traverseAst(root, visitor) {
 
         visitor(node);
 
-        const values = Object.values(node);
-        for (const value of values) {
+        for (const key in node) {
+            if (!hasOwnProperty.call(node, key)) {
+                continue;
+            }
+
+            const value = node[key];
             if (Array.isArray(value)) {
-                for (let i = value.length - 1; i >= 0; i--) {
+                for (let i = value.length - 1; i >= 0; i -= 1) {
                     const child = value[i];
                     if (child && typeof child === "object") {
                         stack.push(child);
