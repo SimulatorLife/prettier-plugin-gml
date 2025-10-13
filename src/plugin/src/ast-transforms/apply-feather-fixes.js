@@ -15,6 +15,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
@@ -307,7 +308,7 @@ export function applyFeatherFixes(
             options
         });
 
-        if (Array.isArray(fixes) && fixes.length > 0) {
+        if (isNonEmptyArray(fixes)) {
             appliedFixes.push(...fixes);
         }
     }
@@ -485,7 +486,7 @@ function buildFeatherFixImplementations(diagnostics) {
                         callTemplate
                     });
 
-                    if (Array.isArray(fixes) && fixes.length > 0) {
+                    if (isNonEmptyArray(fixes)) {
                         return fixes;
                     }
 
@@ -499,7 +500,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeDuplicateEnumMembers({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -520,7 +521,7 @@ function buildFeatherFixImplementations(diagnostics) {
                             diagnostic
                         });
 
-                        if (Array.isArray(fixes) && fixes.length > 0) {
+                        if (isNonEmptyArray(fixes)) {
                             return fixes;
                         }
 
@@ -537,7 +538,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -553,7 +554,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -585,7 +586,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -601,7 +602,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -633,7 +634,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -649,7 +650,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -662,7 +663,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -675,7 +676,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureFogIsReset({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -688,7 +689,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -1203,10 +1204,7 @@ function createAutomaticFeatherFixHandlers() {
                     }
                 );
 
-                if (
-                    Array.isArray(attributeFixes) &&
-                    attributeFixes.length > 0
-                ) {
+                if (isNonEmptyArray(attributeFixes)) {
                     fixes.push(...attributeFixes);
                 }
 
@@ -1216,7 +1214,7 @@ function createAutomaticFeatherFixHandlers() {
                     sourceText
                 });
 
-                if (Array.isArray(roomFixes) && roomFixes.length > 0) {
+                if (isNonEmptyArray(roomFixes)) {
                     fixes.push(...roomFixes);
                 }
 
@@ -1450,10 +1448,6 @@ function createAutomaticFeatherFixHandlers() {
                 annotateInstanceVariableStructAssignments({ ast, diagnostic })
         ]
     ]);
-}
-
-function isNonEmptyArray(value) {
-    return Array.isArray(value) && value.length > 0;
 }
 
 function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
@@ -2945,7 +2939,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
                 diagnostic
             );
 
-            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+            if (isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
             }
 
@@ -2990,7 +2984,7 @@ function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
                 diagnostic
             );
 
-            if (Array.isArray(nestedFixes) && nestedFixes.length > 0) {
+            if (isNonEmptyArray(nestedFixes)) {
                 fixes.push(...nestedFixes);
             }
 
@@ -3921,7 +3915,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (Array.isArray(node.body) && node.body.length > 0) {
+        if (isNonEmptyArray(node.body)) {
             processStatementList(node, node.body);
         }
 
@@ -5360,7 +5354,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
                 property
             );
 
-            if (Array.isArray(fixDetails) && fixDetails.length > 0) {
+            if (isNonEmptyArray(fixDetails)) {
                 fixes.push(...fixDetails);
             }
         }
@@ -5415,7 +5409,7 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
                 diagnostic,
                 options
             );
-            if (Array.isArray(functionFixes) && functionFixes.length > 0) {
+            if (isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
             }
         }
@@ -7697,7 +7691,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
                 diagnostic
             );
 
-            if (Array.isArray(normalizedFixes) && normalizedFixes.length > 0) {
+            if (isNonEmptyArray(normalizedFixes)) {
                 fixes.push(...normalizedFixes);
             }
 
@@ -8870,7 +8864,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    if (Array.isArray(node.arguments) && node.arguments.length > 0) {
+    if (isNonEmptyArray(node.arguments)) {
         return null;
     }
 
@@ -10622,7 +10616,7 @@ function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
         if (node.type === "CallExpression") {
             const callFixes = annotateInstanceCreateCall(node, diagnostic);
 
-            if (Array.isArray(callFixes) && callFixes.length > 0) {
+            if (isNonEmptyArray(callFixes)) {
                 fixes.push(...callFixes);
             }
         }
@@ -12528,10 +12522,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
                     diagnostic
                 );
 
-            if (
-                Array.isArray(declarationFixes) &&
-                declarationFixes.length > 0
-            ) {
+            if (isNonEmptyArray(declarationFixes)) {
                 fixes.push(...declarationFixes);
             }
         } else if (node.type === "MacroDeclaration") {

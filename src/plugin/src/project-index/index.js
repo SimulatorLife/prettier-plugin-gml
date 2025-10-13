@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import {
     buildLocationKey,
@@ -1037,8 +1038,9 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
             );
         }
 
-        if (Array.isArray(parsed?.eventList) && parsed.eventList.length > 0) {
-            for (const event of parsed.eventList) {
+        const eventList = parsed?.eventList;
+        if (isNonEmptyArray(eventList)) {
+            for (const event of eventList) {
                 const eventGmlPath = extractEventGmlPath(
                     event,
                     resourceRecord,
