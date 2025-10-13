@@ -271,6 +271,8 @@ export function summarizeIdentifierCasePlan({
         toArray(conflicts).map(normalizeConflict).filter(Boolean)
     );
 
+    const renameSummaries = normalizedOperations.map(buildRenameSummary);
+
     const impactedFileSet = new Set();
     let totalReferenceCount = 0;
 
@@ -298,6 +300,7 @@ export function summarizeIdentifierCasePlan({
     return {
         summary,
         operations: normalizedOperations,
+        renames: renameSummaries,
         conflicts: normalizedConflicts
     };
 }
@@ -404,7 +407,18 @@ function getNormalizedReportCollections(report) {
     const operations = getNormalizedOperations(report);
     const conflicts = getNormalizedConflicts(report?.conflicts);
 
-    return { operations, conflicts };
+    const renamesSource = Array.isArray(report?.renames)
+        ? report.renames.filter(
+            (rename) => rename && typeof rename === "object"
+        )
+        : null;
+
+    const renames =
+        renamesSource && renamesSource.length === operations.length
+            ? renamesSource
+            : buildRenameSummaries(operations);
+
+    return { operations, renames, conflicts };
 }
 
 function buildRenameSummary(operation) {
@@ -426,8 +440,7 @@ function buildRenameSummaries(operations) {
 
 function buildLogPayload(report, generatedAt) {
     const { summary = {} } = report ?? {};
-    const { operations, conflicts } = getNormalizedReportCollections(report);
-    const renames = buildRenameSummaries(operations);
+    const { renames, conflicts } = getNormalizedReportCollections(report);
 
     return {
         version: LOG_VERSION,
@@ -461,8 +474,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         return;
     }
 
-    const { operations, conflicts } = getNormalizedReportCollections(report);
-    const renames = buildRenameSummaries(operations);
+    const { renames, conflicts } = getNormalizedReportCollections(report);
 
     const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
