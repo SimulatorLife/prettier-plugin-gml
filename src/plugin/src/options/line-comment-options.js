@@ -104,6 +104,14 @@ function mergeLineCommentOptionOverrides(overrides) {
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
 const lineCommentOptionsCache = new WeakMap();
 
+function hasBoilerplateOverride(value) {
+    if (typeof value === "string") {
+        return value.trim().length > 0;
+    }
+
+    return value !== undefined;
+}
+
 function resolveLineCommentOptions(options) {
     if (typeof options !== "object" || options === null) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
@@ -115,20 +123,14 @@ function resolveLineCommentOptions(options) {
         lineCommentBoilerplateFragments
     } = options;
 
-    const hasBannerOverride = !(
-        lineCommentBannerMinimumSlashes === undefined &&
-        lineCommentBannerAutofillThreshold === undefined
+    const hasBannerOverride =
+        lineCommentBannerMinimumSlashes !== undefined ||
+        lineCommentBannerAutofillThreshold !== undefined;
+    const hasBoilerplateOverrideValue = hasBoilerplateOverride(
+        lineCommentBoilerplateFragments
     );
 
-    const hasBoilerplateOverride = (() => {
-        if (typeof lineCommentBoilerplateFragments === "string") {
-            return lineCommentBoilerplateFragments.trim().length > 0;
-        }
-
-        return lineCommentBoilerplateFragments !== undefined;
-    })();
-
-    if (!hasBannerOverride && !hasBoilerplateOverride) {
+    if (!hasBannerOverride && !hasBoilerplateOverrideValue) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
