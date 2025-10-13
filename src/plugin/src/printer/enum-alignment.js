@@ -13,19 +13,30 @@ export function prepareEnumMembersForPrinting(
             ? Math.max(trailingCommentPadding, 0)
             : 0;
 
-    const nameLengths = members.map((member) => {
-        const rawName = getNodeName?.(member?.name);
-        return typeof rawName === "string" ? rawName.length : 0;
-    });
+    const memberCount = members.length;
+    const nameLengths = new Array(memberCount);
 
-    const maxNameLength = Math.max(...nameLengths);
-    const maxInitializerNameLength = members.reduce((result, member, index) => {
-        if (member?.initializer) {
-            const length = nameLengths[index];
-            return length > result ? length : result;
+    let maxNameLength = 0;
+    let maxInitializerNameLength = 0;
+
+    // A single indexed pass avoids re-scanning the array when computing
+    // `Math.max` / `Array#reduce`, keeping this hot alignment prep tight.
+    for (let index = 0; index < memberCount; index += 1) {
+        const member = members[index];
+        const rawName = getNodeName?.(member?.name);
+        const length = typeof rawName === "string" ? rawName.length : 0;
+
+        nameLengths[index] = length;
+
+        if (length > maxNameLength) {
+            maxNameLength = length;
         }
-        return result;
-    }, 0);
+
+        if (member?.initializer && length > maxInitializerNameLength) {
+            maxInitializerNameLength = length;
+        }
+    }
+
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
     members.forEach((member, index) => {
