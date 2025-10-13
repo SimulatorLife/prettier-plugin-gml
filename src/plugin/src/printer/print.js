@@ -3564,6 +3564,8 @@ function isNumericComputationNode(node) {
 
             return false;
         }
+        case "Identifier":
+            return true;
         case "ParenthesizedExpression": {
             return isNumericComputationNode(node.expression);
         }
