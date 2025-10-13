@@ -235,6 +235,34 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("retains blank lines following macro directives", async () => {
+        const source = [
+            "#define  TRIPLE(value) ((value) * 3)",
+            "",
+            "var total = TRIPLE(7);",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const lines = formatted.split("\n");
+        const macroIndex = lines.findIndex((line) =>
+            line.startsWith("#macro  TRIPLE")
+        );
+
+        assert.ok(macroIndex >= 0, "Expected macro directive to be printed.");
+        assert.strictEqual(
+            lines[macroIndex + 1],
+            "",
+            "Expected formatter to preserve the blank line after the macro."
+        );
+        assert.strictEqual(
+            lines[macroIndex + 2],
+            "var total = TRIPLE(7);",
+            "Expected code following the macro to remain unchanged."
+        );
+    });
+
     it("converts argument_count fallback conditionals into default parameters", async () => {
         const source = [
             "function example(arg) {",

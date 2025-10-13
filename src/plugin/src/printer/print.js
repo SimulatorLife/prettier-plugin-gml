@@ -1368,9 +1368,15 @@ function printStatements(path, options, print, childrenAttribute) {
             const nextHasSyntheticDoc = nextNode
                 ? syntheticDocByNode.has(nextNode)
                 : false;
+            const nextLineProbeIndex =
+                node?.type === "DefineStatement" ||
+                node?.type === "MacroDeclaration"
+                    ? nodeEndIndex
+                    : nodeEndIndex + 1;
+
             const nextLineEmpty = isNextLineEmpty(
                 options.originalText,
-                nodeEndIndex + 1
+                nextLineProbeIndex
             );
 
             if (currentNodeRequiresNewline && !nextLineEmpty) {
