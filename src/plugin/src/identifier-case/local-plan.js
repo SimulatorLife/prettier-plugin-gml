@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/metrics.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";

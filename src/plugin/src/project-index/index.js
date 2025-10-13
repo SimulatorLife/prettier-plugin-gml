@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import GMLParser from "../../../parser/gml-parser.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/metrics.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import {
     buildLocationKey,
     buildFileLocationKey
