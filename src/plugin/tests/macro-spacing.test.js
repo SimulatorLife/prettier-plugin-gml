@@ -17,6 +17,16 @@ test("macro declarations avoid duplicate blank lines", async () => {
     assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
 });
 
+test("macro declarations add a blank line before following statements", async () => {
+    const source = "#macro FOO 1\nvar value = FOO;";
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
+});
+
 test("macro declarations stay separated on consecutive lines", async () => {
     const source = [
         "#macro FOO 1",
