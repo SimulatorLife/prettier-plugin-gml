@@ -2490,7 +2490,7 @@ export async function buildProjectIndex(
                 relationships,
                 scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
                 scriptNameToResourcePath:
-                resourceAnalysis.scriptNameToResourcePath,
+                    resourceAnalysis.scriptNameToResourcePath,
                 identifierCollections,
                 scopeDescriptor,
                 metrics,

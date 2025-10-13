@@ -1,9 +1,12 @@
+// Make sure the global logger is created before we try to log anything
+gml_pragma("global", "variable_global_set(\"logger\", new DedupLogger())");
+
 function _test_create_assert_error(argument0) {
 	/* 
 	 * Helper method for asserts to create standardized error
 	 * messages. Not meant for external use.
 	 */
-	throw ("ASSERTION ERROR: " + string(argument0));
+	throw ("ASSERTION ERROR: " + "\n" + string(argument0));
 }
 
 
