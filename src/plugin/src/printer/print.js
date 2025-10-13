@@ -809,7 +809,7 @@ export function print(path, options, print) {
                     options,
                     {
                         forceBreak: node.hasTrailingComma,
-                        // TODO: decide whether to add bracket spacing for struct expressions
+                        // TODO: Decide whether to add bracket spacing for struct expressions.
                         padding: ""
                     }
                 )
@@ -931,13 +931,13 @@ export function print(path, options, print) {
             return concat("");
         }
         case "Literal": {
-            // TODO add option to allow missing trailing/leading zeroes
+            // TODO: Add an option to allow missing leading/trailing zeroes.
             let value = node.value;
             if (value.startsWith(".") && !value.startsWith('"')) {
-                value = "0" + value; // fix decimals without a leading 0
+                value = "0" + value; // Fix decimals without a leading 0.
             }
             if (value.endsWith(".") && !value.endsWith('"')) {
-                value = value + "0"; // fix decimals without a trailing 0
+                value = value + "0"; // Fix decimals without a trailing 0.
             }
             return concat(value);
         }
@@ -953,7 +953,8 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            return concat("undefined"); // TODO: Add plugin option to choose undefined or just empty comma
+            // TODO: Add a plugin option to choose undefined or an empty comma.
+            return concat("undefined");
         }
         case "NewExpression": {
             let argsPrinted;
