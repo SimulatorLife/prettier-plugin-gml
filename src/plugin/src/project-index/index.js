@@ -2,6 +2,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import GMLParser from "../../../parser/gml-parser.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
@@ -97,20 +98,19 @@ function cloneMtimeMap(source) {
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
-    const expectedKeys = Object.keys(expected).sort();
-    const actualKeys = Object.keys(actual).sort();
-    if (expectedKeys.length !== actualKeys.length) {
+    if (expected === actual) {
+        return true;
+    }
+
+    if (typeof expected !== "object" || expected === null) {
         return false;
     }
-    for (let i = 0; i < expectedKeys.length; i += 1) {
-        if (expectedKeys[i] !== actualKeys[i]) {
-            return false;
-        }
-        if (expected[expectedKeys[i]] !== actual[actualKeys[i]]) {
-            return false;
-        }
+
+    if (typeof actual !== "object" || actual === null) {
+        return false;
     }
-    return true;
+
+    return isDeepStrictEqual(expected, actual);
 }
 
 function validateCachePayload(payload) {
