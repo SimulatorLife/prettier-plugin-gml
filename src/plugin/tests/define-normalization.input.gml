@@ -9,4 +9,4 @@ var util = function(val) {
 #region A region
 #macro VALID_MACRO 1
 var sentinel = true;
-#endregion End regions cannot have names
+#endregion End regions can also have comments

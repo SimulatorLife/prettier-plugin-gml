@@ -6,6 +6,12 @@ function my_custom_struct(_value) constructor
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 	self.foo = _foo;
 	value = 0;
+
+    /// @method print
+    /// @returns {void}
+    static print = function() {
+        show_debug_message($"My foo is {self.foo}");
+    }
 }
 
 /// @function
@@ -14,6 +20,10 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
 	self.foo = _foo;
 	value = 0;
 	bar = _bar;
+
+    static print = function() {
+        show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
+    }
 }
 
 function keep_separate() {

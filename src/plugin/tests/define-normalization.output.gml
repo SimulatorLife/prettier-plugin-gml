@@ -6,7 +6,7 @@ var util = function(val) {
 	return val * LEGACY_MACRO;
 }
 
-#endregion
+#endregion Utility Scripts
 
 #region A region
 
@@ -14,4 +14,4 @@ var util = function(val) {
 
 var sentinel = true;
 
-#endregion
+#endregion End regions can also have comments
