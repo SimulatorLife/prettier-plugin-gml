@@ -1971,26 +1971,29 @@ async function processWithConcurrency(items, limit, worker) {
         return;
     }
 
-    const size = Math.max(1, Math.min(limit, items.length));
-    let index = 0;
+    if (typeof worker !== "function") {
+        throw new TypeError("worker must be a function");
+    }
 
-    async function run() {
-        while (true) {
-            const currentIndex = index;
-            if (currentIndex >= items.length) {
-                return;
-            }
-            index += 1;
+    const limitValue = Number(limit);
+    const effectiveLimit =
+        Number.isFinite(limitValue) && limitValue > 0
+            ? limitValue
+            : items.length;
+    const workerCount = Math.min(
+        items.length,
+        Math.max(1, Math.ceil(effectiveLimit))
+    );
 
+    let nextIndex = 0;
+    const runWorker = async () => {
+        let currentIndex;
+        while ((currentIndex = nextIndex++) < items.length) {
             await worker(items[currentIndex], currentIndex);
         }
-    }
+    };
 
-    const tasks = [];
-    for (let i = 0; i < size; i += 1) {
-        tasks.push(run());
-    }
-    await Promise.all(tasks);
+    await Promise.all(Array.from({ length: workerCount }, runWorker));
 }
 
 export async function buildProjectIndex(
