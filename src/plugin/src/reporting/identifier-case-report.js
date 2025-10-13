@@ -24,41 +24,16 @@ const defaultFsFacade = Object.freeze({
 
 const defaultNow = () => Date.now();
 
-function serializeReferenceEntries(references) {
-    if (!Array.isArray(references)) {
-        return [];
-    }
-
-    return references.map(({ filePath, occurrences }) => ({
-        filePath,
-        occurrences
-    }));
+function getNormalizedOperations(report) {
+    return Array.isArray(report?.operations) ? report.operations : [];
 }
 
-function serializeConflictEntries(conflicts) {
-    if (!Array.isArray(conflicts)) {
-        return [];
-    }
+function getNormalizedReferences(operation) {
+    return Array.isArray(operation?.references) ? operation.references : [];
+}
 
-    return conflicts.map(
-        ({
-            code,
-            message,
-            severity,
-            scope,
-            identifier,
-            suggestions,
-            details
-        }) => ({
-            code,
-            message,
-            severity,
-            scope,
-            identifier,
-            suggestions,
-            details
-        })
-    );
+function getNormalizedConflicts(conflicts) {
+    return Array.isArray(conflicts) ? conflicts : [];
 }
 
 function normalizeString(...values) {
@@ -429,7 +404,9 @@ export function formatIdentifierCaseSummaryText(report) {
 }
 
 function buildLogPayload(report, generatedAt) {
-    const { summary, operations, conflicts } = report;
+    const { summary } = report;
+    const operations = getNormalizedOperations(report);
+    const conflicts = getNormalizedConflicts(report.conflicts);
 
     return {
         version: LOG_VERSION,
@@ -455,9 +432,9 @@ function buildLogPayload(report, generatedAt) {
                 name: operation.toName
             },
             referenceCount: operation.occurrenceCount,
-            references: serializeReferenceEntries(operation.references)
+            references: getNormalizedReferences(operation)
         })),
-        conflicts: serializeConflictEntries(conflicts)
+        conflicts
     };
 }
 
@@ -466,11 +443,11 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         return;
     }
 
-    const severity = report.conflicts.some(
-        (conflict) => conflict.severity === "error"
-    )
+    const conflicts = getNormalizedConflicts(report.conflicts);
+
+    const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
-        : report.conflicts.some((conflict) => conflict.severity === "warning")
+        : conflicts.some((conflict) => conflict.severity === "warning")
             ? "warning"
             : "info";
 
@@ -481,7 +458,7 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         summary: {
             ...report.summary
         },
-        renames: report.operations.map((operation) => ({
+        renames: getNormalizedOperations(report).map((operation) => ({
             id: operation.id,
             kind: operation.kind,
             scopeId: operation.scopeId,
@@ -489,9 +466,9 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
             fromName: operation.fromName,
             toName: operation.toName,
             referenceCount: operation.occurrenceCount,
-            references: serializeReferenceEntries(operation.references)
+            references: getNormalizedReferences(operation)
         })),
-        conflicts: serializeConflictEntries(report.conflicts)
+        conflicts
     });
 }
 
