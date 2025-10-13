@@ -93,7 +93,9 @@ callers can distinguish corruption (`invalid-json`/`invalid-schema`) from stale
 inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
 `saveProjectIndexCache` writes the payload via a temporary file followed by an
 atomic rename and refuses to persist entries that exceed the configured size
-limit (8 MiB by default) to avoid unbounded disk growth.
+limit (8 MiB by default) to avoid unbounded disk growth. Callers can tune the
+limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
+setting it to `0` disables the cap when larger caches are required.
 
 ## Coordination and locking
 
