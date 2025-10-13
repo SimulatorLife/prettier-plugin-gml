@@ -320,6 +320,7 @@ function preprocessFunctionDeclaration(node, helpers) {
     }
 
     node._suppressSyntheticReturnsDoc = true;
+    node._flattenSyntheticNumericParens = true;
 
     body.body = body.body.filter(
         (statement) => !statementsToRemove.has(statement)
