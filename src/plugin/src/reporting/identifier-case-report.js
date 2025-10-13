@@ -8,7 +8,7 @@ import {
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
 import { toTrimmedString } from "../../../shared/string-utils.js";
-import { toArray } from "../../../shared/array-utils.js";
+import { asArray, toArray } from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 
@@ -41,7 +41,7 @@ function getNormalizedOperations(report) {
 }
 
 function getNormalizedConflicts(conflicts) {
-    return Array.isArray(conflicts) ? conflicts : [];
+    return asArray(conflicts);
 }
 
 function normalizeString(...values) {

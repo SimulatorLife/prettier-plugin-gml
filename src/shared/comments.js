@@ -14,6 +14,7 @@
  * @property {number} [end]
  */
 
+import { asArray } from "./array-utils.js";
 import { isObjectLike } from "./object-utils.js";
 
 export function isCommentNode(node) {
@@ -80,7 +81,7 @@ export function getCommentArray(owner) {
     }
 
     const { comments } = owner;
-    return Array.isArray(comments) ? comments : [];
+    return asArray(comments);
 }
 
 /**
