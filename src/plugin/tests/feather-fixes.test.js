@@ -2079,6 +2079,69 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("resets alpha test enable flagged by GM2053 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+        const [enableCall, resetCall, drawCall] = statements;
+
+        assert.ok(enableCall);
+        assert.ok(resetCall);
+        assert.ok(drawCall);
+        assert.strictEqual(enableCall.type, "CallExpression");
+        assert.strictEqual(enableCall.object?.name, "gpu_set_alphatestenable");
+
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_alphatestenable");
+
+        const args = Array.isArray(resetCall.arguments)
+            ? resetCall.arguments
+            : [];
+        assert.strictEqual(args.length > 0, true);
+        const [firstArg] = args;
+        assert.ok(firstArg);
+        assert.strictEqual(firstArg.type, "Literal");
+        assert.strictEqual(
+            firstArg.value === false || firstArg.value === "false",
+            true
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2053 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2053"
+        );
+
+        assert.ok(
+            gm2053,
+            "Expected GM2053 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2053.automatic, true);
+        assert.strictEqual(gm2053.target, "gpu_set_alphatestenable");
+        assert.ok(gm2053.range);
+
+        const resetMetadata = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetMetadata.some((entry) => entry.id === "GM2053"),
+            true,
+            "Expected GM2053 metadata to be recorded on the inserted reset call."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
