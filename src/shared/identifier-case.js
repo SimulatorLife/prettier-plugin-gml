@@ -154,19 +154,16 @@ function buildSnakeCase(normalized, transform) {
 }
 
 function transformSnakeLower(token) {
-    if (token.type === "word") {
-        return token.normalized;
-    }
-
     return token.normalized;
 }
 
 function transformSnakeUpper(token) {
-    if (token.type === "word") {
-        return token.normalized.toUpperCase();
+    const { normalized, type } = token;
+    if (type === "word") {
+        return normalized.toUpperCase();
     }
 
-    return token.normalized;
+    return normalized;
 }
 
 export function normalizeIdentifierCase(identifier) {
