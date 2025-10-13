@@ -12,7 +12,8 @@ import {
 } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
-    isNonEmptyTrimmedString
+    isNonEmptyTrimmedString,
+    toTrimmedString
 } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
@@ -1710,7 +1711,7 @@ function buildFeatherTypeSystemInfo() {
         : [];
 
     for (const entry of entries) {
-        const name = typeof entry?.name === "string" ? entry.name.trim() : "";
+        const name = toTrimmedString(entry?.name);
 
         if (!name) {
             continue;
@@ -11114,7 +11115,7 @@ function extractTypeAnnotation(value) {
         remainder = afterBrace.slice(closingIndex + 1);
     }
 
-    const trimmedType = typeof typeText === "string" ? typeText.trim() : "";
+    const trimmedType = toTrimmedString(typeText);
 
     return {
         beforeBrace,

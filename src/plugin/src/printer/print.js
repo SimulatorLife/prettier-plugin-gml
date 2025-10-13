@@ -47,7 +47,8 @@ import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
 import {
     isNonEmptyString,
-    isNonEmptyTrimmedString
+    isNonEmptyTrimmedString,
+    toTrimmedString
 } from "../../../shared/string-utils.js";
 import {
     getNodeStartIndex,
@@ -3576,8 +3577,7 @@ function isNumericComputationNode(node) {
 
     switch (node.type) {
         case "Literal": {
-            const value =
-                typeof node.value === "string" ? node.value.trim() : "";
+            const value = toTrimmedString(node.value);
             if (value === "") {
                 return false;
             }

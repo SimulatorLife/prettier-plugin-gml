@@ -1,3 +1,5 @@
+import { toTrimmedString } from "../string-utils.js";
+
 const DEFAULT_INDENT = "  ";
 
 function indentBlock(text, indent = DEFAULT_INDENT) {
@@ -48,9 +50,8 @@ function formatErrorValue(value, seen) {
         seen.add(value);
 
         const sections = [];
-        const name = typeof value.name === "string" ? value.name.trim() : "";
-        const message =
-            typeof value.message === "string" ? value.message.trim() : "";
+        const name = toTrimmedString(value.name);
+        const message = toTrimmedString(value.message);
 
         let header = "";
         if (name && message) {

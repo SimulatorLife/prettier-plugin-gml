@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+import { toTrimmedString } from "../../../shared/string-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 
@@ -47,11 +48,7 @@ function getNormalizedConflicts(conflicts) {
 }
 
 function normalizeString(...values) {
-    return (
-        values
-            .map((value) => (typeof value === "string" ? value.trim() : ""))
-            .find(Boolean) ?? ""
-    );
+    return values.map(toTrimmedString).find(Boolean) ?? "";
 }
 
 function extractOperations(plan) {
