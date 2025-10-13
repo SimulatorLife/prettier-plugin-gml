@@ -68,6 +68,14 @@ const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
 const preservedUndefinedDefaultParameters = new WeakSet();
 
+function stripTrailingLineTerminators(value) {
+    if (typeof value !== "string") {
+        return value;
+    }
+
+    return value.replace(/(?:\r?\n)+$/, "");
+}
+
 const BINARY_OPERATOR_INFO = new Map([
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
@@ -856,14 +864,15 @@ export function print(path, options, print) {
             }
         }
         case "MacroDeclaration": {
-            if (typeof node._featherMacroText === "string") {
-                return concat(node._featherMacroText);
-            }
+            const macroText =
+                typeof node._featherMacroText === "string"
+                    ? node._featherMacroText
+                    : options.originalText.slice(
+                        node.start.index,
+                        node.end.index + 1
+                    );
 
-            return options.originalText.slice(
-                node.start.index,
-                node.end.index + 1
-            );
+            return concat(stripTrailingLineTerminators(macroText));
         }
         case "RegionStatement": {
             return concat(["#region", print("name")]);
