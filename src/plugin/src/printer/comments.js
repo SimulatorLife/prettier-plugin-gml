@@ -218,18 +218,15 @@ function applyTrailingCommentPadding(comment, options) {
 
 function collectDanglingComments(path, filter) {
     const node = path.getValue();
-    if (!node || !node.comments) {
-        return { entries: [], totalCount: 0 };
+    if (!node?.comments) {
+        return [];
     }
 
     const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
-        if (!isCommentNode(comment)) {
-            return;
-        }
         if (
-            comment &&
+            isCommentNode(comment) &&
             !comment.leading &&
             !comment.trailing &&
             (!filter || filter(comment))
@@ -241,7 +238,7 @@ function collectDanglingComments(path, filter) {
         }
     }, "comments");
 
-    return { entries, totalCount: entries.length };
+    return entries;
 }
 
 function printCommentAtIndex(path, options, commentIndex) {
@@ -253,22 +250,16 @@ function printCommentAtIndex(path, options, commentIndex) {
 }
 
 function collectPrintedDanglingComments(path, options, filter) {
-    const { entries, totalCount } = collectDanglingComments(path, filter);
-
-    if (entries.length === 0) {
-        return { entries: [], totalCount: 0 };
-    }
-
-    const printedEntries = entries.map(({ commentIndex, comment }) => ({
-        comment,
-        printed: printCommentAtIndex(path, options, commentIndex)
-    }));
-
-    return { entries: printedEntries, totalCount };
+    return collectDanglingComments(path, filter).map(
+        ({ commentIndex, comment }) => ({
+            comment,
+            printed: printCommentAtIndex(path, options, commentIndex)
+        })
+    );
 }
 
 function printDanglingComments(path, options, filter) {
-    const { entries } = collectPrintedDanglingComments(path, options, filter);
+    const entries = collectPrintedDanglingComments(path, options, filter);
 
     if (entries.length === 0) {
         return "";
@@ -282,18 +273,14 @@ function printDanglingComments(path, options, filter) {
 // print dangling comments and preserve the whitespace around the comments.
 // this function behaves similarly to the default comment algorithm.
 function printDanglingCommentsAsGroup(path, options, filter) {
-    const { entries, totalCount } = collectPrintedDanglingComments(
-        path,
-        options,
-        filter
-    );
+    const entries = collectPrintedDanglingComments(path, options, filter);
 
     if (entries.length === 0) {
         return "";
     }
 
     const parts = [];
-    const finalIndex = totalCount - 1;
+    const finalIndex = entries.length - 1;
 
     entries.forEach(({ comment, printed }, index) => {
         if (index === 0) {
