@@ -886,33 +886,51 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     return guessed;
 }
 
-function collectAssetReferences(json, callback, pathStack = []) {
-    if (Array.isArray(json)) {
-        json.forEach((entry, index) => {
-            collectAssetReferences(
-                entry,
-                callback,
-                pathStack.concat(String(index))
-            );
-        });
+function collectAssetReferences(root, callback) {
+    if (!root || typeof root !== "object") {
         return;
     }
 
-    if (!json || typeof json !== "object") {
-        return;
-    }
+    const stack = [{ value: root, path: "" }];
 
-    if (typeof json.path === "string") {
-        const propertyPath = pathStack.join(".");
-        callback({
-            propertyPath,
-            targetPath: json.path,
-            targetName: typeof json.name === "string" ? json.name : null
-        });
-    }
+    while (stack.length > 0) {
+        const { value, path } = stack.pop();
 
-    for (const key of Object.keys(json)) {
-        collectAssetReferences(json[key], callback, pathStack.concat(key));
+        if (Array.isArray(value)) {
+            for (let index = value.length - 1; index >= 0; index -= 1) {
+                const entry = value[index];
+                if (!entry || typeof entry !== "object") {
+                    continue;
+                }
+
+                stack.push({
+                    value: entry,
+                    path: path ? `${path}.${index}` : String(index)
+                });
+            }
+            continue;
+        }
+
+        if (typeof value.path === "string") {
+            callback({
+                propertyPath: path,
+                targetPath: value.path,
+                targetName: typeof value.name === "string" ? value.name : null
+            });
+        }
+
+        const entries = Object.entries(value);
+        for (let i = entries.length - 1; i >= 0; i -= 1) {
+            const [key, child] = entries[i];
+            if (!child || typeof child !== "object") {
+                continue;
+            }
+
+            stack.push({
+                value: child,
+                path: path ? `${path}.${key}` : key
+            });
+        }
     }
 }
 
