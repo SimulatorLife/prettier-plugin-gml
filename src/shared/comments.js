@@ -33,11 +33,18 @@ export function isBlockComment(node) {
 export function hasComment(node) {
     const comments = getCommentArray(node);
 
-    if (comments.length === 0) {
+    const length = comments.length;
+    if (length === 0) {
         return false;
     }
 
-    return comments.some(isCommentNode);
+    for (let index = 0; index < length; index += 1) {
+        if (isCommentNode(comments[index])) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function getCommentArray(owner) {
