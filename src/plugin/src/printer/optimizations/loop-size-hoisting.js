@@ -1,49 +1,48 @@
 // Helpers for detecting and naming cached loop size variables.
-// This logic analyses the AST rather than producing Prettier docs, so it lives
+// This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
+
+import {
+    getIdentifierText,
+    getCallExpressionArguments
+} from "../../../../shared/ast-node-helpers.js";
+import { getCachedValue } from "../../options/options-cache.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
-    ["ds_list_size", "size"],
-    ["ds_map_size", "size"],
-    ["ds_grid_width", "width"],
     ["ds_grid_height", "height"],
+    ["ds_grid_width", "width"],
+    ["ds_list_size", "size"],
+    ["ds_map_size", "size"]
 ]);
 
-const ARRAY_LENGTH_SUFFIX_CACHE = Symbol.for("prettier-plugin-gml.arrayLengthHoistFunctionSuffixes");
+const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
+    "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
+);
+const loopSizeSuffixCache = new WeakMap();
 
 function getSizeRetrievalFunctionSuffixes(options) {
-    if (options && options[ARRAY_LENGTH_SUFFIX_CACHE]) {
-        return options[ARRAY_LENGTH_SUFFIX_CACHE];
-    }
+    return getCachedValue(
+        options,
+        LOOP_SIZE_SUFFIX_CACHE,
+        loopSizeSuffixCache,
+        () => {
+            const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+                options?.loopLengthHoistFunctionSuffixes
+            );
 
-    const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-        options?.arrayLengthHoistFunctionSuffixes
+            const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+            for (const [functionName, suffix] of overrides) {
+                if (suffix === null) {
+                    merged.delete(functionName);
+                } else {
+                    merged.set(functionName, suffix);
+                }
+            }
+
+            return merged;
+        }
     );
-
-    const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-    for (const [functionName, suffix] of overrides) {
-        if (suffix === null) {
-            merged.delete(functionName);
-        } else {
-            merged.set(functionName, suffix);
-        }
-    }
-
-    if (options) {
-        try {
-            Object.defineProperty(options, ARRAY_LENGTH_SUFFIX_CACHE, {
-                value: merged,
-                configurable: false,
-                enumerable: false,
-                writable: false
-            });
-        } catch {
-            // Ignore environments where options is frozen.
-        }
-    }
-
-    return merged;
 }
 
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
@@ -70,14 +69,15 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
             continue;
         }
 
-        const normalizedSuffix = trimmedSuffix.length > 0 ? trimmedSuffix : "len";
+        const normalizedSuffix =
+            trimmedSuffix.length > 0 ? trimmedSuffix : "len";
         overrides.set(normalizedName, normalizedSuffix);
     }
 
     return overrides;
 }
 
-function getArrayLengthHoistInfo(
+function getLoopLengthHoistInfo(
     node,
     sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
 ) {
@@ -110,7 +110,7 @@ function getArrayLengthHoistInfo(
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
+    const args = getCallExpressionArguments(callExpression);
     if (args.length !== 1) {
         return null;
     }
@@ -126,27 +126,7 @@ function getArrayLengthHoistInfo(
         return null;
     }
 
-    const update = node.update;
-    if (!update) {
-        return null;
-    }
-
-    if (update.type === "IncDecStatement") {
-        const argument = update.argument;
-        if (!argument || argument.type !== "Identifier" || argument.name !== iterator.name) {
-            return null;
-        }
-    } else if (update.type === "AssignmentExpression") {
-        const left = update.left;
-        if (!left || left.type !== "Identifier" || left.name !== iterator.name) {
-            return null;
-        }
-
-        const allowedOperators = new Set(["+=", "-="]);
-        if (!allowedOperators.has(update.operator)) {
-            return null;
-        }
-    } else {
+    if (!isIteratorUpdateMatching(node.update, iterator.name)) {
         return null;
     }
 
@@ -171,64 +151,38 @@ function buildCachedSizeVariableName(baseName, suffix) {
     return `${baseName}_${normalizedSuffix}`;
 }
 
-function getIdentifierText(node) {
-    if (!node) {
-        return null;
+function isIteratorUpdateMatching(update, iteratorName) {
+    if (!update) {
+        return false;
     }
 
-    if (typeof node === "string") {
-        return node;
+    if (update.type === "IncDecStatement") {
+        const argument = update.argument;
+        return (
+            !!argument &&
+            argument.type === "Identifier" &&
+            argument.name === iteratorName
+        );
     }
 
-    if (typeof node.name === "string") {
-        return node.name;
+    if (update.type !== "AssignmentExpression") {
+        return false;
     }
 
-    if (node.type === "Identifier") {
-        return node.name || null;
+    const left = update.left;
+    if (!left || left.type !== "Identifier" || left.name !== iteratorName) {
+        return false;
     }
 
-    if (node.type === "MemberIndexExpression") {
-        const object = node.object;
-        if (!object || object.type !== "Identifier") {
-            return null;
-        }
-
-        if (!Array.isArray(node.property) || node.property.length !== 1) {
-            return null;
-        }
-
-        const indexNode = node.property[0];
-        const indexText = getIdentifierText(indexNode);
-        if (indexText == null) {
-            return null;
-        }
-
-        return `${object.name}_${indexText}`;
-    }
-
-    if (node.type === "MemberDotExpression") {
-        const object = node.object;
-        const property = node.property;
-
-        if (!object || object.type !== "Identifier" || !property || property.type !== "Identifier") {
-            return null;
-        }
-
-        return `${object.name}_${property.name}`;
-    }
-
-    if (node.type === "Literal" && typeof node.value === "string") {
-        return node.value;
-    }
-
-    return null;
+    const operator = update.operator;
+    // Direct comparison avoids allocating a Set for every assignment-style
+    // update, keeping this hot path allocation-free.
+    return operator === "+=" || operator === "-=";
 }
 
 export {
     DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
-    getArrayLengthHoistInfo,
-    getSizeRetrievalFunctionSuffixes,
-    getIdentifierText
+    getLoopLengthHoistInfo,
+    getSizeRetrievalFunctionSuffixes
 };
