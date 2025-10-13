@@ -13,6 +13,13 @@ can pick the right level of detail for your task.
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
 
+## Usage & rollout
+
+- [Identifier-case rollout playbook](identifier-case-rollout.md) — Step-by-step
+  instructions for enabling automatic renames, understanding the
+  auto-discovery bootstrap, and keeping cache hygiene under control across
+  local machines and CI.
+
 ## Planning notes
 
 - [Identifier Case & Naming Convention Guide](naming-conventions.md) — Also
@@ -22,8 +29,10 @@ can pick the right level of detail for your task.
   collects built-in Feather debugger metadata and how the generated files are
   versioned.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
-  proposed approach for caching project discovery so concurrent formatter runs
-  can reuse work safely.
+  shipped cache shape plus the instrumentation used to keep bootstrap behaviour
+  predictable.
+- [Project Index next steps](project-index-next-steps.md) — Tracks remaining
+  follow-up work now that cache persistence and discovery ship in the plugin.
 
 ## Metadata tooling
 

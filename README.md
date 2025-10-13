@@ -138,11 +138,12 @@ needs an explicit path to load it when you install from Git.
    placed at or above the directory you run it from, so keeping the config next
    to your `.yyp` ensures consistent behaviour for the CLI and IDE integrations.
 
-   > 📘 Want a deeper dive on identifier renaming? See
-   > [Identifier Case Utility Reference](docs/identifier-case-reference.md),
-   > [Naming Convention Case Reference](docs/naming-convention-case-reference.md),
-   > and the [documentation index](docs/README.md) for the exact tokenisation and
-   > casing rules applied by `gmlIdentifierCase`.
+  > 📘 Want a deeper dive on identifier renaming? Start with the
+  > [Identifier Case & Naming Convention Guide](docs/naming-conventions.md) and
+  > the [identifier-case rollout playbook](docs/identifier-case-rollout.md).
+  > The [documentation index](docs/README.md) links to additional background
+  > notes and curated examples that walk through the exact tokenisation and
+  > casing rules applied by `gmlIdentifierCase`.
 
    Running the wrapper from a local clone of this repository automatically picks up that project-level config. For example, if
    you clone the plugin and execute:
@@ -412,8 +413,8 @@ check the [documentation index](docs/README.md) for in-depth notes about rename 
   target case style (camel, Pascal, snake lower, or snake upper) and the
   per-scope overrides refine individual domains. Complementary ignore,
   preserve, and acknowledgement flags let you exempt specific names or confirm
-  asset renames. Review the [Identifier Case Utility Reference](docs/identifier-case-reference.md)
-  and [Naming Convention Case Reference](docs/naming-convention-case-reference.md)
+  asset renames. Review the [Identifier Case & Naming Convention Guide](docs/naming-conventions.md)
+  and the [identifier-case rollout playbook](docs/identifier-case-rollout.md)
   for the full behaviour matrix before enabling automatic renames in large
   projects.
 
@@ -653,9 +654,9 @@ code and include the corresponding rationale in your pull request.
 ### Regenerate metadata snapshots
 
 The formatter relies on generated metadata stored under `resources/` to make naming, diagnostic, and language-aware decisions.
-Refresh the datasets whenever YoYo Games updates the manual or when you tweak the scrapers. The plans in
-[docs/reserved-identifiers-plan.md](docs/reserved-identifiers-plan.md) and
-[docs/feather-data-plan.md](docs/feather-data-plan.md) describe the scraping pipelines in more detail:
+Refresh the datasets whenever YoYo Games updates the manual or when you tweak the scrapers. The harvesting and cache design notes in the [Identifier Case & Naming Convention Guide](docs/naming-conventions.md#5-reserved-identifier-dataset),
+[Project Index Cache Design](docs/project-index-cache-design.md), and
+[Feather Data Plan](docs/feather-data-plan.md) describe the scraping pipelines in more detail:
 
 ```bash
 npm run build:gml-identifiers
