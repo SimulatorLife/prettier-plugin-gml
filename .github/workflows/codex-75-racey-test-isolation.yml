@@ -1,0 +1,27 @@
+name: Codex 75 – Racey Test Isolation
+on:
+  schedule:
+    - cron: "57 12 * * *"  # once a day at 12:57
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Racey Test Isolation"
+      pr_body: >
+        Seed PR for Codex to stabilise a flaky test by isolating shared state or
+        timing assumptions.
+      prompt: >
+        Identify a test known to be flaky (shared globals, timing reliance,
+        leaking timers) and refactor it for determinism. Apply fixes such as
+        per-test fixtures, better teardown, explicit waits, or fake timers, and
+        include evidence (failing reproduction or reasoning) that the old test
+        flaked. Keep the scope tight by focusing on one flaky scenario and
+        ensuring the suite now runs reliably.

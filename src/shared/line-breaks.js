@@ -31,7 +31,9 @@ export function getLineBreakCount(text) {
         if (code === CARRIAGE_RETURN) {
             const nextIndex = index + 1;
             index =
-                text.charCodeAt(nextIndex) === LINE_FEED ? nextIndex + 1 : nextIndex;
+                text.charCodeAt(nextIndex) === LINE_FEED
+                    ? nextIndex + 1
+                    : nextIndex;
 
             count += 1;
             continue;
