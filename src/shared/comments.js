@@ -31,6 +31,21 @@ export function isBlockComment(node) {
     return isCommentNode(node) && node.type === "CommentBlock";
 }
 
+/**
+ * Determines whether the provided AST node carries at least one comment.
+ *
+ * Nodes in parser output sometimes attach bookkeeping values or plain strings
+ * to their `comments` array. The scan therefore double-checks every entry with
+ * {@link isCommentNode} instead of assuming the array contents are valid. This
+ * defensive guard prevents downstream formatters from tripping over stray
+ * metadata while still treating an existing, but empty, `comments` array as
+ * "no comments".
+ *
+ * @param {unknown} node Candidate AST node to inspect. Non-object inputs are
+ *                       treated as comment-free.
+ * @returns {boolean} `true` when the node owns at least one well-formed
+ *                     comment node.
+ */
 export function hasComment(node) {
     const comments = getCommentArray(node);
 
@@ -48,6 +63,17 @@ export function hasComment(node) {
     return false;
 }
 
+/**
+ * Returns the raw `comments` collection for a node while gracefully handling
+ * parser variations where the property might be missing or hold a non-array
+ * value. The returned array is the original reference so that callers can
+ * observe mutations performed by upstream tooling.
+ *
+ * @param {unknown} owner Candidate AST node whose comments should be fetched.
+ * @returns {Array<CommentBlockNode | CommentLineNode | unknown>} Either the
+ *          node's comment array or a fresh empty array when no valid
+ *          collection exists.
+ */
 export function getCommentArray(owner) {
     if (!isObjectLike(owner)) {
         return [];
