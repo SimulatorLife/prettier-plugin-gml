@@ -13,6 +13,7 @@ import {
     PROJECT_INDEX_CACHE_FILENAME,
     PROJECT_INDEX_CACHE_SCHEMA_VERSION
 } from "../src/project-index/index.js";
+import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
@@ -89,6 +90,67 @@ test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
         assert.equal(saveResult.status, "skipped");
         assert.equal(saveResult.reason, "payload-too-large");
         assert.ok(saveResult.size > 1);
+    });
+});
+
+test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestPath = path.join(projectRoot, "project.yyp");
+        await writeFile(manifestPath, "{}");
+        const scriptsDir = path.join(projectRoot, "scripts");
+        await mkdir(scriptsDir, { recursive: true });
+        const scriptPath = path.join(scriptsDir, "main.gml");
+        await writeFile(scriptPath, "// script\n");
+
+        async function runCase(rawValue) {
+            const descriptors = [];
+            const coordinator = {
+                async ensureReady(descriptor) {
+                    descriptors.push(descriptor);
+                    return { projectIndex: null, source: null, cache: null };
+                },
+                dispose() {}
+            };
+
+            const options = {
+                filepath: scriptPath,
+                __identifierCaseProjectIndexCoordinator: coordinator
+            };
+            if (rawValue !== undefined) {
+                options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
+            }
+
+            await bootstrapProjectIndex(options);
+
+            return { options, descriptor: descriptors[0] ?? {} };
+        }
+
+        {
+            const { options, descriptor } = await runCase("16");
+            assert.equal(options.__identifierCaseProjectIndexCacheMaxBytes, 16);
+            assert.equal(descriptor.maxSizeBytes, 16);
+        }
+
+        {
+            const { options, descriptor } = await runCase("0");
+            assert.strictEqual(
+                options.__identifierCaseProjectIndexCacheMaxBytes,
+                null
+            );
+            assert.strictEqual(descriptor.maxSizeBytes, null);
+        }
+
+        {
+            const { options, descriptor } = await runCase(" ");
+            assert.equal(
+                Object.prototype.hasOwnProperty.call(
+                    options,
+                    "__identifierCaseProjectIndexCacheMaxBytes"
+                ),
+                false
+            );
+            assert.equal("maxSizeBytes" in descriptor, false);
+        }
     });
 });
 
