@@ -4,6 +4,53 @@ import process from "node:process";
 
 import { buildProjectIndex } from "../src/plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../src/plugin/src/identifier-case/local-plan.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli/cli-errors.js";
+
+const USAGE = [
+    "Usage: node scripts/bench-identifier-pipeline.mjs [projectRoot] [file] [options]",
+    "",
+    "Options:",
+    "  --verbose  Enable verbose logging (project index metrics and rename plan details).",
+    "  --help, -h  Show this help message."
+].join("\n");
+
+function parseArguments(argv) {
+    const positional = [];
+    let verbose = false;
+    let helpRequested = false;
+
+    for (const arg of argv) {
+        if (arg === "--verbose") {
+            verbose = true;
+            continue;
+        }
+
+        if (arg === "--help" || arg === "-h") {
+            helpRequested = true;
+            continue;
+        }
+
+        if (arg.startsWith("-")) {
+            throw new CliUsageError(`Unknown flag: ${arg}`, { usage: USAGE });
+        }
+
+        positional.push(arg);
+    }
+
+    if (positional.length > 2) {
+        throw new CliUsageError(
+            `Expected at most 2 positional arguments, received ${positional.length}.`,
+            { usage: USAGE }
+        );
+    }
+
+    return {
+        helpRequested,
+        verbose,
+        projectRootArg: positional[0] ?? null,
+        fileArg: positional[1] ?? null
+    };
+}
 
 function createConsoleLogger(verbose) {
     if (!verbose) {
@@ -28,9 +75,15 @@ function formatMetrics(label, metrics) {
 }
 
 async function run() {
-    const [, , projectRootArg, fileArg, ...rest] = process.argv;
-    const flags = new Set(rest);
-    const verbose = flags.has("--verbose");
+    const { helpRequested, verbose, projectRootArg, fileArg } = parseArguments(
+        process.argv.slice(2)
+    );
+
+    if (helpRequested) {
+        console.log(USAGE);
+        return;
+    }
+
     const projectRoot = path.resolve(projectRootArg ?? process.cwd());
 
     const logger = createConsoleLogger(verbose);
@@ -82,6 +135,7 @@ async function run() {
 }
 
 run().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+    handleCliError(error, {
+        prefix: "Failed to run identifier pipeline benchmark."
+    });
 });
