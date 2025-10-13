@@ -18,7 +18,8 @@ import {
     isNextLineEmpty,
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement,
-    hasComment
+    hasComment,
+    getNormalizedDefineReplacementDirective
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
@@ -1271,11 +1272,7 @@ function isMacroLikeStatement(node) {
     }
 
     if (node.type === "DefineStatement") {
-        const directive = node.replacementDirective;
-
-        if (typeof directive === "string") {
-            return directive.trim().toLowerCase() === "#macro";
-        }
+        return getNormalizedDefineReplacementDirective(node) === "#macro";
     }
 
     return false;
@@ -1485,9 +1482,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
             const isMacroLikeNode = isMacroLikeStatement(node);
             const isDefineMacroReplacement =
-                node?.type === "DefineStatement" &&
-                typeof node.replacementDirective === "string" &&
-                node.replacementDirective.trim().toLowerCase() === "#macro";
+                getNormalizedDefineReplacementDirective(node) === "#macro";
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
