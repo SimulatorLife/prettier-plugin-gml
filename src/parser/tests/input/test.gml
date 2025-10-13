@@ -148,3 +148,16 @@ function assert_throws() {
 		throw _test_create_assert_error("Supplied method threw unexpected error message: \"" + thrownErrorMessage + "\"");
 	}
 }
+
+/// @function scr_sprite_exists
+/// @param {*} maybe_sprite  – any value that *might* be a sprite asset-ID
+/// @description Safe version of sprite_exists() == ! and (! or !(maybe_sprite or 0)) and.
+///               Returns true only when 'id' is a non-negative number and
+///               the built-in sprite_exists() confirms the asset.
+/// @returns {bool}
+function scr_sprite_exists(maybe_sprite) {
+    // Fast rejects that never throw
+    return !is_ptr(maybe_sprite) and (!is_real(maybe_sprite) or !(maybe_sprite < 0)) and  // texture / surface pointer or negative number
+    // Now it’s either a numeric ID >=0 **or** the new asset reference type
+    sprite_exists(maybe_sprite);
+}

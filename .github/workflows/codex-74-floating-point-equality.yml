@@ -1,0 +1,27 @@
+name: Codex 74 – Floating-Point Equality Pitfalls
+on:
+  schedule:
+    - cron: "21 10 * * *"  # once a day at 10:21
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Floating-Point Equality Pitfalls"
+      pr_body: >
+        Seed PR for Codex to replace an unsafe floating-point equality check
+        with a tolerance-aware comparison backed by tests.
+      prompt: >
+        Find code comparing non-integer numbers using strict equality or
+        inequality that can fail due to rounding error. Replace it with a
+        tolerance-aware helper (epsilon comparison) or another numerically
+        stable approach, and add regression coverage that would flake without
+        the fix. Keep the change surgical by targeting one real-world check
+        where the precision bug is plausibly triggered.

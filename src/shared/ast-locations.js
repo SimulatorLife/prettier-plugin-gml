@@ -26,7 +26,8 @@ function getStartIndex(node) {
     }
 
     const isMemberAccess =
-        (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") &&
+        (node.type === "MemberDotExpression" ||
+            node.type === "MemberIndexExpression") &&
         node.object;
 
     if (isMemberAccess) {
@@ -39,17 +40,13 @@ function getStartIndex(node) {
     return getLocationIndex(node, "start");
 }
 
-function getEndIndex(node) {
-    return getLocationIndex(node, "end");
-}
-
 function getNodeStartIndex(node) {
     const startIndex = getStartIndex(node);
     return typeof startIndex === "number" ? startIndex : null;
 }
 
 function getNodeEndIndex(node) {
-    const endIndex = getEndIndex(node);
+    const endIndex = getLocationIndex(node, "end");
     if (typeof endIndex === "number") {
         return endIndex + 1;
     }
@@ -58,10 +55,16 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-export {
-    getLocationIndex,
-    getStartIndex,
-    getEndIndex,
-    getNodeStartIndex,
-    getNodeEndIndex
-};
+function cloneLocation(location) {
+    if (location == null) {
+        return undefined;
+    }
+
+    if (typeof location !== "object") {
+        return location;
+    }
+
+    return structuredClone(location);
+}
+
+export { getNodeStartIndex, getNodeEndIndex, cloneLocation };
