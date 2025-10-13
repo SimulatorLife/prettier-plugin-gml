@@ -271,8 +271,8 @@ function printDanglingComments(path, options, filter) {
     );
 }
 
-// print dangling comments and preserve the whitespace around the comments.
-// this function behaves similarly to the default comment algorithm.
+// Print dangling comments while preserving the surrounding whitespace.
+// This helper behaves similarly to the default comment algorithm.
 function printDanglingCommentsAsGroup(path, options, filter) {
     const entries = collectPrintedDanglingComments(path, options, filter);
 
@@ -292,7 +292,7 @@ function printDanglingCommentsAsGroup(path, options, filter) {
 
         if (index !== finalIndex) {
             let wsDoc = whitespaceToDoc(comment.trailingWS);
-            // enforce at least one space between comments
+            // Enforce at least one space between comments.
             if (wsDoc === "") {
                 wsDoc = " ";
             }
@@ -309,7 +309,7 @@ function handleCommentInEmptyBody(
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
 }
 
-// ignore macro comments because macros are printed exactly as-is
+// Ignore macro comments because macros are printed exactly as-is.
 function handleMacroComments(comment) {
     if (comment.enclosingNode?.type === "MacroDeclaration") {
         comment.printed = true;
@@ -325,8 +325,7 @@ function handleCommentAttachedToOpenBrace(
         return false;
     }
 
-    // A comment enclosed in a block statement that begins on the same line as the
-    // opening brace should attach to that brace.
+    // A comment enclosed in a block statement that begins on the same line as the opening brace should attach to that brace.
     if (comment.start.line !== comment.enclosingNode.start.line) {
         return false;
     }
@@ -423,7 +422,7 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
     return null;
 }
 
-// note: this preserves non-standard whitespaces!
+// Note: this preserves non-standard whitespace!
 function whitespaceToDoc(text) {
     const lineBreakCount = getLineBreakCount(text);
     if (lineBreakCount === 0) {
