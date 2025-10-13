@@ -152,6 +152,38 @@ function getCallExpressionArguments(callExpression) {
     return Array.isArray(args) ? args : [];
 }
 
+function getBooleanLiteralValue(node, options = {}) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const acceptBooleanPrimitives =
+        typeof options === "boolean"
+            ? options
+            : !!options?.acceptBooleanPrimitives;
+
+    const { value } = node;
+
+    if (value === true || value === false) {
+        if (!acceptBooleanPrimitives) {
+            return null;
+        }
+
+        return value ? "true" : "false";
+    }
+
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.toLowerCase();
+    return normalized === "true" || normalized === "false" ? normalized : null;
+}
+
+function isBooleanLiteral(node, options) {
+    return getBooleanLiteralValue(node, options) !== null;
+}
+
 function isUndefinedLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -173,6 +205,8 @@ export {
     getSingleVariableDeclarator,
     getIdentifierText,
     getCallExpressionArguments,
+    getBooleanLiteralValue,
+    isBooleanLiteral,
     isUndefinedLiteral,
     isNode
 };

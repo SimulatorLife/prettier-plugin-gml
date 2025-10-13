@@ -114,9 +114,9 @@ export function collectCommentNodes(root) {
 }
 
 export function isDocCommentLine(comment) {
-    return (
-        isLineComment(comment) &&
-        typeof comment.value === "string" &&
-        comment.value.startsWith("/ @")
-    );
+    if (!isLineComment(comment) || typeof comment?.value !== "string") {
+        return false;
+    }
+
+    return /^\/\s*@/.test(comment.value);
 }

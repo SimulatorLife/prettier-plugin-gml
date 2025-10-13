@@ -89,6 +89,10 @@ test("isDocCommentLine recognises doc-style comments", () => {
         true
     );
     assert.equal(
+        isDocCommentLine({ type: "CommentLine", value: "/@param foo" }),
+        true
+    );
+    assert.equal(
         isDocCommentLine({ type: "CommentLine", value: "// regular" }),
         false
     );
