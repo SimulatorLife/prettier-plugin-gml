@@ -1,5 +1,5 @@
 import { getCachedValue } from "../options/options-cache.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../utils/option-utils.js";
 import { normalizeStringList } from "../../../shared/string-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
