@@ -712,29 +712,28 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         return;
     }
 
-    if (snapshot.projectIndex && !options.__identifierCaseProjectIndex) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseProjectIndex",
-            snapshot.projectIndex
-        );
-    }
+    const assignSnapshotValue = (
+        snapshotKey,
+        optionKey,
+        predicate = (value, current) => Boolean(value) && !current
+    ) => {
+        const value = snapshot[snapshotKey];
+        if (predicate(value, options[optionKey])) {
+            setIdentifierCaseOption(options, optionKey, value);
+        }
+    };
 
-    if (snapshot.projectRoot && !options.__identifierCaseProjectRoot) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseProjectRoot",
-            snapshot.projectRoot
-        );
-    }
+    const assignTruthySnapshotValues = (entries) => {
+        for (const [snapshotKey, optionKey] of entries) {
+            assignSnapshotValue(snapshotKey, optionKey);
+        }
+    };
 
-    if (snapshot.bootstrap && !options.__identifierCaseProjectIndexBootstrap) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseProjectIndexBootstrap",
-            snapshot.bootstrap
-        );
-    }
+    assignTruthySnapshotValues([
+        ["projectIndex", "__identifierCaseProjectIndex"],
+        ["projectRoot", "__identifierCaseProjectRoot"],
+        ["bootstrap", "__identifierCaseProjectIndexBootstrap"]
+    ]);
 
     setIdentifierCaseOption(options, "__identifierCasePlanSnapshot", snapshot);
     Object.defineProperty(options, "__identifierCasePlanSnapshot", {
@@ -744,75 +743,21 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         enumerable: false
     });
 
-    if (snapshot.renameMap && !options.__identifierCaseRenameMap) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseRenameMap",
-            snapshot.renameMap
-        );
-    }
+    assignTruthySnapshotValues([
+        ["renameMap", "__identifierCaseRenameMap"],
+        ["renamePlan", "__identifierCaseRenamePlan"],
+        ["conflicts", "__identifierCaseConflicts"],
+        ["metricsReport", "__identifierCaseMetricsReport"],
+        ["metrics", "__identifierCaseMetrics"],
+        ["assetRenames", "__identifierCaseAssetRenames"],
+        ["assetRenameResult", "__identifierCaseAssetRenameResult"]
+    ]);
 
-    if (snapshot.renamePlan && !options.__identifierCaseRenamePlan) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseRenamePlan",
-            snapshot.renamePlan
-        );
-    }
-
-    if (snapshot.conflicts && !options.__identifierCaseConflicts) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseConflicts",
-            snapshot.conflicts
-        );
-    }
-
-    if (snapshot.metricsReport && !options.__identifierCaseMetricsReport) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseMetricsReport",
-            snapshot.metricsReport
-        );
-    }
-
-    if (snapshot.metrics && !options.__identifierCaseMetrics) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseMetrics",
-            snapshot.metrics
-        );
-    }
-
-    if (snapshot.assetRenames && !options.__identifierCaseAssetRenames) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenames",
-            snapshot.assetRenames
-        );
-    }
-
-    if (
-        snapshot.assetRenameResult &&
-        !options.__identifierCaseAssetRenameResult
-    ) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenameResult",
-            snapshot.assetRenameResult
-        );
-    }
-
-    if (
-        snapshot.assetRenamesApplied != null &&
-        options.__identifierCaseAssetRenamesApplied == null
-    ) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenamesApplied",
-            snapshot.assetRenamesApplied
-        );
-    }
+    assignSnapshotValue(
+        "assetRenamesApplied",
+        "__identifierCaseAssetRenamesApplied",
+        (value, current) => value != null && current == null
+    );
 
     if (snapshot.dryRun !== null) {
         setIdentifierCaseOption(
