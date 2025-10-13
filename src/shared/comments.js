@@ -85,8 +85,12 @@ export function collectCommentNodes(root) {
         visited.add(current);
 
         if (Array.isArray(current)) {
-            for (const item of current) {
-                stack.push(item);
+            // Manual index iteration avoids the iterator machinery that
+            // `for..of` introduces. The collector runs in hot printer paths, so
+            // caching the array length and pushing via simple index lookups
+            // keeps this branch allocation-free.
+            for (let idx = 0, length = current.length; idx < length; idx += 1) {
+                stack.push(current[idx]);
             }
             continue;
         }
