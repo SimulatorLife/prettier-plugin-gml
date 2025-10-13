@@ -611,6 +611,22 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2015") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureVertexFormatDefinitionsAreClosed({
+                    ast,
+                    diagnostic
+                });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2028") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensurePrimitiveBeginPrecedesEnd({
@@ -10529,6 +10545,202 @@ function getCallExpressionCalleeName(node) {
     }
 
     return null;
+}
+
+function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureVertexFormatDefinitionIsClosed(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureVertexFormatDefinitionIsClosed(
+    node,
+    parent,
+    property,
+    diagnostic
+) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "vertex_format_begin")) {
+        return null;
+    }
+
+    const siblings = parent;
+    let insertionIndex = property + 1;
+
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const sibling = siblings[index];
+
+        if (nodeContainsVertexFormatEndCall(sibling)) {
+            return null;
+        }
+
+        if (isVertexFormatBeginCall(sibling)) {
+            break;
+        }
+
+        if (isVertexFormatAddCall(sibling)) {
+            insertionIndex = index + 1;
+            continue;
+        }
+
+        break;
+    }
+
+    const vertexFormatEndCall = createVertexFormatEndCall(node);
+
+    if (!vertexFormatEndCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: "vertex_format_end",
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(insertionIndex, 0, vertexFormatEndCall);
+    attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
+
+    return fixDetail;
+}
+
+function nodeContainsVertexFormatEndCall(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (isVertexFormatEndCall(node)) {
+        return true;
+    }
+
+    if (Array.isArray(node)) {
+        return node.some(nodeContainsVertexFormatEndCall);
+    }
+
+    for (const value of Object.values(node)) {
+        if (nodeContainsVertexFormatEndCall(value)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isVertexFormatEndCall(node) {
+    return (
+        !!node &&
+        node.type === "CallExpression" &&
+        isIdentifierWithName(node.object, "vertex_format_end")
+    );
+}
+
+function isVertexFormatBeginCall(node) {
+    return (
+        !!node &&
+        node.type === "CallExpression" &&
+        isIdentifierWithName(node.object, "vertex_format_begin")
+    );
+}
+
+function isVertexFormatAddCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const identifier = node.object;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return false;
+    }
+
+    return (
+        typeof identifier.name === "string" &&
+        identifier.name.startsWith("vertex_format_add_")
+    );
+}
+
+function createVertexFormatEndCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = createIdentifier("vertex_format_end", template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
 }
 
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
