@@ -5,19 +5,102 @@
 import { util } from "prettier";
 import GMLParser from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
-import { applyFeatherFixes } from "../ast-transforms/apply-feather-fixes.js";
-import { getStartIndex, getEndIndex } from "../../../shared/ast-locations.js";
+import {
+    applyFeatherFixes,
+    preprocessSourceForFeatherFixes
+} from "../ast-transforms/apply-feather-fixes.js";
+import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
+import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
+import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex
+} from "../../../shared/ast-locations.js";
+import {
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments
+} from "./conditional-assignment-sanitizer.js";
+import {
+    prepareIdentifierCaseEnvironment,
+    attachIdentifierCasePlanSnapshot
+} from "../identifier-case/environment.js";
 
 const { addTrailingComment } = util;
 
-function parse(text, options) {
-    const ast = GMLParser.parse(text, {
-        getLocations: true,
-        simplifyLocations: false
-    });
+async function parse(text, options) {
+    let parseSource = text;
+    let preprocessedFixMetadata = null;
+
+    if (
+        options &&
+        typeof options === "object" &&
+        options.originalText == null
+    ) {
+        options.originalText = text;
+    }
+
+    if (options) {
+        await prepareIdentifierCaseEnvironment(options);
+    }
+
+    if (options?.applyFeatherFixes) {
+        const preprocessResult = preprocessSourceForFeatherFixes(text);
+
+        if (
+            preprocessResult &&
+            typeof preprocessResult.sourceText === "string"
+        ) {
+            parseSource = preprocessResult.sourceText;
+        }
+
+        preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+    }
+
+    const sanitizedResult = sanitizeConditionalAssignments(parseSource);
+    const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+
+    if (typeof sanitizedSource === "string") {
+        parseSource = sanitizedSource;
+    }
+
+    let ast;
+
+    try {
+        ast = GMLParser.parse(parseSource, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+    } catch (error) {
+        if (options?.applyFeatherFixes) {
+            const recoveredSource = recoverParseSourceFromMissingBrace(
+                parseSource,
+                error
+            );
+
+            if (
+                typeof recoveredSource === "string" &&
+                recoveredSource !== parseSource
+            ) {
+                parseSource = recoveredSource;
+                ast = GMLParser.parse(parseSource, {
+                    getLocations: true,
+                    simplifyLocations: false
+                });
+            } else {
+                throw error;
+            }
+        } else {
+            throw error;
+        }
+    }
+
+    attachIdentifierCasePlanSnapshot(ast, options);
 
     if (!ast || typeof ast !== "object") {
-        throw new Error("GameMaker parser returned no AST for the provided source.");
+        throw new Error(
+            "GameMaker parser returned no AST for the provided source."
+        );
     }
 
     if (options?.condenseStructAssignments ?? true) {
@@ -26,26 +109,48 @@ function parse(text, options) {
 
     if (options?.applyFeatherFixes) {
         applyFeatherFixes(ast, {
-            sourceText: text
+            sourceText: parseSource,
+            preprocessedFixMetadata,
+            options
         });
     }
+
+    if (indexAdjustments && indexAdjustments.length > 0) {
+        applySanitizedIndexAdjustments(ast, indexAdjustments);
+        if (preprocessedFixMetadata) {
+            applySanitizedIndexAdjustments(
+                preprocessedFixMetadata,
+                indexAdjustments
+            );
+        }
+    }
+
+    if (options?.useStringInterpolation) {
+        convertStringConcatenations(ast);
+    }
+
+    if (options?.condenseLogicalExpressions) {
+        condenseLogicalExpressions(ast);
+    }
+
+    if (options?.convertManualMathToBuiltins) {
+        convertManualMathExpressions(ast, undefined, {
+            sourceText: parseSource,
+            originalText: options?.originalText
+        });
+    }
+
+    preprocessFunctionArgumentDefaults(ast);
 
     return ast;
 }
 
 function locStart(node) {
-    const startIndex = getStartIndex(node);
-    return typeof startIndex === "number" ? startIndex : 0;
+    return getNodeStartIndex(node) ?? 0;
 }
 
 function locEnd(node) {
-    const endIndex = getEndIndex(node);
-    if (typeof endIndex === "number") {
-        return endIndex + 1;
-    }
-
-    const fallbackStart = getStartIndex(node);
-    return typeof fallbackStart === "number" ? fallbackStart : 0;
+    return getNodeEndIndex(node) ?? 0;
 }
 
 export const gmlParserAdapter = {
@@ -54,3 +159,126 @@ export const gmlParserAdapter = {
     locStart,
     locEnd
 };
+
+function recoverParseSourceFromMissingBrace(sourceText, error) {
+    if (!isMissingClosingBraceError(error)) {
+        return null;
+    }
+
+    const appended = appendMissingClosingBraces(sourceText);
+
+    return appended === sourceText ? null : appended;
+}
+
+function isMissingClosingBraceError(error) {
+    if (!error) {
+        return false;
+    }
+
+    const message =
+        typeof error.message === "string"
+            ? error.message
+            : typeof error === "string"
+                ? error
+                : String(error ?? "");
+
+    return message.toLowerCase().includes("missing associated closing brace");
+}
+
+function appendMissingClosingBraces(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return sourceText;
+    }
+
+    const missingBraceCount = countUnclosedBraces(sourceText);
+
+    if (missingBraceCount <= 0) {
+        return sourceText;
+    }
+
+    let normalized = sourceText;
+
+    if (!normalized.endsWith("\n")) {
+        normalized += "\n";
+    }
+
+    const closingLines = new Array(missingBraceCount).fill("}").join("\n");
+
+    return `${normalized}${closingLines}`;
+}
+
+function countUnclosedBraces(sourceText) {
+    let depth = 0;
+    let inSingleLineComment = false;
+    let inBlockComment = false;
+    let stringDelimiter = null;
+    let isEscaped = false;
+
+    for (let index = 0; index < sourceText.length; index += 1) {
+        const char = sourceText[index];
+        const nextChar = sourceText[index + 1];
+
+        if (stringDelimiter) {
+            if (isEscaped) {
+                isEscaped = false;
+                continue;
+            }
+
+            if (char === "\\") {
+                isEscaped = true;
+                continue;
+            }
+
+            if (char === stringDelimiter) {
+                stringDelimiter = null;
+            }
+
+            continue;
+        }
+
+        if (inSingleLineComment) {
+            if (char === "\n") {
+                inSingleLineComment = false;
+            }
+
+            continue;
+        }
+
+        if (inBlockComment) {
+            if (char === "*" && nextChar === "/") {
+                inBlockComment = false;
+                index += 1;
+            }
+
+            continue;
+        }
+
+        if (char === "/" && nextChar === "/") {
+            inSingleLineComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (char === "/" && nextChar === "*") {
+            inBlockComment = true;
+            index += 1;
+            continue;
+        }
+
+        if (char === "'" || char === '"') {
+            stringDelimiter = char;
+            continue;
+        }
+
+        if (char === "{") {
+            depth += 1;
+            continue;
+        }
+
+        if (char === "}" && depth > 0) {
+            depth -= 1;
+        }
+    }
+
+    return depth;
+}
