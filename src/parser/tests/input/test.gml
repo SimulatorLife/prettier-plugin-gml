@@ -1,6 +1,10 @@
 // Make sure the global logger is created before we try to log anything
 gml_pragma("global", "variable_global_set(\"logger\", new DedupLogger())");
 
+function configureLighting__() {
+	global.lighting.add_key_time(00, 253, 094, 083, 0.50);  // Sunset peak at 00h
+}
+
 function _test_create_assert_error(argument0) {
 	/* 
 	 * Helper method for asserts to create standardized error
