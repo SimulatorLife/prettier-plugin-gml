@@ -81,6 +81,44 @@ function stripTrailingLineTerminators(value) {
     return value.replace(/(?:\r?\n)+$/, "");
 }
 
+function macroTextHasExplicitTrailingBlankLine(text) {
+    if (typeof text !== "string") {
+        return false;
+    }
+
+    let newlineCount = 0;
+
+    for (let index = text.length - 1; index >= 0; index -= 1) {
+        const charCode = text.charCodeAt(index);
+
+        if (charCode === 10) {
+            newlineCount += 1;
+
+            if (newlineCount >= 2) {
+                return true;
+            }
+
+            if (index > 0 && text.charCodeAt(index - 1) === 13) {
+                index -= 1;
+            }
+
+            continue;
+        }
+
+        if (charCode === 13) {
+            continue;
+        }
+
+        if (charCode === 9 || charCode === 32) {
+            continue;
+        }
+
+        break;
+    }
+
+    return false;
+}
+
 const BINARY_OPERATOR_INFO = new Map([
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
@@ -1448,6 +1486,9 @@ function printStatements(path, options, print, childrenAttribute) {
             const isSanitizedMacro =
                 node?.type === "MacroDeclaration" &&
                 typeof node._featherMacroText === "string";
+            const sanitizedMacroHasExplicitBlankLine =
+                isSanitizedMacro &&
+                macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
             if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
@@ -1456,7 +1497,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 nextLineEmpty &&
                 !nextHasSyntheticDoc &&
                 !shouldSuppressExtraEmptyLine &&
-                !isSanitizedMacro
+                !sanitizedMacroHasExplicitBlankLine
             ) {
                 parts.push(hardline);
             }
