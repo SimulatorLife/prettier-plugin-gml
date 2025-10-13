@@ -24,24 +24,23 @@ const defaultFsFacade = Object.freeze({
 
 const defaultNow = () => Date.now();
 
-function serializeEntries(collection, projector) {
-    if (!Array.isArray(collection) || collection.length === 0) {
+function serializeReferenceEntries(references) {
+    if (!Array.isArray(references)) {
         return [];
     }
 
-    return collection.map(projector);
-}
-
-function serializeReferenceEntries(references) {
-    return serializeEntries(references, ({ filePath, occurrences }) => ({
+    return references.map(({ filePath, occurrences }) => ({
         filePath,
         occurrences
     }));
 }
 
 function serializeConflictEntries(conflicts) {
-    return serializeEntries(
-        conflicts,
+    if (!Array.isArray(conflicts)) {
+        return [];
+    }
+
+    return conflicts.map(
         ({
             code,
             message,
@@ -63,13 +62,11 @@ function serializeConflictEntries(conflicts) {
 }
 
 function normalizeString(...values) {
-    for (const value of values) {
-        if (typeof value === "string") {
-            return value.trim();
-        }
-    }
-
-    return "";
+    return (
+        values
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .find(Boolean) ?? ""
+    );
 }
 
 function extractOperations(plan) {
@@ -81,27 +78,24 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (Array.isArray(plan.operations)) {
-        return plan.operations;
+    const { operations, renames } = plan;
+    if (Array.isArray(operations)) {
+        return operations;
     }
 
-    if (Array.isArray(plan.renames)) {
-        return plan.renames;
+    if (Array.isArray(renames)) {
+        return renames;
     }
 
     return [];
 }
 
 function toArray(value) {
-    if (!value) {
-        return [];
-    }
-
     if (Array.isArray(value)) {
         return value;
     }
 
-    return [value];
+    return value ? [value] : [];
 }
 
 function normalizeReference(reference) {
