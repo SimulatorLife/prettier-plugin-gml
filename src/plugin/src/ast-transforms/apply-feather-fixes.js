@@ -5000,10 +5000,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "FunctionDeclaration") {
-            const functionName =
-                typeof node.id === "string" && node.id.length > 0
-                    ? node.id
-                    : null;
+            const functionName = isNonEmptyString(node.id) ? node.id : null;
 
             if (functionName && !functionDeclarations.has(functionName)) {
                 functionDeclarations.set(functionName, node);

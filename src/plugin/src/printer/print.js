@@ -45,7 +45,10 @@ import {
 } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    isNonEmptyTrimmedString
+} from "../../../shared/string-utils.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -926,10 +929,9 @@ export function print(path, options, print) {
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
             const renamed = getIdentifierCaseRenameForNode(node, options);
-            const identifierName =
-                typeof renamed === "string" && renamed.length > 0
-                    ? renamed
-                    : node.name;
+            const identifierName = isNonEmptyString(renamed)
+                ? renamed
+                : node.name;
             return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
@@ -1889,7 +1891,7 @@ function mergeSyntheticDocComments(
     const syntheticParamNames = new Set(
         otherLines
             .map((line) => getParamCanonicalName(line))
-            .filter((name) => typeof name === "string" && name.length > 0)
+            .filter(isNonEmptyString)
     );
 
     if (syntheticParamNames.size > 0) {
@@ -2424,7 +2426,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                 !aliasByIndex.has(aliasIndex)
             ) {
                 const aliasName = normalizeDocMetadataName(node.id.name);
-                if (typeof aliasName === "string" && aliasName.length > 0) {
+                if (isNonEmptyString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
                 }
             }
@@ -2721,9 +2723,7 @@ function getNormalizedParameterName(paramNode) {
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return typeof normalizedName === "string" && normalizedName.length > 0
-        ? normalizedName
-        : null;
+    return isNonEmptyString(normalizedName) ? normalizedName : null;
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {

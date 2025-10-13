@@ -7,6 +7,7 @@ import {
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -745,8 +746,7 @@ function tryCondenseIfStatement(
             activeTransformationContext.docUpdates.set(parentNode, {
                 expression: docString,
                 description,
-                hasDocComment:
-                    typeof description === "string" && description.length > 0
+                hasDocComment: isNonEmptyString(description)
             });
             const signature = docString.replace(/\.$/, "");
             activeTransformationContext.expressionSignatures.set(
