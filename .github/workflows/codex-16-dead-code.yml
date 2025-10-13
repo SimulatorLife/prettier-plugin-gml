@@ -1,0 +1,26 @@
+name: Codex 16 – Dead Code & Asset Audit
+on:
+  schedule:
+    - cron: "10 9 * * *" # 09:10 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Dead Code & Asset Audit"
+      pr_body: "Seed PR for Codex to prune unused code or assets."
+      prompt: >
+        Scan the repository for unused functions, variables, files, assets, or
+        configuration entries. Remove or archive one meaningful set of unused items,
+        consolidating duplicates if needed. Keep the change tight and non-disruptive,
+        verifying that no active features depend on what is removed so the codebase
+        remains lean and purposeful. Double-check that any suspected dead code is not
+        part of an in-flight feature or recently introduced capability that still needs
+        to land before removal.
