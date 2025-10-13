@@ -7,6 +7,7 @@ import {
     cloneLocation
 } from "../../../shared/ast-locations.js";
 import { getCallExpressionArguments } from "../../../shared/ast-node-helpers.js";
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes } from "../comments/index.js";
 import {
@@ -10270,7 +10271,7 @@ function splitTypeSegments(text) {
             depthAngle === 0 &&
             depthParen === 0
         ) {
-            if (current.trim().length > 0) {
+            if (isNonEmptyTrimmedString(current)) {
                 segments.push(current.trim());
             }
             current = "";
@@ -10280,7 +10281,7 @@ function splitTypeSegments(text) {
         current += char;
     }
 
-    if (current.trim().length > 0) {
+    if (isNonEmptyTrimmedString(current)) {
         segments.push(current.trim());
     }
 
