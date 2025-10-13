@@ -3434,6 +3434,71 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2030 metadata to be recorded on the program node."
         );
     });
+
+    it("wraps draw vertex calls flagged by GM2029 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "draw_vertex(room_width / 4, room_height / 4);",
+            "draw_vertex(room_width / 2, room_height / 4);",
+            "draw_vertex(room_width / 4, room_height / 2);",
+            "",
+            "draw_primitive_begin(pr_trianglelist);",
+            "draw_primitive_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.ok(
+            statements.length >= 5,
+            "Expected the sample program to include draw calls."
+        );
+
+        const [firstStatement] = statements;
+        assert.strictEqual(
+            firstStatement?.object?.name,
+            "draw_primitive_begin"
+        );
+
+        const vertexCalls = statements.filter(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name?.startsWith("draw_vertex")
+        );
+        assert.strictEqual(
+            vertexCalls.length >= 3,
+            true,
+            "Expected draw_vertex calls to remain present."
+        );
+
+        for (const vertex of vertexCalls) {
+            const vertexDiagnostics = vertex?._appliedFeatherDiagnostics ?? [];
+            assert.strictEqual(
+                vertexDiagnostics.some(
+                    (entry) =>
+                        entry.id === "GM2029" && entry.automatic === true
+                ),
+                true,
+                "Expected each draw_vertex call to record GM2029 metadata."
+            );
+        }
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            appliedDiagnostics.some((entry) => entry.id === "GM2029"),
+            true,
+            "Expected GM2029 metadata to be recorded on the AST."
+        );
+
+        const lastStatement = statements[statements.length - 1];
+        assert.strictEqual(lastStatement?.object?.name, "draw_primitive_end");
+    });
 });
 
 function isCallExpression(node) {
