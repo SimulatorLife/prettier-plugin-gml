@@ -18,7 +18,7 @@ import {
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
-import { collectCommentNodes } from "../comments/index.js";
+import { collectCommentNodes, getCommentArray } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
@@ -4834,7 +4834,7 @@ function collectDeprecatedFunctionNames(ast, sourceText) {
         return names;
     }
 
-    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const comments = getCommentArray(ast);
     const body = Array.isArray(ast.body) ? ast.body : [];
 
     if (comments.length === 0 || body.length === 0) {
