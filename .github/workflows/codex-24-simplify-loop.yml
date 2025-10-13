@@ -1,4 +1,4 @@
-name: Codex 24 – Verbose Loop Cleanup
+name: Codex 24 – Overengineered Block Cleanup
 
 on:
   schedule:
@@ -16,15 +16,12 @@ jobs:
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:
-      pr_title: "Codex: Verbose Loop Cleanup"
-      pr_body: "Seed PR for Codex to replace hand-rolled loops with tighter constructs."
+      pr_title: "Codex: Overengineered Block Cleanup"
+      pr_body: "Seed PR for Codex to condense an overly bespoke or long-winded code path into something idiomatic."
       prompt: |
-        Find a hand-written loop (for/while/forEach-style) that is longer or more
-        error-prone than necessary, and swap it for a clearer pattern—such as array
-        methods, small helpers, generators, or early exits—that keeps behaviour intact.
-        Prioritise loops that duplicate built-in capabilities, mutate shared state in
-        multiple places, or include manual index/accumulator bookkeeping that can be
-        expressed more declaratively. Leave deduplication and other refactors to their
-        dedicated workflows. Ensure the new construct improves readability, keeps
-        allocations in check, and passes existing tests. Document the before/after logic
-        briefly in the commit message so reviewers can see the rationale.
+        Locate a single block, function, or file whose implementation is noticeably over-engineered: bespoke helpers,
+        verbose control flow, redundant state tracking, or other non-Pythonic patterns that obscure the intent. Refactor
+        that one target into a concise, idiomatic solution that keeps behaviour intact while improving readability and
+        maintainability. Avoid sweeping rewrites—focus on the clumsiest area you can make elegant without touching
+        unrelated code. Make sure tests still pass and explain the original issues and the leaner approach in the commit
+        message.
