@@ -62,6 +62,7 @@ import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
 } from "../identifier-case/local-plan.js";
+import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 
 const LOGICAL_OPERATOR_STYLE_KEYWORDS = "keywords";
 const LOGICAL_OPERATOR_STYLE_SYMBOLS = "symbols";
@@ -135,11 +136,16 @@ export function print(path, options, print) {
                     options
                 );
             }
-            maybeReportIdentifierCaseDryRun(options);
-            if (node.body.length === 0) {
-                return concat(printDanglingCommentsAsGroup(path, options));
+
+            try {
+                maybeReportIdentifierCaseDryRun(options);
+                if (node.body.length === 0) {
+                    return concat(printDanglingCommentsAsGroup(path, options));
+                }
+                return concat(printStatements(path, options, print, "body"));
+            } finally {
+                teardownIdentifierCaseEnvironment(options);
             }
-            return concat(printStatements(path, options, print, "body"));
         }
         case "BlockStatement": {
             if (node.body.length === 0) {
