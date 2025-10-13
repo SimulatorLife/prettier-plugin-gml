@@ -122,6 +122,27 @@ describe("asset rename utilities", () => {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
+
+    it("skips rename execution when renames input is empty", () => {
+        const resultWithEmptyArray = applyAssetRenames({
+            projectIndex: { resources: {} },
+            renames: []
+        });
+
+        assert.deepStrictEqual(resultWithEmptyArray, {
+            writes: [],
+            renames: []
+        });
+
+        const resultWithoutRenames = applyAssetRenames({
+            projectIndex: { resources: {} }
+        });
+
+        assert.deepStrictEqual(resultWithoutRenames, {
+            writes: [],
+            renames: []
+        });
+    });
 });
 
 async function createSyntheticProject() {

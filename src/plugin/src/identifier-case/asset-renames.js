@@ -112,8 +112,14 @@ function collectDirectoryEntries({ projectIndex, renames }) {
     return directories;
 }
 
+function hasPendingAssetRenames(projectIndex, renames) {
+    return (
+        Boolean(projectIndex) && Array.isArray(renames) && renames.length > 0
+    );
+}
+
 function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
-    if (!projectIndex || !Array.isArray(renames) || renames.length === 0) {
+    if (!hasPendingAssetRenames(projectIndex, renames)) {
         return [];
     }
 
@@ -450,7 +456,7 @@ export function applyAssetRenames({
     fsFacade = null,
     logger = null
 } = {}) {
-    if (!projectIndex || !Array.isArray(renames) || renames.length === 0) {
+    if (!hasPendingAssetRenames(projectIndex, renames)) {
         return { writes: [], renames: [] };
     }
 
