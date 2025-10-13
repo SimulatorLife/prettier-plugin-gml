@@ -1,9 +1,6 @@
 import path from "node:path";
 
-import {
-    findProjectRoot,
-    createProjectIndexCoordinator
-} from "../../../shared/project-index/index.js";
+import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
 function isNonEmptyString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }

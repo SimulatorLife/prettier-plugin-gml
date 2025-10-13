@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { buildProjectIndex } from "../../shared/project-index/index.js";
+import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     planAssetRenames,
     applyAssetRenames
