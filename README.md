@@ -207,8 +207,9 @@ node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.g
 If `--extensions` is omitted the wrapper falls back to the `.gml` default or to the comma-separated list provided via the
 `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable.
 
-Before | After
------- | -----
+<details>
+<summary><strong>Before formatting</strong></summary>
+
 ```gml
 var enemy = argument0; var damage = argument1
 
@@ -217,7 +218,14 @@ with(enemy)
           self.hp-=damage
         if(self.hp<=0){instance_destroy(self)}
 }
-``` | ```gml
+```
+
+</details>
+
+<details>
+<summary><strong>After formatting</strong></summary>
+
+```gml
 var enemy = argument0;
 var damage = argument1;
 
@@ -228,6 +236,8 @@ with (enemy) {
     }
 }
 ```
+
+</details>
 
 ### Format with a local clone
 
