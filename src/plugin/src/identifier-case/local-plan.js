@@ -98,6 +98,46 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     return summarizeFileOccurrences(counts);
 }
 
+function applyAssetRenamesIfEligible({
+    options,
+    projectIndex,
+    assetRenames,
+    assetConflicts,
+    metrics
+}) {
+    if (
+        options.__identifierCaseDryRun === false &&
+        assetRenames.length > 0 &&
+        (assetConflicts ?? []).length === 0 &&
+        projectIndex &&
+        options.__identifierCaseAssetRenamesApplied !== true
+    ) {
+        const fsFacade =
+            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+        const logger = options.logger ?? null;
+        const result = applyAssetRenames({
+            projectIndex,
+            renames: assetRenames,
+            fsFacade,
+            logger
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenameResult",
+            result
+        );
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenamesApplied",
+            true
+        );
+        metrics.incrementCounter(
+            "assets.appliedRenames",
+            result?.renames?.length ?? 0
+        );
+    }
+}
+
 export async function prepareIdentifierCasePlan(options) {
     if (!options) {
         return;
@@ -278,37 +318,13 @@ export async function prepareIdentifierCasePlan(options) {
             );
         }
 
-        if (
-            options.__identifierCaseDryRun === false &&
-            assetRenames.length > 0 &&
-            assetConflicts.length === 0 &&
-            projectIndex &&
-            options.__identifierCaseAssetRenamesApplied !== true
-        ) {
-            const fsFacade =
-                options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
-            const logger = options.logger ?? null;
-            const result = applyAssetRenames({
-                projectIndex,
-                renames: assetRenames,
-                fsFacade,
-                logger
-            });
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseAssetRenameResult",
-                result
-            );
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseAssetRenamesApplied",
-                true
-            );
-            metrics.incrementCounter(
-                "assets.appliedRenames",
-                result?.renames?.length ?? 0
-            );
-        }
+        applyAssetRenamesIfEligible({
+            options,
+            projectIndex,
+            assetRenames,
+            assetConflicts,
+            metrics
+        });
         setIdentifierCaseOption(
             options,
             "__identifierCasePlanGeneratedInternally",
@@ -609,37 +625,13 @@ export async function prepareIdentifierCasePlan(options) {
         );
     }
 
-    if (
-        options.__identifierCaseDryRun === false &&
-        assetRenames.length > 0 &&
-        assetConflicts.length === 0 &&
-        projectIndex &&
-        options.__identifierCaseAssetRenamesApplied !== true
-    ) {
-        const fsFacade =
-            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
-        const logger = options.logger ?? null;
-        const result = applyAssetRenames({
-            projectIndex,
-            renames: assetRenames,
-            fsFacade,
-            logger
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenameResult",
-            result
-        );
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenamesApplied",
-            true
-        );
-        metrics.incrementCounter(
-            "assets.appliedRenames",
-            result?.renames?.length ?? 0
-        );
-    }
+    applyAssetRenamesIfEligible({
+        options,
+        projectIndex,
+        assetRenames,
+        assetConflicts,
+        metrics
+    });
 
     const metricsReport = finalizeMetrics({
         resolvedFile: Boolean(fileRecord),
