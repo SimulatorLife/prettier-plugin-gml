@@ -73,3 +73,22 @@ test("Feather-sanitized macros preserve blank lines before following statements"
         ].join("\n")
     );
 });
+
+test("legacy #define macro replacements keep adjacent statements", async () => {
+    const source = [
+        "#define LEGACY_MACRO VALUE",
+        "var value = LEGACY_MACRO;"
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted,
+        ["#macro LEGACY_MACRO VALUE", "var value = LEGACY_MACRO;", ""].join(
+            "\n"
+        )
+    );
+});

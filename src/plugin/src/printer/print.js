@@ -1486,8 +1486,13 @@ function printStatements(path, options, print, childrenAttribute) {
                 macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
             const isMacroLikeNode = isMacroLikeStatement(node);
+            const isDefineMacroReplacement =
+                node?.type === "DefineStatement" &&
+                typeof node.replacementDirective === "string" &&
+                node.replacementDirective.trim().toLowerCase() === "#macro";
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
+                !isDefineMacroReplacement &&
                 !nextNodeIsMacro &&
                 !nextLineEmpty &&
                 !shouldSuppressExtraEmptyLine &&
