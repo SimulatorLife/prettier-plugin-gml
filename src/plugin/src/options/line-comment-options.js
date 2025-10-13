@@ -2,7 +2,7 @@ import { getCachedValue } from "./options-cache.js";
 import {
     coercePositiveIntegerOption,
     normalizeStringList
-} from "../utils/option-utils.js";
+} from "./option-utils.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;

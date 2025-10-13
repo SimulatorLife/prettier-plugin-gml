@@ -1,6 +1,6 @@
 // options/identifier-case.js
 
-import { normalizeStringList } from "../utils/option-utils.js";
+import { normalizeStringList } from "./option-utils.js";
 import { capitalize } from "../../../shared/string-utils.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
