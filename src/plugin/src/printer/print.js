@@ -1419,9 +1419,11 @@ function printStatements(path, options, print, childrenAttribute) {
                 node,
                 nextNode
             );
+            const nextNodeIsMacro = nextNode?.type === "MacroDeclaration";
             const shouldSkipStandardHardline =
                 shouldSuppressExtraEmptyLine &&
-                node?.type === "MacroDeclaration";
+                node?.type === "MacroDeclaration" &&
+                !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
                 parts.push(hardline);
