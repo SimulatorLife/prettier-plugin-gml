@@ -1,4 +1,5 @@
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { getCachedValue } from "./options-cache.js";
 import {
     coercePositiveIntegerOption,
@@ -80,7 +81,7 @@ function mergeBoilerplateFragments(
 }
 
 function mergeLineCommentOptionOverrides(overrides) {
-    if (typeof overrides !== "object" || overrides === null) {
+    if (!isObjectLike(overrides)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -114,7 +115,7 @@ function hasBoilerplateOverride(value) {
 }
 
 function resolveLineCommentOptions(options) {
-    if (typeof options !== "object" || options === null) {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 

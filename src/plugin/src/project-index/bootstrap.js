@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
@@ -44,7 +45,7 @@ function createSkipResult(reason) {
 }
 
 function defaultStoreOption(options, key, value) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return;
     }
 
@@ -115,7 +116,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 }
 
 function resolveCacheMaxSizeBytes(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return undefined;
     }
 
@@ -160,7 +161,7 @@ function resolveProjectRoot(options) {
 }
 
 export async function bootstrapProjectIndex(options = {}, storeOption) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return createSkipResult("invalid-options");
     }
 
@@ -303,7 +304,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
 }
 
 export function applyBootstrappedProjectIndex(options, storeOption) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 

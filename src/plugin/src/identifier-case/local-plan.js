@@ -5,6 +5,7 @@ import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../../../shared/metrics.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -687,7 +688,7 @@ export function getIdentifierCaseRenameForNode(node, options) {
 }
 
 export function captureIdentifierCasePlanSnapshot(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -715,7 +716,7 @@ export function captureIdentifierCasePlanSnapshot(options) {
 }
 
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
-    if (!snapshot || !options || typeof options !== "object") {
+    if (!snapshot || !isObjectLike(options)) {
         return;
     }
 

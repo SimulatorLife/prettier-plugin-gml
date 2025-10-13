@@ -4,6 +4,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./local-plan.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const BOOTSTRAP_CLEANUP_FLAG = Symbol.for(
     "prettier-plugin-gml.identifierCaseBootstrapNeedsDispose"
@@ -43,7 +44,7 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 }
 
 export async function prepareIdentifierCaseEnvironment(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return;
     }
 
@@ -62,7 +63,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
 }
 
 export function attachIdentifierCasePlanSnapshot(ast, options) {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return;
     }
 

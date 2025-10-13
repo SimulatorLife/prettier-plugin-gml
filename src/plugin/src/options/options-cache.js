@@ -1,3 +1,5 @@
+import { isObjectLike } from "../../../shared/object-utils.js";
+
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
@@ -5,7 +7,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
         throw new TypeError("computeValue must be a function");
     }
 
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return computeValue();
     }
 
