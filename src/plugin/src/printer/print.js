@@ -54,6 +54,7 @@ import {
     getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
@@ -3084,16 +3085,6 @@ function needsParensForNegation(node) {
         "TernaryExpression",
         "LogicalExpression"
     ].includes(node.type);
-}
-
-function isBooleanLiteral(node) {
-    return !!(
-        node &&
-        node.type === "Literal" &&
-        typeof node.value === "string" &&
-        (node.value.toLowerCase() === "true" ||
-            node.value.toLowerCase() === "false")
-    );
 }
 
 function shouldPrefixGlobalIdentifier(path) {
