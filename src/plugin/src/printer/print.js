@@ -1346,6 +1346,23 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        if (semi === ";") {
+            const initializerIsFunctionExpression =
+                node.type === "VariableDeclaration" &&
+                Array.isArray(node.declarations) &&
+                node.declarations.length === 1 &&
+                (node.declarations[0]?.init?.type === "FunctionExpression" ||
+                    node.declarations[0]?.init?.type === "FunctionDeclaration");
+
+            if (initializerIsFunctionExpression) {
+                // Normalised legacy `#define` directives often emit function
+                // expressions assigned to variables without a trailing
+                // semicolon. Preserve that omission so the formatter mirrors
+                // the original code style.
+                semi = "";
+            }
+        }
+
         const shouldOmitSemicolon =
             semi === ";" &&
             !hasTerminatingSemicolon &&
