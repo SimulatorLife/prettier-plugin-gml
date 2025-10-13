@@ -627,6 +627,28 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2016") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = localizeInstanceVariableAssignments({
+                            ast,
+                            diagnostic,
+                            sourceText
+                        });
+
+                        if (isNonEmptyArray(fixes)) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM2028") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensurePrimitiveBeginPrecedesEnd({
@@ -5675,6 +5697,357 @@ function replaceNodeInParent(parent, property, replacement) {
     }
 
     return false;
+}
+
+function localizeInstanceVariableAssignments({ ast, diagnostic, sourceText }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+    const eventMarkers = buildEventMarkerIndex(ast);
+    const memberPropertyNames = collectMemberPropertyNames(ast);
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "AssignmentExpression") {
+            const fix = convertAssignmentToLocalVariable({
+                node,
+                parent,
+                property,
+                diagnostic,
+                eventMarkers,
+                memberPropertyNames,
+                sourceText
+            });
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function convertAssignmentToLocalVariable({
+    node,
+    parent,
+    property,
+    diagnostic,
+    eventMarkers,
+    memberPropertyNames,
+    sourceText
+}) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (
+        !node ||
+        node.type !== "AssignmentExpression" ||
+        node.operator !== "="
+    ) {
+        return null;
+    }
+
+    const left = node.left;
+
+    if (!isIdentifier(left)) {
+        return null;
+    }
+
+    const identifierName = left?.name;
+    const originalIdentifierName =
+        typeof sourceText === "string"
+            ? getOriginalIdentifierName(left, sourceText)
+            : null;
+
+    if (
+        identifierName &&
+        memberPropertyNames &&
+        memberPropertyNames.has(identifierName)
+    ) {
+        return null;
+    }
+
+    if (
+        originalIdentifierName &&
+        memberPropertyNames &&
+        memberPropertyNames.has(originalIdentifierName)
+    ) {
+        return null;
+    }
+
+    if (!Array.isArray(eventMarkers) || eventMarkers.length === 0) {
+        return null;
+    }
+
+    const eventMarker = findEventMarkerForIndex(
+        eventMarkers,
+        getNodeStartIndex(node)
+    );
+
+    if (!eventMarker || isCreateEventMarker(eventMarker)) {
+        return null;
+    }
+
+    const clonedIdentifier = cloneIdentifier(left);
+
+    if (!clonedIdentifier) {
+        return null;
+    }
+
+    const declarator = {
+        type: "VariableDeclarator",
+        id: clonedIdentifier,
+        init: node.right,
+        start: cloneLocation(left?.start ?? node.start),
+        end: cloneLocation(node.end)
+    };
+
+    const declaration = {
+        type: "VariableDeclaration",
+        declarations: [declarator],
+        kind: "var",
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+
+    copyCommentMetadata(node, declaration);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: left?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    parent[property] = declaration;
+    attachFeatherFixMetadata(declaration, [fixDetail]);
+
+    return fixDetail;
+}
+
+function buildEventMarkerIndex(ast) {
+    if (!ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const markerComments = new Set();
+    const directComments = Array.isArray(ast.comments) ? ast.comments : [];
+
+    for (const comment of directComments) {
+        if (comment) {
+            markerComments.add(comment);
+        }
+    }
+
+    for (const comment of collectCommentNodes(ast)) {
+        if (comment) {
+            markerComments.add(comment);
+        }
+    }
+
+    const markers = [];
+
+    for (const comment of markerComments) {
+        const eventName = extractEventNameFromComment(comment?.value);
+
+        if (!eventName) {
+            continue;
+        }
+
+        const markerIndex = getCommentIndex(comment);
+
+        if (typeof markerIndex !== "number") {
+            continue;
+        }
+
+        markers.push({
+            index: markerIndex,
+            name: eventName
+        });
+    }
+
+    markers.sort((left, right) => left.index - right.index);
+
+    return markers;
+}
+
+function extractEventNameFromComment(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed.startsWith("/")) {
+        return null;
+    }
+
+    const normalized = trimmed.replace(/^\/\s*/, "");
+
+    if (!/\bEvent\b/i.test(normalized)) {
+        return null;
+    }
+
+    return normalized;
+}
+
+function getCommentIndex(comment) {
+    if (!comment || typeof comment !== "object") {
+        return null;
+    }
+
+    if (typeof comment.start?.index === "number") {
+        return comment.start.index;
+    }
+
+    if (typeof comment.end?.index === "number") {
+        return comment.end.index;
+    }
+
+    return null;
+}
+
+function findEventMarkerForIndex(markers, index) {
+    if (!Array.isArray(markers) || markers.length === 0) {
+        return null;
+    }
+
+    if (typeof index !== "number") {
+        return null;
+    }
+
+    let result = null;
+
+    for (const marker of markers) {
+        if (marker.index <= index) {
+            result = marker;
+            continue;
+        }
+
+        break;
+    }
+
+    return result;
+}
+
+function isCreateEventMarker(marker) {
+    if (!marker || typeof marker.name !== "string") {
+        return false;
+    }
+
+    return /\bCreate\s+Event\b/i.test(marker.name);
+}
+
+function collectMemberPropertyNames(ast) {
+    if (!ast || typeof ast !== "object") {
+        return new Set();
+    }
+
+    const names = new Set();
+
+    const visit = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (node.type === "MemberDotExpression") {
+            const property = node.property;
+
+            if (property?.type === "Identifier" && property.name) {
+                names.add(property.name);
+            }
+        }
+
+        if (node.type === "MemberIndexExpression") {
+            const property = node.property;
+
+            if (property?.type === "Identifier" && property.name) {
+                names.add(property.name);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return names;
+}
+
+function getOriginalIdentifierName(identifier, sourceText) {
+    if (!identifier || typeof sourceText !== "string") {
+        return null;
+    }
+
+    const startIndex = getNodeStartIndex(identifier);
+    const endIndex = getNodeEndIndex(identifier);
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    const slice = sourceText.slice(startIndex, endIndex + 1);
+
+    if (typeof slice !== "string") {
+        return null;
+    }
+
+    const trimmed = slice.trim();
+
+    if (!trimmed) {
+        return null;
+    }
+
+    const match = /^[A-Za-z_][A-Za-z0-9_]*$/.exec(trimmed);
+
+    if (!match) {
+        return null;
+    }
+
+    return match[0];
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {

@@ -3703,6 +3703,69 @@ describe("applyFeatherFixes transform", () => {
             true
         );
     });
+
+    it("converts GM2016 assignments to local declarations outside the Create event", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "health = 100;",
+            "",
+            "/// Step Event",
+            "",
+            "ammo = 0;",
+            "",
+            "ammo += 1;"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [createAssignment, localizedVariable, additiveAssignment] =
+            ast.body ?? [];
+
+        assert.ok(createAssignment);
+        assert.strictEqual(createAssignment.type, "AssignmentExpression");
+
+        assert.ok(localizedVariable);
+        assert.strictEqual(localizedVariable.type, "VariableDeclaration");
+        assert.strictEqual(localizedVariable.kind, "var");
+
+        const declarations = localizedVariable.declarations ?? [];
+        assert.strictEqual(Array.isArray(declarations), true);
+        assert.strictEqual(declarations.length, 1);
+
+        const declarator = declarations[0];
+        assert.ok(declarator);
+        assert.strictEqual(declarator.id?.name, "ammo");
+        assert.ok(additiveAssignment);
+        assert.strictEqual(additiveAssignment.type, "AssignmentExpression");
+        assert.strictEqual(additiveAssignment.operator, "+=");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2016 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2016"
+        );
+
+        assert.ok(
+            gm2016,
+            "Expected GM2016 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2016.automatic, true);
+        assert.strictEqual(gm2016.target, "ammo");
+        assert.ok(gm2016.range);
+
+        const declarationDiagnostics =
+            localizedVariable._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            declarationDiagnostics.some((entry) => entry.id === "GM2016"),
+            true,
+            "Expected GM2016 metadata to be recorded on the transformed declaration."
+        );
+    });
 });
 
 function isCallExpression(node) {
