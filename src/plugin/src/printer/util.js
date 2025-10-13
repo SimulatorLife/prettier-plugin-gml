@@ -98,6 +98,20 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
+function isRegionLikeDefineStatement(node) {
+    if (node?.type !== "DefineStatement") {
+        return false;
+    }
+
+    const directive = node.replacementDirective;
+    if (typeof directive !== "string") {
+        return false;
+    }
+
+    const normalized = directive.trim().toLowerCase();
+    return normalized === "#region" || normalized === "#endregion";
+}
+
 function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
@@ -108,7 +122,11 @@ function shouldAddNewlinesAroundStatement(node) {
     // once when the module is evaluated. This helper runs inside the printer's
     // statement loops, so trading `Array.includes` for a simple Set membership
     // check keeps the hot path allocation-free and branch-predictable.
-    return NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType);
+    if (NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType)) {
+        return true;
+    }
+
+    return isRegionLikeDefineStatement(node);
 }
 
 export {
