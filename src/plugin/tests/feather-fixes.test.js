@@ -2344,6 +2344,48 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("inserts missing vertex_format_end before subsequent begins and records metadata", () => {
+        const source = [
+            "vertex_format_begin();",
+            "vertex_format_add_position_3d();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(programBody.length, 6);
+
+        const insertedCall = programBody[2];
+        assert.strictEqual(insertedCall?.type, "CallExpression");
+        assert.strictEqual(insertedCall?.object?.name, "vertex_format_end");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2012 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2012"
+        );
+
+        assert.ok(
+            gm2012,
+            "Expected GM2012 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2012.automatic, true);
+
+        const insertedMetadata = insertedCall?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            insertedMetadata.some((entry) => entry.id === "GM2012"),
+            true,
+            "Inserted vertex_format_end call should include GM2012 metadata."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
