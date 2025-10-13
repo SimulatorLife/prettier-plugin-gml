@@ -24,31 +24,42 @@ const defaultFsFacade = Object.freeze({
 
 const defaultNow = () => Date.now();
 
-function serializeReferenceEntries(references) {
-    if (!Array.isArray(references) || references.length === 0) {
+function serializeEntries(collection, projector) {
+    if (!Array.isArray(collection) || collection.length === 0) {
         return [];
     }
 
-    return references.map((reference) => ({
-        filePath: reference.filePath,
-        occurrences: reference.occurrences
+    return collection.map(projector);
+}
+
+function serializeReferenceEntries(references) {
+    return serializeEntries(references, ({ filePath, occurrences }) => ({
+        filePath,
+        occurrences
     }));
 }
 
 function serializeConflictEntries(conflicts) {
-    if (!Array.isArray(conflicts) || conflicts.length === 0) {
-        return [];
-    }
-
-    return conflicts.map((conflict) => ({
-        code: conflict.code,
-        message: conflict.message,
-        severity: conflict.severity,
-        scope: conflict.scope,
-        identifier: conflict.identifier,
-        suggestions: conflict.suggestions,
-        details: conflict.details
-    }));
+    return serializeEntries(
+        conflicts,
+        ({
+            code,
+            message,
+            severity,
+            scope,
+            identifier,
+            suggestions,
+            details
+        }) => ({
+            code,
+            message,
+            severity,
+            scope,
+            identifier,
+            suggestions,
+            details
+        })
+    );
 }
 
 function normalizeString(...values) {
