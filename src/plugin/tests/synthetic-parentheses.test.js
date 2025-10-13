@@ -38,3 +38,29 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
         "Expected flattened addition without extra parentheses."
     );
 });
+
+test("retains synthetic multiplication parentheses within comparisons", async () => {
+    const source = [
+        "do {",
+        "    value += 1;",
+        "} until (value > limit * limit);",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "do {",
+        "    value += 1;",
+        "} until (value > (limit * limit));"
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines,
+        "Expected multiplication grouping parentheses to be preserved when comparing values."
+    );
+});
