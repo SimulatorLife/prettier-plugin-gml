@@ -4,6 +4,7 @@ import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../../../shared/metrics.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
 import {
@@ -24,13 +25,13 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
-    if (typeof absoluteFilePath !== "string" || absoluteFilePath.length === 0) {
+    if (!isNonEmptyString(absoluteFilePath)) {
         return null;
     }
 
     const resolvedFile = path.resolve(absoluteFilePath);
 
-    if (typeof projectRoot === "string" && projectRoot.length > 0) {
+    if (isNonEmptyString(projectRoot)) {
         const resolvedRoot = path.resolve(projectRoot);
         return toPosixPath(path.relative(resolvedRoot, resolvedFile));
     }
@@ -48,7 +49,7 @@ function buildRenameKey(_scopeId, location) {
 }
 
 function createScopeGroupingKey(scopeId, fallback) {
-    if (scopeId && typeof scopeId === "string") {
+    if (isNonEmptyString(scopeId)) {
         return scopeId;
     }
 
