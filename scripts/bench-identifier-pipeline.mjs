@@ -1,87 +1,45 @@
 #!/usr/bin/env node
-import path from "node:path";
 import process from "node:process";
 
-import { buildProjectIndex } from "../src/shared/project-index/index.js";
-import { prepareIdentifierCasePlan } from "../src/plugin/src/identifier-case/local-plan.js";
+import { runPerformanceCli } from "../src/cli/performance.js";
 
-function createConsoleLogger(verbose) {
-    if (!verbose) {
-        return null;
-    }
-    return {
-        debug(...args) {
-            console.debug(...args);
+const argv = process.argv.slice(2);
+
+const forwardedArgs = ["--suite", "identifier-pipeline"];
+const passthrough = [];
+let projectInjected = false;
+let fileInjected = false;
+
+for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (!arg.startsWith("-")) {
+        if (!projectInjected) {
+            forwardedArgs.push("--project", arg);
+            projectInjected = true;
+        } else if (!fileInjected) {
+            forwardedArgs.push("--file", arg);
+            fileInjected = true;
+        } else {
+            passthrough.push(arg);
         }
-    };
-}
-
-function formatMetrics(label, metrics) {
-    return {
-        label,
-        totalTimeMs: metrics?.totalTimeMs ?? null,
-        counters: metrics?.counters ?? {},
-        timings: metrics?.timings ?? {},
-        caches: metrics?.caches ?? {},
-        metadata: metrics?.metadata ?? {}
-    };
-}
-
-async function run() {
-    const [, , projectRootArg, fileArg, ...rest] = process.argv;
-    const flags = new Set(rest);
-    const verbose = flags.has("--verbose");
-    const projectRoot = path.resolve(projectRootArg ?? process.cwd());
-
-    const logger = createConsoleLogger(verbose);
-
-    const indexRuns = [];
-    let latestIndex = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-        const index = await buildProjectIndex(projectRoot, undefined, {
-            logger,
-            logMetrics: verbose
-        });
-        indexRuns.push(
-            formatMetrics(`project-index-run-${attempt}`, index.metrics)
-        );
-        latestIndex = index;
+        continue;
     }
 
-    const results = {
-        projectRoot,
-        index: indexRuns
-    };
+    passthrough.push(arg);
 
-    if (fileArg) {
-        const filepath = path.resolve(fileArg);
-        const renameOptions = {
-            filepath,
-            __identifierCaseProjectIndex: latestIndex,
-            gmlIdentifierCase: "camel",
-            gmlIdentifierCaseLocals: "camel",
-            gmlIdentifierCaseAssets: "pascal",
-            gmlIdentifierCaseAcknowledgeAssetRenames: true,
-            logIdentifierCaseMetrics: verbose,
-            logger
-        };
-
-        await prepareIdentifierCasePlan(renameOptions);
-
-        results.renamePlan = formatMetrics(
-            "identifier-case-plan",
-            renameOptions.__identifierCaseMetricsReport
-        );
-        results.renamePlan.operations =
-            renameOptions.__identifierCaseRenamePlan?.operations?.length ?? 0;
-        results.renamePlan.conflicts =
-            renameOptions.__identifierCaseConflicts?.length ?? 0;
+    if (
+        !arg.includes("=") &&
+        index + 1 < argv.length &&
+        !argv[index + 1].startsWith("-")
+    ) {
+        index += 1;
+        passthrough.push(argv[index]);
     }
-
-    process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
 }
 
-run().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-});
+forwardedArgs.push(...passthrough);
+
+const exitCode = await runPerformanceCli({ argv: forwardedArgs });
+if (typeof exitCode === "number") {
+    process.exitCode = exitCode;
+}

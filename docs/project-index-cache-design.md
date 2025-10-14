@@ -6,7 +6,7 @@ back upcoming formatter concurrency features.
 ## Locating the GameMaker project root
 
 The cache needs to be keyed by the GameMaker project that a formatted file
-belongs to.  Prettier exposes the current file path via `options.filepath`, so
+belongs to. Prettier exposes the current file path via `options.filepath`, so
 we treat it as the starting point for discovery.
 
 1. Normalize the path with `path.resolve` to collapse relative segments and to
@@ -16,7 +16,7 @@ we treat it as the starting point for discovery.
 3. Treat the first directory that contains a `.yyp` file as the project root.
    GameMaker places exactly one manifest in the root, so the nearest manifest
    matches the user's expectation even when nested project folders exist.
-4. Bail out (return `null`) if no manifest is discovered.  This covers
+4. Bail out (return `null`) if no manifest is discovered. This covers
    formatting loose scripts or running Prettier on a subset of files that do not
    belong to a full project checkout.
 
@@ -27,7 +27,7 @@ logic.
 ## Cache key shape and modification times
 
 Cache entries must be invalidated when any project metadata that influences the
-formatter changes.  The key therefore includes the following components:
+formatter changes. The key therefore includes the following components:
 
 - The formatter build identifier (for now a version string passed in by the
   caller).
@@ -36,9 +36,9 @@ formatter changes.  The key therefore includes the following components:
   `.yyp` manifest and the formatted source file.
 
 To keep the implementation deterministic we sort manifest names and stringify
-all numeric values before mixing them into a SHA-256 digest.  Any time either
+all numeric values before mixing them into a SHA-256 digest. Any time either
 file changes on disk, its `mtimeMs` shifts, producing a new hash and therefore a
-new cache entry.  This keeps cache coordination simple while still allowing the
+new cache entry. This keeps cache coordination simple while still allowing the
 system to reuse work across parallel Prettier runs when nothing relevant has
 changed.
 
@@ -93,7 +93,9 @@ callers can distinguish corruption (`invalid-json`/`invalid-schema`) from stale
 inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
 `saveProjectIndexCache` writes the payload via a temporary file followed by an
 atomic rename and refuses to persist entries that exceed the configured size
-limit (8 MiB by default) to avoid unbounded disk growth.
+limit (8 MiB by default) to avoid unbounded disk growth. Callers can tune the
+limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
+setting it to `0` disables the cap when larger caches are required.
 
 ## Coordination and locking
 

@@ -1,7 +1,30 @@
 import antlr4 from "antlr4";
 
-export default class GameMakerParseErrorListener extends antlr4.error
-    .ErrorListener {
+const { ErrorListener } = antlr4.error;
+
+export class GameMakerSyntaxError extends Error {
+    constructor({ message, line, column, wrongSymbol, rule, offendingText }) {
+        super(message);
+        this.name = "GameMakerSyntaxError";
+        if (Number.isFinite(line)) {
+            this.line = line;
+        }
+        if (Number.isFinite(column)) {
+            this.column = column;
+        }
+        if (typeof wrongSymbol === "string") {
+            this.wrongSymbol = wrongSymbol;
+        }
+        if (typeof offendingText === "string") {
+            this.offendingText = offendingText;
+        }
+        if (typeof rule === "string") {
+            this.rule = rule;
+        }
+    }
+}
+
+export default class GameMakerParseErrorListener extends ErrorListener {
     constructor() {
         super();
     }
@@ -9,16 +32,29 @@ export default class GameMakerParseErrorListener extends antlr4.error
     // TODO: better error messages
     syntaxError(recognizer, offendingSymbol, line, column /* msg, error */) {
         const parser = recognizer;
-        let wrongSymbol = offendingSymbol.text;
+        const offendingText = offendingSymbol?.text ?? null;
+        let wrongSymbol = offendingText;
 
         if (wrongSymbol === "<EOF>") {
             wrongSymbol = "end of file";
-        } else {
+        } else if (typeof wrongSymbol === "string" && wrongSymbol.length > 0) {
             wrongSymbol = `symbol '${wrongSymbol}'`;
+        } else {
+            wrongSymbol = "unknown symbol";
         }
 
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
+
+        const createError = (message) =>
+            new GameMakerSyntaxError({
+                message,
+                line,
+                column,
+                wrongSymbol,
+                rule: currentRule,
+                offendingText
+            });
 
         const specificMessage = getSpecificSyntaxErrorMessage({
             parser,
@@ -30,17 +66,17 @@ export default class GameMakerParseErrorListener extends antlr4.error
         });
 
         if (specificMessage) {
-            throw specificMessage;
+            throw createError(specificMessage);
         }
 
         const currentRuleFormatted = currentRule
             .replace(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
             .toLowerCase();
 
-        throw (
+        throw createError(
             `Syntax Error (line ${line}, column ${column}): ` +
-            `unexpected ${wrongSymbol}` +
-            ` while matching rule ${currentRuleFormatted}`
+                `unexpected ${wrongSymbol}` +
+                ` while matching rule ${currentRuleFormatted}`
         );
     }
 }

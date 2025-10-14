@@ -1,4 +1,6 @@
 import { cloneLocation } from "../../shared/ast-locations.js";
+import { isObjectLike } from "../../shared/object-utils.js";
+import { toArray } from "../../shared/array-utils.js";
 
 class Scope {
     constructor(id, kind) {
@@ -6,10 +8,6 @@ class Scope {
         this.kind = kind;
         this.declarations = new Map();
     }
-}
-
-function toArray(value) {
-    return Array.isArray(value) ? value.slice() : value != null ? [value] : [];
 }
 
 export default class ScopeTracker {
@@ -65,18 +63,21 @@ export default class ScopeTracker {
             return null;
         }
 
+        const currentScope = this.currentScope();
+
         if (!scopeOverride) {
-            return this.currentScope();
+            return currentScope;
         }
 
         if (scopeOverride === "global") {
-            return this.rootScope ?? this.currentScope();
+            return this.rootScope ?? currentScope;
         }
 
-        if (typeof scopeOverride === "object" && scopeOverride !== null) {
-            if (typeof scopeOverride.id === "string") {
-                return scopeOverride;
-            }
+        if (
+            isObjectLike(scopeOverride) &&
+            typeof scopeOverride.id === "string"
+        ) {
+            return scopeOverride;
         }
 
         if (typeof scopeOverride === "string") {
@@ -88,7 +89,7 @@ export default class ScopeTracker {
             }
         }
 
-        return this.currentScope();
+        return currentScope;
     }
 
     buildClassifications(role, isDeclaration) {

@@ -11,9 +11,11 @@ import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     normalizeLineCommentOptions,
+    getLineCommentCodeDetectionPatterns,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 import {
@@ -22,6 +24,12 @@ import {
     getLineCommentRawText,
     normalizeDocCommentTypeAnnotations
 } from "./line-comment-formatting.js";
+import {
+    handleComments,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup
+} from "./comment-printer.js";
 
 export {
     applyInlinePadding,
@@ -29,11 +37,14 @@ export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     formatLineComment,
     getLineCommentRawText,
     getCommentArray,
+    getLineCommentCodeDetectionPatterns,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
+    handleComments,
     hasComment,
     isBlockComment,
     isCommentNode,
@@ -41,5 +52,8 @@ export {
     isLineComment,
     normalizeDocCommentTypeAnnotations,
     normalizeLineCommentOptions,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup,
     resolveLineCommentOptions
 };

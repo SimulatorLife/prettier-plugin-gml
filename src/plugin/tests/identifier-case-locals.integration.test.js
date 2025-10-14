@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import { buildProjectIndex } from "../../shared/project-index/index.js";
+import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
@@ -93,6 +93,11 @@ describe("identifier case local renaming", () => {
                 parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
+                gmlIdentifierCaseFunctions: "off",
+                gmlIdentifierCaseStructs: "off",
+                gmlIdentifierCaseMacros: "off",
+                gmlIdentifierCaseInstance: "off",
+                gmlIdentifierCaseGlobals: "off",
                 gmlIdentifierCaseAssets: "off",
                 gmlIdentifierCaseIgnore: "ignore*",
                 gmlIdentifierCasePreserve: "preserve_me",
@@ -198,6 +203,11 @@ describe("identifier case local renaming", () => {
                 parser: "gml-parse",
                 filepath: gmlPath,
                 gmlIdentifierCase: "camel",
+                gmlIdentifierCaseFunctions: "off",
+                gmlIdentifierCaseStructs: "off",
+                gmlIdentifierCaseMacros: "off",
+                gmlIdentifierCaseInstance: "off",
+                gmlIdentifierCaseGlobals: "off",
                 gmlIdentifierCaseAssets: "off",
                 gmlIdentifierCaseIgnore: "ignore*",
                 gmlIdentifierCasePreserve: "preserve_me",
@@ -237,6 +247,11 @@ describe("identifier case local renaming", () => {
             parser: "gml-parse",
             filepath: gmlPath,
             gmlIdentifierCase: "camel",
+            gmlIdentifierCaseFunctions: "off",
+            gmlIdentifierCaseStructs: "off",
+            gmlIdentifierCaseMacros: "off",
+            gmlIdentifierCaseInstance: "off",
+            gmlIdentifierCaseGlobals: "off",
             gmlIdentifierCaseAssets: "off",
             __identifierCaseProjectIndex: projectIndex
         };

@@ -3,7 +3,10 @@
 This guide expands on the high-level steps from the README and explains how the
 project-index bootstrap works now that the formatter can auto-discover your
 GameMaker project. Use it as a reference when rolling identifier-case features
-out to a team or when you need deterministic CI behaviour.
+out to a team or when you need deterministic CI behaviour. The companion
+[identifier-case scope reference](./identifier-case-reference.md) describes how
+each scope is planned and the safety checks enforced before renames are
+applied.
 
 ## Automatic project index bootstrap
 

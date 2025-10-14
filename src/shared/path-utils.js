@@ -1,5 +1,7 @@
+import { isNonEmptyString } from "./string-utils.js";
+
 export function toPosixPath(inputPath) {
-    if (typeof inputPath !== "string" || inputPath.length === 0) {
+    if (!isNonEmptyString(inputPath)) {
         return "";
     }
 

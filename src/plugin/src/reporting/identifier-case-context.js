@@ -1,13 +1,26 @@
+const DEFAULT_CONTEXT_KEY = "<default>";
 const contextMap = new Map();
 
-function normaliseKey(filepath) {
-    if (typeof filepath !== "string" || filepath.length === 0) {
-        return "<default>";
+/**
+ * Normalises optional file path inputs into a consistent map key.
+ *
+ * @param {string | null | undefined} filePath
+ * @returns {string}
+ */
+function normaliseKey(filePath) {
+    if (typeof filePath !== "string" || filePath.length === 0) {
+        return DEFAULT_CONTEXT_KEY;
     }
 
-    return filepath;
+    return filePath;
 }
 
+/**
+ * Stores dry-run metadata for identifier case operations.
+ *
+ * @param {object} context
+ * @param {string | null | undefined} [context.filepath]
+ */
 export function setIdentifierCaseDryRunContext({
     filepath = null,
     renamePlan = null,
@@ -34,6 +47,12 @@ export function setIdentifierCaseDryRunContext({
     });
 }
 
+/**
+ * Retrieves and removes the dry-run context associated with the supplied file.
+ *
+ * @param {string | null | undefined} filepath
+ * @returns {object | null}
+ */
 export function consumeIdentifierCaseDryRunContext(filepath = null) {
     const key = normaliseKey(filepath);
     if (!contextMap.has(key)) {
@@ -45,6 +64,13 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
     return context;
 }
 
+/**
+ * Retrieves the dry-run context associated with the supplied file without
+ * mutating the internal registry.
+ *
+ * @param {string | null | undefined} filepath
+ * @returns {object | null}
+ */
 export function peekIdentifierCaseDryRunContext(filepath = null) {
     const key = normaliseKey(filepath);
     if (!contextMap.has(key)) {
@@ -54,6 +80,9 @@ export function peekIdentifierCaseDryRunContext(filepath = null) {
     return contextMap.get(key);
 }
 
+/**
+ * Removes all stored dry-run contexts.
+ */
 export function clearIdentifierCaseDryRunContexts() {
     contextMap.clear();
 }

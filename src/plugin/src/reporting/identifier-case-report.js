@@ -7,11 +7,23 @@ import {
 } from "node:fs";
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+import { toTrimmedString } from "../../../shared/string-utils.js";
+import { asArray, toArray } from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
+
+function readArrayProperty(owner, propertyName) {
+    const collection = owner?.[propertyName];
+
+    if (Array.isArray(collection)) {
+        return collection;
+    }
+
+    return null;
+}
 
 const defaultFsFacade = Object.freeze({
     mkdirSync(targetPath) {
@@ -24,50 +36,16 @@ const defaultFsFacade = Object.freeze({
 
 const defaultNow = () => Date.now();
 
-function serializeReferenceEntries(references) {
-    if (!Array.isArray(references) || references.length === 0) {
-        return [];
-    }
-
-    return references.map((reference) => ({
-        filePath: reference.filePath,
-        occurrences: reference.occurrences
-    }));
+function getNormalizedOperations(report) {
+    return readArrayProperty(report, "operations") ?? [];
 }
 
-function serializeConflictEntries(conflicts) {
-    if (!Array.isArray(conflicts) || conflicts.length === 0) {
-        return [];
-    }
-
-    return conflicts.map((conflict) => ({
-        code: conflict.code,
-        message: conflict.message,
-        severity: conflict.severity,
-        scope: conflict.scope,
-        identifier: conflict.identifier,
-        suggestions: conflict.suggestions,
-        details: conflict.details
-    }));
+function getNormalizedConflicts(conflicts) {
+    return asArray(conflicts);
 }
 
 function normalizeString(...values) {
-    if (values.length === 0) {
-        return "";
-    }
-
-    if (values.length === 1) {
-        const [value] = values;
-        return typeof value === "string" ? value.trim() : "";
-    }
-
-    for (const value of values) {
-        if (typeof value === "string") {
-            return value.trim();
-        }
-    }
-
-    return "";
+    return values.map(toTrimmedString).find(Boolean) ?? "";
 }
 
 function extractOperations(plan) {
@@ -79,27 +57,17 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (Array.isArray(plan.operations)) {
-        return plan.operations;
+    const operations = readArrayProperty(plan, "operations");
+    if (operations) {
+        return operations;
     }
 
-    if (Array.isArray(plan.renames)) {
-        return plan.renames;
+    const renames = readArrayProperty(plan, "renames");
+    if (renames) {
+        return renames;
     }
 
     return [];
-}
-
-function toArray(value) {
-    if (!value) {
-        return [];
-    }
-
-    if (Array.isArray(value)) {
-        return value;
-    }
-
-    return [value];
 }
 
 function normalizeReference(reference) {
@@ -303,6 +271,8 @@ export function summarizeIdentifierCasePlan({
         toArray(conflicts).map(normalizeConflict).filter(Boolean)
     );
 
+    const renameSummaries = normalizedOperations.map(buildRenameSummary);
+
     const impactedFileSet = new Set();
     let totalReferenceCount = 0;
 
@@ -330,6 +300,7 @@ export function summarizeIdentifierCasePlan({
     return {
         summary,
         operations: normalizedOperations,
+        renames: renameSummaries,
         conflicts: normalizedConflicts
     };
 }
@@ -432,36 +403,69 @@ export function formatIdentifierCaseSummaryText(report) {
     return lines;
 }
 
+function getNormalizedReportCollections(report) {
+    const operations = getNormalizedOperations(report);
+    const conflicts = getNormalizedConflicts(report?.conflicts);
+
+    const renamesSource = Array.isArray(report?.renames)
+        ? report.renames.filter(
+            (rename) => rename && typeof rename === "object"
+        )
+        : null;
+
+    const renames =
+        renamesSource && renamesSource.length === operations.length
+            ? renamesSource
+            : buildRenameSummaries(operations);
+
+    return { operations, renames, conflicts };
+}
+
+function buildRenameSummary(operation) {
+    return {
+        id: operation.id,
+        kind: operation.kind,
+        scopeId: operation.scopeId ?? null,
+        scopeName: operation.scopeName ?? null,
+        fromName: operation.fromName ?? null,
+        toName: operation.toName ?? null,
+        referenceCount: operation.occurrenceCount ?? 0,
+        references: operation.references ?? []
+    };
+}
+
+function buildRenameSummaries(operations) {
+    return operations.map(buildRenameSummary);
+}
+
 function buildLogPayload(report, generatedAt) {
-    const { summary, operations, conflicts } = report;
+    const { summary = {} } = report ?? {};
+    const { renames, conflicts } = getNormalizedReportCollections(report);
 
     return {
         version: LOG_VERSION,
         generatedAt,
         summary: {
-            renameCount: summary.renameCount,
-            impactedFileCount: summary.impactedFileCount,
-            totalReferenceCount: summary.totalReferenceCount,
-            conflictCount: summary.conflictCount,
+            ...summary,
             severityCounts: { ...summary.severityCounts }
         },
-        renames: operations.map((operation) => ({
-            id: operation.id,
-            kind: operation.kind,
+        renames: renames.map((rename) => ({
+            id: rename.id,
+            kind: rename.kind,
             scope: {
-                id: operation.scopeId,
-                displayName: operation.scopeName
+                id: rename.scopeId,
+                displayName: rename.scopeName
             },
             from: {
-                name: operation.fromName
+                name: rename.fromName
             },
             to: {
-                name: operation.toName
+                name: rename.toName
             },
-            referenceCount: operation.occurrenceCount,
-            references: serializeReferenceEntries(operation.references)
+            referenceCount: rename.referenceCount,
+            references: rename.references
         })),
-        conflicts: serializeConflictEntries(conflicts)
+        conflicts
     };
 }
 
@@ -470,11 +474,11 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         return;
     }
 
-    const severity = report.conflicts.some(
-        (conflict) => conflict.severity === "error"
-    )
+    const { renames, conflicts } = getNormalizedReportCollections(report);
+
+    const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
-        : report.conflicts.some((conflict) => conflict.severity === "warning")
+        : conflicts.some((conflict) => conflict.severity === "warning")
             ? "warning"
             : "info";
 
@@ -485,17 +489,8 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         summary: {
             ...report.summary
         },
-        renames: report.operations.map((operation) => ({
-            id: operation.id,
-            kind: operation.kind,
-            scopeId: operation.scopeId,
-            scopeName: operation.scopeName,
-            fromName: operation.fromName,
-            toName: operation.toName,
-            referenceCount: operation.occurrenceCount,
-            references: serializeReferenceEntries(operation.references)
-        })),
-        conflicts: serializeConflictEntries(report.conflicts)
+        renames,
+        conflicts
     });
 }
 
@@ -554,48 +549,76 @@ export function reportIdentifierCasePlan({
     return report;
 }
 
+function pickFunction(...candidates) {
+    for (const candidate of candidates) {
+        if (typeof candidate === "function") {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+function toDiagnosticsArray(value) {
+    return Array.isArray(value) ? value : null;
+}
+
+function resolveInlineReportContext(options, renamePlan) {
+    return {
+        renamePlan,
+        conflicts:
+            options.__identifierCaseConflicts ??
+            options.identifierCaseConflicts ??
+            [],
+        dryRun: options.__identifierCaseDryRun ?? options.identifierCaseDryRun,
+        logFilePath:
+            options.__identifierCaseReportLogPath ??
+            options.identifierCaseReportLogPath ??
+            null,
+        logger: options.logger ?? null,
+        diagnostics: toDiagnosticsArray(options.diagnostics),
+        fsFacade:
+            options.__identifierCaseFs ?? options.identifierCaseFs ?? null,
+        now: pickFunction(
+            options.__identifierCaseNow,
+            options.identifierCaseNow
+        )
+    };
+}
+
+function resolveReportContext(options) {
+    const inlinePlan =
+        options.__identifierCaseRenamePlan ??
+        options.identifierCaseRenamePlan ??
+        null;
+
+    if (inlinePlan) {
+        return resolveInlineReportContext(options, inlinePlan);
+    }
+
+    return consumeIdentifierCaseDryRunContext(options.filepath ?? null);
+}
+
+function resolveDryRunFlag(options, contextDryRun) {
+    const explicitDryRun =
+        options.__identifierCaseDryRun ?? options.identifierCaseDryRun;
+    if (explicitDryRun !== undefined) {
+        return explicitDryRun !== false;
+    }
+
+    if (contextDryRun !== undefined) {
+        return contextDryRun !== false;
+    }
+
+    return false;
+}
+
 export function maybeReportIdentifierCaseDryRun(options) {
     if (!options || options.__identifierCaseReportEmitted) {
         return null;
     }
 
-    const planFromOptions =
-        options.__identifierCaseRenamePlan ??
-        options.identifierCaseRenamePlan ??
-        null;
-
-    let context;
-    if (planFromOptions) {
-        context = {
-            renamePlan: planFromOptions,
-            conflicts:
-                options.__identifierCaseConflicts ??
-                options.identifierCaseConflicts ??
-                [],
-            dryRun:
-                options.__identifierCaseDryRun ??
-                options.identifierCaseDryRun ??
-                undefined,
-            logFilePath:
-                options.__identifierCaseReportLogPath ??
-                options.identifierCaseReportLogPath ??
-                null,
-            logger: options.logger ?? null,
-            diagnostics: Array.isArray(options.diagnostics)
-                ? options.diagnostics
-                : null,
-            fsFacade:
-                options.__identifierCaseFs ?? options.identifierCaseFs ?? null,
-            now:
-                typeof options.__identifierCaseNow === "function"
-                    ? options.__identifierCaseNow
-                    : typeof options.identifierCaseNow === "function"
-                        ? options.identifierCaseNow
-                        : null
-        };
-    } else {
-        context = consumeIdentifierCaseDryRunContext(options.filepath ?? null);
-    }
+    const context = resolveReportContext(options);
 
     if (!context) {
         return null;
@@ -613,18 +636,11 @@ export function maybeReportIdentifierCaseDryRun(options) {
     } = context;
 
     if (!renamePlan) {
-        options.__identifierCaseReportEmitted = true;
+        setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
         return null;
     }
 
-    const optionsDryRun =
-        options.__identifierCaseDryRun ?? options.identifierCaseDryRun;
-    const shouldDryRun =
-        optionsDryRun !== undefined
-            ? optionsDryRun !== false
-            : contextDryRun !== undefined
-                ? contextDryRun !== false
-                : false;
+    const shouldDryRun = resolveDryRunFlag(options, contextDryRun);
 
     setIdentifierCaseOption(options, "__identifierCaseDryRun", shouldDryRun);
 
@@ -646,8 +662,7 @@ export function maybeReportIdentifierCaseDryRun(options) {
 
     const effectiveLogger = logger ?? options.logger ?? console;
     const effectiveDiagnostics =
-        diagnostics ??
-        (Array.isArray(options.diagnostics) ? options.diagnostics : null);
+        diagnostics ?? toDiagnosticsArray(options.diagnostics);
     const effectiveLogPath =
         logFilePath ??
         options.__identifierCaseReportLogPath ??
@@ -660,11 +675,8 @@ export function maybeReportIdentifierCaseDryRun(options) {
         defaultFsFacade;
     const effectiveNow =
         now ??
-        (typeof options.__identifierCaseNow === "function"
-            ? options.__identifierCaseNow
-            : typeof options.identifierCaseNow === "function"
-                ? options.identifierCaseNow
-                : defaultNow);
+        pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
+        defaultNow;
 
     const result = reportIdentifierCasePlan({
         renamePlan,

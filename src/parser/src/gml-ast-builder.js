@@ -16,11 +16,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         this.operators = {
             // Highest Precedence
-            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
-            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO handle pre/post
+            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
             "~": { prec: 14, assoc: "right", type: "unary" },
             "!": { prec: 14, assoc: "right", type: "unary" },
-            // '-': { prec: 14, assoc: 'left', type: 'unary' }, // Negate
+            // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
             "*": { prec: 13, assoc: "left", type: "arithmetic" },
             "/": { prec: 13, assoc: "left", type: "arithmetic" },
             div: { prec: 13, assoc: "left", type: "arithmetic" },
@@ -46,7 +46,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             or: { prec: 5, assoc: "left", type: "logical" },
             "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
             "*=": { prec: 1, assoc: "right", type: "assign" },
-            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to '=' in GML
+            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to "=" in GML
             "=": { prec: 1, assoc: "right", type: "assign" },
             "/=": { prec: 1, assoc: "right", type: "assign" },
             "%=": { prec: 1, assoc: "right", type: "assign" },
@@ -126,7 +126,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return null;
     }
 
-    // add context data to the node
+    // Add context metadata to the node.
     astNode(ctx, object) {
         object.start = { line: ctx.start.line, index: ctx.start.start };
         if (ctx.stop) {
@@ -144,29 +144,72 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return object;
     }
 
+    createIdentifierLocation(token) {
+        if (!token) {
+            return null;
+        }
+
+        const startIndex =
+            token.start != null
+                ? token.start
+                : token.startIndex != null
+                    ? token.startIndex
+                    : null;
+        const stopIndex =
+            token.stop != null
+                ? token.stop
+                : token.stopIndex != null
+                    ? token.stopIndex
+                    : startIndex;
+        const identifierLength =
+            startIndex != null && stopIndex != null
+                ? stopIndex - startIndex + 1
+                : null;
+
+        const start = {
+            line: token.line,
+            index: startIndex
+        };
+        if (token.column != null) {
+            start.column = token.column;
+        }
+
+        const end = {
+            line: token.line,
+            index: stopIndex != null ? stopIndex + 1 : null
+        };
+        if (start.column != null && identifierLength != null) {
+            end.column = start.column + identifierLength;
+        }
+
+        return { start, end };
+    }
+
     visitBinaryExpression(ctx) {
         return this.handleBinaryExpression(ctx);
     }
 
     needsParentheses(operator, leftNode, rightNode) {
-        if (!operator || !leftNode || !rightNode) return false;
+        if (!operator || !leftNode || !rightNode) {
+            return false;
+        }
 
-        let leftOp =
+        const leftOp =
             leftNode.type === "BinaryExpression"
                 ? this.operators[leftNode.operator]
                 : { prec: 0, assoc: "left" };
-        let rightOp =
+        const rightOp =
             rightNode.type === "BinaryExpression"
                 ? this.operators[rightNode.operator]
                 : { prec: 0, assoc: "left" };
-        let currOp = this.operators[operator];
+        const currOp = this.operators[operator];
 
         if (currOp.assoc === "left") {
             return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;
-        } else {
-            // For right-associative operators
-            return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
         }
+
+        // For right-associative operators
+        return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
     }
 
     wrapInParentheses(ctx, node) {
@@ -1134,9 +1177,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#functionDeclaration.
     visitFunctionDeclaration(ctx) {
         let id = null;
+        let idLocation = null;
 
         if (ctx.Identifier() != null) {
-            id = ctx.Identifier().getText();
+            const identifierNode = ctx.Identifier();
+            id = identifierNode.getText();
+            idLocation = this.createIdentifierLocation(identifierNode.symbol);
         }
 
         const paramListCtx = ctx.parameterList();
@@ -1161,6 +1207,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             return this.astNode(ctx, {
                 type: "ConstructorDeclaration",
                 id: id,
+                idLocation: idLocation,
                 params: params,
                 parent: this.visit(ctx.constructorClause()),
                 body: body,
@@ -1171,6 +1218,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.astNode(ctx, {
             type: "FunctionDeclaration",
             id: id,
+            idLocation: idLocation,
             params: params,
             body: body,
             hasTrailingComma: hasTrailingComma

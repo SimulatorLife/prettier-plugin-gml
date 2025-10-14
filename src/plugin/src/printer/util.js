@@ -1,4 +1,5 @@
 import { util } from "prettier";
+import { toTrimmedString } from "../../../shared/string-utils.js";
 import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -98,18 +99,19 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
-function isRegionLikeDefineStatement(node) {
-    if (node?.type !== "DefineStatement") {
-        return false;
+function getNormalizedDefineReplacementDirective(node) {
+    if (!node || node.type !== "DefineStatement") {
+        return null;
     }
 
-    const directive = node.replacementDirective;
-    if (typeof directive !== "string") {
-        return false;
-    }
+    const directive = toTrimmedString(node.replacementDirective);
+    return directive ? directive.toLowerCase() : null;
+}
 
-    const normalized = directive.trim().toLowerCase();
-    return normalized === "#region" || normalized === "#endregion";
+function defineReplacementRequiresNewlines(node) {
+    const directive = getNormalizedDefineReplacementDirective(node);
+
+    return directive === "#region" || directive === "#endregion";
 }
 
 function shouldAddNewlinesAroundStatement(node) {
@@ -126,7 +128,7 @@ function shouldAddNewlinesAroundStatement(node) {
         return true;
     }
 
-    return isRegionLikeDefineStatement(node);
+    return defineReplacementRequiresNewlines(node);
 }
 
 export {
@@ -134,6 +136,7 @@ export {
     isLastStatement,
     optionalSemicolon,
     isAssignmentLikeExpression,
+    getNormalizedDefineReplacementDirective,
     hasComment,
     isNextLineEmpty,
     isPreviousLineEmpty,

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { buildProjectIndex } from "../../shared/project-index/index.js";
+import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     planAssetRenames,
     applyAssetRenames
@@ -121,6 +121,27 @@ describe("asset rename utilities", () => {
         } finally {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
+    });
+
+    it("skips rename execution when renames input is empty", () => {
+        const resultWithEmptyArray = applyAssetRenames({
+            projectIndex: { resources: {} },
+            renames: []
+        });
+
+        assert.deepStrictEqual(resultWithEmptyArray, {
+            writes: [],
+            renames: []
+        });
+
+        const resultWithoutRenames = applyAssetRenames({
+            projectIndex: { resources: {} }
+        });
+
+        assert.deepStrictEqual(resultWithoutRenames, {
+            writes: [],
+            renames: []
+        });
     });
 });
 

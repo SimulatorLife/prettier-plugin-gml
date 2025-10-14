@@ -7,7 +7,7 @@ import {
     getSingleVariableDeclarator,
     isNode
 } from "../../../shared/ast-node-helpers.js";
-import { getCommentArray } from "../../../shared/comments.js";
+import { getCommentArray, isLineComment } from "../../../shared/comments.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -526,7 +526,7 @@ function allowTrailingCommentsBetween({
 }
 
 function isTrailingLineCommentOnLine(comment, expectedLine) {
-    if (!isLineCommentNode(comment)) {
+    if (!isLineComment(comment)) {
         return false;
     }
 
@@ -559,7 +559,7 @@ function getNodeEndLine(node) {
 }
 
 function isAttachableTrailingComment(comment, statement) {
-    if (!isLineCommentNode(comment)) {
+    if (!isLineComment(comment)) {
         return false;
     }
 
@@ -620,10 +620,6 @@ function getNodeStartLine(node) {
     }
 
     return null;
-}
-
-function isLineCommentNode(comment) {
-    return isNode(comment) && comment.type === "CommentLine";
 }
 
 class CommentTracker {

@@ -1,14 +1,13 @@
 import path from "node:path";
 
-import {
-    findProjectRoot,
-    createProjectIndexCoordinator
-} from "../../../shared/project-index/index.js";
-import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
+import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
 
-function isNonEmptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
-}
+const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
+    "__identifierCaseProjectIndexCacheMaxBytes";
+const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
 
 function getFsFacade(options) {
     return options?.__identifierCaseFs ?? options?.identifierCaseFs ?? null;
@@ -45,12 +44,110 @@ function createSkipResult(reason) {
     };
 }
 
+function defaultStoreOption(options, key, value) {
+    if (!isObjectLike(options)) {
+        return;
+    }
+
+    options[key] = value;
+}
+
+function storeOptionValue(storeOption, options, key, value) {
+    if (typeof storeOption === "function") {
+        storeOption(options, key, value);
+    } else {
+        defaultStoreOption(options, key, value);
+    }
+}
+
+function storeBootstrapResult(options, result, storeOption) {
+    storeOptionValue(
+        storeOption,
+        options,
+        "__identifierCaseProjectIndexBootstrap",
+        result
+    );
+    return result;
+}
+
+function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
+    if (rawValue == null) {
+        return undefined;
+    }
+
+    const type = typeof rawValue;
+    const isString = type === "string";
+    const isNumber = type === "number";
+    const typeError = () =>
+        new Error(
+            `${optionName} must be provided as a non-negative integer (received type '${type}').`
+        );
+    const rangeError = (received) =>
+        new Error(
+            `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`
+        );
+
+    if (!isString && !isNumber) {
+        throw typeError();
+    }
+
+    const sanitized = isString ? rawValue.trim() : rawValue;
+    if (isString && sanitized === "") {
+        return undefined;
+    }
+
+    const numericValue = Number(sanitized);
+    if (!Number.isFinite(numericValue)) {
+        throw isString ? rangeError(`'${rawValue}'`) : typeError();
+    }
+
+    const normalized = Math.trunc(numericValue);
+    if (normalized < 0) {
+        const received = isString ? `'${rawValue}'` : rawValue;
+        throw rangeError(received);
+    }
+
+    return normalized === 0 ? null : normalized;
+}
+
+function resolveCacheMaxSizeBytes(options) {
+    if (!isObjectLike(options)) {
+        return undefined;
+    }
+
+    if (
+        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME] !==
+        undefined
+    ) {
+        const stored =
+            options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
+        if (stored === null) {
+            return null;
+        }
+
+        return normalizeCacheMaxSizeBytes(stored, {
+            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+        });
+    }
+
+    if (options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME] === undefined) {
+        return undefined;
+    }
+
+    return normalizeCacheMaxSizeBytes(
+        options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME],
+        {
+            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+        }
+    );
+}
+
 function resolveProjectRoot(options) {
-    if (isNonEmptyString(options?.__identifierCaseProjectRoot)) {
+    if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
         return path.resolve(options.__identifierCaseProjectRoot);
     }
 
-    if (isNonEmptyString(options?.gmlIdentifierCaseProjectRoot)) {
+    if (isNonEmptyTrimmedString(options?.gmlIdentifierCaseProjectRoot)) {
         const configuredRoot = options.gmlIdentifierCaseProjectRoot.trim();
         return path.resolve(configuredRoot);
     }
@@ -58,8 +155,8 @@ function resolveProjectRoot(options) {
     return null;
 }
 
-export async function bootstrapProjectIndex(options = {}) {
-    if (!options || typeof options !== "object") {
+export async function bootstrapProjectIndex(options = {}, storeOption) {
+    if (!isObjectLike(options)) {
         return createSkipResult("invalid-options");
     }
 
@@ -70,31 +167,27 @@ export async function bootstrapProjectIndex(options = {}) {
     if (options.__identifierCaseProjectIndex) {
         const projectRoot =
             options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
-        const result = {
-            status: "ready",
-            reason: "provided",
-            projectRoot,
-            projectIndex: options.__identifierCaseProjectIndex,
-            source: "provided",
-            cache: null,
-            dispose() {}
-        };
-        setIdentifierCaseOption(
+        return storeBootstrapResult(
             options,
-            "__identifierCaseProjectIndexBootstrap",
-            result
+            {
+                status: "ready",
+                reason: "provided",
+                projectRoot,
+                projectIndex: options.__identifierCaseProjectIndex,
+                source: "provided",
+                cache: null,
+                dispose() {}
+            },
+            storeOption
         );
-        return result;
     }
 
     if (options.gmlIdentifierCaseDiscoverProject === false) {
-        const result = createSkipResult("discovery-disabled");
-        setIdentifierCaseOption(
+        return storeBootstrapResult(
             options,
-            "__identifierCaseProjectIndexBootstrap",
-            result
+            createSkipResult("discovery-disabled"),
+            storeOption
         );
-        return result;
     }
 
     const fsFacade = getFsFacade(options);
@@ -102,16 +195,24 @@ export async function bootstrapProjectIndex(options = {}) {
     let projectRoot = resolveProjectRoot(options);
     let rootResolution = projectRoot ? "configured" : null;
 
+    const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
+    if (cacheMaxSizeBytes !== undefined) {
+        storeOptionValue(
+            storeOption,
+            options,
+            PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
+            cacheMaxSizeBytes
+        );
+    }
+
     if (!projectRoot) {
         const filepath = options?.filepath ?? null;
-        if (!isNonEmptyString(filepath)) {
-            const result = createSkipResult("missing-filepath");
-            setIdentifierCaseOption(
+        if (!isNonEmptyTrimmedString(filepath)) {
+            return storeBootstrapResult(
                 options,
-                "__identifierCaseProjectIndexBootstrap",
-                result
+                createSkipResult("missing-filepath"),
+                storeOption
             );
-            return result;
         }
 
         projectRoot = await findProjectRoot(
@@ -119,13 +220,11 @@ export async function bootstrapProjectIndex(options = {}) {
             fsFacade ?? undefined
         );
         if (!projectRoot) {
-            const result = createSkipResult("project-root-not-found");
-            setIdentifierCaseOption(
+            return storeBootstrapResult(
                 options,
-                "__identifierCaseProjectIndexBootstrap",
-                result
+                createSkipResult("project-root-not-found"),
+                storeOption
             );
-            return result;
         }
 
         rootResolution = "discovered";
@@ -134,20 +233,42 @@ export async function bootstrapProjectIndex(options = {}) {
     const coordinatorOverride =
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
+    const coordinatorOptions = { fsFacade: fsFacade ?? undefined };
+    if (cacheMaxSizeBytes !== undefined) {
+        coordinatorOptions.cacheMaxSizeBytes = cacheMaxSizeBytes;
+    }
+
     const coordinator =
         coordinatorOverride ??
-        createProjectIndexCoordinator({ fsFacade: fsFacade ?? undefined });
+        createProjectIndexCoordinator(coordinatorOptions);
+
+    const buildOptions = {
+        logger: options?.logger ?? null,
+        logMetrics: options?.logIdentifierCaseMetrics === true
+    };
+
+    const parserFacadeOverride =
+        options.identifierCaseProjectIndexParserFacade ??
+        options.gmlParserFacade ??
+        options.parserFacade ??
+        null;
+    if (parserFacadeOverride != null) {
+        buildOptions.gmlParserFacade = parserFacadeOverride;
+    } else if (typeof options.parseGml === "function") {
+        buildOptions.parseGml = options.parseGml;
+    }
 
     const descriptor = {
         projectRoot,
         cacheFilePath: options?.identifierCaseProjectIndexCachePath ?? null,
         formatterVersion: getFormatterVersion(options) ?? undefined,
         pluginVersion: getPluginVersion(options) ?? undefined,
-        buildOptions: {
-            logger: options?.logger ?? null,
-            logMetrics: options?.logIdentifierCaseMetrics === true
-        }
+        buildOptions
     };
+
+    if (cacheMaxSizeBytes !== undefined) {
+        descriptor.maxSizeBytes = cacheMaxSizeBytes;
+    }
 
     const ready = await coordinator.ensureReady(descriptor);
 
@@ -157,30 +278,30 @@ export async function bootstrapProjectIndex(options = {}) {
             coordinator.dispose();
         };
 
-    const result = {
-        status: ready?.projectIndex ? "ready" : "skipped",
-        reason: ready?.projectIndex ? rootResolution : "no-project-index",
-        projectRoot,
-        projectIndex: ready?.projectIndex ?? null,
-        source: ready?.source ?? rootResolution,
-        cache: ready?.cache ?? null,
-        coordinator,
-        dispose
-    };
-
-    setIdentifierCaseOption(
+    const result = storeBootstrapResult(
         options,
-        "__identifierCaseProjectIndexBootstrap",
-        result
+        {
+            status: ready?.projectIndex ? "ready" : "skipped",
+            reason: ready?.projectIndex ? rootResolution : "no-project-index",
+            projectRoot,
+            projectIndex: ready?.projectIndex ?? null,
+            source: ready?.source ?? rootResolution,
+            cache: ready?.cache ?? null,
+            coordinator,
+            dispose
+        },
+        storeOption
     );
 
     if (result.projectIndex) {
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectIndex",
             result.projectIndex
         );
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectRoot",
             projectRoot
@@ -190,8 +311,8 @@ export async function bootstrapProjectIndex(options = {}) {
     return result;
 }
 
-export function applyBootstrappedProjectIndex(options) {
-    if (!options || typeof options !== "object") {
+export function applyBootstrappedProjectIndex(options, storeOption) {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -200,7 +321,8 @@ export function applyBootstrappedProjectIndex(options) {
         bootstrapResult?.projectIndex &&
         !options.__identifierCaseProjectIndex
     ) {
-        setIdentifierCaseOption(
+        storeOptionValue(
+            storeOption,
             options,
             "__identifierCaseProjectIndex",
             bootstrapResult.projectIndex
@@ -209,7 +331,8 @@ export function applyBootstrappedProjectIndex(options) {
             bootstrapResult.projectRoot &&
             !options.__identifierCaseProjectRoot
         ) {
-            setIdentifierCaseOption(
+            storeOptionValue(
+                storeOption,
                 options,
                 "__identifierCaseProjectRoot",
                 bootstrapResult.projectRoot

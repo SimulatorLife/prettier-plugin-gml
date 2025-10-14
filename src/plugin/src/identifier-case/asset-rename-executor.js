@@ -39,6 +39,35 @@ const defaultFsFacade = Object.freeze({
     }
 });
 
+function pathIsAccessible(fsFacade, targetPath, checks) {
+    if (!targetPath || !fsFacade) {
+        return false;
+    }
+
+    for (const check of checks ?? []) {
+        const { method, args = [], expectsBoolean = false } = check;
+        const fn = fsFacade[method];
+        if (typeof fn !== "function") {
+            continue;
+        }
+
+        try {
+            const result = fn.call(fsFacade, targetPath, ...args);
+            const succeeded = !expectsBoolean || Boolean(result);
+            if (succeeded) {
+                return true;
+            }
+        } catch (error) {
+            if (error?.code === "ENOENT") {
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    return false;
+}
+
 function toSystemPath(relativePath) {
     if (typeof relativePath !== "string") {
         return relativePath ?? "";
@@ -154,21 +183,16 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
         return;
     }
 
-    try {
-        if (typeof fsFacade.accessSync === "function") {
-            fsFacade.accessSync(directoryPath, DEFAULT_WRITE_ACCESS_MODE);
-            return;
-        }
+    const accessArgs =
+        DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
 
-        if (typeof fsFacade.existsSync === "function") {
-            if (fsFacade.existsSync(directoryPath)) {
-                return;
-            }
-        }
-    } catch (error) {
-        if (!error || error.code !== "ENOENT") {
-            throw error;
-        }
+    const isAccessible = pathIsAccessible(fsFacade, directoryPath, [
+        { method: "accessSync", args: accessArgs },
+        { method: "existsSync", expectsBoolean: true }
+    ]);
+
+    if (isAccessible) {
+        return;
     }
 
     if (typeof fsFacade.mkdirSync === "function") {
@@ -177,20 +201,16 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
 }
 
 function ensureWritableFile(fsFacade, filePath) {
-    try {
-        if (typeof fsFacade.accessSync === "function") {
-            fsFacade.accessSync(filePath, DEFAULT_WRITE_ACCESS_MODE);
-            return;
-        }
+    const accessArgs =
+        DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
 
-        if (typeof fsFacade.statSync === "function") {
-            fsFacade.statSync(filePath);
-            return;
-        }
-    } catch (error) {
-        if (!error || error.code !== "ENOENT") {
-            throw error;
-        }
+    const isAccessible = pathIsAccessible(fsFacade, filePath, [
+        { method: "accessSync", args: accessArgs },
+        { method: "statSync" }
+    ]);
+
+    if (isAccessible) {
+        return;
     }
 
     ensureWritableDirectory(fsFacade, path.dirname(filePath));
@@ -402,6 +422,7 @@ export const __private__ = {
     readJsonFile,
     getObjectAtPath,
     updateReferenceObject,
+    pathIsAccessible,
     ensureWritableFile,
     ensureWritableDirectory
 };

@@ -1,12 +1,5 @@
-const WORD_CHAR_PATTERN = /[A-Za-z0-9_]/;
-
-function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
-        return false;
-    }
-
-    return WORD_CHAR_PATTERN.test(character);
-}
+import { hasOwn } from "../../../shared/object-utils.js";
+import { isWordChar } from "../../../shared/string-utils.js";
 
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
@@ -283,7 +276,7 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
             continue;
         }
 
-        if (Object.prototype.hasOwnProperty.call(current, "start")) {
+        if (hasOwn(current, "start")) {
             const start = current.start;
 
             if (typeof start === "number") {
@@ -295,7 +288,7 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
             }
         }
 
-        if (Object.prototype.hasOwnProperty.call(current, "end")) {
+        if (hasOwn(current, "end")) {
             const end = current.end;
 
             if (typeof end === "number") {

@@ -44,8 +44,9 @@ export default class GMLParser {
         parser.removeErrorListeners();
         parser.addErrorListener(new GameMakerParseErrorListener());
 
+        let tree;
         try {
-            var tree = parser.program();
+            tree = parser.program();
         } catch (error) {
             if (error) {
                 const normalisedError =
