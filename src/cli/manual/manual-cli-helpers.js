@@ -64,6 +64,37 @@ function formatBytes(text) {
 
 const activeProgressBars = new Map();
 
+function createDefaultProgressBar(label, width) {
+    return new SingleBar(
+        {
+            format: `${label} [{bar}] {value}/{total}`,
+            barsize: width,
+            hideCursor: true,
+            clearOnComplete: true,
+            linewrap: true
+        },
+        Presets.shades_classic
+    );
+}
+
+let progressBarFactory = createDefaultProgressBar;
+
+export function setProgressBarFactoryForTesting(factory) {
+    progressBarFactory =
+        typeof factory === "function" ? factory : createDefaultProgressBar;
+}
+
+export function disposeProgressBars() {
+    for (const [, bar] of activeProgressBars) {
+        try {
+            bar.stop();
+        } catch {
+            // Ignore cleanup failures so disposal continues for remaining bars.
+        }
+    }
+    activeProgressBars.clear();
+}
+
 export function renderProgressBar(
     label,
     current,
@@ -78,16 +109,7 @@ export function renderProgressBar(
     let bar = activeProgressBars.get(label);
 
     if (!bar) {
-        bar = new SingleBar(
-            {
-                format: `${label} [{bar}] {value}/{total}`,
-                barsize: width,
-                hideCursor: true,
-                clearOnComplete: true,
-                linewrap: true
-            },
-            Presets.shades_classic
-        );
+        bar = progressBarFactory(label, width);
         bar.start(normalizedTotal, Math.min(current, normalizedTotal));
         activeProgressBars.set(label, bar);
     } else {
