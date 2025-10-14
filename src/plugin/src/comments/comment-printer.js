@@ -429,14 +429,20 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
         return ast;
     }
 
-    for (const node of [enclosingNode, followingNode]) {
-        if (
-            node?.type === "Program" &&
-            Array.isArray(node.body) &&
-            node.body.length === 0
-        ) {
-            return node;
-        }
+    const enclosingIsEmptyProgram =
+        enclosingNode?.type === "Program" &&
+        Array.isArray(enclosingNode.body) &&
+        enclosingNode.body.length === 0;
+    if (enclosingIsEmptyProgram) {
+        return enclosingNode;
+    }
+
+    const followingIsEmptyProgram =
+        followingNode?.type === "Program" &&
+        Array.isArray(followingNode.body) &&
+        followingNode.body.length === 0;
+    if (followingIsEmptyProgram) {
+        return followingNode;
     }
 
     return null;
