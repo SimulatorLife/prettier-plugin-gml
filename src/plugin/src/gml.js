@@ -192,6 +192,14 @@ export const options = {
         description:
             'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
     },
+    fixMissingDecimalZeroes: {
+        since: "0.0.0",
+        type: "boolean",
+        category: "gml",
+        default: true,
+        description:
+            "Pads bare decimal literals with leading or trailing zeroes to improve readability. Set to false to preserve the original literal text."
+    },
     convertDivisionToMultiplication: {
         since: "0.0.0",
         type: "boolean",

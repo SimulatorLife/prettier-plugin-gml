@@ -21,6 +21,12 @@ All scopes respect the base `gmlIdentifierCase` style unless overridden by the
 scope-specific toggle (for example `gmlIdentifierCaseFunctions`). When a scope is
 set to "off" the planner records metrics but does not queue operations.
 
+Projects that rely on bespoke namespaces can extend the reserved prefix list by
+supplying `reservedPrefixes` overrides when calling
+`normalizeIdentifierCaseWithOptions` or `formatIdentifierCaseWithOptions`
+directly. The overrides supplement the built-in detections so custom qualifiers
+remain untouched during case conversion.
+
 ## Planning and rename map generation
 
 `buildProjectIndex` now records precise source locations for script and struct

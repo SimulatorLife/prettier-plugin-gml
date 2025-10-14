@@ -981,12 +981,22 @@ export function print(path, options, print) {
             return concat("");
         }
         case "Literal": {
-            // TODO: Add an option to allow missing leading/trailing zeroes.
             let value = node.value;
-            if (value.startsWith(".") && !value.startsWith('"')) {
+            const shouldPadDecimalZeroes =
+                options.fixMissingDecimalZeroes !== false;
+
+            if (
+                shouldPadDecimalZeroes &&
+                value.startsWith(".") &&
+                !value.startsWith('"')
+            ) {
                 value = "0" + value; // Fix decimals without a leading 0.
             }
-            if (value.endsWith(".") && !value.endsWith('"')) {
+            if (
+                shouldPadDecimalZeroes &&
+                value.endsWith(".") &&
+                !value.endsWith('"')
+            ) {
                 value = value + "0"; // Fix decimals without a trailing 0.
             }
             return concat(value);
