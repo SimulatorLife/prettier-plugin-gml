@@ -38,6 +38,29 @@ function isQuoteCharacter(character) {
     return character === '"' || character === "'" || character === "`";
 }
 
+function adjustLocationProperty(node, propertyName, mapIndex) {
+    if (!hasOwn(node, propertyName)) {
+        return;
+    }
+
+    const location = node[propertyName];
+
+    if (typeof location === "number") {
+        node[propertyName] = mapIndex(location);
+        return;
+    }
+
+    if (
+        !location ||
+        typeof location !== "object" ||
+        typeof location.index !== "number"
+    ) {
+        return;
+    }
+
+    location.index = mapIndex(location.index);
+}
+
 export function sanitizeConditionalAssignments(sourceText) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return {
@@ -259,11 +282,7 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
     while (stack.length > 0) {
         const current = stack.pop();
 
-        if (!current || typeof current !== "object") {
-            continue;
-        }
-
-        if (seen.has(current)) {
+        if (!current || typeof current !== "object" || seen.has(current)) {
             continue;
         }
 
@@ -276,29 +295,8 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
             continue;
         }
 
-        if (hasOwn(current, "start")) {
-            const start = current.start;
-
-            if (typeof start === "number") {
-                current.start = mapIndex(start);
-            } else if (start && typeof start === "object") {
-                if (typeof start.index === "number") {
-                    start.index = mapIndex(start.index);
-                }
-            }
-        }
-
-        if (hasOwn(current, "end")) {
-            const end = current.end;
-
-            if (typeof end === "number") {
-                current.end = mapIndex(end);
-            } else if (end && typeof end === "object") {
-                if (typeof end.index === "number") {
-                    end.index = mapIndex(end.index);
-                }
-            }
-        }
+        adjustLocationProperty(current, "start", mapIndex);
+        adjustLocationProperty(current, "end", mapIndex);
 
         for (const value of Object.values(current)) {
             if (!value || typeof value !== "object") {
