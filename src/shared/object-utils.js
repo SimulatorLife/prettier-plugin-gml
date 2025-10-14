@@ -9,15 +9,13 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
         throw new TypeError("onObjectLike must be a function");
     }
 
-    if (isObjectLike(value)) {
-        return onObjectLike(value);
+    if (!isObjectLike(value)) {
+        return typeof onNotObjectLike === "function"
+            ? onNotObjectLike()
+            : onNotObjectLike;
     }
 
-    if (typeof onNotObjectLike === "function") {
-        return onNotObjectLike();
-    }
-
-    return onNotObjectLike;
+    return onObjectLike(value);
 }
 
 export function hasOwn(object, key) {
