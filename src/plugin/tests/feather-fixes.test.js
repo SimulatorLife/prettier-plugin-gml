@@ -2437,6 +2437,82 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("closes vertex buffers flagged by GM2011 and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "vb = vertex_create_buffer();",
+            "",
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, 0, 0, 0);",
+            "",
+            "/// Draw Event",
+            "",
+            "vertex_submit(vb, pr_pointlist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const vertexBeginIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_begin"
+        );
+        const vertexEndIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_end"
+        );
+        const vertexSubmitIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_submit"
+        );
+
+        assert.ok(
+            vertexBeginIndex >= 0,
+            "Expected vertex_begin call in parsed AST."
+        );
+        assert.ok(
+            vertexEndIndex >= 0,
+            "Expected vertex_end call to be inserted by fixer."
+        );
+        assert.ok(
+            vertexSubmitIndex >= 0,
+            "Expected vertex_submit call in parsed AST."
+        );
+        assert.ok(
+            vertexEndIndex > vertexBeginIndex,
+            "vertex_end call should appear after vertex_begin."
+        );
+        assert.ok(
+            vertexEndIndex < vertexSubmitIndex,
+            "vertex_end call should appear before vertex_submit."
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2011 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2011"
+        );
+
+        assert.ok(
+            gm2011,
+            "Expected GM2011 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2011.automatic, true);
+        assert.strictEqual(gm2011.target, "vb");
+        assert.ok(gm2011.range);
+
+        const vertexEndNode = body[vertexEndIndex];
+        const nodeDiagnostics = vertexEndNode?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            nodeDiagnostics.some((entry) => entry.id === "GM2011"),
+            true,
+            "Expected GM2011 metadata on inserted vertex_end call."
+        );
+    });
+
     it("inserts a draw_primitive_begin call when fixing GM2028 and records metadata", () => {
         const source = ["/// Draw Event", "", "draw_primitive_end();"].join(
             "\n"
@@ -3806,6 +3882,82 @@ describe("applyFeatherFixes transform", () => {
             declarationDiagnostics.some((entry) => entry.id === "GM2016"),
             true,
             "Expected GM2016 metadata to be recorded on the transformed declaration."
+        );
+    });
+
+    it("closes vertex buffers flagged by GM2011 and records metadata", () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "vb = vertex_create_buffer();",
+            "",
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, 0, 0, 0);",
+            "",
+            "/// Draw Event",
+            "",
+            "vertex_submit(vb, pr_pointlist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const vertexBeginIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_begin"
+        );
+        const vertexEndIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_end"
+        );
+        const vertexSubmitIndex = body.findIndex(
+            (node) => node?.object?.name === "vertex_submit"
+        );
+
+        assert.ok(
+            vertexBeginIndex >= 0,
+            "Expected vertex_begin call in parsed AST."
+        );
+        assert.ok(
+            vertexEndIndex >= 0,
+            "Expected vertex_end call to be inserted by fixer."
+        );
+        assert.ok(
+            vertexSubmitIndex >= 0,
+            "Expected vertex_submit call in parsed AST."
+        );
+        assert.ok(
+            vertexEndIndex > vertexBeginIndex,
+            "vertex_end call should appear after vertex_begin."
+        );
+        assert.ok(
+            vertexEndIndex < vertexSubmitIndex,
+            "vertex_end call should appear before vertex_submit."
+        );
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2011 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2011"
+        );
+
+        assert.ok(
+            gm2011,
+            "Expected GM2011 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2011.automatic, true);
+        assert.strictEqual(gm2011.target, "vb");
+        assert.ok(gm2011.range);
+
+        const vertexEndNode = body[vertexEndIndex];
+        const nodeDiagnostics = vertexEndNode?._appliedFeatherDiagnostics ?? [];
+
+        assert.strictEqual(
+            nodeDiagnostics.some((entry) => entry.id === "GM2011"),
+            true,
+            "Expected GM2011 metadata on inserted vertex_end call."
         );
     });
 });
