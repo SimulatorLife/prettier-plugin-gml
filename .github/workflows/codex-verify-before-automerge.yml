@@ -203,7 +203,7 @@ jobs:
         uses: dorny/test-reporter@v2
         with:
           name: Node.js test results (PR head)
-          path: test-results/*.tap
-          reporter: tap
+          path: test-results/*.xml
+          reporter: java-junit
           fail-on-error: true
           use-actions-summary: true
