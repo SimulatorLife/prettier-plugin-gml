@@ -39,7 +39,7 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     );
 });
 
-test("preserves synthetic addition parentheses outside flatten contexts", async () => {
+test("flattens synthetic addition parentheses by default", async () => {
     const source = ["var value = a + b + c;", ""].join("\n");
 
     const formatted = await prettier.format(source, {
@@ -49,8 +49,23 @@ test("preserves synthetic addition parentheses outside flatten contexts", async 
 
     assert.strictEqual(
         formatted.trim(),
-        "var value = (a + b) + c;",
-        "Addition grouping inserted by the parser should remain when optional parameter rewrites are inactive."
+        "var value = a + b + c;",
+        "Expected redundant addition grouping parentheses inserted by the parser to be removed."
+    );
+});
+
+test("flattens longer chains of synthetic addition", async () => {
+    const source = ["var combined = a + b + c + d;", ""].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var combined = a + b + c + d;",
+        "Expected longer numeric addition chains to omit redundant synthetic parentheses between operands."
     );
 });
 
