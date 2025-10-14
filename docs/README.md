@@ -23,6 +23,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   instructions for enabling automatic renames, understanding the
   auto-discovery bootstrap, and keeping cache hygiene under control across
   local machines and CI.
+- [Identifier-case scope reference](identifier-case-reference.md) — Deep dive
+  into how each rename scope is planned, validated, and surfaced in reports so
+  you can audit dry-run output or diagnose skipped renames.
 
 ## Planning notes
 
