@@ -24,6 +24,12 @@ import {
     getLineCommentRawText,
     normalizeDocCommentTypeAnnotations
 } from "./line-comment-formatting.js";
+import {
+    handleComments,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup
+} from "./comment-printer.js";
 
 export {
     applyInlinePadding,
@@ -38,6 +44,7 @@ export {
     getLineCommentCodeDetectionPatterns,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
+    handleComments,
     hasComment,
     isBlockComment,
     isCommentNode,
@@ -45,5 +52,8 @@ export {
     isLineComment,
     normalizeDocCommentTypeAnnotations,
     normalizeLineCommentOptions,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup,
     resolveLineCommentOptions
 };
