@@ -2281,17 +2281,17 @@ function createAssignmentFromGlobalVarDeclarator({
         right: initializer
     };
 
-    if (Object.prototype.hasOwnProperty.call(declarator, "start")) {
+    if (hasOwn(declarator, "start")) {
         assignment.start = cloneLocation(declarator.start);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "start")) {
+    } else if (hasOwn(statement, "start")) {
         assignment.start = cloneLocation(statement.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(initializer, "end")) {
+    if (hasOwn(initializer, "end")) {
         assignment.end = cloneLocation(initializer.end);
-    } else if (Object.prototype.hasOwnProperty.call(declarator, "end")) {
+    } else if (hasOwn(declarator, "end")) {
         assignment.end = cloneLocation(declarator.end);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "end")) {
+    } else if (hasOwn(statement, "end")) {
         assignment.end = cloneLocation(statement.end);
     }
 
@@ -2323,7 +2323,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
     if (
         declarator.id &&
         typeof declarator.id === "object" &&
-        Object.prototype.hasOwnProperty.call(declarator.id, "end")
+        hasOwn(declarator.id, "end")
     ) {
         declarator.end = cloneLocation(declarator.id.end);
     }
