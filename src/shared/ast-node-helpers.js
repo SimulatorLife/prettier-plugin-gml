@@ -158,6 +158,40 @@ function getCallExpressionArguments(callExpression) {
     return Array.isArray(args) ? args : SHARED_EMPTY_ARRAY;
 }
 
+function getArrayProperty(node, propertyName) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    if (typeof propertyName !== "string" || propertyName.length === 0) {
+        return [];
+    }
+
+    const value = node[propertyName];
+    return Array.isArray(value) ? value : [];
+}
+
+function hasArrayPropertyEntries(node, propertyName) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (typeof propertyName !== "string" || propertyName.length === 0) {
+        return false;
+    }
+
+    const value = node[propertyName];
+    return Array.isArray(value) && value.length > 0;
+}
+
+function getBodyStatements(node) {
+    return getArrayProperty(node, "body");
+}
+
+function hasBodyStatements(node) {
+    return hasArrayPropertyEntries(node, "body");
+}
+
 function getBooleanLiteralValue(node, options = {}) {
     if (!node || node.type !== "Literal") {
         return null;
@@ -211,6 +245,10 @@ export {
     getSingleVariableDeclarator,
     getIdentifierText,
     getCallExpressionArguments,
+    getArrayProperty,
+    hasArrayPropertyEntries,
+    getBodyStatements,
+    hasBodyStatements,
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
