@@ -34,7 +34,7 @@ import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
     printComment
-} from "./comments.js";
+} from "../comments/comment-printer.js";
 import {
     formatLineComment,
     normalizeDocCommentTypeAnnotations
