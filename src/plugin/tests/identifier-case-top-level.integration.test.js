@@ -11,7 +11,7 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
-} from "../src/reporting/identifier-case-context.js";
+} from "../src/identifier-case/identifier-case-context.js";
 import { COLLISION_CONFLICT_CODE } from "../src/identifier-case/common.js";
 import {
     getIdentifierCaseOptionStore,

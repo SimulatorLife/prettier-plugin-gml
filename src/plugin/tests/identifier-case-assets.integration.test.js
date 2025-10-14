@@ -11,7 +11,7 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
-} from "../src/reporting/identifier-case-context.js";
+} from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
