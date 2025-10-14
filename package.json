@@ -27,7 +27,8 @@
     "game-maker-studio-2",
     "game-maker-language",
     "parser",
-    "formatter"
+    "formatter",
+    "cli"
   ],
   "author": "Two Scoop Studio",
   "engines": {
