@@ -12,6 +12,10 @@ const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const wrapperPath = path.resolve(currentDirectory, "../prettier-wrapper.js");
 
+// These integration tests intentionally rely on the strict assertion helpers
+// (e.g. assert.strictEqual/assert.deepStrictEqual) to avoid the deprecated
+// loose equality variants while still validating the CLI behaviour end-to-end.
+
 async function createTemporaryDirectory() {
     const directoryPrefix = path.join(os.tmpdir(), "gml-prettier-wrapper-");
     return fs.mkdtemp(directoryPrefix);
@@ -28,7 +32,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -44,7 +48,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, targetFile]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -65,7 +69,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory], { env });
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -89,8 +93,8 @@ describe("Prettier wrapper CLI", () => {
 
             const formattedGml = await fs.readFile(gmlFile, "utf8");
             const formattedTxt = await fs.readFile(txtFile, "utf8");
-            assert.equal(formattedGml, "var a = 1;\n");
-            assert.equal(formattedTxt, "var b = 2;\n");
+            assert.strictEqual(formattedGml, "var a = 1;\n");
+            assert.strictEqual(formattedTxt, "var b = 2;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -110,7 +114,7 @@ describe("Prettier wrapper CLI", () => {
             ]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -137,7 +141,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(
+            assert.strictEqual(
                 formatted,
                 ["if (true) {", "  a = 1;", "}", ""].join("\n")
             );
@@ -163,7 +167,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(
+            assert.strictEqual(
                 formatted,
                 ["enum MyEnum {", "    value", "}", ""].join("\n")
             );
@@ -185,7 +189,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var    a=1;\n");
+            assert.strictEqual(formatted, "var    a=1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -204,7 +208,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, targetFile]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var    a=1;\n");
+            assert.strictEqual(formatted, "var    a=1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -230,7 +234,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -262,10 +266,10 @@ describe("Prettier wrapper CLI", () => {
                 skippedMatch,
                 "Expected wrapper output to report skipped files"
             );
-            assert.equal(Number(skippedMatch[1]), 1);
+            assert.strictEqual(Number(skippedMatch[1]), 1);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -287,7 +291,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, nestedDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var    a=1;\n");
+            assert.strictEqual(formatted, "var    a=1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -312,7 +316,7 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var    a=1;\n");
+            assert.strictEqual(formatted, "var    a=1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -334,7 +338,7 @@ describe("Prettier wrapper CLI", () => {
             });
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(projectDirectory, { recursive: true, force: true });
             await fs.rm(outerDirectory, { recursive: true, force: true });
@@ -357,11 +361,11 @@ describe("Prettier wrapper CLI", () => {
             ]);
             const { mtimeMs: finalMtime } = await fs.stat(targetFile);
 
-            assert.equal(finalMtime, initialMtime);
+            assert.strictEqual(finalMtime, initialMtime);
             const formattedMessages = stdout
                 .split(/\r?\n/)
                 .filter((line) => line.startsWith("Formatted "));
-            assert.deepEqual(
+            assert.deepStrictEqual(
                 formattedMessages,
                 [],
                 "Expected the second run not to report formatted files"
@@ -410,7 +414,7 @@ describe("Prettier wrapper CLI", () => {
             );
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.equal(formatted, "var a = 1;\n");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -440,7 +444,11 @@ describe("Prettier wrapper CLI", () => {
                 );
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
-                assert.equal(error.code, 1, "Expected a non-zero exit code");
+                assert.strictEqual(
+                    error.code,
+                    1,
+                    "Expected a non-zero exit code"
+                );
                 assert.ok(
                     error.stdout.includes(
                         `Formatted ${formattedBeforeFailure}`
@@ -451,13 +459,13 @@ describe("Prettier wrapper CLI", () => {
                     formattedBeforeFailure,
                     "utf8"
                 );
-                assert.equal(
+                assert.strictEqual(
                     formattedContents,
                     "var    a=1;\n",
                     "Expected reverted file contents to match the original"
                 );
                 const failureContents = await fs.readFile(parseFailure, "utf8");
-                assert.equal(
+                assert.strictEqual(
                     failureContents,
                     "if (\n",
                     "Expected the failing file to remain untouched"
@@ -493,18 +501,22 @@ describe("Prettier wrapper CLI", () => {
                 );
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
-                assert.equal(error.code, 1, "Expected a non-zero exit code");
+                assert.strictEqual(
+                    error.code,
+                    1,
+                    "Expected a non-zero exit code"
+                );
                 const pendingContents = await fs.readFile(
                     pendingFormat,
                     "utf8"
                 );
-                assert.equal(
+                assert.strictEqual(
                     pendingContents,
                     "var    b=2;\n",
                     "Expected formatting to abort before touching later files"
                 );
                 const failureContents = await fs.readFile(parseFailure, "utf8");
-                assert.equal(
+                assert.strictEqual(
                     failureContents,
                     "if (\n",
                     "Expected the failing file to remain untouched"
@@ -532,7 +544,7 @@ describe("Prettier wrapper CLI", () => {
                     error,
                     "Expected an error to be thrown for a failing format"
                 );
-                assert.equal(
+                assert.strictEqual(
                     error.code,
                     1,
                     "Expected a non-zero exit code when formatting fails"

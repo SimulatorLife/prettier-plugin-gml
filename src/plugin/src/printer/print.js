@@ -1,4 +1,4 @@
-import { builders } from "prettier/doc";
+import { builders, utils } from "prettier/doc";
 const {
     breakParent,
     join,
@@ -11,6 +11,7 @@ const {
     softline,
     concat
 } = builders;
+const { willBreak } = utils;
 
 import {
     isLastStatement,
@@ -509,6 +510,15 @@ export function print(path, options, print) {
                 } else {
                     parts.push(" constructor");
                 }
+            }
+
+            const inlineDefaultParameterDoc =
+                maybePrintInlineDefaultParameterFunctionBody(path, print);
+
+            if (inlineDefaultParameterDoc) {
+                parts.push(" ");
+                parts.push(inlineDefaultParameterDoc);
+                return concat(parts);
             }
 
             parts.push(" ");
@@ -1214,6 +1224,62 @@ function buildFunctionParameterDocs(path, print, options) {
     );
 
     return { inlineDoc, multilineDoc };
+}
+
+function maybePrintInlineDefaultParameterFunctionBody(path, print) {
+    const node = path.getValue();
+    const parentNode = path.parent;
+
+    if (!node || node.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    if (!parentNode || parentNode.type !== "DefaultParameter") {
+        return null;
+    }
+
+    if (Array.isArray(node.docComments) && node.docComments.length > 0) {
+        return null;
+    }
+
+    if (hasComment(node)) {
+        return null;
+    }
+
+    const bodyNode = node.body;
+    if (!bodyNode || bodyNode.type !== "BlockStatement") {
+        return null;
+    }
+
+    if (hasComment(bodyNode)) {
+        return null;
+    }
+
+    const statements = getBodyStatements(bodyNode);
+    if (!Array.isArray(statements) || statements.length !== 1) {
+        return null;
+    }
+
+    const [onlyStatement] = statements;
+    if (!onlyStatement || hasComment(onlyStatement)) {
+        return null;
+    }
+
+    if (onlyStatement.type !== "CallExpression") {
+        return null;
+    }
+
+    const statementDoc = path.call(
+        (bodyPath) => bodyPath.call(print, "body", 0),
+        "body"
+    );
+
+    if (!statementDoc || willBreak(statementDoc)) {
+        return null;
+    }
+
+    const semicolon = optionalSemicolon(onlyStatement.type);
+    return group(["{ ", statementDoc, semicolon, " }"]);
 }
 
 function printCommaSeparatedList(

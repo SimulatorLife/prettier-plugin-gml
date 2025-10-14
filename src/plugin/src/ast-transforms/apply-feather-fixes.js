@@ -629,6 +629,19 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1003") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = sanitizeEnumAssignments({ ast, diagnostic });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1005") {
             registerFeatherFixer(registry, diagnosticId, () => {
                 const callTemplate =
@@ -2139,6 +2152,152 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     }
 }
 
+function sanitizeEnumAssignments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "EnumMember") {
+            const fix = sanitizeEnumMember(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function sanitizeEnumMember(node, diagnostic) {
+    if (!node || typeof node !== "object" || !diagnostic) {
+        return null;
+    }
+
+    const initializer = node.initializer;
+
+    if (!hasInvalidEnumInitializer(initializer)) {
+        return null;
+    }
+
+    const originalEnd = getNodeEndIndex(node);
+    const startIndex = getNodeStartIndex(node);
+
+    node._featherOriginalInitializer = initializer ?? null;
+    node.initializer = null;
+
+    if (hasOwn(node.name ?? {}, "end")) {
+        node.end = cloneLocation(node.name.end);
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.name?.name ?? null,
+        range:
+            typeof startIndex === "number" && typeof originalEnd === "number"
+                ? {
+                    start: startIndex,
+                    end: originalEnd
+                }
+                : null
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function hasInvalidEnumInitializer(initializer) {
+    if (initializer == null) {
+        return false;
+    }
+
+    if (typeof initializer === "string") {
+        const normalized = initializer.trim();
+
+        if (normalized.length === 0) {
+            return true;
+        }
+
+        if (isIntegerLiteralString(normalized)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    if (typeof initializer === "number") {
+        return !Number.isInteger(initializer);
+    }
+
+    if (typeof initializer === "object") {
+        if (initializer.type === "Literal") {
+            const value = initializer.value;
+
+            if (typeof value === "number") {
+                return !Number.isInteger(value);
+            }
+
+            if (typeof value === "string") {
+                return !isIntegerLiteralString(value.trim());
+            }
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+function isIntegerLiteralString(candidate) {
+    if (typeof candidate !== "string" || candidate.length === 0) {
+        return false;
+    }
+
+    if (/^[+-]?\d+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
+        return true;
+    }
+
+    return false;
+}
+
 function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -2281,17 +2440,17 @@ function createAssignmentFromGlobalVarDeclarator({
         right: initializer
     };
 
-    if (Object.prototype.hasOwnProperty.call(declarator, "start")) {
+    if (hasOwn(declarator, "start")) {
         assignment.start = cloneLocation(declarator.start);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "start")) {
+    } else if (hasOwn(statement, "start")) {
         assignment.start = cloneLocation(statement.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(initializer, "end")) {
+    if (hasOwn(initializer, "end")) {
         assignment.end = cloneLocation(initializer.end);
-    } else if (Object.prototype.hasOwnProperty.call(declarator, "end")) {
+    } else if (hasOwn(declarator, "end")) {
         assignment.end = cloneLocation(declarator.end);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "end")) {
+    } else if (hasOwn(statement, "end")) {
         assignment.end = cloneLocation(statement.end);
     }
 
@@ -2323,7 +2482,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
     if (
         declarator.id &&
         typeof declarator.id === "object" &&
-        Object.prototype.hasOwnProperty.call(declarator.id, "end")
+        hasOwn(declarator.id, "end")
     ) {
         declarator.end = cloneLocation(declarator.id.end);
     }
