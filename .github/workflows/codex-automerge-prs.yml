@@ -26,10 +26,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-push-context:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      skip_pr_meta: ${{ steps.check.outputs.skip_pr_meta }}
+    steps:
+      - name: Detect duplicate push
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const ref = (context.ref || '').replace('refs/heads/', '');
+
+            if (!ref) {
+              core.setOutput('skip_pr_meta', 'false');
+              return;
+            }
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${ref}`,
+              per_page: 1,
+            });
+
+            const pr = prs[0];
+            const shouldSkip = Boolean(pr);
+
+            if (shouldSkip) {
+              core.notice(`Push to ${ref} is covered by open PR #${pr.number}; skipping duplicate push run.`);
+            }
+
+            core.setOutput('skip_pr_meta', shouldSkip ? 'true' : 'false');
+
   ###########################################################################
   # PR metadata (used by regression test gating + merges)
   ###########################################################################
   pr-meta:
+    needs: detect-push-context
+    if: github.event_name != 'push' || needs.detect-push-context.outputs.skip_pr_meta != 'true'
     runs-on: ubuntu-latest
     outputs:
       number: ${{ steps.get.outputs.number }}
@@ -72,21 +111,31 @@ jobs:
 
             async function setFromPullRequest(pr) {
               if (!pr) return;
+
+              const changedFiles = Number(pr.changed_files || 0);
+              const shouldRun = changedFiles > 0;
+
               setOutputs({
                 mode: 'pr',
                 number: pr.number,
-                changed_files: pr.changed_files || 0,
+                changed_files: changedFiles,
                 head_ref: pr.head?.ref || '',
                 head_sha: pr.head?.sha || '',
                 base_ref: pr.base?.ref || '',
                 base_sha: pr.base?.sha || '',
-                should_run_tests: 'true',
-                skip_reason: '',
+                should_run_tests: shouldRun ? 'true' : 'false',
+                skip_reason: shouldRun ? '' : 'no-files-changed',
               });
 
-              core.notice(
-                `PR #${pr.number}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
-              );
+              if (shouldRun) {
+                core.notice(
+                  `PR #${pr.number}: ${changedFiles} changed file(s), head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
+                );
+              } else {
+                core.notice(
+                  `PR #${pr.number}: 0 changed files; regression tests will be skipped.`
+                );
+              }
             }
 
             if (eventName === 'pull_request' || eventName === 'workflow_dispatch') {
@@ -201,15 +250,6 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # Fast-pass when PR has no file changes (produces a green job)
-      - name: No changes — fast pass
-        if: ${{ needs.pr-meta.outputs.changed_files == '0' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.notice('PR has 0 changed files — skipping tests and marking regression-tests as passed.');
-            // Nothing else to do; remaining steps are guarded by "changed_files != 0".
-
       # === BASE (merge target) ===
       - name: Checkout base (merge target)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -475,7 +515,7 @@ jobs:
             echo "No merge/test-results directory found to preserve."
           fi
 
-      # === Regression compare (base vs head only; merged is informational) ===
+      # === Regression compare (base vs synthetic merge; fall back to head) ===
       - name: Install compare script dependency
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: npm install --no-save fast-xml-parser@^4
@@ -488,11 +528,14 @@ jobs:
           import path from 'node:path';
           import { XMLParser } from 'fast-xml-parser';
 
+          const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+
           function readCases(...dirs) {
-            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
             const results = new Map();
             const queue = dirs.flat().filter(Boolean);
+            let usedDir = null;
+            let displayDir = '';
 
             for (const dir of queue) {
               const resolved = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
@@ -504,6 +547,9 @@ jobs:
               if (files.length === 0) {
                 continue;
               }
+
+              usedDir = resolved;
+              displayDir = path.relative(workspace, resolved) || resolved;
 
               for (const file of files) {
                 const xml = fs.readFileSync(path.join(resolved, file), 'utf8');
@@ -531,7 +577,7 @@ jobs:
               break;
             }
 
-            return results;
+            return { results, usedDir, displayDir };
           }
 
           const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
@@ -539,24 +585,42 @@ jobs:
             baseCandidates.push(process.env.BASE_RESULTS_DIR);
           }
 
+          const mergeCandidates = [path.join('merge', 'test-results'), 'merge-test-results'];
+          if (process.env.MERGE_RESULTS_DIR) {
+            mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
+          }
+
           const base = readCases(baseCandidates);
           const head = readCases('test-results');
+          const merged = readCases(mergeCandidates);
+
+          const target = merged.usedDir ? merged : head;
+          const targetLabel = merged.usedDir
+            ? `synthetic merge (${merged.displayDir || 'merge/test-results'})`
+            : `PR head (${head.displayDir || 'test-results'})`;
+
+          if (merged.usedDir) {
+            console.log(`Using synthetic merge test results for regression detection: ${targetLabel}.`);
+          } else {
+            console.log('Synthetic merge test results were not found; falling back to PR head results.');
+          }
+
           const regressions = [];
 
-          for (const [key, headStatus] of head.entries()) {
-            const baseStatus = base.get(key);
+          for (const [key, targetStatus] of target.results.entries()) {
+            const baseStatus = base.results.get(key);
             if (baseStatus === undefined) continue; // new test -> ignore even if failing
-            if ((baseStatus === 'passed' || baseStatus === 'skipped') && headStatus === 'failed') {
-              regressions.push({ test: key, from: baseStatus, to: headStatus });
+            if ((baseStatus === 'passed' || baseStatus === 'skipped') && targetStatus === 'failed') {
+              regressions.push({ test: key, from: baseStatus, to: targetStatus });
             }
           }
 
           if (regressions.length) {
-            console.log('New failing tests detected (compared to base):');
+            console.log(`New failing tests detected (compared to base using ${targetLabel}):`);
             for (const r of regressions) console.log('- ' + r.test + ' (' + r.from + ' -> ' + r.to + ')');
             process.exit(1);
           } else {
-            console.log('No new failing tests compared to base.');
+            console.log(`No new failing tests compared to base using ${targetLabel}.`);
           }
           EOF
           node compare-junit.mjs
@@ -878,37 +942,81 @@ jobs:
                 core.notice(`PR #${n} reports mergeable_state=blocked; continuing after verifying required checks manually.`);
               }
 
-            const changedFiles = Number(pr.changed_files || 0);
-            const sha = pr.head.sha;
-
-            async function hasGreenRegression(refSha) {
-              const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: refSha, per_page: 100 });
-              return checks.check_runs.some(run =>
-                run.name === REQUIRED_RUN_NAME && run.status === 'completed' && run.conclusion === 'success'
+            if (state === 'blocked') {
+              core.notice(
+                `Mergeable state for #${n} is "blocked"; proceeding because mergeability is true. GitHub will enforce any remaining protections during the merge attempt.`
               );
             }
 
-            if (changedFiles > 0) {
-              if (!(await hasGreenRegression(sha))) {
-                core.notice(`No passing "${REQUIRED_RUN_NAME}" for ${sha}. Dispatching regression run...`);
-                await github.rest.actions.createWorkflowDispatch({
-                  owner, repo, workflow_id: WORKFLOW_FILE,
-                  ref: pr.head.ref,
-                  inputs: { pr_number: String(n) }
-                });
+            const changedFiles = Number(pr.changed_files || 0);
+            const sha = pr.head.sha;
 
-                const deadline = Date.now() + TIMEOUT_MS;
-                while (Date.now() < deadline) {
-                  await new Promise(r => setTimeout(r, POLL_MS));
-                  if (await hasGreenRegression(sha)) {
-                    core.notice(`Regression passed for ${sha}.`);
-                    break;
-                  }
+            async function findRegressionRun(refSha) {
+              const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: refSha, per_page: 100 });
+              return checks.check_runs.find(run => run.name === REQUIRED_RUN_NAME) || null;
+            }
+
+            async function waitForRegressionSuccess(refSha, headRef) {
+              const minutes = Math.floor(TIMEOUT_MS / 60000);
+              let run = await findRegressionRun(refSha);
+
+              if (run?.status === 'completed' && run?.conclusion === 'success') {
+                core.notice(`Regression already green for ${refSha}.`);
+                return true;
+              }
+
+              const dispatch = async (reason) => {
+                core.notice(`${reason} Dispatching "${REQUIRED_RUN_NAME}" for ${refSha}...`);
+                await github.rest.actions.createWorkflowDispatch({
+                  owner,
+                  repo,
+                  workflow_id: WORKFLOW_FILE,
+                  ref: headRef,
+                  inputs: { pr_number: String(n) },
+                });
+                run = null;
+              };
+
+              if (!run) {
+                await dispatch('No existing regression run found.');
+              } else if (run.status === 'completed' && run.conclusion !== 'success') {
+                await dispatch(`Latest regression concluded with "${run.conclusion}".`);
+              } else if (run.status !== 'completed') {
+                core.notice(
+                  `Existing regression run for ${refSha} is ${run.status}; waiting up to ${minutes} minute(s) for it to finish.`
+                );
+              }
+
+              const deadline = Date.now() + TIMEOUT_MS;
+              while (Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, POLL_MS));
+                run = await findRegressionRun(refSha);
+
+                if (!run) {
+                  continue;
                 }
-                if (!(await hasGreenRegression(sha))) {
-                  core.notice(`Skip merge #${n}: regression did not pass (or timed out) for ${sha}.`);
-                  return;
+
+                if (run.status !== 'completed') {
+                  continue;
                 }
+
+                if (run.conclusion === 'success') {
+                  core.notice(`Regression passed for ${refSha}.`);
+                  return true;
+                }
+
+                core.notice(`Skip merge #${n}: regression concluded with "${run.conclusion || 'unknown'}" for ${refSha}.`);
+                return false;
+              }
+
+              core.notice(`Skip merge #${n}: regression run did not finish within ${minutes} minute(s) for ${refSha}.`);
+              return false;
+            }
+
+            if (changedFiles > 0) {
+              const ok = await waitForRegressionSuccess(sha, pr.head.ref);
+              if (!ok) {
+                return;
               }
             } else {
               core.info(`PR #${n} has no file changes; regression tests not required.`);
