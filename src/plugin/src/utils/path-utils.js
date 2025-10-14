@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./string-utils.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 /**
  * Replace any Windows-style backslashes with forward slashes so downstream
