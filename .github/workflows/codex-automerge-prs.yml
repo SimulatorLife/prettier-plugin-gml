@@ -325,7 +325,20 @@ jobs:
           script: |
             const fs = require('node:fs');
             const path = require('node:path');
-            const { XMLParser } = await import('fast-xml-parser');
+
+            let XMLParser;
+            try {
+              const resolved = require.resolve('fast-xml-parser', {
+                paths: [
+                  process.cwd(),
+                  process.env.GITHUB_WORKSPACE || '',
+                  __dirname,
+                ].filter(Boolean),
+              });
+              ({ XMLParser } = require(resolved));
+            } catch (error) {
+              core.warning(`fast-xml-parser is unavailable: ${error.message}`);
+            }
 
             const marker = '<!-- codex-automerge-pr-test-summary -->';
             const prNumber = Number(process.env.PR_NUMBER || 0);
@@ -342,6 +355,11 @@ jobs:
               const resultsDir = path.join(process.cwd(), dir);
               const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
               const notes = [];
+
+              if (!XMLParser) {
+                notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
+                return { available: false, totals, notes };
+              }
               if (!fs.existsSync(resultsDir)) {
                 notes.push(`No directory found at ${dir}.`);
                 return { available: false, totals, notes };
