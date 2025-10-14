@@ -48,14 +48,14 @@ and all references are rewritten consistently.
 ## Safety guarantees
 
 - **Cross-scope collision detection** – When multiple scopes would converge on
-the same formatted identifier the planner emits a `collision` conflict and
-short-circuits rename application until the collision is resolved.
+  the same formatted identifier the planner emits a `collision` conflict and
+  short-circuits rename application until the collision is resolved.
 - **Configuration conflicts** – Identifiers that are preserved or matched by the
-ignore patterns are reported with `info`-level conflicts so developers can
-audits configuration-driven skips.
+  ignore patterns are reported with `info`-level conflicts so developers can
+  audit configuration-driven skips.
 - **Metrics and option store** – The planner attaches metrics, rename plans, and
-conflicts to the identifier-case option store. Tests and editor integrations
-can snapshot this data to verify behaviour across dry-run and write scenarios.
+  conflicts to the identifier-case option store. Tests and editor integrations
+  can snapshot this data to verify behaviour across dry-run and write scenarios.
 
 Refer to the updated integration tests under
 `src/plugin/tests/identifier-case-top-level.integration.test.js` for end-to-end
