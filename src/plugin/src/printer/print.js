@@ -3646,15 +3646,14 @@ function isSyntheticParenFlatteningEnabled(path) {
         }
 
         if (
-            (ancestor.type === "FunctionDeclaration" ||
-                ancestor.type === "ConstructorDeclaration") &&
-            ancestor._flattenSyntheticNumericParens === true
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "ConstructorDeclaration"
         ) {
-            return true;
-        }
-
-        if (ancestor.type === "Program") {
-            return false;
+            if (ancestor._flattenSyntheticNumericParens === true) {
+                return true;
+            }
+        } else if (ancestor.type === "Program") {
+            return ancestor._flattenSyntheticNumericParens !== false;
         }
 
         depth += 1;
