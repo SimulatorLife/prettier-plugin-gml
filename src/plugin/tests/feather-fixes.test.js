@@ -213,7 +213,10 @@ describe("applyFeatherFixes transform", () => {
             (entry) => entry.id === "GM2007"
         );
 
-        assert.strictEqual(gm2007Diagnostics.length, flaggedDeclarations.length);
+        assert.strictEqual(
+            gm2007Diagnostics.length,
+            flaggedDeclarations.length
+        );
     });
 
     it("inserts the missing argument for GM1005 and records fix metadata", () => {
