@@ -466,6 +466,120 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
     return fixes;
 }
 
+function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visitArray = (array, owner, property, breakableDepth) => {
+        if (!Array.isArray(array)) {
+            return;
+        }
+
+        let index = 0;
+
+        while (index < array.length) {
+            const removed = visit(array[index], array, index, breakableDepth, owner);
+
+            if (!removed) {
+                index += 1;
+            }
+        }
+    };
+
+    const visit = (node, parent, property, breakableDepth, owner) => {
+        if (!node) {
+            return false;
+        }
+
+        if (Array.isArray(node)) {
+            visitArray(node, owner, property, breakableDepth);
+            return false;
+        }
+
+        if (typeof node !== "object") {
+            return false;
+        }
+
+        if (node.type === "BreakStatement" && breakableDepth === 0) {
+            if (!Array.isArray(parent) || typeof property !== "number") {
+                return false;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: "break",
+                range: {
+                    start: getNodeStartIndex(node),
+                    end: getNodeEndIndex(node)
+                }
+            });
+
+            if (!fixDetail) {
+                return false;
+            }
+
+            parent.splice(property, 1);
+
+            let metadataTarget = null;
+
+            if (owner && owner !== ast) {
+                metadataTarget = owner;
+            } else if (Array.isArray(parent)) {
+                metadataTarget = parent;
+            }
+
+            if (metadataTarget) {
+                attachFeatherFixMetadata(metadataTarget, [fixDetail]);
+            }
+
+            fixes.push(fixDetail);
+
+            return true;
+        }
+
+        const nextBreakableDepth = breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
+
+        for (const [key, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                visitArray(value, node, key, nextBreakableDepth);
+                continue;
+            }
+
+            visit(value, node, key, nextBreakableDepth, node);
+        }
+
+        return false;
+    };
+
+    visit(ast, null, null, 0, null);
+
+    return fixes;
+}
+
+function isBreakableConstruct(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    switch (node.type) {
+        case "DoUntilStatement":
+        case "ForStatement":
+        case "RepeatStatement":
+        case "SwitchStatement":
+        case "WhileStatement":
+        case "WithStatement":
+            return true;
+        default:
+            return false;
+    }
+}
+
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
@@ -473,6 +587,22 @@ function buildFeatherFixImplementations(diagnostics) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
+            continue;
+        }
+
+        if (diagnosticId === "GM1000") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = removeBreakStatementsWithoutEnclosingLoops({
+                    ast,
+                    diagnostic
+                });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
             continue;
         }
 

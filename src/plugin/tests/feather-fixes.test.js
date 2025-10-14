@@ -120,6 +120,44 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
+    it("removes break statements without enclosing loops and records GM1000 metadata", () => {
+        const source = ["break;", "", "var value = 42;"].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.ok(Array.isArray(ast.body));
+        assert.strictEqual(
+            ast.body.some((node) => node?.type === "BreakStatement"),
+            false,
+            "Expected orphaned break statement to be removed from the program body."
+        );
+
+        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
+            ? ast._appliedFeatherDiagnostics.filter(
+                  (entry) => entry.id === "GM1000"
+              )
+            : [];
+
+        assert.strictEqual(
+            recordedFixes.length,
+            1,
+            "Expected a single GM1000 automatic fix entry to be recorded."
+        );
+
+        const [gm1000Fix] = recordedFixes;
+        assert.ok(gm1000Fix);
+        assert.strictEqual(gm1000Fix.automatic, true);
+        assert.ok(gm1000Fix.range);
+        assert.strictEqual(typeof gm1000Fix.range.start, "number");
+        assert.strictEqual(typeof gm1000Fix.range.end, "number");
+        assert.strictEqual(gm1000Fix.target, "break");
+    });
+
     it("terminates var declarations flagged by GM2007 and records metadata", () => {
         const source = [
             "var missing",
