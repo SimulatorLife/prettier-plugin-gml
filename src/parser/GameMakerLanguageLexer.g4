@@ -132,7 +132,7 @@ Static:                         'static';
 Macro: '#macro' {this.ignoreNewline = false};
 EscapedNewLine: '\\';
 
-Define: '#define' -> pushMode(REGION_NAME);
+Define: '#define' -> pushMode(REGION_NAME);  // Legacy #define directives are normalised later to #macro/#region or dropped entirely
 Region: '#region' -> pushMode(REGION_NAME);
 EndRegion: '#endregion' -> pushMode(REGION_NAME);
 
@@ -209,7 +209,7 @@ fragment SingleEscapeCharacter
     ;
 
 fragment DecimalIntegerLiteral
-    : '0'
+    : '0' [0-9_]*
     | [1-9] [0-9_]*
     ;
 

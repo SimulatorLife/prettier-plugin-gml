@@ -4,63 +4,216 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
-const MANUAL_REPO = "YoYoGames/GameMaker-Manual";
-const API_ROOT = `https://api.github.com/repos/${MANUAL_REPO}`;
-const RAW_ROOT = `https://raw.githubusercontent.com/${MANUAL_REPO}`;
+import { escapeRegExp } from "../src/shared/regexp.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli-errors.js";
+import {
+    MANUAL_CACHE_ROOT_ENV_VAR,
+    resolveManualCacheRoot
+} from "./cli/manual-cache.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    resolveProgressBarWidth
+} from "./cli/progress-bar.js";
+import {
+    DEFAULT_MANUAL_REPO,
+    MANUAL_REPO_ENV_VAR,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository
+} from "./cli/manual-repo.js";
+
+const KB = 1024;
+const MB = KB * 1024;
+
+function assertSupportedNodeVersion() {
+    const [major, minor] = process.versions.node
+        .split(".")
+        .map((part) => Number.parseInt(part, 10));
+    if (Number.isNaN(major) || Number.isNaN(minor)) {
+        throw new Error(
+            `Unable to determine Node.js version from ${process.version}.`
+        );
+    }
+    const MINIMUM_MINOR_VERSION_BY_MAJOR = { 18: 18, 20: 9 };
+    if (major < 18) {
+        throw new Error(
+            `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
+        );
+    }
+    if (major === 18 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[18]) {
+        throw new Error(
+            `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
+        );
+    }
+    if (major === 20 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[20]) {
+        throw new Error(
+            `Node.js 20.9.0 or newer is required. Detected ${process.version}.`
+        );
+    }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..");
-const CACHE_ROOT = path.join(REPO_ROOT, "scripts", "cache", "manual");
-const OUTPUT_DEFAULT = path.join(REPO_ROOT, "resources", "feather-metadata.json");
+const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
+const OUTPUT_DEFAULT = path.join(
+    REPO_ROOT,
+    "resources",
+    "feather-metadata.json"
+);
 
 const ARGUMENTS = process.argv.slice(2);
 
 const FEATHER_PAGES = {
-    diagnostics: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
-    directives: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
+    diagnostics:
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
+    directives:
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
     naming: "Manual/contents/Setting_Up_And_Version_Information/IDE_Preferences/Feather_Settings.htm",
-    typeSystem: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
+    typeSystem:
+        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function parseArgs() {
-    let ref = process.env.GML_MANUAL_REF ?? null;
-    let outputPath = OUTPUT_DEFAULT;
-    let forceRefresh = false;
-
-    for (let i = 0; i < ARGUMENTS.length; i += 1) {
-        const arg = ARGUMENTS[i];
-        if ((arg === "--ref" || arg === "-r") && i + 1 < ARGUMENTS.length) {
-            ref = ARGUMENTS[i + 1];
-            i += 1;
-        } else if ((arg === "--output" || arg === "-o") && i + 1 < ARGUMENTS.length) {
-            outputPath = path.resolve(ARGUMENTS[i + 1]);
-            i += 1;
-        } else if (arg === "--force-refresh") {
-            forceRefresh = true;
-        } else if (arg === "--help" || arg === "-h") {
-            printUsage();
-            process.exit(0);
-        } else {
-            console.error(`Unknown argument: ${arg}`);
-            printUsage();
-            process.exit(1);
-        }
-    }
-
-    return { ref, outputPath, forceRefresh };
-}
-
-function printUsage() {
-    console.log([
+function getUsage({
+    cacheRoot = DEFAULT_CACHE_ROOT,
+    manualRepo = DEFAULT_MANUAL_REPO,
+    progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH
+} = {}) {
+    return [
         "Usage: node scripts/generate-feather-metadata.mjs [options]",
         "",
         "Options:",
         "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
         "  --output, -o <path>       Output JSON path. Defaults to resources/feather-metadata.json.",
         "  --force-refresh           Ignore cached manual artefacts and re-download.",
+        "  --quiet                   Suppress progress output (useful in CI).",
+        `  --progress-bar-width <n>  Width of the terminal progress bar (default: ${progressBarWidth}).`,
+        `  --manual-repo <owner/name> GitHub repository hosting the manual (default: ${manualRepo}).`,
+        `                             Can also be set via ${MANUAL_REPO_ENV_VAR}.`,
+        `  --cache-root <path>       Directory to store cached manual artefacts (default: ${cacheRoot}).`,
+        `                             Can also be set via ${MANUAL_CACHE_ROOT_ENV_VAR}.`,
         "  --help, -h                Show this help message."
-    ].join("\n"));
+    ].join("\n");
+}
+
+function resolveManualRepoValue(rawValue, { usage, source = "cli" } = {}) {
+    const normalized = normalizeManualRepository(rawValue);
+    if (normalized) {
+        return normalized;
+    }
+
+    let received;
+    if (rawValue === undefined) {
+        received = "undefined";
+    } else if (rawValue === null) {
+        received = "null";
+    } else {
+        received = `'${rawValue}'`;
+    }
+    const requirement =
+        source === "env"
+            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
+            : "--manual-repo requires a GitHub repository in 'owner/name' format";
+    throw new CliUsageError(`${requirement} (received ${received}).`, {
+        usage
+    });
+}
+
+function parseArgs() {
+    let ref = process.env.GML_MANUAL_REF ?? null;
+    let outputPath = OUTPUT_DEFAULT;
+    let forceRefresh = false;
+    let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
+    let cacheRoot = DEFAULT_CACHE_ROOT;
+    let manualRepo = DEFAULT_MANUAL_REPO;
+
+    const usage = () => getUsage({ cacheRoot, manualRepo, progressBarWidth });
+
+    if (process.env.GML_PROGRESS_BAR_WIDTH !== undefined) {
+        progressBarWidth = resolveProgressBarWidth(
+            process.env.GML_PROGRESS_BAR_WIDTH,
+            { usage: usage() }
+        );
+    }
+    if (process.env[MANUAL_REPO_ENV_VAR] !== undefined) {
+        manualRepo = resolveManualRepoValue(process.env[MANUAL_REPO_ENV_VAR], {
+            usage: usage(),
+            source: "env"
+        });
+    }
+    const verbose = {
+        resolveRef: true,
+        downloads: true,
+        parsing: true,
+        progressBar: process.stdout.isTTY === true
+    };
+
+    for (let i = 0; i < ARGUMENTS.length; i += 1) {
+        const arg = ARGUMENTS[i];
+        if ((arg === "--ref" || arg === "-r") && i + 1 < ARGUMENTS.length) {
+            ref = ARGUMENTS[i + 1];
+            i += 1;
+        } else if (
+            (arg === "--output" || arg === "-o") &&
+            i + 1 < ARGUMENTS.length
+        ) {
+            outputPath = path.resolve(ARGUMENTS[i + 1]);
+            i += 1;
+        } else if (arg === "--force-refresh") {
+            forceRefresh = true;
+        } else if (arg === "--quiet") {
+            verbose.resolveRef = false;
+            verbose.downloads = false;
+            verbose.parsing = false;
+            verbose.progressBar = false;
+        } else if (arg === "--progress-bar-width") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError(
+                    "--progress-bar-width requires a numeric value.",
+                    { usage: usage() }
+                );
+            }
+            progressBarWidth = resolveProgressBarWidth(ARGUMENTS[i + 1], {
+                usage: usage()
+            });
+            i += 1;
+        } else if (arg === "--manual-repo") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError(
+                    "--manual-repo requires a repository value.",
+                    { usage: usage() }
+                );
+            }
+            manualRepo = resolveManualRepoValue(ARGUMENTS[i + 1], {
+                usage: usage()
+            });
+            i += 1;
+        } else if (arg === "--cache-root") {
+            if (i + 1 >= ARGUMENTS.length) {
+                throw new CliUsageError("--cache-root requires a path value.", {
+                    usage: usage()
+                });
+            }
+            cacheRoot = path.resolve(ARGUMENTS[i + 1]);
+            i += 1;
+        } else if (arg === "--help" || arg === "-h") {
+            console.log(usage());
+            process.exit(0);
+        } else {
+            throw new CliUsageError(`Unknown argument: ${arg}`, {
+                usage: usage()
+            });
+        }
+    }
+
+    return {
+        ref,
+        outputPath,
+        forceRefresh,
+        verbose,
+        progressBarWidth,
+        cacheRoot,
+        manualRepo
+    };
 }
 
 const BASE_HEADERS = {
@@ -94,17 +247,24 @@ async function ensureDir(dirPath) {
     await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function resolveManualRef(ref) {
+async function resolveManualRef(ref, { verbose, apiRoot }) {
+    if (verbose.resolveRef) {
+        console.log(
+            ref
+                ? `Resolving manual reference '${ref}'…`
+                : "Resolving latest manual tag…"
+        );
+    }
     if (ref) {
-        return resolveCommitFromRef(ref);
+        return resolveCommitFromRef(ref, { apiRoot });
     }
 
-    const latestTagUrl = `${API_ROOT}/tags?per_page=1`;
+    const latestTagUrl = `${apiRoot}/tags?per_page=1`;
     const body = await curlRequest(latestTagUrl, { acceptJson: true });
     const tags = JSON.parse(body);
     if (!Array.isArray(tags) || tags.length === 0) {
         console.warn("No manual tags found; defaulting to 'develop' branch.");
-        return resolveCommitFromRef("develop");
+        return resolveCommitFromRef("develop", { apiRoot });
     }
     const { name, commit } = tags[0];
     return {
@@ -113,8 +273,8 @@ async function resolveManualRef(ref) {
     };
 }
 
-async function resolveCommitFromRef(ref) {
-    const url = `${API_ROOT}/commits/${encodeURIComponent(ref)}`;
+async function resolveCommitFromRef(ref, { apiRoot }) {
+    const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
     const body = await curlRequest(url, { acceptJson: true });
     const payload = JSON.parse(body);
     if (!payload?.sha) {
@@ -123,11 +283,38 @@ async function resolveCommitFromRef(ref) {
     return { ref, sha: payload.sha };
 }
 
-async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
-    const cachePath = path.join(CACHE_ROOT, sha, filePath);
+function formatDuration(startTime) {
+    const deltaMs = Date.now() - startTime;
+    if (deltaMs < 1000) {
+        return `${deltaMs}ms`;
+    }
+    return `${(deltaMs / 1000).toFixed(1)}s`;
+}
+
+function formatBytes(text) {
+    const size = Buffer.byteLength(text, "utf8");
+    if (size >= MB) {
+        return `${(size / MB).toFixed(1)}MB`;
+    }
+    if (size >= KB) {
+        return `${(size / KB).toFixed(1)}KB`;
+    }
+    return `${size}B`;
+}
+
+async function fetchManualFile(
+    sha,
+    filePath,
+    { forceRefresh = false, verbose, cacheRoot = DEFAULT_CACHE_ROOT, rawRoot }
+) {
+    const shouldLogDetails = verbose.downloads && !verbose.progressBar;
+    const cachePath = path.join(cacheRoot, sha, filePath);
     if (!forceRefresh) {
         try {
             const cached = await fs.readFile(cachePath, "utf8");
+            if (shouldLogDetails) {
+                console.log(`[cache] ${filePath}`);
+            }
             return cached;
         } catch (error) {
             if (error.code !== "ENOENT") {
@@ -136,24 +323,62 @@ async function fetchManualFile(sha, filePath, { forceRefresh = false } = {}) {
         }
     }
 
-    const url = `${RAW_ROOT}/${sha}/${filePath}`;
+    const startTime = Date.now();
+    if (shouldLogDetails) {
+        console.log(`[download] ${filePath}…`);
+    }
+    const resolvedRawRoot = rawRoot ?? buildManualRepositoryEndpoints().rawRoot;
+    const url = `${resolvedRawRoot}/${sha}/${filePath}`;
     const content = await curlRequest(url);
     await ensureDir(path.dirname(cachePath));
     await fs.writeFile(cachePath, content, "utf8");
+    if (shouldLogDetails) {
+        console.log(
+            `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
+                startTime
+            )})`
+        );
+    }
     return content;
 }
 
-function escapeRegex(text) {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function renderProgressBar(
+    label,
+    current,
+    total,
+    width = DEFAULT_PROGRESS_BAR_WIDTH
+) {
+    if (!process.stdout.isTTY || width <= 0) {
+        return;
+    }
+    const clampedTotal = total > 0 ? total : 1;
+    const ratio = Math.min(Math.max(current / clampedTotal, 0), 1);
+    const filled = Math.round(ratio * width);
+    const bar = `${"#".repeat(filled)}${"-".repeat(Math.max(width - filled, 0))}`;
+    const message = `${label} [${bar}] ${current}/${total}`;
+    process.stdout.write(`\r${message}`);
+    if (current >= total) {
+        process.stdout.write("\n");
+    }
+}
+
+function timeSync(label, fn, { verbose }) {
+    if (verbose.parsing) {
+        console.log(`→ ${label}`);
+    }
+    const startTime = Date.now();
+    const result = fn();
+    if (verbose.parsing) {
+        console.log(`  ${label} completed in ${formatDuration(startTime)}.`);
+    }
+    return result;
 }
 
 function normaliseMultilineText(text) {
     if (!text) {
         return null;
     }
-    const lines = text
-        .split("\n")
-        .map((line) => line.trim());
+    const lines = text.split("\n").map((line) => line.trim());
     const cleaned = [];
     for (const line of lines) {
         if (!line) {
@@ -241,7 +466,9 @@ function createBlock($, node) {
     if (type === "list") {
         block.items = $node
             .children("li")
-            .map((_, item) => extractText($(item), { preserveLineBreaks: false }))
+            .map((_, item) =>
+                extractText($(item), { preserveLineBreaks: false })
+            )
             .get()
             .filter(Boolean);
         if (!block.items.length && !text) {
@@ -281,7 +508,9 @@ function collectBlocksAfter($, element, { stopTags = [] } = {}) {
                 break;
             }
             const classAttr = node.attribs?.class ?? "";
-            const classList = classAttr ? classAttr.split(/\s+/).filter(Boolean) : [];
+            const classList = classAttr
+                ? classAttr.split(/\s+/).filter(Boolean)
+                : [];
             if (tagName === "div" && classList.includes("footer")) {
                 break;
             }
@@ -299,7 +528,11 @@ function normaliseTextBlock(block) {
     if (!block) {
         return null;
     }
-    if (block.type === "list" && Array.isArray(block.items) && block.items.length > 0) {
+    if (
+        block.type === "list" &&
+        Array.isArray(block.items) &&
+        block.items.length > 0
+    ) {
         return block.items.join("\n").trim() || null;
     }
     return block.text?.trim() || null;
@@ -364,23 +597,38 @@ function normaliseContent(blocks) {
 }
 
 function joinSections(parts) {
-    return parts.map((part) => part.trim()).filter(Boolean).join("\n\n") || null;
+    return (
+        parts
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join("\n\n") || null
+    );
 }
 
 function parseDiagnostics(html) {
     const $ = load(html);
     const diagnostics = [];
     $("h3").each((_, element) => {
-        const headingText = $(element).text().replace(/\u00a0/g, " ").trim();
+        const headingText = $(element)
+            .text()
+            .replace(/\u00a0/g, " ")
+            .trim();
         const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
         if (!match) {
             return;
         }
         const [, id, title] = match;
-        const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+        const blocks = collectBlocksAfter($, element, {
+            stopTags: ["h3", "h2"]
+        });
 
-        const exampleHeadingIndex = blocks.findIndex((block) => block.type === "heading" && /example/i.test(block.text ?? ""));
-        const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+        const exampleHeadingIndex = blocks.findIndex(
+            (block) =>
+                block.type === "heading" && /example/i.test(block.text ?? "")
+        );
+        const firstCodeIndex = blocks.findIndex(
+            (block) => block.type === "code"
+        );
 
         let trailingStart = blocks.length;
         if (exampleHeadingIndex >= 0) {
@@ -470,9 +718,11 @@ function parseNamingRules(html) {
     const content = normaliseContent(blocks);
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
-    const requiresMessage = (overview && overview.includes("GM2017")) || notes.find((note) => note.includes("GM2017"))
-        ? "GM2017"
-        : null;
+    const requiresMessage =
+        (overview && overview.includes("GM2017")) ||
+        notes.find((note) => note.includes("GM2017"))
+            ? "GM2017"
+            : null;
 
     const mainList = heading.nextAll("ul").first();
     let namingStyleOptions = [];
@@ -485,17 +735,26 @@ function parseNamingRules(html) {
 
     if (mainList.length > 0) {
         mainList.find("li > strong").each((_, strongEl) => {
-            const strongText = $(strongEl).text().replace(/\u00a0/g, " ").trim();
+            const strongText = $(strongEl)
+                .text()
+                .replace(/\u00a0/g, " ")
+                .trim();
             const listItem = $(strongEl).closest("li");
             if (strongText === "Naming Style") {
                 const styles = listItem.find("ul li");
                 namingStyleOptions = styles
-                    .map((__, styleEl) => extractText($(styleEl), { preserveLineBreaks: false }))
+                    .map((__, styleEl) =>
+                        extractText($(styleEl), { preserveLineBreaks: false })
+                    )
                     .get();
             } else if (strongText === "Identifier Blocklist") {
-                identifierBlocklist = extractText(listItem, { preserveLineBreaks: true });
+                identifierBlocklist = extractText(listItem, {
+                    preserveLineBreaks: true
+                });
             } else if (strongText.endsWith("Naming Rule")) {
-                identifierRuleSummary = extractText(listItem, { preserveLineBreaks: true });
+                identifierRuleSummary = extractText(listItem, {
+                    preserveLineBreaks: true
+                });
             } else if (strongText === "Prefix") {
                 supportsPrefix = true;
             } else if (strongText === "Suffix") {
@@ -507,12 +766,28 @@ function parseNamingRules(html) {
 
         mainList.children("li").each((_, item) => {
             const $item = $(item);
-            const title = $item.children("strong").first().text().replace(/\u00a0/g, " ").trim() || null;
-            const description = extractText($item, { preserveLineBreaks: true });
-            let normalisedDescription = normaliseMultilineText(description ?? "");
+            const title =
+                $item
+                    .children("strong")
+                    .first()
+                    .text()
+                    .replace(/\u00a0/g, " ")
+                    .trim() || null;
+            const description = extractText($item, {
+                preserveLineBreaks: true
+            });
+            let normalisedDescription = normaliseMultilineText(
+                description ?? ""
+            );
             if (title && normalisedDescription) {
-                const prefixPattern = new RegExp(`^${escapeRegex(title)}\s*:?\s*`, "i");
-                normalisedDescription = normalisedDescription.replace(prefixPattern, "");
+                const prefixPattern = new RegExp(
+                    `^${escapeRegExp(title)}\s*:?\s*`,
+                    "i"
+                );
+                normalisedDescription = normalisedDescription.replace(
+                    prefixPattern,
+                    ""
+                );
                 normalisedDescription = normalisedDescription.trim();
             }
             const nestedList = $item.find("ul").first();
@@ -520,7 +795,13 @@ function parseNamingRules(html) {
             if (nestedList.length) {
                 options = nestedList
                     .children("li")
-                    .map((__, option) => normaliseMultilineText(extractText($(option), { preserveLineBreaks: false })))
+                    .map((__, option) =>
+                        normaliseMultilineText(
+                            extractText($(option), {
+                                preserveLineBreaks: false
+                            })
+                        )
+                    )
                     .get()
                     .filter(Boolean);
             }
@@ -538,7 +819,9 @@ function parseNamingRules(html) {
         requiresMessage,
         identifierBlocklist: normaliseMultilineText(identifierBlocklist),
         identifierRuleSummary: normaliseMultilineText(identifierRuleSummary),
-        namingStyleOptions: namingStyleOptions.map((option) => normaliseMultilineText(option)).filter(Boolean),
+        namingStyleOptions: namingStyleOptions
+            .map((option) => normaliseMultilineText(option))
+            .filter(Boolean),
         supportsPrefix,
         supportsSuffix,
         supportsPreserveUnderscores,
@@ -558,7 +841,10 @@ function parseDirectiveSections(html) {
     const $ = load(html);
     const sections = [];
     $("h2").each((_, element) => {
-        const title = $(element).text().replace(/\u00a0/g, " ").trim();
+        const title = $(element)
+            .text()
+            .replace(/\u00a0/g, " ")
+            .trim();
         if (!title) {
             return;
         }
@@ -603,7 +889,9 @@ function parseBaseTypeTable($, table) {
         }
         const name = extractText(cells.eq(0), { preserveLineBreaks: false });
         const specifierExamples = splitCellLines(cells.eq(1));
-        const description = extractText(cells.eq(2), { preserveLineBreaks: false });
+        const description = extractText(cells.eq(2), {
+            preserveLineBreaks: false
+        });
         baseTypes.push({ name, specifierExamples, description });
     });
     return baseTypes;
@@ -633,14 +921,17 @@ function parseTypeValidationTable($, table) {
             if (cells.length === 0) {
                 return;
             }
-            const from = extractText(cells.eq(0), { preserveLineBreaks: false });
+            const from = extractText(cells.eq(0), {
+                preserveLineBreaks: false
+            });
             if (!from) {
                 return;
             }
             const results = {};
             columns.forEach((column, columnIndex) => {
                 const cell = cells.eq(columnIndex + 1);
-                const outcome = extractText(cell, { preserveLineBreaks: false }) || null;
+                const outcome =
+                    extractText(cell, { preserveLineBreaks: false }) || null;
                 const style = cell.attr("style") || null;
                 results[column] = {
                     outcome,
@@ -676,7 +967,9 @@ function parseTypeSystem(html) {
 
     const tables = $("table");
     const baseTypeTable = tables.eq(0);
-    const baseTypes = baseTypeTable.length ? parseBaseTypeTable($, baseTypeTable) : [];
+    const baseTypes = baseTypeTable.length
+        ? parseBaseTypeTable($, baseTypeTable)
+        : [];
 
     const noteBlocks = $("p.note")
         .map((_, element) => createBlock($, element))
@@ -688,11 +981,16 @@ function parseTypeSystem(html) {
 
     const specifierSections = [];
     $("h3").each((_, element) => {
-        const title = $(element).text().replace(/\u00a0/g, " ").trim();
+        const title = $(element)
+            .text()
+            .replace(/\u00a0/g, " ")
+            .trim();
         if (!title) {
             return;
         }
-        const blocks = collectBlocksAfter($, element, { stopTags: ["h3", "h2"] });
+        const blocks = collectBlocksAfter($, element, {
+            stopTags: ["h3", "h2"]
+        });
         const content = normaliseContent(blocks);
         specifierSections.push({
             id: $(element).attr("id") || slugify(title),
@@ -704,11 +1002,19 @@ function parseTypeSystem(html) {
         });
     });
 
-    const typeValidationHeading = $("h2").filter((_, element) => $(element).text().includes("Type Validation")).first();
+    const typeValidationHeading = $("h2")
+        .filter((_, element) => $(element).text().includes("Type Validation"))
+        .first();
     let typeValidation = null;
     let typeValidationBlocks = [];
     if (typeValidationHeading.length > 0) {
-        typeValidationBlocks = collectBlocksAfter($, typeValidationHeading.get(0), { stopTags: ["table", "h2"] });
+        typeValidationBlocks = collectBlocksAfter(
+            $,
+            typeValidationHeading.get(0),
+            {
+                stopTags: ["table", "h2"]
+            }
+        );
         const validationTable = typeValidationHeading.nextAll("table").first();
         typeValidation = parseTypeValidationTable($, validationTable);
     }
@@ -720,14 +1026,17 @@ function parseTypeSystem(html) {
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
-            specifierExamples: type.specifierExamples.map((example) => normaliseMultilineText(example)).filter(Boolean),
+            specifierExamples: type.specifierExamples
+                .map((example) => normaliseMultilineText(example))
+                .filter(Boolean),
             description: normaliseMultilineText(type.description)
         })),
         notes,
         specifierSections,
         typeValidation: typeValidation
             ? {
-                description: joinSections(typeValidationContent.paragraphs) || null,
+                description:
+                      joinSections(typeValidationContent.paragraphs) || null,
                 notes: typeValidationContent.notes,
                 codeExamples: typeValidationContent.codeExamples,
                 lists: typeValidationContent.lists,
@@ -738,29 +1047,86 @@ function parseTypeSystem(html) {
 }
 
 async function main() {
-    const { ref, outputPath, forceRefresh } = parseArgs();
-    const manualRef = await resolveManualRef(ref);
+    assertSupportedNodeVersion();
+
+    const {
+        ref,
+        outputPath,
+        forceRefresh,
+        verbose,
+        progressBarWidth,
+        cacheRoot,
+        manualRepo
+    } = parseArgs();
+    const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
+    const startTime = Date.now();
+    const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
     if (!manualRef?.sha) {
         throw new Error("Could not resolve manual commit SHA.");
     }
     console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
     const htmlPayloads = {};
-    for (const [key, manualPath] of Object.entries(FEATHER_PAGES)) {
-        htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, { forceRefresh });
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
+    if (verbose.downloads) {
+        console.log(
+            `Fetching ${totalManualPages} manual page${
+                totalManualPages === 1 ? "" : "s"
+            }…`
+        );
     }
 
-    const diagnostics = parseDiagnostics(htmlPayloads.diagnostics);
-    const directives = parseDirectiveSections(htmlPayloads.directives);
-    const namingRules = parseNamingRules(htmlPayloads.naming);
-    const typeSystem = parseTypeSystem(htmlPayloads.typeSystem);
+    let fetchedCount = 0;
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        });
+        fetchedCount += 1;
+        if (verbose.progressBar && verbose.downloads) {
+            renderProgressBar(
+                "Downloading manual pages",
+                fetchedCount,
+                totalManualPages,
+                progressBarWidth
+            );
+        } else if (verbose.downloads) {
+            console.log(`✓ ${manualPath}`);
+        }
+    }
+    if (verbose.parsing) {
+        console.log("Parsing manual sections…");
+    }
+    const diagnostics = timeSync(
+        "Diagnostics",
+        () => parseDiagnostics(htmlPayloads.diagnostics),
+        { verbose }
+    );
+    const directives = timeSync(
+        "Directives",
+        () => parseDirectiveSections(htmlPayloads.directives),
+        { verbose }
+    );
+    const namingRules = timeSync(
+        "Naming rules",
+        () => parseNamingRules(htmlPayloads.naming),
+        { verbose }
+    );
+    const typeSystem = timeSync(
+        "Type system",
+        () => parseTypeSystem(htmlPayloads.typeSystem),
+        { verbose }
+    );
 
     const payload = {
         meta: {
             manualRef: manualRef.ref,
             commitSha: manualRef.sha,
             generatedAt: new Date().toISOString(),
-            source: MANUAL_REPO,
+            source: manualRepo,
             manualPaths: { ...FEATHER_PAGES }
         },
         diagnostics,
@@ -770,12 +1136,24 @@ async function main() {
     };
 
     await ensureDir(path.dirname(outputPath));
-    await fs.writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    await fs.writeFile(
+        outputPath,
+        `${JSON.stringify(payload, null, 2)}\n`,
+        "utf8"
+    );
 
     console.log(`Wrote Feather metadata to ${outputPath}`);
+    if (verbose.parsing) {
+        console.log(`Completed in ${formatDuration(startTime)}.`);
+    }
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exit(1);
+async function run() {
+    await main();
+}
+
+run().catch((error) => {
+    handleCliError(error, {
+        prefix: "Failed to generate Feather metadata."
+    });
 });
