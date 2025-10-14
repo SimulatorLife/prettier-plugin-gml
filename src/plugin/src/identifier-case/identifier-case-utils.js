@@ -171,27 +171,8 @@ export function normalizeIdentifierCase(identifier) {
         throw new TypeError("Identifier must be a string");
     }
 
-    const { prefix, remainder: withoutPrefix } =
-        extractReservedPrefix(identifier);
-    const {
-        core: withoutNumericSuffix,
-        suffixSeparator,
-        suffixDigits
-    } = splitNumericSuffix(withoutPrefix);
-    const { core, leading, trailing } =
-        stripEdgeUnderscores(withoutNumericSuffix);
-
-    const tokens = tokenizeCore(core);
-
-    return {
-        original: identifier,
-        prefix,
-        leadingUnderscores: leading,
-        trailingUnderscores: trailing,
-        suffixSeparator,
-        suffixDigits,
-        tokens
-    };
+    const match = extractReservedPrefix(identifier);
+    return buildNormalizedIdentifier(identifier, match);
 }
 
 export function formatIdentifierCase(input, style) {
@@ -228,3 +209,109 @@ export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
     "argument_local",
     "argument_relative"
 ]);
+
+function normalizeReservedPrefixOverrides(overrides) {
+    if (!overrides) {
+        return [];
+    }
+
+    let entries = overrides;
+    if (entries instanceof Set) {
+        entries = Array.from(entries);
+    } else if (!Array.isArray(entries)) {
+        return [];
+    }
+
+    const normalized = [];
+    const seen = new Set();
+
+    for (const entry of entries) {
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0 || seen.has(trimmed)) {
+            continue;
+        }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
+    }
+
+    normalized.sort((a, b) => {
+        if (b.length !== a.length) {
+            return b.length - a.length;
+        }
+        return a < b ? -1 : a > b ? 1 : 0;
+    });
+
+    return normalized;
+}
+
+function extractReservedPrefixWithOverrides(identifier, overrides) {
+    const baseMatch = extractReservedPrefix(identifier);
+    if (baseMatch.prefix || overrides.length === 0) {
+        return baseMatch;
+    }
+
+    for (const prefix of overrides) {
+        if (identifier.startsWith(prefix)) {
+            return { prefix, remainder: identifier.slice(prefix.length) };
+        }
+    }
+
+    return baseMatch;
+}
+
+function buildNormalizedIdentifier(identifier, match) {
+    const {
+        core: withoutNumericSuffix,
+        suffixSeparator,
+        suffixDigits
+    } = splitNumericSuffix(match.remainder);
+    const { core, leading, trailing } =
+        stripEdgeUnderscores(withoutNumericSuffix);
+
+    const tokens = tokenizeCore(core);
+
+    return {
+        original: identifier,
+        prefix: match.prefix,
+        leadingUnderscores: leading,
+        trailingUnderscores: trailing,
+        suffixSeparator,
+        suffixDigits,
+        tokens
+    };
+}
+
+export function normalizeIdentifierCaseWithOptions(identifier, options = {}) {
+    const overrides = normalizeReservedPrefixOverrides(
+        options.reservedPrefixes
+    );
+    if (overrides.length === 0) {
+        return normalizeIdentifierCase(identifier);
+    }
+
+    if (typeof identifier !== "string") {
+        throw new TypeError("Identifier must be a string");
+    }
+
+    const match = extractReservedPrefixWithOverrides(identifier, overrides);
+    return buildNormalizedIdentifier(identifier, match);
+}
+
+export function formatIdentifierCaseWithOptions(input, style, options = {}) {
+    const normalized =
+        typeof input === "string"
+            ? normalizeIdentifierCaseWithOptions(input, options)
+            : input;
+
+    return formatIdentifierCase(normalized, style);
+}
+
+export function isIdentifierCaseWithOptions(identifier, style, options = {}) {
+    const normalized = normalizeIdentifierCaseWithOptions(identifier, options);
+    return formatIdentifierCase(normalized, style) === identifier;
+}

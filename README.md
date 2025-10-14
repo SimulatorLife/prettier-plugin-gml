@@ -336,6 +336,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
+| `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
 | `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; pair with the rollout guide before enabling on large projects. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |

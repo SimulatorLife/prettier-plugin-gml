@@ -16,7 +16,10 @@ behaves as follows:
    conversion. Recognised values include `global.`, `other.`, `self.`, `local.`,
    `with.`, `noone.`, `argument`, `argument_local`, `argument_relative`, and
    array-style accessors such as `argument[2]`. When a prefix ends in `.`, the
-   dot stays with the prefix.
+   dot stays with the prefix. Custom tooling can register extra prefixes by
+   using `normalizeIdentifierCaseWithOptions` or
+   `formatIdentifierCaseWithOptions` and passing `reservedPrefixes` overrides
+   when calling the helpers directly.
 2. **Numeric suffix capture** – A trailing run of digits, optionally prefixed by
    one underscore (for example `_12`), is stored separately so counters remain
    attached to the identifier.
