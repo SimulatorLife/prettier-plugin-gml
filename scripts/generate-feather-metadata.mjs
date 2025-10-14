@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
 import { escapeRegExp } from "../src/shared/regexp.js";
-import { CliUsageError, handleCliError } from "../src/cli/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli-errors.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
