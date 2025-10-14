@@ -1,6 +1,4 @@
-import { isObjectLike } from "../../../shared/object-utils.js";
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
+import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 const sharedCache = new WeakMap();
 
 function getCacheStore(candidate) {
@@ -24,7 +22,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
         return computeValue();
     }
 
-    if (cacheKey != null && hasOwnProperty.call(options, cacheKey)) {
+    if (cacheKey != null && hasOwn(options, cacheKey)) {
         return options[cacheKey];
     }
 

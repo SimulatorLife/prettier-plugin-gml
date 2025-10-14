@@ -7,6 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { hasOwn } from "../../../shared/object-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import {
     buildLocationKey,
@@ -629,8 +630,6 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 );
 
 let cachedBuiltInIdentifiers = null;
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
@@ -2036,7 +2035,7 @@ function traverseAst(root, visitor) {
         visitor(node);
 
         for (const key in node) {
-            if (!hasOwnProperty.call(node, key)) {
+            if (!hasOwn(node, key)) {
                 continue;
             }
 

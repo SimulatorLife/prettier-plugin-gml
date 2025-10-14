@@ -16,7 +16,7 @@ import {
     toTrimmedString
 } from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes, getCommentArray } from "../comments/index.js";
 import {
@@ -1609,11 +1609,11 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         arguments: [argumentExpression]
     };
 
-    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    if (hasOwn(node, "start")) {
         callExpression.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (hasOwn(node, "end")) {
         callExpression.end = cloneLocation(node.end);
     }
 
@@ -3639,11 +3639,11 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         init: initializer
     };
 
-    if (Object.prototype.hasOwnProperty.call(argument, "start")) {
+    if (hasOwn(argument, "start")) {
         declarator.start = cloneLocation(argument.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(argument, "end")) {
+    if (hasOwn(argument, "end")) {
         declarator.end = cloneLocation(argument.end);
     }
 
@@ -3653,11 +3653,11 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         kind: "var"
     };
 
-    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    if (hasOwn(node, "start")) {
         variableDeclaration.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (hasOwn(node, "end")) {
         variableDeclaration.end = cloneLocation(node.end);
     }
 
@@ -3674,11 +3674,11 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         argument: temporaryIdentifier
     };
 
-    if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    if (hasOwn(node, "start")) {
         rewrittenStatement.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (hasOwn(node, "end")) {
         rewrittenStatement.end = cloneLocation(node.end);
     }
 
@@ -6587,29 +6587,23 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
             right: fallbackExpression
         };
 
-        if (Object.prototype.hasOwnProperty.call(previousRight, "start")) {
+        if (hasOwn(previousRight, "start")) {
             binaryExpression.start = cloneLocation(previousRight.start);
-        } else if (
-            Object.prototype.hasOwnProperty.call(previousNode, "start")
-        ) {
+        } else if (hasOwn(previousNode, "start")) {
             binaryExpression.start = cloneLocation(previousNode.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(fallbackExpression, "end")) {
+        if (hasOwn(fallbackExpression, "end")) {
             binaryExpression.end = cloneLocation(fallbackExpression.end);
-        } else if (
-            Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
-        ) {
+        } else if (hasOwn(consequentAssignment, "end")) {
             binaryExpression.end = cloneLocation(consequentAssignment.end);
         }
 
         previousNode.right = binaryExpression;
 
-        if (Object.prototype.hasOwnProperty.call(node, "end")) {
+        if (hasOwn(node, "end")) {
             previousNode.end = cloneLocation(node.end);
-        } else if (
-            Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
-        ) {
+        } else if (hasOwn(consequentAssignment, "end")) {
             previousNode.end = cloneLocation(consequentAssignment.end);
         }
 
@@ -6638,17 +6632,15 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         right: fallbackExpression
     };
 
-    if (Object.prototype.hasOwnProperty.call(consequentAssignment, "start")) {
+    if (hasOwn(consequentAssignment, "start")) {
         nullishAssignment.start = cloneLocation(consequentAssignment.start);
-    } else if (Object.prototype.hasOwnProperty.call(node, "start")) {
+    } else if (hasOwn(node, "start")) {
         nullishAssignment.start = cloneLocation(node.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(node, "end")) {
+    if (hasOwn(node, "end")) {
         nullishAssignment.end = cloneLocation(node.end);
-    } else if (
-        Object.prototype.hasOwnProperty.call(consequentAssignment, "end")
-    ) {
+    } else if (hasOwn(consequentAssignment, "end")) {
         nullishAssignment.end = cloneLocation(consequentAssignment.end);
     }
 
@@ -8646,11 +8638,11 @@ function createVertexEndCall(template, bufferIdentifier) {
         arguments: [cloneIdentifier(bufferIdentifier)]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -8972,11 +8964,11 @@ function createVariableDeclarationFromAssignment(
     };
 
     if (declaratorTemplate && typeof declaratorTemplate === "object") {
-        if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "start")) {
+        if (hasOwn(declaratorTemplate, "start")) {
             declarator.start = cloneLocation(declaratorTemplate.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "end")) {
+        if (hasOwn(declaratorTemplate, "end")) {
             declarator.end = cloneLocation(declaratorTemplate.end);
         }
     }
@@ -8987,11 +8979,11 @@ function createVariableDeclarationFromAssignment(
         declarations: [declarator]
     };
 
-    if (Object.prototype.hasOwnProperty.call(assignmentNode, "start")) {
+    if (hasOwn(assignmentNode, "start")) {
         declaration.start = cloneLocation(assignmentNode.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(assignmentNode, "end")) {
+    if (hasOwn(assignmentNode, "end")) {
         declaration.end = cloneLocation(assignmentNode.end);
     }
 
@@ -9094,6 +9086,13 @@ function referencesIdentifier(node, variableName) {
         const { value, parent, key } = stack.pop();
 
         if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        if (isFunctionLikeNode(value)) {
+            // Nested functions introduce new scopes. References to the same
+            // identifier name inside them do not require hoisting the current
+            // declaration, so skip descending into those subtrees.
             continue;
         }
 
@@ -9215,11 +9214,11 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         init: null
     };
 
-    if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "start")) {
+    if (hasOwn(declaratorTemplate, "start")) {
         declarator.start = cloneLocation(declaratorTemplate.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "end")) {
+    if (hasOwn(declaratorTemplate, "end")) {
         declarator.end = cloneLocation(declaratorTemplate.end);
     }
 
@@ -9229,11 +9228,11 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         declarations: [declarator]
     };
 
-    if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "start")) {
+    if (hasOwn(declaratorTemplate, "start")) {
         declaration.start = cloneLocation(declaratorTemplate.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(declaratorTemplate, "end")) {
+    if (hasOwn(declaratorTemplate, "end")) {
         declaration.end = cloneLocation(declaratorTemplate.end);
     }
 
@@ -11574,11 +11573,11 @@ function createVertexFormatEndCall(template) {
         arguments: []
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -12284,11 +12283,11 @@ function createAlphaTestEnableResetCall(template) {
         arguments: [literalFalse]
     };
 
-    if (Object.prototype.hasOwnProperty.call(template, "start")) {
+    if (hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(template, "end")) {
+    if (hasOwn(template, "end")) {
         callExpression.end = cloneLocation(template.end);
     }
 
@@ -14055,11 +14054,11 @@ function createGpuStateCall(name, template) {
     };
 
     if (template && typeof template === "object") {
-        if (Object.prototype.hasOwnProperty.call(template, "start")) {
+        if (hasOwn(template, "start")) {
             callExpression.start = cloneLocation(template.start);
         }
 
-        if (Object.prototype.hasOwnProperty.call(template, "end")) {
+        if (hasOwn(template, "end")) {
             callExpression.end = cloneLocation(template.end);
         }
     }

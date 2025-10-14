@@ -1,3 +1,5 @@
+import { hasOwn } from "./object-utils.js";
+
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions
 // so both the parser and printer can remain consistent without duplicating
@@ -55,8 +57,6 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
 function isPlainObjectOrArray(value) {
     if (!value || typeof value !== "object") {
         return false;
@@ -94,7 +94,7 @@ function clonePlainContainer(root) {
         }
 
         for (const key in source) {
-            if (!hasOwnProperty.call(source, key)) {
+            if (!hasOwn(source, key)) {
                 continue;
             }
 
