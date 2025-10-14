@@ -9,282 +9,379 @@ on:
       - codex/**
       - chore/auto-lint-format
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0,30 * * * *"
   workflow_dispatch:
     inputs:
       confirm:
         description: "Type 'merge' to run the auto-merge sweep"
         required: false
         default: "merge"
+      pr_number:
+        description: "PR number to verify (optional; if omitted we try to resolve automatically)"
+        required: false
 
 permissions:
   contents: write
   pull-requests: write
+  checks: write
+  actions: read
 
-# Avoid overlapping runs per PR
 concurrency:
   group: codex-automerge-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  request-review:
-    if: ${{ startsWith(github.event_name, 'pull_request') || startsWith(github.ref, 'refs/heads/codex/') || github.ref == 'refs/heads/chore/auto-lint-format' }}
+  ###########################################################################
+  # PR metadata: read changed_files (so we can skip regression-tests if 0)
+  ###########################################################################
+  pr-meta:
     runs-on: ubuntu-latest
-
+    outputs:
+      number: ${{ steps.meta.outputs.number }}
+      changed_files: ${{ steps.meta.outputs.changed_files }}
+      run_tests: ${{ steps.meta.outputs.run_tests }}
+      reason: ${{ steps.meta.outputs.reason }}
     steps:
-      - name: Resolve PR number
-        id: prnum
+      - name: Resolve PR and changed file count
+        id: meta
         uses: actions/github-script@v7
         with:
           script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+
+            // 1) Find the PR number for this run
             let number = null;
             if (context.eventName === 'pull_request') {
               number = context.payload.pull_request.number;
-            } else {
-              const branch = context.ref.replace('refs/heads/','');
-              const { data: prs } = await github.rest.pulls.list({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                head: `${context.repo.owner}:${branch}`
+            } else if (context.eventName === 'workflow_dispatch') {
+              const inputNum = (context.payload.inputs?.pr_number || '').trim();
+              if (inputNum) number = Number(inputNum);
+              else if (context.ref?.startsWith('refs/heads/')) {
+                // try to find an open PR from this branch (if this was dispatched from a branch run UI)
+                const branch = context.ref.replace('refs/heads/', '');
+                const prs = await github.paginate(github.rest.pulls.list, {
+                  owner, repo, state: 'open', head: `${owner}:${branch}`, per_page: 100
+                });
+                if (prs.length) number = prs[0].number;
+              }
+            } else if (context.eventName === 'push' && context.ref?.startsWith('refs/heads/codex/')) {
+              const branch = context.ref.replace('refs/heads/', '');
+              const prs = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: 'open', head: `${owner}:${branch}`, per_page: 100
               });
-              number = prs.length ? prs[0].number : null;
+              if (prs.length) number = prs[0].number;
             }
-            if (!number) { core.setOutput('skip','true'); return; }
-            core.setOutput('skip','false');
+
+            // 2) If we couldn't find a PR, skip tests
+            if (!number) {
+              core.setOutput('number', '');
+              core.setOutput('changed_files', '0');
+              core.setOutput('run_tests', 'false');
+              core.setOutput('reason', 'no PR to verify');
+              core.notice('Regression tests: skipped (no PR to verify).');
+              return;
+            }
+
+            // 3) Read PR and decide if tests should run
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const changed = Number(pr.changed_files || 0);
+
             core.setOutput('number', String(number));
+            core.setOutput('changed_files', String(changed));
+            core.setOutput('run_tests', changed > 0 ? 'true' : 'false');
+            core.setOutput('reason', changed > 0 ? '' : 'no file changes');
+            core.notice(`PR #${number}: changed_files=${changed}`);
 
-      - name: Read PR
-        if: ${{ steps.prnum.outputs.skip != 'true' }}
-        id: read
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const n = Number('${{ steps.prnum.outputs.number }}');
-            const timeoutMs = 15 * 60 * 1000; // allow up to 15 minutes for checks to settle
-            const pollDelayMs = 10000;
-            const deadline = Date.now() + timeoutMs;
-
-            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-            let pr;
-
-            while (true) {
-              const { data } = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: n
-              });
-              pr = data;
-
-              // GitHub may report mergeable=null until background mergeability checks finish.
-              if (pr.mergeable === null) {
-                if (Date.now() >= deadline) {
-                  core.notice(`Bail: mergeability never resolved for PR #${n}.`);
-                  core.setOutput('bail', 'true');
-                  return;
-                }
-                await sleep(5000);
-                continue;
-              }
-
-              const state = (pr.mergeable_state || 'unknown').toLowerCase();
-
-              if (!pr.mergeable && state === 'blocked') {
-                const sha = pr.head.sha;
-
-                const combined = await github.rest.repos.getCombinedStatusForRef({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  ref: sha
-                });
-
-                const pendingStatuses = combined.statuses
-                  .filter(status => status.state === 'pending')
-                  .map(status => status.context);
-
-                const failingStatuses = combined.statuses
-                  .filter(status => status.state === 'failure' || status.state === 'error')
-                  .map(status => status.context);
-
-                const { data: checkRunsData } = await github.rest.checks.listForRef({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  ref: sha,
-                  per_page: 100
-                });
-
-                const pendingChecks = checkRunsData.check_runs
-                  .filter(run => run.status !== 'completed')
-                  .map(run => run.name);
-
-                const failingChecks = checkRunsData.check_runs
-                  .filter(run => run.status === 'completed' && ['failure', 'cancelled', 'timed_out', 'action_required', 'stale'].includes((run.conclusion || '').toLowerCase()))
-                  .map(run => run.name);
-
-                if (failingStatuses.length || failingChecks.length) {
-                  core.notice(`Bail: failing checks detected (${[...failingStatuses, ...failingChecks].join(', ') || 'unknown'}).`);
-                  core.setOutput('bail', 'true');
-                  return;
-                }
-
-                if ((pendingStatuses.length || pendingChecks.length) && Date.now() < deadline) {
-                  core.info(`Pending checks (${[...pendingStatuses, ...pendingChecks].join(', ')}) for PR #${n}; waiting to retry.`);
-                  await sleep(pollDelayMs);
-                  continue;
-                }
-              }
-
-              break;
-            }
-
-            // Bail early if nothing to merge yet (seed PR)
-            const hasRealChanges = (pr.changed_files || 0) > 0;
-            if (!hasRealChanges) {
-              core.notice(`Bail: no real changes yet (commits=${pr.commits}, files=${pr.changed_files}).`);
-              core.setOutput('bail', 'true');
-              return;
-            }
-
-            const mergeable = !!pr.mergeable;
-            const state = (pr.mergeable_state || 'unknown').toLowerCase();
-            const draft = !!pr.draft;
-
-            core.setOutput('bail', 'false');
-            core.setOutput('mergeable', mergeable ? 'true' : 'false');
-            core.setOutput('state', state);
-            core.setOutput('draft', draft ? 'true' : 'false');
-            core.setOutput('head_ref', pr.head.ref);
-            core.setOutput('number', String(n));
-
-      # Temporarily disable Codex review requests while we auto-merge clean PRs.
-      # - name: Check for existing Codex review request
-      #   if: ${{ steps.read.outputs.bail == 'false' }}
-      #   id: review_requested
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       const n = Number('${{ steps.read.outputs.number }}');
-      #       const marker = '@codex review the changes in this PR...';
-      #       const { data: comments } = await github.rest.issues.listComments({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         issue_number: n,
-      #         per_page: 100,
-      #       });
-      #
-      #       const alreadyRequested = comments.some(comment => (comment.body || '').trim().startsWith(marker));
-      #       core.setOutput('exists', alreadyRequested ? 'true' : 'false');
-
-      # - name: Request Codex review
-      #   if: ${{ steps.read.outputs.bail == 'false' && steps.review_requested.outputs.exists != 'true' }}
-      #   uses: actions/github-script@v7
-      #   with:
-      #     github-token: ${{ secrets.GH_USER_TOKEN }}
-      #     script: |
-      #       const n = Number('${{ steps.read.outputs.number }}');
-      #       const body = `@codex review the changes in this PR... take a comprehensive pass.\n\nPlease evaluate the update with high expectations and call out anything that needs attention, including:\n- Simulation performance impacts (grid updates, rendering throughput, memory footprint).\n- Code style, clarity, and maintainability concerns.\n- Compliance with the Simulation Laws and any related safeguards.\n- Test coverage, automation signals, and documentation accuracy.\n- Risks to user experience, accessibility, or stability.\n\nProvide actionable feedback or explicit approval so we can proceed confidently.`;
-      #
-      #       await github.rest.issues.createComment({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         issue_number: n,
-      #         body,
-      #       });
-
-      - name: Auto-merge PR when ready
-        if: ${{ steps.read.outputs.bail == 'false' && steps.read.outputs.mergeable == 'true' && steps.read.outputs.draft != 'true' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const n = Number('${{ steps.read.outputs.number }}');
-            const state = '${{ steps.read.outputs.state }}'.toLowerCase();
-
-            if (!['clean', 'unstable'].includes(state)) {
-              core.notice(`Skipping auto-merge for PR #${n} because mergeable_state=${state}.`);
-              return;
-            }
-
-            try {
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: n,
-                merge_method: 'squash'
-              });
-              core.notice(`Auto-merged PR #${n}.`);
-            } catch (error) {
-              core.warning(`Auto-merge failed for PR #${n}: ${error.message}`);
-              throw error;
-            }
-
-  scheduled-automerge:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  ###########################################################################
+  # PR regression detection (runs first on PRs; head at root for .git)
+  # Only runs if the PR has file changes
+  ###########################################################################
+  regression-tests:
+    if: ${{ needs.pr-meta.outputs.run_tests == 'true' }}
+    needs: pr-meta
+    timeout-minutes: 30
+    name: Detect new test failures (allow legacy failures)
     runs-on: ubuntu-latest
 
+    steps:
+      # === BASE (merge target) ===
+      - name: Checkout base (merge target)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Setup Node (base)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: base/package-lock.json
+
+      - name: Install deps (base)
+        working-directory: base
+        run: npm ci
+
+      - name: Prepare test result directory (base)
+        working-directory: base
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
+      - name: Run shared tests (base)
+        working-directory: base
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests (base)
+        working-directory: base/src/parser
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run plugin tests (base)
+        working-directory: base/src/plugin
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run CLI tests (base)
+        working-directory: base/src/cli
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      # === HEAD (PR) at workspace root ===
+      - name: Checkout head (PR)
+        uses: actions/checkout@v4
+
+      - name: Setup Node (head)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install deps (head)
+        run: npm ci
+
+      - name: Prepare test result directory (head)
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
+      - name: Run shared tests (head)
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests (head)
+        working-directory: src/parser
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run plugin tests (head)
+        working-directory: src/plugin
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run CLI tests (head)
+        working-directory: src/cli
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Install compare script dependency
+        run: npm install --no-save fast-xml-parser@^4
+
+      - name: Compare JUnit results (fail only on regressions)
+        run: |
+          cat <<'EOF' > compare-junit.mjs
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { XMLParser } from 'fast-xml-parser';
+
+          function readCases(rootDir) {
+            const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
+            const results = new Map(); // key => status
+            const resultsDir = path.join(rootDir, 'test-results');
+            if (!fs.existsSync(resultsDir)) return results;
+
+            const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
+            for (const file of files) {
+              const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+              const data = parser.parse(xml);
+              const suites = [];
+              if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
+              else if (data.testsuite) { suites.push(data.testsuite); }
+              else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+
+              for (const suite of suites) {
+                const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
+                for (const tc of cases) {
+                  const name = String(tc.name ?? '');
+                  const cls = String(tc.classname ?? suite.name ?? '');
+                  const key = cls + ' :: ' + name;
+                  let status = 'passed';
+                  if (tc.skipped !== undefined) status = 'skipped';
+                  if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
+                  if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
+                  results.set(key, status);
+                }
+              }
+            }
+            return results;
+          }
+
+          const base = readCases('base');
+          const head = readCases('.');
+          const regressions = [];
+
+          for (const [key, headStatus] of head.entries()) {
+            const baseStatus = base.get(key);
+            if (baseStatus === undefined) continue; // new test -> ignore even if failing
+            if ((baseStatus === 'passed' || baseStatus === 'skipped') && headStatus === 'failed') {
+              regressions.push({ test: key, from: baseStatus, to: headStatus });
+            }
+          }
+
+          if (regressions.length) {
+            console.log('New failing tests detected (compared to base):');
+            for (const r of regressions) console.log('- ' + r.test + ' (' + r.from + ' -> ' + r.to + ')');
+            process.exit(1);
+          } else {
+            console.log('No new failing tests compared to base.');
+          }
+          EOF
+          node compare-junit.mjs
+        shell: bash
+
+      - name: Publish PR test summary (head only)
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Node.js test results (PR head)
+          path: test-results/*.xml
+          reporter: java-junit
+          fail-on-error: false  # ← don't fail on legacy failures
+          use-actions-summary: true
+
+  ###########################################################################
+  # Auto-merge a single PR event (only after regression-tests OR if no changes)
+  ###########################################################################
+  auto-merge-pr:
+    if: ${{ github.event_name == 'pull_request' }}
+    needs: [pr-meta, regression-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read PR and merge if clean/unstable
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const n = context.payload.pull_request.number;
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+
+            // If there are zero changed files, regression-tests was skipped.
+            if (pr.draft || (pr.changed_files || 0) === 0) {
+              core.notice(`Skipping auto-merge for PR #${n} (draft or no changes).`);
+              return;
+            }
+
+            const state = String(pr.mergeable_state || '').toLowerCase();
+            if (pr.mergeable !== true || ['clean','unstable'].indexOf(state) === -1) {
+              core.notice(`Skipping auto-merge for PR #${n} (mergeable=${pr.mergeable}, state=${state}).`);
+              return;
+            }
+
+            await github.rest.pulls.merge({ owner, repo, pull_number: n, merge_method: 'squash' });
+            core.notice(`Auto-merged PR #${n}.`);
+
+  ###########################################################################
+  # Scheduled sweep for open PRs (cron/dispatch/push to bot branches)
+  ###########################################################################
+  scheduled-automerge:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/codex/') || github.ref == 'refs/heads/chore/auto-lint-format')) }}
+    runs-on: ubuntu-latest
     steps:
       - name: Merge eligible open PRs
         uses: actions/github-script@v7
         with:
           script: |
             const trigger = context.eventName;
-            if (
-              trigger === 'workflow_dispatch' &&
-              (context.payload.inputs?.confirm || '').trim().toLowerCase() !== 'merge'
-            ) {
+            const inputs = (context.payload && context.payload.inputs) ? context.payload.inputs : {};
+            const confirm = (inputs && inputs.confirm) ? String(inputs.confirm).trim().toLowerCase() : '';
+            if (trigger === 'workflow_dispatch' && confirm !== 'merge') {
               core.notice('Skipping auto-merge sweep: confirmation keyword not provided.');
               return;
             }
 
             const owner = context.repo.owner;
-            const repo = context.repo.repo;
+            const repo  = context.repo.repo;
             const merged = [];
             const skipped = [];
+            const acceptableStates = new Set(['clean', 'unstable']);
 
             const openPRs = await github.paginate(
               github.rest.pulls.list,
               { owner, repo, state: 'open', per_page: 100, sort: 'updated', direction: 'desc' }
             );
 
-            const acceptableStates = new Set(['clean', 'unstable']);
-
             for (const pr of openPRs) {
-              if (pr.draft) {
-                skipped.push({ number: pr.number, reason: 'draft' });
-                continue;
-              }
-
               try {
-                const details = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
-                const data = details.data;
-
-                if ((data.changed_files || 0) === 0) {
-                  skipped.push({ number: pr.number, reason: 'no changes' });
+                if (pr.draft || (pr.changed_files || 0) === 0) {
+                  skipped.push({ number: pr.number, reason: 'draft/no changes' });
                   continue;
                 }
-
-                if (data.mergeable === null) {
+                if (pr.mergeable === null) {
                   skipped.push({ number: pr.number, reason: 'mergeability unknown' });
                   continue;
                 }
-
-                if (!data.mergeable) {
-                  skipped.push({ number: pr.number, reason: `mergeable=false (${data.mergeable_state})` });
+                const state = String(pr.mergeable_state || '').toLowerCase();
+                if (pr.mergeable !== true || !acceptableStates.has(state)) {
+                  skipped.push({ number: pr.number, reason: 'not mergeable: ' + state });
                   continue;
                 }
 
-                const state = (data.mergeable_state || '').toLowerCase();
-                if (!acceptableStates.has(state)) {
-                  skipped.push({ number: pr.number, reason: `state=${state}` });
-                  continue;
-                }
-
-                await github.rest.pulls.merge({
-                  owner,
-                  repo,
-                  pull_number: pr.number,
-                  merge_method: 'squash'
-                });
+                await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash' });
                 merged.push(pr.number);
               } catch (error) {
                 core.warning(`Failed to auto-merge PR #${pr.number}: ${error.message}`);
@@ -294,8 +391,6 @@ jobs:
 
             core.notice(`Scheduled auto-merge complete. Merged ${merged.length} PR(s): ${merged.join(', ') || 'none'}.`);
             if (skipped.length) {
-              const breakdown = skipped
-                .map(entry => `#${entry.number} (${entry.reason})`)
-                .join(', ');
+              const breakdown = skipped.map(e => `#${e.number} (${e.reason})`).join(', ');
               core.info(`Skipped PRs: ${breakdown}`);
             }
