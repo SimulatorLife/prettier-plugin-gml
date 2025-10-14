@@ -1,5 +1,8 @@
 import js from "@eslint/js";
-import globals from "globals";
+import { Legacy } from "@eslint/eslintrc/universal";
+
+const browserGlobals = Legacy.environments.get("browser")?.globals ?? {};
+const nodeGlobals = Legacy.environments.get("node")?.globals ?? {};
 
 export default [
     {
@@ -17,13 +20,13 @@ export default [
             ecmaVersion: 2022,
             sourceType: "module",
             globals: {
-                ...globals.browser,
-                ...globals.node
+                ...browserGlobals,
+                ...nodeGlobals
             }
         },
         rules: {
             indent: ["error", 4, { SwitchCase: 1 }],
-            quotes: ["warn", "double"],
+            quotes: ["warn", "double", { avoidEscape: true }],
             semi: ["error", "always"],
             "no-unused-vars": ["warn"],
             "no-console": ["off"],
@@ -36,6 +39,30 @@ export default [
         files: ["src/plugin/src/printer/print.js"],
         rules: {
             "no-undef": ["off"]
+        }
+    },
+    {
+        files: [
+            "src/plugin/src/printer/**/*.js",
+            "src/plugin/src/ast-transforms/apply-feather-fixes.js"
+        ],
+        rules: {
+            "no-unused-vars": ["off"]
+        }
+    },
+    {
+        files: ["src/parser/src/**/*.js"],
+        rules: {
+            "no-unused-vars": ["off"]
+        }
+    },
+    {
+        files: ["src/parser/tests/**/*.js"],
+        rules: {
+            indent: ["error", 2],
+            quotes: ["off"],
+            "comma-dangle": ["off"],
+            "no-unused-vars": ["off"]
         }
     }
 ];
