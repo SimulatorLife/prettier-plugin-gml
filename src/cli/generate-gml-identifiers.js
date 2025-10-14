@@ -12,6 +12,7 @@ import {
     ensureDir,
     formatDuration,
     renderProgressBar,
+    disposeProgressBars,
     timeSync
 } from "./manual/manual-cli-helpers.js";
 import {
@@ -365,255 +366,267 @@ function normaliseIdentifier(name) {
 }
 
 async function main({ argv, env, isTty } = {}) {
-    assertSupportedNodeVersion();
+    try {
+        assertSupportedNodeVersion();
 
-    const {
-        ref,
-        outputPath,
-        forceRefresh,
-        verbose,
-        progressBarWidth,
-        cacheRoot,
-        manualRepo,
-        helpRequested
-    } = parseArgs({ argv, env, isTty });
+        const {
+            ref,
+            outputPath,
+            forceRefresh,
+            verbose,
+            progressBarWidth,
+            cacheRoot,
+            manualRepo,
+            helpRequested
+        } = parseArgs({ argv, env, isTty });
 
-    if (helpRequested) {
-        return 0;
-    }
-    const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-    const startTime = Date.now();
-
-    const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
-    if (!manualRef.sha) {
-        throw new Error(
-            `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`
-        );
-    }
-
-    console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
-
-    const manualAssets = [
-        {
-            key: "gmlSource",
-            path: "Manual/contents/assets/scripts/gml.js",
-            label: "gml.js"
-        },
-        { key: "keywords", path: "ZeusDocs_keywords.json", label: "keywords" },
-        { key: "tags", path: "ZeusDocs_tags.json", label: "tags" }
-    ];
-    const downloadsTotal = manualAssets.length;
-    if (verbose.downloads) {
-        console.log(
-            `Fetching ${downloadsTotal} manual asset${
-                downloadsTotal === 1 ? "" : "s"
-            }…`
-        );
-    }
-
-    const fetchedPayloads = {};
-    let fetchedCount = 0;
-    for (const asset of manualAssets) {
-        fetchedPayloads[asset.key] = await fetchManualFile(
-            manualRef.sha,
-            asset.path,
-            { forceRefresh, verbose, cacheRoot, rawRoot }
-        );
-        fetchedCount += 1;
-        if (verbose.progressBar && verbose.downloads) {
-            renderProgressBar(
-                "Downloading manual assets",
-                fetchedCount,
-                downloadsTotal,
-                progressBarWidth
-            );
-        } else if (verbose.downloads) {
-            console.log(`✓ ${asset.path}`);
+        if (helpRequested) {
+            return 0;
         }
-    }
+        const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
+        const startTime = Date.now();
 
-    const gmlSource = fetchedPayloads.gmlSource;
-    const keywordsArray = timeSync(
-        "Parsing keyword array",
-        () => parseArrayLiteral(gmlSource, "KEYWORDS"),
-        { verbose }
-    );
-    const literalsArray = timeSync(
-        "Parsing literal array",
-        () => parseArrayLiteral(gmlSource, "LITERALS"),
-        { verbose }
-    );
-    const symbolsArray = timeSync(
-        "Parsing symbol array",
-        () => parseArrayLiteral(gmlSource, "SYMBOLS"),
-        { verbose }
-    );
+        const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
+        if (!manualRef.sha) {
+            throw new Error(
+                `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`
+            );
+        }
 
-    const identifierMap = new Map();
+        console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-    timeSync(
-        "Collecting keywords",
-        () => {
-            for (const keyword of keywordsArray) {
-                const identifier = normaliseIdentifier(keyword);
-                mergeEntry(identifierMap, identifier, {
-                    type: "keyword",
-                    sources: ["manual:gml.js:KEYWORDS"]
-                });
+        const manualAssets = [
+            {
+                key: "gmlSource",
+                path: "Manual/contents/assets/scripts/gml.js",
+                label: "gml.js"
+            },
+            {
+                key: "keywords",
+                path: "ZeusDocs_keywords.json",
+                label: "keywords"
+            },
+            { key: "tags", path: "ZeusDocs_tags.json", label: "tags" }
+        ];
+        const downloadsTotal = manualAssets.length;
+        if (verbose.downloads) {
+            console.log(
+                `Fetching ${downloadsTotal} manual asset${
+                    downloadsTotal === 1 ? "" : "s"
+                }…`
+            );
+        }
+
+        const fetchedPayloads = {};
+        let fetchedCount = 0;
+        for (const asset of manualAssets) {
+            fetchedPayloads[asset.key] = await fetchManualFile(
+                manualRef.sha,
+                asset.path,
+                { forceRefresh, verbose, cacheRoot, rawRoot }
+            );
+            fetchedCount += 1;
+            if (verbose.progressBar && verbose.downloads) {
+                renderProgressBar(
+                    "Downloading manual assets",
+                    fetchedCount,
+                    downloadsTotal,
+                    progressBarWidth
+                );
+            } else if (verbose.downloads) {
+                console.log(`✓ ${asset.path}`);
             }
-        },
-        { verbose }
-    );
+        }
 
-    timeSync(
-        "Collecting literals",
-        () => {
-            for (const literal of literalsArray) {
-                const identifier = normaliseIdentifier(literal);
-                mergeEntry(identifierMap, identifier, {
-                    type: "literal",
-                    sources: ["manual:gml.js:LITERALS"]
-                });
-            }
-        },
-        { verbose }
-    );
+        const gmlSource = fetchedPayloads.gmlSource;
+        const keywordsArray = timeSync(
+            "Parsing keyword array",
+            () => parseArrayLiteral(gmlSource, "KEYWORDS"),
+            { verbose }
+        );
+        const literalsArray = timeSync(
+            "Parsing literal array",
+            () => parseArrayLiteral(gmlSource, "LITERALS"),
+            { verbose }
+        );
+        const symbolsArray = timeSync(
+            "Parsing symbol array",
+            () => parseArrayLiteral(gmlSource, "SYMBOLS"),
+            { verbose }
+        );
 
-    timeSync(
-        "Collecting symbols",
-        () => {
-            for (const symbol of symbolsArray) {
-                const identifier = normaliseIdentifier(symbol);
-                mergeEntry(identifierMap, identifier, {
-                    type: "symbol",
-                    sources: ["manual:gml.js:SYMBOLS"]
-                });
-            }
-        },
-        { verbose }
-    );
+        const identifierMap = new Map();
 
-    if (verbose.parsing) {
-        console.log("Merging manual keyword metadata…");
-    }
-
-    const keywordsJson = fetchedPayloads.keywords;
-    const tagsJsonText = fetchedPayloads.tags;
-
-    const manualKeywords = timeSync(
-        "Decoding ZeusDocs keywords",
-        () => JSON.parse(keywordsJson),
-        { verbose }
-    );
-    const manualTags = timeSync(
-        "Decoding ZeusDocs tags",
-        () => JSON.parse(tagsJsonText),
-        { verbose }
-    );
-
-    const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
-
-    timeSync(
-        "Classifying manual identifiers",
-        () => {
-            for (const [rawIdentifier, manualPath] of Object.entries(
-                manualKeywords
-            )) {
-                const identifier = normaliseIdentifier(rawIdentifier);
-                if (!IDENTIFIER_PATTERN.test(identifier)) {
-                    continue;
+        timeSync(
+            "Collecting keywords",
+            () => {
+                for (const keyword of keywordsArray) {
+                    const identifier = normaliseIdentifier(keyword);
+                    mergeEntry(identifierMap, identifier, {
+                        type: "keyword",
+                        sources: ["manual:gml.js:KEYWORDS"]
+                    });
                 }
+            },
+            { verbose }
+        );
 
-                if (typeof manualPath !== "string" || manualPath.length === 0) {
-                    continue;
+        timeSync(
+            "Collecting literals",
+            () => {
+                for (const literal of literalsArray) {
+                    const identifier = normaliseIdentifier(literal);
+                    mergeEntry(identifierMap, identifier, {
+                        type: "literal",
+                        sources: ["manual:gml.js:LITERALS"]
+                    });
                 }
+            },
+            { verbose }
+        );
 
-                const normalisedPath = manualPath.replace(/\\/g, "/");
-                if (
-                    !normalisedPath.startsWith("3_Scripting") ||
-                    !normalisedPath.includes("4_GML_Reference")
-                ) {
-                    continue;
+        timeSync(
+            "Collecting symbols",
+            () => {
+                for (const symbol of symbolsArray) {
+                    const identifier = normaliseIdentifier(symbol);
+                    mergeEntry(identifierMap, identifier, {
+                        type: "symbol",
+                        sources: ["manual:gml.js:SYMBOLS"]
+                    });
                 }
+            },
+            { verbose }
+        );
 
-                const tagKeyCandidates = [
-                    `${normalisedPath}.html`,
-                    `${normalisedPath}/index.html`
-                ];
-                let tagEntry;
-                for (const key of tagKeyCandidates) {
-                    if (manualTags[key]) {
-                        tagEntry = manualTags[key];
-                        break;
+        if (verbose.parsing) {
+            console.log("Merging manual keyword metadata…");
+        }
+
+        const keywordsJson = fetchedPayloads.keywords;
+        const tagsJsonText = fetchedPayloads.tags;
+
+        const manualKeywords = timeSync(
+            "Decoding ZeusDocs keywords",
+            () => JSON.parse(keywordsJson),
+            { verbose }
+        );
+        const manualTags = timeSync(
+            "Decoding ZeusDocs tags",
+            () => JSON.parse(tagsJsonText),
+            { verbose }
+        );
+
+        const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
+
+        timeSync(
+            "Classifying manual identifiers",
+            () => {
+                for (const [rawIdentifier, manualPath] of Object.entries(
+                    manualKeywords
+                )) {
+                    const identifier = normaliseIdentifier(rawIdentifier);
+                    if (!IDENTIFIER_PATTERN.test(identifier)) {
+                        continue;
                     }
-                }
-                const tags = tagEntry
-                    ? tagEntry
-                        .split(",")
-                        .map((tag) => tag.trim())
-                        .filter(Boolean)
-                    : [];
 
-                const type = classifyFromPath(normalisedPath, tags);
-                const deprecated =
-                    tags.some((tag) =>
-                        tag.toLowerCase().includes("deprecated")
-                    ) || normalisedPath.toLowerCase().includes("deprecated");
-
-                mergeEntry(identifierMap, identifier, {
-                    type,
-                    sources: ["manual:ZeusDocs_keywords.json"],
-                    manualPath: normalisedPath,
-                    tags,
-                    deprecated
-                });
-            }
-        },
-        { verbose }
-    );
-
-    const sortedIdentifiers = timeSync(
-        "Sorting identifiers",
-        () =>
-            Array.from(identifierMap.entries())
-                .map(([identifier, data]) => [
-                    identifier,
-                    {
-                        type: data.type,
-                        sources: Array.from(data.sources).sort(),
-                        manualPath: data.manualPath,
-                        tags: Array.from(data.tags).sort(),
-                        deprecated: data.deprecated
+                    if (
+                        typeof manualPath !== "string" ||
+                        manualPath.length === 0
+                    ) {
+                        continue;
                     }
-                ])
-                .sort(([a], [b]) => a.localeCompare(b)),
-        { verbose }
-    );
 
-    const payload = {
-        meta: {
-            manualRef: manualRef.ref,
-            commitSha: manualRef.sha,
-            generatedAt: new Date().toISOString(),
-            source: manualRepo
-        },
-        identifiers: Object.fromEntries(sortedIdentifiers)
-    };
+                    const normalisedPath = manualPath.replace(/\\/g, "/");
+                    if (
+                        !normalisedPath.startsWith("3_Scripting") ||
+                        !normalisedPath.includes("4_GML_Reference")
+                    ) {
+                        continue;
+                    }
 
-    await ensureDir(path.dirname(outputPath));
-    await fs.writeFile(
-        outputPath,
-        `${JSON.stringify(payload, null, 2)}\n`,
-        "utf8"
-    );
+                    const tagKeyCandidates = [
+                        `${normalisedPath}.html`,
+                        `${normalisedPath}/index.html`
+                    ];
+                    let tagEntry;
+                    for (const key of tagKeyCandidates) {
+                        if (manualTags[key]) {
+                            tagEntry = manualTags[key];
+                            break;
+                        }
+                    }
+                    const tags = tagEntry
+                        ? tagEntry
+                            .split(",")
+                            .map((tag) => tag.trim())
+                            .filter(Boolean)
+                        : [];
 
-    console.log(
-        `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
-    );
-    if (verbose.parsing) {
-        console.log(`Completed in ${formatDuration(startTime)}.`);
+                    const type = classifyFromPath(normalisedPath, tags);
+                    const deprecated =
+                        tags.some((tag) =>
+                            tag.toLowerCase().includes("deprecated")
+                        ) ||
+                        normalisedPath.toLowerCase().includes("deprecated");
+
+                    mergeEntry(identifierMap, identifier, {
+                        type,
+                        sources: ["manual:ZeusDocs_keywords.json"],
+                        manualPath: normalisedPath,
+                        tags,
+                        deprecated
+                    });
+                }
+            },
+            { verbose }
+        );
+
+        const sortedIdentifiers = timeSync(
+            "Sorting identifiers",
+            () =>
+                Array.from(identifierMap.entries())
+                    .map(([identifier, data]) => [
+                        identifier,
+                        {
+                            type: data.type,
+                            sources: Array.from(data.sources).sort(),
+                            manualPath: data.manualPath,
+                            tags: Array.from(data.tags).sort(),
+                            deprecated: data.deprecated
+                        }
+                    ])
+                    .sort(([a], [b]) => a.localeCompare(b)),
+            { verbose }
+        );
+
+        const payload = {
+            meta: {
+                manualRef: manualRef.ref,
+                commitSha: manualRef.sha,
+                generatedAt: new Date().toISOString(),
+                source: manualRepo
+            },
+            identifiers: Object.fromEntries(sortedIdentifiers)
+        };
+
+        await ensureDir(path.dirname(outputPath));
+        await fs.writeFile(
+            outputPath,
+            `${JSON.stringify(payload, null, 2)}\n`,
+            "utf8"
+        );
+
+        console.log(
+            `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
+        );
+        if (verbose.parsing) {
+            console.log(`Completed in ${formatDuration(startTime)}.`);
+        }
+        return 0;
+    } finally {
+        disposeProgressBars();
     }
-    return 0;
 }
 
 export async function runGenerateGmlIdentifiersCli({

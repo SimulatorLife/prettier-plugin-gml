@@ -13,6 +13,7 @@ import {
     ensureDir,
     formatDuration,
     renderProgressBar,
+    disposeProgressBars,
     timeSync
 } from "./manual/manual-cli-helpers.js";
 import {
@@ -890,111 +891,119 @@ function parseTypeSystem(html) {
 }
 
 async function main({ argv, env, isTty } = {}) {
-    assertSupportedNodeVersion();
+    try {
+        assertSupportedNodeVersion();
 
-    const {
-        ref,
-        outputPath,
-        forceRefresh,
-        verbose,
-        progressBarWidth,
-        cacheRoot,
-        manualRepo,
-        helpRequested
-    } = parseArgs({ argv, env, isTty });
-
-    if (helpRequested) {
-        return 0;
-    }
-    const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-    const startTime = Date.now();
-    const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
-    if (!manualRef?.sha) {
-        throw new Error("Could not resolve manual commit SHA.");
-    }
-    console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
-
-    const htmlPayloads = {};
-    const manualEntries = Object.entries(FEATHER_PAGES);
-    const totalManualPages = manualEntries.length;
-    if (verbose.downloads) {
-        console.log(
-            `Fetching ${totalManualPages} manual page${
-                totalManualPages === 1 ? "" : "s"
-            }…`
-        );
-    }
-
-    let fetchedCount = 0;
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFile(manualRef.sha, manualPath, {
+        const {
+            ref,
+            outputPath,
             forceRefresh,
             verbose,
+            progressBarWidth,
             cacheRoot,
-            rawRoot
-        });
-        fetchedCount += 1;
-        if (verbose.progressBar && verbose.downloads) {
-            renderProgressBar(
-                "Downloading manual pages",
-                fetchedCount,
-                totalManualPages,
-                progressBarWidth
-            );
-        } else if (verbose.downloads) {
-            console.log(`✓ ${manualPath}`);
+            manualRepo,
+            helpRequested
+        } = parseArgs({ argv, env, isTty });
+
+        if (helpRequested) {
+            return 0;
         }
-    }
-    if (verbose.parsing) {
-        console.log("Parsing manual sections…");
-    }
-    const diagnostics = timeSync(
-        "Diagnostics",
-        () => parseDiagnostics(htmlPayloads.diagnostics),
-        { verbose }
-    );
-    const directives = timeSync(
-        "Directives",
-        () => parseDirectiveSections(htmlPayloads.directives),
-        { verbose }
-    );
-    const namingRules = timeSync(
-        "Naming rules",
-        () => parseNamingRules(htmlPayloads.naming),
-        { verbose }
-    );
-    const typeSystem = timeSync(
-        "Type system",
-        () => parseTypeSystem(htmlPayloads.typeSystem),
-        { verbose }
-    );
+        const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
+        const startTime = Date.now();
+        const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
+        if (!manualRef?.sha) {
+            throw new Error("Could not resolve manual commit SHA.");
+        }
+        console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-    const payload = {
-        meta: {
-            manualRef: manualRef.ref,
-            commitSha: manualRef.sha,
-            generatedAt: new Date().toISOString(),
-            source: manualRepo,
-            manualPaths: { ...FEATHER_PAGES }
-        },
-        diagnostics,
-        directives,
-        namingRules,
-        typeSystem
-    };
+        const htmlPayloads = {};
+        const manualEntries = Object.entries(FEATHER_PAGES);
+        const totalManualPages = manualEntries.length;
+        if (verbose.downloads) {
+            console.log(
+                `Fetching ${totalManualPages} manual page${
+                    totalManualPages === 1 ? "" : "s"
+                }…`
+            );
+        }
 
-    await ensureDir(path.dirname(outputPath));
-    await fs.writeFile(
-        outputPath,
-        `${JSON.stringify(payload, null, 2)}\n`,
-        "utf8"
-    );
+        let fetchedCount = 0;
+        for (const [key, manualPath] of manualEntries) {
+            htmlPayloads[key] = await fetchManualFile(
+                manualRef.sha,
+                manualPath,
+                {
+                    forceRefresh,
+                    verbose,
+                    cacheRoot,
+                    rawRoot
+                }
+            );
+            fetchedCount += 1;
+            if (verbose.progressBar && verbose.downloads) {
+                renderProgressBar(
+                    "Downloading manual pages",
+                    fetchedCount,
+                    totalManualPages,
+                    progressBarWidth
+                );
+            } else if (verbose.downloads) {
+                console.log(`✓ ${manualPath}`);
+            }
+        }
+        if (verbose.parsing) {
+            console.log("Parsing manual sections…");
+        }
+        const diagnostics = timeSync(
+            "Diagnostics",
+            () => parseDiagnostics(htmlPayloads.diagnostics),
+            { verbose }
+        );
+        const directives = timeSync(
+            "Directives",
+            () => parseDirectiveSections(htmlPayloads.directives),
+            { verbose }
+        );
+        const namingRules = timeSync(
+            "Naming rules",
+            () => parseNamingRules(htmlPayloads.naming),
+            { verbose }
+        );
+        const typeSystem = timeSync(
+            "Type system",
+            () => parseTypeSystem(htmlPayloads.typeSystem),
+            { verbose }
+        );
 
-    console.log(`Wrote Feather metadata to ${outputPath}`);
-    if (verbose.parsing) {
-        console.log(`Completed in ${formatDuration(startTime)}.`);
+        const payload = {
+            meta: {
+                manualRef: manualRef.ref,
+                commitSha: manualRef.sha,
+                generatedAt: new Date().toISOString(),
+                source: manualRepo,
+                manualPaths: { ...FEATHER_PAGES }
+            },
+            diagnostics,
+            directives,
+            namingRules,
+            typeSystem
+        };
+
+        await ensureDir(path.dirname(outputPath));
+        await fs.writeFile(
+            outputPath,
+            `${JSON.stringify(payload, null, 2)}\n`,
+            "utf8"
+        );
+
+        console.log(`Wrote Feather metadata to ${outputPath}`);
+        if (verbose.parsing) {
+            console.log(`Completed in ${formatDuration(startTime)}.`);
+        }
+        return 0;
+    } finally {
+        disposeProgressBars();
     }
-    return 0;
 }
 
 export async function runGenerateFeatherMetadataCli({
