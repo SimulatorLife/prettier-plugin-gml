@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { createRequire } from "node:module";
-import { formatIdentifierCase } from "../../../shared/identifier-case/identifier-case-utils.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import {
     COLLISION_CONFLICT_CODE,
