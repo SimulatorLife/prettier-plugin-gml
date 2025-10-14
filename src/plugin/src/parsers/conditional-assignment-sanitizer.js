@@ -1,12 +1,4 @@
-const WORD_CHAR_PATTERN = /[A-Za-z0-9_]/;
-
-function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
-        return false;
-    }
-
-    return WORD_CHAR_PATTERN.test(character);
-}
+import { isWordChar } from "../../../shared/string-utils.js";
 
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {

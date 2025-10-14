@@ -6,6 +6,16 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+const WORD_CHAR_PATTERN = /[A-Za-z0-9_]/;
+
+export function isWordChar(character) {
+    if (typeof character !== "string" || character.length === 0) {
+        return false;
+    }
+
+    return WORD_CHAR_PATTERN.test(character);
+}
+
 export function toTrimmedString(value) {
     return typeof value === "string" ? value.trim() : "";
 }

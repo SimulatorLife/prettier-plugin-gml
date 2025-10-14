@@ -24,7 +24,14 @@ export function prepareEnumMembersForPrinting(members, getNodeName) {
 
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
-    members.forEach((member, index) => {
+    const lastIndex = memberCount - 1;
+
+    // A hand-rolled loop avoids creating a callback closure for `Array#forEach`
+    // and repeatedly reading `members.length` inside the hot post-processing
+    // pass. The body mirrors the original logic while keeping the tight loop
+    // friendlier to V8's optimizer.
+    for (let index = 0; index < memberCount; index += 1) {
+        const member = members[index];
         const nameLength = nameLengths[index];
         if (shouldAlignInitializers && member.initializer) {
             member._enumNameAlignmentPadding =
@@ -32,7 +39,7 @@ export function prepareEnumMembersForPrinting(members, getNodeName) {
         } else {
             member._enumNameAlignmentPadding = 0;
         }
-    });
+    }
 }
 
 export function getEnumNameAlignmentPadding(member) {
