@@ -1,36 +1,40 @@
 export const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 
+function coercePositiveInteger(value, received) {
+    if (Number.isFinite(value)) {
+        const normalized = Math.trunc(value);
+        if (normalized >= 1) {
+            return normalized;
+        }
+    }
+
+    throw new TypeError(
+        `Progress bar width must be a positive integer (received ${received}).`
+    );
+}
+
 export function resolveProgressBarWidth(rawValue) {
     if (rawValue === undefined || rawValue === null) {
         return DEFAULT_PROGRESS_BAR_WIDTH;
     }
 
-    const valueType = typeof rawValue;
-    if (valueType === "number" && Number.isFinite(rawValue)) {
-        const normalized = Math.trunc(rawValue);
-        if (normalized >= 1) {
-            return normalized;
-        }
-        throw new TypeError(
-            `Progress bar width must be a positive integer (received ${rawValue}).`
-        );
+    if (typeof rawValue === "number") {
+        return coercePositiveInteger(rawValue, rawValue);
     }
 
-    if (valueType === "string") {
+    if (typeof rawValue === "string") {
         const trimmed = rawValue.trim();
         if (trimmed === "") {
             return DEFAULT_PROGRESS_BAR_WIDTH;
         }
-        const parsed = Number.parseInt(trimmed, 10);
-        if (Number.isFinite(parsed) && parsed >= 1) {
-            return parsed;
-        }
-        throw new TypeError(
-            `Progress bar width must be a positive integer (received '${rawValue}').`
+
+        return coercePositiveInteger(
+            Number.parseInt(trimmed, 10),
+            `'${rawValue}'`
         );
     }
 
     throw new TypeError(
-        `Progress bar width must be provided as a number (received type '${valueType}').`
+        `Progress bar width must be provided as a number (received type '${typeof rawValue}').`
     );
 }
