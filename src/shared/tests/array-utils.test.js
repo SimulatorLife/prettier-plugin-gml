@@ -5,7 +5,8 @@ import {
     asArray,
     isNonEmptyArray,
     mergeUniqueValues,
-    toArray
+    toArray,
+    uniqueArray
 } from "../array-utils.js";
 
 test("toArray wraps non-array values", () => {
@@ -39,6 +40,23 @@ test("isNonEmptyArray identifies arrays with elements", () => {
     assert.equal(isNonEmptyArray([0]), true);
     assert.equal(isNonEmptyArray([]), false);
     assert.equal(isNonEmptyArray(null), false);
+});
+
+test("uniqueArray removes duplicates while preserving order", () => {
+    assert.deepEqual(uniqueArray(["alpha", "beta", "alpha", "gamma", "beta"]), [
+        "alpha",
+        "beta",
+        "gamma"
+    ]);
+});
+
+test("uniqueArray supports iterables and optional freezing", () => {
+    const result = uniqueArray(new Set(["one", "two", "one"]), {
+        freeze: true
+    });
+
+    assert.deepEqual(result, ["one", "two"]);
+    assert.ok(Object.isFrozen(result));
 });
 
 test("mergeUniqueValues returns a frozen copy when no additions are provided", () => {

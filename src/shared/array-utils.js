@@ -45,6 +45,42 @@ export function isNonEmptyArray(value) {
 }
 
 /**
+ * Create a new array containing the first occurrence of each unique value
+ * encountered in the provided iterable while preserving the original order.
+ *
+ * @template T
+ * @param {Iterable<T> | Array<T> | null | undefined} values
+ * @param {Object} [options]
+ * @param {boolean} [options.freeze=false]
+ * @returns {Array<T> | ReadonlyArray<T>}
+ */
+export function uniqueArray(values, { freeze = false } = {}) {
+    if (values == null) {
+        return freeze ? Object.freeze([]) : [];
+    }
+
+    const iterable = Array.isArray(values)
+        ? values
+        : typeof values[Symbol.iterator] === "function"
+            ? Array.from(values)
+            : [];
+
+    const uniqueValues = [];
+    const seen = new Set();
+
+    for (const value of iterable) {
+        if (seen.has(value)) {
+            continue;
+        }
+
+        uniqueValues.push(value);
+        seen.add(value);
+    }
+
+    return freeze ? Object.freeze(uniqueValues) : uniqueValues;
+}
+
+/**
  * Merge a collection of additional entries into a default array while
  * preserving order and eliminating duplicates. Callers can optionally supply a
  * coercion function to normalize raw entries before they are compared and a

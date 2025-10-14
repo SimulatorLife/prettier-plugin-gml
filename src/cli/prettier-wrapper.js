@@ -6,7 +6,7 @@ import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { asArray } from "../shared/array-utils.js";
+import { asArray, uniqueArray } from "../shared/array-utils.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
@@ -93,7 +93,7 @@ function normalizeExtensions(
         return fallbackExtensions;
     }
 
-    return [...new Set(normalized)];
+    return uniqueArray(normalized);
 }
 
 const DEFAULT_EXTENSIONS = normalizeExtensions(
@@ -315,7 +315,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
         return null;
     }
 
-    const uniqueIgnorePaths = [...new Set(ignoreCandidates)];
+    const uniqueIgnorePaths = uniqueArray(ignoreCandidates);
     return uniqueIgnorePaths.length === 1
         ? uniqueIgnorePaths[0]
         : uniqueIgnorePaths;
@@ -519,7 +519,7 @@ async function resolveFormattingOptions(filePath) {
 
     const basePlugins = asArray(options.plugins);
     const resolvedPlugins = asArray(resolvedConfig?.plugins);
-    const combinedPlugins = [...new Set([...basePlugins, ...resolvedPlugins])];
+    const combinedPlugins = uniqueArray([...basePlugins, ...resolvedPlugins]);
 
     if (combinedPlugins.length > 0) {
         mergedOptions.plugins = combinedPlugins;
