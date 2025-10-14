@@ -7,7 +7,10 @@ import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { Command, InvalidArgumentError } from "commander";
 
 import { asArray } from "../shared/array-utils.js";
-import { normalizeStringList } from "../shared/string-utils.js";
+import {
+    normalizeStringList,
+    toNormalizedLowerCaseString
+} from "../shared/string-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
 
@@ -36,7 +39,7 @@ function normalizeParseErrorAction(value, fallbackValue) {
         return fallbackValue;
     }
 
-    const normalized = String(value).trim().toLowerCase();
+    const normalized = toNormalizedLowerCaseString(value);
 
     if (normalized.length === 0) {
         return fallbackValue;

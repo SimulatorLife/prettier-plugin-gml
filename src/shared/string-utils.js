@@ -20,6 +20,14 @@ export function toTrimmedString(value) {
     return typeof value === "string" ? value.trim() : "";
 }
 
+export function toNormalizedLowerCaseString(value) {
+    if (value == null) {
+        return "";
+    }
+
+    return String(value).trim().toLowerCase();
+}
+
 export function capitalize(value) {
     if (!isNonEmptyString(value)) {
         return value;

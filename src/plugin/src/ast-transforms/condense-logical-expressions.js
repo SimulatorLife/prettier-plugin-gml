@@ -8,7 +8,10 @@ import {
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
 import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} from "../../../shared/string-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -193,7 +196,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
                 return true;
             }
             if (typeof value === "string") {
-                const normalized = value.trim().toLowerCase();
+                const normalized = toNormalizedLowerCaseString(value);
                 return normalized === "true" || normalized === "false";
             }
             return allowValueLiterals;
