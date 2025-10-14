@@ -148,7 +148,6 @@ jobs:
           mkdir -p test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
             src/shared/tests/*.test.js
         continue-on-error: true
 
@@ -158,7 +157,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -168,7 +166,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -178,7 +175,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -223,7 +219,6 @@ jobs:
           mkdir -p test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
             src/shared/tests/*.test.js
         continue-on-error: true
 
@@ -233,7 +228,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -243,7 +237,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -253,7 +246,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -303,7 +295,6 @@ jobs:
           mkdir -p test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
             src/shared/tests/*.test.js
         continue-on-error: true
 
@@ -314,7 +305,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -325,7 +315,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -336,7 +325,6 @@ jobs:
           mkdir -p ../../test-results
           node --test \
             --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
             tests/*.test.js
         continue-on-error: true
 
@@ -713,12 +701,10 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: junit-and-tap-${{ github.sha }}
+          name: junit-${{ github.sha }}
           path: |
             test-results/*.xml
-            test-results/*.tap
             merge/test-results/*.xml
-            merge/test-results/*.tap
           retention-days: 7
 
   ###########################################################################
