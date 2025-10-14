@@ -380,7 +380,6 @@ jobs:
               return;
             }
 
-            const changedFiles = Number(pr.changed_files || 0);
             const sha = pr.head.sha;
 
             async function hasGreenRegression(refSha) {
