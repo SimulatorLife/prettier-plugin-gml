@@ -173,6 +173,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.pr-meta.outputs.head_ref }}
+          clean: false
 
       - name: Setup Node (head)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -348,7 +349,9 @@ jobs:
             const headLabel = `${pr.head?.ref || 'head'} @ ${(pr.head?.sha || context.sha || '').slice(0, 7) || '???????'}`;
 
             function collectSuiteStats(dir) {
-              const resultsDir = path.join(process.cwd(), dir);
+              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+              const resolvedDir = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
+              const displayDir = path.relative(workspace, resolvedDir) || resolvedDir;
               const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
               const notes = [];
 
@@ -356,14 +359,14 @@ jobs:
                 notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
                 return { available: false, totals, notes };
               }
-              if (!fs.existsSync(resultsDir)) {
-                notes.push(`No directory found at ${dir}.`);
+              if (!fs.existsSync(resolvedDir)) {
+                notes.push(`No directory found at ${displayDir}.`);
                 return { available: false, totals, notes };
               }
 
-              const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
+              const files = fs.readdirSync(resolvedDir).filter(f => f.endsWith('.xml'));
               if (files.length === 0) {
-                notes.push(`No JUnit XML files found in ${dir}.`);
+                notes.push(`No JUnit XML files found in ${displayDir}.`);
                 return { available: false, totals, notes };
               }
 
@@ -390,17 +393,17 @@ jobs:
 
               for (const file of files) {
                 try {
-                  const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+                  const xml = fs.readFileSync(path.join(resolvedDir, file), 'utf8');
                   if (!xml.trim()) continue;
                   const data = parser.parse(xml);
                   visitNode(data);
                 } catch (error) {
-                  notes.push(`Failed to parse ${path.join(dir, file)}: ${error.message}`);
+                  notes.push(`Failed to parse ${path.join(displayDir, file)}: ${error.message}`);
                 }
               }
 
               if (suiteList.length === 0) {
-                notes.push(`No test suites discovered in ${dir}.`);
+                notes.push(`No test suites discovered in ${displayDir}.`);
                 return { available: false, totals, notes };
               }
 
