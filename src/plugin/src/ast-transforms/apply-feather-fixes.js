@@ -8580,6 +8580,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
+    removeRedundantSurfaceResetCalls(siblings, insertionIndex + 1);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -10092,6 +10093,9 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     }
 
     const siblings = parent;
+    if (hasSurfaceResetBeforeNextTarget(siblings, property)) {
+        return null;
+    }
     let insertionIndex = siblings.length;
 
     for (let index = property + 1; index < siblings.length; index += 1) {
@@ -10146,6 +10150,59 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function hasSurfaceResetBeforeNextTarget(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return false;
+    }
+
+    for (let index = startIndex + 1; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceResetTargetCall(candidate)) {
+            return true;
+        }
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+function removeRedundantSurfaceResetCalls(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return;
+    }
+
+    for (let index = startIndex; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return;
+        }
+
+        if (!isSurfaceResetTargetCall(candidate)) {
+            continue;
+        }
+
+        const metadata = Array.isArray(candidate?._appliedFeatherDiagnostics)
+            ? candidate._appliedFeatherDiagnostics
+            : [];
+
+        const hasGM2005Metadata = metadata.some(
+            (entry) => entry?.id === "GM2005"
+        );
+
+        if (!hasGM2005Metadata) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        index -= 1;
+    }
 }
 
 function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
