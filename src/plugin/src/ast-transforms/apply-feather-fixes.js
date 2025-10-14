@@ -7844,6 +7844,8 @@ function liftDrawPrimitiveEndCallFromConditional(
 
     branchWithCall.body.splice(match.index, 1);
 
+    removeSyntheticDrawPrimitiveBeginInsertedByGM2028(branchWithCall.body);
+
     const insertionIndex = conditionalIndex + 1;
 
     siblings.splice(insertionIndex, 0, callNode);
@@ -7851,6 +7853,39 @@ function liftDrawPrimitiveEndCallFromConditional(
     attachFeatherFixMetadata(callNode, [fixDetail]);
 
     return fixDetail;
+}
+
+function removeSyntheticDrawPrimitiveBeginInsertedByGM2028(statements) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return false;
+    }
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (!isDrawPrimitiveBeginCall(statement)) {
+            continue;
+        }
+
+        const diagnosticMetadata = Array.isArray(
+            statement?._appliedFeatherDiagnostics
+        )
+            ? statement._appliedFeatherDiagnostics
+            : [];
+
+        const insertedByGM2028 = diagnosticMetadata.some(
+            (entry) => entry?.id === "GM2028"
+        );
+
+        if (!insertedByGM2028) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        return true;
+    }
+
+    return false;
 }
 
 function getDrawPrimitiveEndCallInfo(block) {
