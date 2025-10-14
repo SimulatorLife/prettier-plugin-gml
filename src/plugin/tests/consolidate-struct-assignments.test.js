@@ -3,7 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
+
+import { consolidateStructAssignments } from "../src/ast-transforms/consolidate-struct-assignments.js";
 
 const helperSource = `function getNodeStartIndex(node) {
     if (!node || typeof node !== "object") {
@@ -56,7 +58,9 @@ async function loadCommentTracker() {
     const classStart = fileContents.indexOf("class CommentTracker");
 
     if (classStart === -1) {
-        throw new Error("Unable to locate CommentTracker in consolidate-struct-assignments.js");
+        throw new Error(
+            "Unable to locate CommentTracker in consolidate-struct-assignments.js"
+        );
     }
 
     const classSource = fileContents.slice(classStart);
@@ -78,5 +82,101 @@ describe("CommentTracker", () => {
         tracker.consumeEntries([tracker.entries[0]]);
 
         assert.equal(tracker.hasAfter(5), true);
+    });
+
+    it("removes consumed comments from the original collection", async () => {
+        const { CommentTracker } = await loadCommentTracker();
+
+        const comments = [{ start: { index: 10 } }, { start: { index: 20 } }];
+
+        const tracker = new CommentTracker(comments);
+        tracker.consumeEntries([tracker.entries[0]]);
+        tracker.removeConsumedComments();
+
+        assert.deepEqual(
+            comments.map((comment) => comment.start.index),
+            [20]
+        );
+    });
+});
+
+describe("consolidateStructAssignments", () => {
+    it("attaches trailing comments using the fallback comment tools", () => {
+        const location = (index, line) => ({ index, line });
+
+        const structExpression = {
+            type: "StructExpression",
+            properties: [],
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const initializer = {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "Identifier",
+                name: "state",
+                start: location(0, 1),
+                end: location(5, 1)
+            },
+            right: structExpression,
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const propertyAssignment = {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "MemberDotExpression",
+                object: {
+                    type: "Identifier",
+                    name: "state",
+                    start: location(20, 2),
+                    end: location(25, 2)
+                },
+                property: {
+                    type: "Identifier",
+                    name: "value",
+                    start: location(30, 2),
+                    end: location(35, 2)
+                },
+                start: location(20, 2),
+                end: location(35, 2)
+            },
+            right: {
+                type: "Literal",
+                value: 1,
+                start: location(38, 2),
+                end: location(39, 2)
+            },
+            start: location(20, 2),
+            end: location(39, 2)
+        };
+
+        const trailingComment = {
+            type: "CommentLine",
+            value: " property",
+            start: location(45, 2),
+            end: location(55, 2)
+        };
+
+        const ast = {
+            type: "Program",
+            body: [initializer, propertyAssignment],
+            comments: [trailingComment]
+        };
+
+        consolidateStructAssignments(ast);
+
+        assert.equal(structExpression.properties.length, 1);
+
+        const [property] = structExpression.properties;
+        assert.equal(Array.isArray(property.comments), true);
+        assert.equal(property.comments.length, 1);
+        assert.equal(property.comments[0], trailingComment);
+        assert.equal(trailingComment.trailing, true);
+        assert.equal(trailingComment._structPropertyTrailing, true);
     });
 });

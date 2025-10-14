@@ -1,12 +1,23 @@
-import { getNodeStartIndex, getNodeEndIndex } from "../../../shared/ast-locations.js";
-import { getSingleVariableDeclarator } from "../../../shared/ast-node-helpers.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    cloneLocation
+} from "../../../shared/ast-locations.js";
+import {
+    getSingleVariableDeclarator,
+    isNode
+} from "../../../shared/ast-node-helpers.js";
+import { getCommentArray, isLineComment } from "../../../shared/comments.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
 });
 
 function normalizeCommentTools(commentTools) {
-    if (!commentTools || typeof commentTools.addTrailingComment !== "function") {
+    if (
+        !commentTools ||
+        typeof commentTools.addTrailingComment !== "function"
+    ) {
         return FALLBACK_COMMENT_TOOLS;
     }
 
@@ -27,7 +38,7 @@ export function consolidateStructAssignments(ast, commentTools) {
     }
 
     const normalizedCommentTools = normalizeCommentTools(commentTools);
-    const tracker = new CommentTracker(Array.isArray(ast.comments) ? ast.comments : []);
+    const tracker = new CommentTracker(ast);
     visit(ast, tracker, normalizedCommentTools);
     tracker.removeConsumedComments();
     return ast;
@@ -55,7 +66,12 @@ function visit(node, tracker, commentTools) {
     }
 
     for (const [key, value] of Object.entries(node)) {
-        if (key === "body" || key === "start" || key === "end" || key === "comments") {
+        if (
+            key === "body" ||
+            key === "start" ||
+            key === "end" ||
+            key === "comments"
+        ) {
             continue;
         }
         visit(value, tracker, commentTools);
@@ -121,7 +137,11 @@ function collectPropertyAssignments({
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
-        if (!isPropertyAssignment(statement, identifierName)) {
+        const assignmentDetails = getStructPropertyAssignmentDetails(
+            statement,
+            identifierName
+        );
+        if (!assignmentDetails) {
             break;
         }
 
@@ -148,7 +168,7 @@ function collectPropertyAssignments({
             break;
         }
 
-        const property = buildPropertyFromAssignment(statement, identifierName);
+        const property = buildPropertyFromAssignment(assignmentDetails);
         if (!property) {
             break;
         }
@@ -162,7 +182,10 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            property.comments = Array.isArray(property.comments) ? property.comments : [];
+            const existingComments = getCommentArray(property);
+            property.comments = Array.isArray(existingComments)
+                ? existingComments.slice()
+                : [];
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
@@ -174,7 +197,8 @@ function collectPropertyAssignments({
                 comment._structPropertyHandled = false;
                 property.comments.push(comment);
             }
-            const lastComment = attachableComments[attachableComments.length - 1];
+            const lastComment =
+                attachableComments[attachableComments.length - 1];
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd != null ? commentEnd : end;
         } else {
@@ -192,40 +216,30 @@ function collectPropertyAssignments({
     }
 
     const nextStatement = statements[cursor];
-    if (nextStatement) {
-        const nextStart = getNodeStartIndex(nextStatement);
-        if (
-            !allowTrailingCommentsBetween({
-                tracker,
-                left: lastEnd,
-                right: nextStart,
-                precedingStatement: previousStatement,
-                precedingProperty: lastProperty,
-                commentTools
-            })
-        ) {
-            return null;
-        }
-    } else {
-        if (
-            !allowTrailingCommentsBetween({
-                tracker,
-                left: lastEnd,
-                right: Number.POSITIVE_INFINITY,
-                precedingStatement: previousStatement,
-                precedingProperty: lastProperty,
-                commentTools
-            })
-        ) {
-            return null;
-        }
+    const nextBoundary = nextStatement
+        ? getNodeStartIndex(nextStatement)
+        : Number.POSITIVE_INFINITY;
 
-        if (tracker.hasAfter(lastEnd)) {
-            return null;
-        }
+    if (
+        !allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: nextBoundary,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty,
+            commentTools
+        })
+    ) {
+        return null;
     }
 
-    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
+    if (!nextStatement && tracker.hasAfter(lastEnd)) {
+        return null;
+    }
+
+    const shouldForceBreak = properties.some(
+        (property) => property?._hasTrailingInlineComment
+    );
 
     return {
         properties,
@@ -249,11 +263,17 @@ function getStructInitializer(statement) {
             return null;
         }
 
-        if (!isNode(declarator.init) || declarator.init.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(declarator.init) ||
+            declarator.init.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
 
-        if (Array.isArray(declarator.init.properties) && declarator.init.properties.length > 0) {
+        if (
+            Array.isArray(declarator.init.properties) &&
+            declarator.init.properties.length > 0
+        ) {
             return null;
         }
 
@@ -272,11 +292,17 @@ function getStructInitializer(statement) {
             return null;
         }
 
-        if (!isNode(statement.right) || statement.right.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(statement.right) ||
+            statement.right.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
 
-        if (Array.isArray(statement.right.properties) && statement.right.properties.length > 0) {
+        if (
+            Array.isArray(statement.right.properties) &&
+            statement.right.properties.length > 0
+        ) {
             return null;
         }
 
@@ -289,41 +315,22 @@ function getStructInitializer(statement) {
     return null;
 }
 
-function isPropertyAssignment(statement, identifierName) {
-    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
-        return false;
-    }
-
-    if (statement.operator !== "=") {
-        return false;
-    }
-
-    const left = statement.left;
-    if (!isNode(left)) {
-        return false;
-    }
-
-    if (left.type === MEMBER_DOT_EXPRESSION) {
-        return isIdentifierRoot(left.object, identifierName);
-    }
-
-    if (left.type === MEMBER_INDEX_EXPRESSION) {
-        return isIdentifierRoot(left.object, identifierName);
-    }
-
-    return false;
-}
-
 function isIdentifierRoot(node, identifierName) {
-    return isNode(node) && node.type === IDENTIFIER && node.name === identifierName;
+    return (
+        isNode(node) && node.type === IDENTIFIER && node.name === identifierName
+    );
 }
 
-function buildPropertyFromAssignment(assignment, identifierName) {
+function buildPropertyFromAssignment(assignmentDetails) {
+    if (!assignmentDetails) {
+        return null;
+    }
+
+    const { assignment, propertyAccess } = assignmentDetails;
     if (!isNode(assignment) || assignment.type !== ASSIGNMENT_EXPRESSION) {
         return null;
     }
 
-    const propertyAccess = getStructPropertyAccess(assignment.left, identifierName);
     if (!propertyAccess) {
         return null;
     }
@@ -338,11 +345,38 @@ function buildPropertyFromAssignment(assignment, identifierName) {
         type: "Property",
         name: propertyName,
         value: assignment.right,
-        start: cloneLocation(
-            getPreferredLocation(propertyAccess.propertyStart, assignment.start)
-        ),
-        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end))
+        start:
+            cloneLocation(
+                getPreferredLocation(
+                    propertyAccess.propertyStart,
+                    assignment.start
+                )
+            ) ?? null,
+        end:
+            cloneLocation(
+                getPreferredLocation(assignment.right?.end, assignment.end)
+            ) ?? null
     };
+}
+
+function getStructPropertyAssignmentDetails(statement, identifierName) {
+    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
+        return null;
+    }
+
+    if (statement.operator !== "=") {
+        return null;
+    }
+
+    const propertyAccess = getStructPropertyAccess(
+        statement.left,
+        identifierName
+    );
+    if (!propertyAccess) {
+        return null;
+    }
+
+    return { assignment: statement, propertyAccess };
 }
 
 function getStructPropertyAccess(left, identifierName) {
@@ -385,7 +419,10 @@ function getPropertyKeyInfo(propertyNode) {
         return null;
     }
 
-    if (propertyNode.type === IDENTIFIER && typeof propertyNode.name === "string") {
+    if (
+        propertyNode.type === IDENTIFIER &&
+        typeof propertyNode.name === "string"
+    ) {
         return {
             identifierName: propertyNode.name,
             raw: propertyNode.name,
@@ -394,7 +431,10 @@ function getPropertyKeyInfo(propertyNode) {
         };
     }
 
-    if (propertyNode.type === LITERAL && typeof propertyNode.value === "string") {
+    if (
+        propertyNode.type === LITERAL &&
+        typeof propertyNode.value === "string"
+    ) {
         const unquoted = stripStringQuotes(propertyNode.value);
         return {
             identifierName: unquoted,
@@ -417,8 +457,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: IDENTIFIER,
             name: identifierName,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -426,8 +466,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: LITERAL,
             value: propertyKey.raw,
-            start: cloneLocation(propertyKey.start),
-            end: cloneLocation(propertyKey.end)
+            start: cloneLocation(propertyKey.start) ?? null,
+            end: cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -456,11 +496,18 @@ function allowTrailingCommentsBetween({
         return false;
     }
 
-    if (commentEntries.some(({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine))) {
+    if (
+        commentEntries.some(
+            ({ comment }) =>
+                !isTrailingLineCommentOnLine(comment, expectedLine)
+        )
+    ) {
         return false;
     }
 
-    const commentTarget = precedingProperty ? precedingProperty.value ?? precedingProperty : null;
+    const commentTarget = precedingProperty
+        ? (precedingProperty.value ?? precedingProperty)
+        : null;
     const attachTrailingComment = commentTools.addTrailingComment;
 
     for (const { comment } of commentEntries) {
@@ -482,7 +529,7 @@ function allowTrailingCommentsBetween({
 }
 
 function isTrailingLineCommentOnLine(comment, expectedLine) {
-    if (!comment || comment.type !== "CommentLine") {
+    if (!isLineComment(comment)) {
         return false;
     }
 
@@ -497,13 +544,6 @@ function getPreferredLocation(primary, fallback) {
         return fallback;
     }
     return null;
-}
-
-function cloneLocation(location) {
-    if (!isNode(location)) {
-        return location ?? null;
-    }
-    return structuredClone(location);
 }
 
 function getNodeEndLine(node) {
@@ -522,7 +562,7 @@ function getNodeEndLine(node) {
 }
 
 function isAttachableTrailingComment(comment, statement) {
-    if (!isNode(comment) || comment.type !== "CommentLine") {
+    if (!isLineComment(comment)) {
         return false;
     }
 
@@ -585,20 +625,41 @@ function getNodeStartLine(node) {
     return null;
 }
 
-function isNode(value) {
-    return value != null && typeof value === "object";
-}
-
 class CommentTracker {
-    constructor(comments) {
-        this.entries = comments
+    constructor(ownerOrComments) {
+        const sourceComments = (() => {
+            if (typeof getCommentArray === "function") {
+                const normalized = getCommentArray(ownerOrComments);
+                if (Array.isArray(normalized)) {
+                    return normalized;
+                }
+            }
+
+            if (Array.isArray(ownerOrComments)) {
+                return ownerOrComments;
+            }
+
+            if (!ownerOrComments || typeof ownerOrComments !== "object") {
+                return [];
+            }
+
+            const { comments } = ownerOrComments;
+            return Array.isArray(comments) ? comments : [];
+        })();
+        this.comments = sourceComments;
+        this.entries = sourceComments
             .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
     }
 
     hasBetween(left, right) {
-        if (!this.entries.length || left == null || right == null || left >= right) {
+        if (
+            !this.entries.length ||
+            left == null ||
+            right == null ||
+            left >= right
+        ) {
             return false;
         }
         let index = this.firstGreaterThan(left);
@@ -675,7 +736,12 @@ class CommentTracker {
     }
 
     getEntriesBetween(left, right) {
-        if (!this.entries.length || left == null || right == null || left >= right) {
+        if (
+            !this.entries.length ||
+            left == null ||
+            right == null ||
+            left >= right
+        ) {
             return [];
         }
 
@@ -705,7 +771,7 @@ class CommentTracker {
     }
 
     removeConsumedComments() {
-        if (!Array.isArray(this.comments) || this.comments.length === 0) {
+        if (this.comments.length === 0) {
             return;
         }
 
