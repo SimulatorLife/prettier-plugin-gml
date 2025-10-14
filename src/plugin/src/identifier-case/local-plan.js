@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "../../../shared/identifier-case.js";
+import { asArray } from "../../../shared/array-utils.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
@@ -98,6 +99,18 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     return summarizeFileOccurrences(counts);
 }
 
+function getEntryDeclarations(entry) {
+    return asArray(entry?.declarations);
+}
+
+function getEntityClassifications(entity) {
+    return asArray(entity?.classifications);
+}
+
+function getEntryDeclarationKinds(entry) {
+    return asArray(entry?.declarationKinds);
+}
+
 function applyAssetRenamesIfEligible({
     options,
     projectIndex,
@@ -150,9 +163,7 @@ function resolveIdentifierEntryName(entry) {
         return null;
     }
 
-    const declarations = Array.isArray(entry.declarations)
-        ? entry.declarations
-        : [];
+    const declarations = getEntryDeclarations(entry);
     for (const declaration of declarations) {
         if (
             typeof declaration?.name === "string" &&
@@ -175,14 +186,10 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = Array.isArray(entry?.declarations)
-        ? entry.declarations
-        : [];
+    const declarations = getEntryDeclarations(entry);
 
     for (const declaration of declarations) {
-        const classifications = Array.isArray(declaration?.classifications)
-            ? declaration.classifications
-            : [];
+        const classifications = getEntityClassifications(declaration);
         for (const tag of classifications) {
             if (tag) {
                 tags.add(tag);
@@ -190,9 +197,7 @@ function extractDeclarationClassifications(entry) {
         }
     }
 
-    const declarationKinds = Array.isArray(entry?.declarationKinds)
-        ? entry.declarationKinds
-        : [];
+    const declarationKinds = getEntryDeclarationKinds(entry);
     for (const tag of declarationKinds) {
         if (tag) {
             tags.add(tag);
@@ -255,9 +260,7 @@ function getReferenceLocation(reference) {
 
 function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
     const scopeMap = projectIndex?.scopes ?? {};
-    const declarations = Array.isArray(entry?.declarations)
-        ? entry.declarations
-        : [];
+    const declarations = getEntryDeclarations(entry);
 
     for (const declaration of declarations) {
         const scopeId = declaration?.scopeId ?? entry?.scopeId ?? null;
@@ -441,9 +444,7 @@ function planIdentifierRenamesForScope({
             continue;
         }
 
-        const declarations = Array.isArray(entry?.declarations)
-            ? entry.declarations
-            : [];
+        const declarations = getEntryDeclarations(entry);
         if (declarations.length === 0) {
             continue;
         }
@@ -967,9 +968,7 @@ export async function prepareIdentifierCasePlan(options) {
 
         metrics.incrementCounter("locals.referencesScanned");
 
-        const classifications = Array.isArray(reference.classifications)
-            ? reference.classifications
-            : [];
+        const classifications = getEntityClassifications(reference);
 
         if (!classifications.includes("variable")) {
             continue;
@@ -997,9 +996,7 @@ export async function prepareIdentifierCasePlan(options) {
 
         metrics.incrementCounter("locals.declarationCandidates");
 
-        const classifications = Array.isArray(declaration.classifications)
-            ? declaration.classifications
-            : [];
+        const classifications = getEntityClassifications(declaration);
 
         if (!classifications.includes("variable")) {
             continue;
