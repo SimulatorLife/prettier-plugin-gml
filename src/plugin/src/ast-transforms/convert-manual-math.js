@@ -816,13 +816,23 @@ function isBinaryOperator(node, operator) {
     );
 }
 
-function isLiteralNumber(node, expected, tolerance = 0) {
+function computeNumericTolerance(expected, providedTolerance) {
+    if (typeof providedTolerance === "number") {
+        return providedTolerance;
+    }
+
+    const magnitude = Math.max(1, Math.abs(expected));
+    return Number.EPSILON * magnitude * 4;
+}
+
+function isLiteralNumber(node, expected, tolerance) {
     const value = parseNumericLiteral(node);
     if (value == null) {
         return false;
     }
 
-    return Math.abs(value - expected) <= tolerance;
+    const effectiveTolerance = computeNumericTolerance(expected, tolerance);
+    return Math.abs(value - expected) <= effectiveTolerance;
 }
 
 function isHalfExponentLiteral(node) {
