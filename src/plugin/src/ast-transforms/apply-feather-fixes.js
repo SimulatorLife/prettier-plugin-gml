@@ -5054,6 +5054,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
         if (node.type === "VariableDeclaration" && node.kind === "var") {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
+                ast,
                 sourceText,
                 diagnostic
             );
@@ -5075,7 +5076,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
     return fixes;
 }
 
-function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic) {
+function ensureVarDeclarationIsTerminated(node, ast, sourceText, diagnostic) {
     if (!node || node.type !== "VariableDeclaration" || node.kind !== "var") {
         return null;
     }
@@ -5097,6 +5098,12 @@ function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic) {
     if (!fixDetail) {
         return null;
     }
+
+    preserveTrailingCommentAlignmentForVarDeclaration({
+        declaration: node,
+        ast,
+        sourceText
+    });
 
     attachFeatherFixMetadata(node, [fixDetail]);
 
@@ -5202,6 +5209,124 @@ function variableDeclarationHasTerminatingSemicolon(node, sourceText) {
     }
 
     return false;
+}
+
+function preserveTrailingCommentAlignmentForVarDeclaration({
+    declaration,
+    ast,
+    sourceText
+}) {
+    if (
+        !declaration ||
+        declaration.type !== "VariableDeclaration" ||
+        typeof sourceText !== "string" ||
+        sourceText.length === 0 ||
+        !ast ||
+        typeof ast !== "object"
+    ) {
+        return;
+    }
+
+    const commentStartIndex = findLineCommentStartIndexAfterDeclaration(
+        declaration,
+        sourceText
+    );
+
+    if (commentStartIndex == null) {
+        return;
+    }
+
+    const comment = findLineCommentStartingAt(ast, commentStartIndex);
+
+    if (!comment) {
+        return;
+    }
+
+    markCommentForTrailingPaddingPreservation(comment);
+}
+
+function findLineCommentStartIndexAfterDeclaration(declaration, sourceText) {
+    const endIndex = getNodeEndIndex(declaration);
+
+    if (typeof endIndex !== "number") {
+        return null;
+    }
+
+    const length = sourceText.length;
+
+    for (let index = endIndex; index < length; index += 1) {
+        const char = sourceText[index];
+
+        if (char === " " || char === "\t" || char === "\v" || char === "\f") {
+            continue;
+        }
+
+        if (
+            char === "\r" ||
+            char === "\n" ||
+            char === "\u2028" ||
+            char === "\u2029"
+        ) {
+            return null;
+        }
+
+        if (char === "/" && sourceText[index + 1] === "/") {
+            return index;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
+function findLineCommentStartingAt(ast, startIndex) {
+    if (typeof startIndex !== "number" || startIndex < 0) {
+        return null;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (comments.length === 0) {
+        return null;
+    }
+
+    for (const comment of comments) {
+        if (comment?.type !== "CommentLine") {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+
+        if (typeof commentStartIndex !== "number") {
+            continue;
+        }
+
+        if (commentStartIndex === startIndex) {
+            return comment;
+        }
+    }
+
+    return null;
+}
+
+function markCommentForTrailingPaddingPreservation(comment) {
+    if (!comment || typeof comment !== "object") {
+        return;
+    }
+
+    const key = "_featherPreserveTrailingPadding";
+
+    if (comment[key] === true) {
+        return;
+    }
+
+    Object.defineProperty(comment, key, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: true
+    });
 }
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {

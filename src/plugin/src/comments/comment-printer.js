@@ -199,6 +199,10 @@ function applyTrailingCommentPadding(comment, options) {
         return;
     }
 
+    if (comment._featherPreserveTrailingPadding) {
+        return;
+    }
+
     const isTrailingComment = Boolean(
         comment.trailing ||
             comment.placement === "endOfLine" ||
