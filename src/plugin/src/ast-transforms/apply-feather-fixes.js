@@ -9097,6 +9097,13 @@ function referencesIdentifier(node, variableName) {
             continue;
         }
 
+        if (isFunctionLikeNode(value)) {
+            // Nested functions introduce new scopes. References to the same
+            // identifier name inside them do not require hoisting the current
+            // declaration, so skip descending into those subtrees.
+            continue;
+        }
+
         if (Array.isArray(value)) {
             for (const item of value) {
                 stack.push({ value: item, parent, key });
