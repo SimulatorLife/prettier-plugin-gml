@@ -332,7 +332,6 @@ jobs:
                 paths: [
                   process.cwd(),
                   process.env.GITHUB_WORKSPACE || '',
-                  __dirname,
                 ].filter(Boolean),
               });
               ({ XMLParser } = require(resolved));
