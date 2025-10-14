@@ -205,30 +205,38 @@ export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
 ]);
 
 function normalizeReservedPrefixOverrides(overrides) {
-    if (!overrides) {
+    const source =
+        overrides instanceof Set || Array.isArray(overrides) ? overrides : null;
+
+    if (!source) {
         return [];
     }
 
-    const entries =
-        overrides instanceof Set
-            ? overrides
-            : Array.isArray(overrides)
-                ? overrides
-                : null;
+    const unique = new Set();
 
-    if (!entries) {
+    for (const entry of source) {
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const trimmed = entry.trim();
+        if (trimmed.length > 0) {
+            unique.add(trimmed);
+        }
+    }
+
+    if (unique.size === 0) {
         return [];
     }
 
-    const normalized = Array.from(entries, (entry) =>
-        typeof entry === "string" ? entry.trim() : ""
-    ).filter(Boolean);
+    return [...unique].sort((a, b) => {
+        const lengthDifference = b.length - a.length;
+        if (lengthDifference !== 0) {
+            return lengthDifference;
+        }
 
-    const unique = [...new Set(normalized)];
-
-    unique.sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0));
-
-    return unique;
+        return a < b ? -1 : a > b ? 1 : 0;
+    });
 }
 
 function extractReservedPrefixWithOverrides(identifier, overrides) {

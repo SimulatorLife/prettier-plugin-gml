@@ -52,3 +52,45 @@ test("wraps long @description doc comments at the formatter width", async () => 
         "///              non-solid shapes will not collide with anything."
     );
 });
+
+test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
+    const source = [
+        `/// @description ${LONG_DESCRIPTION}`,
+        "function wrap_example() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        printWidth: 200
+    });
+
+    const lines = formatted.trim().split("\n");
+    const descriptionIndex = lines.findIndex((line) =>
+        line.startsWith("/// @description")
+    );
+
+    assert.ok(
+        descriptionIndex !== -1,
+        "Expected formatter to emit a @description doc comment line."
+    );
+
+    const [firstLine, secondLine, thirdLine] = lines.slice(
+        descriptionIndex,
+        descriptionIndex + 3
+    );
+
+    assert.strictEqual(
+        firstLine,
+        "/// @description Base class for all shapes. Shapes can be solid or not solid."
+    );
+    assert.strictEqual(
+        secondLine,
+        "///              Solid shapes will collide with other solid shapes, and"
+    );
+    assert.strictEqual(
+        thirdLine,
+        "///              non-solid shapes will not collide with anything."
+    );
+});
