@@ -366,37 +366,42 @@ function isPathInside(child, parent) {
     return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-async function resolveProjectIgnorePaths(directory) {
-    const directoriesToInspect = [];
-    const seenDirectories = new Set();
+function collectAncestorDirectories(...startingDirectories) {
+    const seen = new Set();
+    const result = [];
 
-    const collectDirectories = (startingDirectory) => {
-        if (!startingDirectory) {
-            return;
+    for (const start of startingDirectories) {
+        if (!start) {
+            continue;
         }
 
-        let currentDirectory = path.resolve(startingDirectory);
+        let current = path.resolve(start);
 
-        while (!seenDirectories.has(currentDirectory)) {
-            seenDirectories.add(currentDirectory);
-            directoriesToInspect.push(currentDirectory);
+        while (!seen.has(current)) {
+            seen.add(current);
+            result.push(current);
 
-            const parentDirectory = path.dirname(currentDirectory);
-            if (parentDirectory === currentDirectory) {
+            const parent = path.dirname(current);
+            if (parent === current) {
                 break;
             }
 
-            currentDirectory = parentDirectory;
+            current = parent;
         }
-    };
-
-    const resolvedDirectory = path.resolve(directory);
-    collectDirectories(resolvedDirectory);
-
-    const workingDirectory = process.cwd();
-    if (isPathInside(path.resolve(workingDirectory), resolvedDirectory)) {
-        collectDirectories(workingDirectory);
     }
+
+    return result;
+}
+
+async function resolveProjectIgnorePaths(directory) {
+    const resolvedDirectory = path.resolve(directory);
+    const resolvedWorkingDirectory = path.resolve(process.cwd());
+    const directoriesToInspect = collectAncestorDirectories(
+        resolvedDirectory,
+        isPathInside(resolvedWorkingDirectory, resolvedDirectory)
+            ? resolvedWorkingDirectory
+            : null
+    );
 
     const ignoreFiles = [];
 
