@@ -103,11 +103,11 @@ export function mergeUniqueValues(
     const base = Array.isArray(defaultValues) ? defaultValues : [];
     const merged = base.slice();
     const seen = new Set(merged.map((value) => getKey(value)));
-    let added = false;
+    const normalize = typeof coerce === "function" ? coerce : (value) => value;
 
     if (additionalValues) {
         for (const rawValue of additionalValues) {
-            const value = coerce ? coerce(rawValue) : rawValue;
+            const value = normalize(rawValue);
             if (value == null) {
                 continue;
             }
@@ -117,14 +117,9 @@ export function mergeUniqueValues(
                 continue;
             }
 
-            merged.push(value);
             seen.add(key);
-            added = true;
+            merged.push(value);
         }
-    }
-
-    if (!added && freeze && Object.isFrozen(base)) {
-        return Object.freeze(merged);
     }
 
     return freeze ? Object.freeze(merged) : merged;
