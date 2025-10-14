@@ -93,26 +93,23 @@ export default class ScopeTracker {
     }
 
     buildClassifications(role, isDeclaration) {
-        const tags = [];
-        const pushUnique = (tag) => {
-            if (tag && !tags.includes(tag)) {
-                tags.push(tag);
+        const tags = new Set();
+
+        tags.add("identifier");
+        tags.add(isDeclaration ? "declaration" : "reference");
+
+        const roleKind = role?.kind;
+        if (typeof roleKind === "string") {
+            tags.add(roleKind);
+        }
+
+        for (const tag of toArray(role?.tags)) {
+            if (tag) {
+                tags.add(tag);
             }
-        };
-
-        pushUnique("identifier");
-        pushUnique(isDeclaration ? "declaration" : "reference");
-
-        if (role && typeof role.kind === "string") {
-            pushUnique(role.kind);
         }
 
-        const extraTags = toArray(role?.tags);
-        for (const tag of extraTags) {
-            pushUnique(tag);
-        }
-
-        return tags;
+        return Array.from(tags);
     }
 
     storeDeclaration(scope, name, metadata) {
