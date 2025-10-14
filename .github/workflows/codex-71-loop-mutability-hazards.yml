@@ -1,0 +1,27 @@
+name: Codex 71 – Loop Mutability Hazards
+on:
+  schedule:
+    - cron: "27 4 * * *"  # once a day at 04:27
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Loop Mutability Hazards"
+      pr_body: >
+        Seed PR for Codex to refactor a loop that mutates the collection it is
+        iterating, preventing subtle data corruption or skipped entries.
+      prompt: >
+        Find a loop that modifies the iterable during traversal (e.g. push,
+        splice, reusing references) or otherwise depends on mutation that risks
+        skipping elements or sharing unintended state. Rewrite the logic to use
+        a safer pattern — cloning, accumulation, or index-based iteration — and
+        add tests that fail without the fix. Target a single representative bug
+        and keep the refactor minimal while maintaining behaviour.

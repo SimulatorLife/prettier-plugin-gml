@@ -1,0 +1,29 @@
+name: Codex 70 – Null/Undefined Guardrails
+on:
+  schedule:
+    - cron: "12 3 * * *"  # once a day at 03:12
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Null/Undefined Guardrails"
+      pr_body: >
+        Seed PR for Codex to tighten defensive programming around nullable
+        values by adding targeted null/undefined guards where they are missing.
+      prompt: >
+        Locate a concrete instance where unchecked property access, missing
+        optional chaining, or implicit assumptions about non-null values can
+        throw `TypeError: Cannot read properties of undefined/null`. Implement
+        a focused fix, such as early returns, guard clauses, or optional
+        chaining, together with regression coverage demonstrating the failure
+        before and the guarded behaviour after. Keep the update minimal —
+        address just one high-impact nullability hazard while preserving the
+        existing API surface.
