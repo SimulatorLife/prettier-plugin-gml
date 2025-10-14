@@ -9,6 +9,7 @@ import {
     planAssetRenames,
     applyAssetRenames
 } from "../src/identifier-case/asset-renames.js";
+import { fromPosixPath } from "../src/utils/path-utils.js";
 
 describe("asset rename utilities", () => {
     it("renames script assets and updates dependent resource metadata atomically", async () => {
@@ -36,11 +37,11 @@ describe("asset rename utilities", () => {
             const renamedGmlRelative = "scripts/demo_script/DemoScript.gml";
             const renamedYyPath = path.join(
                 projectRoot,
-                toSystemPath(renamedYyRelative)
+                fromPosixPath(renamedYyRelative)
             );
             const renamedGmlPath = path.join(
                 projectRoot,
-                toSystemPath(renamedGmlRelative)
+                fromPosixPath(renamedGmlRelative)
             );
 
             await assertRejectsNotFound(
@@ -73,7 +74,7 @@ describe("asset rename utilities", () => {
                 await fs.readFile(
                     path.join(
                         projectRoot,
-                        toSystemPath(
+                        fromPosixPath(
                             "objects/obj_controller/obj_controller.yy"
                         )
                     ),
@@ -96,7 +97,7 @@ describe("asset rename utilities", () => {
                 await fs.readFile(
                     path.join(
                         projectRoot,
-                        toSystemPath("rooms/room_start/room_start.yy")
+                        fromPosixPath("rooms/room_start/room_start.yy")
                     ),
                     "utf8"
                 )
@@ -149,7 +150,7 @@ async function createSyntheticProject() {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "gml-asset-utils-"));
 
     const writeJson = async (relativePath, data) => {
-        const absolutePath = path.join(root, toSystemPath(relativePath));
+        const absolutePath = path.join(root, fromPosixPath(relativePath));
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
         await fs.writeFile(
             absolutePath,
@@ -159,7 +160,7 @@ async function createSyntheticProject() {
     };
 
     const writeText = async (relativePath, contents) => {
-        const absolutePath = path.join(root, toSystemPath(relativePath));
+        const absolutePath = path.join(root, fromPosixPath(relativePath));
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
         await fs.writeFile(absolutePath, contents, "utf8");
     };
@@ -252,8 +253,4 @@ async function assertRejectsNotFound(targetPath) {
             throw error;
         }
     }
-}
-
-function toSystemPath(relativePath) {
-    return relativePath.replace(/\//g, path.sep);
 }

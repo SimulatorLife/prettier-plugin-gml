@@ -1,4 +1,9 @@
+import path from "node:path";
+
 import { isNonEmptyString } from "../../../shared/string-utils.js";
+
+const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
+const POSIX_SEPARATOR_PATTERN = /\/+/g;
 
 /**
  * Replace any Windows-style backslashes with forward slashes so downstream
@@ -15,5 +20,26 @@ export function toPosixPath(inputPath) {
         return "";
     }
 
-    return inputPath.replace(/\\+/g, "/");
+    return inputPath.replace(WINDOWS_SEPARATOR_PATTERN, "/");
+}
+
+/**
+ * Convert a POSIX-style path into the current platform's native separator.
+ * Non-string and empty inputs are normalised to an empty string so callers
+ * can freely chain additional `path.join` invocations without defensive
+ * nullish checks.
+ *
+ * @param {unknown} inputPath Candidate POSIX path string.
+ * @returns {string} Path rewritten using the runtime's path separator.
+ */
+export function fromPosixPath(inputPath) {
+    if (!isNonEmptyString(inputPath)) {
+        return "";
+    }
+
+    if (path.sep === "/") {
+        return inputPath;
+    }
+
+    return inputPath.replace(POSIX_SEPARATOR_PATTERN, path.sep);
 }

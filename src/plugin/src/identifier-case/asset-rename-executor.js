@@ -11,6 +11,7 @@ import {
 
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
+import { fromPosixPath } from "../utils/path-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
 const defaultFsFacade = Object.freeze({
@@ -62,14 +63,6 @@ function tryAccess(fsFacade, method, targetPath, ...args) {
     }
 }
 
-function toSystemPath(relativePath) {
-    if (typeof relativePath !== "string") {
-        return relativePath ?? "";
-    }
-
-    return relativePath.replace(/\//g, path.sep);
-}
-
 function resolveAbsolutePath(projectRoot, relativePath) {
     if (!relativePath) {
         return projectRoot;
@@ -79,7 +72,7 @@ function resolveAbsolutePath(projectRoot, relativePath) {
         return relativePath;
     }
 
-    const systemRelative = toSystemPath(relativePath);
+    const systemRelative = fromPosixPath(relativePath);
     return path.join(projectRoot, systemRelative);
 }
 
@@ -411,7 +404,7 @@ export function createAssetRenameExecutor({
 
 export const __private__ = {
     defaultFsFacade,
-    toSystemPath,
+    fromPosixPath,
     resolveAbsolutePath,
     stringifyJson,
     readJsonFile,
