@@ -145,3 +145,30 @@ test("respects wider printWidth when wrapping description doc comments", async (
         "Description doc comments should clamp to the formatter's wrapping width even when printWidth is larger."
     );
 });
+
+test("wraps long description doc comments using the formatter cap", async () => {
+    const source = [
+        "/// @function sample(value)",
+        "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the formatter cap for descriptions.",
+        "function sample(value)",
+        "{",
+        "    show_debug_message(value);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.deepStrictEqual(
+        lines.slice(0, 5),
+        [
+            "/// @function sample",
+            "/// @param value",
+            "/// @description This synthetic doc comment should leave only the trailing connector on the",
+            "///              continuation line when wrapping at the formatter cap for descriptions.",
+            "/// @returns {undefined}"
+        ],
+        "Long description doc comments should wrap to the formatter cap rather than producing additional continuation lines."
+    );
+});
