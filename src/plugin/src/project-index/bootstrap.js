@@ -115,31 +115,26 @@ function resolveCacheMaxSizeBytes(options) {
         return undefined;
     }
 
-    if (
-        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME] !==
-        undefined
-    ) {
-        const stored =
-            options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
-        if (stored === null) {
-            return null;
-        }
+    const internalValue =
+        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
 
-        return normalizeCacheMaxSizeBytes(stored, {
-            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-        });
+    if (internalValue !== undefined) {
+        return internalValue === null
+            ? null
+            : normalizeCacheMaxSizeBytes(internalValue, {
+                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            });
     }
 
-    if (options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME] === undefined) {
+    const externalValue = options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME];
+
+    if (externalValue === undefined) {
         return undefined;
     }
 
-    return normalizeCacheMaxSizeBytes(
-        options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME],
-        {
-            optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-        }
-    );
+    return normalizeCacheMaxSizeBytes(externalValue, {
+        optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+    });
 }
 
 function resolveProjectRoot(options) {
