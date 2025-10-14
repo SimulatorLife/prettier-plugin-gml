@@ -4,33 +4,6 @@ import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
-// Currently unused due to enforcement of braces.
-function statementShouldEndWithSemicolon(path) {
-    const node = path.getValue();
-    const parentNode = path.getParentNode();
-    if (!parentNode) {
-        return false;
-    }
-
-    // for single line control structures written in short form (i.e. without a block),
-    // we need to make sure the single body node gets a semicolon
-    if (
-        [
-            "ForStatement",
-            "WhileStatement",
-            "DoUntilStatement",
-            "IfStatement",
-            "SwitchStatement"
-        ].includes(parentNode.type) &&
-        node.type !== "BlockStatement" &&
-        node.type !== "IfStatement" &&
-        (parentNode.body === node || parentNode.alternate === node)
-    ) {
-        return true;
-    }
-    return nodeTypeNeedsSemicolon(node.type);
-}
-
 // Using a Set avoids re-allocating the list for every membership check when
 // these helpers run inside tight printer loops.
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
@@ -79,18 +52,6 @@ function optionalSemicolon(nodeType) {
 // The printer hits this helper in hot loops, so prefer a switch statement over
 // re-allocating arrays on every call (see PR #110 micro-benchmark in commit
 // message).
-function isAssignmentLikeExpression(nodeType) {
-    switch (nodeType) {
-        case "AssignmentExpression":
-        case "GlobalVarStatement":
-        case "VariableDeclarator":
-        case "Property":
-            return true;
-        default:
-            return false;
-    }
-}
-
 // These top-level statements are surrounded by empty lines by default.
 const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "FunctionDeclaration",
@@ -132,10 +93,8 @@ function shouldAddNewlinesAroundStatement(node) {
 }
 
 export {
-    statementShouldEndWithSemicolon,
     isLastStatement,
     optionalSemicolon,
-    isAssignmentLikeExpression,
     getNormalizedDefineReplacementDirective,
     hasComment,
     isNextLineEmpty,
