@@ -3,7 +3,7 @@ name: Auto-merge Codex PRs
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-    branches: [main, master]
+    branches: [main, master, mainline]
   push:
     branches:
       - codex/**
