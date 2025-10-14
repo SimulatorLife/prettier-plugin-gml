@@ -2336,7 +2336,7 @@ function mergeSyntheticDocComments(
     });
 
     const wrappedDocs = [];
-    const wrapWidth = 100;
+    const wrapWidth = 80;
 
     const wrapSegments = (text, available) => {
         if (available <= 0) {
