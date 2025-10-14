@@ -5,8 +5,8 @@
 import {
     getIdentifierText,
     getCallExpressionArguments
-} from "../../../../shared/ast-node-helpers.js";
-import { createCachedOptionResolver } from "../../options/options-cache.js";
+} from "../../../shared/ast-node-helpers.js";
+import { createCachedOptionResolver } from "../options/options-cache.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],

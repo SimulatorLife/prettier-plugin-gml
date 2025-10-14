@@ -25,7 +25,7 @@ import {
     buildCachedSizeVariableName,
     getLoopLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
-} from "./optimizations/loop-size-hoisting.js";
+} from "./loop-size-hoisting.js";
 import {
     getEnumMemberCommentPadding,
     getEnumNameAlignmentPadding,
