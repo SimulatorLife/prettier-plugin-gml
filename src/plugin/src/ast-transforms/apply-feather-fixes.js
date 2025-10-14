@@ -10,7 +10,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
-    isBooleanLiteral
+    isBooleanLiteral,
+    isVarVariableDeclaration
 } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
@@ -118,6 +119,14 @@ const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+
+function getCallArgumentsOrEmpty(node) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    return Array.isArray(node.arguments) ? node.arguments : [];
+}
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
@@ -629,6 +638,19 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM1003") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = sanitizeEnumAssignments({ ast, diagnostic });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1005") {
             registerFeatherFixer(registry, diagnosticId, () => {
                 const callTemplate =
@@ -910,6 +932,19 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2025") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = annotateMissingUserEvents({ ast, diagnostic });
+
+                if (Array.isArray(fixes) && fixes.length > 0) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM1063") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = harmonizeTexturePointerTernaries({
@@ -1145,7 +1180,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
 
         ancestorStack.push(node);
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             recordVariableDeclaration(variableDeclarations, {
                 declaration: node,
                 parent,
@@ -1979,9 +2014,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             ) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
-                const args = Array.isArray(node.arguments)
-                    ? node.arguments
-                    : [];
+                const args = getCallArgumentsOrEmpty(node);
 
                 for (const argumentIndex of argumentIndexes) {
                     if (
@@ -2139,6 +2172,152 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     }
 }
 
+function sanitizeEnumAssignments({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "EnumMember") {
+            const fix = sanitizeEnumMember(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function sanitizeEnumMember(node, diagnostic) {
+    if (!node || typeof node !== "object" || !diagnostic) {
+        return null;
+    }
+
+    const initializer = node.initializer;
+
+    if (!hasInvalidEnumInitializer(initializer)) {
+        return null;
+    }
+
+    const originalEnd = getNodeEndIndex(node);
+    const startIndex = getNodeStartIndex(node);
+
+    node._featherOriginalInitializer = initializer ?? null;
+    node.initializer = null;
+
+    if (hasOwn(node.name ?? {}, "end")) {
+        node.end = cloneLocation(node.name.end);
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.name?.name ?? null,
+        range:
+            typeof startIndex === "number" && typeof originalEnd === "number"
+                ? {
+                    start: startIndex,
+                    end: originalEnd
+                }
+                : null
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function hasInvalidEnumInitializer(initializer) {
+    if (initializer == null) {
+        return false;
+    }
+
+    if (typeof initializer === "string") {
+        const normalized = initializer.trim();
+
+        if (normalized.length === 0) {
+            return true;
+        }
+
+        if (isIntegerLiteralString(normalized)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    if (typeof initializer === "number") {
+        return !Number.isInteger(initializer);
+    }
+
+    if (typeof initializer === "object") {
+        if (initializer.type === "Literal") {
+            const value = initializer.value;
+
+            if (typeof value === "number") {
+                return !Number.isInteger(value);
+            }
+
+            if (typeof value === "string") {
+                return !isIntegerLiteralString(value.trim());
+            }
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+function isIntegerLiteralString(candidate) {
+    if (typeof candidate !== "string" || candidate.length === 0) {
+        return false;
+    }
+
+    if (/^[+-]?\d+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
+        return true;
+    }
+
+    return false;
+}
+
 function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -2281,17 +2460,17 @@ function createAssignmentFromGlobalVarDeclarator({
         right: initializer
     };
 
-    if (Object.prototype.hasOwnProperty.call(declarator, "start")) {
+    if (hasOwn(declarator, "start")) {
         assignment.start = cloneLocation(declarator.start);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "start")) {
+    } else if (hasOwn(statement, "start")) {
         assignment.start = cloneLocation(statement.start);
     }
 
-    if (Object.prototype.hasOwnProperty.call(initializer, "end")) {
+    if (hasOwn(initializer, "end")) {
         assignment.end = cloneLocation(initializer.end);
-    } else if (Object.prototype.hasOwnProperty.call(declarator, "end")) {
+    } else if (hasOwn(declarator, "end")) {
         assignment.end = cloneLocation(declarator.end);
-    } else if (Object.prototype.hasOwnProperty.call(statement, "end")) {
+    } else if (hasOwn(statement, "end")) {
         assignment.end = cloneLocation(statement.end);
     }
 
@@ -2323,7 +2502,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
     if (
         declarator.id &&
         typeof declarator.id === "object" &&
-        Object.prototype.hasOwnProperty.call(declarator.id, "end")
+        hasOwn(declarator.id, "end")
     ) {
         declarator.end = cloneLocation(declarator.id.end);
     }
@@ -3196,7 +3375,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length !== 1) {
         return null;
@@ -5394,7 +5573,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
                 ast,
@@ -5919,7 +6098,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const args = Array.isArray(node.arguments) ? node.arguments : [];
+            const args = getCallArgumentsOrEmpty(node);
 
             for (const argument of args) {
                 const fix = convertNumericStringLiteral(argument, diagnostic);
@@ -6301,7 +6480,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 
             pushScope(paramNames);
 
-            const params = Array.isArray(node.params) ? node.params : [];
+            const params = getArrayProperty(node, "params");
             for (const param of params) {
                 visit(param, node, "params");
             }
@@ -6311,7 +6490,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fixDetails = handleVariableDeclaration(
                 node,
                 parent,
@@ -6740,9 +6919,7 @@ function getVertexBatchTarget(callExpression) {
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments)
-        ? callExpression.arguments
-        : [];
+    const args = getCallArgumentsOrEmpty(callExpression);
 
     if (args.length > 0) {
         const firstArgument = args[0];
@@ -7557,7 +7734,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
     if (args.length === 0) {
         return null;
     }
@@ -8407,6 +8584,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
+    removeRedundantSurfaceResetCalls(siblings, insertionIndex + 1);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -9919,6 +10097,9 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     }
 
     const siblings = parent;
+    if (hasSurfaceResetBeforeNextTarget(siblings, property)) {
+        return null;
+    }
     let insertionIndex = siblings.length;
 
     for (let index = property + 1; index < siblings.length; index += 1) {
@@ -9973,6 +10154,59 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function hasSurfaceResetBeforeNextTarget(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return false;
+    }
+
+    for (let index = startIndex + 1; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceResetTargetCall(candidate)) {
+            return true;
+        }
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+function removeRedundantSurfaceResetCalls(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return;
+    }
+
+    for (let index = startIndex; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return;
+        }
+
+        if (!isSurfaceResetTargetCall(candidate)) {
+            continue;
+        }
+
+        const metadata = Array.isArray(candidate?._appliedFeatherDiagnostics)
+            ? candidate._appliedFeatherDiagnostics
+            : [];
+
+        const hasGM2005Metadata = metadata.some(
+            (entry) => entry?.id === "GM2005"
+        );
+
+        if (!hasGM2005Metadata) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        index -= 1;
+    }
 }
 
 function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
@@ -10346,7 +10580,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10406,7 +10640,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10530,7 +10764,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10628,7 +10862,7 @@ function hasFirstArgumentIdentifier(node, name) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10672,7 +10906,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return true;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -12159,7 +12393,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -13857,6 +14091,174 @@ function annotateVariableStructProperty(property, diagnostic) {
     return fixDetail;
 }
 
+function annotateMissingUserEvents({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                visit(entry);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = annotateUserEventCall(node, diagnostic);
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function annotateUserEventCall(node, diagnostic) {
+    const eventInfo = getUserEventReference(node);
+
+    if (!eventInfo) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: eventInfo.name,
+        automatic: false,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function getUserEventReference(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const callee = node.object;
+    const args = getCallArgumentsOrEmpty(node);
+
+    if (isIdentifierWithName(callee, "event_user")) {
+        const eventIndex = resolveUserEventIndex(args[0]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    if (isIdentifierWithName(callee, "event_perform")) {
+        if (args.length < 2 || !isIdentifierWithName(args[0], "ev_user")) {
+            return null;
+        }
+
+        const eventIndex = resolveUserEventIndex(args[1]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    if (isIdentifierWithName(callee, "event_perform_object")) {
+        if (args.length < 3) {
+            return null;
+        }
+
+        const eventIndex = resolveUserEventIndex(args[2]);
+
+        if (eventIndex === null) {
+            return null;
+        }
+
+        return { index: eventIndex, name: formatUserEventName(eventIndex) };
+    }
+
+    return null;
+}
+
+function resolveUserEventIndex(node) {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === "Literal") {
+        const numericValue =
+            typeof node.value === "number" ? node.value : Number(node.value);
+
+        if (
+            !Number.isInteger(numericValue) ||
+            numericValue < 0 ||
+            numericValue > 15
+        ) {
+            return null;
+        }
+
+        return numericValue;
+    }
+
+    if (node.type === "Identifier") {
+        const match = /^ev_user(\d+)$/.exec(node.name);
+
+        if (!match) {
+            return null;
+        }
+
+        const numericValue = Number.parseInt(match[1], 10);
+
+        if (
+            !Number.isInteger(numericValue) ||
+            numericValue < 0 ||
+            numericValue > 15
+        ) {
+            return null;
+        }
+
+        return numericValue;
+    }
+
+    return null;
+}
+
+function formatUserEventName(index) {
+    if (!Number.isInteger(index)) {
+        return null;
+    }
+
+    return `User Event ${index}`;
+}
 function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     if (!node || node.type !== "TernaryExpression") {
         return null;
@@ -13948,7 +14350,7 @@ function isFunctionLikeNode(node) {
 }
 
 function getFunctionParameterNames(node) {
-    const params = Array.isArray(node?.params) ? node.params : [];
+    const params = getArrayProperty(node, "params");
     const names = [];
 
     for (const param of params) {
@@ -14232,7 +14634,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }
@@ -14246,7 +14648,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14269,7 +14671,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14287,7 +14689,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14305,7 +14707,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14323,7 +14725,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14341,7 +14743,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14361,7 +14763,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14635,7 +15037,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14703,7 +15105,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -15668,7 +16070,7 @@ function extractSurfaceTargetName(node) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length > 0 && isIdentifier(args[0])) {
         return args[0].name;
@@ -15712,7 +16114,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }

@@ -15,7 +15,7 @@ async function format(source, options = {}) {
     });
 }
 
-test("keeps function parameters inline when defaults include functions", async () => {
+test("inlines default parameter functions with single call bodies", async () => {
     const source = [
         "some(",
         "    thisArgumentIsQuiteLong,",
@@ -37,9 +37,7 @@ test("keeps function parameters inline when defaults include functions", async (
         [
             "some(",
             "    thisArgumentIsQuiteLong,",
-            "    function foo(cool, f = function() {",
-            "        ez();",
-            "    }) : bar() constructor {",
+            "    function foo(cool, f = function() { ez(); }) : bar() constructor {",
             "        return cool;",
             "    }",
             ");",

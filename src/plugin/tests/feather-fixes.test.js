@@ -522,6 +522,78 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("removes non-integer enum assignments and records GM1003 metadata", () => {
+        const ast = {
+            type: "Program",
+            body: [
+                {
+                    type: "EnumDeclaration",
+                    name: {
+                        type: "Identifier",
+                        name: "Fruit",
+                        start: { index: 5 },
+                        end: { index: 10 }
+                    },
+                    members: [
+                        {
+                            type: "EnumMember",
+                            name: {
+                                type: "Identifier",
+                                name: "UNKNOWN",
+                                start: { index: 15 },
+                                end: { index: 22 }
+                            },
+                            initializer: "0",
+                            start: { index: 15 },
+                            end: { index: 26 }
+                        },
+                        {
+                            type: "EnumMember",
+                            name: {
+                                type: "Identifier",
+                                name: "APPLE",
+                                start: { index: 30 },
+                                end: { index: 35 }
+                            },
+                            initializer: '"apple"',
+                            start: { index: 30 },
+                            end: { index: 46 }
+                        }
+                    ],
+                    start: { index: 0 },
+                    end: { index: 50 }
+                }
+            ],
+            start: { index: 0 },
+            end: { index: 50 }
+        };
+
+        applyFeatherFixes(ast, { sourceText: "" });
+
+        const [enumDeclaration] = ast.body ?? [];
+        assert.ok(enumDeclaration);
+
+        const [, appleMember] = enumDeclaration.members ?? [];
+        assert.ok(appleMember);
+        assert.strictEqual(appleMember.initializer, null);
+        assert.strictEqual(appleMember._featherOriginalInitializer, '"apple"');
+
+        const memberFixes = appleMember._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(memberFixes));
+        assert.strictEqual(memberFixes.length, 1);
+        assert.strictEqual(memberFixes[0].id, "GM1003");
+        assert.strictEqual(memberFixes[0].automatic, true);
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some(
+                (entry) => entry.id === "GM1003"
+            ),
+            true,
+            "Expected GM1003 metadata to be recorded on the program node."
+        );
+    });
+
     it("replaces read-only built-in assignments with local variables", () => {
         const source = [
             "function demo() {",
@@ -4711,6 +4783,54 @@ describe("applyFeatherFixes transform", () => {
             functionDiagnostics.some((entry) => entry.id === "GM1064"),
             true
         );
+    });
+
+    it("records manual metadata for GM2025 user event references", () => {
+        const source = [
+            "function trigger() {",
+            "    event_user(4);",
+            "    event_perform(ev_user, 7);",
+            "    event_perform_object(other, ev_other, ev_user3);",
+            "}"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const functionNode = ast.body?.[0];
+        const statements = functionNode?.body?.body ?? [];
+        const [directCall, performCall, performObjectCall] = statements;
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const assertUserEventMetadata = (node, expectedTarget) => {
+            assert.ok(node, `Expected call expression for ${expectedTarget}.`);
+            const fixes = node._appliedFeatherDiagnostics ?? [];
+            const gm2025 = fixes.find((entry) => entry.id === "GM2025");
+
+            assert.ok(
+                gm2025,
+                `Expected GM2025 metadata for ${expectedTarget}.`
+            );
+            assert.strictEqual(gm2025.automatic, false);
+            assert.strictEqual(gm2025.target, expectedTarget);
+            assert.ok(gm2025.range);
+        };
+
+        assertUserEventMetadata(directCall, "User Event 4");
+        assertUserEventMetadata(performCall, "User Event 7");
+        assertUserEventMetadata(performObjectCall, "User Event 3");
+
+        const gm2025Entries = (ast._appliedFeatherDiagnostics ?? []).filter(
+            (entry) => entry.id === "GM2025"
+        );
+
+        assert.strictEqual(gm2025Entries.length, 3);
+        gm2025Entries.forEach((entry) => {
+            assert.strictEqual(entry.automatic, false);
+        });
     });
 });
 

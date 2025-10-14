@@ -1,12 +1,12 @@
 import path from "node:path";
 
-import { formatIdentifierCase } from "../../../shared/identifier-case/identifier-case-utils.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { asArray } from "../../../shared/array-utils.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import { toPosixPath } from "../utils/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import {
@@ -294,21 +294,16 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
     };
 }
 
+const SCOPE_TYPE_LABELS = Object.freeze({
+    functions: "function",
+    structs: "struct constructor",
+    macros: "macro",
+    globals: "global variable",
+    instance: "instance variable"
+});
+
 function describeScopeType(scopeType) {
-    switch (scopeType) {
-        case "functions":
-            return "function";
-        case "structs":
-            return "struct constructor";
-        case "macros":
-            return "macro";
-        case "globals":
-            return "global variable";
-        case "instance":
-            return "instance variable";
-        default:
-            return scopeType;
-    }
+    return SCOPE_TYPE_LABELS[scopeType] ?? scopeType;
 }
 
 function createNameCollisionTracker() {
@@ -1283,104 +1278,109 @@ export function getIdentifierCaseRenameForNode(node, options) {
 }
 
 export function captureIdentifierCasePlanSnapshot(options) {
-    if (!isObjectLike(options)) {
-        return null;
-    }
-
-    const snapshot = {
-        projectIndex: options.__identifierCaseProjectIndex ?? null,
-        projectRoot: options.__identifierCaseProjectRoot ?? null,
-        bootstrap: options.__identifierCaseProjectIndexBootstrap ?? null,
-        renameMap: options.__identifierCaseRenameMap ?? null,
-        renamePlan: options.__identifierCaseRenamePlan ?? null,
-        conflicts: options.__identifierCaseConflicts ?? null,
-        metricsReport: options.__identifierCaseMetricsReport ?? null,
-        metrics: options.__identifierCaseMetrics ?? null,
-        assetRenames: options.__identifierCaseAssetRenames ?? null,
-        assetRenameResult: options.__identifierCaseAssetRenameResult ?? null,
-        assetRenamesApplied:
-            options.__identifierCaseAssetRenamesApplied ?? null,
-        dryRun:
-            options.__identifierCaseDryRun !== undefined
-                ? options.__identifierCaseDryRun
-                : null,
-        planGenerated: options.__identifierCasePlanGeneratedInternally === true
-    };
-
-    return snapshot;
+    return withObjectLike(
+        options,
+        (object) => ({
+            projectIndex: object.__identifierCaseProjectIndex ?? null,
+            projectRoot: object.__identifierCaseProjectRoot ?? null,
+            bootstrap: object.__identifierCaseProjectIndexBootstrap ?? null,
+            renameMap: object.__identifierCaseRenameMap ?? null,
+            renamePlan: object.__identifierCaseRenamePlan ?? null,
+            conflicts: object.__identifierCaseConflicts ?? null,
+            metricsReport: object.__identifierCaseMetricsReport ?? null,
+            metrics: object.__identifierCaseMetrics ?? null,
+            assetRenames: object.__identifierCaseAssetRenames ?? null,
+            assetRenameResult: object.__identifierCaseAssetRenameResult ?? null,
+            assetRenamesApplied:
+                object.__identifierCaseAssetRenamesApplied ?? null,
+            dryRun:
+                object.__identifierCaseDryRun !== undefined
+                    ? object.__identifierCaseDryRun
+                    : null,
+            planGenerated:
+                object.__identifierCasePlanGeneratedInternally === true
+        }),
+        null
+    );
 }
 
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
-    if (!snapshot || !isObjectLike(options)) {
+    if (!snapshot) {
         return;
     }
 
-    const assignSnapshotValue = (
-        snapshotKey,
-        optionKey,
-        predicate = (value, current) => Boolean(value) && !current
-    ) => {
-        const value = snapshot[snapshotKey];
-        if (predicate(value, options[optionKey])) {
-            setIdentifierCaseOption(options, optionKey, value);
-        }
-    };
+    withObjectLike(options, (object) => {
+        const assignSnapshotValue = (
+            snapshotKey,
+            optionKey,
+            predicate = (value, current) => Boolean(value) && !current
+        ) => {
+            const value = snapshot[snapshotKey];
+            if (predicate(value, object[optionKey])) {
+                setIdentifierCaseOption(object, optionKey, value);
+            }
+        };
 
-    const assignTruthySnapshotValues = (entries) => {
-        for (const [snapshotKey, optionKey] of entries) {
-            assignSnapshotValue(snapshotKey, optionKey);
-        }
-    };
+        const assignTruthySnapshotValues = (entries) => {
+            for (const [snapshotKey, optionKey] of entries) {
+                assignSnapshotValue(snapshotKey, optionKey);
+            }
+        };
 
-    assignTruthySnapshotValues([
-        ["projectIndex", "__identifierCaseProjectIndex"],
-        ["projectRoot", "__identifierCaseProjectRoot"],
-        ["bootstrap", "__identifierCaseProjectIndexBootstrap"]
-    ]);
+        assignTruthySnapshotValues([
+            ["projectIndex", "__identifierCaseProjectIndex"],
+            ["projectRoot", "__identifierCaseProjectRoot"],
+            ["bootstrap", "__identifierCaseProjectIndexBootstrap"]
+        ]);
 
-    setIdentifierCaseOption(options, "__identifierCasePlanSnapshot", snapshot);
-    Object.defineProperty(options, "__identifierCasePlanSnapshot", {
-        value: snapshot,
-        writable: true,
-        configurable: true,
-        enumerable: false
-    });
-
-    assignTruthySnapshotValues([
-        ["renameMap", "__identifierCaseRenameMap"],
-        ["renamePlan", "__identifierCaseRenamePlan"],
-        ["conflicts", "__identifierCaseConflicts"],
-        ["metricsReport", "__identifierCaseMetricsReport"],
-        ["metrics", "__identifierCaseMetrics"],
-        ["assetRenames", "__identifierCaseAssetRenames"],
-        ["assetRenameResult", "__identifierCaseAssetRenameResult"]
-    ]);
-
-    assignSnapshotValue(
-        "assetRenamesApplied",
-        "__identifierCaseAssetRenamesApplied",
-        (value, current) => value != null && current == null
-    );
-
-    if (snapshot.dryRun !== null) {
         setIdentifierCaseOption(
-            options,
-            "__identifierCaseDryRun",
-            snapshot.dryRun
+            object,
+            "__identifierCasePlanSnapshot",
+            snapshot
         );
-        Object.defineProperty(options, "__identifierCaseDryRun", {
-            value: snapshot.dryRun,
+        Object.defineProperty(object, "__identifierCasePlanSnapshot", {
+            value: snapshot,
             writable: true,
             configurable: true,
             enumerable: false
         });
-    }
 
-    if (snapshot.planGenerated) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCasePlanGeneratedInternally",
-            true
+        assignTruthySnapshotValues([
+            ["renameMap", "__identifierCaseRenameMap"],
+            ["renamePlan", "__identifierCaseRenamePlan"],
+            ["conflicts", "__identifierCaseConflicts"],
+            ["metricsReport", "__identifierCaseMetricsReport"],
+            ["metrics", "__identifierCaseMetrics"],
+            ["assetRenames", "__identifierCaseAssetRenames"],
+            ["assetRenameResult", "__identifierCaseAssetRenameResult"]
+        ]);
+
+        assignSnapshotValue(
+            "assetRenamesApplied",
+            "__identifierCaseAssetRenamesApplied",
+            (value, current) => value != null && current == null
         );
-    }
+
+        if (snapshot.dryRun !== null) {
+            setIdentifierCaseOption(
+                object,
+                "__identifierCaseDryRun",
+                snapshot.dryRun
+            );
+            Object.defineProperty(object, "__identifierCaseDryRun", {
+                value: snapshot.dryRun,
+                writable: true,
+                configurable: true,
+                enumerable: false
+            });
+        }
+
+        if (snapshot.planGenerated) {
+            setIdentifierCaseOption(
+                object,
+                "__identifierCasePlanGeneratedInternally",
+                true
+            );
+        }
+    });
 }

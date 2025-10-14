@@ -1,5 +1,6 @@
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
-const sharedCache = new WeakMap();
+
+const SHARED_CACHE = new WeakMap();
 
 function getCacheStore(candidate) {
     if (
@@ -10,7 +11,7 @@ function getCacheStore(candidate) {
         return candidate;
     }
 
-    return sharedCache;
+    return SHARED_CACHE;
 }
 
 function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
@@ -42,7 +43,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
                 value: computed
             });
         } catch {
-            // ignore define failures and fall back to the cache store
+            // Ignore define failures and fall back to the cache store.
         }
     }
 

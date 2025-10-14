@@ -30,13 +30,17 @@ jobs:
   # PR metadata (used by regression test gating + merges)
   ###########################################################################
   pr-meta:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     outputs:
       number: ${{ steps.get.outputs.number }}
       changed_files: ${{ steps.get.outputs.changed_files }}
       head_ref: ${{ steps.get.outputs.head_ref }}
+      head_sha: ${{ steps.get.outputs.head_sha }}
+      base_ref: ${{ steps.get.outputs.base_ref }}
       base_sha: ${{ steps.get.outputs.base_sha }}
+      mode: ${{ steps.get.outputs.mode }}
+      should_run_tests: ${{ steps.get.outputs.should_run_tests }}
+      skip_reason: ${{ steps.get.outputs.skip_reason }}
     steps:
       - name: Read PR details
         id: get
@@ -45,43 +49,154 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
+            const eventName = context.eventName;
 
-            async function resolvePrNumber() {
-              if (context.eventName === 'pull_request') {
-                return context.payload.pull_request.number;
+            const DEFAULT_OUTPUTS = {
+              mode: '',
+              number: '0',
+              changed_files: '0',
+              head_ref: '',
+              head_sha: '',
+              base_ref: '',
+              base_sha: '',
+              should_run_tests: 'false',
+              skip_reason: '',
+            };
+
+            function setOutputs(overrides = {}) {
+              const data = { ...DEFAULT_OUTPUTS, ...overrides };
+              for (const [key, value] of Object.entries(data)) {
+                core.setOutput(key, String(value ?? ''));
               }
-              const inputNum = Number((context.payload.inputs?.pr_number || '').trim() || 0);
-              if (inputNum) return inputNum;
-
-              // Auto-resolve: dispatch from PR head branch
-              const ref = (context.ref || '').replace('refs/heads/', '');
-              if (!ref) return 0;
-              const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
-              const match = prs.find(p => p.head?.ref === ref);
-              return match?.number || 0;
             }
 
-            const n = await resolvePrNumber();
-            if (!n) {
-              core.setFailed('pr-meta: Could not determine PR number. Provide inputs.pr_number or dispatch from the PR head branch.');
+            async function setFromPullRequest(pr) {
+              if (!pr) return;
+              setOutputs({
+                mode: 'pr',
+                number: pr.number,
+                changed_files: pr.changed_files || 0,
+                head_ref: pr.head?.ref || '',
+                head_sha: pr.head?.sha || '',
+                base_ref: pr.base?.ref || '',
+                base_sha: pr.base?.sha || '',
+                should_run_tests: 'true',
+                skip_reason: '',
+              });
+
+              core.notice(
+                `PR #${pr.number}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
+              );
+            }
+
+            if (eventName === 'pull_request' || eventName === 'workflow_dispatch') {
+              async function resolvePrNumber() {
+                if (eventName === 'pull_request') {
+                  return context.payload.pull_request?.number || 0;
+                }
+                const inputNum = Number((context.payload.inputs?.pr_number || '').trim() || 0);
+                if (inputNum) return inputNum;
+
+                // Auto-resolve: dispatch from PR head branch
+                const ref = (context.ref || '').replace('refs/heads/', '');
+                if (!ref) return 0;
+                const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
+                const match = prs.find(p => p.head?.ref === ref);
+                return match?.number || 0;
+              }
+
+              const n = await resolvePrNumber();
+              if (!n) {
+                core.setFailed('pr-meta: Could not determine PR number. Provide inputs.pr_number or dispatch from the PR head branch.');
+                setOutputs();
+                return;
+              }
+
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+              await setFromPullRequest(pr);
               return;
             }
 
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+            if (eventName === 'push') {
+              const ref = (context.ref || '').replace('refs/heads/', '');
+              if (!ref) {
+                core.setFailed('pr-meta: Could not determine branch for push event.');
+                setOutputs();
+                return;
+              }
 
-            core.setOutput('number', String(n));
-            core.setOutput('changed_files', String(pr.changed_files || 0));
-            core.setOutput('head_ref', pr.head.ref);
-            core.setOutput('base_sha', pr.base.sha);
-            core.notice(`PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_sha=${pr.base.sha}`);
+              const { data: prs } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${ref}` });
+              const pr = prs[0];
+              if (pr) {
+                setOutputs({
+                  mode: 'push',
+                  number: pr.number,
+                  changed_files: pr.changed_files || 0,
+                  head_ref: pr.head?.ref || ref,
+                  head_sha: pr.head?.sha || context.sha,
+                  base_ref: pr.base?.ref || '',
+                  base_sha: pr.base?.sha || '',
+                  should_run_tests: 'false',
+                  skip_reason: 'covered-by-pr-event',
+                });
+                core.notice(`Push to ${ref} is covered by open PR #${pr.number}; regression tests will run on the PR event.`);
+                return;
+              }
+
+              const repoInfo = context.payload.repository || {};
+              const defaultBranch = repoInfo.default_branch || 'main';
+              const headSha = context.sha;
+              let baseSha = '';
+              try {
+                const { data: branch } = await github.rest.repos.getBranch({ owner, repo, branch: defaultBranch });
+                baseSha = branch.commit?.sha || '';
+              } catch (error) {
+                core.warning(`Unable to resolve base branch ${defaultBranch}: ${error.message}`);
+              }
+
+              let changedFiles = 0;
+              try {
+                const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({ owner, repo, basehead: `${defaultBranch}...${headSha}` });
+                if (Array.isArray(comparison.files)) {
+                  changedFiles = comparison.files.length;
+                } else if (typeof comparison.changed_files === 'number') {
+                  changedFiles = comparison.changed_files;
+                }
+              } catch (error) {
+                core.warning(`Unable to compute changed file count: ${error.message}`);
+              }
+
+              const shouldRun = changedFiles > 0;
+              setOutputs({
+                mode: 'push',
+                number: 0,
+                changed_files: changedFiles,
+                head_ref: ref,
+                head_sha: headSha,
+                base_ref: defaultBranch,
+                base_sha: baseSha,
+                should_run_tests: shouldRun ? 'true' : 'false',
+                skip_reason: shouldRun ? '' : 'no-files-changed',
+              });
+
+              if (shouldRun) {
+                core.notice(`Push ${headSha.slice(0, 7)} on ${ref}: ${changedFiles} changed files vs ${defaultBranch}.`);
+              } else {
+                core.notice(`Push ${headSha.slice(0, 7)} on ${ref} has no file changes vs ${defaultBranch}; skipping regression tests.`);
+              }
+              return;
+            }
+
+            core.setFailed(`Unsupported event for pr-meta: ${eventName}`);
+            setOutputs();
 
   ###########################################################################
   # Regression detection (always creates/checks a job; fast-passes when no changes)
   ###########################################################################
   regression-tests:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     needs: pr-meta
     name: Detect new test failures (allow legacy failures)
+    if: ${{ needs.pr-meta.outputs.should_run_tests == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -100,8 +215,18 @@ jobs:
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.base_sha }}
+          ref: ${{ needs.pr-meta.outputs.base_ref }}
           path: base
+          fetch-depth: 1
+
+      - name: Record resolved base ref/commit
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        working-directory: base
+        run: |
+          echo "BASE_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
+        env:
+          BASE_REF: ${{ needs.pr-meta.outputs.base_ref }}
 
       - name: Setup Node (base)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -167,12 +292,28 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
-      # === HEAD (PR) at workspace root ===
+      - name: Preserve base test results
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        run: |
+          BASE_RESULTS_DIR="$RUNNER_TEMP/codex-base-test-results"
+          echo "BASE_RESULTS_DIR=$BASE_RESULTS_DIR" >> "$GITHUB_ENV"
+          rm -rf base-test-results "$BASE_RESULTS_DIR"
+          if [ -d base/test-results ]; then
+            mkdir -p base-test-results "$BASE_RESULTS_DIR"
+            cp -R base/test-results/. base-test-results/
+            cp -R base/test-results/. "$BASE_RESULTS_DIR/"
+          else
+            echo "No base/test-results directory found to preserve."
+          fi
+
+      # === HEAD (PR) at workspace root === (pin to the PR's exact commit for determinism)
       - name: Checkout head (PR)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.head_ref }}
+          ref: ${{ needs.pr-meta.outputs.head_sha }}
+          clean: false
+          fetch-depth: 1
 
       - name: Setup Node (head)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -235,6 +376,106 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
+      # === MERGED VIEW (synthetic test-merge ref) ===
+      - name: Checkout merged (PR applied onto base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' }}
+        id: checkout-merge
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.pr-meta.outputs.number }}/merge
+          path: merge
+          fetch-depth: 1
+
+      - name: Detect availability of merge ref
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' }}
+        id: has-merge
+        run: |
+          if [ -d merge/.git ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT";
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT";
+          fi
+
+      - name: Setup Node (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: merge/package-lock.json
+
+      - name: Install deps (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: npm ci
+
+      - name: Prepare test result directory (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
+      - name: Run shared tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/parser
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run plugin tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/plugin
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run CLI tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/cli
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Preserve merged test results
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && needs.pr-meta.outputs.mode == 'pr' && steps.has-merge.outputs.available == 'true' }}
+        run: |
+          MERGE_RESULTS_DIR="$RUNNER_TEMP/codex-merge-test-results"
+          echo "MERGE_RESULTS_DIR=$MERGE_RESULTS_DIR" >> "$GITHUB_ENV"
+          rm -rf merge-test-results "$MERGE_RESULTS_DIR"
+          if [ -d merge/test-results ]; then
+            mkdir -p merge-test-results "$MERGE_RESULTS_DIR"
+            cp -R merge/test-results/. merge-test-results/
+            cp -R merge/test-results/. "$MERGE_RESULTS_DIR/"
+          else
+            echo "No merge/test-results directory found to preserve."
+          fi
+
+      # === Regression compare (base vs head only; merged is informational) ===
       - name: Install compare script dependency
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: npm install --no-save fast-xml-parser@^4
@@ -247,40 +488,59 @@ jobs:
           import path from 'node:path';
           import { XMLParser } from 'fast-xml-parser';
 
-          function readCases(rootDir) {
+          function readCases(...dirs) {
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
             const results = new Map();
-            const resultsDir = path.join(rootDir, 'test-results');
-            if (!fs.existsSync(resultsDir)) return results;
+            const queue = dirs.flat().filter(Boolean);
 
-            const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
-            for (const file of files) {
-              const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
-              const data = parser.parse(xml);
-              const suites = [];
-              if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
-              else if (data.testsuite) { suites.push(data.testsuite); }
-              else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+            for (const dir of queue) {
+              const resolved = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
+              if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+                continue;
+              }
 
-              for (const suite of suites) {
-                const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
-                for (const tc of cases) {
-                  const name = String(tc.name ?? '');
-                  const cls = String(tc.classname ?? suite.name ?? '');
-                  const key = cls + ' :: ' + name;
-                  let status = 'passed';
-                  if (tc.skipped !== undefined) status = 'skipped';
-                  if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
-                  if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
-                  results.set(key, status);
+              const files = fs.readdirSync(resolved).filter(f => f.endsWith('.xml'));
+              if (files.length === 0) {
+                continue;
+              }
+
+              for (const file of files) {
+                const xml = fs.readFileSync(path.join(resolved, file), 'utf8');
+                const data = parser.parse(xml);
+                const suites = [];
+                if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
+                else if (data.testsuite) { suites.push(data.testsuite); }
+                else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+
+                for (const suite of suites) {
+                  const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
+                  for (const tc of cases) {
+                    const name = String(tc.name ?? '');
+                    const cls = String(tc.classname ?? suite.name ?? '');
+                    const key = cls + ' :: ' + name;
+                    let status = 'passed';
+                    if (tc.skipped !== undefined) status = 'skipped';
+                    if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
+                    if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
+                    results.set(key, status);
+                  }
                 }
               }
+
+              break;
             }
+
             return results;
           }
 
-          const base = readCases('base');
-          const head = readCases('.');
+          const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+          if (process.env.BASE_RESULTS_DIR) {
+            baseCandidates.push(process.env.BASE_RESULTS_DIR);
+          }
+
+          const base = readCases(baseCandidates);
+          const head = readCases('test-results');
           const regressions = [];
 
           for (const [key, headStatus] of head.entries()) {
@@ -302,31 +562,265 @@ jobs:
           node compare-junit.mjs
         shell: bash
 
-      - name: Publish PR test summary (head only)
-        if: always()
+      - name: Publish PR test summary (head + merged)
+        if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
         continue-on-error: true
         uses: dorny/test-reporter@v2
         with:
-          name: Node.js test results (PR head)
-          path: test-results/*.xml
+          name: Node.js test results (PR head & merged)
+          path: |
+            test-results/*.xml
+            merge/test-results/*.xml
           reporter: java-junit
           fail-on-error: false
           fail-on-empty: false
           use-actions-summary: true
 
       # 👇 Adds/updates a sticky PR comment with a concise summary & failures
-      - name: Comment test results on PR (sticky)
+      - name: Comment summarized test results on PR (sticky)
         if: ${{ always() && github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
         continue-on-error: true
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.pr-meta.outputs.number }}
         with:
-          files: |
-            test-results/**/*.xml
-          check_name: Node.js test results (PR head)
-          comment_mode: changes
-          pull_request_build: merge
-          compare_to_earlier_commit: true
-          comment_title: "Node.js test results (PR head)"
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+
+            let XMLParser;
+            try {
+              const { createRequire } = require('node:module');
+              const requireFromWorkspace = createRequire(path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'package.json'));
+              const resolved = requireFromWorkspace.resolve('fast-xml-parser');
+              ({ XMLParser } = requireFromWorkspace(resolved));
+            } catch (error) {
+              core.warning(`fast-xml-parser is unavailable: ${error.message}`);
+            }
+
+            const marker = '<!-- codex-automerge-pr-test-summary -->';
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            if (!prNumber) {
+              core.warning('Cannot determine PR number for summary comment.');
+              return;
+            }
+
+            const pr = context.payload.pull_request || {};
+            const envBaseRef = (process.env.BASE_REF || '').trim();
+            const envBaseSha = (process.env.BASE_COMMIT_SHA || '').trim();
+            const baseLabel = `${envBaseRef || pr.base?.ref || 'base'} @ ${
+              (envBaseSha || pr.base?.sha || '').slice(0, 7) || '???????'
+            }`;
+            const headLabel = `${pr.head?.ref || 'head'} @ ${(pr.head?.sha || context.sha || '').slice(0, 7) || '???????'}`;
+
+            function collectSuiteStats(dir) {
+              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+              const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
+              const notes = [];
+
+              if (!XMLParser) {
+                notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
+                return { available: false, totals, notes };
+              }
+
+              const candidates = (Array.isArray(dir) ? dir : [dir]).filter(Boolean);
+              const tried = [];
+              let resolvedDir = null;
+              let displayDir = '';
+
+              for (const candidate of candidates) {
+                const resolvedCandidate = path.isAbsolute(candidate)
+                  ? candidate
+                  : path.join(workspace, candidate);
+                const displayCandidate = path.relative(workspace, resolvedCandidate) || resolvedCandidate;
+                tried.push(displayCandidate);
+                if (fs.existsSync(resolvedCandidate) && fs.statSync(resolvedCandidate).isDirectory()) {
+                  resolvedDir = resolvedCandidate;
+                  displayDir = displayCandidate;
+                  break;
+                }
+              }
+
+              if (!resolvedDir) {
+                if (tried.length === 1) {
+                  notes.push(`No directory found at ${tried[0]}.`);
+                } else if (tried.length > 1) {
+                  notes.push(`No directory found at any of: ${tried.join(', ')}.`);
+                } else {
+                  notes.push('No result directory configured.');
+                }
+                return { available: false, totals, notes };
+              }
+
+              const files = fs.readdirSync(resolvedDir).filter(f => f.endsWith('.xml'));
+              if (files.length === 0) {
+                notes.push(`No JUnit XML files found in ${displayDir}.`);
+                return { available: false, totals, notes };
+              }
+
+              const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
+
+              const suiteList = [];
+              const seenSuites = new Set();
+              const visitNode = (node) => {
+                if (!node || typeof node !== 'object') return;
+                if (Array.isArray(node)) {
+                  for (const child of node) visitNode(child);
+                  return;
+                }
+                const hasCases = Object.prototype.hasOwnProperty.call(node, 'testcase');
+                const hasCounts = Object.prototype.hasOwnProperty.call(node, 'tests');
+                const hasNestedSuites = Object.prototype.hasOwnProperty.call(node, 'testsuite');
+                const shouldRecord = hasCases || (!hasNestedSuites && hasCounts);
+                if (shouldRecord && !seenSuites.has(node)) {
+                  seenSuites.add(node);
+                  suiteList.push(node);
+                }
+                for (const value of Object.values(node)) visitNode(value);
+              };
+
+              for (const file of files) {
+                try {
+                  const xml = fs.readFileSync(path.join(resolvedDir, file), 'utf8');
+                  if (!xml.trim()) continue;
+                  const data = parser.parse(xml);
+                  visitNode(data);
+                } catch (error) {
+                  notes.push(`Failed to parse ${path.join(displayDir, file)}: ${error.message}`);
+                }
+              }
+
+              if (suiteList.length === 0) {
+                notes.push(`No test suites discovered in ${displayDir}.`);
+                return { available: false, totals, notes };
+              }
+
+              for (const suite of suiteList) {
+                const rawCases = suite.testcase;
+                const cases = rawCases ? (Array.isArray(rawCases) ? rawCases : [rawCases]) : [];
+                if (cases.length > 0) {
+                  let recordedTime = false;
+                  for (const tc of cases) {
+                    if (!tc || typeof tc !== 'object') continue;
+                    totals.tests += 1;
+                    const hasFailure = tc.failure !== undefined || tc.failures !== undefined || tc.error !== undefined || tc.errors !== undefined;
+                    const isSkipped = tc.skipped !== undefined;
+                    if (hasFailure) {
+                      totals.failed += 1;
+                    } else if (isSkipped) {
+                      totals.skipped += 1;
+                    } else {
+                      totals.passed += 1;
+                    }
+                    const caseTime = Number.parseFloat(tc.time ?? tc.duration ?? tc.elapsed ?? 0);
+                    if (Number.isFinite(caseTime)) {
+                      totals.time += caseTime;
+                      recordedTime = true;
+                    }
+                  }
+                  if (!recordedTime) {
+                    const suiteTime = Number.parseFloat(suite.time ?? 0);
+                    if (Number.isFinite(suiteTime)) {
+                      totals.time += suiteTime;
+                    }
+                  }
+                } else {
+                  const tests = Number.parseInt(suite.tests ?? 0, 10);
+                  const failures = Number.parseInt(suite.failures ?? 0, 10) + Number.parseInt(suite.errors ?? 0, 10);
+                  const skipped = Number.parseInt(suite.skipped ?? 0, 10);
+                  if (Number.isFinite(tests)) totals.tests += tests;
+                  if (Number.isFinite(failures)) totals.failed += failures;
+                  if (Number.isFinite(skipped)) totals.skipped += skipped;
+                  const inferredPassed = tests - failures - skipped;
+                  if (Number.isFinite(inferredPassed) && inferredPassed > 0) {
+                    totals.passed += inferredPassed;
+                  }
+                  const suiteTime = Number.parseFloat(suite.time ?? 0);
+                  if (Number.isFinite(suiteTime)) {
+                    totals.time += suiteTime;
+                  }
+                }
+              }
+
+              return { available: true, totals, notes };
+            }
+
+            const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+            if (process.env.BASE_RESULTS_DIR) baseCandidates.push(process.env.BASE_RESULTS_DIR);
+
+            const mergeCandidates = [path.join('merge', 'test-results'), 'merge-test-results'];
+            if (process.env.MERGE_RESULTS_DIR) mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
+
+            const baseSummary  = collectSuiteStats(baseCandidates);
+            const headSummary  = collectSuiteStats('test-results');
+            const mergeSummary = collectSuiteStats(mergeCandidates);
+
+            const formatDuration = (seconds) => {
+              if (!Number.isFinite(seconds) || seconds < 0) return '—';
+              if (seconds === 0) return '0s';
+              if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
+              if (seconds >= 60) {
+                const minutes = Math.floor(seconds / 60);
+                const rem = seconds - minutes * 60;
+                return `${minutes}m ${rem.toFixed(1)}s`;
+              }
+              return `${seconds.toFixed(2)}s`;
+            };
+
+            const formatRow = (label, summary) => {
+              if (!summary.available || summary.totals.tests === 0) {
+                return `| ${label} | — | — | — | — | — |`;
+              }
+              const { tests, passed, failed, skipped, time } = summary.totals;
+              return `| ${label} | ${tests} | ${passed} | ${failed} | ${skipped} | ${formatDuration(time)} |`;
+            };
+
+            const lines = [
+              marker,
+              '### Node.js regression test summary',
+              '',
+              '| Target | Total | Passed | Failed | Skipped | Duration |',
+              '| --- | ---: | ---: | ---: | ---: | ---: |',
+              formatRow(`Base (${baseLabel})`, baseSummary),
+              formatRow(`PR (${headLabel})`, headSummary),
+              formatRow('Merged (base+PR)', mergeSummary),
+            ];
+
+            const notes = [...baseSummary.notes, ...headSummary.notes, ...mergeSummary.notes];
+            if (notes.length) {
+              lines.push('', ...notes.map(n => `> ⚠️ ${n}`));
+            }
+
+            const body = lines.join('\n');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+              core.notice('Updated existing test summary comment.');
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.notice('Created new test summary comment.');
+            }
 
       # 👇 Attach raw reports so anyone can download/open them from the PR
       - name: Upload test reports as artifacts
@@ -338,6 +832,8 @@ jobs:
           path: |
             test-results/*.xml
             test-results/*.tap
+            merge/test-results/*.xml
+            merge/test-results/*.tap
           retention-days: 7
 
   ###########################################################################

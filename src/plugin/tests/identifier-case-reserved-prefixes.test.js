@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     formatIdentifierCaseWithOptions,
     normalizeIdentifierCaseWithOptions
-} from "../../shared/identifier-case/identifier-case-utils.js";
+} from "../src/identifier-case/identifier-case-utils.js";
 
 test("normalizeIdentifierCase accepts custom reserved prefix overrides", () => {
     const identifier = "module:subsystem.value";

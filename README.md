@@ -181,15 +181,18 @@ nvm use
    ```jsonc
    {
      "scripts": {
-       "format:gml": "prettier --plugin=./node_modules/root/src/plugin/src/gml.js --write \"**/*.gml\""
+       "format:gml": "node ./node_modules/root/src/cli/prettier-wrapper.js"
      }
    }
    ```
 
+   Pass arguments through the script with `npm run format:gml -- <flags>` so every
+   project reuses the same wrapper entry point.
+
 5. Run the formatter:
 
    ```bash
-   npm run format:gml
+   npm run format:gml -- --path .
    # or
    node ./node_modules/root/src/cli/prettier-wrapper.js --path .
    ```
@@ -218,7 +221,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, and accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable).
+   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -331,26 +334,27 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | --- | --- | --- |
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
 | `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
+| `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
 | `allowSingleLineIfStatements` | `true` | Keeps trivial `if` statements on one line; set to `false` to always expand blocks. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
-| `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
-| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
-| `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; pair with the rollout guide before enabling on large projects. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
-| `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
-| `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
-| `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
-| `trailingCommentPadding` | `2` | Controls spacing between code and trailing end-of-line comments. |
-| `trailingCommentInlineOffset` | `1` | Trims part of the trailing comment padding for inline comments. |
 | `lineCommentBannerMinimumSlashes` | `5` | Preserves banner-style comments with at least this many `/` characters. |
-| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `lineCommentBannerAutofillThreshold` | `4` | Pads banner comments up to the minimum slash count when they already start with several `/`. |
 | `lineCommentBoilerplateFragments` | `""` | Removes boilerplate line comments that contain any of the provided comma-separated substrings. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
+| `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
+| `trailingCommentPadding` | `2` | Controls spacing between code and trailing end-of-line comments. |
+| `trailingCommentInlineOffset` | `1` | Trims part of the trailing comment padding for inline comments. |
+| `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
+| `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
+| `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; pair with the rollout guide before enabling on large projects. |
+| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
+| `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
+| `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
+| `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
 
-Consult the [Identifier Case & Naming Convention Guide](docs/naming-conventions.md) and the [identifier-case rollout playbook](docs/identifier-case-rollout.md) before enabling renames.
+Consult the [Identifier Case & Naming Convention Guide](docs/naming-conventions.md), the [identifier-case rollout playbook](docs/identifier-case-rollout.md), and the [identifier-case scope reference](docs/identifier-case-reference.md) before enabling renames.
 
 ---
 
