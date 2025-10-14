@@ -215,38 +215,26 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    let entries = overrides;
-    if (entries instanceof Set) {
-        entries = Array.from(entries);
-    } else if (!Array.isArray(entries)) {
+    const entries =
+        overrides instanceof Set
+            ? overrides
+            : Array.isArray(overrides)
+                ? overrides
+                : null;
+
+    if (!entries) {
         return [];
     }
 
-    const normalized = [];
-    const seen = new Set();
+    const normalized = Array.from(entries, (entry) =>
+        typeof entry === "string" ? entry.trim() : ""
+    ).filter(Boolean);
 
-    for (const entry of entries) {
-        if (typeof entry !== "string") {
-            continue;
-        }
+    const unique = [...new Set(normalized)];
 
-        const trimmed = entry.trim();
-        if (trimmed.length === 0 || seen.has(trimmed)) {
-            continue;
-        }
+    unique.sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0));
 
-        seen.add(trimmed);
-        normalized.push(trimmed);
-    }
-
-    normalized.sort((a, b) => {
-        if (b.length !== a.length) {
-            return b.length - a.length;
-        }
-        return a < b ? -1 : a > b ? 1 : 0;
-    });
-
-    return normalized;
+    return unique;
 }
 
 function extractReservedPrefixWithOverrides(identifier, overrides) {
