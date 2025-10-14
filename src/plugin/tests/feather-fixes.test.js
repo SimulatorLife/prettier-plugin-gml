@@ -2423,6 +2423,55 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("inserts missing vertex_end before subsequent begins and records metadata", () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_begin(vb, format);",
+            "vertex_color(vb, c_white, 1);",
+            "vertex_end(vb);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(programBody.length, 6);
+
+        const insertedCall = programBody[2];
+        assert.ok(insertedCall);
+        assert.strictEqual(insertedCall.type, "CallExpression");
+        assert.strictEqual(insertedCall.object?.name, "vertex_end");
+
+        const args = Array.isArray(insertedCall.arguments)
+            ? insertedCall.arguments
+            : [];
+        assert.strictEqual(args[0]?.name, "vb");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2008 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2008"
+        );
+
+        assert.ok(
+            gm2008,
+            "Expected GM2008 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2008.automatic, true);
+        assert.ok(gm2008.range);
+
+        const insertedMetadata = insertedCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            insertedMetadata.some((entry) => entry.id === "GM2008"),
+            true,
+            "Inserted vertex_end call should include GM2008 metadata."
+        );
+    });
+
     it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
@@ -4057,6 +4106,50 @@ describe("applyFeatherFixes transform", () => {
         const endMetadata = vertexEnd?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             endMetadata.some((entry) => entry.id === "GM2009"),
+            true
+        );
+    });
+
+    it("inserts missing vertex_end calls flagged by GM2008 and records metadata", () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_begin(vb, format);",
+            "vertex_color(vb, c_white, 1);",
+            "vertex_end(vb);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(statements.length, 6);
+
+        const insertedCall = statements[2];
+        assert.ok(insertedCall);
+        assert.strictEqual(insertedCall.type, "CallExpression");
+        assert.strictEqual(insertedCall.object?.name, "vertex_end");
+        assert.strictEqual(Array.isArray(insertedCall.arguments), true);
+        assert.strictEqual(insertedCall.arguments[0]?.name, "vb");
+
+        const gm2008Metadata = ast._appliedFeatherDiagnostics?.find(
+            (entry) => entry.id === "GM2008"
+        );
+        assert.ok(
+            gm2008Metadata,
+            "Expected GM2008 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2008Metadata.automatic, true);
+        assert.strictEqual(gm2008Metadata.target, "vb");
+        assert.ok(gm2008Metadata.range);
+
+        const insertedMetadata = insertedCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            insertedMetadata.some((entry) => entry.id === "GM2008"),
             true
         );
     });
