@@ -24,12 +24,16 @@ export function isCommentNode(node) {
     );
 }
 
+function commentTypeMatches(comment, expectedType) {
+    return isCommentNode(comment) && comment.type === expectedType;
+}
+
 export function isLineComment(node) {
-    return isCommentNode(node) && node.type === "CommentLine";
+    return commentTypeMatches(node, "CommentLine");
 }
 
 export function isBlockComment(node) {
-    return isCommentNode(node) && node.type === "CommentBlock";
+    return commentTypeMatches(node, "CommentBlock");
 }
 
 /**
@@ -119,7 +123,10 @@ export function collectCommentNodes(root) {
 }
 
 export function isDocCommentLine(comment) {
-    if (!isLineComment(comment) || typeof comment?.value !== "string") {
+    if (
+        !commentTypeMatches(comment, "CommentLine") ||
+        typeof comment?.value !== "string"
+    ) {
         return false;
     }
 
