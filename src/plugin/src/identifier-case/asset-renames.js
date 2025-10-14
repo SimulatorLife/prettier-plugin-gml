@@ -68,6 +68,48 @@ function buildAssetConflictSuggestions(identifierName) {
     return suggestions;
 }
 
+function createRenameScopeDescriptor(renameEntry) {
+    return {
+        id: renameEntry.resourcePath,
+        displayName: `${renameEntry.resourceType}.${renameEntry.originalName}`
+    };
+}
+
+function mapRenameConflictDetails(entries) {
+    return entries.map((entry) => ({
+        resourcePath: entry.resourcePath,
+        originalName: entry.originalName,
+        finalName: entry.finalName,
+        isRename: entry.isRename
+    }));
+}
+
+function recordAssetRenameCollision({
+    conflicts,
+    renameEntry,
+    conflictingEntries,
+    message,
+    metrics
+}) {
+    conflicts.push(
+        createConflict({
+            code: COLLISION_CONFLICT_CODE,
+            severity: "error",
+            message,
+            scope: createRenameScopeDescriptor(renameEntry),
+            identifier: renameEntry.originalName,
+            suggestions: buildAssetConflictSuggestions(
+                renameEntry.originalName
+            ),
+            details: {
+                targetName: renameEntry.finalName,
+                conflicts: mapRenameConflictDetails(conflictingEntries)
+            }
+        })
+    );
+    metrics?.incrementCounter("assets.collisionConflicts");
+}
+
 function collectDirectoryEntries({ projectIndex, renames }) {
     const renameByResourcePath = new Map();
     for (const rename of renames ?? []) {
@@ -148,14 +190,6 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
             const existingEntries = bucket.filter((entry) => !entry.isRename);
 
             for (const renameEntry of renameEntries) {
-                const scopeDescriptor = {
-                    id: renameEntry.resourcePath,
-                    displayName: `${renameEntry.resourceType}.${renameEntry.originalName}`
-                };
-                const suggestions = buildAssetConflictSuggestions(
-                    renameEntry.originalName
-                );
-
                 if (existingEntries.length > 0) {
                     const otherNames = existingEntries
                         .map(
@@ -163,26 +197,13 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
                                 `'${entry.originalName}' (${entry.resourcePath})`
                         )
                         .join(", ");
-                    conflicts.push(
-                        createConflict({
-                            code: COLLISION_CONFLICT_CODE,
-                            severity: "error",
-                            message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with existing asset ${otherNames}.`,
-                            scope: scopeDescriptor,
-                            identifier: renameEntry.originalName,
-                            suggestions,
-                            details: {
-                                targetName: renameEntry.finalName,
-                                conflicts: existingEntries.map((entry) => ({
-                                    resourcePath: entry.resourcePath,
-                                    originalName: entry.originalName,
-                                    finalName: entry.finalName,
-                                    isRename: entry.isRename
-                                }))
-                            }
-                        })
-                    );
-                    metrics?.incrementCounter("assets.collisionConflicts");
+                    recordAssetRenameCollision({
+                        conflicts,
+                        renameEntry,
+                        conflictingEntries: existingEntries,
+                        message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with existing asset ${otherNames}.`,
+                        metrics
+                    });
                 }
 
                 const otherRenames = renameEntries.filter(
@@ -192,26 +213,13 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
                     const otherNames = otherRenames
                         .map((entry) => `'${entry.originalName}'`)
                         .join(", ");
-                    conflicts.push(
-                        createConflict({
-                            code: COLLISION_CONFLICT_CODE,
-                            severity: "error",
-                            message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with ${otherNames} targeting the same name.`,
-                            scope: scopeDescriptor,
-                            identifier: renameEntry.originalName,
-                            suggestions,
-                            details: {
-                                targetName: renameEntry.finalName,
-                                conflicts: otherRenames.map((entry) => ({
-                                    resourcePath: entry.resourcePath,
-                                    originalName: entry.originalName,
-                                    finalName: entry.finalName,
-                                    isRename: entry.isRename
-                                }))
-                            }
-                        })
-                    );
-                    metrics?.incrementCounter("assets.collisionConflicts");
+                    recordAssetRenameCollision({
+                        conflicts,
+                        renameEntry,
+                        conflictingEntries: otherRenames,
+                        message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with ${otherNames} targeting the same name.`,
+                        metrics
+                    });
                 }
             }
         }
