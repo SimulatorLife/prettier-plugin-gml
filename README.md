@@ -384,7 +384,7 @@ npm run format:check
 npm run lint:fix
 ```
 
-The suites use [Mocha](https://mochajs.org/); append `-- --watch` to any `npm run test --workspace …` command for watch mode.
+All suites run on [Node.js’s built-in test runner](https://nodejs.org/api/test.html); append `-- --watch` to any `npm run test --workspace …` command for watch mode.
 
 Fixtures under `src/plugin/tests` and `src/parser/tests/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
