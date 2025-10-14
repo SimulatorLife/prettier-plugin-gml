@@ -10224,7 +10224,13 @@ function collectEnumDeclarations(ast) {
             const enumName = node.name?.name;
 
             if (enumName && !registry.has(enumName)) {
-                const members = Array.isArray(node.members) ? node.members : [];
+                let members = Array.isArray(node.members) ? node.members : null;
+
+                if (!members) {
+                    members = [];
+                    node.members = members;
+                }
+
                 const memberNames = new Set();
 
                 for (const member of members) {
