@@ -294,21 +294,16 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
     };
 }
 
+const SCOPE_TYPE_LABELS = Object.freeze({
+    functions: "function",
+    structs: "struct constructor",
+    macros: "macro",
+    globals: "global variable",
+    instance: "instance variable"
+});
+
 function describeScopeType(scopeType) {
-    switch (scopeType) {
-        case "functions":
-            return "function";
-        case "structs":
-            return "struct constructor";
-        case "macros":
-            return "macro";
-        case "globals":
-            return "global variable";
-        case "instance":
-            return "instance variable";
-        default:
-            return scopeType;
-    }
+    return SCOPE_TYPE_LABELS[scopeType] ?? scopeType;
 }
 
 function createNameCollisionTracker() {

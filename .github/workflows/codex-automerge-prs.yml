@@ -36,6 +36,8 @@ jobs:
       number: ${{ steps.get.outputs.number }}
       changed_files: ${{ steps.get.outputs.changed_files }}
       head_ref: ${{ steps.get.outputs.head_ref }}
+      head_sha: ${{ steps.get.outputs.head_sha }}
+      base_ref: ${{ steps.get.outputs.base_ref }}
       base_sha: ${{ steps.get.outputs.base_sha }}
     steps:
       - name: Read PR details
@@ -72,8 +74,12 @@ jobs:
             core.setOutput('number', String(n));
             core.setOutput('changed_files', String(pr.changed_files || 0));
             core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('base_ref', pr.base.ref);
             core.setOutput('base_sha', pr.base.sha);
-            core.notice(`PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_sha=${pr.base.sha}`);
+            core.notice(
+              `PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, head_sha=${pr.head.sha}, base_ref=${pr.base.ref}, base_sha=${pr.base.sha}`
+            );
 
   ###########################################################################
   # Regression detection (always creates/checks a job; fast-passes when no changes)
@@ -100,8 +106,18 @@ jobs:
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.base_sha }}
+          ref: ${{ needs.pr-meta.outputs.base_ref }}
           path: base
+          fetch-depth: 1
+
+      - name: Record resolved base ref/commit
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        working-directory: base
+        run: |
+          echo "BASE_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
+        env:
+          BASE_REF: ${{ needs.pr-meta.outputs.base_ref }}
 
       - name: Setup Node (base)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -167,12 +183,28 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
-      # === HEAD (PR) at workspace root ===
+      - name: Preserve base test results
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        run: |
+          BASE_RESULTS_DIR="$RUNNER_TEMP/codex-base-test-results"
+          echo "BASE_RESULTS_DIR=$BASE_RESULTS_DIR" >> "$GITHUB_ENV"
+          rm -rf base-test-results "$BASE_RESULTS_DIR"
+          if [ -d base/test-results ]; then
+            mkdir -p base-test-results "$BASE_RESULTS_DIR"
+            cp -R base/test-results/. base-test-results/
+            cp -R base/test-results/. "$BASE_RESULTS_DIR/"
+          else
+            echo "No base/test-results directory found to preserve."
+          fi
+
+      # === HEAD (PR) at workspace root === (pin to the PR's exact commit for determinism)
       - name: Checkout head (PR)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.head_ref }}
+          ref: ${{ needs.pr-meta.outputs.head_sha }}
+          clean: false
+          fetch-depth: 1
 
       - name: Setup Node (head)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -235,6 +267,106 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
+      # === MERGED VIEW (synthetic test-merge ref) ===
+      - name: Checkout merged (PR applied onto base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        id: checkout-merge
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.pr-meta.outputs.number }}/merge
+          path: merge
+          fetch-depth: 1
+
+      - name: Detect availability of merge ref
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        id: has-merge
+        run: |
+          if [ -d merge/.git ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT";
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT";
+          fi
+
+      - name: Setup Node (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: merge/package-lock.json
+
+      - name: Install deps (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: npm ci
+
+      - name: Prepare test result directory (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
+      - name: Run shared tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/parser
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run plugin tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/plugin
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Run CLI tests (merged)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        working-directory: merge/src/cli
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
+        continue-on-error: true
+
+      - name: Preserve merged test results
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' && steps.has-merge.outputs.available == 'true' }}
+        run: |
+          MERGE_RESULTS_DIR="$RUNNER_TEMP/codex-merge-test-results"
+          echo "MERGE_RESULTS_DIR=$MERGE_RESULTS_DIR" >> "$GITHUB_ENV"
+          rm -rf merge-test-results "$MERGE_RESULTS_DIR"
+          if [ -d merge/test-results ]; then
+            mkdir -p merge-test-results "$MERGE_RESULTS_DIR"
+            cp -R merge/test-results/. merge-test-results/
+            cp -R merge/test-results/. "$MERGE_RESULTS_DIR/"
+          else
+            echo "No merge/test-results directory found to preserve."
+          fi
+
+      # === Regression compare (base vs head only; merged is informational) ===
       - name: Install compare script dependency
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: npm install --no-save fast-xml-parser@^4
@@ -247,40 +379,59 @@ jobs:
           import path from 'node:path';
           import { XMLParser } from 'fast-xml-parser';
 
-          function readCases(rootDir) {
+          function readCases(...dirs) {
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
             const results = new Map();
-            const resultsDir = path.join(rootDir, 'test-results');
-            if (!fs.existsSync(resultsDir)) return results;
+            const queue = dirs.flat().filter(Boolean);
 
-            const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
-            for (const file of files) {
-              const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
-              const data = parser.parse(xml);
-              const suites = [];
-              if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
-              else if (data.testsuite) { suites.push(data.testsuite); }
-              else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+            for (const dir of queue) {
+              const resolved = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
+              if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+                continue;
+              }
 
-              for (const suite of suites) {
-                const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
-                for (const tc of cases) {
-                  const name = String(tc.name ?? '');
-                  const cls = String(tc.classname ?? suite.name ?? '');
-                  const key = cls + ' :: ' + name;
-                  let status = 'passed';
-                  if (tc.skipped !== undefined) status = 'skipped';
-                  if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
-                  if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
-                  results.set(key, status);
+              const files = fs.readdirSync(resolved).filter(f => f.endsWith('.xml'));
+              if (files.length === 0) {
+                continue;
+              }
+
+              for (const file of files) {
+                const xml = fs.readFileSync(path.join(resolved, file), 'utf8');
+                const data = parser.parse(xml);
+                const suites = [];
+                if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
+                else if (data.testsuite) { suites.push(data.testsuite); }
+                else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+
+                for (const suite of suites) {
+                  const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
+                  for (const tc of cases) {
+                    const name = String(tc.name ?? '');
+                    const cls = String(tc.classname ?? suite.name ?? '');
+                    const key = cls + ' :: ' + name;
+                    let status = 'passed';
+                    if (tc.skipped !== undefined) status = 'skipped';
+                    if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
+                    if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
+                    results.set(key, status);
+                  }
                 }
               }
+
+              break;
             }
+
             return results;
           }
 
-          const base = readCases('base');
-          const head = readCases('.');
+          const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+          if (process.env.BASE_RESULTS_DIR) {
+            baseCandidates.push(process.env.BASE_RESULTS_DIR);
+          }
+
+          const base = readCases(baseCandidates);
+          const head = readCases('test-results');
           const regressions = [];
 
           for (const [key, headStatus] of head.entries()) {
@@ -302,13 +453,15 @@ jobs:
           node compare-junit.mjs
         shell: bash
 
-      - name: Publish PR test summary (head only)
+      - name: Publish PR test summary (head + merged)
         if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
         continue-on-error: true
         uses: dorny/test-reporter@v2
         with:
-          name: Node.js test results (PR head)
-          path: test-results/*.xml
+          name: Node.js test results (PR head & merged)
+          path: |
+            test-results/*.xml
+            merge/test-results/*.xml
           reporter: java-junit
           fail-on-error: false
           fail-on-empty: false
@@ -328,13 +481,10 @@ jobs:
 
             let XMLParser;
             try {
-              const resolved = require.resolve('fast-xml-parser', {
-                paths: [
-                  process.cwd(),
-                  process.env.GITHUB_WORKSPACE || '',
-                ].filter(Boolean),
-              });
-              ({ XMLParser } = require(resolved));
+              const { createRequire } = require('node:module');
+              const requireFromWorkspace = createRequire(path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'package.json'));
+              const resolved = requireFromWorkspace.resolve('fast-xml-parser');
+              ({ XMLParser } = requireFromWorkspace(resolved));
             } catch (error) {
               core.warning(`fast-xml-parser is unavailable: ${error.message}`);
             }
@@ -347,11 +497,15 @@ jobs:
             }
 
             const pr = context.payload.pull_request || {};
-            const baseLabel = `${pr.base?.ref || 'base'} @ ${(pr.base?.sha || '').slice(0, 7) || '???????'}`;
+            const envBaseRef = (process.env.BASE_REF || '').trim();
+            const envBaseSha = (process.env.BASE_COMMIT_SHA || '').trim();
+            const baseLabel = `${envBaseRef || pr.base?.ref || 'base'} @ ${
+              (envBaseSha || pr.base?.sha || '').slice(0, 7) || '???????'
+            }`;
             const headLabel = `${pr.head?.ref || 'head'} @ ${(pr.head?.sha || context.sha || '').slice(0, 7) || '???????'}`;
 
             function collectSuiteStats(dir) {
-              const resultsDir = path.join(process.cwd(), dir);
+              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
               const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
               const notes = [];
 
@@ -359,14 +513,39 @@ jobs:
                 notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
                 return { available: false, totals, notes };
               }
-              if (!fs.existsSync(resultsDir)) {
-                notes.push(`No directory found at ${dir}.`);
+
+              const candidates = (Array.isArray(dir) ? dir : [dir]).filter(Boolean);
+              const tried = [];
+              let resolvedDir = null;
+              let displayDir = '';
+
+              for (const candidate of candidates) {
+                const resolvedCandidate = path.isAbsolute(candidate)
+                  ? candidate
+                  : path.join(workspace, candidate);
+                const displayCandidate = path.relative(workspace, resolvedCandidate) || resolvedCandidate;
+                tried.push(displayCandidate);
+                if (fs.existsSync(resolvedCandidate) && fs.statSync(resolvedCandidate).isDirectory()) {
+                  resolvedDir = resolvedCandidate;
+                  displayDir = displayCandidate;
+                  break;
+                }
+              }
+
+              if (!resolvedDir) {
+                if (tried.length === 1) {
+                  notes.push(`No directory found at ${tried[0]}.`);
+                } else if (tried.length > 1) {
+                  notes.push(`No directory found at any of: ${tried.join(', ')}.`);
+                } else {
+                  notes.push('No result directory configured.');
+                }
                 return { available: false, totals, notes };
               }
 
-              const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
+              const files = fs.readdirSync(resolvedDir).filter(f => f.endsWith('.xml'));
               if (files.length === 0) {
-                notes.push(`No JUnit XML files found in ${dir}.`);
+                notes.push(`No JUnit XML files found in ${displayDir}.`);
                 return { available: false, totals, notes };
               }
 
@@ -393,17 +572,17 @@ jobs:
 
               for (const file of files) {
                 try {
-                  const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+                  const xml = fs.readFileSync(path.join(resolvedDir, file), 'utf8');
                   if (!xml.trim()) continue;
                   const data = parser.parse(xml);
                   visitNode(data);
                 } catch (error) {
-                  notes.push(`Failed to parse ${path.join(dir, file)}: ${error.message}`);
+                  notes.push(`Failed to parse ${path.join(displayDir, file)}: ${error.message}`);
                 }
               }
 
               if (suiteList.length === 0) {
-                notes.push(`No test suites discovered in ${dir}.`);
+                notes.push(`No test suites discovered in ${displayDir}.`);
                 return { available: false, totals, notes };
               }
 
@@ -457,8 +636,15 @@ jobs:
               return { available: true, totals, notes };
             }
 
-            const baseSummary = collectSuiteStats(path.join('base', 'test-results'));
-            const headSummary = collectSuiteStats('test-results');
+            const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+            if (process.env.BASE_RESULTS_DIR) baseCandidates.push(process.env.BASE_RESULTS_DIR);
+
+            const mergeCandidates = [path.join('merge', 'test-results'), 'merge-test-results'];
+            if (process.env.MERGE_RESULTS_DIR) mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
+
+            const baseSummary  = collectSuiteStats(baseCandidates);
+            const headSummary  = collectSuiteStats('test-results');
+            const mergeSummary = collectSuiteStats(mergeCandidates);
 
             const formatDuration = (seconds) => {
               if (!Number.isFinite(seconds) || seconds < 0) return '—';
@@ -474,25 +660,24 @@ jobs:
 
             const formatRow = (label, summary) => {
               if (!summary.available || summary.totals.tests === 0) {
-                return `| ${label} | — | — | — | — |`;
+                return `| ${label} | — | — | — | — | — |`;
               }
-              const { passed, failed, skipped, time } = summary.totals;
-              return `| ${label} | ${passed} | ${failed} | ${skipped} | ${formatDuration(time)} |`;
+              const { tests, passed, failed, skipped, time } = summary.totals;
+              return `| ${label} | ${tests} | ${passed} | ${failed} | ${skipped} | ${formatDuration(time)} |`;
             };
 
             const lines = [
               marker,
               '### Node.js regression test summary',
               '',
-              '| Target | Passed | Failed | Skipped | Duration |',
-              '| --- | ---: | ---: | ---: | ---: |',
+              '| Target | Total | Passed | Failed | Skipped | Duration |',
+              '| --- | ---: | ---: | ---: | ---: | ---: |',
               formatRow(`Base (${baseLabel})`, baseSummary),
               formatRow(`PR (${headLabel})`, headSummary),
-              '',
-              '_Durations are aggregated from reported test case timings._'
+              formatRow('Merged (base+PR)', mergeSummary),
             ];
 
-            const notes = [...baseSummary.notes, ...headSummary.notes];
+            const notes = [...baseSummary.notes, ...headSummary.notes, ...mergeSummary.notes];
             if (notes.length) {
               lines.push('', ...notes.map(n => `> ⚠️ ${n}`));
             }
@@ -538,6 +723,8 @@ jobs:
           path: |
             test-results/*.xml
             test-results/*.tap
+            merge/test-results/*.xml
+            merge/test-results/*.tap
           retention-days: 7
 
   ###########################################################################

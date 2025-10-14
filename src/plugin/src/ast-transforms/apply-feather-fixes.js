@@ -10,7 +10,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
-    isBooleanLiteral
+    isBooleanLiteral,
+    isVarVariableDeclaration
 } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
@@ -118,6 +119,14 @@ const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+
+function getCallArgumentsOrEmpty(node) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    return Array.isArray(node.arguments) ? node.arguments : [];
+}
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
@@ -1171,7 +1180,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
 
         ancestorStack.push(node);
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             recordVariableDeclaration(variableDeclarations, {
                 declaration: node,
                 parent,
@@ -2005,9 +2014,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             ) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
-                const args = Array.isArray(node.arguments)
-                    ? node.arguments
-                    : [];
+                const args = getCallArgumentsOrEmpty(node);
 
                 for (const argumentIndex of argumentIndexes) {
                     if (
@@ -3368,7 +3375,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length !== 1) {
         return null;
@@ -5566,7 +5573,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
                 ast,
@@ -6091,7 +6098,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const args = Array.isArray(node.arguments) ? node.arguments : [];
+            const args = getCallArgumentsOrEmpty(node);
 
             for (const argument of args) {
                 const fix = convertNumericStringLiteral(argument, diagnostic);
@@ -6473,7 +6480,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 
             pushScope(paramNames);
 
-            const params = Array.isArray(node.params) ? node.params : [];
+            const params = getArrayProperty(node, "params");
             for (const param of params) {
                 visit(param, node, "params");
             }
@@ -6483,7 +6490,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fixDetails = handleVariableDeclaration(
                 node,
                 parent,
@@ -6912,9 +6919,7 @@ function getVertexBatchTarget(callExpression) {
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments)
-        ? callExpression.arguments
-        : [];
+    const args = getCallArgumentsOrEmpty(callExpression);
 
     if (args.length > 0) {
         const firstArgument = args[0];
@@ -7729,7 +7734,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
     if (args.length === 0) {
         return null;
     }
@@ -8579,6 +8584,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
+    removeRedundantSurfaceResetCalls(siblings, insertionIndex + 1);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -10091,6 +10097,9 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     }
 
     const siblings = parent;
+    if (hasSurfaceResetBeforeNextTarget(siblings, property)) {
+        return null;
+    }
     let insertionIndex = siblings.length;
 
     for (let index = property + 1; index < siblings.length; index += 1) {
@@ -10145,6 +10154,59 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function hasSurfaceResetBeforeNextTarget(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return false;
+    }
+
+    for (let index = startIndex + 1; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceResetTargetCall(candidate)) {
+            return true;
+        }
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+function removeRedundantSurfaceResetCalls(statements, startIndex) {
+    if (!Array.isArray(statements)) {
+        return;
+    }
+
+    for (let index = startIndex; index < statements.length; index += 1) {
+        const candidate = statements[index];
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            return;
+        }
+
+        if (!isSurfaceResetTargetCall(candidate)) {
+            continue;
+        }
+
+        const metadata = Array.isArray(candidate?._appliedFeatherDiagnostics)
+            ? candidate._appliedFeatherDiagnostics
+            : [];
+
+        const hasGM2005Metadata = metadata.some(
+            (entry) => entry?.id === "GM2005"
+        );
+
+        if (!hasGM2005Metadata) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        index -= 1;
+    }
 }
 
 function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
@@ -10518,7 +10580,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10578,7 +10640,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10702,7 +10764,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10800,7 +10862,7 @@ function hasFirstArgumentIdentifier(node, name) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10844,7 +10906,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return true;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -12331,7 +12393,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -14104,7 +14166,7 @@ function getUserEventReference(node) {
     }
 
     const callee = node.object;
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (isIdentifierWithName(callee, "event_user")) {
         const eventIndex = resolveUserEventIndex(args[0]);
@@ -14288,7 +14350,7 @@ function isFunctionLikeNode(node) {
 }
 
 function getFunctionParameterNames(node) {
-    const params = Array.isArray(node?.params) ? node.params : [];
+    const params = getArrayProperty(node, "params");
     const names = [];
 
     for (const param of params) {
@@ -14572,7 +14634,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }
@@ -14586,7 +14648,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14609,7 +14671,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14627,7 +14689,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14645,7 +14707,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14663,7 +14725,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14681,7 +14743,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14701,7 +14763,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14975,7 +15037,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -15043,7 +15105,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -16008,7 +16070,7 @@ function extractSurfaceTargetName(node) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length > 0 && isIdentifier(args[0])) {
         return args[0].name;
@@ -16052,7 +16114,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }
