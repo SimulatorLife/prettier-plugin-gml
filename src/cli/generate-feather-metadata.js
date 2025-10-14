@@ -7,8 +7,8 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
 import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import {
-    assertSupportedNodeVersion,
     createManualGitHubClient,
     ensureDir,
     formatDuration,
