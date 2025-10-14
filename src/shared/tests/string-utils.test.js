@@ -9,6 +9,7 @@ import {
     isNonEmptyTrimmedString,
     isWordChar,
     toTrimmedString,
+    toNormalizedLowerCaseString,
     capitalize
 } from "../string-utils.js";
 
@@ -23,6 +24,18 @@ test("toTrimmedString normalizes non-string values to empty strings", () => {
     assert.strictEqual(toTrimmedString(undefined), "");
     assert.strictEqual(toTrimmedString(123), "");
     assert.strictEqual(toTrimmedString({}), "");
+});
+
+test("toNormalizedLowerCaseString trims and lowercases input values", () => {
+    assert.strictEqual(toNormalizedLowerCaseString("  JSON  "), "json");
+    assert.strictEqual(toNormalizedLowerCaseString("Human"), "human");
+    assert.strictEqual(toNormalizedLowerCaseString(123), "123");
+});
+
+test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
+    assert.strictEqual(toNormalizedLowerCaseString(null), "");
+    assert.strictEqual(toNormalizedLowerCaseString(undefined), "");
+    assert.strictEqual(toNormalizedLowerCaseString("   "), "");
 });
 
 test("string utility helpers interoperate with trimmed strings", () => {

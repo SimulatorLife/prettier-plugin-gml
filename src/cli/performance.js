@@ -8,6 +8,7 @@ import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { buildProjectIndex } from "../plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../plugin/src/identifier-case/local-plan.js";
 import { getIdentifierText } from "../shared/ast-node-helpers.js";
+import { toNormalizedLowerCaseString } from "../shared/string-utils.js";
 
 const AVAILABLE_SUITES = new Map();
 
@@ -17,7 +18,7 @@ function collectSuite(value, previous = []) {
 }
 
 function validateFormat(value) {
-    const normalized = String(value).trim().toLowerCase();
+    const normalized = toNormalizedLowerCaseString(value);
     if (normalized === "json" || normalized === "human") {
         return normalized;
     }
