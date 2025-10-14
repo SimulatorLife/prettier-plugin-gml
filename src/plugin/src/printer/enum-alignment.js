@@ -39,10 +39,18 @@ export function prepareEnumMembersForPrinting(
 
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
-    members.forEach((member, index) => {
+    const lastIndex = memberCount - 1;
+
+    // A hand-rolled loop avoids creating a callback closure for `Array#forEach`
+    // and repeatedly reading `members.length` inside the hot post-processing
+    // pass. The body mirrors the original logic while keeping the tight loop
+    // friendlier to V8's optimizer.
+    for (let index = 0; index < memberCount; index += 1) {
+        const member = members[index];
         const nameLength = nameLengths[index];
+
         member._commentColumnTarget = maxNameLength + resolvedPadding;
-        member._hasTrailingComma = index !== members.length - 1;
+        member._hasTrailingComma = index !== lastIndex;
         member._nameLengthForAlignment = nameLength;
 
         if (shouldAlignInitializers && member.initializer) {
@@ -51,7 +59,7 @@ export function prepareEnumMembersForPrinting(
         } else {
             member._enumNameAlignmentPadding = 0;
         }
-    });
+    }
 }
 
 export function getEnumMemberCommentPadding(member) {
