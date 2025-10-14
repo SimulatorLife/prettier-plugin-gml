@@ -328,14 +328,10 @@ jobs:
 
             let XMLParser;
             try {
-              const resolved = require.resolve('fast-xml-parser', {
-                paths: [
-                  process.cwd(),
-                  process.env.GITHUB_WORKSPACE || '',
-                  __dirname,
-                ].filter(Boolean),
-              });
-              ({ XMLParser } = require(resolved));
+              const { createRequire } = require('node:module');
+              const requireFromWorkspace = createRequire(path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'package.json'));
+              const resolved = requireFromWorkspace.resolve('fast-xml-parser');
+              ({ XMLParser } = requireFromWorkspace(resolved));
             } catch (error) {
               core.warning(`fast-xml-parser is unavailable: ${error.message}`);
             }
