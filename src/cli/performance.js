@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "../shared/cli-errors.js";
+import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { buildProjectIndex } from "../plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../plugin/src/identifier-case/local-plan.js";
 import { getIdentifierText } from "../shared/ast-node-helpers.js";
