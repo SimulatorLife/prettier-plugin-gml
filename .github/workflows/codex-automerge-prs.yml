@@ -318,6 +318,28 @@ jobs:
           fail-on-error: false
           use-actions-summary: true
 
+      # 👇 Adds/updates a sticky PR comment with a concise summary & failures
+      - name: Comment test results on PR (sticky)
+        if: always() && github.event_name == 'pull_request'
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            test-results/**/*.xml
+          check_name: Node.js test results (PR head)
+          comment_mode: update    # keep a single up-to-date comment
+          compare_to_earlier_commit: true
+
+      # 👇 Attach raw reports so anyone can download/open them from the PR
+      - name: Upload test reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-and-tap-${{ github.sha }}
+          path: |
+            test-results/*.xml
+            test-results/*.tap
+          retention-days: 7
+
   ###########################################################################
   # Auto-merge on PR events (re-run regression if needed for current SHA)
   ###########################################################################
