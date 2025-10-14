@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { formatIdentifierCase } from "../../../shared/identifier-case/identifier-case-utils.js";
 import { asArray } from "../../../shared/array-utils.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";

@@ -481,7 +481,13 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         let index = 0;
 
         while (index < array.length) {
-            const removed = visit(array[index], array, index, breakableDepth, owner);
+            const removed = visit(
+                array[index],
+                array,
+                index,
+                breakableDepth,
+                owner
+            );
 
             if (!removed) {
                 index += 1;
@@ -539,7 +545,8 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
             return true;
         }
 
-        const nextBreakableDepth = breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
+        const nextBreakableDepth =
+            breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
         for (const [key, value] of Object.entries(node)) {
             if (!value || typeof value !== "object") {
