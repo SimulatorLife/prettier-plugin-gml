@@ -2336,7 +2336,11 @@ function mergeSyntheticDocComments(
     });
 
     const wrappedDocs = [];
-    const wrapWidth = 100;
+    const normalizedPrintWidth = coercePositiveIntegerOption(
+        options?.printWidth,
+        120
+    );
+    const wrapWidth = Math.min(normalizedPrintWidth, 100);
 
     const wrapSegments = (text, available) => {
         if (available <= 0) {

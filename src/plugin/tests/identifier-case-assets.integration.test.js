@@ -13,6 +13,7 @@ import {
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
+import { fromPosixPath } from "../src/utils/path-utils.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
@@ -273,11 +274,11 @@ describe("asset rename execution", () => {
             const newGmlRelative = "scripts/demo_script/DemoScript.gml";
             const newYyPath = path.join(
                 projectRoot,
-                toSystemPath(newYyRelative)
+                fromPosixPath(newYyRelative)
             );
             const newGmlPath = path.join(
                 projectRoot,
-                toSystemPath(newGmlRelative)
+                fromPosixPath(newGmlRelative)
             );
 
             await assertPathMissing(
@@ -295,7 +296,7 @@ describe("asset rename execution", () => {
                 await fs.readFile(
                     path.join(
                         projectRoot,
-                        toSystemPath(
+                        fromPosixPath(
                             "objects/obj_controller/obj_controller.yy"
                         )
                     ),
@@ -480,8 +481,4 @@ async function fileExists(targetPath) {
         }
         throw error;
     }
-}
-
-function toSystemPath(relativePath) {
-    return relativePath.replace(/\//g, path.sep);
 }

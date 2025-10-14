@@ -149,44 +149,33 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             return null;
         }
 
-        let startIndex = null;
-        if (token.start != null) {
-            startIndex = token.start;
-        } else if (token.startIndex != null) {
-            startIndex = token.startIndex;
-        }
-
-        let stopIndex = null;
-        if (token.stop != null) {
-            stopIndex = token.stop;
-        } else if (token.stopIndex != null) {
-            stopIndex = token.stopIndex;
-        } else {
-            stopIndex = startIndex;
-        }
-
+        const { line } = token;
+        const startIndex = token.start ?? token.startIndex ?? null;
+        const stopIndex = token.stop ?? token.stopIndex ?? startIndex ?? null;
+        const startColumn = token.column ?? null;
         const identifierLength =
             startIndex != null && stopIndex != null
                 ? stopIndex - startIndex + 1
                 : null;
 
-        const start = {
-            line: token.line,
-            index: startIndex
-        };
-        if (token.column != null) {
-            start.column = token.column;
-        }
+        const buildPoint = (index, column) => {
+            const point = { line, index };
+            if (column != null) {
+                point.column = column;
+            }
 
-        const end = {
-            line: token.line,
-            index: stopIndex != null ? stopIndex + 1 : null
+            return point;
         };
-        if (start.column != null && identifierLength != null) {
-            end.column = start.column + identifierLength;
-        }
 
-        return { start, end };
+        return {
+            start: buildPoint(startIndex, startColumn),
+            end: buildPoint(
+                stopIndex != null ? stopIndex + 1 : null,
+                startColumn != null && identifierLength != null
+                    ? startColumn + identifierLength
+                    : null
+            )
+        };
     }
 
     visitBinaryExpression(ctx) {
