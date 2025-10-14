@@ -174,8 +174,8 @@ of GameMaker keywords, constants, variables, and enums.
   `resources/gml-identifiers.json` file consumed by the formatter at runtime. Run
   `npm run build:gml-identifiers` to refresh the snapshot and use the provided
   CLI flags (`--ref`, `--force-refresh`, `--cache-root`) or environment variables
-  (`GML_MANUAL_REF`, `GML_MANUAL_CACHE_ROOT`, `GML_PROGRESS_BAR_WIDTH`) to
-  control regeneration.
+  (`GML_MANUAL_REF`, `GML_MANUAL_CACHE_ROOT`, `GML_PROGRESS_BAR_WIDTH`,
+  `GML_IDENTIFIER_VM_TIMEOUT_MS`) to control regeneration.
 - **Operational notes** – Respect GitHub rate limits via caching and tokens, and
   host cached artefacts for offline or air-gapped environments. Monitor YoYo
   Games repositories for new data sources or metadata that can enrich the
