@@ -2340,7 +2340,7 @@ function mergeSyntheticDocComments(
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.min(normalizedPrintWidth, 100);
+    const wrapWidth = Math.min(normalizedPrintWidth, 80);
 
     const wrapSegments = (text, available) => {
         if (available <= 0) {
