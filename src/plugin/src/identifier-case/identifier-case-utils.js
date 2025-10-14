@@ -82,7 +82,7 @@ function finalizeIdentifier(normalized, base) {
     );
 }
 
-function buildCamelCase(normalized) {
+function buildWordCase(normalized, transformToken) {
     const { tokens } = normalized;
     if (tokens.length === 0) {
         return finalizeIdentifier(normalized, "");
@@ -90,38 +90,32 @@ function buildCamelCase(normalized) {
 
     let base = "";
     for (let index = 0; index < tokens.length; index += 1) {
-        const token = tokens[index];
-        if (token.type === "number") {
-            base += token.normalized;
-            continue;
-        }
-
-        if (index === 0) {
-            base += token.normalized;
-        } else {
-            base += capitalize(token.normalized);
-        }
+        base += transformToken(tokens[index], index);
     }
 
     return finalizeIdentifier(normalized, base);
 }
 
-function buildPascalCase(normalized) {
-    const { tokens } = normalized;
-    if (tokens.length === 0) {
-        return finalizeIdentifier(normalized, "");
-    }
-
-    let base = "";
-    for (const token of tokens) {
+function buildCamelCase(normalized) {
+    return buildWordCase(normalized, (token, index) => {
         if (token.type === "number") {
-            base += token.normalized;
-        } else {
-            base += capitalize(token.normalized);
+            return token.normalized;
         }
-    }
 
-    return finalizeIdentifier(normalized, base);
+        if (index === 0) {
+            return token.normalized;
+        }
+
+        return capitalize(token.normalized);
+    });
+}
+
+function buildPascalCase(normalized) {
+    return buildWordCase(normalized, (token) =>
+        token.type === "number"
+            ? token.normalized
+            : capitalize(token.normalized)
+    );
 }
 
 function shouldJoinForSnake(previousToken, currentToken) {
