@@ -679,6 +679,12 @@ npm run lint:ci
 Need a quick safety check before committing? `npm run format:check` ensures the repository already matches our Prettier
 configuration, and `npm run lint:fix` auto-applies straightforward ESLint fixes.
 
+Run the full formatting, linting, and test pipeline with a single command when you need the pre-merge checklist:
+
+```bash
+npm run check
+```
+
 The plugin and parser suites are powered by [Mocha](https://mochajs.org/). Use the workspace-local runner to enable additional
 flags such as watch mode or filtering individual tests:
 
