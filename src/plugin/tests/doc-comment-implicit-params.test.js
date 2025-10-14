@@ -25,6 +25,17 @@ function sample2() {
     var two = argument2;
     return argument3 + argument4;
 }
+
+/// @function sample3
+/// @param first
+/// @param second
+/// @param argument2
+function sample3() {
+    var first = argument1;
+    var second = argument3;
+    var two = argument2;
+    return argument2 + argument4;
+}
 `;
 
 test("collectImplicitArgumentDocNames omits superseded argument docs", async () => {
@@ -53,5 +64,32 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
     assert.ok(
         !sample2Doc.includes("/// @param argument2"),
         "Expected stale argument doc entry to be removed."
+    );
+
+    const sample3DocStart = formatted.indexOf("/// @function sample3");
+    let sample3DocEnd = formatted.indexOf(
+        "\nfunction sample3",
+        sample3DocStart
+    );
+    if (sample3DocEnd !== -1) {
+        sample3DocEnd += 1;
+    } else {
+        sample3DocEnd = formatted.indexOf(
+            "function sample3",
+            sample3DocStart + 1
+        );
+    }
+    if (sample3DocEnd === -1) {
+        sample3DocEnd = formatted.length;
+    }
+    const sample3Doc = formatted.slice(sample3DocStart, sample3DocEnd);
+
+    assert.ok(
+        sample3Doc.includes("/// @param two"),
+        "Expected alias doc line to remain when implicit references coexist."
+    );
+    assert.ok(
+        sample3Doc.includes("/// @param argument3"),
+        "Expected direct argument doc entry to be preserved when referenced."
     );
 });

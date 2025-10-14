@@ -2093,7 +2093,8 @@ function mergeSyntheticDocComments(
 
             if (
                 entry?.fallbackCanonical &&
-                entry.fallbackCanonical !== entry.canonical
+                entry.fallbackCanonical !== entry.canonical &&
+                entry.hasDirectReference !== true
             ) {
                 fallbackCanonicalsToRemove.add(entry.fallbackCanonical);
             }
@@ -2523,20 +2524,21 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     const referencedIndices = new Set();
     const aliasByIndex = new Map();
+    const directReferenceIndices = new Set();
 
-    const visit = (node, parent) => {
+    const visit = (node, parent, property) => {
         if (!node || typeof node !== "object") {
             return;
         }
 
         if (node === functionNode) {
-            visit(functionNode.body, node);
+            visit(functionNode.body, node, "body");
             return;
         }
 
         if (Array.isArray(node)) {
-            for (const child of node) {
-                visit(child, parent);
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], parent, index);
             }
             return;
         }
@@ -2550,6 +2552,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
             return;
         }
 
+        let skipAliasInitializer = false;
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
             if (
@@ -2560,6 +2563,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                 const aliasName = normalizeDocMetadataName(node.id.name);
                 if (isNonEmptyString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
+                    referencedIndices.add(aliasIndex);
+                    skipAliasInitializer = true;
                 }
             }
         }
@@ -2567,18 +2572,24 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
+            if (!(skipAliasInitializer && property === "init")) {
+                directReferenceIndices.add(directIndex);
+            }
         }
 
-        for (const value of Object.values(node)) {
+        for (const [key, value] of Object.entries(node)) {
+            if (skipAliasInitializer && key === "init") {
+                continue;
+            }
             if (!value || typeof value !== "object") {
                 continue;
             }
 
-            visit(value, node);
+            visit(value, node, key);
         }
     };
 
-    visit(functionNode.body, functionNode);
+    visit(functionNode.body, functionNode, "body");
 
     if (referencedIndices.size === 0) {
         return [];
@@ -2599,7 +2610,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
             name: docName,
             canonical,
             fallbackCanonical,
-            index
+            index,
+            hasDirectReference: directReferenceIndices.has(index)
         };
     });
 }
