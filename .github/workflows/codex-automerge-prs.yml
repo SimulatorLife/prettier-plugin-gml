@@ -23,7 +23,6 @@ permissions:
   checks: write
   actions: read
 
-# Avoid overlapping runs per PR
 concurrency:
   group: codex-automerge-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
@@ -61,6 +60,7 @@ jobs:
   regression-tests:
     if: ${{ github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
     needs: pr-meta
+    timeout-minutes: 30
     name: Detect new test failures (allow legacy failures)
     runs-on: ubuntu-latest
 
@@ -187,13 +187,12 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
-      # Ensure the XML parser is available for the compare script
       - name: Install compare script dependency
         run: npm install --no-save fast-xml-parser@^4
 
       - name: Compare JUnit results (fail only on regressions)
         run: |
-          cat <<'EOF' > compare-junit.js
+          cat <<'EOF' > compare-junit.mjs
           import fs from 'node:fs';
           import path from 'node:path';
           import { XMLParser } from 'fast-xml-parser';
@@ -230,13 +229,13 @@ jobs:
             return results;
           }
 
-          const base = readCases(path.resolve(process.cwd(), 'base'));
-          const head = readCases(process.cwd());
-
+          const base = readCases('base');
+          const head = readCases('.');
           const regressions = [];
+
           for (const [key, headStatus] of head.entries()) {
             const baseStatus = base.get(key);
-            if (baseStatus === undefined) { continue; } // new test -> ignore even if failing
+            if (baseStatus === undefined) continue; // new test -> ignore even if failing
             if ((baseStatus === 'passed' || baseStatus === 'skipped') && headStatus === 'failed') {
               regressions.push({ test: key, from: baseStatus, to: headStatus });
             }
@@ -250,7 +249,7 @@ jobs:
             console.log('No new failing tests compared to base.');
           }
           EOF
-          node compare-junit.js
+          node compare-junit.mjs
         shell: bash
 
       - name: Publish PR test summary (head only)
@@ -271,33 +270,24 @@ jobs:
     needs: [pr-meta, regression-tests]
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve PR number from event
-        id: prnum
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const n = context.payload.pull_request.number;
-            core.setOutput('number', String(n));
-
       - name: Read PR and merge if clean/unstable
         uses: actions/github-script@v7
         with:
           script: |
-            const n = Number('${{ steps.prnum.outputs.number }}');
+            const n = context.payload.pull_request.number;
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
 
-            // If there are zero changed files, we didn't run regression-tests (job was skipped).
-            // Still require GitHub to say the PR is mergeable and not a draft.
+            // If there are zero changed files, regression-tests was skipped.
             if (pr.draft || (pr.changed_files || 0) === 0) {
               core.notice(`Skipping auto-merge for PR #${n} (draft or no changes).`);
               return;
             }
 
             const state = String(pr.mergeable_state || '').toLowerCase();
-            if (pr.mergeable !== true || !['clean', 'unstable'].includes(state)) {
+            if (pr.mergeable !== true || ['clean','unstable'].indexOf(state) === -1) {
               core.notice(`Skipping auto-merge for PR #${n} (mergeable=${pr.mergeable}, state=${state}).`);
               return;
             }
@@ -306,7 +296,7 @@ jobs:
             core.notice(`Auto-merged PR #${n}.`);
 
   ###########################################################################
-  # Scheduled sweep for open PRs (unchanged; does not depend on regression)
+  # Scheduled sweep for open PRs (cron/dispatch/push to bot branches)
   ###########################################################################
   scheduled-automerge:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/codex/') || github.ref == 'refs/heads/chore/auto-lint-format')) }}
@@ -317,7 +307,9 @@ jobs:
         with:
           script: |
             const trigger = context.eventName;
-            if (trigger === 'workflow_dispatch' && (context.payload.inputs?.confirm || '').trim().toLowerCase() !== 'merge') {
+            const inputs = (context.payload && context.payload.inputs) ? context.payload.inputs : {};
+            const confirm = (inputs && inputs.confirm) ? String(inputs.confirm).trim().toLowerCase() : '';
+            if (trigger === 'workflow_dispatch' && confirm !== 'merge') {
               core.notice('Skipping auto-merge sweep: confirmation keyword not provided.');
               return;
             }
@@ -345,7 +337,7 @@ jobs:
                 }
                 const state = String(pr.mergeable_state || '').toLowerCase();
                 if (pr.mergeable !== true || !acceptableStates.has(state)) {
-                  skipped.push({ number: pr.number, reason: `mergeable=${pr.mergeable}, state=${state}` });
+                  skipped.push({ number: pr.number, reason: 'not mergeable: ' + state });
                   continue;
                 }
 
