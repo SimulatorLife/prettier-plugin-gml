@@ -7,6 +7,7 @@ import {
     getCallExpressionArguments
 } from "../../../shared/ast-node-helpers.js";
 import { createCachedOptionResolver } from "../options/options-cache.js";
+import { toNormalizedLowerCaseString } from "../../../shared/string-utils.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -58,7 +59,7 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
             }
 
             const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
-            const normalizedName = rawName?.trim().toLowerCase();
+            const normalizedName = toNormalizedLowerCaseString(rawName);
             if (!normalizedName) {
                 return [];
             }
