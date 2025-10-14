@@ -7,7 +7,7 @@ import {
     cloneLocation,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
-import { isNode } from "../../../shared/ast-node-helpers.js";
+import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -567,8 +567,9 @@ function visit(node, helpers, parent) {
         return;
     }
 
-    if (Array.isArray(node.body)) {
-        condenseWithinStatements(node.body, helpers, node, parent);
+    const bodyStatements = getBodyStatements(node);
+    if (bodyStatements.length > 0) {
+        condenseWithinStatements(bodyStatements, helpers, node, parent);
     } else if (isNode(node.body)) {
         visit(node.body, helpers, node);
     }

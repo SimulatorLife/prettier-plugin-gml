@@ -7,6 +7,8 @@ import {
     cloneLocation
 } from "../../../shared/ast-locations.js";
 import {
+    getArrayProperty,
+    getBodyStatements,
     getCallExpressionArguments,
     isBooleanLiteral
 } from "../../../shared/ast-node-helpers.js";
@@ -14390,9 +14392,9 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         }
 
         if (node.type === "Program" || node.type === "BlockStatement") {
-            const statements = Array.isArray(node.body) ? node.body : null;
+            const statements = getBodyStatements(node);
 
-            if (statements && statements.length > 0) {
+            if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(
                     statements,
                     diagnostic,
@@ -14404,10 +14406,8 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 }
             }
 
-            if (Array.isArray(node.body)) {
-                for (const statement of node.body) {
-                    visit(statement);
-                }
+            for (const statement of statements) {
+                visit(statement);
             }
 
             for (const [key, value] of Object.entries(node)) {
@@ -14424,11 +14424,9 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         }
 
         if (node.type === "CaseClause") {
-            const statements = Array.isArray(node.consequent)
-                ? node.consequent
-                : null;
+            const statements = getArrayProperty(node, "consequent");
 
-            if (statements && statements.length > 0) {
+            if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(
                     statements,
                     diagnostic,
@@ -14444,10 +14442,8 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 visit(node.test);
             }
 
-            if (Array.isArray(node.consequent)) {
-                for (const statement of node.consequent) {
-                    visit(statement);
-                }
+            for (const statement of statements) {
+                visit(statement);
             }
 
             for (const [key, value] of Object.entries(node)) {

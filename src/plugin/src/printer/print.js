@@ -53,6 +53,7 @@ import {
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
 import {
+    getBodyStatements,
     getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
@@ -1227,7 +1228,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
         return false;
     }
 
-    const body = Array.isArray(node.body) ? node.body : [];
+    const body = getBodyStatements(node);
     if (body.length !== 1) {
         return false;
     }
