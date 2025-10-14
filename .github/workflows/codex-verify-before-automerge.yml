@@ -36,6 +36,12 @@ jobs:
         working-directory: base
         run: npm ci
 
+      - name: Prepare test result directory (base)
+        working-directory: base
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
       - name: Run shared tests (base)
         working-directory: base
         run: >
@@ -86,6 +92,11 @@ jobs:
       - name: Install deps (head)
         run: npm ci
 
+      - name: Prepare test result directory (head)
+        run: |
+          rm -rf test-results
+          mkdir -p test-results
+
       - name: Run shared tests (head)
         run: >
           node --test
@@ -127,7 +138,7 @@ jobs:
 
       - name: Compare JUnit results (fail only on regressions)
         run: |
-          node -e "require('fs').writeFileSync('compare-junit.js', `
+          cat <<'EOF' > compare-junit.js
           const fs = require('fs');
           const path = require('path');
           const { XMLParser } = require('fast-xml-parser');
@@ -183,7 +194,8 @@ jobs:
           } else {
             console.log('No new failing tests compared to base.');
           }
-          `); node compare-junit.js"
+          EOF
+          node compare-junit.js
         shell: bash
 
       - name: Publish PR test summary (head only)
