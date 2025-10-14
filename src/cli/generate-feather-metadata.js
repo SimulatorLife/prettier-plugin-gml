@@ -6,7 +6,7 @@ import { load } from "cheerio";
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
-import { CliUsageError, handleCliError } from "../shared/cli-errors.js";
+import { CliUsageError, handleCliError } from "./cli-errors.js";
 import {
     assertSupportedNodeVersion,
     createManualGithubClient,

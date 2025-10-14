@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "../shared/cli-errors.js";
+import { CliUsageError, handleCliError } from "./cli-errors.js";
 import {
     assertSupportedNodeVersion,
     createManualGithubClient,
