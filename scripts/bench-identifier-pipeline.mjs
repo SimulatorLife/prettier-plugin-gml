@@ -4,7 +4,7 @@ import process from "node:process";
 
 import { buildProjectIndex } from "../src/plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../src/plugin/src/identifier-case/local-plan.js";
-import { CliUsageError, handleCliError } from "../src/cli/cli-errors.js";
+import { CliUsageError, handleCliError } from "../src/shared/cli-errors.js";
 
 const USAGE = [
     "Usage: node scripts/bench-identifier-pipeline.mjs [projectRoot] [file] [options]",
