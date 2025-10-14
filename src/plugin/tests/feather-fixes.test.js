@@ -1376,6 +1376,43 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("initialises missing enum member lists before adding fixes", () => {
+        const enumDeclaration = {
+            type: "EnumDeclaration",
+            name: { type: "Identifier", name: "FRUIT" },
+            members: null
+        };
+        const ast = {
+            type: "Program",
+            body: [
+                enumDeclaration,
+                {
+                    type: "ExpressionStatement",
+                    expression: {
+                        type: "MemberDotExpression",
+                        object: { type: "Identifier", name: "FRUIT" },
+                        property: { type: "Identifier", name: "KIWI" }
+                    }
+                }
+            ]
+        };
+
+        applyFeatherFixes(ast);
+
+        assert.ok(Array.isArray(enumDeclaration.members));
+        assert.deepStrictEqual(
+            enumDeclaration.members.map((member) => member?.name?.name),
+            ["KIWI"]
+        );
+
+        const metadata =
+            enumDeclaration.members[0]?._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(metadata.length, 1);
+        const [entry] = metadata;
+        assert.strictEqual(entry.id, "GM1014");
+        assert.strictEqual(entry.target, "FRUIT.KIWI");
+    });
+
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
