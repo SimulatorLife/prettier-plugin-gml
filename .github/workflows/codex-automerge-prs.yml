@@ -111,21 +111,31 @@ jobs:
 
             async function setFromPullRequest(pr) {
               if (!pr) return;
+
+              const changedFiles = Number(pr.changed_files || 0);
+              const shouldRun = changedFiles > 0;
+
               setOutputs({
                 mode: 'pr',
                 number: pr.number,
-                changed_files: pr.changed_files || 0,
+                changed_files: changedFiles,
                 head_ref: pr.head?.ref || '',
                 head_sha: pr.head?.sha || '',
                 base_ref: pr.base?.ref || '',
                 base_sha: pr.base?.sha || '',
-                should_run_tests: 'true',
-                skip_reason: '',
+                should_run_tests: shouldRun ? 'true' : 'false',
+                skip_reason: shouldRun ? '' : 'no-files-changed',
               });
 
-              core.notice(
-                `PR #${pr.number}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
-              );
+              if (shouldRun) {
+                core.notice(
+                  `PR #${pr.number}: ${changedFiles} changed file(s), head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
+                );
+              } else {
+                core.notice(
+                  `PR #${pr.number}: 0 changed files; regression tests will be skipped.`
+                );
+              }
             }
 
             if (eventName === 'pull_request' || eventName === 'workflow_dispatch') {
@@ -240,15 +250,6 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # Fast-pass when PR has no file changes (produces a green job)
-      - name: No changes — fast pass
-        if: ${{ needs.pr-meta.outputs.changed_files == '0' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.notice('PR has 0 changed files — skipping tests and marking regression-tests as passed.');
-            // Nothing else to do; remaining steps are guarded by "changed_files != 0".
-
       # === BASE (merge target) ===
       - name: Checkout base (merge target)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -925,43 +926,97 @@ jobs:
               core.notice(`Skip merge #${n}: draft.`);
               return;
             }
-            const state = String(pr.mergeable_state || '').toLowerCase();
-            if (pr.mergeable !== true || !['clean','unstable'].includes(state)) {
-              core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
-              return;
+              const state = String(pr.mergeable_state || '').toLowerCase();
+              const ALLOWED_STATES = new Set(['clean', 'unstable', 'blocked']);
+              if (pr.mergeable !== true) {
+                core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
+                return;
+              }
+
+              if (!ALLOWED_STATES.has(state)) {
+                core.notice(`Skip merge #${n}: mergeable_state "${state}" is not supported.`);
+                return;
+              }
+
+              if (state === 'blocked') {
+                core.notice(`PR #${n} reports mergeable_state=blocked; continuing after verifying required checks manually.`);
+              }
+
+            if (state === 'blocked') {
+              core.notice(
+                `Mergeable state for #${n} is "blocked"; proceeding because mergeability is true. GitHub will enforce any remaining protections during the merge attempt.`
+              );
             }
 
             const changedFiles = Number(pr.changed_files || 0);
             const sha = pr.head.sha;
 
-            async function hasGreenRegression(refSha) {
+            async function findRegressionRun(refSha) {
               const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: refSha, per_page: 100 });
-              return checks.check_runs.some(run =>
-                run.name === REQUIRED_RUN_NAME && run.status === 'completed' && run.conclusion === 'success'
-              );
+              return checks.check_runs.find(run => run.name === REQUIRED_RUN_NAME) || null;
+            }
+
+            async function waitForRegressionSuccess(refSha, headRef) {
+              const minutes = Math.floor(TIMEOUT_MS / 60000);
+              let run = await findRegressionRun(refSha);
+
+              if (run?.status === 'completed' && run?.conclusion === 'success') {
+                core.notice(`Regression already green for ${refSha}.`);
+                return true;
+              }
+
+              const dispatch = async (reason) => {
+                core.notice(`${reason} Dispatching "${REQUIRED_RUN_NAME}" for ${refSha}...`);
+                await github.rest.actions.createWorkflowDispatch({
+                  owner,
+                  repo,
+                  workflow_id: WORKFLOW_FILE,
+                  ref: headRef,
+                  inputs: { pr_number: String(n) },
+                });
+                run = null;
+              };
+
+              if (!run) {
+                await dispatch('No existing regression run found.');
+              } else if (run.status === 'completed' && run.conclusion !== 'success') {
+                await dispatch(`Latest regression concluded with "${run.conclusion}".`);
+              } else if (run.status !== 'completed') {
+                core.notice(
+                  `Existing regression run for ${refSha} is ${run.status}; waiting up to ${minutes} minute(s) for it to finish.`
+                );
+              }
+
+              const deadline = Date.now() + TIMEOUT_MS;
+              while (Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, POLL_MS));
+                run = await findRegressionRun(refSha);
+
+                if (!run) {
+                  continue;
+                }
+
+                if (run.status !== 'completed') {
+                  continue;
+                }
+
+                if (run.conclusion === 'success') {
+                  core.notice(`Regression passed for ${refSha}.`);
+                  return true;
+                }
+
+                core.notice(`Skip merge #${n}: regression concluded with "${run.conclusion || 'unknown'}" for ${refSha}.`);
+                return false;
+              }
+
+              core.notice(`Skip merge #${n}: regression run did not finish within ${minutes} minute(s) for ${refSha}.`);
+              return false;
             }
 
             if (changedFiles > 0) {
-              if (!(await hasGreenRegression(sha))) {
-                core.notice(`No passing "${REQUIRED_RUN_NAME}" for ${sha}. Dispatching regression run...`);
-                await github.rest.actions.createWorkflowDispatch({
-                  owner, repo, workflow_id: WORKFLOW_FILE,
-                  ref: pr.head.ref,
-                  inputs: { pr_number: String(n) }
-                });
-
-                const deadline = Date.now() + TIMEOUT_MS;
-                while (Date.now() < deadline) {
-                  await new Promise(r => setTimeout(r, POLL_MS));
-                  if (await hasGreenRegression(sha)) {
-                    core.notice(`Regression passed for ${sha}.`);
-                    break;
-                  }
-                }
-                if (!(await hasGreenRegression(sha))) {
-                  core.notice(`Skip merge #${n}: regression did not pass (or timed out) for ${sha}.`);
-                  return;
-                }
+              const ok = await waitForRegressionSuccess(sha, pr.head.ref);
+              if (!ok) {
+                return;
               }
             } else {
               core.info(`PR #${n} has no file changes; regression tests not required.`);

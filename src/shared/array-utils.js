@@ -43,3 +43,53 @@ export function asArray(value) {
 export function isNonEmptyArray(value) {
     return Array.isArray(value) && value.length > 0;
 }
+
+/**
+ * Merge a collection of additional entries into a default array while
+ * preserving order and eliminating duplicates. Callers can optionally supply a
+ * coercion function to normalize raw entries before they are compared and a
+ * key extractor to control how uniqueness is determined.
+ *
+ * @template T
+ * @param {ReadonlyArray<T>} defaultValues
+ * @param {Iterable<unknown> | null | undefined} additionalValues
+ * @param {Object} [options]
+ * @param {(value: unknown) => T | null | undefined} [options.coerce]
+ * @param {(value: T) => unknown} [options.getKey]
+ * @param {boolean} [options.freeze]
+ * @returns {ReadonlyArray<T>}
+ */
+export function mergeUniqueValues(
+    defaultValues,
+    additionalValues,
+    { coerce, getKey = (value) => value, freeze = true } = {}
+) {
+    const base = Array.isArray(defaultValues) ? defaultValues : [];
+    const merged = base.slice();
+    const seen = new Set(merged.map((value) => getKey(value)));
+    let added = false;
+
+    if (additionalValues) {
+        for (const rawValue of additionalValues) {
+            const value = coerce ? coerce(rawValue) : rawValue;
+            if (value == null) {
+                continue;
+            }
+
+            const key = getKey(value);
+            if (seen.has(key)) {
+                continue;
+            }
+
+            merged.push(value);
+            seen.add(key);
+            added = true;
+        }
+    }
+
+    if (!added && freeze && Object.isFrozen(base)) {
+        return Object.freeze(merged);
+    }
+
+    return freeze ? Object.freeze(merged) : merged;
+}
