@@ -20,6 +20,10 @@ import {
     resolveProgressBarWidth
 } from "./options/progress-bar.js";
 import {
+    DEFAULT_VM_EVAL_TIMEOUT_MS,
+    resolveVmEvalTimeout
+} from "./options/vm-eval-timeout.js";
+import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
 } from "./options/manual-cache.js";
@@ -48,6 +52,7 @@ const manualClient = createManualGitHubClient({
 const { fetchManualFile, resolveManualRef } = manualClient;
 
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
+const VM_EVAL_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 function createGenerateIdentifiersCommand() {
     const command = new Command()
@@ -88,6 +93,18 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_PROGRESS_BAR_WIDTH
         )
         .option(
+            "--vm-eval-timeout-ms <ms>",
+            `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
+            (value) => {
+                try {
+                    return resolveVmEvalTimeout(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            DEFAULT_VM_EVAL_TIMEOUT_MS
+        )
+        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -114,6 +131,7 @@ function createGenerateIdentifiersCommand() {
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
             `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
+            `  ${VM_EVAL_TIMEOUT_ENV_VAR}    Override the VM evaluation timeout in milliseconds.`,
             "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
         ].join("\n")
     );
@@ -151,6 +169,17 @@ function parseArgs({
                 env[PROGRESS_BAR_WIDTH_ENV_VAR]
             );
             command.setOptionValueWithSource("progressBarWidth", width, "env");
+        } catch (error) {
+            throw new CliUsageError(error.message, {
+                usage: command.helpInformation()
+            });
+        }
+    }
+
+    if (env[VM_EVAL_TIMEOUT_ENV_VAR] !== undefined) {
+        try {
+            const timeout = resolveVmEvalTimeout(env[VM_EVAL_TIMEOUT_ENV_VAR]);
+            command.setOptionValueWithSource("vmEvalTimeoutMs", timeout, "env");
         } catch (error) {
             throw new CliUsageError(error.message, {
                 usage: command.helpInformation()
@@ -198,6 +227,10 @@ function parseArgs({
         verbose,
         progressBarWidth:
             options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
+        vmEvalTimeoutMs:
+            options.vmEvalTimeoutMs === undefined
+                ? DEFAULT_VM_EVAL_TIMEOUT_MS
+                : options.vmEvalTimeoutMs,
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
@@ -205,7 +238,7 @@ function parseArgs({
     };
 }
 
-function parseArrayLiteral(source, identifier) {
+function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     const declaration = `const ${identifier} = [`;
     const start = source.indexOf(declaration);
     if (start === -1) {
@@ -249,8 +282,13 @@ function parseArrayLiteral(source, identifier) {
     }
 
     const literal = source.slice(bracketStart, index);
+    const vmOptions = {};
+    if (typeof timeoutMs === "number" && timeoutMs > 0) {
+        vmOptions.timeout = timeoutMs;
+    }
+
     try {
-        return vm.runInNewContext(literal, {}, { timeout: 5000 });
+        return vm.runInNewContext(literal, {}, vmOptions);
     } catch (error) {
         throw new Error(
             `Failed to evaluate array literal for ${identifier}: ${error.message}`
@@ -374,6 +412,7 @@ async function main({ argv, env, isTty } = {}) {
             outputPath,
             forceRefresh,
             verbose,
+            vmEvalTimeoutMs,
             progressBarWidth,
             cacheRoot,
             manualRepo,
@@ -441,17 +480,26 @@ async function main({ argv, env, isTty } = {}) {
         const gmlSource = fetchedPayloads.gmlSource;
         const keywordsArray = timeSync(
             "Parsing keyword array",
-            () => parseArrayLiteral(gmlSource, "KEYWORDS"),
+            () =>
+                parseArrayLiteral(gmlSource, "KEYWORDS", {
+                    timeoutMs: vmEvalTimeoutMs
+                }),
             { verbose }
         );
         const literalsArray = timeSync(
             "Parsing literal array",
-            () => parseArrayLiteral(gmlSource, "LITERALS"),
+            () =>
+                parseArrayLiteral(gmlSource, "LITERALS", {
+                    timeoutMs: vmEvalTimeoutMs
+                }),
             { verbose }
         );
         const symbolsArray = timeSync(
             "Parsing symbol array",
-            () => parseArrayLiteral(gmlSource, "SYMBOLS"),
+            () =>
+                parseArrayLiteral(gmlSource, "SYMBOLS", {
+                    timeoutMs: vmEvalTimeoutMs
+                }),
             { verbose }
         );
 
