@@ -355,14 +355,6 @@ jobs:
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
             const n     = Number('${{ needs.pr-meta.outputs.number }}');
-
-            // Never merge if there are no file changes
-            const changedFiles = Number(pr.changed_files || 0);
-            if (changedFiles === 0) {
-              core.notice(`Skip merge #${n}: no file changes.`);
-              return;
-            }
-
             const REQUIRED_RUN_NAME = 'Detect new test failures (allow legacy failures)';
             const WORKFLOW_FILE = '.github/workflows/codex-automerge-prs.yml';
             const POLL_MS = 10000;
@@ -380,6 +372,7 @@ jobs:
               return;
             }
 
+            const changedFiles = Number(pr.changed_files || 0);
             const sha = pr.head.sha;
 
             async function hasGreenRegression(refSha) {
