@@ -549,8 +549,6 @@ jobs:
               '| --- | ---: | ---: | ---: | ---: |',
               formatRow(`Base (${baseLabel})`, baseSummary),
               formatRow(`PR (${headLabel})`, headSummary),
-              '',
-              '_Durations are aggregated from reported test case timings._'
             ];
 
             const notes = [...baseSummary.notes, ...headSummary.notes];
