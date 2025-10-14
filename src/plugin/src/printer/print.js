@@ -2083,6 +2083,17 @@ function mergeSyntheticDocComments(
         }
     }
 
+    if (orderedParamDocs.length === 0) {
+        const implicitNames = collectImplicitArgumentDocNames(node, options);
+        for (const docName of implicitNames) {
+            const canonical = getCanonicalParamNameFromText(docName);
+            if (canonical && paramDocsByCanonical.has(canonical)) {
+                orderedParamDocs.push(paramDocsByCanonical.get(canonical));
+                paramDocsByCanonical.delete(canonical);
+            }
+        }
+    }
+
     for (const doc of paramDocsByCanonical.values()) {
         orderedParamDocs.push(doc);
     }
