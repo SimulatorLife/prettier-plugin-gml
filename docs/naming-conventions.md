@@ -8,7 +8,7 @@ need concrete before/after samples.
 
 ## 1. Core identifier-case system
 
-The plugin helpers in `src/plugin/src/identifier-case/identifier-case-utils.js` break every identifier into
+The plugin helpers in `src/shared/identifier-case/identifier-case-utils.js` break every identifier into
 a stable structure before applying a new case style. The normalisation pipeline
 behaves as follows:
 
