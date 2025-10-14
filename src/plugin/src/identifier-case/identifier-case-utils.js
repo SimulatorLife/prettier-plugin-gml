@@ -1,4 +1,4 @@
-import { capitalize } from "./string-utils.js";
+import { capitalize } from "../../../shared/string-utils.js";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
