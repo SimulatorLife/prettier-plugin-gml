@@ -26,7 +26,8 @@ function getStartIndex(node) {
     }
 
     const isMemberAccess =
-        (node.type === "MemberDotExpression" || node.type === "MemberIndexExpression") &&
+        (node.type === "MemberDotExpression" ||
+            node.type === "MemberIndexExpression") &&
         node.object;
 
     if (isMemberAccess) {
@@ -39,17 +40,13 @@ function getStartIndex(node) {
     return getLocationIndex(node, "start");
 }
 
-function getEndIndex(node) {
-    return getLocationIndex(node, "end");
-}
-
 function getNodeStartIndex(node) {
     const startIndex = getStartIndex(node);
     return typeof startIndex === "number" ? startIndex : null;
 }
 
 function getNodeEndIndex(node) {
-    const endIndex = getEndIndex(node);
+    const endIndex = getLocationIndex(node, "end");
     if (typeof endIndex === "number") {
         return endIndex + 1;
     }
@@ -58,10 +55,48 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-export {
-    getLocationIndex,
-    getStartIndex,
-    getEndIndex,
-    getNodeStartIndex,
-    getNodeEndIndex
-};
+function isPlainObjectOrArray(value) {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    if (Array.isArray(value)) {
+        return true;
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
+
+function clonePlainContainer(container) {
+    if (Array.isArray(container)) {
+        return container.map((value) =>
+            isPlainObjectOrArray(value) ? clonePlainContainer(value) : value
+        );
+    }
+
+    return Object.fromEntries(
+        Object.entries(container).map(([key, value]) => [
+            key,
+            isPlainObjectOrArray(value) ? clonePlainContainer(value) : value
+        ])
+    );
+}
+
+function cloneLocation(location) {
+    if (location == null) {
+        return undefined;
+    }
+
+    if (typeof location !== "object") {
+        return location;
+    }
+
+    if (!isPlainObjectOrArray(location)) {
+        return structuredClone(location);
+    }
+
+    return clonePlainContainer(location);
+}
+
+export { getNodeStartIndex, getNodeEndIndex, cloneLocation };
