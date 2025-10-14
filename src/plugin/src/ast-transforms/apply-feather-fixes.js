@@ -10,7 +10,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
-    isBooleanLiteral
+    isBooleanLiteral,
+    isVarVariableDeclaration
 } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
@@ -1171,7 +1172,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
 
         ancestorStack.push(node);
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             recordVariableDeclaration(variableDeclarations, {
                 declaration: node,
                 parent,
@@ -5566,7 +5567,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
                 ast,
@@ -6483,7 +6484,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "VariableDeclaration" && node.kind === "var") {
+        if (isVarVariableDeclaration(node)) {
             const fixDetails = handleVariableDeclaration(
                 node,
                 parent,

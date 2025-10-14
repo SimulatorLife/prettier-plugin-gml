@@ -25,6 +25,8 @@ jobs:
     outputs:
       pr_number: ${{ steps.select_pr.outputs.pr_number }}
       commented: ${{ steps.comment.outputs.commented }}
+      manual_run: ${{ steps.select_pr.outputs.manual_run }}
+      allow_repeat: ${{ steps.select_pr.outputs.allow_repeat }}
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -50,6 +52,26 @@ jobs:
             const marker = "<!-- codex-resolve-merge-conflicts -->";
             const manualInputRaw = context.payload?.inputs?.target_pr_number ?? "";
             const manualInput = typeof manualInputRaw === "string" ? manualInputRaw.trim() : "";
+            const manualRun = manualInput.length > 0;
+
+            function setOutputs({
+              found,
+              prNumber = "",
+              headRef = "",
+              baseRef = "",
+              headSha = "",
+              mergeableState = "",
+              allowRepeat = false,
+            }) {
+              core.setOutput("manual_run", manualRun ? "true" : "false");
+              core.setOutput("allow_repeat", allowRepeat ? "true" : "false");
+              core.setOutput("found", found ? "true" : "false");
+              core.setOutput("pr_number", prNumber);
+              core.setOutput("head_ref", headRef);
+              core.setOutput("base_ref", baseRef);
+              core.setOutput("head_sha", headSha);
+              core.setOutput("mergeable_state", mergeableState);
+            }
 
             async function fetchPullRequest(prNumber, attempts = 6) {
               for (let attempt = 0; attempt < attempts; attempt++) {
@@ -71,83 +93,57 @@ jobs:
               return comments.some((comment) => comment.body && comment.body.includes(marker));
             }
 
-            if (manualInput.length > 0) {
+            if (manualRun) {
               const requestedNumber = Number.parseInt(manualInput, 10);
               if (!Number.isInteger(requestedNumber) || requestedNumber <= 0) {
                 core.warning(`Invalid target PR number provided: "${manualInput}".`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
+                setOutputs({ found: false });
                 return;
               }
 
               const pr = await fetchPullRequest(requestedNumber);
               if (!pr) {
                 core.warning(`PR #${requestedNumber} could not be retrieved.`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
+                setOutputs({ found: false });
                 return;
               }
 
               if (pr.state !== "open") {
                 core.info(`PR #${requestedNumber} is not open (state: ${pr.state}).`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
+                setOutputs({ found: false });
                 return;
               }
 
               if ((pr.changed_files || 0) === 0) {
                 core.info(`PR #${requestedNumber} has no file changes.`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
+                setOutputs({ found: false });
                 return;
               }
 
               const mergeableState = pr.mergeable_state || "unknown";
               if (mergeableState !== "dirty") {
                 core.info(`PR #${requestedNumber} is mergeable_state="${mergeableState}".`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
+                setOutputs({ found: false });
                 return;
               }
 
-              if (await hasExistingMarker(pr.number)) {
-                core.info(`A conflict resolution request already exists on PR #${requestedNumber}.`);
-                core.setOutput("found", "false");
-                core.setOutput("pr_number", "");
-                core.setOutput("head_ref", "");
-                core.setOutput("base_ref", "");
-                core.setOutput("head_sha", "");
-                core.setOutput("mergeable_state", "");
-                return;
+              const hadExistingMarker = await hasExistingMarker(pr.number);
+              if (hadExistingMarker) {
+                core.info(
+                  `A conflict resolution request already exists on PR #${requestedNumber}, but manual override will request another comment.`
+                );
               }
 
               core.info(`Using manually specified PR #${requestedNumber} (${pr.head.ref}).`);
-              core.setOutput("found", "true");
-              core.setOutput("pr_number", String(pr.number));
-              core.setOutput("head_ref", pr.head.ref);
-              core.setOutput("base_ref", pr.base.ref);
-              core.setOutput("head_sha", pr.head.sha);
-              core.setOutput("mergeable_state", mergeableState);
+              setOutputs({
+                found: true,
+                prNumber: String(pr.number),
+                headRef: pr.head.ref,
+                baseRef: pr.base.ref,
+                headSha: pr.head.sha,
+                mergeableState,
+                allowRepeat: hadExistingMarker,
+              });
               return;
             }
 
@@ -177,22 +173,19 @@ jobs:
 
             if (!candidate) {
               core.info("No eligible PR found for conflict resolution comment.");
-              core.setOutput("found", "false");
-              core.setOutput("pr_number", "");
-              core.setOutput("head_ref", "");
-              core.setOutput("base_ref", "");
-              core.setOutput("head_sha", "");
-              core.setOutput("mergeable_state", "");
+              setOutputs({ found: false });
               return;
             }
 
             core.info(`Selected PR #${candidate.number} (${candidate.head.ref}) for conflict resolution comment.`);
-            core.setOutput("found", "true");
-            core.setOutput("pr_number", String(candidate.number));
-            core.setOutput("head_ref", candidate.head.ref);
-            core.setOutput("base_ref", candidate.base.ref);
-            core.setOutput("head_sha", candidate.head.sha);
-            core.setOutput("mergeable_state", candidate.mergeable_state || "unknown");
+            setOutputs({
+              found: true,
+              prNumber: String(candidate.number),
+              headRef: candidate.head.ref,
+              baseRef: candidate.base.ref,
+              headSha: candidate.head.sha,
+              mergeableState: candidate.mergeable_state || "unknown",
+            });
 
       - name: Comment to request conflict resolution (as your user)
         id: comment
@@ -204,6 +197,8 @@ jobs:
           BASE_REF: ${{ steps.select_pr.outputs.base_ref }}
           HEAD_SHA: ${{ steps.select_pr.outputs.head_sha }}
           MERGEABLE_STATE: ${{ steps.select_pr.outputs.mergeable_state }}
+          MANUAL_RUN: ${{ steps.select_pr.outputs.manual_run }}
+          ALLOW_REPEAT: ${{ steps.select_pr.outputs.allow_repeat }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -269,10 +264,17 @@ jobs:
             );
 
             const alreadyCommented = comments.some((comment) => comment.body && comment.body.includes(marker));
-            if (alreadyCommented) {
+            const manualRun = process.env.MANUAL_RUN === "true";
+            const allowRepeat = process.env.ALLOW_REPEAT === "true";
+
+            if (alreadyCommented && !(manualRun && allowRepeat)) {
               core.info(`A conflict resolution request already exists on PR #${prNumber}.`);
               core.setOutput("commented", "false");
               return;
+            }
+
+            if (alreadyCommented && manualRun && allowRepeat) {
+              core.info(`Manual run requested another conflict resolution comment on PR #${prNumber}.`);
             }
 
             const lines = [
