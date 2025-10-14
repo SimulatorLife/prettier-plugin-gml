@@ -111,21 +111,31 @@ jobs:
 
             async function setFromPullRequest(pr) {
               if (!pr) return;
+
+              const changedFiles = Number(pr.changed_files || 0);
+              const shouldRun = changedFiles > 0;
+
               setOutputs({
                 mode: 'pr',
                 number: pr.number,
-                changed_files: pr.changed_files || 0,
+                changed_files: changedFiles,
                 head_ref: pr.head?.ref || '',
                 head_sha: pr.head?.sha || '',
                 base_ref: pr.base?.ref || '',
                 base_sha: pr.base?.sha || '',
-                should_run_tests: 'true',
-                skip_reason: '',
+                should_run_tests: shouldRun ? 'true' : 'false',
+                skip_reason: shouldRun ? '' : 'no-files-changed',
               });
 
-              core.notice(
-                `PR #${pr.number}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
-              );
+              if (shouldRun) {
+                core.notice(
+                  `PR #${pr.number}: ${changedFiles} changed file(s), head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
+                );
+              } else {
+                core.notice(
+                  `PR #${pr.number}: 0 changed files; regression tests will be skipped.`
+                );
+              }
             }
 
             if (eventName === 'pull_request' || eventName === 'workflow_dispatch') {
@@ -240,15 +250,6 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # Fast-pass when PR has no file changes (produces a green job)
-      - name: No changes — fast pass
-        if: ${{ needs.pr-meta.outputs.changed_files == '0' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.notice('PR has 0 changed files — skipping tests and marking regression-tests as passed.');
-            // Nothing else to do; remaining steps are guarded by "changed_files != 0".
-
       # === BASE (merge target) ===
       - name: Checkout base (merge target)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
