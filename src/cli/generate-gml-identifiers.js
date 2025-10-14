@@ -8,7 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { CliUsageError, handleCliError } from "./cli-errors.js";
 import {
     assertSupportedNodeVersion,
-    createManualGithubClient,
+    createManualGitHubClient,
     ensureDir,
     formatDuration,
     renderProgressBar,
@@ -39,7 +39,7 @@ const OUTPUT_DEFAULT = path.join(
     "gml-identifiers.json"
 );
 
-const manualClient = createManualGithubClient({
+const manualClient = createManualGitHubClient({
     userAgent: "prettier-plugin-gml identifier generator",
     defaultCacheRoot: DEFAULT_CACHE_ROOT
 });

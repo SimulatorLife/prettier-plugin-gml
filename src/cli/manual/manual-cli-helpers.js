@@ -120,7 +120,7 @@ export async function ensureDir(dirPath) {
     await fs.mkdir(dirPath, { recursive: true });
 }
 
-export function createManualGithubClient({
+export function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
     defaultRawRoot = buildManualRepositoryEndpoints().rawRoot
