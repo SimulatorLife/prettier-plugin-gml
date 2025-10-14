@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { SingleBar, Presets } from "cli-progress";
+
 import { buildManualRepositoryEndpoints } from "../options/manual-repo.js";
 import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar.js";
 
@@ -60,6 +62,8 @@ function formatBytes(text) {
     return `${size}B`;
 }
 
+const activeProgressBars = new Map();
+
 export function renderProgressBar(
     label,
     current,
@@ -70,15 +74,30 @@ export function renderProgressBar(
         return;
     }
 
-    const clampedTotal = total > 0 ? total : 1;
-    const ratio = Math.min(Math.max(current / clampedTotal, 0), 1);
-    const filled = Math.round(ratio * width);
-    const bar = `${"#".repeat(filled)}${"-".repeat(Math.max(width - filled, 0))}`;
-    const message = `${label} [${bar}] ${current}/${total}`;
+    const normalizedTotal = total > 0 ? total : 1;
+    let bar = activeProgressBars.get(label);
 
-    process.stdout.write(`\r${message}`);
-    if (current >= total) {
-        process.stdout.write("\n");
+    if (!bar) {
+        bar = new SingleBar(
+            {
+                format: `${label} [{bar}] {value}/{total}`,
+                barsize: width,
+                hideCursor: true,
+                clearOnComplete: true,
+                linewrap: true
+            },
+            Presets.shades_classic
+        );
+        bar.start(normalizedTotal, Math.min(current, normalizedTotal));
+        activeProgressBars.set(label, bar);
+    } else {
+        bar.setTotal(normalizedTotal);
+        bar.update(Math.min(current, normalizedTotal));
+    }
+
+    if (current >= normalizedTotal) {
+        bar.stop();
+        activeProgressBars.delete(label);
     }
 }
 

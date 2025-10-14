@@ -10,6 +10,7 @@ import {
 } from "./line-comment-formatting.js";
 import {
     getTrailingCommentInlinePadding,
+    getTrailingCommentPadding,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 
@@ -209,10 +210,22 @@ function applyTrailingCommentPadding(comment, options) {
     }
 
     const inlinePadding = getTrailingCommentInlinePadding(options);
+    const trailingPadding = getTrailingCommentPadding(options);
+    const baseTrailingPadding = Math.max(trailingPadding - 1, 0);
+    const enumPadding =
+        typeof comment._enumTrailingPadding === "number"
+            ? comment._enumTrailingPadding
+            : 0;
+
+    const desiredPadding = Math.max(
+        inlinePadding,
+        baseTrailingPadding + enumPadding
+    );
+
     if (typeof comment.inlinePadding === "number") {
-        comment.inlinePadding = Math.max(comment.inlinePadding, inlinePadding);
-    } else if (inlinePadding > 0) {
-        comment.inlinePadding = inlinePadding;
+        comment.inlinePadding = Math.max(comment.inlinePadding, desiredPadding);
+    } else if (desiredPadding > 0) {
+        comment.inlinePadding = desiredPadding;
     }
 }
 
