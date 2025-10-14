@@ -8,111 +8,103 @@ on:
     branches:
       - codex/**
       - chore/auto-lint-format
-  schedule:
-    - cron: "0,30 * * * *"
   workflow_dispatch:
     inputs:
-      confirm:
-        description: "Type 'merge' to run the auto-merge sweep"
-        required: false
-        default: "merge"
       pr_number:
-        description: "PR number to verify (optional; if omitted we try to resolve automatically)"
+        description: "PR number to verify (optional; omit to auto-resolve from branch)"
         required: false
 
 permissions:
   contents: write
   pull-requests: write
   checks: write
-  actions: read
+  actions: write
 
+# Avoid overlapping runs per PR/branch
 concurrency:
   group: codex-automerge-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
   ###########################################################################
-  # PR metadata: read changed_files (so we can skip regression-tests if 0)
+  # PR metadata (used by regression test gating + merges)
   ###########################################################################
   pr-meta:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     outputs:
-      number: ${{ steps.meta.outputs.number }}
-      changed_files: ${{ steps.meta.outputs.changed_files }}
-      run_tests: ${{ steps.meta.outputs.run_tests }}
-      reason: ${{ steps.meta.outputs.reason }}
+      number: ${{ steps.get.outputs.number }}
+      changed_files: ${{ steps.get.outputs.changed_files }}
+      head_ref: ${{ steps.get.outputs.head_ref }}
+      base_sha: ${{ steps.get.outputs.base_sha }}
     steps:
-      - name: Resolve PR and changed file count
-        id: meta
+      - name: Read PR details
+        id: get
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
 
-            // 1) Find the PR number for this run
-            let number = null;
-            if (context.eventName === 'pull_request') {
-              number = context.payload.pull_request.number;
-            } else if (context.eventName === 'workflow_dispatch') {
-              const inputNum = (context.payload.inputs?.pr_number || '').trim();
-              if (inputNum) number = Number(inputNum);
-              else if (context.ref?.startsWith('refs/heads/')) {
-                // try to find an open PR from this branch (if this was dispatched from a branch run UI)
-                const branch = context.ref.replace('refs/heads/', '');
-                const prs = await github.paginate(github.rest.pulls.list, {
-                  owner, repo, state: 'open', head: `${owner}:${branch}`, per_page: 100
-                });
-                if (prs.length) number = prs[0].number;
+            async function resolvePrNumber() {
+              if (context.eventName === 'pull_request') {
+                return context.payload.pull_request.number;
               }
-            } else if (context.eventName === 'push' && context.ref?.startsWith('refs/heads/codex/')) {
-              const branch = context.ref.replace('refs/heads/', '');
-              const prs = await github.paginate(github.rest.pulls.list, {
-                owner, repo, state: 'open', head: `${owner}:${branch}`, per_page: 100
-              });
-              if (prs.length) number = prs[0].number;
+              const inputNum = Number((context.payload.inputs?.pr_number || '').trim() || 0);
+              if (inputNum) return inputNum;
+
+              // Auto-resolve: dispatch from PR head branch
+              const ref = (context.ref || '').replace('refs/heads/', '');
+              if (!ref) return 0;
+              const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
+              const match = prs.find(p => p.head?.ref === ref);
+              return match?.number || 0;
             }
 
-            // 2) If we couldn't find a PR, skip tests
-            if (!number) {
-              core.setOutput('number', '');
-              core.setOutput('changed_files', '0');
-              core.setOutput('run_tests', 'false');
-              core.setOutput('reason', 'no PR to verify');
-              core.notice('Regression tests: skipped (no PR to verify).');
+            const n = await resolvePrNumber();
+            if (!n) {
+              core.setFailed('pr-meta: Could not determine PR number. Provide inputs.pr_number or dispatch from the PR head branch.');
               return;
             }
 
-            // 3) Read PR and decide if tests should run
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-            const changed = Number(pr.changed_files || 0);
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
 
-            core.setOutput('number', String(number));
-            core.setOutput('changed_files', String(changed));
-            core.setOutput('run_tests', changed > 0 ? 'true' : 'false');
-            core.setOutput('reason', changed > 0 ? '' : 'no file changes');
-            core.notice(`PR #${number}: changed_files=${changed}`);
+            core.setOutput('number', String(n));
+            core.setOutput('changed_files', String(pr.changed_files || 0));
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('base_sha', pr.base.sha);
+            core.notice(`PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_sha=${pr.base.sha}`);
 
   ###########################################################################
-  # PR regression detection (runs first on PRs; head at root for .git)
-  # Only runs if the PR has file changes
+  # Regression detection (always creates/checks a job; fast-passes when no changes)
   ###########################################################################
   regression-tests:
-    if: ${{ needs.pr-meta.outputs.run_tests == 'true' }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     needs: pr-meta
-    timeout-minutes: 30
     name: Detect new test failures (allow legacy failures)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
+      # Fast-pass when PR has no file changes (produces a green job)
+      - name: No changes — fast pass
+        if: ${{ needs.pr-meta.outputs.changed_files == '0' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.notice('PR has 0 changed files — skipping tests and marking regression-tests as passed.');
+            // Nothing else to do; remaining steps are guarded by "changed_files != 0".
+
       # === BASE (merge target) ===
       - name: Checkout base (merge target)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ needs.pr-meta.outputs.base_sha }}
           path: base
 
       - name: Setup Node (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -120,16 +112,19 @@ jobs:
           cache-dependency-path: base/package-lock.json
 
       - name: Install deps (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base
         run: npm ci
 
       - name: Prepare test result directory (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base
         run: |
           rm -rf test-results
           mkdir -p test-results
 
       - name: Run shared tests (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base
         run: |
           mkdir -p test-results
@@ -140,6 +135,7 @@ jobs:
         continue-on-error: true
 
       - name: Run parser tests (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base/src/parser
         run: |
           mkdir -p ../../test-results
@@ -150,6 +146,7 @@ jobs:
         continue-on-error: true
 
       - name: Run plugin tests (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base/src/plugin
         run: |
           mkdir -p ../../test-results
@@ -160,6 +157,7 @@ jobs:
         continue-on-error: true
 
       - name: Run CLI tests (base)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: base/src/cli
         run: |
           mkdir -p ../../test-results
@@ -171,9 +169,13 @@ jobs:
 
       # === HEAD (PR) at workspace root ===
       - name: Checkout head (PR)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.pr-meta.outputs.head_ref }}
 
       - name: Setup Node (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -181,14 +183,17 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install deps (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: npm ci
 
       - name: Prepare test result directory (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: |
           rm -rf test-results
           mkdir -p test-results
 
       - name: Run shared tests (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: |
           mkdir -p test-results
           node --test \
@@ -198,6 +203,7 @@ jobs:
         continue-on-error: true
 
       - name: Run parser tests (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: src/parser
         run: |
           mkdir -p ../../test-results
@@ -208,6 +214,7 @@ jobs:
         continue-on-error: true
 
       - name: Run plugin tests (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: src/plugin
         run: |
           mkdir -p ../../test-results
@@ -218,6 +225,7 @@ jobs:
         continue-on-error: true
 
       - name: Run CLI tests (head)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         working-directory: src/cli
         run: |
           mkdir -p ../../test-results
@@ -228,9 +236,11 @@ jobs:
         continue-on-error: true
 
       - name: Install compare script dependency
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: npm install --no-save fast-xml-parser@^4
 
       - name: Compare JUnit results (fail only on regressions)
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         run: |
           cat <<'EOF' > compare-junit.mjs
           import fs from 'node:fs';
@@ -239,7 +249,7 @@ jobs:
 
           function readCases(rootDir) {
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
-            const results = new Map(); // key => status
+            const results = new Map();
             const resultsDir = path.join(rootDir, 'test-results');
             if (!fs.existsSync(resultsDir)) return results;
 
@@ -294,103 +304,139 @@ jobs:
 
       - name: Publish PR test summary (head only)
         if: always()
+        continue-on-error: true
         uses: dorny/test-reporter@v2
         with:
           name: Node.js test results (PR head)
           path: test-results/*.xml
           reporter: java-junit
-          fail-on-error: false  # ← don't fail on legacy failures
+          fail-on-error: false
+          fail-on-empty: false
           use-actions-summary: true
 
+      # 👇 Adds/updates a sticky PR comment with a concise summary & failures
+      - name: Comment test results on PR (sticky)
+        if: ${{ always() && github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
+        continue-on-error: true
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            test-results/**/*.xml
+          check_name: Node.js test results (PR head)
+          comment_mode: changes
+          pull_request_build: merge
+          compare_to_earlier_commit: true
+          comment_title: "Node.js test results (PR head)"
+
+      # 👇 Attach raw reports so anyone can download/open them from the PR
+      - name: Upload test reports as artifacts
+        if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-and-tap-${{ github.sha }}
+          path: |
+            test-results/*.xml
+            test-results/*.tap
+          retention-days: 7
+
   ###########################################################################
-  # Auto-merge a single PR event (only after regression-tests OR if no changes)
+  # Auto-merge on PR events (re-run regression if needed for current SHA)
   ###########################################################################
   auto-merge-pr:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
     needs: [pr-meta, regression-tests]
     runs-on: ubuntu-latest
     steps:
-      - name: Read PR and merge if clean/unstable
+      - name: Require green regression (or run it), then merge
         uses: actions/github-script@v7
         with:
           script: |
-            const n = context.payload.pull_request.number;
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
+            const n     = Number('${{ needs.pr-meta.outputs.number }}');
+
+            // Never merge if there are no file changes
+            const changedFiles = Number(pr.changed_files || 0);
+            if (changedFiles === 0) {
+              core.notice(`Skip merge #${n}: no file changes.`);
+              return;
+            }
+
+            const REQUIRED_RUN_NAME = 'Detect new test failures (allow legacy failures)';
+            const WORKFLOW_FILE = '.github/workflows/codex-automerge-prs.yml';
+            const POLL_MS = 10000;
+            const TIMEOUT_MS = 20 * 60 * 1000;
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
 
-            // If there are zero changed files, regression-tests was skipped.
-            if (pr.draft || (pr.changed_files || 0) === 0) {
-              core.notice(`Skipping auto-merge for PR #${n} (draft or no changes).`);
+            if (pr.draft) {
+              core.notice(`Skip merge #${n}: draft.`);
               return;
             }
-
             const state = String(pr.mergeable_state || '').toLowerCase();
-            if (pr.mergeable !== true || ['clean','unstable'].indexOf(state) === -1) {
-              core.notice(`Skipping auto-merge for PR #${n} (mergeable=${pr.mergeable}, state=${state}).`);
+            if (pr.mergeable !== true || !['clean','unstable'].includes(state)) {
+              core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
               return;
             }
 
+            const changedFiles = Number(pr.changed_files || 0);
+            const sha = pr.head.sha;
+
+            async function hasGreenRegression(refSha) {
+              const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: refSha, per_page: 100 });
+              return checks.check_runs.some(run =>
+                run.name === REQUIRED_RUN_NAME && run.status === 'completed' && run.conclusion === 'success'
+              );
+            }
+
+            if (changedFiles > 0) {
+              if (!(await hasGreenRegression(sha))) {
+                core.notice(`No passing "${REQUIRED_RUN_NAME}" for ${sha}. Dispatching regression run...`);
+                await github.rest.actions.createWorkflowDispatch({
+                  owner, repo, workflow_id: WORKFLOW_FILE,
+                  ref: pr.head.ref,
+                  inputs: { pr_number: String(n) }
+                });
+
+                const deadline = Date.now() + TIMEOUT_MS;
+                while (Date.now() < deadline) {
+                  await new Promise(r => setTimeout(r, POLL_MS));
+                  if (await hasGreenRegression(sha)) {
+                    core.notice(`Regression passed for ${sha}.`);
+                    break;
+                  }
+                }
+                if (!(await hasGreenRegression(sha))) {
+                  core.notice(`Skip merge #${n}: regression did not pass (or timed out) for ${sha}.`);
+                  return;
+                }
+              }
+            } else {
+              core.info(`PR #${n} has no file changes; regression tests not required.`);
+            }
+
+            // Merge
             await github.rest.pulls.merge({ owner, repo, pull_number: n, merge_method: 'squash' });
             core.notice(`Auto-merged PR #${n}.`);
 
-  ###########################################################################
-  # Scheduled sweep for open PRs (cron/dispatch/push to bot branches)
-  ###########################################################################
-  scheduled-automerge:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/codex/') || github.ref == 'refs/heads/chore/auto-lint-format')) }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Merge eligible open PRs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const trigger = context.eventName;
-            const inputs = (context.payload && context.payload.inputs) ? context.payload.inputs : {};
-            const confirm = (inputs && inputs.confirm) ? String(inputs.confirm).trim().toLowerCase() : '';
-            if (trigger === 'workflow_dispatch' && confirm !== 'merge') {
-              core.notice('Skipping auto-merge sweep: confirmation keyword not provided.');
-              return;
-            }
-
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const merged = [];
-            const skipped = [];
-            const acceptableStates = new Set(['clean', 'unstable']);
-
-            const openPRs = await github.paginate(
-              github.rest.pulls.list,
-              { owner, repo, state: 'open', per_page: 100, sort: 'updated', direction: 'desc' }
-            );
-
-            for (const pr of openPRs) {
-              try {
-                if (pr.draft || (pr.changed_files || 0) === 0) {
-                  skipped.push({ number: pr.number, reason: 'draft/no changes' });
-                  continue;
+            // Delete head branch if safe
+            try {
+              const headRef = pr.head?.ref;
+              const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+              const thisFull = `${owner}/${repo}`.toLowerCase();
+              if (!headRef || headRepoFull !== thisFull) {
+                core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
+              } else {
+                const { data: rinfo } = await github.rest.repos.get({ owner, repo });
+                const defaultBranch = rinfo.default_branch;
+                if (headRef === defaultBranch) {
+                  core.info(`Not deleting branch: ${headRef} is the default branch.`);
+                } else {
+                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+                  core.notice(`Deleted branch ${headRef} after merge.`);
                 }
-                if (pr.mergeable === null) {
-                  skipped.push({ number: pr.number, reason: 'mergeability unknown' });
-                  continue;
-                }
-                const state = String(pr.mergeable_state || '').toLowerCase();
-                if (pr.mergeable !== true || !acceptableStates.has(state)) {
-                  skipped.push({ number: pr.number, reason: 'not mergeable: ' + state });
-                  continue;
-                }
-
-                await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash' });
-                merged.push(pr.number);
-              } catch (error) {
-                core.warning(`Failed to auto-merge PR #${pr.number}: ${error.message}`);
-                skipped.push({ number: pr.number, reason: 'exception' });
               }
-            }
-
-            core.notice(`Scheduled auto-merge complete. Merged ${merged.length} PR(s): ${merged.join(', ') || 'none'}.`);
-            if (skipped.length) {
-              const breakdown = skipped.map(e => `#${e.number} (${e.reason})`).join(', ');
-              core.info(`Skipped PRs: ${breakdown}`);
+            } catch (e) {
+              core.warning(`Unable to delete head branch: ${e.message}`);
             }

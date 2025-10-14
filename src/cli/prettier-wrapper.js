@@ -9,11 +9,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { asArray } from "../shared/array-utils.js";
 import { normalizeStringList } from "../shared/string-utils.js";
 
-import {
-    CliUsageError,
-    formatCliError,
-    handleCliError
-} from "../shared/cli-errors.js";
+import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(
