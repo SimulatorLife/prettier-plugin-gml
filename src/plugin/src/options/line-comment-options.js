@@ -1,3 +1,4 @@
+import { mergeUniqueValues } from "../../../shared/array-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createCachedOptionResolver } from "./options-cache.js";
@@ -78,12 +79,10 @@ function mergeBoilerplateFragments(
         return DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS;
     }
 
-    const merged = [
-        ...DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
-        ...normalizedFragments
-    ];
-
-    return Object.freeze(Array.from(new Set(merged)));
+    return mergeUniqueValues(
+        DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
+        normalizedFragments
+    );
 }
 
 function mergeLineCommentOptionOverrides(overrides) {
@@ -257,25 +256,10 @@ function mergeCodeDetectionPatterns(
         return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     }
 
-    const merged = [...DEFAULT_COMMENTED_OUT_CODE_PATTERNS];
-    const seen = new Set(merged.map((pattern) => pattern.toString()));
-
-    for (const entry of entries) {
-        const pattern = coerceRegExp(entry);
-        if (!pattern) {
-            continue;
-        }
-
-        const key = pattern.toString();
-        if (seen.has(key)) {
-            continue;
-        }
-
-        merged.push(pattern);
-        seen.add(key);
-    }
-
-    return Object.freeze(merged);
+    return mergeUniqueValues(DEFAULT_COMMENTED_OUT_CODE_PATTERNS, entries, {
+        coerce: coerceRegExp,
+        getKey: (pattern) => pattern.toString()
+    });
 }
 
 function coerceRegExp(value) {
