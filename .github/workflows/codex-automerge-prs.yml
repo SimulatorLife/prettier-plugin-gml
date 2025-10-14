@@ -353,3 +353,4 @@ jobs:
             if (skipped.length) {
               const breakdown = skipped.map(e => `#${e.number} (${e.reason})`).join(', ');
               core.info(`Skipped PRs: ${breakdown}`);
+            }
