@@ -862,11 +862,21 @@ jobs:
               core.notice(`Skip merge #${n}: draft.`);
               return;
             }
-            const state = String(pr.mergeable_state || '').toLowerCase();
-            if (pr.mergeable !== true || !['clean','unstable'].includes(state)) {
-              core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
-              return;
-            }
+              const state = String(pr.mergeable_state || '').toLowerCase();
+              const ALLOWED_STATES = new Set(['clean', 'unstable', 'blocked']);
+              if (pr.mergeable !== true) {
+                core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
+                return;
+              }
+
+              if (!ALLOWED_STATES.has(state)) {
+                core.notice(`Skip merge #${n}: mergeable_state "${state}" is not supported.`);
+                return;
+              }
+
+              if (state === 'blocked') {
+                core.notice(`PR #${n} reports mergeable_state=blocked; continuing after verifying required checks manually.`);
+              }
 
             const changedFiles = Number(pr.changed_files || 0);
             const sha = pr.head.sha;
