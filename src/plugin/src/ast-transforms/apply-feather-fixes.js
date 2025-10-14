@@ -531,6 +531,27 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2007") {
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () => ({ ast, sourceText }) => {
+                    const fixes = ensureVarDeclarationsAreTerminated({
+                        ast,
+                        sourceText,
+                        diagnostic
+                    });
+
+                    if (Array.isArray(fixes) && fixes.length > 0) {
+                        return fixes;
+                    }
+
+                    return registerManualFeatherFix({ ast, diagnostic });
+                }
+            );
+            continue;
+        }
+
         if (diagnosticId === "GM2008") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = closeOpenVertexBatches({ ast, diagnostic });
@@ -4799,6 +4820,191 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
+    if (
+        !diagnostic ||
+        !ast ||
+        typeof ast !== "object" ||
+        typeof sourceText !== "string"
+    ) {
+        return [];
+    }
+
+    if (sourceText.length === 0) {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "VariableDeclaration" && node.kind === "var") {
+            const fix = ensureVarDeclarationIsTerminated(
+                node,
+                sourceText,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return fixes;
+}
+
+function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic) {
+    if (!node || node.type !== "VariableDeclaration" || node.kind !== "var") {
+        return null;
+    }
+
+    if (variableDeclarationHasTerminatingSemicolon(node, sourceText)) {
+        return null;
+    }
+
+    const target = extractVariableDeclarationTarget(node);
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    attachFeatherFixMetadata(node, [fixDetail]);
+
+    return fixDetail;
+}
+
+function extractVariableDeclarationTarget(node) {
+    if (!node || node.type !== "VariableDeclaration") {
+        return null;
+    }
+
+    const declarations = Array.isArray(node.declarations)
+        ? node.declarations
+        : [];
+
+    if (declarations.length === 0) {
+        return null;
+    }
+
+    const [firstDeclarator] = declarations;
+    const identifier = firstDeclarator?.id;
+
+    if (!identifier || identifier.type !== "Identifier") {
+        return null;
+    }
+
+    return identifier.name ?? null;
+}
+
+function variableDeclarationHasTerminatingSemicolon(node, sourceText) {
+    if (
+        !node ||
+        node.type !== "VariableDeclaration" ||
+        typeof sourceText !== "string"
+    ) {
+        return true;
+    }
+
+    const length = sourceText.length;
+    if (length === 0) {
+        return true;
+    }
+
+    const searchStart = getNodeEndIndex(node);
+
+    if (typeof searchStart !== "number") {
+        return true;
+    }
+
+    let index = searchStart;
+
+    while (index < length) {
+        const char = sourceText[index];
+
+        if (char === ";") {
+            return true;
+        }
+
+        if (char === " " || char === "\t" || char === "\v" || char === "\f") {
+            index += 1;
+            continue;
+        }
+
+        if (char === "\r") {
+            return false;
+        }
+
+        if (char === "\n") {
+            return false;
+        }
+
+        if (char === "/") {
+            const nextChar = sourceText[index + 1];
+
+            if (nextChar === "/") {
+                return false;
+            }
+
+            if (nextChar === "*") {
+                const closingIndex = sourceText.indexOf("*/", index + 2);
+
+                if (closingIndex === -1) {
+                    return false;
+                }
+
+                index = closingIndex + 2;
+                continue;
+            }
+
+            return false;
+        }
+
+        if (char === "\u2028" || char === "\u2029") {
+            return false;
+        }
+
+        if (char && char.trim() === "") {
+            index += 1;
+            continue;
+        }
+
+        return false;
+    }
+
+    return false;
 }
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
