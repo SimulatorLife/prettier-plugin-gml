@@ -734,6 +734,22 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2005") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureSurfaceTargetResetForGM2005({
+                    ast,
+                    diagnostic
+                });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2011") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
@@ -8635,6 +8651,126 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureSurfaceTargetResetForGM2005({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureSurfaceTargetResetAfterCallForGM2005(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureSurfaceTargetResetAfterCallForGM2005(
+    node,
+    parent,
+    property,
+    diagnostic
+) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!isSurfaceSetTargetCall(node)) {
+        return null;
+    }
+
+    const siblings = parent;
+    let insertionIndex = siblings.length;
+
+    for (let index = property + 1; index < siblings.length; index += 1) {
+        const candidate = siblings[index];
+
+        if (isSurfaceResetTargetCall(candidate)) {
+            return null;
+        }
+
+        if (isSurfaceSetTargetCall(candidate)) {
+            insertionIndex = index;
+            break;
+        }
+
+        if (isTerminatingStatement(candidate)) {
+            insertionIndex = index;
+            break;
+        }
+
+        if (isDrawSurfaceCall(candidate)) {
+            insertionIndex = index;
+            break;
+        }
+
+        if (!isCallExpression(candidate)) {
+            insertionIndex = index;
+            break;
+        }
+    }
+
+    insertionIndex = Math.max(property + 1, insertionIndex);
+
+    const resetCall = createSurfaceResetTargetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(insertionIndex, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -12831,6 +12967,34 @@ function isLiteralZero(node) {
     return node.value === "0" || node.value === 0;
 }
 
+function isDrawSurfaceCall(node) {
+    if (!isCallExpression(node)) {
+        return false;
+    }
+
+    const name = node.object?.name;
+
+    if (typeof name !== "string") {
+        return false;
+    }
+
+    return name.startsWith("draw_surface");
+}
+
+function isTerminatingStatement(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    return (
+        node.type === "ReturnStatement" ||
+        node.type === "BreakStatement" ||
+        node.type === "ContinueStatement" ||
+        node.type === "ThrowStatement" ||
+        node.type === "ExitStatement"
+    );
+}
+
 function isLiteralOne(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -13048,6 +13212,14 @@ function createAlphaTestRefResetCall(template) {
     }
 
     return callExpression;
+}
+
+function isSurfaceSetTargetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    return isIdentifierWithName(node.object, "surface_set_target");
 }
 
 function createHalignResetCall(template) {

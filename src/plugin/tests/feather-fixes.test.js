@@ -4252,6 +4252,77 @@ describe("applyFeatherFixes transform", () => {
             true
         );
     });
+
+    it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "surface_set_target(sf_canvas);",
+            "draw_clear_alpha(c_white, 0);",
+            "draw_rectangle(4, 4, 40, 40);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const setTargetIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_set_target"
+        );
+
+        assert.ok(
+            setTargetIndex >= 0,
+            "Expected surface_set_target call in test fixture AST."
+        );
+
+        const resetCallIndex = body.findIndex(
+            (node, index) =>
+                index > setTargetIndex &&
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(
+            resetCallIndex > setTargetIndex,
+            "Expected surface_reset_target call to be inserted after surface_set_target."
+        );
+
+        const resetCall = body[resetCallIndex];
+
+        assert.ok(
+            resetCall,
+            "Expected surface_reset_target call to be inserted after surface_set_target."
+        );
+        assert.strictEqual(resetCall.type, "CallExpression");
+        assert.strictEqual(resetCall.object?.name, "surface_reset_target");
+        assert.ok(Array.isArray(resetCall.arguments));
+        assert.strictEqual(resetCall.arguments.length, 0);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2005 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2005"
+        );
+
+        assert.ok(
+            gm2005,
+            "Expected GM2005 metadata to be recorded on the AST."
+        );
+        assert.strictEqual(gm2005.automatic, true);
+        assert.strictEqual(gm2005.target, "surface_set_target");
+        assert.ok(gm2005.range);
+
+        const resetDiagnostics = resetCall._appliedFeatherDiagnostics ?? [];
+        assert.strictEqual(
+            resetDiagnostics.some((entry) => entry.id === "GM2005"),
+            true
+        );
+    });
 });
 
 function isCallExpression(node) {
