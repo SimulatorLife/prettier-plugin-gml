@@ -9,7 +9,7 @@ import {
     planAssetRenames,
     applyAssetRenames
 } from "../src/identifier-case/asset-renames.js";
-import { fromPosixPath } from "../src/utils/path-utils.js";
+import { fromPosixPath } from "../../shared/path-utils.js";
 
 describe("asset rename utilities", () => {
     it("renames script assets and updates dependent resource metadata atomically", async () => {
