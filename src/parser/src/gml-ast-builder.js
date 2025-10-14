@@ -149,18 +149,22 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             return null;
         }
 
-        const startIndex =
-            token.start != null
-                ? token.start
-                : token.startIndex != null
-                    ? token.startIndex
-                    : null;
-        const stopIndex =
-            token.stop != null
-                ? token.stop
-                : token.stopIndex != null
-                    ? token.stopIndex
-                    : startIndex;
+        let startIndex = null;
+        if (token.start != null) {
+            startIndex = token.start;
+        } else if (token.startIndex != null) {
+            startIndex = token.startIndex;
+        }
+
+        let stopIndex = null;
+        if (token.stop != null) {
+            stopIndex = token.stop;
+        } else if (token.stopIndex != null) {
+            stopIndex = token.stopIndex;
+        } else {
+            stopIndex = startIndex;
+        }
+
         const identifierLength =
             startIndex != null && stopIndex != null
                 ? stopIndex - startIndex + 1
