@@ -17,7 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { collectCommentNodes, getCommentArray } from "../comments/index.js";
@@ -325,7 +325,7 @@ export function applyFeatherFixes(
 function buildFeatherDiagnosticFixers(diagnostics, implementationRegistry) {
     const registry = new Map();
 
-    for (const diagnostic of Array.isArray(diagnostics) ? diagnostics : []) {
+    for (const diagnostic of asArray(diagnostics)) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId || registry.has(diagnosticId)) {
@@ -374,7 +374,7 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
             options: context?.options
         });
 
-        return Array.isArray(fixes) ? fixes : [];
+        return asArray(fixes);
     };
 }
 
@@ -406,7 +406,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
         }
 
         if (node.type === "EnumDeclaration") {
-            const members = Array.isArray(node.members) ? node.members : [];
+            const members = asArray(node.members);
 
             if (members.length > 1) {
                 const seen = new Map();
@@ -590,7 +590,7 @@ function isBreakableConstruct(node) {
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
-    for (const diagnostic of Array.isArray(diagnostics) ? diagnostics : []) {
+    for (const diagnostic of asArray(diagnostics)) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
