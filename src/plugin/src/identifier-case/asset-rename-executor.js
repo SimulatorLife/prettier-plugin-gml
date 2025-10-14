@@ -39,33 +39,25 @@ const defaultFsFacade = Object.freeze({
     }
 });
 
-function pathIsAccessible(fsFacade, targetPath, checks) {
+function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
         return false;
     }
 
-    for (const check of checks ?? []) {
-        const { method, args = [], expectsBoolean = false } = check;
-        const fn = fsFacade[method];
-        if (typeof fn !== "function") {
-            continue;
-        }
-
-        try {
-            const result = fn.call(fsFacade, targetPath, ...args);
-            const succeeded = !expectsBoolean || Boolean(result);
-            if (succeeded) {
-                return true;
-            }
-        } catch (error) {
-            if (error?.code === "ENOENT") {
-                continue;
-            }
-            throw error;
-        }
+    const fn = fsFacade[method];
+    if (typeof fn !== "function") {
+        return false;
     }
 
-    return false;
+    try {
+        const result = fn.call(fsFacade, targetPath, ...args);
+        return method === "existsSync" ? Boolean(result) : true;
+    } catch (error) {
+        if (error?.code === "ENOENT") {
+            return false;
+        }
+        throw error;
+    }
 }
 
 function toSystemPath(relativePath) {
@@ -186,12 +178,10 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
     const accessArgs =
         DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
 
-    const isAccessible = pathIsAccessible(fsFacade, directoryPath, [
-        { method: "accessSync", args: accessArgs },
-        { method: "existsSync", expectsBoolean: true }
-    ]);
-
-    if (isAccessible) {
+    if (
+        tryAccess(fsFacade, "accessSync", directoryPath, ...accessArgs) ||
+        tryAccess(fsFacade, "existsSync", directoryPath)
+    ) {
         return;
     }
 
@@ -204,12 +194,10 @@ function ensureWritableFile(fsFacade, filePath) {
     const accessArgs =
         DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
 
-    const isAccessible = pathIsAccessible(fsFacade, filePath, [
-        { method: "accessSync", args: accessArgs },
-        { method: "statSync" }
-    ]);
-
-    if (isAccessible) {
+    if (
+        tryAccess(fsFacade, "accessSync", filePath, ...accessArgs) ||
+        tryAccess(fsFacade, "statSync", filePath)
+    ) {
         return;
     }
 
@@ -422,7 +410,7 @@ export const __private__ = {
     readJsonFile,
     getObjectAtPath,
     updateReferenceObject,
-    pathIsAccessible,
+    tryAccess,
     ensureWritableFile,
     ensureWritableDirectory
 };
