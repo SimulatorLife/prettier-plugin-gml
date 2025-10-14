@@ -533,6 +533,19 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
+        if (diagnosticId === "GM2000") {
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
+                const fixes = ensureBlendModeIsReset({ ast, diagnostic });
+
+                if (isNonEmptyArray(fixes)) {
+                    return fixes;
+                }
+
+                return registerManualFeatherFix({ ast, diagnostic });
+            });
+            continue;
+        }
+
         if (diagnosticId === "GM2003") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureShaderResetIsCalled({ ast, diagnostic });
@@ -8045,6 +8058,109 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
+function ensureBlendModeIsReset({ ast, diagnostic }) {
+    if (!diagnostic || !ast || typeof ast !== "object") {
+        return [];
+    }
+
+    const fixes = [];
+
+    const visit = (node, parent, property) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (node.type === "CallExpression") {
+            const fix = ensureBlendModeResetAfterCall(
+                node,
+                parent,
+                property,
+                diagnostic
+            );
+
+            if (fix) {
+                fixes.push(fix);
+                return;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key);
+            }
+        }
+    };
+
+    visit(ast, null, null);
+
+    return fixes;
+}
+
+function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
+    if (!Array.isArray(parent) || typeof property !== "number") {
+        return null;
+    }
+
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_blendmode")) {
+        return null;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    if (isBlendModeNormalArgument(args[0])) {
+        return null;
+    }
+
+    const siblings = parent;
+    const nextNode = siblings[property + 1];
+
+    if (isBlendModeResetCall(nextNode)) {
+        return null;
+    }
+
+    const resetCall = createBlendModeResetCall(node);
+
+    if (!resetCall) {
+        return null;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    siblings.splice(property + 1, 0, resetCall);
+    attachFeatherFixMetadata(resetCall, [fixDetail]);
+
+    return fixDetail;
+}
+
 function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -13768,6 +13884,43 @@ function createAlphaTestRefResetCall(template) {
     return callExpression;
 }
 
+function createBlendModeResetCall(template) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(template.object);
+
+    if (!identifier || identifier.name !== "gpu_set_blendmode") {
+        return null;
+    }
+
+    const blendModeIdentifier = createIdentifier(
+        "bm_normal",
+        template.arguments?.[0]
+    );
+
+    if (!blendModeIdentifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: [blendModeIdentifier]
+    };
+
+    if (Object.hasOwn(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (Object.hasOwn(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
 function isSurfaceSetTargetCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -13889,6 +14042,22 @@ function createColourWriteEnableResetCall(template) {
     return callExpression;
 }
 
+function isBlendModeNormalArgument(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (isIdentifierWithName(node, "bm_normal")) {
+        return true;
+    }
+
+    if (node.type === "Literal") {
+        return node.value === "bm_normal";
+    }
+
+    return false;
+}
+
 function shouldResetBlendEnable(argument) {
     if (!argument || typeof argument !== "object") {
         return false;
@@ -13957,6 +14126,24 @@ function createTextureRepeatResetCall(template) {
     }
 
     return callExpression;
+}
+
+function isBlendModeResetCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "gpu_set_blendmode")) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (args.length === 0) {
+        return false;
+    }
+
+    return isBlendModeNormalArgument(args[0]);
 }
 
 function isBlendEnableResetCall(node) {
