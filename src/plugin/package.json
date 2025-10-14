@@ -5,13 +5,16 @@
     "root_path": "."
   },
   "scripts": {
-    "test": "mocha \"tests/**/*.test.js\"",
-    "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
+    "test": "node --test tests/*.test.js",
+    "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
     "example": "npm run prettier:plugin:raw --path=tests/test14.input.gml",
-    "prettier:plugin": "node prettier-wrapper.js $npm_config_path"
+    "prettier:plugin": "node ../cli/prettier-wrapper.js $npm_config_path"
   },
   "dependencies": {
     "gamemaker-language-parser": "file:../parser"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   },
   "engines": {
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"

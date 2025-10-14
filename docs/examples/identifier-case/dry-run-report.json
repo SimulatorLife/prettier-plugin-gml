@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "generatedAt": "2024-03-07T12:34:56.789Z",
+  "summary": {
+    "renameCount": 1,
+    "impactedFileCount": 1,
+    "totalReferenceCount": 3,
+    "conflictCount": 2,
+    "severityCounts": {
+      "warning": 1,
+      "info": 1
+    }
+  },
+  "renames": [
+    {
+      "id": "local:demo-script:counter_value",
+      "kind": "identifier",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "from": {
+        "name": "counter_value"
+      },
+      "to": {
+        "name": "counterValue"
+      },
+      "referenceCount": 3,
+      "references": [
+        {
+          "filePath": "scripts/demo/demo.gml",
+          "occurrences": 3
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "code": "collision",
+      "message": "Renaming 'collision_counter' to 'collisionCounter' collides with 'collisionCounter'.",
+      "severity": "warning",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "identifier": "collision_counter",
+      "suggestions": [],
+      "details": null
+    },
+    {
+      "code": "preserve",
+      "message": "Identifier 'preserve_me' is preserved by configuration.",
+      "severity": "info",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "identifier": "preserve_me",
+      "suggestions": [
+        "Remove the name from gmlIdentifierCasePreserve to allow renaming."
+      ],
+      "details": null
+    }
+  ]
+}
