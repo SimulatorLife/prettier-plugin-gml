@@ -303,7 +303,7 @@ jobs:
         shell: bash
 
       - name: Publish PR test summary (head only)
-        if: always()
+        if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
         continue-on-error: true
         uses: dorny/test-reporter@v2
         with:
