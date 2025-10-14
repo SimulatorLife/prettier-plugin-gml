@@ -865,7 +865,7 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            prepareEnumMembersForPrinting(node.members, getNodeName);
+            prepareEnumMembersForPrinting(node, getNodeName);
             return concat([
                 "enum ",
                 print("name"),
