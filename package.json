@@ -42,6 +42,7 @@
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
+    "test:performance": "node scripts/bench-identifier-pipeline.mjs",
     "format:gml": "node ./src/cli/prettier-wrapper.js",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
