@@ -40,7 +40,6 @@ test("orders doc comments for implicit argument references", async () => {
         "/// @param first",
         "/// @param two",
         "/// @param second",
-        "/// @param argument4",
-        "/// @param argument2"
+        "/// @param argument4"
     ]);
 });

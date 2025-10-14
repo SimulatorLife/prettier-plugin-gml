@@ -25,14 +25,14 @@ export const parsers = {
 
 export const printers = {
     "gml-ast": {
-        print: print,
+        print,
         isBlockComment: (comment) => comment.type === "CommentBlock",
         canAttachComment: (node) =>
             node.type &&
             !node.type.includes("Comment") &&
             node.type !== "EmptyStatement",
-        printComment: printComment,
-        handleComments: handleComments
+        printComment,
+        handleComments
     }
 };
 

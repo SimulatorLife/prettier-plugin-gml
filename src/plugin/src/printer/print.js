@@ -2107,6 +2107,33 @@ function mergeSyntheticDocComments(
         }
     }
 
+    const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
+
+    if (implicitDocEntries.length > 0) {
+        const canonicalNames = new Set();
+        const fallbackCanonicalsToRemove = new Set();
+
+        for (const entry of implicitDocEntries) {
+            if (entry?.canonical) {
+                canonicalNames.add(entry.canonical);
+            }
+
+            if (
+                entry?.fallbackCanonical &&
+                entry.fallbackCanonical !== entry.canonical &&
+                entry.hasDirectReference !== true
+            ) {
+                fallbackCanonicalsToRemove.add(entry.fallbackCanonical);
+            }
+        }
+
+        for (const fallbackCanonical of fallbackCanonicalsToRemove) {
+            if (!canonicalNames.has(fallbackCanonical)) {
+                paramDocsByCanonical.delete(fallbackCanonical);
+            }
+        }
+    }
+
     const orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
@@ -2122,9 +2149,8 @@ function mergeSyntheticDocComments(
     }
 
     if (orderedParamDocs.length === 0) {
-        const implicitNames = collectImplicitArgumentDocNames(node, options);
-        for (const docName of implicitNames) {
-            const canonical = getCanonicalParamNameFromText(docName);
+        for (const entry of implicitDocEntries) {
+            const canonical = entry?.canonical;
             if (canonical && paramDocsByCanonical.has(canonical)) {
                 orderedParamDocs.push(paramDocsByCanonical.get(canonical));
                 paramDocsByCanonical.delete(canonical);
@@ -2452,7 +2478,7 @@ function computeSyntheticFunctionDocLines(
     );
 
     if (!Array.isArray(node.params)) {
-        for (const docName of implicitArgumentDocNames) {
+        for (const { name: docName } of implicitArgumentDocNames) {
             if (documentedParamNames.has(docName)) {
                 continue;
             }
@@ -2500,7 +2526,7 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const docName of implicitArgumentDocNames) {
+    for (const { name: docName } of implicitArgumentDocNames) {
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -2525,20 +2551,21 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     const referencedIndices = new Set();
     const aliasByIndex = new Map();
+    const directReferenceIndices = new Set();
 
-    const visit = (node, parent) => {
+    const visit = (node, parent, property) => {
         if (!node || typeof node !== "object") {
             return;
         }
 
         if (node === functionNode) {
-            visit(functionNode.body, node);
+            visit(functionNode.body, node, "body");
             return;
         }
 
         if (Array.isArray(node)) {
-            for (const child of node) {
-                visit(child, parent);
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], parent, index);
             }
             return;
         }
@@ -2552,6 +2579,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
             return;
         }
 
+        let skipAliasInitializer = false;
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
             if (
@@ -2562,6 +2590,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                 const aliasName = normalizeDocMetadataName(node.id.name);
                 if (isNonEmptyString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
+                    referencedIndices.add(aliasIndex);
+                    skipAliasInitializer = true;
                 }
             }
         }
@@ -2569,18 +2599,24 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
+            if (!(skipAliasInitializer && property === "init")) {
+                directReferenceIndices.add(directIndex);
+            }
         }
 
-        for (const value of Object.values(node)) {
+        for (const [key, value] of Object.entries(node)) {
+            if (skipAliasInitializer && key === "init") {
+                continue;
+            }
             if (!value || typeof value !== "object") {
                 continue;
             }
 
-            visit(value, node);
+            visit(value, node, key);
         }
     };
 
-    visit(functionNode.body, functionNode);
+    visit(functionNode.body, functionNode, "body");
 
     if (referencedIndices.size === 0) {
         return [];
@@ -2590,8 +2626,20 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         (left, right) => left - right
     );
     return sortedIndices.map((index) => {
+        const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);
-        return alias && alias.length > 0 ? alias : `argument${index}`;
+        const docName = alias && alias.length > 0 ? alias : fallbackName;
+        const canonical = getCanonicalParamNameFromText(docName) ?? docName;
+        const fallbackCanonical =
+            getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
+
+        return {
+            name: docName,
+            canonical,
+            fallbackCanonical,
+            index,
+            hasDirectReference: directReferenceIndices.has(index)
+        };
     });
 }
 
