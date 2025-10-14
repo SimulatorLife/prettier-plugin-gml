@@ -1957,6 +1957,8 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
     }
 }
 
+const NODE_REMOVED = Symbol("flaggedInvalidAssignmentRemovedNode");
+
 function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
@@ -1964,20 +1966,44 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
 
-    const visit = (node) => {
+    const visit = (node, parent, property, container, index) => {
         if (!node) {
-            return;
+            return null;
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
+            for (
+                let arrayIndex = 0;
+                arrayIndex < node.length;
+                arrayIndex += 1
+            ) {
+                const child = node[arrayIndex];
+                const result = visit(child, parent, property, node, arrayIndex);
+
+                if (result === NODE_REMOVED) {
+                    arrayIndex -= 1;
+                }
             }
-            return;
+            return null;
         }
 
         if (typeof node !== "object") {
-            return;
+            return null;
+        }
+
+        if (node.type === "ExpressionStatement") {
+            const removalFix = removeInvalidAssignmentExpression({
+                statement: node,
+                container,
+                index,
+                diagnostic,
+                sourceText
+            });
+
+            if (removalFix) {
+                fixes.push(removalFix);
+                return NODE_REMOVED;
+            }
         }
 
         if (node.type === "AssignmentExpression") {
@@ -1986,22 +2012,119 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
                 diagnostic,
                 sourceText
             );
+
             if (fix) {
+                if (
+                    shouldRemoveInvalidAssignmentFromContainer({
+                        parent,
+                        property,
+                        container
+                    })
+                ) {
+                    removeNodeFromContainer(container, index, node);
+                    fixes.push(fix);
+                    return NODE_REMOVED;
+                }
+
                 fixes.push(fix);
-                return;
             }
+
+            return null;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
+        for (const [childKey, value] of Object.entries(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
             }
+
+            if (Array.isArray(value)) {
+                visit(value, node, childKey, value, null);
+                continue;
+            }
+
+            visit(value, node, childKey, null, null);
         }
+
+        return null;
     };
 
-    visit(ast);
+    visit(ast, null, null, null, null);
 
     return fixes;
+}
+
+function removeInvalidAssignmentExpression({
+    statement,
+    container,
+    index,
+    diagnostic,
+    sourceText
+}) {
+    if (!statement || statement.type !== "ExpressionStatement") {
+        return null;
+    }
+
+    const expression = statement.expression;
+
+    if (!expression || expression.type !== "AssignmentExpression") {
+        return null;
+    }
+
+    if (isAssignableTarget(expression.left)) {
+        return null;
+    }
+
+    const fixDetail = flagInvalidAssignmentTarget(
+        expression,
+        diagnostic,
+        sourceText
+    );
+
+    if (!fixDetail) {
+        return null;
+    }
+
+    removeNodeFromContainer(container, index, statement);
+
+    attachFeatherFixMetadata(statement, [fixDetail]);
+
+    return fixDetail;
+}
+
+function getFiniteIndex(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0
+        ? value
+        : null;
+}
+
+function removeNodeFromContainer(container, index, node) {
+    if (!Array.isArray(container)) {
+        return;
+    }
+
+    let removalIndex = getFiniteIndex(index);
+
+    if (removalIndex === null) {
+        removalIndex = getFiniteIndex(container.indexOf(node));
+    }
+
+    if (removalIndex !== null) {
+        container.splice(removalIndex, 1);
+    }
+}
+
+function shouldRemoveInvalidAssignmentFromContainer({
+    parent,
+    property,
+    container
+}) {
+    if (!parent || !Array.isArray(container) || property !== "body") {
+        return false;
+    }
+
+    const parentType = parent?.type ?? null;
+
+    return parentType === "Program" || parentType === "BlockStatement";
 }
 
 function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
