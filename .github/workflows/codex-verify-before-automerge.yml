@@ -44,38 +44,42 @@ jobs:
 
       - name: Run shared tests (base)
         working-directory: base
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=./test-results/shared.xml
-          --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap
-          src/shared/tests/*.test.js
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
         continue-on-error: true
 
       - name: Run parser tests (base)
         working-directory: base/src/parser
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
         continue-on-error: true
 
       - name: Run plugin tests (base)
         working-directory: base/src/plugin
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
         continue-on-error: true
 
       - name: Run CLI tests (base)
         working-directory: base/src/cli
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
         continue-on-error: true
 
       # === HEAD (PR) at workspace root ===
@@ -98,38 +102,42 @@ jobs:
           mkdir -p test-results
 
       - name: Run shared tests (head)
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=./test-results/shared.xml
-          --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap
-          src/shared/tests/*.test.js
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
+            --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap \
+            src/shared/tests/*.test.js
         continue-on-error: true
 
       - name: Run parser tests (head)
         working-directory: src/parser
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap \
+            tests/*.test.js
         continue-on-error: true
 
       - name: Run plugin tests (head)
         working-directory: src/plugin
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap \
+            tests/*.test.js
         continue-on-error: true
 
       - name: Run CLI tests (head)
         working-directory: src/cli
-        run: >
-          node --test
-          --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml
-          --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap
-          tests/*.test.js
+        run: |
+          mkdir -p ../../test-results
+          node --test \
+            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
+            --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap \
+            tests/*.test.js
         continue-on-error: true
 
       # Ensure the XML parser is available for the compare script
@@ -207,3 +215,4 @@ jobs:
           reporter: java-junit
           fail-on-error: true
           use-actions-summary: true
+        working-directory: head
