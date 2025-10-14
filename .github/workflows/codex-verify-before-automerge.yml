@@ -139,9 +139,9 @@ jobs:
       - name: Compare JUnit results (fail only on regressions)
         run: |
           cat <<'EOF' > compare-junit.js
-          const fs = require('fs');
-          const path = require('path');
-          const { XMLParser } = require('fast-xml-parser');
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { XMLParser } from 'fast-xml-parser';
 
           function readCases(rootDir) {
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
@@ -175,8 +175,8 @@ jobs:
             return results;
           }
 
-          const base = readCases('base');
-          const head = readCases('.');
+          const base = readCases(path.resolve(process.cwd(), 'base'));
+          const head = readCases(process.cwd());
 
           const regressions = [];
           for (const [key, headStatus] of head.entries()) {
