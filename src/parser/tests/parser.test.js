@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 import GMLParser from "../gml-parser.js";
+import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { getLineBreakCount } from "../../shared/line-breaks.js";
 import { getNodeStartIndex } from "../../shared/ast-locations.js";
 
@@ -212,6 +213,35 @@ describe("GameMaker parser fixtures", () => {
       1,
       "Expected CRLF sequences to count as a single line break.",
     );
+  });
+
+  it("builds identifier locations from available token offsets", () => {
+    const builder = new GameMakerASTBuilder();
+    const location = builder.createIdentifierLocation({
+      line: 3,
+      column: 7,
+      start: 42,
+      stop: 45,
+    });
+
+    assert.deepStrictEqual(location, {
+      start: { line: 3, index: 42, column: 7 },
+      end: { line: 3, index: 46, column: 11 },
+    });
+  });
+
+  it("falls back to startIndex and stopIndex when primary offsets are missing", () => {
+    const builder = new GameMakerASTBuilder();
+    const location = builder.createIdentifierLocation({
+      line: 2,
+      startIndex: 5,
+      stopIndex: 9,
+    });
+
+    assert.deepStrictEqual(location, {
+      start: { line: 2, index: 5 },
+      end: { line: 2, index: 10 },
+    });
   });
 
   it("tracks comment locations correctly when using CRLF", () => {
