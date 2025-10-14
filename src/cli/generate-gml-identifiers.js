@@ -42,8 +42,7 @@ const manualClient = createManualGithubClient({
     defaultCacheRoot: DEFAULT_CACHE_ROOT
 });
 
-const { fetchManualFile, resolveManualRef, resolveCommitFromRef } =
-    manualClient;
+const { fetchManualFile, resolveManualRef } = manualClient;
 
 function getUsage({
     cacheRoot = DEFAULT_CACHE_ROOT,
