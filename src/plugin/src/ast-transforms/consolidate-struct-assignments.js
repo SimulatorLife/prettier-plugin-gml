@@ -182,7 +182,10 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            property.comments = getCommentArray(property);
+            const existingComments = getCommentArray(property);
+            property.comments = Array.isArray(existingComments)
+                ? existingComments.slice()
+                : [];
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
