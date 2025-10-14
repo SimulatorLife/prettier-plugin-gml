@@ -221,8 +221,7 @@ export const options = {
 const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
-    trailingComma: "none",
-    printWidth: 120
+    trailingComma: "none"
 };
 
 function extractOptionDefaults(optionConfigMap) {
