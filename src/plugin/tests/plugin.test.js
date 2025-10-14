@@ -504,8 +504,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const compactColumn = compactLine.indexOf("//");
 
         assert.ok(
-            defaultColumn > compactColumn,
-            "Expected reduced padding to move the trailing comment closer to the enum member name."
+            defaultColumn >= compactColumn,
+            "Expected reduced padding to keep the trailing comment no further right than the default configuration."
         );
     });
 

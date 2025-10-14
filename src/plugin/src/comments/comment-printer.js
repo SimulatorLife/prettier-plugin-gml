@@ -222,10 +222,20 @@ function applyTrailingCommentPadding(comment, options) {
         baseTrailingPadding + enumPadding
     );
 
+    // Prettier automatically inserts a single space between trailing comments and
+    // the preceding code. Treat the configured padding as the total desired
+    // spacing and only request the additional padding beyond Prettier's
+    // baseline. This keeps defaults like `trailingCommentPadding = 2` aligned
+    // with historical expectations, while still honouring larger custom values.
+    const adjustedPadding = Math.max(desiredPadding - 1, 0);
+
     if (typeof comment.inlinePadding === "number") {
-        comment.inlinePadding = Math.max(comment.inlinePadding, desiredPadding);
-    } else if (desiredPadding > 0) {
-        comment.inlinePadding = desiredPadding;
+        comment.inlinePadding = Math.max(
+            comment.inlinePadding,
+            adjustedPadding
+        );
+    } else if (adjustedPadding > 0) {
+        comment.inlinePadding = adjustedPadding;
     }
 }
 

@@ -537,19 +537,20 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(
                 registry,
                 diagnosticId,
-                () => ({ ast, sourceText }) => {
-                    const fixes = ensureVarDeclarationsAreTerminated({
-                        ast,
-                        sourceText,
-                        diagnostic
-                    });
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = ensureVarDeclarationsAreTerminated({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
 
-                    if (Array.isArray(fixes) && fixes.length > 0) {
-                        return fixes;
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
                     }
-
-                    return registerManualFeatherFix({ ast, diagnostic });
-                }
             );
             continue;
         }
