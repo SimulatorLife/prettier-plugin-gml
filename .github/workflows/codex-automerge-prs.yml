@@ -167,6 +167,20 @@ jobs:
             tests/*.test.js
         continue-on-error: true
 
+      - name: Preserve base test results
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        run: |
+          BASE_RESULTS_DIR="$RUNNER_TEMP/codex-base-test-results"
+          echo "BASE_RESULTS_DIR=$BASE_RESULTS_DIR" >> "$GITHUB_ENV"
+          rm -rf base-test-results "$BASE_RESULTS_DIR"
+          if [ -d base/test-results ]; then
+            mkdir -p base-test-results "$BASE_RESULTS_DIR"
+            cp -R base/test-results/. base-test-results/
+            cp -R base/test-results/. "$BASE_RESULTS_DIR/"
+          else
+            echo "No base/test-results directory found to preserve."
+          fi
+
       # === HEAD (PR) at workspace root ===
       - name: Checkout head (PR)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -248,40 +262,59 @@ jobs:
           import path from 'node:path';
           import { XMLParser } from 'fast-xml-parser';
 
-          function readCases(rootDir) {
+          function readCases(...dirs) {
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
             const results = new Map();
-            const resultsDir = path.join(rootDir, 'test-results');
-            if (!fs.existsSync(resultsDir)) return results;
+            const queue = dirs.flat().filter(Boolean);
 
-            const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
-            for (const file of files) {
-              const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
-              const data = parser.parse(xml);
-              const suites = [];
-              if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
-              else if (data.testsuite) { suites.push(data.testsuite); }
-              else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+            for (const dir of queue) {
+              const resolved = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
+              if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+                continue;
+              }
 
-              for (const suite of suites) {
-                const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
-                for (const tc of cases) {
-                  const name = String(tc.name ?? '');
-                  const cls = String(tc.classname ?? suite.name ?? '');
-                  const key = cls + ' :: ' + name;
-                  let status = 'passed';
-                  if (tc.skipped !== undefined) status = 'skipped';
-                  if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
-                  if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
-                  results.set(key, status);
+              const files = fs.readdirSync(resolved).filter(f => f.endsWith('.xml'));
+              if (files.length === 0) {
+                continue;
+              }
+
+              for (const file of files) {
+                const xml = fs.readFileSync(path.join(resolved, file), 'utf8');
+                const data = parser.parse(xml);
+                const suites = [];
+                if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
+                else if (data.testsuite) { suites.push(data.testsuite); }
+                else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+
+                for (const suite of suites) {
+                  const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
+                  for (const tc of cases) {
+                    const name = String(tc.name ?? '');
+                    const cls = String(tc.classname ?? suite.name ?? '');
+                    const key = cls + ' :: ' + name;
+                    let status = 'passed';
+                    if (tc.skipped !== undefined) status = 'skipped';
+                    if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
+                    if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
+                    results.set(key, status);
+                  }
                 }
               }
+
+              break;
             }
+
             return results;
           }
 
-          const base = readCases('base');
-          const head = readCases('.');
+          const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+          if (process.env.BASE_RESULTS_DIR) {
+            baseCandidates.push(process.env.BASE_RESULTS_DIR);
+          }
+
+          const base = readCases(baseCandidates);
+          const head = readCases('test-results');
           const regressions = [];
 
           for (const [key, headStatus] of head.entries()) {
@@ -350,8 +383,6 @@ jobs:
 
             function collectSuiteStats(dir) {
               const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-              const resolvedDir = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
-              const displayDir = path.relative(workspace, resolvedDir) || resolvedDir;
               const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
               const notes = [];
 
@@ -359,8 +390,33 @@ jobs:
                 notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
                 return { available: false, totals, notes };
               }
-              if (!fs.existsSync(resolvedDir)) {
-                notes.push(`No directory found at ${displayDir}.`);
+
+              const candidates = (Array.isArray(dir) ? dir : [dir]).filter(Boolean);
+              const tried = [];
+              let resolvedDir = null;
+              let displayDir = '';
+
+              for (const candidate of candidates) {
+                const resolvedCandidate = path.isAbsolute(candidate)
+                  ? candidate
+                  : path.join(workspace, candidate);
+                const displayCandidate = path.relative(workspace, resolvedCandidate) || resolvedCandidate;
+                tried.push(displayCandidate);
+                if (fs.existsSync(resolvedCandidate) && fs.statSync(resolvedCandidate).isDirectory()) {
+                  resolvedDir = resolvedCandidate;
+                  displayDir = displayCandidate;
+                  break;
+                }
+              }
+
+              if (!resolvedDir) {
+                if (tried.length === 1) {
+                  notes.push(`No directory found at ${tried[0]}.`);
+                } else if (tried.length > 1) {
+                  notes.push(`No directory found at any of: ${tried.join(', ')}.`);
+                } else {
+                  notes.push('No result directory configured.');
+                }
                 return { available: false, totals, notes };
               }
 
@@ -457,7 +513,12 @@ jobs:
               return { available: true, totals, notes };
             }
 
-            const baseSummary = collectSuiteStats(path.join('base', 'test-results'));
+            const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
+            if (process.env.BASE_RESULTS_DIR) {
+              baseCandidates.push(process.env.BASE_RESULTS_DIR);
+            }
+
+            const baseSummary = collectSuiteStats(baseCandidates);
             const headSummary = collectSuiteStats('test-results');
 
             const formatDuration = (seconds) => {
