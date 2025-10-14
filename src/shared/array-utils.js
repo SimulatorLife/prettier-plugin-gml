@@ -6,6 +6,11 @@
  * @param {T | Array<T> | null | undefined} value
  * @returns {Array<T>} Normalized array representation of the provided value.
  */
+// Reuse a frozen empty array to avoid allocating a new array on every call to
+// `asArray`. The array is frozen so accidental mutations surface loudly during
+// development instead of leaking shared state across callers.
+const EMPTY_ARRAY = Object.freeze([]);
+
 export function toArray(value) {
     if (value == null) {
         return [];
@@ -24,7 +29,7 @@ export function toArray(value) {
  * @returns {Array<T>} Either the original array or a shared empty array.
  */
 export function asArray(value) {
-    return Array.isArray(value) ? value : [];
+    return Array.isArray(value) ? value : EMPTY_ARRAY;
 }
 
 /**
