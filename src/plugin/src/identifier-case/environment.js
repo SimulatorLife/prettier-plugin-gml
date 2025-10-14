@@ -4,7 +4,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./local-plan.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { withObjectLike } from "../../../shared/object-utils.js";
 
 const BOOTSTRAP_CLEANUP_FLAG = Symbol.for(
     "prettier-plugin-gml.identifierCaseBootstrapNeedsDispose"
@@ -44,38 +44,34 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 }
 
 export async function prepareIdentifierCaseEnvironment(options) {
-    if (!isObjectLike(options)) {
-        return;
-    }
+    return withObjectLike(options, async (object) => {
+        const bootstrapResult = await bootstrapProjectIndex(
+            object,
+            setIdentifierCaseOption
+        );
+        registerBootstrapCleanup(bootstrapResult);
 
-    const bootstrapResult = await bootstrapProjectIndex(
-        options,
-        setIdentifierCaseOption
-    );
-    registerBootstrapCleanup(bootstrapResult);
-
-    try {
-        await prepareIdentifierCasePlan(options);
-    } catch (error) {
-        disposeBootstrap(bootstrapResult, options?.logger ?? null);
-        throw error;
-    }
+        try {
+            await prepareIdentifierCasePlan(object);
+        } catch (error) {
+            disposeBootstrap(bootstrapResult, object?.logger ?? null);
+            throw error;
+        }
+    });
 }
 
 export function attachIdentifierCasePlanSnapshot(ast, options) {
-    if (!isObjectLike(ast)) {
-        return;
-    }
+    withObjectLike(ast, (objectAst) => {
+        const snapshot = captureIdentifierCasePlanSnapshot(options);
+        if (!snapshot) {
+            return;
+        }
 
-    const snapshot = captureIdentifierCasePlanSnapshot(options);
-    if (!snapshot) {
-        return;
-    }
-
-    Object.defineProperty(ast, "__identifierCasePlanSnapshot", {
-        value: snapshot,
-        enumerable: false,
-        configurable: true
+        Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
+            value: snapshot,
+            enumerable: false,
+            configurable: true
+        });
     });
 }
 
