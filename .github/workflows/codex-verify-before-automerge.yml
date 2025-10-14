@@ -1,0 +1,71 @@
+name: Verify Codex PRs Before Auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    name: Run Node.js test suites
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create test results directory
+        run: mkdir -p test-results
+
+      - name: Run shared tests
+        id: shared-tests
+        run: node --test --test-reporter tap --test-reporter-destination=./test-results/shared.tap src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests
+        id: parser-tests
+        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/parser.tap tests/parser.test.js
+        working-directory: src/parser
+        continue-on-error: true
+
+      - name: Run plugin tests
+        id: plugin-tests
+        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/plugin.tap tests/*.test.js
+        working-directory: src/plugin
+        continue-on-error: true
+
+      - name: Run CLI tests
+        id: cli-tests
+        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/cli.tap tests/*.test.js
+        working-directory: src/cli
+        continue-on-error: true
+
+      - name: Publish test report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Node.js test results
+          path: test-results/*.tap
+          reporter: tap
+          fail-on-error: false
+
+      - name: Fail if any suite failed
+        if: steps.shared-tests.outcome == 'failure' || steps.parser-tests.outcome == 'failure' || steps.plugin-tests.outcome == 'failure' || steps.cli-tests.outcome == 'failure'
+        run: |
+          echo "One or more test suites failed"
+          exit 1
