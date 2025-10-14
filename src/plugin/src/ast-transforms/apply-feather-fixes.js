@@ -7589,14 +7589,18 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
     }
 
     const fixes = [];
+    const ancestors = [];
 
     const visit = (node, parent, property) => {
         if (!node) {
             return;
         }
 
+        const entry = { node, parent, property };
+        ancestors.push(entry);
+
         if (Array.isArray(node)) {
-            if (isStatementArray({ node, parent, property })) {
+            if (isStatementArray(entry)) {
                 let index = 0;
 
                 while (index < node.length) {
@@ -7607,7 +7611,8 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
                             statements: node,
                             index,
                             endCall: statement,
-                            diagnostic
+                            diagnostic,
+                            ancestors
                         });
 
                         if (fix) {
@@ -7619,16 +7624,20 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
                     index += 1;
                 }
 
+                ancestors.pop();
                 return;
             }
 
             for (let index = 0; index < node.length; index += 1) {
                 visit(node[index], node, index);
             }
+
+            ancestors.pop();
             return;
         }
 
         if (typeof node !== "object") {
+            ancestors.pop();
             return;
         }
 
@@ -7637,6 +7646,8 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
                 visit(value, node, key);
             }
         }
+
+        ancestors.pop();
     };
 
     visit(ast, null, null);
@@ -7648,7 +7659,8 @@ function ensurePrimitiveBeginBeforeEnd({
     statements,
     index,
     endCall,
-    diagnostic
+    diagnostic,
+    ancestors
 }) {
     if (!Array.isArray(statements) || typeof index !== "number") {
         return null;
@@ -7677,6 +7689,15 @@ function ensurePrimitiveBeginBeforeEnd({
         return null;
     }
 
+    if (
+        hasAncestorDrawPrimitiveBegin({
+            ancestors,
+            currentStatements: statements
+        })
+    ) {
+        return null;
+    }
+
     const beginCall = createPrimitiveBeginCall(endCall);
 
     if (!beginCall) {
@@ -7699,6 +7720,82 @@ function ensurePrimitiveBeginBeforeEnd({
     attachFeatherFixMetadata(beginCall, [fixDetail]);
 
     return fixDetail;
+}
+
+function hasAncestorDrawPrimitiveBegin({ ancestors, currentStatements }) {
+    if (!Array.isArray(ancestors) || ancestors.length === 0) {
+        return false;
+    }
+
+    for (let i = ancestors.length - 2; i >= 0; i -= 1) {
+        const entry = ancestors[i];
+
+        if (
+            !entry ||
+            !Array.isArray(entry.parent) ||
+            typeof entry.property !== "number"
+        ) {
+            continue;
+        }
+
+        if (entry.parent === currentStatements) {
+            continue;
+        }
+
+        const parentArrayEntry = findAncestorArrayEntry(
+            ancestors,
+            entry.parent
+        );
+
+        if (!parentArrayEntry || !isStatementArray(parentArrayEntry)) {
+            continue;
+        }
+
+        if (hasUnmatchedBeginBeforeIndex(entry.parent, entry.property)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function findAncestorArrayEntry(ancestors, target) {
+    if (!target) {
+        return null;
+    }
+
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        const entry = ancestors[index];
+
+        if (entry?.node === target) {
+            return entry;
+        }
+    }
+
+    return null;
+}
+
+function hasUnmatchedBeginBeforeIndex(statements, stopIndex) {
+    if (!Array.isArray(statements) || typeof stopIndex !== "number") {
+        return false;
+    }
+
+    let unmatchedBegins = 0;
+
+    for (let index = 0; index < stopIndex; index += 1) {
+        const statement = statements[index];
+
+        if (isDrawPrimitiveBeginCall(statement)) {
+            unmatchedBegins += 1;
+            continue;
+        }
+
+        if (isDrawPrimitiveEndCall(statement) && unmatchedBegins > 0) {
+            unmatchedBegins -= 1;
+        }
+    }
+
+    return unmatchedBegins > 0;
 }
 
 function ensureDrawPrimitiveEndCallsAreBalanced({ ast, diagnostic }) {
@@ -7849,6 +7946,8 @@ function liftDrawPrimitiveEndCallFromConditional(
 
     branchWithCall.body.splice(match.index, 1);
 
+    removeSyntheticDrawPrimitiveBeginInsertedByGM2028(branchWithCall.body);
+
     const insertionIndex = conditionalIndex + 1;
 
     siblings.splice(insertionIndex, 0, callNode);
@@ -7856,6 +7955,39 @@ function liftDrawPrimitiveEndCallFromConditional(
     attachFeatherFixMetadata(callNode, [fixDetail]);
 
     return fixDetail;
+}
+
+function removeSyntheticDrawPrimitiveBeginInsertedByGM2028(statements) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return false;
+    }
+
+    for (let index = 0; index < statements.length; index += 1) {
+        const statement = statements[index];
+
+        if (!isDrawPrimitiveBeginCall(statement)) {
+            continue;
+        }
+
+        const diagnosticMetadata = Array.isArray(
+            statement?._appliedFeatherDiagnostics
+        )
+            ? statement._appliedFeatherDiagnostics
+            : [];
+
+        const insertedByGM2028 = diagnosticMetadata.some(
+            (entry) => entry?.id === "GM2028"
+        );
+
+        if (!insertedByGM2028) {
+            continue;
+        }
+
+        statements.splice(index, 1);
+        return true;
+    }
+
+    return false;
 }
 
 function getDrawPrimitiveEndCallInfo(block) {
