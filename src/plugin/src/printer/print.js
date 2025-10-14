@@ -2080,6 +2080,32 @@ function mergeSyntheticDocComments(
         }
     }
 
+    const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
+
+    if (implicitDocEntries.length > 0) {
+        const canonicalNames = new Set();
+        const fallbackCanonicalsToRemove = new Set();
+
+        for (const entry of implicitDocEntries) {
+            if (entry?.canonical) {
+                canonicalNames.add(entry.canonical);
+            }
+
+            if (
+                entry?.fallbackCanonical &&
+                entry.fallbackCanonical !== entry.canonical
+            ) {
+                fallbackCanonicalsToRemove.add(entry.fallbackCanonical);
+            }
+        }
+
+        for (const fallbackCanonical of fallbackCanonicalsToRemove) {
+            if (!canonicalNames.has(fallbackCanonical)) {
+                paramDocsByCanonical.delete(fallbackCanonical);
+            }
+        }
+    }
+
     const orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
@@ -2095,9 +2121,8 @@ function mergeSyntheticDocComments(
     }
 
     if (orderedParamDocs.length === 0) {
-        const implicitNames = collectImplicitArgumentDocNames(node, options);
-        for (const docName of implicitNames) {
-            const canonical = getCanonicalParamNameFromText(docName);
+        for (const entry of implicitDocEntries) {
+            const canonical = entry?.canonical;
             if (canonical && paramDocsByCanonical.has(canonical)) {
                 orderedParamDocs.push(paramDocsByCanonical.get(canonical));
                 paramDocsByCanonical.delete(canonical);
@@ -2425,7 +2450,7 @@ function computeSyntheticFunctionDocLines(
     );
 
     if (!Array.isArray(node.params)) {
-        for (const docName of implicitArgumentDocNames) {
+        for (const { name: docName } of implicitArgumentDocNames) {
             if (documentedParamNames.has(docName)) {
                 continue;
             }
@@ -2473,7 +2498,7 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const docName of implicitArgumentDocNames) {
+    for (const { name: docName } of implicitArgumentDocNames) {
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -2563,8 +2588,19 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         (left, right) => left - right
     );
     return sortedIndices.map((index) => {
+        const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);
-        return alias && alias.length > 0 ? alias : `argument${index}`;
+        const docName = alias && alias.length > 0 ? alias : fallbackName;
+        const canonical = getCanonicalParamNameFromText(docName) ?? docName;
+        const fallbackCanonical =
+            getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
+
+        return {
+            name: docName,
+            canonical,
+            fallbackCanonical,
+            index
+        };
     });
 }
 

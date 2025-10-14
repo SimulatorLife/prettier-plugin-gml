@@ -139,8 +139,8 @@ describe("applyFeatherFixes transform", () => {
 
         const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
             ? ast._appliedFeatherDiagnostics.filter(
-                  (entry) => entry.id === "GM1000"
-              )
+                (entry) => entry.id === "GM1000"
+            )
             : [];
 
         assert.strictEqual(
