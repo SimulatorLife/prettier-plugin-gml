@@ -36,8 +36,9 @@ jobs:
       number: ${{ steps.get.outputs.number }}
       changed_files: ${{ steps.get.outputs.changed_files }}
       head_ref: ${{ steps.get.outputs.head_ref }}
-      base_sha: ${{ steps.get.outputs.base_sha }}
+      head_sha: ${{ steps.get.outputs.head_sha }}
       base_ref: ${{ steps.get.outputs.base_ref }}
+      base_sha: ${{ steps.get.outputs.base_sha }}
     steps:
       - name: Read PR details
         id: get
@@ -73,10 +74,11 @@ jobs:
             core.setOutput('number', String(n));
             core.setOutput('changed_files', String(pr.changed_files || 0));
             core.setOutput('head_ref', pr.head.ref);
-            core.setOutput('base_sha', pr.base.sha);
+            core.setOutput('head_sha', pr.head.sha);
             core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('base_sha', pr.base.sha);
             core.notice(
-              `PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_ref=${pr.base.ref}, base_sha=${pr.base.sha}`
+              `PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, head_sha=${pr.head.sha}, base_ref=${pr.base.ref}, base_sha=${pr.base.sha}`
             );
 
   ###########################################################################
@@ -106,6 +108,7 @@ jobs:
         with:
           ref: ${{ needs.pr-meta.outputs.base_ref }}
           path: base
+          fetch-depth: 1
 
       - name: Record resolved base ref/commit
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -194,13 +197,14 @@ jobs:
             echo "No base/test-results directory found to preserve."
           fi
 
-      # === HEAD (PR) at workspace root ===
+      # === HEAD (PR) at workspace root === (pin to the PR's exact commit for determinism)
       - name: Checkout head (PR)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.head_ref }}
+          ref: ${{ needs.pr-meta.outputs.head_sha }}
           clean: false
+          fetch-depth: 1
 
       - name: Setup Node (head)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
