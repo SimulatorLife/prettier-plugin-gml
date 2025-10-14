@@ -1,8 +1,12 @@
-// options/identifier-case.js
+// Identifier-case option metadata and normalization helpers.
+//
+// Keeps option names, descriptions, and normalization utilities grouped in one
+// place so the CLI, documentation, and project-index pipeline can share a
+// single source of truth.
 
-import { normalizeStringList } from "./option-utils.js";
 import { capitalize } from "../../../shared/string-utils.js";
 import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/index.js";
+import { normalizeStringList } from "./option-utils.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
