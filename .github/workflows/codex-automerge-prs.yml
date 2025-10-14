@@ -316,11 +316,12 @@ jobs:
           path: test-results/*.xml
           reporter: java-junit
           fail-on-error: false
+          fail-on-empty: false        # 👈 important for 0-changes fast-pass
           use-actions-summary: true
 
       # 👇 Adds/updates a sticky PR comment with a concise summary & failures
       - name: Comment test results on PR (sticky)
-        if: always() && github.event_name == 'pull_request'
+        if: ${{ always() && github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: |
@@ -331,7 +332,7 @@ jobs:
 
       # 👇 Attach raw reports so anyone can download/open them from the PR
       - name: Upload test reports as artifacts
-        if: always()
+        if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/upload-artifact@v4
         with:
           name: junit-and-tap-${{ github.sha }}
