@@ -17,7 +17,8 @@ export default class GMLParser {
     static optionDefaults = {
         getComments: true,
         getLocations: true,
-        simplifyLocations: true
+        simplifyLocations: true,
+        getIdentifierMetadata: false
     };
 
     static parse(
@@ -25,7 +26,8 @@ export default class GMLParser {
         options = {
             getComments: true,
             getLocations: true,
-            simplifyLocations: true
+            simplifyLocations: true,
+            getIdentifierMetadata: false
         }
     ) {
         return new this(text, options).parse();
@@ -42,8 +44,9 @@ export default class GMLParser {
         parser.removeErrorListeners();
         parser.addErrorListener(new GameMakerParseErrorListener());
 
+        let tree;
         try {
-            var tree = parser.program();
+            tree = parser.program();
         } catch (error) {
             if (error) {
                 const normalisedError =
@@ -161,7 +164,9 @@ export default class GMLParser {
                 const lineBreakCount = getLineBreakCount(tokenText);
                 let node = {
                     type: "CommentBlock",
-                    value: tokenText.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
+                    value: tokenText
+                        .replace(/^[\/][\*]/, "")
+                        .replace(/[\*][\/]$/, ""),
                     start: { line: token.line, index: token.start },
                     end: {
                         line: token.line + lineBreakCount,

@@ -1,0 +1,27 @@
+name: Codex 76 – Legacy API Usage
+on:
+  schedule:
+    - cron: "39 14 * * *"  # once a day at 14:39
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Legacy API Usage"
+      pr_body: >
+        Seed PR for Codex to migrate a deprecated or legacy API to its supported
+        successor while preserving behaviour.
+      prompt: >
+        Detect a call site using a deprecated library/API or internal module
+        slated for removal. Replace it with the recommended modern equivalent,
+        adjusting surrounding code as needed. Update inline docs or comments to
+        reflect the new API, and add regression coverage or manual validation
+        notes proving behaviour parity. Limit the scope to one meaningful
+        migration so the diff stays focused.
