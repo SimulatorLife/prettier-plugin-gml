@@ -7,7 +7,10 @@ import {
     cloneLocation,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
-import { isNode } from "../../../shared/ast-node-helpers.js";
+import {
+    getNodeDeclarations,
+    isNode
+} from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -861,9 +864,7 @@ function canDropUnreachableStatement(node, helpers) {
             return true;
         }
         case "VariableDeclaration": {
-            const declarations = Array.isArray(node.declarations)
-                ? node.declarations
-                : [];
+            const declarations = getNodeDeclarations(node);
             for (const declarator of declarations) {
                 if (!isNode(declarator)) {
                     continue;

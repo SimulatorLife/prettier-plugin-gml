@@ -8,6 +8,8 @@ import {
 } from "../../../shared/ast-locations.js";
 import {
     getCallExpressionArguments,
+    getNodeDeclarations,
+    getSingleVariableDeclarator,
     isBooleanLiteral
 } from "../../../shared/ast-node-helpers.js";
 import {
@@ -951,9 +953,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const declarations = Array.isArray(declaration?.declarations)
-        ? declaration.declarations
-        : [];
+    const declarations = getNodeDeclarations(declaration);
 
     if (declarations.length !== 1) {
         return;
@@ -5285,9 +5285,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     };
 
     const handleVariableDeclaration = (node, parent, property) => {
-        const declarations = Array.isArray(node.declarations)
-            ? node.declarations
-            : [];
+        const declarations = getNodeDeclarations(node);
 
         if (declarations.length === 0) {
             return [];
@@ -8921,28 +8919,6 @@ function handleLocalVariableDeclarationPatterns({
     return null;
 }
 
-function getSingleVariableDeclarator(node) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return null;
-    }
-
-    const declarations = Array.isArray(node.declarations)
-        ? node.declarations
-        : [];
-
-    if (declarations.length !== 1) {
-        return null;
-    }
-
-    const [declarator] = declarations;
-
-    if (!declarator || declarator.type !== "VariableDeclarator") {
-        return null;
-    }
-
-    return declarator;
-}
-
 function getDeclaratorName(declarator) {
     const identifier = declarator?.id;
 
@@ -9135,9 +9111,7 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
             continue;
         }
 
-        const declarations = Array.isArray(node.declarations)
-            ? node.declarations
-            : [];
+        const declarations = getNodeDeclarations(node);
 
         for (const declarator of declarations) {
             if (!declarator || declarator.type !== "VariableDeclarator") {
@@ -10700,11 +10674,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             case "AssignmentExpression":
                 return getFileFindFirstCallFromExpression(statement.right);
             case "VariableDeclaration": {
-                const declarations = Array.isArray(statement.declarations)
-                    ? statement.declarations
-                    : [];
-
-                for (const declarator of declarations) {
+                for (const declarator of getNodeDeclarations(statement)) {
                     const call = getFileFindFirstCallFromExpression(
                         declarator?.init
                     );
@@ -13711,9 +13681,7 @@ function isSupportedVariableDeclaration(node) {
 }
 
 function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
-    const declarations = Array.isArray(node?.declarations)
-        ? node.declarations
-        : [];
+    const declarations = getNodeDeclarations(node);
 
     if (declarations.length === 0) {
         return [];

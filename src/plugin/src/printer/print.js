@@ -55,6 +55,7 @@ import {
 import {
     getCallExpressionArguments,
     getIdentifierText,
+    getNodeDeclarations,
     getSingleVariableDeclarator,
     isBooleanLiteral,
     isUndefinedLiteral
@@ -1428,12 +1429,12 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         if (semi === ";") {
+            const declarations = getNodeDeclarations(node);
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
-                Array.isArray(node.declarations) &&
-                node.declarations.length === 1 &&
-                (node.declarations[0]?.init?.type === "FunctionExpression" ||
-                    node.declarations[0]?.init?.type === "FunctionDeclaration");
+                declarations.length === 1 &&
+                (declarations[0]?.init?.type === "FunctionExpression" ||
+                    declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression) {
                 const isTopLevelStaticFunction =

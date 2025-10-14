@@ -4,6 +4,7 @@ import { formatIdentifierCase } from "../../../shared/identifier-case.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
+import { getNodeDeclarations } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
@@ -150,10 +151,7 @@ function resolveIdentifierEntryName(entry) {
         return null;
     }
 
-    const declarations = Array.isArray(entry.declarations)
-        ? entry.declarations
-        : [];
-    for (const declaration of declarations) {
+    for (const declaration of getNodeDeclarations(entry)) {
         if (
             typeof declaration?.name === "string" &&
             declaration.name.length > 0
@@ -175,11 +173,7 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = Array.isArray(entry?.declarations)
-        ? entry.declarations
-        : [];
-
-    for (const declaration of declarations) {
+    for (const declaration of getNodeDeclarations(entry)) {
         const classifications = Array.isArray(declaration?.classifications)
             ? declaration.classifications
             : [];
@@ -232,7 +226,7 @@ function summarizeReferencesAcrossFiles(references) {
 }
 
 function getDeclarationFilePath(entry) {
-    for (const declaration of entry?.declarations ?? []) {
+    for (const declaration of getNodeDeclarations(entry)) {
         if (typeof declaration?.filePath === "string") {
             return declaration.filePath;
         }
@@ -255,11 +249,7 @@ function getReferenceLocation(reference) {
 
 function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
     const scopeMap = projectIndex?.scopes ?? {};
-    const declarations = Array.isArray(entry?.declarations)
-        ? entry.declarations
-        : [];
-
-    for (const declaration of declarations) {
+    for (const declaration of getNodeDeclarations(entry)) {
         const scopeId = declaration?.scopeId ?? entry?.scopeId ?? null;
         if (scopeId && scopeMap[scopeId]) {
             const scopeRecord = scopeMap[scopeId];
@@ -441,9 +431,7 @@ function planIdentifierRenamesForScope({
             continue;
         }
 
-        const declarations = Array.isArray(entry?.declarations)
-            ? entry.declarations
-            : [];
+        const declarations = getNodeDeclarations(entry);
         if (declarations.length === 0) {
             continue;
         }

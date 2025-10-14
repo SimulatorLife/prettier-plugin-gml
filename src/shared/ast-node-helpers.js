@@ -158,6 +158,29 @@ function getCallExpressionArguments(callExpression) {
     return Array.isArray(args) ? args : SHARED_EMPTY_ARRAY;
 }
 
+/**
+ * Safely access a node's `declarations` array.
+ *
+ * Many AST node shapes expose optional `declarations` collections (for
+ * example, variable declarations, enum members, or synthetic declaration
+ * groups). Downstream transforms frequently need to iterate those entries and
+ * therefore contain repeated `Array.isArray(...) ? ... : []` guards. Centralize
+ * the normalization so call sites can skip boilerplate checks while still
+ * receiving an always-iterable array reference.
+ *
+ * @param {object | null | undefined} node Potential declaration-bearing node.
+ * @returns {Array<unknown>} Either the node's declarations array or a shared
+ *          empty array when no declarations exist.
+ */
+function getNodeDeclarations(node) {
+    if (!node || typeof node !== "object") {
+        return SHARED_EMPTY_ARRAY;
+    }
+
+    const { declarations } = node;
+    return Array.isArray(declarations) ? declarations : SHARED_EMPTY_ARRAY;
+}
+
 function getBooleanLiteralValue(node, options = {}) {
     if (!node || node.type !== "Literal") {
         return null;
@@ -211,6 +234,7 @@ export {
     getSingleVariableDeclarator,
     getIdentifierText,
     getCallExpressionArguments,
+    getNodeDeclarations,
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
