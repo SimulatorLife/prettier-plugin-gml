@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 
+import { consolidateStructAssignments } from "../src/ast-transforms/consolidate-struct-assignments.js";
+
 const helperSource = `function getNodeStartIndex(node) {
     if (!node || typeof node !== "object") {
         return null;
@@ -95,5 +97,86 @@ describe("CommentTracker", () => {
             comments.map((comment) => comment.start.index),
             [20]
         );
+    });
+});
+
+describe("consolidateStructAssignments", () => {
+    it("attaches trailing comments using the fallback comment tools", () => {
+        const location = (index, line) => ({ index, line });
+
+        const structExpression = {
+            type: "StructExpression",
+            properties: [],
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const initializer = {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "Identifier",
+                name: "state",
+                start: location(0, 1),
+                end: location(5, 1)
+            },
+            right: structExpression,
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const propertyAssignment = {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "MemberDotExpression",
+                object: {
+                    type: "Identifier",
+                    name: "state",
+                    start: location(20, 2),
+                    end: location(25, 2)
+                },
+                property: {
+                    type: "Identifier",
+                    name: "value",
+                    start: location(30, 2),
+                    end: location(35, 2)
+                },
+                start: location(20, 2),
+                end: location(35, 2)
+            },
+            right: {
+                type: "Literal",
+                value: 1,
+                start: location(38, 2),
+                end: location(39, 2)
+            },
+            start: location(20, 2),
+            end: location(39, 2)
+        };
+
+        const trailingComment = {
+            type: "CommentLine",
+            value: " property",
+            start: location(45, 2),
+            end: location(55, 2)
+        };
+
+        const ast = {
+            type: "Program",
+            body: [initializer, propertyAssignment],
+            comments: [trailingComment]
+        };
+
+        consolidateStructAssignments(ast);
+
+        assert.equal(structExpression.properties.length, 1);
+
+        const [property] = structExpression.properties;
+        assert.equal(Array.isArray(property.comments), true);
+        assert.equal(property.comments.length, 1);
+        assert.equal(property.comments[0], trailingComment);
+        assert.equal(trailingComment.trailing, true);
+        assert.equal(trailingComment._structPropertyTrailing, true);
     });
 });
