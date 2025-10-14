@@ -6,7 +6,7 @@ import {
     formatIdentifierCase,
     isIdentifierCase,
     normalizeIdentifierCase
-} from "../identifier-case.js";
+} from "../src/identifier-case/identifier-case-utils.js";
 
 test("normalisation preserves prefixes and numeric suffixes", () => {
     const normalized = normalizeIdentifierCase("global.hp_max_2");
