@@ -397,18 +397,30 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
 }
 
 /**
- * Matches fallbacks of the form `var foo = argument_count > n ? argument[n] : expr;`.
+ * Extracts the sole declarator from `var` declarations that match the simple
+ * fallback patterns handled by this transform. Callers can optionally require
+ * the outer declaration node to be comment-free while the helper always
+ * ensures the declarator itself has no comments.
  *
- * @param {unknown} node Variable declaration to inspect.
+ * @param {unknown} node Candidate statement to inspect.
  * @param {typeof DEFAULT_HELPERS} helpers
- * @returns {ArgumentCountFallbackMatch | null}
+ * @param {{ requireCommentFreeDeclaration?: boolean }} [options]
+ * @returns {import("estree").VariableDeclarator | null}
  */
-function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
+function getSimpleVarDeclarator(
+    node,
+    helpers,
+    { requireCommentFreeDeclaration = false } = {}
+) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
     }
 
     if (node.kind !== "var") {
+        return null;
+    }
+
+    if (requireCommentFreeDeclaration && helpers.hasComment(node)) {
         return null;
     }
 
@@ -418,6 +430,22 @@ function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
     }
 
     if (helpers.hasComment(declarator)) {
+        return null;
+    }
+
+    return declarator;
+}
+
+/**
+ * Matches fallbacks of the form `var foo = argument_count > n ? argument[n] : expr;`.
+ *
+ * @param {unknown} node Variable declaration to inspect.
+ * @param {typeof DEFAULT_HELPERS} helpers
+ * @returns {ArgumentCountFallbackMatch | null}
+ */
+function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
+    const declarator = getSimpleVarDeclarator(node, helpers);
+    if (!declarator) {
         return null;
     }
 
@@ -572,24 +600,10 @@ function findRedundantVarDeclarationBefore(
  * @returns {boolean}
  */
 function isStandaloneVarDeclarationForTarget(node, targetName, helpers) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return false;
-    }
-
-    if (node.kind !== "var") {
-        return false;
-    }
-
-    if (helpers.hasComment(node)) {
-        return false;
-    }
-
-    const declarator = helpers.getSingleVariableDeclarator(node);
+    const declarator = getSimpleVarDeclarator(node, helpers, {
+        requireCommentFreeDeclaration: true
+    });
     if (!declarator) {
-        return false;
-    }
-
-    if (helpers.hasComment(declarator)) {
         return false;
     }
 
