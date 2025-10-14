@@ -119,6 +119,14 @@ const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+
+function getCallArgumentsOrEmpty(node) {
+    if (!node || typeof node !== "object") {
+        return [];
+    }
+
+    return Array.isArray(node.arguments) ? node.arguments : [];
+}
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
@@ -2006,9 +2014,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             ) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
-                const args = Array.isArray(node.arguments)
-                    ? node.arguments
-                    : [];
+                const args = getCallArgumentsOrEmpty(node);
 
                 for (const argumentIndex of argumentIndexes) {
                     if (
@@ -3369,7 +3375,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length !== 1) {
         return null;
@@ -6092,7 +6098,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const args = Array.isArray(node.arguments) ? node.arguments : [];
+            const args = getCallArgumentsOrEmpty(node);
 
             for (const argument of args) {
                 const fix = convertNumericStringLiteral(argument, diagnostic);
@@ -6474,7 +6480,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 
             pushScope(paramNames);
 
-            const params = Array.isArray(node.params) ? node.params : [];
+            const params = getArrayProperty(node, "params");
             for (const param of params) {
                 visit(param, node, "params");
             }
@@ -6913,9 +6919,7 @@ function getVertexBatchTarget(callExpression) {
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments)
-        ? callExpression.arguments
-        : [];
+    const args = getCallArgumentsOrEmpty(callExpression);
 
     if (args.length > 0) {
         const firstArgument = args[0];
@@ -7730,7 +7734,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
     if (args.length === 0) {
         return null;
     }
@@ -10576,7 +10580,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10636,7 +10640,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10760,7 +10764,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -10858,7 +10862,7 @@ function hasFirstArgumentIdentifier(node, name) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -10902,7 +10906,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return true;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -12389,7 +12393,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return null;
@@ -14162,7 +14166,7 @@ function getUserEventReference(node) {
     }
 
     const callee = node.object;
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (isIdentifierWithName(callee, "event_user")) {
         const eventIndex = resolveUserEventIndex(args[0]);
@@ -14346,7 +14350,7 @@ function isFunctionLikeNode(node) {
 }
 
 function getFunctionParameterNames(node) {
-    const params = Array.isArray(node?.params) ? node.params : [];
+    const params = getArrayProperty(node, "params");
     const names = [];
 
     for (const param of params) {
@@ -14630,7 +14634,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }
@@ -14644,7 +14648,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14667,7 +14671,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14685,7 +14689,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14703,7 +14707,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14721,7 +14725,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -14739,7 +14743,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length < 4) {
         return false;
@@ -14759,7 +14763,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -15033,7 +15037,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -15101,7 +15105,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length === 0) {
         return false;
@@ -16066,7 +16070,7 @@ function extractSurfaceTargetName(node) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     if (args.length > 0 && isIdentifier(args[0])) {
         return args[0].name;
@@ -16110,7 +16114,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallArgumentsOrEmpty(node);
 
     return args.length === 0;
 }
