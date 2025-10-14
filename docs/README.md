@@ -40,9 +40,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 
 ## Metadata tooling
 
-- [Resources overview](../README.md#architecture-overview) — The repository README
-  explains how generated assets inside `resources/` and the regeneration scripts
-  in `scripts/` fit together. Pair it with [Feather Data Plan](feather-data-plan.md)
-  and the reserved identifier coverage in
-  [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
+- [Architecture overview](../README.md#architecture-overview) — The repository
+  README explains how the workspace packages relate, where generated assets live,
+  and which scripts refresh them. Pair it with
+  [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
+  in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.

@@ -191,7 +191,7 @@ nvm use
    ```bash
    npm run format:gml
    # or
-   node ./node_modules/root/src/plugin/prettier-wrapper.js --path .
+   node ./node_modules/root/src/cli/prettier-wrapper.js --path .
    ```
 
 6. Validate your setup whenever you pull new revisions:
@@ -199,7 +199,7 @@ nvm use
    ```bash
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
-   npm run format:gml -- --check --path .
+   npm run format:gml -- --path . --extensions=.gml,.yy
    ```
 
 ### Format from a local clone
@@ -231,6 +231,29 @@ prettier --plugin="$(npm root -g)/root/src/plugin/src/gml.js" --write "**/*.gml"
 If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale folders created by previous installs and retry.
 
 </details>
+
+## Architecture overview
+
+The repository is organised as a multi-package workspace so the parser, plugin,
+and CLI can evolve together. Each package ships its own tests and scripts while
+sharing utilities via the `src/shared/` module.
+
+| Directory | Purpose |
+| --- | --- |
+| `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, and regression fixtures. |
+| `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
+| `src/cli/` | Command-line wrapper (`prettier-wrapper.js`), metadata generators, and integration tests for the CLI. |
+| `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
+| `resources/` | Generated metadata snapshots consumed by the formatter (identifier datasets, Feather metadata). |
+| `scripts/` | Node.js entry points that rebuild resources or run maintenance tasks. |
+| `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
+
+The `npm run format:gml` script wires the CLI wrapper to the workspace copy of
+Prettier so both local development and project integrations resolve the same
+plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
+`npm run build:feather-metadata` refresh the datasets under `resources/` when the
+upstream GameMaker releases change. See the [Development](#development) section
+for the full suite of contributor commands.
 
 ---
 
