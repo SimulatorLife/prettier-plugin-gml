@@ -209,7 +209,7 @@ fragment SingleEscapeCharacter
     ;
 
 fragment DecimalIntegerLiteral
-    : '0'
+    : '0' [0-9_]*
     | [1-9] [0-9_]*
     ;
 
