@@ -9,6 +9,8 @@ import {
     existsSync as nodeExistsSync
 } from "node:fs";
 
+import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
 const defaultFsFacade = Object.freeze({
@@ -123,7 +125,7 @@ function getObjectAtPath(json, propertyPath) {
             continue;
         }
 
-        if (!current || typeof current !== "object") {
+        if (!isObjectLike(current)) {
             return null;
         }
 
@@ -138,31 +140,23 @@ function getObjectAtPath(json, propertyPath) {
 }
 
 function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
-    if (!json) {
+    if (!isObjectLike(json)) {
         return false;
     }
 
     const target = getObjectAtPath(json, propertyPath);
-    if (!target || typeof target !== "object") {
+    if (!isObjectLike(target)) {
         return false;
     }
 
     let changed = false;
 
-    if (
-        typeof newResourcePath === "string" &&
-        newResourcePath.length > 0 &&
-        target.path !== newResourcePath
-    ) {
+    if (isNonEmptyString(newResourcePath) && target.path !== newResourcePath) {
         target.path = newResourcePath;
         changed = true;
     }
 
-    if (
-        typeof newName === "string" &&
-        newName.length > 0 &&
-        target.name !== newName
-    ) {
+    if (isNonEmptyString(newName) && target.name !== newName) {
         target.name = newName;
         changed = true;
     }
@@ -209,7 +203,10 @@ export function createAssetRenameExecutor({
     fsFacade = null,
     logger = null
 } = {}) {
-    if (!projectIndex || typeof projectIndex.projectRoot !== "string") {
+    if (
+        !isObjectLike(projectIndex) ||
+        typeof projectIndex.projectRoot !== "string"
+    ) {
         return {
             queueRename() {
                 return false;
@@ -230,7 +227,11 @@ export function createAssetRenameExecutor({
 
     return {
         queueRename(rename) {
-            if (!rename?.resourcePath || !rename?.toName) {
+            if (
+                !isObjectLike(rename) ||
+                !isNonEmptyString(rename.resourcePath) ||
+                !isNonEmptyString(rename.toName)
+            ) {
                 return false;
             }
 
@@ -244,7 +245,7 @@ export function createAssetRenameExecutor({
                 jsonCache
             );
 
-            if (!resourceJson || typeof resourceJson !== "object") {
+            if (!isObjectLike(resourceJson)) {
                 throw new Error(
                     `Unable to parse resource metadata at '${rename.resourcePath}'.`
                 );
@@ -257,8 +258,7 @@ export function createAssetRenameExecutor({
             }
 
             if (
-                typeof rename.newResourcePath === "string" &&
-                rename.newResourcePath.length > 0 &&
+                isNonEmptyString(rename.newResourcePath) &&
                 resourceJson.resourcePath !== rename.newResourcePath
             ) {
                 resourceJson.resourcePath = rename.newResourcePath;
@@ -271,7 +271,10 @@ export function createAssetRenameExecutor({
 
             const groupedReferences = new Map();
             for (const mutation of rename.referenceMutations ?? []) {
-                if (!mutation?.filePath) {
+                if (
+                    !isObjectLike(mutation) ||
+                    !isNonEmptyString(mutation.filePath)
+                ) {
                     continue;
                 }
                 const entries = groupedReferences.get(mutation.filePath) ?? [];
@@ -297,7 +300,7 @@ export function createAssetRenameExecutor({
                     continue;
                 }
 
-                if (!targetJson || typeof targetJson !== "object") {
+                if (!isObjectLike(targetJson)) {
                     continue;
                 }
 
@@ -332,7 +335,11 @@ export function createAssetRenameExecutor({
             }
 
             for (const gmlRename of rename.gmlRenames ?? []) {
-                if (!gmlRename?.from || !gmlRename?.to) {
+                if (
+                    !isObjectLike(gmlRename) ||
+                    !isNonEmptyString(gmlRename.from) ||
+                    !isNonEmptyString(gmlRename.to)
+                ) {
                     continue;
                 }
 
