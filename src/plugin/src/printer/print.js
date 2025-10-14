@@ -491,18 +491,13 @@ export function print(path, options, print) {
             ]);
 
             if (node.params.length > 0) {
+                const {
+                    inlineDoc: inlineParamDoc,
+                    multilineDoc: multilineParamDoc
+                } = buildFunctionParameterDocs(path, print, options);
+
                 parts.push(
-                    printCommaSeparatedList(
-                        path,
-                        print,
-                        "params",
-                        "(",
-                        ")",
-                        options,
-                        {
-                            allowTrailingDelimiter: false
-                        }
-                    )
+                    conditionalGroup([inlineParamDoc, multilineParamDoc])
                 );
             } else {
                 parts.push(printEmptyParens(path, print, options));
@@ -1185,6 +1180,38 @@ function buildCallArgumentsDocs(
             maxElementsPerLine
         })
         : null;
+
+    return { inlineDoc, multilineDoc };
+}
+
+function buildFunctionParameterDocs(path, print, options) {
+    const multilineDoc = printCommaSeparatedList(
+        path,
+        print,
+        "params",
+        "(",
+        ")",
+        options,
+        {
+            allowTrailingDelimiter: false
+        }
+    );
+
+    const inlineDoc = printCommaSeparatedList(
+        path,
+        print,
+        "params",
+        "(",
+        ")",
+        options,
+        {
+            addIndent: false,
+            allowTrailingDelimiter: false,
+            forceInline: true,
+            leadingNewline: false,
+            trailingNewline: false
+        }
+    );
 
     return { inlineDoc, multilineDoc };
 }
