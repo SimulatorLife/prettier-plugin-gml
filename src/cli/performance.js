@@ -26,22 +26,17 @@ function validateFormat(value) {
 
 function formatErrorDetails(error) {
     const message =
-        error && typeof error.message === "string"
+        typeof error?.message === "string"
             ? error.message
             : String(error ?? "Unknown error");
-    const stack =
-        error && typeof error.stack === "string"
-            ? error.stack.split("\n")
-            : undefined;
+    const stackLines =
+        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
+    const name =
+        typeof error?.name === "string"
+            ? error.name
+            : (error?.constructor?.name ?? "Error");
 
-    return {
-        name:
-            (error && typeof error.name === "string" && error.name) ||
-            error?.constructor?.name ||
-            "Error",
-        message,
-        stack
-    };
+    return { name, message, stack: stackLines };
 }
 
 function formatMetrics(label, metrics) {
