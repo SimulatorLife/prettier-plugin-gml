@@ -29,8 +29,8 @@ export default class GameMakerParseErrorListener extends ErrorListener {
         super();
     }
 
-    // TODO: better error messages
-    syntaxError(recognizer, offendingSymbol, line, column /* msg, error */) {
+    // TODO: Provide better error messages.
+    syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
         const offendingText = offendingSymbol?.text ?? null;
         let wrongSymbol = offendingText;
