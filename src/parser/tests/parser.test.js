@@ -176,6 +176,12 @@ describe("GameMaker parser fixtures", () => {
     });
   }
 
+  it("parses integer literals with leading zeros", () => {
+    const source = "function example() {\n    var value = 007;\n}";
+
+    assert.doesNotThrow(() => parseFixture(source));
+  });
+
   it("omits location metadata when disabled", async () => {
     const [fixtureName] = successfulFixtures;
 

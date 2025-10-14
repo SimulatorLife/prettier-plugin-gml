@@ -1,4 +1,4 @@
-import { CliUsageError } from "../../src/plugin/cli/cli-errors.js";
+import { CliUsageError } from "../../shared/cli-errors.js";
 
 export const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 

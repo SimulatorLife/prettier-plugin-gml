@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    isWordChar,
     toTrimmedString,
     capitalize
 } from "../string-utils.js";
@@ -40,4 +41,14 @@ test("capitalize leaves falsy and non-string inputs unchanged", () => {
     assert.strictEqual(capitalize(null), null);
     assert.strictEqual(capitalize(undefined), undefined);
     assert.strictEqual(capitalize(42), 42);
+});
+
+test("isWordChar validates alphanumeric and underscore characters", () => {
+    assert.strictEqual(isWordChar("a"), true);
+    assert.strictEqual(isWordChar("Z"), true);
+    assert.strictEqual(isWordChar("0"), true);
+    assert.strictEqual(isWordChar("_"), true);
+    assert.strictEqual(isWordChar(""), false);
+    assert.strictEqual(isWordChar("-"), false);
+    assert.strictEqual(isWordChar(null), false);
 });

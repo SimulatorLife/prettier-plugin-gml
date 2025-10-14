@@ -48,20 +48,7 @@ export function isBlockComment(node) {
  *                     comment node.
  */
 export function hasComment(node) {
-    const comments = getCommentArray(node);
-
-    const length = comments.length;
-    if (length === 0) {
-        return false;
-    }
-
-    for (let index = 0; index < length; index += 1) {
-        if (isCommentNode(comments[index])) {
-            return true;
-        }
-    }
-
-    return false;
+    return getCommentArray(node).some(isCommentNode);
 }
 
 /**

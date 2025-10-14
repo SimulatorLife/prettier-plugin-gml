@@ -94,4 +94,4 @@ with (instance_create_layer(x, y, "Instances", obj_Fire)) {
 }
 
 // The following line should be preserved; numbers with leading zeros are allowed in GML
-global.lighting.add_key_time(00, 253, 094, 083, 0.5);  // Sunset peak at 00h
+global.lighting.add_key_time(000, 253, 094, 083, 0.5);  // Sunset peak at 00h

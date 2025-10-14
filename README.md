@@ -259,7 +259,7 @@ If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale f
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/plugin/prettier-wrapper.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/prettier-wrapper.js --path . --extensions=.gml,.yy
   ```
 
 ### Visual Studio Code

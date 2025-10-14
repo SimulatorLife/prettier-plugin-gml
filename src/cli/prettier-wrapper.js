@@ -5,16 +5,22 @@ import { fileURLToPath } from "node:url";
 import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 
 import { asArray } from "../shared/array-utils.js";
+import { normalizeStringList } from "../shared/string-utils.js";
 
 import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "./cli/cli-errors.js";
-import { normalizeStringList } from "./src/options/option-utils.js";
+} from "../shared/cli-errors.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
-const pluginPath = path.resolve(wrapperDirectory, "src", "gml.js");
+const pluginPath = path.resolve(
+    wrapperDirectory,
+    "..",
+    "plugin",
+    "src",
+    "gml.js"
+);
 const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
@@ -103,7 +109,7 @@ const DEFAULT_PARSE_ERROR_ACTION =
 const [, , ...cliArgs] = process.argv;
 
 const USAGE = [
-    "Usage: node src/plugin/prettier-wrapper.js [options] <path>",
+    "Usage: node src/cli/prettier-wrapper.js [options] <path>",
     "",
     "Options:",
     "  --path <path>             Directory or file to format (alias for positional).",
@@ -226,6 +232,10 @@ let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
 
 function recordFormattedFileOriginalContents(filePath, contents) {
+    if (parseErrorAction !== ParseErrorAction.REVERT) {
+        return;
+    }
+
     if (!formattedFileOriginalContents.has(filePath)) {
         formattedFileOriginalContents.set(filePath, contents);
     }

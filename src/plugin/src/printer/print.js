@@ -27,7 +27,6 @@ import {
     getSizeRetrievalFunctionSuffixes
 } from "./optimizations/loop-size-hoisting.js";
 import {
-    getEnumMemberCommentPadding,
     getEnumNameAlignmentPadding,
     prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
@@ -40,10 +39,7 @@ import {
     formatLineComment,
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
-import {
-    getTrailingCommentPadding,
-    resolveLineCommentOptions
-} from "../options/line-comment-options.js";
+import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../options/option-utils.js";
 import {
@@ -869,11 +865,7 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            prepareEnumMembersForPrinting(
-                node.members,
-                getTrailingCommentPadding(options),
-                getNodeName
-            );
+            prepareEnumMembersForPrinting(node.members, getNodeName);
             return concat([
                 "enum ",
                 print("name"),
@@ -1032,18 +1024,6 @@ export function print(path, options, print) {
             return concat(["new ", print("expression"), ...argsPrinted]);
         }
         case "EnumMember": {
-            const comments = getCommentArray(node);
-            if (comments.length > 0) {
-                const padding = getEnumMemberCommentPadding(node);
-                comments.forEach((comment) => {
-                    if (
-                        comment &&
-                        (comment.trailing || comment.placement === "endOfLine")
-                    ) {
-                        comment.inlinePadding = padding;
-                    }
-                });
-            }
             const extraPadding = getEnumNameAlignmentPadding(node);
             let nameDoc = print("name");
             if (extraPadding > 0) {
@@ -3646,15 +3626,14 @@ function isSyntheticParenFlatteningEnabled(path) {
         }
 
         if (
-            (ancestor.type === "FunctionDeclaration" ||
-                ancestor.type === "ConstructorDeclaration") &&
-            ancestor._flattenSyntheticNumericParens === true
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "ConstructorDeclaration"
         ) {
-            return true;
-        }
-
-        if (ancestor.type === "Program") {
-            return false;
+            if (ancestor._flattenSyntheticNumericParens === true) {
+                return true;
+            }
+        } else if (ancestor.type === "Program") {
+            return ancestor._flattenSyntheticNumericParens !== false;
         }
 
         depth += 1;
