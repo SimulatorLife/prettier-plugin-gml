@@ -39,6 +39,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:ci": "eslint . --max-warnings=0",
+    "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
