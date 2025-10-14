@@ -8,14 +8,14 @@ import {
     isLineComment
 } from "../../../shared/comments.js";
 import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
-    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    getLineCommentCodeDetectionPatterns,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     normalizeLineCommentOptions,
-    getLineCommentCodeDetectionPatterns,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 import {
@@ -34,14 +34,14 @@ import {
 export {
     applyInlinePadding,
     collectCommentNodes,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
     DEFAULT_TRAILING_COMMENT_PADDING,
-    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     formatLineComment,
-    getLineCommentRawText,
     getCommentArray,
     getLineCommentCodeDetectionPatterns,
+    getLineCommentRawText,
     getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     handleComments,
