@@ -1,3 +1,5 @@
+import { CliUsageError } from "../../shared/cli-errors.js";
+
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 
@@ -44,9 +46,35 @@ function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
     };
 }
 
+function resolveManualRepoValue(rawValue, { usage, source = "cli" } = {}) {
+    const normalized = normalizeManualRepository(rawValue);
+    if (normalized) {
+        return normalized;
+    }
+
+    let received;
+    if (rawValue === undefined) {
+        received = "undefined";
+    } else if (rawValue === null) {
+        received = "null";
+    } else {
+        received = `'${rawValue}'`;
+    }
+
+    const requirement =
+        source === "env"
+            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
+            : "--manual-repo requires a GitHub repository in 'owner/name' format";
+
+    throw new CliUsageError(`${requirement} (received ${received}).`, {
+        usage
+    });
+}
+
 export {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    normalizeManualRepository
+    normalizeManualRepository,
+    resolveManualRepoValue
 };
