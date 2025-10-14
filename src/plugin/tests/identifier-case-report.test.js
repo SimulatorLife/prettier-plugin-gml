@@ -10,7 +10,7 @@ import prettier from "prettier";
 import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
-} from "../src/reporting/identifier-case-context.js";
+} from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/reporting/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));

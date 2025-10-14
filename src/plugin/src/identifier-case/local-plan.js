@@ -8,7 +8,7 @@ import { buildLocationKey } from "../../../shared/location-keys.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
-import { peekIdentifierCaseDryRunContext } from "../reporting/identifier-case-context.js";
+import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import {
     bootstrapProjectIndex,
     applyBootstrappedProjectIndex

@@ -11,7 +11,7 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
-} from "../src/reporting/identifier-case-context.js";
+} from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/reporting/identifier-case-report.js";
 
