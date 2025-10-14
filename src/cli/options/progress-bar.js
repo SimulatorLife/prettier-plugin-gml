@@ -1,12 +1,6 @@
-import { CliUsageError } from "../../shared/cli-errors.js";
-
 export const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 
-function toUsageError(message, usage) {
-    return new CliUsageError(message, { usage });
-}
-
-export function resolveProgressBarWidth(rawValue, { usage } = {}) {
+export function resolveProgressBarWidth(rawValue) {
     if (rawValue === undefined || rawValue === null) {
         return DEFAULT_PROGRESS_BAR_WIDTH;
     }
@@ -17,9 +11,8 @@ export function resolveProgressBarWidth(rawValue, { usage } = {}) {
         if (normalized >= 1) {
             return normalized;
         }
-        throw toUsageError(
-            `Progress bar width must be a positive integer (received ${rawValue}).`,
-            usage
+        throw new TypeError(
+            `Progress bar width must be a positive integer (received ${rawValue}).`
         );
     }
 
@@ -32,14 +25,12 @@ export function resolveProgressBarWidth(rawValue, { usage } = {}) {
         if (Number.isFinite(parsed) && parsed >= 1) {
             return parsed;
         }
-        throw toUsageError(
-            `Progress bar width must be a positive integer (received '${rawValue}').`,
-            usage
+        throw new TypeError(
+            `Progress bar width must be a positive integer (received '${rawValue}').`
         );
     }
 
-    throw toUsageError(
-        `Progress bar width must be provided as a number (received type '${valueType}').`,
-        usage
+    throw new TypeError(
+        `Progress bar width must be provided as a number (received type '${valueType}').`
     );
 }
