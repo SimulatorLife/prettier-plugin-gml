@@ -115,3 +115,33 @@ test("reorders description doc comments between parameters and returns", async (
         "Expected description doc comments to follow parameter metadata and precede the returns tag."
     );
 });
+
+test("respects wider printWidth when wrapping description doc comments", async () => {
+    const source = [
+        "/// @function sample(_first, _second)",
+        "/// @desc A longer example description that should wrap into multiple lines and appear after the",
+        "/// @param {String Array[String]} _first First input",
+        "/// @param {Id Instance} _second Second input",
+        "function sample(_first, _second)",
+        "{",
+        "    show_debug_message(_first, _second);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source, { printWidth: 120 });
+    const lines = formatted.trim().split("\n");
+
+    assert.deepStrictEqual(
+        lines.slice(0, 6),
+        [
+            "/// @function sample",
+            "/// @param {string array[string]} first - First input",
+            "/// @param {Id Instance} second - Second input",
+            "/// @description A longer example description that should wrap into multiple lines and appear after",
+            "///              the",
+            "/// @returns {undefined}"
+        ],
+        "Description doc comments should clamp to the formatter's wrapping width even when printWidth is larger."
+    );
+});
