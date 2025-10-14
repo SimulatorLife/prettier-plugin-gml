@@ -37,6 +37,7 @@ jobs:
       changed_files: ${{ steps.get.outputs.changed_files }}
       head_ref: ${{ steps.get.outputs.head_ref }}
       base_sha: ${{ steps.get.outputs.base_sha }}
+      base_ref: ${{ steps.get.outputs.base_ref }}
     steps:
       - name: Read PR details
         id: get
@@ -73,7 +74,10 @@ jobs:
             core.setOutput('changed_files', String(pr.changed_files || 0));
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('base_sha', pr.base.sha);
-            core.notice(`PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_sha=${pr.base.sha}`);
+            core.setOutput('base_ref', pr.base.ref);
+            core.notice(
+              `PR #${n}: changed_files=${pr.changed_files || 0}, head_ref=${pr.head.ref}, base_ref=${pr.base.ref}, base_sha=${pr.base.sha}`
+            );
 
   ###########################################################################
   # Regression detection (always creates/checks a job; fast-passes when no changes)
@@ -100,8 +104,17 @@ jobs:
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.base_sha }}
+          ref: ${{ needs.pr-meta.outputs.base_ref }}
           path: base
+
+      - name: Record resolved base ref/commit
+        if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
+        working-directory: base
+        run: |
+          echo "BASE_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
+        env:
+          BASE_REF: ${{ needs.pr-meta.outputs.base_ref }}
 
       - name: Setup Node (base)
         if: ${{ needs.pr-meta.outputs.changed_files != '0' }}
@@ -378,7 +391,11 @@ jobs:
             }
 
             const pr = context.payload.pull_request || {};
-            const baseLabel = `${pr.base?.ref || 'base'} @ ${(pr.base?.sha || '').slice(0, 7) || '???????'}`;
+            const envBaseRef = (process.env.BASE_REF || '').trim();
+            const envBaseSha = (process.env.BASE_COMMIT_SHA || '').trim();
+            const baseLabel = `${envBaseRef || pr.base?.ref || 'base'} @ ${
+              (envBaseSha || pr.base?.sha || '').slice(0, 7) || '???????'
+            }`;
             const headLabel = `${pr.head?.ref || 'head'} @ ${(pr.head?.sha || context.sha || '').slice(0, 7) || '???????'}`;
 
             function collectSuiteStats(dir) {
