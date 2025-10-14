@@ -228,6 +228,10 @@ let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
 
 function recordFormattedFileOriginalContents(filePath, contents) {
+    if (parseErrorAction !== ParseErrorAction.REVERT) {
+        return;
+    }
+
     if (!formattedFileOriginalContents.has(filePath)) {
         formattedFileOriginalContents.set(filePath, contents);
     }
