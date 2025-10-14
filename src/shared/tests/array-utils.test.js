@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { asArray, isNonEmptyArray, toArray } from "../array-utils.js";
+import {
+    asArray,
+    isNonEmptyArray,
+    mergeUniqueValues,
+    toArray
+} from "../array-utils.js";
 
 test("toArray wraps non-array values", () => {
     assert.deepEqual(toArray("value"), ["value"]);
@@ -34,4 +39,51 @@ test("isNonEmptyArray identifies arrays with elements", () => {
     assert.equal(isNonEmptyArray([0]), true);
     assert.equal(isNonEmptyArray([]), false);
     assert.equal(isNonEmptyArray(null), false);
+});
+
+test("mergeUniqueValues returns a frozen copy when no additions are provided", () => {
+    const defaults = Object.freeze(["alpha", "beta"]);
+    const merged = mergeUniqueValues(defaults, null);
+
+    assert.notEqual(merged, defaults);
+    assert.deepEqual(merged, defaults);
+    assert.ok(Object.isFrozen(merged));
+});
+
+test("mergeUniqueValues appends unique coerced values", () => {
+    const defaults = Object.freeze([/foo/]);
+    const merged = mergeUniqueValues(
+        defaults,
+        ["/bar/i", "/foo/", "", null, /baz/],
+        {
+            coerce: (value) => {
+                if (value instanceof RegExp) {
+                    return value;
+                }
+
+                if (typeof value !== "string") {
+                    return null;
+                }
+
+                const trimmed = value.trim();
+                if (!trimmed) {
+                    return null;
+                }
+
+                const match = trimmed.match(/^\/(.*)\/([a-z]*)$/i);
+                if (!match) {
+                    return null;
+                }
+
+                const [, source, flags = ""] = match;
+                return new RegExp(source, flags);
+            },
+            getKey: (pattern) => pattern.toString()
+        }
+    );
+
+    assert.deepEqual(
+        merged.map((pattern) => pattern.toString()),
+        ["/foo/", "/bar/i", "/baz/"]
+    );
 });
