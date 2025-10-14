@@ -310,6 +310,7 @@ jobs:
 
       - name: Publish PR test summary (head only)
         if: always()
+        continue-on-error: true           # ← ignore action crashes
         uses: dorny/test-reporter@v2
         with:
           name: Node.js test results (PR head)
@@ -322,17 +323,21 @@ jobs:
       # 👇 Adds/updates a sticky PR comment with a concise summary & failures
       - name: Comment test results on PR (sticky)
         if: ${{ always() && github.event_name == 'pull_request' && needs.pr-meta.outputs.changed_files != '0' }}
+        continue-on-error: true           # ← don’t fail job if comment step errors
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: |
             test-results/**/*.xml
           check_name: Node.js test results (PR head)
-          comment_mode: update    # keep a single up-to-date comment
+          comment_mode: changes
+          pull_request_build: merge
           compare_to_earlier_commit: true
+          comment_title: "Node.js test results (PR head)"
 
       # 👇 Attach raw reports so anyone can download/open them from the PR
       - name: Upload test reports as artifacts
         if: ${{ always() && needs.pr-meta.outputs.changed_files != '0' }}
+        continue-on-error: true           # ← artifact upload issues won’t fail job
         uses: actions/upload-artifact@v4
         with:
           name: junit-and-tap-${{ github.sha }}
