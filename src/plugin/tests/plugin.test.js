@@ -538,6 +538,16 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("uses the configured trailing padding for inline comments", async () => {
+        const formatted = await formatWithPlugin(
+            ["var foo = 1; // inline", ""].join("\n")
+        );
+
+        const [firstLine] = formatted.split("\n");
+
+        assert.strictEqual(firstLine, "var foo = 1;  // inline");
+    });
+
     it("respects the trailing comment inline offset option", async () => {
         const source = ["var foo = 1; // inline", ""].join("\n");
 
