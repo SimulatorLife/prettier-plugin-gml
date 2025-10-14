@@ -18,7 +18,7 @@ permissions:
 
 # Single run per PR; newer pushes cancel older runs
 concurrency:
-  group: codex-automerge-${{ github.event.pull_request.number || inputs.pr_number || 'manual' }}
+  group: codex-automerge-${{ github.event.pull_request.number || github.event.inputs.pr_number || 'manual' }}
   cancel-in-progress: true
 
 jobs:
