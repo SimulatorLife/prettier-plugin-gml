@@ -5,6 +5,14 @@ import vm from "node:vm";
 
 import { CliUsageError, handleCliError } from "../shared/cli-errors.js";
 import {
+    assertSupportedNodeVersion,
+    createManualGithubClient,
+    ensureDir,
+    formatDuration,
+    renderProgressBar,
+    timeSync
+} from "./manual/manual-cli-helpers.js";
+import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
 } from "./options/progress-bar.js";
@@ -16,38 +24,8 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    normalizeManualRepository
+    resolveManualRepoValue
 } from "./options/manual-repo.js";
-
-const KB = 1024;
-const MB = KB * 1024;
-
-function assertSupportedNodeVersion() {
-    const [major, minor] = process.versions.node
-        .split(".")
-        .map((part) => Number.parseInt(part, 10));
-    if (Number.isNaN(major) || Number.isNaN(minor)) {
-        throw new Error(
-            `Unable to determine Node.js version from ${process.version}.`
-        );
-    }
-    const MINIMUM_MINOR_VERSION_BY_MAJOR = { 18: 18, 20: 9 };
-    if (major < 18) {
-        throw new Error(
-            `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
-        );
-    }
-    if (major === 18 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[18]) {
-        throw new Error(
-            `Node.js 18.18.0 or newer is required. Detected ${process.version}.`
-        );
-    }
-    if (major === 20 && minor < MINIMUM_MINOR_VERSION_BY_MAJOR[20]) {
-        throw new Error(
-            `Node.js 20.9.0 or newer is required. Detected ${process.version}.`
-        );
-    }
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +36,14 @@ const OUTPUT_DEFAULT = path.join(
     "resources",
     "gml-identifiers.json"
 );
+
+const manualClient = createManualGithubClient({
+    userAgent: "prettier-plugin-gml identifier generator",
+    defaultCacheRoot: DEFAULT_CACHE_ROOT
+});
+
+const { fetchManualFile, resolveManualRef, resolveCommitFromRef } =
+    manualClient;
 
 function getUsage({
     cacheRoot = DEFAULT_CACHE_ROOT,
@@ -79,29 +65,6 @@ function getUsage({
         `                             Can also be set via ${MANUAL_CACHE_ROOT_ENV_VAR}.`,
         "  --help, -h                Show this help message."
     ].join("\n");
-}
-
-function resolveManualRepoValue(rawValue, { usage, source = "cli" } = {}) {
-    const normalized = normalizeManualRepository(rawValue);
-    if (normalized) {
-        return normalized;
-    }
-
-    let received;
-    if (rawValue === undefined) {
-        received = "undefined";
-    } else if (rawValue === null) {
-        received = "null";
-    } else {
-        received = `'${rawValue}'`;
-    }
-    const requirement =
-        source === "env"
-            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
-            : "--manual-repo requires a GitHub repository in 'owner/name' format";
-    throw new CliUsageError(`${requirement} (received ${received}).`, {
-        usage
-    });
 }
 
 function parseArgs({
@@ -210,162 +173,6 @@ function parseArgs({
         showHelp,
         usage: usageText
     };
-}
-
-const BASE_HEADERS = {
-    "User-Agent": "prettier-plugin-gml identifier generator"
-};
-
-if (process.env.GITHUB_TOKEN) {
-    BASE_HEADERS.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-}
-
-async function curlRequest(url, { headers = {}, acceptJson = false } = {}) {
-    const finalHeaders = { ...BASE_HEADERS, ...headers };
-    if (acceptJson) {
-        finalHeaders.Accept = "application/vnd.github+json";
-    }
-    const response = await fetch(url, {
-        headers: finalHeaders,
-        redirect: "follow"
-    });
-
-    const bodyText = await response.text();
-    if (!response.ok) {
-        const errorMessage = bodyText || response.statusText;
-        throw new Error(`Request failed for ${url}: ${errorMessage}`);
-    }
-
-    return bodyText;
-}
-
-async function ensureDir(dirPath) {
-    await fs.mkdir(dirPath, { recursive: true });
-}
-
-async function resolveManualRef(ref, { verbose, apiRoot }) {
-    if (verbose.resolveRef) {
-        console.log(
-            ref
-                ? `Resolving manual reference '${ref}'…`
-                : "Resolving latest manual tag…"
-        );
-    }
-    if (ref) {
-        return resolveCommitFromRef(ref, { apiRoot });
-    }
-
-    const latestTagUrl = `${apiRoot}/tags?per_page=1`;
-    const body = await curlRequest(latestTagUrl, { acceptJson: true });
-    const tags = JSON.parse(body);
-    if (!Array.isArray(tags) || tags.length === 0) {
-        console.warn("No manual tags found; defaulting to 'develop' branch.");
-        return resolveCommitFromRef("develop", { apiRoot });
-    }
-    const { name, commit } = tags[0];
-    return {
-        ref: name,
-        sha: commit?.sha ?? null
-    };
-}
-
-async function resolveCommitFromRef(ref, { apiRoot }) {
-    const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
-    const body = await curlRequest(url, { acceptJson: true });
-    const payload = JSON.parse(body);
-    if (!payload?.sha) {
-        throw new Error(`Could not determine commit SHA for ref '${ref}'.`);
-    }
-    return { ref, sha: payload.sha };
-}
-
-function formatDuration(startTime) {
-    const deltaMs = Date.now() - startTime;
-    if (deltaMs < 1000) {
-        return `${deltaMs}ms`;
-    }
-    return `${(deltaMs / 1000).toFixed(1)}s`;
-}
-
-function formatBytes(text) {
-    const size = Buffer.byteLength(text, "utf8");
-    if (size >= MB) {
-        return `${(size / MB).toFixed(1)}MB`;
-    }
-    if (size >= KB) {
-        return `${(size / KB).toFixed(1)}KB`;
-    }
-    return `${size}B`;
-}
-
-function renderProgressBar(
-    label,
-    current,
-    total,
-    width = DEFAULT_PROGRESS_BAR_WIDTH
-) {
-    if (!process.stdout.isTTY || width <= 0) {
-        return;
-    }
-    const denominator = total > 0 ? total : 1;
-    const ratio = Math.min(Math.max(current / denominator, 0), 1);
-    const filled = Math.round(ratio * width);
-    const bar = `${"#".repeat(filled)}${"-".repeat(Math.max(width - filled, 0))}`;
-    const message = `${label} [${bar}] ${current}/${total}`;
-    process.stdout.write(`\r${message}`);
-    if (current >= total) {
-        process.stdout.write("\n");
-    }
-}
-
-function timeSync(label, fn, { verbose }) {
-    if (verbose.parsing) {
-        console.log(`→ ${label}`);
-    }
-    const start = Date.now();
-    const result = fn();
-    if (verbose.parsing) {
-        console.log(`  ${label} completed in ${formatDuration(start)}.`);
-    }
-    return result;
-}
-
-async function fetchManualFile(
-    sha,
-    filePath,
-    { forceRefresh = false, verbose, cacheRoot = DEFAULT_CACHE_ROOT, rawRoot }
-) {
-    const shouldLogDetails = verbose.downloads && !verbose.progressBar;
-    const cachePath = path.join(cacheRoot, sha, filePath);
-    if (!forceRefresh) {
-        try {
-            const cached = await fs.readFile(cachePath, "utf8");
-            if (shouldLogDetails) {
-                console.log(`[cache] ${filePath}`);
-            }
-            return cached;
-        } catch (error) {
-            if (error.code !== "ENOENT") {
-                throw error;
-            }
-        }
-    }
-
-    const start = Date.now();
-    if (shouldLogDetails) {
-        console.log(`[download] ${filePath}…`);
-    }
-    const resolvedRawRoot = rawRoot ?? buildManualRepositoryEndpoints().rawRoot;
-    const url = `${resolvedRawRoot}/${sha}/${filePath}`;
-    const content = await curlRequest(url);
-    await ensureDir(path.dirname(cachePath));
-    await fs.writeFile(cachePath, content, "utf8");
-    if (shouldLogDetails) {
-        console.log(
-            `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(start)})`
-        );
-    }
-    return content;
 }
 
 function parseArrayLiteral(source, identifier) {
