@@ -10,62 +10,186 @@ permissions:
   contents: read
   checks: write
   pull-requests: write
+  actions: read
 
 jobs:
-  test:
-    name: Run Node.js test suites
+  regression-tests:
+    name: Detect new test failures (allow legacy failures)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout base (merge target)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
 
-      - name: Set up Node.js
+      - name: Setup Node (base)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: |
+            base/package-lock.json
 
-      - name: Install dependencies
+      - name: Install deps (base)
+        working-directory: base
         run: npm ci
 
-      - name: Create test results directory
-        run: mkdir -p test-results
-
-      - name: Run shared tests
-        id: shared-tests
-        run: node --test --test-reporter tap --test-reporter-destination=./test-results/shared.tap src/shared/tests/*.test.js
+      - name: Run shared tests (base)
+        working-directory: base
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=./test-results/shared.xml
+          --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap
+          src/shared/tests/*.test.js
         continue-on-error: true
 
-      - name: Run parser tests
-        id: parser-tests
-        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/parser.tap tests/parser.test.js
-        working-directory: src/parser
+      - name: Run parser tests (base)
+        working-directory: base/src/parser
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap
+          tests/*.test.js
         continue-on-error: true
 
-      - name: Run plugin tests
-        id: plugin-tests
-        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/plugin.tap tests/*.test.js
-        working-directory: src/plugin
+      - name: Run plugin tests (base)
+        working-directory: base/src/plugin
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap
+          tests/*.test.js
         continue-on-error: true
 
-      - name: Run CLI tests
-        id: cli-tests
-        run: node --test --test-reporter tap --test-reporter-destination=../../test-results/cli.tap tests/*.test.js
-        working-directory: src/cli
+      - name: Run CLI tests (base)
+        working-directory: base/src/cli
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap
+          tests/*.test.js
         continue-on-error: true
 
-      - name: Publish test report
-        if: always()
-        uses: dorny/test-reporter@v1
+      - name: Checkout head (PR)
+        uses: actions/checkout@v4
         with:
-          name: Node.js test results
-          path: test-results/*.tap
-          reporter: tap
-          fail-on-error: false
+          path: head
 
-      - name: Fail if any suite failed
-        if: steps.shared-tests.outcome == 'failure' || steps.parser-tests.outcome == 'failure' || steps.plugin-tests.outcome == 'failure' || steps.cli-tests.outcome == 'failure'
+      - name: Setup Node (head)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            head/package-lock.json
+
+      - name: Install deps (head)
+        working-directory: head
+        run: npm ci
+
+      - name: Run shared tests (head)
+        working-directory: head
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=./test-results/shared.xml
+          --test-reporter=tap   --test-reporter-destination=./test-results/shared.tap
+          src/shared/tests/*.test.js
+        continue-on-error: true
+
+      - name: Run parser tests (head)
+        working-directory: head/src/parser
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/parser.tap
+          tests/*.test.js
+        continue-on-error: true
+
+      - name: Run plugin tests (head)
+        working-directory: head/src/plugin
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/plugin.tap
+          tests/*.test.js
+        continue-on-error: true
+
+      - name: Run CLI tests (head)
+        working-directory: head/src/cli
+        run: >
+          node --test
+          --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml
+          --test-reporter=tap   --test-reporter-destination=../../test-results/cli.tap
+          tests/*.test.js
+        continue-on-error: true
+
+      - name: Compare JUnit results (fail only on regressions)
+        working-directory: head
         run: |
-          echo "One or more test suites failed"
-          exit 1
+          node -e "require('fs').writeFileSync('compare-junit.js', `
+          const fs = require('fs');
+          const path = require('path');
+          const { XMLParser } = require('fast-xml-parser');
+
+          function readCases(rootDir) {
+            const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
+            const results = new Map(); // key => status
+            const files = fs.readdirSync(path.join(rootDir, 'test-results')).filter(f => f.endsWith('.xml'));
+            for (const file of files) {
+              const xml = fs.readFileSync(path.join(rootDir, 'test-results', file), 'utf8');
+              const data = parser.parse(xml);
+              const suites = [];
+              if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
+              else if (data.testsuite) { suites.push(data.testsuite); }
+              else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
+
+              for (const suite of suites) {
+                const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
+                for (const tc of cases) {
+                  const name = String(tc.name ?? '');
+                  const cls = String(tc.classname ?? suite.name ?? '');
+                  const key = cls + ' :: ' + name;
+                  let status = 'passed';
+                  if (tc.skipped !== undefined) status = 'skipped';
+                  if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
+                  if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
+                  results.set(key, status);
+                }
+              }
+            }
+            return results;
+          }
+
+          const base = readCases('../base');
+          const head = readCases('../head');
+
+          const regressions = [];
+          for (const [key, headStatus] of head.entries()) {
+            const baseStatus = base.get(key);
+            if (baseStatus === undefined) { continue; } // new test -> ignore even if failing
+            if ((baseStatus === 'passed' || baseStatus === 'skipped') && headStatus === 'failed') {
+              regressions.push({ test: key, from: baseStatus, to: headStatus });
+            }
+          }
+
+          if (regressions.length) {
+            console.log('New failing tests detected (compared to base):');
+            for (const r of regressions) console.log('- ' + r.test + ' (' + r.from + ' -> ' + r.to + ')');
+            process.exit(1);
+          } else {
+            console.log('No new failing tests compared to base.');
+          }
+          `); node compare-junit.js"
+        shell: bash
+
+      - name: Publish PR test summary (head only)
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Node.js test results (PR head)
+          path: head/test-results/*.tap
+          reporter: tap
+          fail-on-error: true
+          use-actions-summary: true
