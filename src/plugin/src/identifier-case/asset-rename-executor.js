@@ -44,7 +44,8 @@ function pathIsAccessible(fsFacade, targetPath, checks) {
         return false;
     }
 
-    for (const { method, args = [], expectsBoolean = false } of checks ?? []) {
+    for (const check of checks ?? []) {
+        const { method, args = [], expectsBoolean = false } = check;
         const fn = fsFacade[method];
         if (typeof fn !== "function") {
             continue;
@@ -52,17 +53,15 @@ function pathIsAccessible(fsFacade, targetPath, checks) {
 
         try {
             const result = fn.call(fsFacade, targetPath, ...args);
-            if (expectsBoolean) {
-                if (result) {
-                    return true;
-                }
+            const succeeded = !expectsBoolean || Boolean(result);
+            if (succeeded) {
+                return true;
+            }
+        } catch (error) {
+            if (error?.code === "ENOENT") {
                 continue;
             }
-            return true;
-        } catch (error) {
-            if (!error || error.code !== "ENOENT") {
-                throw error;
-            }
+            throw error;
         }
     }
 
