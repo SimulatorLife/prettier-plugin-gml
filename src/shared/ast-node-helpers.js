@@ -30,6 +30,36 @@ function getSingleVariableDeclarator(node) {
     return declarator;
 }
 
+function getVariableDeclarationKind(node) {
+    if (!node || node.type !== "VariableDeclaration") {
+        return null;
+    }
+
+    const { kind } = node;
+    if (typeof kind !== "string" || kind.length === 0) {
+        return null;
+    }
+
+    return kind.toLowerCase();
+}
+
+function isVariableDeclarationOfKind(node, expectedKind) {
+    if (typeof expectedKind !== "string" || expectedKind.length === 0) {
+        return false;
+    }
+
+    const normalizedKind = getVariableDeclarationKind(node);
+    if (normalizedKind === null) {
+        return false;
+    }
+
+    return normalizedKind === expectedKind.toLowerCase();
+}
+
+function isVarVariableDeclaration(node) {
+    return isVariableDeclarationOfKind(node, "var");
+}
+
 /**
  * Normalize various identifier-like nodes to a comparable string.
  *
@@ -243,6 +273,7 @@ function isNode(value) {
 
 export {
     getSingleVariableDeclarator,
+    getVariableDeclarationKind,
     getIdentifierText,
     getCallExpressionArguments,
     getArrayProperty,
@@ -252,5 +283,7 @@ export {
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
-    isNode
+    isNode,
+    isVariableDeclarationOfKind,
+    isVarVariableDeclaration
 };
