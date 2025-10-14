@@ -537,7 +537,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureShaderResetIsCalled({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -550,7 +550,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -571,7 +571,7 @@ function buildFeatherFixImplementations(diagnostics) {
                             diagnostic
                         });
 
-                        if (Array.isArray(fixes) && fixes.length > 0) {
+                        if (isNonEmptyArray(fixes)) {
                             return fixes;
                         }
 
