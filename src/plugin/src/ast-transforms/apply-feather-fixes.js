@@ -7217,7 +7217,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -7437,7 +7437,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -8431,7 +8431,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -8515,7 +8515,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -8583,7 +8583,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -9030,7 +9030,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -10270,7 +10270,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
 
     if (!hasDisabledColourChannel(args)) {
         return null;
