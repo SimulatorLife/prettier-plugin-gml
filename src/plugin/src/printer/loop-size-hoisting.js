@@ -49,31 +49,30 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
         return new Map();
     }
 
-    const overrides = new Map();
-    const entries = rawValue
+    const overrides = rawValue
         .split(",")
         .map((entry) => entry.trim())
-        .filter((entry) => entry.length > 0);
+        .flatMap((entry) => {
+            if (!entry) {
+                return [];
+            }
 
-    for (const entry of entries) {
-        const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
-        const normalizedName = rawName?.trim().toLowerCase();
-        if (!normalizedName) {
-            continue;
-        }
+            const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
+            const normalizedName = rawName?.trim().toLowerCase();
+            if (!normalizedName) {
+                return [];
+            }
 
-        const trimmedSuffix = rawSuffix.trim();
-        if (trimmedSuffix === "-") {
-            overrides.set(normalizedName, null);
-            continue;
-        }
+            const trimmedSuffix = rawSuffix.trim();
+            if (trimmedSuffix === "-") {
+                return [[normalizedName, null]];
+            }
 
-        const normalizedSuffix =
-            trimmedSuffix.length > 0 ? trimmedSuffix : "len";
-        overrides.set(normalizedName, normalizedSuffix);
-    }
+            const normalizedSuffix = trimmedSuffix || "len";
+            return [[normalizedName, normalizedSuffix]];
+        });
 
-    return overrides;
+    return new Map(overrides);
 }
 
 function getLoopLengthHoistInfo(
