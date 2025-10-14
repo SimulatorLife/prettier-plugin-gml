@@ -4,6 +4,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 
+import { Command, InvalidArgumentError } from "commander";
+
 import { asArray } from "../shared/array-utils.js";
 import { normalizeStringList } from "../shared/string-utils.js";
 
@@ -108,94 +110,77 @@ const DEFAULT_PARSE_ERROR_ACTION =
 
 const [, , ...cliArgs] = process.argv;
 
-const USAGE = [
-    "Usage: node src/cli/prettier-wrapper.js [options] <path>",
-    "",
-    "Options:",
-    "  --path <path>             Directory or file to format (alias for positional).",
-    "  --extensions <list>       Comma-separated list of file extensions to format.",
-    "  --on-parse-error <mode>   How to handle parser failures: revert, skip, or abort."
-].join("\n");
-
 function parseCliArguments(args) {
-    const parsed = {
-        targetPathInput: null,
-        extensions: DEFAULT_EXTENSIONS,
-        onParseError: DEFAULT_PARSE_ERROR_ACTION
-    };
-
-    for (let index = 0; index < args.length; index += 1) {
-        const arg = args[index];
-
-        if (!arg.startsWith("--")) {
-            if (!parsed.targetPathInput) {
-                parsed.targetPathInput = arg;
-            }
-            continue;
-        }
-
-        const [flag, inlineValue] = arg.split("=", 2);
-        const consumeValue = () => {
-            if (inlineValue !== undefined) {
-                return inlineValue;
-            }
-
-            if (index + 1 < args.length) {
-                index += 1;
-                return args[index];
-            }
-
-            return undefined;
-        };
-
-        if (flag === "--path") {
-            const value = consumeValue();
-            if (value === undefined) {
-                throw new CliUsageError("--path requires a value.", {
-                    usage: USAGE
-                });
-            }
-            parsed.targetPathInput = value;
-            continue;
-        }
-
-        if (flag === "--extensions") {
-            const value = consumeValue();
-            if (value === undefined) {
-                throw new CliUsageError("--extensions requires a value.", {
-                    usage: USAGE
-                });
-            }
-            parsed.extensions = normalizeExtensions(value, DEFAULT_EXTENSIONS);
-            continue;
-        }
-
-        if (flag === "--on-parse-error") {
-            const value = consumeValue();
-            if (value === undefined) {
-                throw new CliUsageError("--on-parse-error requires a value.", {
-                    usage: USAGE
-                });
-            }
-            const normalized = normalizeParseErrorAction(
-                value,
-                DEFAULT_PARSE_ERROR_ACTION
-            );
-            if (!normalized) {
-                throw new CliUsageError(
-                    `--on-parse-error must be one of: ${[
-                        ...VALID_PARSE_ERROR_ACTIONS
-                    ]
-                        .sort()
-                        .join(", ")}.`,
-                    { usage: USAGE }
+    const command = new Command()
+        .name("prettier-wrapper")
+        .usage("[options] <path>")
+        .description(
+            "Format GameMaker Language files using the prettier plugin."
+        )
+        .exitOverride()
+        .allowExcessArguments(false)
+        .helpOption("-h, --help", "Show this help message.")
+        .showHelpAfterError("(add --help for usage information)")
+        .argument("[targetPath]", "Directory or file to format.")
+        .option(
+            "--path <path>",
+            "Directory or file to format (alias for positional argument)."
+        )
+        .option(
+            "--extensions <list>",
+            "Comma-separated list of file extensions to format.",
+            (value) => normalizeExtensions(value, DEFAULT_EXTENSIONS)
+        )
+        .option(
+            "--on-parse-error <mode>",
+            "How to handle parser failures: revert, skip, or abort.",
+            (value) => {
+                const normalized = normalizeParseErrorAction(
+                    value,
+                    DEFAULT_PARSE_ERROR_ACTION
                 );
-            }
-            parsed.onParseError = normalized;
+                if (!normalized) {
+                    throw new InvalidArgumentError(
+                        `Must be one of: ${[...VALID_PARSE_ERROR_ACTIONS]
+                            .sort()
+                            .join(", ")}`
+                    );
+                }
+                return normalized;
+            },
+            DEFAULT_PARSE_ERROR_ACTION
+        );
+
+    try {
+        command.parse(args, { from: "user" });
+    } catch (error) {
+        if (error?.code === "commander.helpDisplayed") {
+            return {
+                helpRequested: true,
+                usage: command.helpInformation()
+            };
         }
+        if (error instanceof Error && error.name === "CommanderError") {
+            throw new CliUsageError(error.message.trim(), {
+                usage: command.helpInformation()
+            });
+        }
+        throw error;
     }
 
-    return parsed;
+    const options = command.opts();
+    const [positionalTarget] = command.processedArgs;
+    const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
+
+    return {
+        helpRequested: false,
+        targetPathInput: options.path ?? positionalTarget ?? null,
+        extensions: Array.isArray(extensions)
+            ? extensions
+            : Array.from(extensions ?? DEFAULT_EXTENSIONS),
+        onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        usage: command.helpInformation()
+    };
 }
 
 let targetExtensions = DEFAULT_EXTENSIONS;
@@ -578,13 +563,19 @@ async function run() {
     const {
         targetPathInput,
         extensions: configuredExtensions,
-        onParseError
+        onParseError,
+        helpRequested,
+        usage
     } = parseCliArguments(cliArgs);
+
+    if (helpRequested) {
+        return;
+    }
 
     if (!targetPathInput) {
         throw new CliUsageError(
             "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project.",
-            { usage: USAGE }
+            { usage }
         );
     }
 
@@ -610,7 +601,7 @@ async function run() {
     if (!targetIsDirectory && !targetStats.isFile()) {
         throw new CliUsageError(
             `${targetPath} is not a file or directory that can be formatted`,
-            { usage: USAGE }
+            { usage }
         );
     }
 

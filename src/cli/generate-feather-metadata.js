@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 
+import { Command, InvalidArgumentError } from "commander";
+
 import { escapeRegExp } from "../shared/regexp.js";
 import { CliUsageError, handleCliError } from "../shared/cli-errors.js";
 import {
@@ -55,26 +57,78 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function getUsage({
-    cacheRoot = DEFAULT_CACHE_ROOT,
-    manualRepo = DEFAULT_MANUAL_REPO,
-    progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH
-} = {}) {
-    return [
-        "Usage: node scripts/generate-feather-metadata.mjs [options]",
-        "",
-        "Options:",
-        "  --ref, -r <git-ref>       Manual git ref (tag, branch, or commit). Defaults to latest tag.",
-        "  --output, -o <path>       Output JSON path. Defaults to resources/feather-metadata.json.",
-        "  --force-refresh           Ignore cached manual artefacts and re-download.",
-        "  --quiet                   Suppress progress output (useful in CI).",
-        `  --progress-bar-width <n>  Width of the terminal progress bar (default: ${progressBarWidth}).`,
-        `  --manual-repo <owner/name> GitHub repository hosting the manual (default: ${manualRepo}).`,
-        `                             Can also be set via ${MANUAL_REPO_ENV_VAR}.`,
-        `  --cache-root <path>       Directory to store cached manual artefacts (default: ${cacheRoot}).`,
-        `                             Can also be set via ${MANUAL_CACHE_ROOT_ENV_VAR}.`,
-        "  --help, -h                Show this help message."
-    ].join("\n");
+const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
+
+function createFeatherMetadataCommand() {
+    const command = new Command()
+        .name("generate-feather-metadata")
+        .usage("[options]")
+        .description(
+            "Generate feather-metadata.json from the GameMaker manual."
+        )
+        .exitOverride()
+        .allowExcessArguments(false)
+        .helpOption("-h, --help", "Show this help message.")
+        .showHelpAfterError("(add --help for usage information)")
+        .option(
+            "-r, --ref <git-ref>",
+            "Manual git ref (tag, branch, or commit)."
+        )
+        .option(
+            "-o, --output <path>",
+            `Output JSON path (default: ${OUTPUT_DEFAULT}).`,
+            (value) => path.resolve(value),
+            OUTPUT_DEFAULT
+        )
+        .option(
+            "--force-refresh",
+            "Ignore cached manual artefacts and re-download."
+        )
+        .option("--quiet", "Suppress progress output (useful in CI).")
+        .option(
+            "--progress-bar-width <n>",
+            `Width of the terminal progress bar (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            DEFAULT_PROGRESS_BAR_WIDTH
+        )
+        .option(
+            "--manual-repo <owner/name>",
+            `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
+            (value) => {
+                try {
+                    return resolveManualRepoValue(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            DEFAULT_MANUAL_REPO
+        )
+        .option(
+            "--cache-root <path>",
+            `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
+            (value) => path.resolve(value),
+            DEFAULT_CACHE_ROOT
+        );
+
+    command.addHelpText(
+        "after",
+        [
+            "",
+            "Environment variables:",
+            `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
+            `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
+            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
+            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
+        ].join("\n")
+    );
+
+    return command;
 }
 
 function parseArgs({
@@ -82,26 +136,38 @@ function parseArgs({
     env = process.env,
     isTty = process.stdout.isTTY === true
 } = {}) {
-    let ref = env.GML_MANUAL_REF ?? null;
-    let outputPath = OUTPUT_DEFAULT;
-    let forceRefresh = false;
-    let progressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
-    let cacheRoot = DEFAULT_CACHE_ROOT;
-    let manualRepo = DEFAULT_MANUAL_REPO;
+    const command = createFeatherMetadataCommand();
 
-    const usage = () => getUsage({ cacheRoot, manualRepo, progressBarWidth });
-
-    if (env.GML_PROGRESS_BAR_WIDTH !== undefined) {
-        progressBarWidth = resolveProgressBarWidth(env.GML_PROGRESS_BAR_WIDTH, {
-            usage: usage()
-        });
+    if (env.GML_MANUAL_REF) {
+        command.setOptionValueWithSource("ref", env.GML_MANUAL_REF, "env");
     }
+
     if (env[MANUAL_REPO_ENV_VAR] !== undefined) {
-        manualRepo = resolveManualRepoValue(env[MANUAL_REPO_ENV_VAR], {
-            usage: usage(),
-            source: "env"
-        });
+        try {
+            const repo = resolveManualRepoValue(env[MANUAL_REPO_ENV_VAR], {
+                source: "env"
+            });
+            command.setOptionValueWithSource("manualRepo", repo, "env");
+        } catch (error) {
+            throw new CliUsageError(error.message, {
+                usage: command.helpInformation()
+            });
+        }
     }
+
+    if (env[PROGRESS_BAR_WIDTH_ENV_VAR] !== undefined) {
+        try {
+            const width = resolveProgressBarWidth(
+                env[PROGRESS_BAR_WIDTH_ENV_VAR]
+            );
+            command.setOptionValueWithSource("progressBarWidth", width, "env");
+        } catch (error) {
+            throw new CliUsageError(error.message, {
+                usage: command.helpInformation()
+            });
+        }
+    }
+
     const verbose = {
         resolveRef: true,
         downloads: true,
@@ -109,79 +175,43 @@ function parseArgs({
         progressBar: isTty
     };
 
-    const args = Array.from(argv);
-    let showHelp = false;
-
-    for (let i = 0; i < args.length; i += 1) {
-        const arg = args[i];
-        if ((arg === "--ref" || arg === "-r") && i + 1 < args.length) {
-            ref = args[i + 1];
-            i += 1;
-        } else if (
-            (arg === "--output" || arg === "-o") &&
-            i + 1 < args.length
-        ) {
-            outputPath = path.resolve(args[i + 1]);
-            i += 1;
-        } else if (arg === "--force-refresh") {
-            forceRefresh = true;
-        } else if (arg === "--quiet") {
-            verbose.resolveRef = false;
-            verbose.downloads = false;
-            verbose.parsing = false;
-            verbose.progressBar = false;
-        } else if (arg === "--progress-bar-width") {
-            if (i + 1 >= args.length) {
-                throw new CliUsageError(
-                    "--progress-bar-width requires a numeric value.",
-                    { usage: usage() }
-                );
-            }
-            progressBarWidth = resolveProgressBarWidth(args[i + 1], {
-                usage: usage()
-            });
-            i += 1;
-        } else if (arg === "--manual-repo") {
-            if (i + 1 >= args.length) {
-                throw new CliUsageError(
-                    "--manual-repo requires a repository value.",
-                    { usage: usage() }
-                );
-            }
-            manualRepo = resolveManualRepoValue(args[i + 1], {
-                usage: usage()
-            });
-            i += 1;
-        } else if (arg === "--cache-root") {
-            if (i + 1 >= args.length) {
-                throw new CliUsageError("--cache-root requires a path value.", {
-                    usage: usage()
-                });
-            }
-            cacheRoot = path.resolve(args[i + 1]);
-            i += 1;
-        } else if (arg === "--help" || arg === "-h") {
-            showHelp = true;
-            break;
-        } else {
-            throw new CliUsageError(`Unknown argument: ${arg}`, {
-                usage: usage()
+    try {
+        command.parse(argv, { from: "user" });
+    } catch (error) {
+        if (error?.code === "commander.helpDisplayed") {
+            return {
+                helpRequested: true,
+                usage: command.helpInformation()
+            };
+        }
+        if (error instanceof Error && error.name === "CommanderError") {
+            throw new CliUsageError(error.message.trim(), {
+                usage: command.helpInformation()
             });
         }
+        throw error;
     }
 
-    const usageText = usage();
+    const options = command.opts();
+
+    if (options.quiet) {
+        verbose.resolveRef = false;
+        verbose.downloads = false;
+        verbose.parsing = false;
+        verbose.progressBar = false;
+    }
 
     return {
-        ref,
-        outputPath,
-        forceRefresh,
+        ref: options.ref ?? null,
+        outputPath: options.output ?? OUTPUT_DEFAULT,
+        forceRefresh: Boolean(options.forceRefresh),
         verbose,
-        progressBarWidth,
-        cacheRoot,
-        manualRepo,
-        showHelp,
-        usage: usageText
+        progressBarWidth:
+            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
+        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
+        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
+        helpRequested: false,
+        usage: command.helpInformation()
     };
 }
 
@@ -870,12 +900,10 @@ async function main({ argv, env, isTty } = {}) {
         progressBarWidth,
         cacheRoot,
         manualRepo,
-        showHelp,
-        usage
+        helpRequested
     } = parseArgs({ argv, env, isTty });
 
-    if (showHelp) {
-        console.log(usage);
+    if (helpRequested) {
         return 0;
     }
     const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
