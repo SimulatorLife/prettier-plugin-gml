@@ -1,3 +1,5 @@
+import { asArray, isNonEmptyArray } from "./array-utils.js";
+
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
 // can reuse the same defensive checks without duplicating logic.
@@ -159,7 +161,7 @@ function getCallExpressionArguments(callExpression) {
 }
 
 function getArrayProperty(node, propertyName) {
-    if (!node || typeof node !== "object") {
+    if (!isNode(node)) {
         return [];
     }
 
@@ -167,12 +169,11 @@ function getArrayProperty(node, propertyName) {
         return [];
     }
 
-    const value = node[propertyName];
-    return Array.isArray(value) ? value : [];
+    return asArray(node[propertyName]);
 }
 
 function hasArrayPropertyEntries(node, propertyName) {
-    if (!node || typeof node !== "object") {
+    if (!isNode(node)) {
         return false;
     }
 
@@ -180,8 +181,7 @@ function hasArrayPropertyEntries(node, propertyName) {
         return false;
     }
 
-    const value = node[propertyName];
-    return Array.isArray(value) && value.length > 0;
+    return isNonEmptyArray(node[propertyName]);
 }
 
 function getBodyStatements(node) {
