@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import { toPosixPath } from "../utils/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
