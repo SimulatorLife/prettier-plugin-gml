@@ -7,7 +7,6 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 
 import { describe, it } from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -352,12 +351,21 @@ describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
             const { mtimeMs: initialMtime } = await fs.stat(targetFile);
 
-            await delay(1000);
-
-            await execFileAsync("node", [wrapperPath, tempDirectory]);
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                tempDirectory
+            ]);
             const { mtimeMs: finalMtime } = await fs.stat(targetFile);
 
             assert.equal(finalMtime, initialMtime);
+            const formattedMessages = stdout
+                .split(/\r?\n/)
+                .filter((line) => line.startsWith("Formatted "));
+            assert.deepEqual(
+                formattedMessages,
+                [],
+                "Expected the second run not to report formatted files"
+            );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
