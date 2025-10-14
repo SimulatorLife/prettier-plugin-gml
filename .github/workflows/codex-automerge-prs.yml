@@ -109,11 +109,53 @@ jobs:
               }
             }
 
+            // Robust PR changed_files computation (avoids races on synchronize events)
             async function setFromPullRequest(pr) {
               if (!pr) return;
 
-              const changedFiles = Number(pr.changed_files || 0);
-              const shouldRun = changedFiles > 0;
+              // 1) Start with payload value
+              let changedFiles = Number(pr.changed_files ?? 0);
+
+              // 2) Truth source: list files on the PR (handles pagination)
+              try {
+                const files = await github.paginate(github.rest.pulls.listFiles, {
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  per_page: 100,
+                });
+                if (Array.isArray(files)) {
+                  changedFiles = files.length;
+                }
+              } catch (e) {
+                core.warning(`pulls.listFiles failed: ${e.message}`);
+              }
+
+              // 3) Fallback: repo compare if still zero/unknown
+              if (!Number.isFinite(changedFiles) || changedFiles === 0) {
+                try {
+                  const baseSha = pr.base?.sha;
+                  const headSha = pr.head?.sha;
+                  if (baseSha && headSha) {
+                    const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
+                      owner,
+                      repo,
+                      basehead: `${baseSha}...${headSha}`,
+                    });
+                    if (Array.isArray(cmp.files)) {
+                      changedFiles = cmp.files.length;
+                    } else if (typeof cmp.changed_files === 'number') {
+                      changedFiles = cmp.changed_files;
+                    }
+                  }
+                } catch (e) {
+                  core.warning(`repos.compareCommitsWithBasehead failed: ${e.message}`);
+                }
+              }
+
+              // 4) Conservative default: if undetermined, run tests
+              const unresolved = !Number.isFinite(changedFiles);
+              const shouldRun = unresolved ? true : (changedFiles > 0);
 
               setOutputs({
                 mode: 'pr',
@@ -124,16 +166,16 @@ jobs:
                 base_ref: pr.base?.ref || '',
                 base_sha: pr.base?.sha || '',
                 should_run_tests: shouldRun ? 'true' : 'false',
-                skip_reason: shouldRun ? '' : 'no-files-changed',
+                skip_reason: shouldRun ? '' : (unresolved ? 'changed-files-undetermined' : 'no-files-changed'),
               });
 
               if (shouldRun) {
                 core.notice(
-                  `PR #${pr.number}: ${changedFiles} changed file(s), head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
+                  `PR #${pr.number}: will run tests; changed_files=${changedFiles}, head_ref=${pr.head?.ref}, head_sha=${pr.head?.sha}, base_ref=${pr.base?.ref}, base_sha=${pr.base?.sha}`
                 );
               } else {
                 core.notice(
-                  `PR #${pr.number}: 0 changed files; regression tests will be skipped.`
+                  `PR #${pr.number}: 0 changed files (or undetermined); regression tests will be skipped.`
                 );
               }
             }
