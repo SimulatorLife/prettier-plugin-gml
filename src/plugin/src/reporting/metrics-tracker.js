@@ -12,16 +12,6 @@ function normalizeLabel(label) {
     return typeof label === "string" && label.length > 0 ? label : "unknown";
 }
 
-function mergeObjectEntries(target, source) {
-    if (!source || typeof source !== "object") {
-        return;
-    }
-
-    for (const [key, value] of Object.entries(source)) {
-        target[key] = value;
-    }
-}
-
 const DEFAULT_CACHE_KEYS = ["hits", "misses", "stale"];
 
 function toPlainObject(map) {
@@ -109,13 +99,31 @@ export function createMetricsTracker({
             metadata: { ...metadata }
         };
 
-        if (extra && typeof extra === "object") {
-            mergeObjectEntries(summary.timings, extra.timings);
-            mergeObjectEntries(summary.counters, extra.counters);
-            mergeObjectEntries(summary.caches, extra.caches);
-            if (extra.metadata) {
-                mergeObjectEntries(summary.metadata, extra.metadata);
-            }
+        if (!extra || typeof extra !== "object") {
+            return summary;
+        }
+
+        const {
+            timings: extraTimings,
+            counters: extraCounters,
+            caches: extraCaches,
+            metadata: extraMetadata
+        } = extra;
+
+        if (extraTimings && typeof extraTimings === "object") {
+            Object.assign(summary.timings, extraTimings);
+        }
+
+        if (extraCounters && typeof extraCounters === "object") {
+            Object.assign(summary.counters, extraCounters);
+        }
+
+        if (extraCaches && typeof extraCaches === "object") {
+            Object.assign(summary.caches, extraCaches);
+        }
+
+        if (extraMetadata && typeof extraMetadata === "object") {
+            Object.assign(summary.metadata, extraMetadata);
         }
 
         return summary;
