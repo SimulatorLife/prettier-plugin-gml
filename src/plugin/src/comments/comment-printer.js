@@ -217,10 +217,30 @@ function applyTrailingCommentPadding(comment, options) {
             ? comment._enumTrailingPadding
             : 0;
 
-    const desiredPadding = Math.max(
+    let desiredPadding = Math.max(
         inlinePadding,
         baseTrailingPadding + enumPadding
     );
+
+    const inlinePaddingReduction =
+        typeof comment._inlinePaddingReduction === "number"
+            ? Math.max(comment._inlinePaddingReduction, 0)
+            : 0;
+
+    if (inlinePaddingReduction > 0) {
+        desiredPadding = Math.max(desiredPadding - inlinePaddingReduction, 0);
+
+        if (typeof comment.inlinePadding === "number") {
+            comment.inlinePadding = Math.min(
+                comment.inlinePadding,
+                desiredPadding
+            );
+        } else {
+            comment.inlinePadding = desiredPadding;
+        }
+
+        return;
+    }
 
     if (typeof comment.inlinePadding === "number") {
         comment.inlinePadding = Math.max(comment.inlinePadding, desiredPadding);

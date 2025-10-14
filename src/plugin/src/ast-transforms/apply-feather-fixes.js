@@ -537,19 +537,20 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(
                 registry,
                 diagnosticId,
-                () => ({ ast, sourceText }) => {
-                    const fixes = ensureVarDeclarationsAreTerminated({
-                        ast,
-                        sourceText,
-                        diagnostic
-                    });
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = ensureVarDeclarationsAreTerminated({
+                            ast,
+                            sourceText,
+                            diagnostic
+                        });
 
-                    if (Array.isArray(fixes) && fixes.length > 0) {
-                        return fixes;
+                        if (Array.isArray(fixes) && fixes.length > 0) {
+                            return fixes;
+                        }
+
+                        return registerManualFeatherFix({ ast, diagnostic });
                     }
-
-                    return registerManualFeatherFix({ ast, diagnostic });
-                }
             );
             continue;
         }
@@ -4860,7 +4861,8 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
                 sourceText,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (fix) {
@@ -4880,7 +4882,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
     return fixes;
 }
 
-function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic) {
+function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic, ast) {
     if (!node || node.type !== "VariableDeclaration" || node.kind !== "var") {
         return null;
     }
@@ -4904,8 +4906,77 @@ function ensureVarDeclarationIsTerminated(node, sourceText, diagnostic) {
     }
 
     attachFeatherFixMetadata(node, [fixDetail]);
+    reduceTrailingCommentInlinePadding(ast, node);
 
     return fixDetail;
+}
+
+function reduceTrailingCommentInlinePadding(ast, declaration) {
+    if (!ast || !declaration || typeof declaration !== "object") {
+        return;
+    }
+
+    const endLine = declaration?.end?.line;
+    const endIndex = getNodeEndIndex(declaration);
+
+    if (typeof endLine !== "number" || typeof endIndex !== "number") {
+        return;
+    }
+
+    const commentSet = new Set();
+
+    for (const comment of getCommentArray(ast)) {
+        if (comment) {
+            commentSet.add(comment);
+        }
+    }
+
+    for (const comment of collectCommentNodes(ast)) {
+        if (comment) {
+            commentSet.add(comment);
+        }
+    }
+
+    for (const comment of commentSet) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        let commentLine = null;
+        if (
+            comment &&
+            comment.start &&
+            typeof comment.start === "object" &&
+            typeof comment.start.line === "number"
+        ) {
+            commentLine = comment.start.line;
+        } else if (
+            comment &&
+            comment.loc &&
+            typeof comment.loc === "object" &&
+            typeof comment.loc.start === "object" &&
+            typeof comment.loc.start.line === "number"
+        ) {
+            commentLine = comment.loc.start.line;
+        }
+
+        if (commentLine !== endLine) {
+            continue;
+        }
+
+        const commentIndex = getNodeStartIndex(comment);
+        if (typeof commentIndex !== "number" || commentIndex < endIndex) {
+            continue;
+        }
+
+        const existingReduction =
+            typeof comment._inlinePaddingReduction === "number"
+                ? comment._inlinePaddingReduction
+                : 0;
+
+        comment._inlinePaddingReduction = Math.max(existingReduction, 1);
+        break;
+    }
 }
 
 function extractVariableDeclarationTarget(node) {

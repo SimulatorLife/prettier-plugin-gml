@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 
+import path from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import GMLParser from "gamemaker-language-parser";
+import prettier from "prettier";
 
 import {
     getNodeEndIndex,
@@ -18,6 +21,9 @@ import {
     getFeatherDiagnosticFixers,
     preprocessSourceForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
+
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
@@ -213,7 +219,38 @@ describe("applyFeatherFixes transform", () => {
             (entry) => entry.id === "GM2007"
         );
 
-        assert.strictEqual(gm2007Diagnostics.length, flaggedDeclarations.length);
+        assert.strictEqual(
+            gm2007Diagnostics.length,
+            flaggedDeclarations.length
+        );
+    });
+
+    it("preserves inline comment alignment when GM2007 adds missing semicolons", async () => {
+        const source = [
+            "if (true)",
+            "{",
+            "    var withComment // comment",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
+
+        const commentLine = formatted
+            .trim()
+            .split("\n")
+            .find((line) => line.includes("withComment"));
+
+        assert.ok(
+            commentLine,
+            "Expected the inline comment to remain after formatting."
+        );
+
+        assert.strictEqual(commentLine, "    var withComment; // comment");
     });
 
     it("inserts the missing argument for GM1005 and records fix metadata", () => {
