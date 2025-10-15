@@ -80,33 +80,41 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         return undefined;
     }
 
-    const type = typeof rawValue;
-    const typeErrorMessage = `${optionName} must be provided as a non-negative integer (received type '${type}').`;
-    const describeRangeError = (received) =>
+    const describeTypeError = () =>
+        `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`;
+    const describeValueError = (received) =>
         `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
 
-    if (type !== "string" && type !== "number") {
-        throw new Error(typeErrorMessage);
+    let numericValue;
+    let receivedForError;
+
+    if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+
+        if (trimmed === "") {
+            return undefined;
+        }
+
+        numericValue = Number(trimmed);
+        receivedForError = `'${rawValue}'`;
+    } else if (typeof rawValue === "number") {
+        numericValue = rawValue;
+        receivedForError = rawValue;
+    } else {
+        throw new Error(describeTypeError());
     }
 
-    const isString = type === "string";
-    const sanitized = isString ? rawValue.trim() : rawValue;
-
-    if (isString && sanitized === "") {
-        return undefined;
-    }
-
-    const numericValue = Number(sanitized);
     if (!Number.isFinite(numericValue)) {
         throw new Error(
-            isString ? describeRangeError(`'${rawValue}'`) : typeErrorMessage
+            typeof rawValue === "string"
+                ? describeValueError(receivedForError)
+                : describeTypeError()
         );
     }
 
     const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
-        const received = isString ? `'${rawValue}'` : rawValue;
-        throw new Error(describeRangeError(received));
+        throw new Error(describeValueError(receivedForError));
     }
 
     return normalized === 0 ? null : normalized;
