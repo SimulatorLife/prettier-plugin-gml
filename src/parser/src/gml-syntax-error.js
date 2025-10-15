@@ -1,5 +1,7 @@
 import antlr4 from "antlr4";
 
+import { isNonEmptyString } from "../../shared/string-utils.js";
+
 const { ErrorListener } = antlr4.error;
 
 export class GameMakerSyntaxError extends Error {
@@ -33,7 +35,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
 
         if (wrongSymbol === "<EOF>") {
             wrongSymbol = "end of file";
-        } else if (typeof wrongSymbol === "string" && wrongSymbol.length > 0) {
+        } else if (isNonEmptyString(wrongSymbol)) {
             wrongSymbol = `symbol '${wrongSymbol}'`;
         } else {
             wrongSymbol = "unknown symbol";

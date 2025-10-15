@@ -24,6 +24,7 @@ import {
 } from "./metrics.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
+const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
 
 function isParserFacade(candidate) {
     return (
@@ -206,6 +207,8 @@ export {
     saveProjectIndexCache,
     deriveCacheKey
 } from "./cache.js";
+
+export { DEFAULT_PROJECT_INDEX_GML_CONCURRENCY };
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
@@ -1891,7 +1894,14 @@ function cloneAssetReference(reference) {
     };
 }
 
-function clampConcurrency(value, { min = 1, max = 16, fallback = 4 } = {}) {
+function clampConcurrency(
+    value,
+    {
+        min = 1,
+        max = 16,
+        fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
+    } = {}
+) {
     const numeric = Number(value ?? fallback);
     if (!Number.isFinite(numeric) || numeric < min) {
         return min;
@@ -1990,8 +2000,9 @@ export async function buildProjectIndex(
 
     const concurrencySettings = options?.concurrency ?? {};
     const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ?? concurrencySettings.gmlParsing ?? 4,
-        { fallback: 4 }
+        concurrencySettings.gml ??
+            concurrencySettings.gmlParsing ??
+            DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
     const parseProjectSource = resolveProjectIndexParser(options);

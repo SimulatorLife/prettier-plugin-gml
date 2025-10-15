@@ -12,17 +12,26 @@ const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const BYTE_RADIX = 1024;
 
 function normalizeByteCount(value) {
-    if (typeof value === "bigint") {
-        value = Number(value);
-    }
+    const numericValue = typeof value === "bigint" ? Number(value) : value;
 
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (typeof numericValue !== "number" || !Number.isFinite(numericValue)) {
         return 0;
     }
 
-    return Math.max(value, 0);
+    return Math.max(numericValue, 0);
 }
 
+/**
+ * Format a byte count using human-readable units.
+ *
+ * @param {number | bigint | unknown} bytes Amount of data to format.
+ * @param {Object} [options]
+ * @param {number} [options.decimals=1] Decimal places for non-byte units.
+ * @param {number} [options.decimalsForBytes=0] Decimal places when the value is below 1 KB.
+ * @param {string} [options.separator=""] String inserted between the value and unit.
+ * @param {boolean} [options.trimTrailingZeros=false] Remove insignificant zeros from the fractional part.
+ * @returns {string} Human-readable representation of the byte size.
+ */
 export function formatByteSize(
     bytes,
     {

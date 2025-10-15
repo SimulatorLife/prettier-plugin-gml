@@ -325,8 +325,8 @@ function isStringLiteral(node) {
         return false;
     }
 
-    const firstChar = node.value.charAt(0);
-    const lastChar = node.value.charAt(node.value.length - 1);
+    const firstChar = node.value.at(0);
+    const lastChar = node.value.at(-1);
     if (!firstChar || firstChar !== lastChar) {
         return false;
     }

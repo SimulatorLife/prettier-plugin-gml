@@ -407,6 +407,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
 | `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
 | `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set to `0` to disable the size guard when coordinating cache writes manually. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
 
 Additional automation hooks such as `identifierCaseProjectIndex`,

@@ -75,19 +75,35 @@ export default [
             semi: ["error", "always"],
             "no-unused-vars": ["warn"],
             "no-console": ["off"],
-            "comma-dangle": ["error", "never"],
-            "no-prototype-builtins": ["off"],
-            "no-useless-escape": ["off"],
+            "comma-dangle": ["off", "never"],
+            "no-prototype-builtins": ["warn"],
+            "no-useless-escape": ["warn"],
             "no-with": ["error"],
-            "no-undef": ["warn"],
+            "no-undef": ["error"],
 
             /* --- core "bad practice" rules --- */
             complexity: ["warn", { max: 12 }],
             "max-depth": ["warn", 3],
-            "max-lines": ["warn", 500],
-            "max-lines-per-function": ["warn", 90],
-            "max-params": ["warn", 4],
+            "max-lines": [
+                "warn",
+                {
+                    max: 500,
+                    skipBlankLines: true,
+                    skipComments: true
+                }
+            ],
+            "max-lines-per-function": [
+                "warn",
+                {
+                    max: 100,
+                    skipBlankLines: true,
+                    skipComments: true
+                }
+            ],
+            "max-params": ["warn", 5],
             "max-statements": ["warn", 20],
+            "max-statements-per-line": ["error", { max: 1 }],
+            "max-nested-callbacks": ["warn", 3],
             "require-atomic-updates": "warn",
             "no-implicit-coercion": ["error", { boolean: false }], // allow !!
             "no-implied-eval": "error",
