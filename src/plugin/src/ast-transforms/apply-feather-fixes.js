@@ -6074,11 +6074,7 @@ function isDeprecatedComment(comment) {
 }
 
 function isWhitespaceOnly(text) {
-    if (typeof text !== "string") {
-        return true;
-    }
-
-    return text.trim().length === 0;
+    return !isNonEmptyTrimmedString(text);
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
@@ -10923,7 +10919,7 @@ function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
 
     const sanitized = between.replaceAll(";", "");
 
-    return sanitized.trim().length === 0;
+    return !isNonEmptyTrimmedString(sanitized);
 }
 
 function hasFirstArgumentIdentifier(node, name) {
@@ -16941,7 +16937,7 @@ function extractFunctionCallNamesFromExample(exampleText) {
         }
 
         const [code] = line.split("//", 1);
-        if (!code || code.trim().length === 0) {
+        if (!isNonEmptyTrimmedString(code)) {
             continue;
         }
 
