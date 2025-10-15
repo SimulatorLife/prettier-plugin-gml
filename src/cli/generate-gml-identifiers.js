@@ -34,7 +34,7 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "./options/manual-repo.js";
-import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { applyEnvOptionOverrides } from "./options/env-overrides.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -153,36 +153,32 @@ function parseArgs({
     const command = createGenerateIdentifiersCommand();
     const getUsage = () => command.helpInformation();
 
-    if (env.GML_MANUAL_REF) {
-        command.setOptionValueWithSource("ref", env.GML_MANUAL_REF, "env");
-    }
-
-    applyEnvOptionOverride({
+    applyEnvOptionOverrides({
         command,
         env,
-        envVar: MANUAL_REPO_ENV_VAR,
-        optionName: "manualRepo",
-        resolveValue: (value) =>
-            resolveManualRepoValue(value, { source: "env" }),
-        getUsage
-    });
-
-    applyEnvOptionOverride({
-        command,
-        env,
-        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-        optionName: "progressBarWidth",
-        resolveValue: resolveProgressBarWidth,
-        getUsage
-    });
-
-    applyEnvOptionOverride({
-        command,
-        env,
-        envVar: VM_EVAL_TIMEOUT_ENV_VAR,
-        optionName: "vmEvalTimeoutMs",
-        resolveValue: resolveVmEvalTimeout,
-        getUsage
+        getUsage,
+        overrides: [
+            {
+                envVar: "GML_MANUAL_REF",
+                optionName: "ref"
+            },
+            {
+                envVar: MANUAL_REPO_ENV_VAR,
+                optionName: "manualRepo",
+                resolveValue: (value) =>
+                    resolveManualRepoValue(value, { source: "env" })
+            },
+            {
+                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+                optionName: "progressBarWidth",
+                resolveValue: resolveProgressBarWidth
+            },
+            {
+                envVar: VM_EVAL_TIMEOUT_ENV_VAR,
+                optionName: "vmEvalTimeoutMs",
+                resolveValue: resolveVmEvalTimeout
+            }
+        ]
     });
 
     const verbose = {

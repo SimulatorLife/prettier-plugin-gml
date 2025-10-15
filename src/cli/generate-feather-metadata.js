@@ -30,7 +30,7 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "./options/manual-repo.js";
-import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { applyEnvOptionOverrides } from "./options/env-overrides.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -145,27 +145,27 @@ function parseArgs({
     const command = createFeatherMetadataCommand();
     const getUsage = () => command.helpInformation();
 
-    if (env.GML_MANUAL_REF) {
-        command.setOptionValueWithSource("ref", env.GML_MANUAL_REF, "env");
-    }
-
-    applyEnvOptionOverride({
+    applyEnvOptionOverrides({
         command,
         env,
-        envVar: MANUAL_REPO_ENV_VAR,
-        optionName: "manualRepo",
-        resolveValue: (value) =>
-            resolveManualRepoValue(value, { source: "env" }),
-        getUsage
-    });
-
-    applyEnvOptionOverride({
-        command,
-        env,
-        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-        optionName: "progressBarWidth",
-        resolveValue: resolveProgressBarWidth,
-        getUsage
+        getUsage,
+        overrides: [
+            {
+                envVar: "GML_MANUAL_REF",
+                optionName: "ref"
+            },
+            {
+                envVar: MANUAL_REPO_ENV_VAR,
+                optionName: "manualRepo",
+                resolveValue: (value) =>
+                    resolveManualRepoValue(value, { source: "env" })
+            },
+            {
+                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+                optionName: "progressBarWidth",
+                resolveValue: resolveProgressBarWidth
+            }
+        ]
     });
 
     const verbose = {
