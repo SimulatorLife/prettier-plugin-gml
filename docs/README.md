@@ -16,6 +16,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   classifies edge cases and applies rename overrides.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
+- [Minimal surface area audit](minimal-surface-audit.md) — Procedure for
+  reviewing module entry points, trimming exports to the supported API, and
+  documenting private implementation details.
 
 ## Usage & rollout
 
