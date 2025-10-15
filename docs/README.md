@@ -49,3 +49,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.
+
+## Automation workflows
+
+- [POLA behaviour audit workflow](workflows/pola-behaviour-audit.md) — Review
+  checklist for Codex runs that align documentation and implementation with the
+  Principle of Least Astonishment.
