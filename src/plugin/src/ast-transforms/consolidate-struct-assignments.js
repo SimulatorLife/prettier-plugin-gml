@@ -91,7 +91,7 @@ function consolidateBlock(statements, tracker, commentTools) {
 
         const { identifierName, structNode } = initializer;
         const structEndIndex = getNodeEndIndex(structNode);
-        if (structEndIndex == null) {
+        if (structEndIndex == undefined) {
             continue;
         }
 
@@ -147,7 +147,7 @@ function collectPropertyAssignments({
 
         const start = getNodeStartIndex(statement);
         const end = getNodeEndIndex(statement);
-        if (start == null || end == null) {
+        if (start == undefined || end == undefined) {
             break;
         }
 
@@ -184,7 +184,7 @@ function collectPropertyAssignments({
         if (attachableComments.length > 0) {
             const existingComments = getCommentArray(property);
             property.comments = Array.isArray(existingComments)
-                ? existingComments.slice()
+                ? [...existingComments]
                 : [];
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
@@ -197,10 +197,9 @@ function collectPropertyAssignments({
                 comment._structPropertyHandled = false;
                 property.comments.push(comment);
             }
-            const lastComment =
-                attachableComments[attachableComments.length - 1];
+            const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
-            lastEnd = commentEnd != null ? commentEnd : end;
+            lastEnd = commentEnd == undefined ? end : commentEnd;
         } else {
             lastEnd = end;
         }
@@ -498,8 +497,7 @@ function allowTrailingCommentsBetween({
 
     if (
         commentEntries.some(
-            ({ comment }) =>
-                !isTrailingLineCommentOnLine(comment, expectedLine)
+            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
         )
     ) {
         return false;
@@ -599,7 +597,7 @@ function stripStringQuotes(value) {
     }
 
     const firstChar = value[0];
-    const lastChar = value[value.length - 1];
+    const lastChar = value.at(-1);
     if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
         return value.slice(1, -1);
     }
@@ -655,9 +653,9 @@ class CommentTracker {
 
     hasBetween(left, right) {
         if (
-            !this.entries.length ||
-            left == null ||
-            right == null ||
+            this.entries.length === 0 ||
+            left == undefined ||
+            right == undefined ||
             left >= right
         ) {
             return false;
@@ -677,7 +675,7 @@ class CommentTracker {
     }
 
     hasAfter(position) {
-        if (!this.entries.length || position == null) {
+        if (this.entries.length === 0 || position == undefined) {
             return false;
         }
         let index = this.firstGreaterThan(position);
@@ -691,11 +689,12 @@ class CommentTracker {
     }
 
     takeBetween(left, right, predicate) {
-        if (!this.entries.length || left == null) {
+        if (this.entries.length === 0 || left == undefined) {
             return [];
         }
 
-        const upperBound = right == null ? Number.POSITIVE_INFINITY : right;
+        const upperBound =
+            right == undefined ? Number.POSITIVE_INFINITY : right;
         if (left >= upperBound) {
             return [];
         }
@@ -737,9 +736,9 @@ class CommentTracker {
 
     getEntriesBetween(left, right) {
         if (
-            !this.entries.length ||
-            left == null ||
-            right == null ||
+            this.entries.length === 0 ||
+            left == undefined ||
+            right == undefined ||
             left >= right
         ) {
             return [];

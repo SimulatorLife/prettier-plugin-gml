@@ -84,7 +84,7 @@ function formatReportEntry(file, findings) {
             return [
                 "- Exports a wide surface area via named exports:",
                 ...finding.occurrences.map((entry) => {
-                    const sanitized = entry.raw.replace(/\s+/g, " ");
+                    const sanitized = entry.raw.replaceAll(/\s+/g, " ");
                     return `  - ${entry.count} symbols exported in \`${sanitized}\`: ${entry.symbols.join(", ")}`;
                 })
             ];
@@ -120,12 +120,12 @@ function main() {
     const indexFiles = getIndexFiles();
     const entries = [];
 
-    indexFiles.forEach((file) => {
+    for (const file of indexFiles) {
         const findings = analyzeFile(path.join(repoRoot, file));
         if (findings.length > 0) {
             entries.push(formatReportEntry(file, findings));
         }
-    });
+    }
 
     if (entries.length === 0) {
         const message = "No broad index exports found. No report generated.";

@@ -210,7 +210,7 @@ function parseArgs({
     }
 
     return {
-        ref: options.ref ?? null,
+        ref: options.ref,
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
@@ -242,7 +242,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
 
     let index = bracketStart;
     let depth = 0;
-    let inString = null;
+    let inString;
     let escaped = false;
     while (index < source.length) {
         const char = source[index];
@@ -252,7 +252,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
             } else if (char === "\\") {
                 escaped = true;
             } else if (char === inString) {
-                inString = null;
+                inString = undefined;
             }
         } else {
             if (char === '"' || char === "'" || char === "`") {
@@ -360,7 +360,7 @@ function mergeEntry(map, identifier, data) {
         map.set(identifier, {
             type: data.type ?? "unknown",
             sources: new Set(data.sources ?? []),
-            manualPath: data.manualPath ?? null,
+            manualPath: data.manualPath,
             tags: new Set(data.tags ?? []),
             deprecated: Boolean(data.deprecated)
         });
@@ -595,9 +595,9 @@ async function main({ argv, env, isTty } = {}) {
                     }
                     const tags = tagEntry
                         ? tagEntry
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter(Boolean)
+                              .split(",")
+                              .map((tag) => tag.trim())
+                              .filter(Boolean)
                         : [];
 
                     const type = classifyFromPath(normalisedPath, tags);
@@ -622,14 +622,14 @@ async function main({ argv, env, isTty } = {}) {
         const sortedIdentifiers = timeSync(
             "Sorting identifiers",
             () =>
-                Array.from(identifierMap.entries())
+                [...identifierMap.entries()]
                     .map(([identifier, data]) => [
                         identifier,
                         {
                             type: data.type,
-                            sources: Array.from(data.sources).sort(),
+                            sources: [...data.sources].sort(),
                             manualPath: data.manualPath,
-                            tags: Array.from(data.tags).sort(),
+                            tags: [...data.tags].sort(),
                             deprecated: data.deprecated
                         }
                     ])
@@ -650,7 +650,7 @@ async function main({ argv, env, isTty } = {}) {
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
             outputPath,
-            `${JSON.stringify(payload, null, 2)}\n`,
+            `${JSON.stringify(payload, undefined, 2)}\n`,
             "utf8"
         );
 

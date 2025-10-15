@@ -15,7 +15,7 @@ test("isObjectLike returns true for non-null objects", () => {
 
 test("isObjectLike returns false for primitives and functions", () => {
     assert.equal(isObjectLike(null), false);
-    assert.equal(isObjectLike(undefined), false);
+    assert.equal(isObjectLike(), false);
     assert.equal(isObjectLike(0), false);
     assert.equal(isObjectLike(""), false);
     assert.equal(isObjectLike(Symbol("s")), false);

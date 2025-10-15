@@ -20,7 +20,7 @@ test("cloneLocation clones plain location objects", () => {
 
 test("cloneLocation returns undefined for nullish input", () => {
     assert.equal(cloneLocation(null), undefined);
-    assert.equal(cloneLocation(undefined), undefined);
+    assert.equal(cloneLocation(), undefined);
 });
 
 test("cloneLocation preserves primitive values", () => {

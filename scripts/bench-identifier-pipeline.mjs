@@ -16,11 +16,11 @@ for (let index = 0; index < argv.length; index += 1) {
         if (!projectInjected) {
             forwardedArgs.push("--project", arg);
             projectInjected = true;
-        } else if (!fileInjected) {
+        } else if (fileInjected) {
+            passthrough.push(arg);
+        } else {
             forwardedArgs.push("--file", arg);
             fileInjected = true;
-        } else {
-            passthrough.push(arg);
         }
         continue;
     }

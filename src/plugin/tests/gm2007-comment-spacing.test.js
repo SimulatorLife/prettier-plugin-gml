@@ -11,7 +11,7 @@ async function formatWithPlugin(source, overrides) {
     const formatted = await prettier.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
-        ...(overrides ?? {})
+        ...overrides
     });
 
     if (typeof formatted !== "string") {

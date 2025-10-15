@@ -63,33 +63,39 @@ function createChoice(value, description) {
 export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
     (style) => {
         switch (style) {
-            case "off":
+            case "off": {
                 return createChoice(
                     style,
                     "Disable automatic identifier case rewriting."
                 );
-            case "camel":
+            }
+            case "camel": {
                 return createChoice(
                     style,
                     "Convert identifiers to lower camelCase (e.g. `exampleName`)."
                 );
-            case "pascal":
+            }
+            case "pascal": {
                 return createChoice(
                     style,
                     "Convert identifiers to Upper PascalCase (e.g. `ExampleName`)."
                 );
-            case "snake-lower":
+            }
+            case "snake-lower": {
                 return createChoice(
                     style,
                     "Convert identifiers to lower snake_case (e.g. `example_name`)."
                 );
-            case "snake-upper":
+            }
+            case "snake-upper": {
                 return createChoice(
                     style,
                     "Convert identifiers to UPPER_SNAKE_CASE (e.g. `EXAMPLE_NAME`)."
                 );
-            default:
+            }
+            default: {
                 return createChoice(style, IDENTIFIER_CASE_DESCRIPTION);
+            }
         }
     }
 );

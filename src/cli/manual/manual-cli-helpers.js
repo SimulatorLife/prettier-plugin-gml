@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { SingleBar, Presets } from "cli-progress";
 
-import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar-constants.js";
+import { DEFAULT_PROGRESS_BAR_WIDTH } from "./progress-bar-constants.js";
 import { formatByteSize } from "../../shared/number-utils.js";
 
 export function formatDuration(startTime) {
@@ -66,13 +66,13 @@ export function renderProgressBar(
     const normalizedTotal = total > 0 ? total : 1;
     let bar = activeProgressBars.get(label);
 
-    if (!bar) {
+    if (bar) {
+        bar.setTotal(normalizedTotal);
+        bar.update(Math.min(current, normalizedTotal));
+    } else {
         bar = progressBarFactory(label, width);
         bar.start(normalizedTotal, Math.min(current, normalizedTotal));
         activeProgressBars.set(label, bar);
-    } else {
-        bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
     }
 
     if (current >= normalizedTotal) {

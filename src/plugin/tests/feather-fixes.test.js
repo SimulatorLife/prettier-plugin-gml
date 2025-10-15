@@ -139,8 +139,8 @@ describe("applyFeatherFixes transform", () => {
 
         const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
             ? ast._appliedFeatherDiagnostics.filter(
-                (entry) => entry.id === "GM1000"
-            )
+                  (entry) => entry.id === "GM1000"
+              )
             : [];
 
         assert.strictEqual(
@@ -1122,9 +1122,9 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.strictEqual(gm1021Entries.length >= 2, true);
-        gm1021Entries.forEach((entry) => {
+        for (const entry of gm1021Entries) {
             assert.strictEqual(entry.automatic, true);
-        });
+        }
     });
 
     it("renames deprecated built-in variables and records fix metadata", () => {
@@ -1555,7 +1555,7 @@ describe("applyFeatherFixes transform", () => {
 
         const assignmentFixes = assignment._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(assignmentFixes));
-        assert.strictEqual(assignmentFixes.length >= 1, true);
+        assert.strictEqual(assignmentFixes.length > 0, true);
         assert.strictEqual(
             assignmentFixes.some((entry) => entry.id === "GM1052"),
             true,
@@ -1650,21 +1650,21 @@ describe("applyFeatherFixes transform", () => {
 
         const fnMetadata = fn._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(fnMetadata.length, 2);
-        fnMetadata.forEach((entry) => {
+        for (const entry of fnMetadata) {
             assert.strictEqual(entry.id, "GM1059");
             assert.strictEqual(entry.target, "value");
             assert.strictEqual(entry.automatic, true);
-        });
+        }
 
         const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
         const gm1059Metadata = rootMetadata.filter(
             (entry) => entry.id === "GM1059"
         );
         assert.strictEqual(gm1059Metadata.length, 2);
-        gm1059Metadata.forEach((entry) => {
+        for (const entry of gm1059Metadata) {
             assert.strictEqual(entry.target, "value");
             assert.strictEqual(entry.automatic, true);
-        });
+        }
     });
 
     it("removes duplicate constructor parameters flagged by GM1059", () => {
@@ -1833,13 +1833,13 @@ describe("applyFeatherFixes transform", () => {
             "Expected manual Feather fix metadata to be captured for every diagnostic."
         );
 
-        ["GM2054", "GM2020", "GM2042", "GM1042"].forEach((id) => {
+        for (const id of ["GM2054", "GM2020", "GM2042", "GM1042"]) {
             assert.strictEqual(
                 recordedIds.has(id),
                 true,
                 `Expected manual Feather fix metadata for diagnostic ${id}.`
             );
-        });
+        }
 
         for (const entry of ast._appliedFeatherDiagnostics) {
             assert.strictEqual(
@@ -1932,7 +1932,7 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.ok(
-            setIndex >= 0,
+            setIndex !== -1,
             "Expected surface_set_target call to be present in the AST."
         );
         assert.ok(
@@ -2355,14 +2355,8 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(functionBody.type, "BlockStatement");
         assert.ok(Array.isArray(functionBody.body));
         assert.strictEqual(functionBody.body.length >= 2, true);
-        assert.strictEqual(
-            functionBody.body[functionBody.body.length - 2],
-            firstStatement
-        );
-        assert.strictEqual(
-            functionBody.body[functionBody.body.length - 1],
-            secondStatement
-        );
+        assert.strictEqual(functionBody.body.at(-2), firstStatement);
+        assert.strictEqual(functionBody.body.at(-1), secondStatement);
 
         const firstFixes = firstStatement?._appliedFeatherDiagnostics;
         const secondFixes = secondStatement?._appliedFeatherDiagnostics;
@@ -2501,12 +2495,12 @@ describe("applyFeatherFixes transform", () => {
 
         const parameterNames = Array.isArray(fn.params)
             ? fn.params.map((param) => {
-                if (param?.type === "DefaultParameter") {
-                    return param.left?.name ?? null;
-                }
+                  if (param?.type === "DefaultParameter") {
+                      return param.left?.name ?? null;
+                  }
 
-                return param?.name ?? null;
-            })
+                  return param?.name ?? null;
+              })
             : [];
 
         assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
@@ -2819,7 +2813,7 @@ describe("applyFeatherFixes transform", () => {
         });
 
         assert.ok(
-            resetIndex >= 0,
+            resetIndex !== -1,
             "Expected to locate the inserted alpha test enable reset call."
         );
 
@@ -2856,7 +2850,7 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        const insertedCall = body[body.length - 1];
+        const insertedCall = body.at(-1);
 
         assert.ok(insertedCall);
         assert.strictEqual(insertedCall.type, "CallExpression");
@@ -2882,7 +2876,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts missing vertex_format_end before subsequent begins and records metadata", () => {
+    it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
             "vertex_format_add_position_3d();",
@@ -2899,11 +2893,25 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        assert.strictEqual(programBody.length, 6);
-
-        const insertedCall = programBody[2];
-        assert.strictEqual(insertedCall?.type, "CallExpression");
-        assert.strictEqual(insertedCall?.object?.name, "vertex_format_end");
+        assert.strictEqual(programBody.length, 3);
+        assert.strictEqual(
+            programBody.filter(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "vertex_format_begin"
+            ).length,
+            1,
+            "Expected only a single vertex_format_begin call to remain."
+        );
+        assert.strictEqual(
+            programBody.some(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "vertex_format_add_position_3d"
+            ),
+            false,
+            "Incomplete vertex format statements should be removed."
+        );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm2012 = appliedDiagnostics.find(
@@ -2915,13 +2923,6 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
-
-        const insertedMetadata = insertedCall?._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(
-            insertedMetadata.some((entry) => entry.id === "GM2012"),
-            true,
-            "Inserted vertex_format_end call should include GM2012 metadata."
-        );
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {
@@ -3057,15 +3058,15 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.ok(
-            vertexBeginIndex >= 0,
+            vertexBeginIndex !== -1,
             "Expected vertex_begin call in parsed AST."
         );
         assert.ok(
-            vertexEndIndex >= 0,
+            vertexEndIndex !== -1,
             "Expected vertex_end call to be inserted by fixer."
         );
         assert.ok(
-            vertexSubmitIndex >= 0,
+            vertexSubmitIndex !== -1,
             "Expected vertex_submit call in parsed AST."
         );
         assert.ok(
@@ -3218,10 +3219,10 @@ describe("applyFeatherFixes transform", () => {
             preprocessedFixMetadata: metadata
         });
 
-        const statements = (ast.body ?? []).filter(
+        const statement = (ast.body ?? []).find(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [declaration] = statements;
+        const declaration = statement;
 
         assert.ok(declaration);
         assert.strictEqual(declaration.type, "VariableDeclaration");
@@ -3239,7 +3240,7 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.ok(
-            gm1100Entries.length >= 1,
+            gm1100Entries.length > 0,
             "Expected GM1100 metadata to be recorded on the program node."
         );
 
@@ -3817,7 +3818,7 @@ describe("applyFeatherFixes transform", () => {
             );
         }
 
-        const callStatement = body[body.length - 1];
+        const callStatement = body.at(-1);
         assert.ok(callStatement);
         assert.strictEqual(callStatement.type, "CallExpression");
 
@@ -4344,8 +4345,7 @@ describe("applyFeatherFixes transform", () => {
             const vertexDiagnostics = vertex?._appliedFeatherDiagnostics ?? [];
             assert.strictEqual(
                 vertexDiagnostics.some(
-                    (entry) =>
-                        entry.id === "GM2029" && entry.automatic === true
+                    (entry) => entry.id === "GM2029" && entry.automatic === true
                 ),
                 true,
                 "Expected each draw_vertex call to record GM2029 metadata."
@@ -4359,7 +4359,7 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2029 metadata to be recorded on the AST."
         );
 
-        const lastStatement = statements[statements.length - 1];
+        const lastStatement = statements.at(-1);
         assert.strictEqual(lastStatement?.object?.name, "draw_primitive_end");
     });
 
@@ -4383,7 +4383,7 @@ describe("applyFeatherFixes transform", () => {
 
         assert.strictEqual(calls.length, 3);
 
-        const resetCall = calls[calls.length - 1];
+        const resetCall = calls.at(-1);
         assert.ok(resetCall);
         assert.strictEqual(resetCall.object?.name, "draw_set_halign");
         assert.ok(Array.isArray(resetCall.arguments));
@@ -4555,15 +4555,15 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.ok(
-            vertexBeginIndex >= 0,
+            vertexBeginIndex !== -1,
             "Expected vertex_begin call in parsed AST."
         );
         assert.ok(
-            vertexEndIndex >= 0,
+            vertexEndIndex !== -1,
             "Expected vertex_end call to be inserted by fixer."
         );
         assert.ok(
-            vertexSubmitIndex >= 0,
+            vertexSubmitIndex !== -1,
             "Expected vertex_submit call in parsed AST."
         );
         assert.ok(
@@ -4624,7 +4624,7 @@ describe("applyFeatherFixes transform", () => {
         const beginArgs = Array.isArray(vertexBegin.arguments)
             ? vertexBegin.arguments
             : [];
-        assert.strictEqual(beginArgs.length >= 1, true);
+        assert.strictEqual(beginArgs.length > 0, true);
         assert.strictEqual(beginArgs[0]?.name, "vb");
         assert.strictEqual(beginArgs[1]?.name, "format");
 
@@ -4729,7 +4729,7 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.ok(
-            setTargetIndex >= 0,
+            setTargetIndex !== -1,
             "Expected surface_set_target call in test fixture AST."
         );
 
@@ -4934,9 +4934,9 @@ describe("applyFeatherFixes transform", () => {
         );
 
         assert.strictEqual(gm2025Entries.length, 3);
-        gm2025Entries.forEach((entry) => {
+        for (const entry of gm2025Entries) {
             assert.strictEqual(entry.automatic, false);
-        });
+        }
     });
 });
 

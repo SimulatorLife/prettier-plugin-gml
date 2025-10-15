@@ -217,7 +217,7 @@ function mergeCodeDetectionPatterns(
     rawValue,
     { allowStringLists = false } = {}
 ) {
-    if (rawValue == null) {
+    if (rawValue == undefined) {
         return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     }
 

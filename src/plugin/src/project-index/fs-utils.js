@@ -8,7 +8,7 @@ export function isFsErrorCode(error, ...codes) {
         return false;
     }
 
-    return codes.some((candidate) => candidate === code);
+    return codes.includes(code);
 }
 
 export async function listDirectory(fsFacade, directoryPath) {

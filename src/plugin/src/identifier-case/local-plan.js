@@ -1318,9 +1318,9 @@ export function captureIdentifierCasePlanSnapshot(options) {
             assetRenamesApplied:
                 object.__identifierCaseAssetRenamesApplied ?? null,
             dryRun:
-                object.__identifierCaseDryRun !== undefined
-                    ? object.__identifierCaseDryRun
-                    : null,
+                object.__identifierCaseDryRun === undefined
+                    ? null
+                    : object.__identifierCaseDryRun,
             planGenerated:
                 object.__identifierCasePlanGeneratedInternally === true
         }),
@@ -1382,7 +1382,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         assignSnapshotValue(
             "assetRenamesApplied",
             "__identifierCaseAssetRenamesApplied",
-            (value, current) => value != null && current == null
+            (value, current) => value != undefined && current == undefined
         );
 
         if (snapshot.dryRun !== null) {

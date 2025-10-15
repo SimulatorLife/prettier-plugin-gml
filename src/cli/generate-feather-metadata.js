@@ -215,12 +215,12 @@ function normaliseMultilineText(text) {
     const lines = text.split("\n").map((line) => line.trim());
     const cleaned = [];
     for (const line of lines) {
-        if (!line) {
-            if (cleaned.length && cleaned[cleaned.length - 1] !== "") {
+        if (line) {
+            cleaned.push(line);
+        } else {
+            if (cleaned.length > 0 && cleaned.at(-1) !== "") {
                 cleaned.push("");
             }
-        } else {
-            cleaned.push(line);
         }
     }
     return cleaned.join("\n").trim();
@@ -265,9 +265,9 @@ function splitCellLines(element) {
 
     return (
         clone.textContent
-            ?.replace(/\u00a0/g, " ")
+            ?.replaceAll("\u00A0", " ")
             .split("\n")
-            .map((line) => line.replace(/\s+/g, " ").trim())
+            .map((line) => line.replaceAll(/\s+/g, " ").trim())
             .filter(Boolean) ?? []
     );
 }
@@ -281,7 +281,7 @@ function extractTable(table) {
         const cellElements = getDirectChildren(row, "th, td");
         const values = cellElements.map((cell) => {
             const lines = splitCellLines(cell);
-            if (!lines.length) {
+            if (lines.length === 0) {
                 return null;
             }
             return lines.join("\n");
@@ -323,25 +323,43 @@ function createBlock(node) {
 
     const tagName = getTagName(element);
     let type = "html";
-    if (tagName === "p") {
-        if (classList.contains("code")) {
-            type = "code";
-        } else if (
-            classList.contains("note") ||
-            classList.contains("warning")
-        ) {
-            type = "note";
-        } else {
-            type = "paragraph";
+    switch (tagName) {
+        case "p": {
+            if (classList.contains("code")) {
+                type = "code";
+            } else if (
+                classList.contains("note") ||
+                classList.contains("warning")
+            ) {
+                type = "note";
+            } else {
+                type = "paragraph";
+            }
+
+            break;
         }
-    } else if (tagName === "h4" || tagName === "h5") {
-        type = "heading";
-    } else if (tagName === "ul" || tagName === "ol") {
-        type = "list";
-    } else if (tagName === "table") {
-        type = "table";
-    } else if (tagName === "div" && classList.contains("codeblock")) {
-        type = "code";
+        case "h4":
+        case "h5": {
+            type = "heading";
+
+            break;
+        }
+        case "ul":
+        case "ol": {
+            type = "list";
+
+            break;
+        }
+        case "table": {
+            type = "table";
+
+            break;
+        }
+        default: {
+            if (tagName === "div" && classList.contains("codeblock")) {
+                type = "code";
+            }
+        }
     }
 
     const preserveLineBreaks = type === "code" || type === "list";
@@ -353,14 +371,14 @@ function createBlock(node) {
 
     const block = { type, text };
     if (tagName === "h4" || tagName === "h5") {
-        block.level = Number(tagName.substring(1));
+        block.level = Number(tagName.slice(1));
     }
     if (type === "list") {
         const items = getDirectChildren(element, "li").map((item) =>
             extractText(item, { preserveLineBreaks: false })
         );
         block.items = items.filter(Boolean);
-        if (!block.items.length && !text) {
+        if (block.items.length === 0 && !text) {
             return null;
         }
     }
@@ -378,7 +396,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    let text = clone.textContent?.replace(/\u00a0/g, " ") ?? "";
+    let text = clone.textContent?.replaceAll("\u00A0", " ") ?? "";
     if (preserveLineBreaks) {
         return text
             .split("\n")
@@ -387,7 +405,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
             .trim();
     }
 
-    return text.replace(/\s+/g, " ").trim();
+    return text.replaceAll(/\s+/g, " ").trim();
 }
 
 function collectBlocksAfter(element, { stopTags = [] } = {}) {
@@ -456,10 +474,10 @@ function normaliseContent(blocks) {
         if (block.type === "list") {
             const items = Array.isArray(block.items)
                 ? block.items
-                    .map((item) => normaliseMultilineText(item))
-                    .filter(Boolean)
+                      .map((item) => normaliseMultilineText(item))
+                      .filter(Boolean)
                 : [];
-            if (items.length) {
+            if (items.length > 0) {
                 content.lists.push(items);
             }
             continue;
@@ -497,23 +515,22 @@ function joinSections(parts) {
 function slugify(text) {
     return text
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
+        .replaceAll(/[^a-z0-9]+/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
         .slice(0, 64);
 }
 
 // Split the collected manual blocks into descriptive and trailing sections.
 function splitDiagnosticBlocks(blocks) {
     const exampleHeadingIndex = blocks.findIndex(
-        (block) =>
-            block.type === "heading" && /example/i.test(block.text ?? "")
+        (block) => block.type === "heading" && /example/i.test(block.text ?? "")
     );
     const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
 
     let trailingStart = blocks.length;
-    if (exampleHeadingIndex >= 0) {
+    if (exampleHeadingIndex !== -1) {
         trailingStart = exampleHeadingIndex + 1;
-    } else if (firstCodeIndex >= 0) {
+    } else if (firstCodeIndex !== -1) {
         trailingStart = firstCodeIndex;
     }
 
@@ -556,10 +573,10 @@ function collectDiagnosticTrailingContent(blocks) {
             }
             if (!badExample) {
                 badExample = codeText;
-            } else if (!goodExample) {
-                goodExample = codeText;
-            } else {
+            } else if (goodExample) {
                 goodExample = `${goodExample}\n\n${codeText}`.trim();
+            } else {
+                goodExample = codeText;
             }
             continue;
         }
@@ -568,10 +585,10 @@ function collectDiagnosticTrailingContent(blocks) {
         if (!text) {
             continue;
         }
-        if (!badExample) {
-            additionalDescriptionParts.push(text);
-        } else {
+        if (badExample) {
             correctionParts.push(text);
+        } else {
+            additionalDescriptionParts.push(text);
         }
     }
 
@@ -595,7 +612,7 @@ function summariseDiagnosticBlocks(blocks) {
         goodExample
     } = collectDiagnosticTrailingContent(trailingBlocks);
 
-    if (additionalDescriptionParts.length) {
+    if (additionalDescriptionParts.length > 0) {
         descriptionParts.push(...additionalDescriptionParts);
     }
 
@@ -612,7 +629,9 @@ function parseDiagnostics(html) {
     const diagnostics = [];
 
     for (const element of document.querySelectorAll("h3")) {
-        const headingText = element.textContent?.replace(/\u00a0/g, " ").trim();
+        const headingText = element.textContent
+            ?.replaceAll("\u00A0", " ")
+            .trim();
         if (!headingText) {
             continue;
         }
@@ -692,7 +711,7 @@ function parseNamingRules(html) {
     if (mainList) {
         for (const strongEl of mainList.querySelectorAll("li > strong")) {
             const strongText = strongEl.textContent
-                ?.replace(/\u00a0/g, " ")
+                ?.replaceAll("\u00A0", " ")
                 .trim();
             if (!strongText) {
                 continue;
@@ -730,7 +749,7 @@ function parseNamingRules(html) {
             const strongChildren = getDirectChildren(item, "strong");
             const title =
                 strongChildren[0]?.textContent
-                    ?.replace(/\u00a0/g, " ")
+                    ?.replaceAll("\u00A0", " ")
                     .trim() || null;
             const description = extractText(item, {
                 preserveLineBreaks: true
@@ -789,7 +808,7 @@ function parseDirectiveSections(html) {
     const sections = [];
 
     for (const element of document.querySelectorAll("h2")) {
-        const title = element.textContent?.replace(/\u00a0/g, " ").trim();
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
             continue;
         }
@@ -860,7 +879,7 @@ function parseTypeValidationTable(table) {
     const dataRows = Array.from(table.querySelectorAll("tr")).slice(1);
     for (const row of dataRows) {
         const cells = getDirectChildren(row, "th, td");
-        if (!cells.length) {
+        if (cells.length === 0) {
             continue;
         }
         const from = extractText(cells[0], { preserveLineBreaks: false });
@@ -876,7 +895,7 @@ function parseTypeValidationTable(table) {
             const style = cell?.getAttribute?.("style") ?? null;
             results[column] = {
                 outcome,
-                style: style?.replace(/\s+/g, " ").trim() || null
+                style: style?.replaceAll(/\s+/g, " ").trim() || null
             };
         });
         rows.push({ from, results });
@@ -919,7 +938,7 @@ function parseTypeSystem(html) {
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
-        const title = element.textContent?.replace(/\u00a0/g, " ").trim();
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
             continue;
         }
@@ -930,7 +949,7 @@ function parseTypeSystem(html) {
         specifierSections.push({
             id: element.getAttribute("id") || slugify(title),
             title,
-            description: joinSections(content.paragraphs) || null,
+            description: joinSections(content.paragraphs) || undefined,
             notes: content.notes,
             codeExamples: content.codeExamples,
             lists: content.lists
@@ -967,7 +986,7 @@ function parseTypeSystem(html) {
     const typeValidationContent = normaliseContent(typeValidationBlocks);
 
     return {
-        overview: joinSections(introContent.paragraphs) || null,
+        overview: joinSections(introContent.paragraphs) || undefined,
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
@@ -980,14 +999,15 @@ function parseTypeSystem(html) {
         specifierSections,
         typeValidation: typeValidation
             ? {
-                description:
-                      joinSections(typeValidationContent.paragraphs) || null,
-                notes: typeValidationContent.notes,
-                codeExamples: typeValidationContent.codeExamples,
-                lists: typeValidationContent.lists,
-                table: typeValidation
-            }
-            : null
+                  description:
+                      joinSections(typeValidationContent.paragraphs) ||
+                      undefined,
+                  notes: typeValidationContent.notes,
+                  codeExamples: typeValidationContent.codeExamples,
+                  lists: typeValidationContent.lists,
+                  table: typeValidation
+              }
+            : undefined
     };
 }
 
@@ -1093,7 +1113,7 @@ async function main({ argv, env, isTty } = {}) {
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
             outputPath,
-            `${JSON.stringify(payload, null, 2)}\n`,
+            `${JSON.stringify(payload, undefined, 2)}\n`,
             "utf8"
         );
 

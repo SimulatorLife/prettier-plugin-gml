@@ -28,7 +28,7 @@ export function assertSupportedNodeVersion() {
     const minor = parseVersionPart(minorPart);
 
     if (Number.isNaN(major) || Number.isNaN(minor)) {
-        throw new Error(
+        throw new TypeError(
             `Unable to determine Node.js version from ${process.version}.`
         );
     }

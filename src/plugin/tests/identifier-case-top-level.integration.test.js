@@ -111,10 +111,10 @@ async function createTempProject({
         event:
             eventPath && eventSource
                 ? {
-                    fixture: eventFixture,
-                    path: eventPath,
-                    source: eventSource
-                }
+                      fixture: eventFixture,
+                      path: eventPath,
+                      source: eventSource
+                  }
                 : null,
         eventPath,
         projectIndex

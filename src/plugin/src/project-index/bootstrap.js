@@ -57,11 +57,9 @@ function createSkipResult(reason) {
 }
 
 const DEFAULT_OPTION_WRITER = (options, key, value) => {
-    if (!isObjectLike(options)) {
-        return;
+    if (isObjectLike(options)) {
+        options[key] = value;
     }
-
-    options[key] = value;
 };
 
 function getOptionWriter(storeOption) {
@@ -100,7 +98,7 @@ function coerceCacheMaxSize(
     { optionName, received, invalidNumberMessage }
 ) {
     if (!Number.isFinite(numericValue)) {
-        throw new Error(invalidNumberMessage);
+        throw new TypeError(invalidNumberMessage);
     }
 
     const normalized = Math.trunc(numericValue);
@@ -125,8 +123,8 @@ function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
-    if (rawValue == null) {
-        return undefined;
+    if (rawValue == undefined) {
+        return;
     }
 
     const rawType = typeof rawValue;
@@ -134,7 +132,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
     if (rawType === "string") {
         const trimmed = rawValue.trim();
         if (trimmed === "") {
-            return undefined;
+            return;
         }
 
         const received = `'${rawValue}'`;
@@ -166,7 +164,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 
 function resolveCacheMaxSizeBytes(options) {
     if (!isObjectLike(options)) {
-        return undefined;
+        return;
     }
 
     const internalValue =
@@ -176,14 +174,14 @@ function resolveCacheMaxSizeBytes(options) {
         return internalValue === null
             ? null
             : normalizeCacheMaxSizeBytes(internalValue, {
-                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-            });
+                  optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+              });
     }
 
     const externalValue = options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME];
 
     if (externalValue === undefined) {
-        return undefined;
+        return;
     }
 
     return normalizeCacheMaxSizeBytes(externalValue, {
@@ -371,7 +369,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         options.gmlParserFacade ??
         options.parserFacade ??
         null;
-    if (parserFacadeOverride != null) {
+    if (parserFacadeOverride != undefined) {
         buildOptions.gmlParserFacade = parserFacadeOverride;
     } else if (typeof options.parseGml === "function") {
         buildOptions.parseGml = options.parseGml;
@@ -394,8 +392,8 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     const dispose = coordinatorOverride
         ? () => {}
         : () => {
-            coordinator.dispose();
-        };
+              coordinator.dispose();
+          };
 
     const result = storeBootstrapResult(
         options,

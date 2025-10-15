@@ -81,7 +81,7 @@ const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 const FUNCTION_SIGNATURE_PATTERN =
-    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\r?\n|$))/gi;
+    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
 
 // Hoist frequently used regular expressions so they are compiled once. The
 // formatter hits these helpers while iterating over comment lists, so avoiding
@@ -138,7 +138,7 @@ function formatLineComment(
         }
     }
 
-    const slashesMatch = original.match(/^\s*(\/\/+)(.*)$/);
+    const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     if (slashesMatch && slashesMatch[1].length >= bannerMinimum) {
         return applyInlinePadding(comment, original.trim());
     }
@@ -184,9 +184,9 @@ function formatLineComment(
 
     const isInlineComment =
         isObjectLike(comment) && typeof comment.inlinePadding === "number";
-    const sentences = !isInlineComment
-        ? splitCommentIntoSentences(trimmedValue)
-        : [trimmedValue];
+    const sentences = isInlineComment
+        ? [trimmedValue]
+        : splitCommentIntoSentences(trimmedValue);
     if (sentences.length > 1) {
         const formattedSentences = sentences.map((sentence) =>
             applyInlinePadding(comment, `// ${sentence}`)
@@ -253,7 +253,7 @@ function stripTrailingFunctionParameters(text) {
         return text;
     }
 
-    return text.replace(
+    return text.replaceAll(
         FUNCTION_SIGNATURE_PATTERN,
         (match, linePrefix, functionPrefix) =>
             `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
@@ -261,7 +261,7 @@ function stripTrailingFunctionParameters(text) {
 }
 
 function normalizeDocCommentTypeAnnotations(text) {
-    if (typeof text !== "string" || text.indexOf("{") === -1) {
+    if (typeof text !== "string" || !text.includes("{")) {
         return text;
     }
 
@@ -373,12 +373,12 @@ function normalizeGameMakerType(typeText) {
             continue;
         }
 
-        let normalizedSeparator = separatorValue.replace(/\s+/g, "");
+        let normalizedSeparator = separatorValue.replaceAll(/\s+/g, "");
         if (normalizedSeparator.length === 0) {
             continue;
         }
 
-        normalizedSeparator = normalizedSeparator.replace(/\|/g, ",");
+        normalizedSeparator = normalizedSeparator.replaceAll("|", ",");
         outputSegments.push(normalizedSeparator);
     }
 

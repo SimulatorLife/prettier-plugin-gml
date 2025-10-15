@@ -12,7 +12,7 @@
 const EMPTY_ARRAY = Object.freeze([]);
 
 export function toArray(value) {
-    if (value == null) {
+    if (value == undefined) {
         return [];
     }
 
@@ -55,15 +55,15 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    if (values == null) {
+    if (values == undefined) {
         return freeze ? Object.freeze([]) : [];
     }
 
     const iterable = Array.isArray(values)
         ? values
         : typeof values[Symbol.iterator] === "function"
-            ? Array.from(values)
-            : [];
+          ? [...values]
+          : [];
 
     const uniqueValues = [];
     const seen = new Set();
@@ -101,28 +101,36 @@ export function mergeUniqueValues(
     { coerce, getKey = (value) => value, freeze = true } = {}
 ) {
     const base = Array.isArray(defaultValues) ? defaultValues : [];
+    const merged = base.slice();
+    const seen = new Set();
+
+    for (const element of merged) {
+        seen.add(getKey(element));
+    }
+
     const normalize = typeof coerce === "function" ? coerce : (value) => value;
-    const merged = [...base];
-    const seen = new Set(merged.map((value) => getKey(value)));
-    const extraValues =
-        additionalValues &&
-        typeof additionalValues[Symbol.iterator] === "function"
-            ? additionalValues
-            : [];
 
-    for (const rawValue of extraValues) {
-        const value = normalize(rawValue);
-        if (value == null) {
-            continue;
+    if (additionalValues != null) {
+        const iterable =
+            Array.isArray(additionalValues) ||
+            typeof additionalValues[Symbol.iterator] === "function"
+                ? additionalValues
+                : [];
+
+        for (const rawValue of iterable) {
+            const value = normalize(rawValue);
+            if (value == null) {
+                continue;
+            }
+
+            const key = getKey(value);
+            if (seen.has(key)) {
+                continue;
+            }
+
+            seen.add(key);
+            merged.push(value);
         }
-
-        const key = getKey(value);
-        if (seen.has(key)) {
-            continue;
-        }
-
-        seen.add(key);
-        merged.push(value);
     }
 
     return freeze ? Object.freeze(merged) : merged;

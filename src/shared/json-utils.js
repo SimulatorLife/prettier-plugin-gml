@@ -9,7 +9,7 @@ function toError(value) {
     try {
         if (typeof value === "string") {
             message = value;
-        } else if (value != null && typeof value.toString === "function") {
+        } else if (value != undefined && typeof value.toString === "function") {
             message = value.toString();
         }
     } catch {
@@ -45,7 +45,7 @@ function normalizeDescription(description) {
 }
 
 function normalizeSource(source) {
-    if (source == null) {
+    if (source == undefined) {
         return null;
     }
     if (isNonEmptyString(source)) {
@@ -68,8 +68,8 @@ export function parseJsonWithContext(text, options = {}) {
     const { source, description, reviver } = options;
     try {
         return JSON.parse(text, reviver);
-    } catch (thrown) {
-        const cause = toError(thrown);
+    } catch (error) {
+        const cause = toError(error);
         const normalizedDescription = normalizeDescription(description);
         const normalizedSource = normalizeSource(source);
         const details = extractErrorDetails(cause);

@@ -20,7 +20,7 @@ export function toPosixPath(inputPath) {
         return "";
     }
 
-    return inputPath.replace(WINDOWS_SEPARATOR_PATTERN, "/");
+    return inputPath.replaceAll(WINDOWS_SEPARATOR_PATTERN, "/");
 }
 
 /**
@@ -41,5 +41,5 @@ export function fromPosixPath(inputPath) {
         return inputPath;
     }
 
-    return inputPath.replace(POSIX_SEPARATOR_PATTERN, path.sep);
+    return inputPath.replaceAll(POSIX_SEPARATOR_PATTERN, path.sep);
 }

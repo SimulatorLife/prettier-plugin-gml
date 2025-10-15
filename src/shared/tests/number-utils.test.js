@@ -13,9 +13,9 @@ describe("number-utils", () => {
 
         it("returns false for non-number values", () => {
             assert.equal(isFiniteNumber(null), false);
-            assert.equal(isFiniteNumber(undefined), false);
+            assert.equal(isFiniteNumber(), false);
             assert.equal(isFiniteNumber("10"), false);
-            assert.equal(isFiniteNumber(NaN), false);
+            assert.equal(isFiniteNumber(Number.NaN), false);
             assert.equal(isFiniteNumber(Infinity), false);
             assert.equal(isFiniteNumber(-Infinity), false);
         });

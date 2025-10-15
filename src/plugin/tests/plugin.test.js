@@ -74,7 +74,7 @@ async function loadTestCases() {
         caseMap.set(baseName, { ...existing, singleFile: entry });
     }
 
-    const sortedBaseNames = [...caseMap.keys()].sort();
+    const sortedBaseNames = [...caseMap.keys()].toSorted();
 
     return Promise.all(
         sortedBaseNames.map(async (baseName) => {
@@ -140,7 +140,7 @@ async function formatWithPlugin(source, overrides) {
     const formatted = await prettier.format(source, {
         plugins: [pluginPath],
         parser: "gml-parse",
-        ...(overrides ?? {})
+        ...overrides
     });
 
     if (typeof formatted !== "string") {
@@ -250,7 +250,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             line.startsWith("#macro  TRIPLE")
         );
 
-        assert.ok(macroIndex >= 0, "Expected macro directive to be printed.");
+        assert.ok(macroIndex !== -1, "Expected macro directive to be printed.");
         assert.strictEqual(
             lines[macroIndex + 1],
             "",
@@ -292,7 +292,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "Expected macro-style directives to become #macro."
         );
         assert.ok(
-            lines.some((line) => line === "var value = LEGACY_MACRO;"),
+            lines.includes("var value = LEGACY_MACRO;"),
             "Expected statements following removed directives to stay adjacent."
         );
         const macroIndex = lines.indexOf("#macro LEGACY_MACRO VALUE");
