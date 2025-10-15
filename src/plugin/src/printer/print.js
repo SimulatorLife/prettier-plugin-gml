@@ -472,10 +472,7 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc =
-                    typeof renamed === "string" && renamed.length > 0
-                        ? renamed
-                        : node.id;
+                functionNameDoc = isNonEmptyString(renamed) ? renamed : node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
@@ -923,7 +920,7 @@ export function print(path, options, print) {
                     node.name,
                     options
                 );
-                if (typeof renamed === "string" && renamed.length > 0) {
+                if (isNonEmptyString(renamed)) {
                     const nameStartIndex = node.name.start.index;
                     const nameEndIndex = node.name.end.index;
                     if (
