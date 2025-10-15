@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { isNonEmptyString } from "./string-utils.js";
+import { isNonEmptyString } from "../../shared/string-utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -11,7 +11,7 @@ const DEFAULT_DISALLOWED_IDENTIFIER_TYPES = Object.freeze([
 
 function loadIdentifierMetadata() {
     try {
-        const metadata = require("../../resources/gml-identifiers.json");
+        const metadata = require("../../../resources/gml-identifiers.json");
         return metadata && typeof metadata === "object" ? metadata : null;
     } catch {
         return null;

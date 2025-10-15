@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { loadReservedIdentifierNames } from "../identifier-metadata.js";
+import { loadReservedIdentifierNames } from "../src/reserved-identifiers.js";
 
 test("loadReservedIdentifierNames returns lowercase reserved names", () => {
     const reserved = loadReservedIdentifierNames();
