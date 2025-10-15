@@ -60,6 +60,31 @@ test("augments static function doc comments with missing @returns metadata", asy
     );
 });
 
+test("omits synthetic @returns metadata for parameterless static functions", async () => {
+    const source = [
+        "function Example() constructor {",
+        "    static ping = function() {",
+        '        show_debug_message("ping");',
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const trimmed = formatted.trim();
+
+    assert.ok(
+        trimmed.includes(
+            "/// @function Example\nfunction Example() constructor {\n\n    /// @function ping\n    static ping = function() {"
+        ),
+        "Expected synthetic doc comments to describe the parameterless static function without inserting @returns metadata."
+    );
+    assert.ok(
+        !trimmed.includes("/// @returns {undefined}"),
+        "Synthetic doc comments should omit @returns metadata for parameterless static functions without existing docs."
+    );
+});
+
 test("omits synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
     const source = [
         "function example(arg) {",
