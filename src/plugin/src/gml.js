@@ -5,6 +5,10 @@ import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./comments/comment-printer.js";
 import { identifierCaseOptions } from "./options/identifier-case.js";
 import { LogicalOperatorsStyle } from "./options/logical-operators-style.js";
+import {
+    DEFAULT_MISSING_OPTIONAL_ARGUMENT_PLACEHOLDER,
+    MissingOptionalArgumentPlaceholder
+} from "./options/missing-optional-argument-placeholder.js";
 
 export const languages = [
     {
@@ -173,6 +177,26 @@ export const options = {
         default: false,
         description:
             'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
+    },
+    missingOptionalArgumentPlaceholder: {
+        since: "0.0.0",
+        type: "choice",
+        category: "gml",
+        default: DEFAULT_MISSING_OPTIONAL_ARGUMENT_PLACEHOLDER,
+        description:
+            "Controls how omitted optional arguments are printed. Set to 'empty' to leave the slot blank instead of inserting 'undefined'.",
+        choices: [
+            {
+                value: MissingOptionalArgumentPlaceholder.UNDEFINED,
+                description:
+                    "Fill missing optional arguments with the literal 'undefined'."
+            },
+            {
+                value: MissingOptionalArgumentPlaceholder.EMPTY,
+                description:
+                    "Leave missing optional arguments empty so calls render as consecutive commas."
+            }
+        ]
     },
     fixMissingDecimalZeroes: {
         since: "0.0.0",

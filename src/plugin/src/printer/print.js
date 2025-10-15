@@ -71,6 +71,7 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
+import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 const preservedUndefinedDefaultParameters = new WeakSet();
 
@@ -1015,7 +1016,14 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            // TODO: Add a plugin option to choose undefined or an empty comma.
+            const placeholder =
+                options.missingOptionalArgumentPlaceholder ??
+                MissingOptionalArgumentPlaceholder.UNDEFINED;
+
+            if (placeholder === MissingOptionalArgumentPlaceholder.EMPTY) {
+                return concat("");
+            }
+
             return concat("undefined");
         }
         case "NewExpression": {
