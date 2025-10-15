@@ -25,26 +25,33 @@ function createIndexMapper(insertPositions) {
         return (index) => index;
     }
 
-    const sortedPositions = [...insertPositions].sort((a, b) => a - b);
+    const sortedPositions = insertPositions
+        .filter((position) => typeof position === "number")
+        .sort((a, b) => a - b);
+
+    if (sortedPositions.length === 0) {
+        return (index) => index;
+    }
 
     return (index) => {
         if (typeof index !== "number") {
             return index;
         }
 
-        let low = 0;
-        let high = sortedPositions.length;
+        let lowerBound = 0;
+        let upperBound = sortedPositions.length;
 
-        while (low < high) {
-            const mid = Math.floor((low + high) / 2);
-            if (index > sortedPositions[mid]) {
-                low = mid + 1;
+        while (lowerBound < upperBound) {
+            const middle = Math.floor((lowerBound + upperBound) / 2);
+
+            if (index <= sortedPositions[middle]) {
+                upperBound = middle;
             } else {
-                high = mid;
+                lowerBound = middle + 1;
             }
         }
 
-        return index - low;
+        return index - lowerBound;
     };
 }
 
