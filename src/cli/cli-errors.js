@@ -30,23 +30,25 @@ function formatAggregateErrors(error, seen) {
         return null;
     }
 
-    const lines = [];
+    const formatted = error.errors
+        .map((entry) => formatErrorValue(entry, seen))
+        .filter(Boolean)
+        .map((text) => indentBlock(`- ${text.replace(/\n/g, "\n  ")}`));
 
-    for (const entry of error.errors) {
-        const text = formatErrorValue(entry, seen);
-        if (!text) {
-            continue;
-        }
-
-        lines.push(`- ${text.replace(/\n/g, "\n  ")}`);
-    }
-
-    if (lines.length === 0) {
+    if (formatted.length === 0) {
         return null;
     }
 
-    const indented = lines.map((line) => indentBlock(line)).join("\n");
-    return `Errors:\n${indented}`;
+    return `Errors:\n${formatted.join("\n")}`;
+}
+
+function formatErrorCause(cause, seen) {
+    if (!cause) {
+        return null;
+    }
+
+    const text = formatErrorValue(cause, seen);
+    return text ? `Caused by:\n${indentBlock(text)}` : null;
 }
 
 function formatErrorHeader(error) {
@@ -81,29 +83,13 @@ function formatErrorObject(error, seen) {
 
     seen.add(error);
 
-    const sections = [];
-    const header = formatErrorHeader(error);
-    if (header) {
-        sections.push(header);
-    }
-
     const stack = typeof error.stack === "string" ? error.stack : null;
-    const stackBody = extractStackBody(stack);
-    if (stackBody) {
-        sections.push(stackBody);
-    }
-
-    if (error.cause) {
-        const causeText = formatErrorValue(error.cause, seen);
-        if (causeText) {
-            sections.push(`Caused by:\n${indentBlock(causeText)}`);
-        }
-    }
-
-    const aggregateSection = formatAggregateErrors(error, seen);
-    if (aggregateSection) {
-        sections.push(aggregateSection);
-    }
+    const sections = [
+        formatErrorHeader(error),
+        extractStackBody(stack),
+        formatErrorCause(error.cause, seen),
+        formatAggregateErrors(error, seen)
+    ].filter(Boolean);
 
     if (sections.length === 0 && stack) {
         return stack;
