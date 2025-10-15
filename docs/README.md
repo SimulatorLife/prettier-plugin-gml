@@ -53,12 +53,3 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.
-
-## Automation
-
-- [Codex automation playbook](codex-actions.md) — Documents the Codex-assisted
-  maintenance workflows. Start here to understand why each guardrail exists and
-  how to tune the triggers when new risks emerge.
-- [Codex action list](codex-action-list.md) — Expectations and curated examples
-  for Codex automation sweeps, including the Interface Segregation Principle
-  check defined in `codex-isp.yml`.
