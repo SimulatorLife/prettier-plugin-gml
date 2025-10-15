@@ -2362,10 +2362,8 @@ function mergeSyntheticDocComments(
                 endsSentence &&
                 startsSentence &&
                 currentAvailable >= 60 &&
-                current.length >= Math.max(
-                    Math.floor(currentAvailable * 0.6),
-                    24
-                )
+                current.length >=
+                    Math.max(Math.floor(currentAvailable * 0.6), 24)
             ) {
                 segments.push(current);
                 current = word;
@@ -2434,10 +2432,7 @@ function mergeSyntheticDocComments(
             }
 
             const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(
-                Math.min(available, 62),
-                16
-            );
+            const continuationAvailable = Math.max(Math.min(available, 62), 16);
             const segments = wrapSegments(
                 descriptionText,
                 available,
