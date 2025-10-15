@@ -60,6 +60,15 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
+/**
+ * Normalizes the `replacementDirective` field on define statements so the
+ * printer can reason about region-like directives with case-insensitive
+ * comparisons.
+ *
+ * @param {unknown} node Candidate AST node to inspect.
+ * @returns {string | null} Lower-cased directive text when present, otherwise
+ *                          `null`.
+ */
 function getNormalizedDefineReplacementDirective(node) {
     if (!node || node.type !== "DefineStatement") {
         return null;
@@ -69,12 +78,34 @@ function getNormalizedDefineReplacementDirective(node) {
     return directive ? directive.toLowerCase() : null;
 }
 
+/**
+ * Detects define statements that emulate region boundaries and therefore need
+ * the same spacing treatment as dedicated region statements.
+ *
+ * @param {unknown} node Candidate AST node.
+ * @returns {boolean} `true` when the directive mirrors a region boundary.
+ */
 function defineReplacementRequiresNewlines(node) {
     const directive = getNormalizedDefineReplacementDirective(node);
 
     return directive === "#region" || directive === "#endregion";
 }
 
+/**
+ * Determines whether a statement should be surrounded by blank lines in the
+ * generated doc tree.
+ *
+ * Statements listed in {@link NODE_TYPES_WITH_SURROUNDING_NEWLINES} always
+ * receive padding to keep large constructs readable. The `#region` and
+ * `#endregion` define replacements behave like their dedicated statement
+ * counterparts, so they are treated the same even though they originate from a
+ * `DefineStatement`. All other nodes default to `false` so the printer never
+ * invents extra whitespace for unrecognized statement kinds.
+ *
+ * @param {unknown} node Statement node to inspect.
+ * @returns {boolean} `true` when the printer should emit surrounding
+ *                    newlines.
+ */
 function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
