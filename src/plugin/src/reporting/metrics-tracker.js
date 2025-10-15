@@ -1,3 +1,5 @@
+import { getNonEmptyString } from "../../../shared/string-utils.js";
+
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
 function nowMs() {
@@ -9,7 +11,7 @@ function nowMs() {
 }
 
 function normalizeLabel(label) {
-    return typeof label === "string" && label.length > 0 ? label : "unknown";
+    return getNonEmptyString(label) ?? "unknown";
 }
 
 const DEFAULT_CACHE_KEYS = ["hits", "misses", "stale"];
@@ -145,10 +147,11 @@ export function createMetricsTracker({
     }
 
     function setMetadata(key, value) {
-        if (typeof key !== "string" || key.length === 0) {
+        const normalizedKey = getNonEmptyString(key);
+        if (!normalizedKey) {
             return;
         }
-        metadata[key] = value;
+        metadata[normalizedKey] = value;
     }
 
     return {
