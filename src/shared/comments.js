@@ -15,7 +15,7 @@
  */
 
 import { asArray } from "./array-utils.js";
-import { hasOwn, isObjectLike } from "./object-utils.js";
+import { isObjectLike } from "./object-utils.js";
 
 export function isCommentNode(node) {
     return (
@@ -108,27 +108,11 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        if (Array.isArray(current)) {
-            // Iterate arrays via indices to avoid creating iterator wrappers
-            // while still respecting sparse arrays produced by upstream tools.
-            for (let index = 0; index < current.length; index += 1) {
-                const child = current[index];
-                if (isObjectLike(child)) {
-                    stack.push(child);
-                }
-            }
-            continue;
-        }
+        const children = Array.isArray(current)
+            ? current
+            : Object.values(current);
 
-        for (const key in current) {
-            if (!hasOwn(current, key)) {
-                continue;
-            }
-
-            // A guarded for-in loop mirrors Object.values without allocating a
-            // throwaway array on every object visit, which keeps the traversal
-            // hot path allocation-free.
-            const child = current[key];
+        for (const child of children) {
             if (isObjectLike(child)) {
                 stack.push(child);
             }
