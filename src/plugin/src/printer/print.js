@@ -1506,7 +1506,10 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        const syntheticDocComment = syntheticDocByNode.get(node);
+        const syntheticDocRecord = syntheticDocByNode.get(node);
+        const syntheticDocComment = syntheticDocRecord
+            ? syntheticDocRecord.doc
+            : null;
         if (syntheticDocComment) {
             parts.push(syntheticDocComment);
             parts.push(hardline);
@@ -1528,6 +1531,9 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        const isStaticDeclaration =
+            node.type === "VariableDeclaration" && node.kind === "static";
+
         if (semi === ";") {
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
@@ -1538,16 +1544,19 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (initializerIsFunctionExpression) {
                 const isTopLevelStaticFunction =
-                    node.kind === "static" && isTopLevel;
+                    isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isTopLevelStaticFunction;
+                    !hasTerminatingSemicolon &&
+                    !isTopLevelStaticFunction &&
+                    !(syntheticDocRecord && isStaticDeclaration) &&
+                    !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style unless we're printing a top-level
-                    // static declaration, where the semicolon is required for
+                    // the original code style unless we're printing a static
+                    // declaration, where the semicolon is required for
                     // correctness.
                     semi = "";
                 }
@@ -1558,12 +1567,9 @@ function printStatements(path, options, print, childrenAttribute) {
             semi === ";" &&
             !hasTerminatingSemicolon &&
             syntheticDocComment &&
+            !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
             isLastStatement(childPath) &&
-            !(
-                node.type === "VariableDeclaration" &&
-                node.kind === "static" &&
-                isTopLevel
-            );
+            !isStaticDeclaration;
 
         if (shouldOmitSemicolon) {
             semi = "";
@@ -1784,35 +1790,38 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    const hasExistingDocLines = existingDocLines.length > 0;
 
     if (
-        existingDocLines.length === 0 &&
+        !hasExistingDocLines &&
         (!Array.isArray(functionNode?.params) ||
             functionNode.params.length === 0)
     ) {
         syntheticOverrides.suppressReturns = true;
     }
 
-    const syntheticLines =
-        existingDocLines.length > 0
-            ? mergeSyntheticDocComments(
-                functionNode,
-                existingDocLines,
-                options,
-                syntheticOverrides
-            )
-            : computeSyntheticFunctionDocLines(
-                functionNode,
-                [],
-                options,
-                syntheticOverrides
-            );
+    const syntheticLines = hasExistingDocLines
+        ? mergeSyntheticDocComments(
+            functionNode,
+            existingDocLines,
+            options,
+            syntheticOverrides
+        )
+        : computeSyntheticFunctionDocLines(
+            functionNode,
+            [],
+            options,
+            syntheticOverrides
+        );
 
     if (syntheticLines.length === 0) {
         return null;
     }
 
-    return concat([hardline, join(hardline, syntheticLines)]);
+    return {
+        doc: concat([hardline, join(hardline, syntheticLines)]),
+        hasExistingDocLines
+    };
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
@@ -2335,12 +2344,35 @@ function mergeSyntheticDocComments(
         const normalizedName = rawName.trim();
         const remainderText = remainder.trim();
         const hasDescription = remainderText.length > 0;
-        const normalizedDescription = hasDescription
-            ? remainderText.replace(/^[-\s]+/, "")
-            : "";
-        const descriptionPart = hasDescription
-            ? ` - ${normalizedDescription}`
-            : "";
+        let descriptionPart = "";
+
+        if (hasDescription) {
+            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            let normalizedDescription = "";
+            let hyphenSpacing = " - ";
+
+            if (hyphenMatch) {
+                const [, rawHyphenSpacing = "", rawDescription = ""] =
+                    hyphenMatch;
+                normalizedDescription = rawDescription.trim();
+
+                const trailingSpaceMatch = rawHyphenSpacing.match(/-(\s*)$/);
+                if (trailingSpaceMatch) {
+                    const originalSpaceCount = trailingSpaceMatch[1].length;
+                    const preservedSpaceCount = Math.max(
+                        1,
+                        Math.min(originalSpaceCount, 2)
+                    );
+                    hyphenSpacing = ` - ${" ".repeat(preservedSpaceCount - 1)}`;
+                }
+            } else {
+                normalizedDescription = remainderText.replace(/^[-\s]+/, "");
+            }
+
+            if (normalizedDescription.length > 0) {
+                descriptionPart = `${hyphenSpacing}${normalizedDescription}`;
+            }
+        }
 
         const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);

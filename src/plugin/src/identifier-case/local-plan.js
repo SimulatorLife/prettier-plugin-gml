@@ -121,37 +121,49 @@ function applyAssetRenamesIfEligible({
     assetConflicts,
     metrics
 }) {
-    if (
-        options.__identifierCaseDryRun === false &&
-        assetRenames.length > 0 &&
-        (assetConflicts ?? []).length === 0 &&
-        projectIndex &&
-        options.__identifierCaseAssetRenamesApplied !== true
-    ) {
-        const fsFacade =
-            options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
-        const logger = options.logger ?? null;
-        const result = applyAssetRenames({
-            projectIndex,
-            renames: assetRenames,
-            fsFacade,
-            logger
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenameResult",
-            result
-        );
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenamesApplied",
-            true
-        );
-        metrics.incrementCounter(
-            "assets.appliedRenames",
-            result?.renames?.length ?? 0
-        );
+    if (options.__identifierCaseDryRun !== false) {
+        return;
     }
+
+    if (assetRenames.length === 0) {
+        return;
+    }
+
+    if ((assetConflicts ?? []).length > 0) {
+        return;
+    }
+
+    if (!projectIndex) {
+        return;
+    }
+
+    if (options.__identifierCaseAssetRenamesApplied === true) {
+        return;
+    }
+
+    const fsFacade =
+        options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+    const logger = options.logger ?? null;
+    const result = applyAssetRenames({
+        projectIndex,
+        renames: assetRenames,
+        fsFacade,
+        logger
+    });
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseAssetRenameResult",
+        result
+    );
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseAssetRenamesApplied",
+        true
+    );
+    metrics.incrementCounter(
+        "assets.appliedRenames",
+        result?.renames?.length ?? 0
+    );
 }
 
 function getObjectValues(object) {

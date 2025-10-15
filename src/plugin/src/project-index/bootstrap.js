@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
 import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
@@ -10,25 +10,33 @@ const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexCacheMaxBytes";
 
 function getFsFacade(options) {
-    return options?.__identifierCaseFs ?? options?.identifierCaseFs ?? null;
+    return coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
+        fallback: null
+    });
 }
 
 function getFormatterVersion(options) {
-    return (
-        options?.identifierCaseFormatterVersion ??
-        options?.__identifierCaseFormatterVersion ??
-        options?.prettierVersion ??
-        options?.__prettierVersion ??
-        null
+    return coalesceOption(
+        options,
+        [
+            "identifierCaseFormatterVersion",
+            "__identifierCaseFormatterVersion",
+            "prettierVersion",
+            "__prettierVersion"
+        ],
+        { fallback: null }
     );
 }
 
 function getPluginVersion(options) {
-    return (
-        options?.identifierCasePluginVersion ??
-        options?.__identifierCasePluginVersion ??
-        options?.pluginVersion ??
-        null
+    return coalesceOption(
+        options,
+        [
+            "identifierCasePluginVersion",
+            "__identifierCasePluginVersion",
+            "pluginVersion"
+        ],
+        { fallback: null }
     );
 }
 

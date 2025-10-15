@@ -6,3 +6,6 @@
 - 2025-10-14: Pruned the unused `statementShouldEndWithSemicolon` and `isAssignmentLikeExpression` helpers from `src/plugin/src/printer/util.js`.
   - Both utilities were vestiges of an earlier formatter strategy and have no remaining imports across the plugin codebase.
   - Removing them reduces the surface area of the printer utilities module and keeps future refactors focused on actively executed logic.
+- 2025-10-15: Deleted the unused `scripts/measure-identifier-case-option-store-memory.mjs` benchmark harness.
+  - The identifier-case option store now exposes targeted integration tests and CLI flows, making the standalone memory probe redundant.
+  - Dropping the script keeps the benchmarking directory focused on actively maintained entry points.

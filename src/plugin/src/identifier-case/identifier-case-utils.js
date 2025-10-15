@@ -205,22 +205,22 @@ export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
 ]);
 
 function normalizeReservedPrefixOverrides(overrides) {
-    const source =
-        overrides instanceof Set || Array.isArray(overrides) ? overrides : null;
-
-    if (!source) {
+    if (
+        !overrides ||
+        typeof overrides === "string" ||
+        typeof overrides[Symbol.iterator] !== "function"
+    ) {
         return [];
     }
 
     const unique = new Set();
-
-    for (const entry of source) {
+    for (const entry of overrides) {
         if (typeof entry !== "string") {
             continue;
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length > 0) {
+        if (trimmed) {
             unique.add(trimmed);
         }
     }
@@ -229,13 +229,9 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    return [...unique].sort((a, b) => {
+    return Array.from(unique).sort((a, b) => {
         const lengthDifference = b.length - a.length;
-        if (lengthDifference !== 0) {
-            return lengthDifference;
-        }
-
-        return a < b ? -1 : a > b ? 1 : 0;
+        return lengthDifference || (a < b ? -1 : a > b ? 1 : 0);
     });
 }
 

@@ -18,6 +18,45 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
     return onObjectLike(value);
 }
 
+/**
+ * Returns the first property value on the provided object that is neither
+ * `undefined` nor `null`.
+ *
+ * Centralizes the common pattern of checking multiple option aliases (for
+ * example public vs. internal `__`-prefixed keys) before falling back to a
+ * default value. Callers can optionally accept `null` as a valid value when
+ * `coalesceOption` is used outside of nullish coalescing chains.
+ *
+ * @template {string | number | symbol} TKey
+ * @param {unknown} object Candidate object containing the properties.
+ * @param {Array<TKey> | TKey} keys Property names to inspect in order.
+ * @param {Object} [options]
+ * @param {unknown} [options.fallback]
+ * @param {boolean} [options.acceptNull=false]
+ * @returns {unknown} The first matching property value or the fallback.
+ */
+export function coalesceOption(
+    object,
+    keys,
+    { fallback, acceptNull = false } = {}
+) {
+    if (!isObjectLike(object)) {
+        return fallback;
+    }
+
+    const candidates = Array.isArray(keys) ? keys : [keys];
+
+    for (const key of candidates) {
+        const value = object?.[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
+        }
+    }
+
+    return fallback;
+}
+
 export function hasOwn(object, key) {
     return hasOwnProperty.call(object, key);
 }

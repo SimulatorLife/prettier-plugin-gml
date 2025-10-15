@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import GMLParser from "gamemaker-language-parser";
 
 import {
@@ -18,6 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
@@ -29,7 +29,6 @@ import {
     getFeatherMetadata
 } from "../feather/metadata.js";
 
-const require = createRequire(import.meta.url);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -97,7 +96,7 @@ const RESERVED_KEYWORD_TOKENS = new Set([
     "while",
     "with"
 ]);
-const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierNameSet();
+const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     buildDeprecatedBuiltinVariableReplacements();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
@@ -723,15 +722,24 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM2003") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureShaderResetIsCalled({ ast, diagnostic });
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = ensureShaderResetIsCalled({
+                            ast,
+                            diagnostic,
+                            sourceText
+                        });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
+                        if (isNonEmptyArray(fixes)) {
+                            return fixes;
+                        }
 
-                return registerManualFeatherFix({ ast, diagnostic });
-            });
+                        return registerManualFeatherFix({ ast, diagnostic });
+                    }
+            );
             continue;
         }
 
@@ -8271,7 +8279,7 @@ function extractConsequentAssignment(consequent) {
     return null;
 }
 
-function ensureShaderResetIsCalled({ ast, diagnostic }) {
+function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
     }
@@ -8299,7 +8307,8 @@ function ensureShaderResetIsCalled({ ast, diagnostic }) {
                 node,
                 parent,
                 property,
-                diagnostic
+                diagnostic,
+                sourceText
             );
 
             if (fix) {
@@ -8320,7 +8329,13 @@ function ensureShaderResetIsCalled({ ast, diagnostic }) {
     return fixes;
 }
 
-function ensureShaderResetAfterSet(node, parent, property, diagnostic) {
+function ensureShaderResetAfterSet(
+    node,
+    parent,
+    property,
+    diagnostic,
+    sourceText
+) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
     }
@@ -8334,10 +8349,38 @@ function ensureShaderResetAfterSet(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
+    let lastSequentialCallIndex = property;
+    let previousNode = node;
 
-    if (isShaderResetCall(nextNode)) {
-        return null;
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (isShaderResetCall(candidate)) {
+            return null;
+        }
+
+        if (!isCallExpression(candidate)) {
+            break;
+        }
+
+        if (isIdentifierWithName(candidate.object, "shader_set")) {
+            break;
+        }
+
+        if (
+            !hasOnlyWhitespaceBetweenNodes(previousNode, candidate, sourceText)
+        ) {
+            break;
+        }
+
+        lastSequentialCallIndex = insertionIndex;
+        previousNode = candidate;
+        insertionIndex += 1;
+    }
+
+    if (lastSequentialCallIndex > property) {
+        insertionIndex = lastSequentialCallIndex + 1;
     }
 
     const resetCall = createShaderResetCall(node);
@@ -8358,7 +8401,7 @@ function ensureShaderResetAfterSet(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -10854,6 +10897,33 @@ function findVertexEndInsertionIndex({ siblings, startIndex, bufferName }) {
 
 function isCallExpression(node) {
     return !!node && node.type === "CallExpression";
+}
+
+function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
+    if (typeof sourceText !== "string") {
+        return true;
+    }
+
+    const previousEnd = getNodeEndIndex(previous);
+    const nextStart = getNodeStartIndex(next);
+
+    if (
+        typeof previousEnd !== "number" ||
+        typeof nextStart !== "number" ||
+        previousEnd >= nextStart
+    ) {
+        return true;
+    }
+
+    const between = sourceText.slice(previousEnd, nextStart);
+
+    if (between.length === 0) {
+        return true;
+    }
+
+    const sanitized = between.replaceAll(";", "");
+
+    return sanitized.trim().length === 0;
 }
 
 function hasFirstArgumentIdentifier(node, name) {
@@ -16412,35 +16482,6 @@ function getMacroBaseText(macro, sourceText) {
     }
 
     return sourceText.slice(startIndex, endIndex);
-}
-
-function buildReservedIdentifierNameSet() {
-    try {
-        const metadata = require("../../../../resources/gml-identifiers.json");
-        const identifiers = metadata?.identifiers;
-
-        if (identifiers && typeof identifiers === "object") {
-            const disallowedTypes = new Set(["literal", "keyword"]);
-
-            return new Set(
-                Object.entries(identifiers)
-                    .filter(([name, info]) => {
-                        if (typeof name !== "string" || name.length === 0) {
-                            return false;
-                        }
-
-                        const type =
-                            typeof info?.type === "string" ? info.type : "";
-                        return !disallowedTypes.has(type.toLowerCase());
-                    })
-                    .map(([name]) => name.toLowerCase())
-            );
-        }
-    } catch {
-        // Ignore metadata loading failures and fall back to a no-op set.
-    }
-
-    return new Set();
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
