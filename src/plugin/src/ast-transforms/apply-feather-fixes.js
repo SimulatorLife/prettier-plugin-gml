@@ -125,7 +125,8 @@ function getCallArgumentsOrEmpty(node) {
         return [];
     }
 
-    return Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
+    return Array.isArray(node.arguments) ? args : [];
 }
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
