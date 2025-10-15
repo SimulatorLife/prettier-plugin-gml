@@ -6,7 +6,7 @@ import {
     getIdentifierText,
     getCallExpressionArguments
 } from "../../../shared/ast-node-helpers.js";
-import { createCachedOptionResolver } from "../../../shared/options-cache.js";
+import { createCachedOptionResolver } from "../options/options-cache.js";
 import { toNormalizedLowerCaseString } from "../../../shared/string-utils.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
