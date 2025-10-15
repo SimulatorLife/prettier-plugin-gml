@@ -30,6 +30,7 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "./options/manual-repo.js";
+import { applyEnvOptionOverride } from "./options/env-overrides.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,9 +42,12 @@ const OUTPUT_DEFAULT = path.join(
     "feather-metadata.json"
 );
 
+const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
+
 const manualClient = createManualGitHubClient({
     userAgent: "prettier-plugin-gml feather metadata generator",
-    defaultCacheRoot: DEFAULT_CACHE_ROOT
+    defaultCacheRoot: DEFAULT_CACHE_ROOT,
+    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
 });
 
 const { fetchManualFile, resolveManualRef } = manualClient;
@@ -138,36 +142,30 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createFeatherMetadataCommand();
+    const getUsage = () => command.helpInformation();
 
     if (env.GML_MANUAL_REF) {
         command.setOptionValueWithSource("ref", env.GML_MANUAL_REF, "env");
     }
 
-    if (env[MANUAL_REPO_ENV_VAR] !== undefined) {
-        try {
-            const repo = resolveManualRepoValue(env[MANUAL_REPO_ENV_VAR], {
-                source: "env"
-            });
-            command.setOptionValueWithSource("manualRepo", repo, "env");
-        } catch (error) {
-            throw new CliUsageError(error.message, {
-                usage: command.helpInformation()
-            });
-        }
-    }
+    applyEnvOptionOverride({
+        command,
+        env,
+        envVar: MANUAL_REPO_ENV_VAR,
+        optionName: "manualRepo",
+        resolveValue: (value) =>
+            resolveManualRepoValue(value, { source: "env" }),
+        getUsage
+    });
 
-    if (env[PROGRESS_BAR_WIDTH_ENV_VAR] !== undefined) {
-        try {
-            const width = resolveProgressBarWidth(
-                env[PROGRESS_BAR_WIDTH_ENV_VAR]
-            );
-            command.setOptionValueWithSource("progressBarWidth", width, "env");
-        } catch (error) {
-            throw new CliUsageError(error.message, {
-                usage: command.helpInformation()
-            });
-        }
-    }
+    applyEnvOptionOverride({
+        command,
+        env,
+        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+        optionName: "progressBarWidth",
+        resolveValue: resolveProgressBarWidth,
+        getUsage
+    });
 
     const verbose = {
         resolveRef: true,
