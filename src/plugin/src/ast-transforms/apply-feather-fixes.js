@@ -9548,6 +9548,13 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
             ) {
                 originalDeclaration._suppressSyntheticReturnsDoc = true;
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
+
+                // Suppress synthetic @returns metadata when a Feather fix removes
+                // a redeclared global function. The formatter should keep
+                // existing documentation intact without introducing additional
+                // lines so the output remains stable for the surviving
+                // declaration.
+                originalDeclaration._suppressSyntheticReturnsDoc = true;
             }
         }
 
