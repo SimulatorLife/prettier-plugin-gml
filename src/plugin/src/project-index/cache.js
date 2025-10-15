@@ -1,6 +1,7 @@
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
+import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
@@ -160,7 +161,10 @@ export async function loadProjectIndexCache(
 
     let parsed;
     try {
-        parsed = JSON.parse(rawContents);
+        parsed = parseJsonWithContext(rawContents, {
+            source: cacheFilePath,
+            description: "project index cache"
+        });
     } catch (error) {
         return {
             status: "miss",
