@@ -1,9 +1,9 @@
 import path from "node:path";
 
-import { createRequire } from "node:module";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
 import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,
@@ -16,32 +16,7 @@ import {
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 
-const require = createRequire(import.meta.url);
-const identifiersMetadata = require("../../../../resources/gml-identifiers.json");
-
-const RESERVED_IDENTIFIER_TYPES = new Set(["literal", "keyword"]);
-
-function buildReservedIdentifierSet() {
-    const identifiers = identifiersMetadata?.identifiers;
-    if (!identifiers || typeof identifiers !== "object") {
-        return new Set();
-    }
-
-    return new Set(
-        Object.entries(identifiers)
-            .filter(([name, info]) => {
-                if (!isNonEmptyString(name)) {
-                    return false;
-                }
-
-                const type = typeof info?.type === "string" ? info.type : "";
-                return !RESERVED_IDENTIFIER_TYPES.has(type.toLowerCase());
-            })
-            .map(([name]) => name.toLowerCase())
-    );
-}
-
-const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierSet();
+const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
 function isReservedIdentifierName(name) {
     if (!isNonEmptyString(name)) {
