@@ -6,6 +6,10 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+export function getNonEmptyString(value) {
+    return isNonEmptyString(value) ? value : null;
+}
+
 const WORD_CHAR_PATTERN = /[A-Za-z0-9_]/;
 
 export function isWordChar(character) {

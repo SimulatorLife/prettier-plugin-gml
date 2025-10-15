@@ -16,10 +16,14 @@ const fixtureExtension = ".gml";
 const fileEncoding = "utf8";
 
 async function loadFixtures() {
-  const entries = await fs.readdir(fixturesDirectory, { withFileTypes: true });
+  const entries = await fs.readdir(fixturesDirectory, {
+    withFileTypes: true,
+  });
 
   return entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(fixtureExtension))
+    .filter(
+      (entry) => entry.isFile() && entry.name.endsWith(fixtureExtension),
+    )
     .map((entry) => entry.name)
     .sort();
 }
@@ -252,7 +256,10 @@ describe("GameMaker parser fixtures", () => {
       simplifyLocations: false,
     });
 
-    assert.ok(ast, "Parser returned no AST when parsing CRLF comment source.");
+    assert.ok(
+      ast,
+      "Parser returned no AST when parsing CRLF comment source.",
+    );
     assert.ok(
       Array.isArray(ast.comments),
       "Expected parser to return comments array.",
@@ -273,12 +280,16 @@ describe("GameMaker parser fixtures", () => {
   });
 
   it("captures the full range of member access expressions", () => {
-    const source = "function demo(arg = namespace.value) {\n  return arg;\n}\n";
+    const source =
+            "function demo(arg = namespace.value) {\n  return arg;\n}\n";
     const ast = parseFixture(source, {
       options: { getLocations: true, simplifyLocations: false },
     });
 
-    assert.ok(ast, "Parser returned no AST when parsing member access source.");
+    assert.ok(
+      ast,
+      "Parser returned no AST when parsing member access source.",
+    );
     const [fn] = ast.body;
     assert.ok(
       fn && fn.type === "FunctionDeclaration",
@@ -364,11 +375,17 @@ function demo(param) {
       const byName = groupIdentifiersByName(identifiers);
 
       const counterNodes = byName.get("counter");
-      assert.ok(counterNodes, "Expected counter identifiers to be present.");
+      assert.ok(
+        counterNodes,
+        "Expected counter identifiers to be present.",
+      );
       const counterDeclaration = counterNodes.find((node) =>
         node.classifications.includes("declaration"),
       );
-      assert.ok(counterDeclaration, "Expected a declaration node for counter.");
+      assert.ok(
+        counterDeclaration,
+        "Expected a declaration node for counter.",
+      );
       assert.ok(
         counterDeclaration.classifications.includes("variable"),
         "Counter declaration should be classified as a variable.",
@@ -478,7 +495,10 @@ with (target) {
       const valueDeclaration = valueNodes.find((node) =>
         node.classifications.includes("declaration"),
       );
-      assert.ok(valueDeclaration, "Expected a declaration node for value.");
+      assert.ok(
+        valueDeclaration,
+        "Expected a declaration node for value.",
+      );
 
       const localNodes = byName.get("local");
       assert.ok(
@@ -523,7 +543,7 @@ with (target) {
       const valueReferenceInWith = valueNodes.find(
         (node) =>
           node.classifications.includes("reference") &&
-          node.scopeId === localDeclaration.scopeId,
+                    node.scopeId === localDeclaration.scopeId,
       );
       assert.ok(
         valueReferenceInWith,
@@ -585,13 +605,19 @@ var shade = Colors.Green;
       const colorsDeclaration = colorsNodes.find((node) =>
         node.classifications.includes("declaration"),
       );
-      assert.ok(colorsDeclaration, "Expected a declaration for the enum name.");
+      assert.ok(
+        colorsDeclaration,
+        "Expected a declaration for the enum name.",
+      );
       assert.ok(colorsDeclaration.classifications.includes("enum"));
 
       const colorsReference = colorsNodes.find((node) =>
         node.classifications.includes("reference"),
       );
-      assert.ok(colorsReference, "Expected a reference to the enum name.");
+      assert.ok(
+        colorsReference,
+        "Expected a reference to the enum name.",
+      );
       assert.ok(colorsReference.declaration);
       assert.deepStrictEqual(
         colorsReference.declaration.start,
@@ -601,7 +627,10 @@ var shade = Colors.Green;
       assert.ok(colorsReference.classifications.includes("enum"));
 
       const greenNodes = byName.get("Green");
-      assert.ok(greenNodes, "Expected enum member identifiers to be present.");
+      assert.ok(
+        greenNodes,
+        "Expected enum member identifiers to be present.",
+      );
       const greenDeclaration = greenNodes.find((node) =>
         node.classifications.includes("declaration"),
       );
@@ -614,7 +643,10 @@ var shade = Colors.Green;
       const greenReference = greenNodes.find((node) =>
         node.classifications.includes("reference"),
       );
-      assert.ok(greenReference, "Expected a reference to the enum member.");
+      assert.ok(
+        greenReference,
+        "Expected a reference to the enum member.",
+      );
       assert.ok(greenReference.declaration);
       assert.strictEqual(
         greenReference.declaration.scopeId,

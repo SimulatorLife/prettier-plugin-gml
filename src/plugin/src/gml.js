@@ -37,6 +37,7 @@ export const printers = {
 };
 
 export const options = {
+    ...identifierCaseOptions,
     optimizeLoopLengthHoisting: {
         since: "0.0.0",
         type: "boolean",
@@ -148,24 +149,6 @@ export const options = {
         description:
             "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
     },
-    trailingCommentPadding: {
-        since: "0.0.0",
-        type: "int",
-        category: "gml",
-        default: 2,
-        range: { start: 0, end: Infinity },
-        description:
-            "Spaces inserted between the end of code and trailing comments. Increase to push inline comments further right or set to 0 to minimize padding."
-    },
-    trailingCommentInlineOffset: {
-        since: "0.0.0",
-        type: "int",
-        category: "gml",
-        default: 1,
-        range: { start: 0, end: Infinity },
-        description:
-            "Spaces trimmed from trailingCommentPadding when applying inline comment padding. Set to 0 to keep inline and trailing padding identical."
-    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
@@ -183,7 +166,6 @@ export const options = {
         description:
             "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
     },
-    ...identifierCaseOptions,
     useStringInterpolation: {
         since: "0.0.0",
         type: "boolean",
@@ -218,11 +200,24 @@ export const options = {
     }
 };
 
+// Hard overrides for GML regardless of incoming config
+// These options are incompatible with GML or have no effect
+// So we force them to a specific value
+const CORE_OPTION_OVERRIDES = {
+    trailingComma: "none",
+    arrowParens: "always",
+    singleAttributePerLine: false,
+    jsxSingleQuote: false,
+    proseWrap: "preserve",
+    htmlWhitespaceSensitivity: "css"
+};
+
 const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
-    trailingComma: "none",
-    printWidth: 120
+    printWidth: 120,
+    bracketSpacing: true,
+    singleQuote: false
 };
 
 function extractOptionDefaults(optionConfigMap) {
@@ -240,6 +235,9 @@ function extractOptionDefaults(optionConfigMap) {
 const gmlOptionDefaults = extractOptionDefaults(options);
 
 export const defaultOptions = {
+    // Merge order:
+    // GML Prettier defaults -> option defaults -> fixed overrides
     ...BASE_PRETTIER_DEFAULTS,
-    ...gmlOptionDefaults
+    ...gmlOptionDefaults,
+    ...CORE_OPTION_OVERRIDES
 };

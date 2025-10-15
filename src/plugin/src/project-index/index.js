@@ -5,7 +5,6 @@ import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
-import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import {
     buildLocationKey,
     buildFileLocationKey
@@ -19,6 +18,10 @@ import {
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
+import {
+    createProjectIndexMetrics,
+    finalizeProjectIndexMetrics
+} from "./metrics.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -1941,13 +1944,11 @@ export async function buildProjectIndex(
 
     const resolvedRoot = path.resolve(projectRoot);
     const logger = options?.logger ?? null;
-    const metrics =
-        options?.metrics ??
-        createMetricsTracker({
-            category: "project-index",
-            logger,
-            autoLog: options?.logMetrics === true
-        });
+    const metrics = createProjectIndexMetrics({
+        metrics: options?.metrics,
+        logger,
+        logMetrics: options?.logMetrics
+    });
 
     const stopTotal = metrics.startTimer("total");
 
@@ -2244,10 +2245,10 @@ export async function buildProjectIndex(
         identifiers
     };
 
-    const metricsReport = metrics.finalize();
-    projectIndex.metrics = metricsReport;
-    if (typeof options?.onMetrics === "function") {
-        options.onMetrics(metricsReport, projectIndex);
+    const metricsReport = finalizeProjectIndexMetrics(metrics);
+    if (metricsReport) {
+        projectIndex.metrics = metricsReport;
+        options?.onMetrics?.(metricsReport, projectIndex);
     }
 
     return projectIndex;

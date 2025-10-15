@@ -74,7 +74,7 @@ function trailing_comment() {
 /// @function trailing_comment
 function trailing_comment() {
     var stats = {
-        hp: 100,  // base health
+        hp: 100, // base health
         mp: 50
     };
     return stats;
@@ -344,8 +344,6 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `lineCommentBoilerplateFragments` | `""` | Removes boilerplate line comments that contain any of the provided comma-separated substrings. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
-| `trailingCommentPadding` | `2` | Controls spacing between code and trailing end-of-line comments. |
-| `trailingCommentInlineOffset` | `1` | Trims part of the trailing comment padding for inline comments. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; pair with the rollout guide before enabling on large projects. |

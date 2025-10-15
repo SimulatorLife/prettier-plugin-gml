@@ -18,6 +18,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
@@ -936,7 +937,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -2643,9 +2644,7 @@ function removeInvalidAssignmentExpression({
 }
 
 function getFiniteIndex(value) {
-    return typeof value === "number" && Number.isFinite(value) && value >= 0
-        ? value
-        : null;
+    return isFiniteNumber(value) && value >= 0 ? value : null;
 }
 
 function removeNodeFromContainer(container, index, node) {
@@ -6949,7 +6948,7 @@ function createVertexEndCallFromBegin(template) {
         arguments: []
     };
 
-    if (Array.isArray(template.arguments) && template.arguments.length > 0) {
+    if (isNonEmptyArray(template.arguments)) {
         const clonedArgument = cloneNode(template.arguments[0]);
 
         if (clonedArgument) {

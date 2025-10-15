@@ -2,6 +2,7 @@ import path from "node:path";
 
 import GMLParser from "../../../parser/gml-parser.js";
 import { GameMakerSyntaxError } from "../../../parser/src/gml-syntax-error.js";
+import { getNonEmptyString } from "../../../shared/string-utils.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
@@ -63,16 +64,21 @@ function getFiniteNumber(value) {
 }
 
 function resolveDisplayPath(filePath, projectRoot) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
+    const normalizedFilePath = getNonEmptyString(filePath);
+    if (!normalizedFilePath) {
         return null;
     }
 
-    if (!path.isAbsolute(filePath)) {
-        return filePath;
+    if (!path.isAbsolute(normalizedFilePath)) {
+        return normalizedFilePath;
     }
 
-    if (typeof projectRoot === "string" && projectRoot.length > 0) {
-        const relative = path.relative(projectRoot, filePath);
+    const normalizedProjectRoot = getNonEmptyString(projectRoot);
+    if (normalizedProjectRoot) {
+        const relative = path.relative(
+            normalizedProjectRoot,
+            normalizedFilePath
+        );
         if (
             relative &&
             !relative.startsWith("..") &&
@@ -82,20 +88,21 @@ function resolveDisplayPath(filePath, projectRoot) {
         }
     }
 
-    return filePath;
+    return normalizedFilePath;
 }
 
 function extractBaseDescription(message) {
-    if (typeof message !== "string" || message.length === 0) {
+    const normalizedMessage = getNonEmptyString(message);
+    if (!normalizedMessage) {
         return "";
     }
 
-    const match = message.match(/^Syntax Error[^:]*:\s*(.*)$/s);
+    const match = normalizedMessage.match(/^Syntax Error[^:]*:\s*(.*)$/s);
     if (match) {
         return match[1].trim();
     }
 
-    return message.trim();
+    return normalizedMessage.trim();
 }
 
 function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
