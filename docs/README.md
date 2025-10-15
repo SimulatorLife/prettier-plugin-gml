@@ -16,6 +16,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   classifies edge cases and applies rename overrides.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
+- [Codex automation reference](codex-action-reference.md) — Explains the Codex
+  follow-up workflows that open documentation and code-quality PRs so reviewers
+  know what the automation is looking for.
 
 ## Usage & rollout
 
@@ -49,9 +52,6 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.
-
-## Automation workflows
-
-- [POLA behaviour audit workflow](workflows/pola-behaviour-audit.md) — Review
-  checklist for Codex runs that align documentation and implementation with the
-  Principle of Least Astonishment.
+- [Codex automation playbook](codex-actions.md) — Documents the Codex-assisted
+  maintenance workflows. Start here to understand why each guardrail exists and
+  how to tune the triggers when new risks emerge.
