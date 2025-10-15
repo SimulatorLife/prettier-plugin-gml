@@ -2226,6 +2226,58 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(applied.some((entry) => entry.id === "GM1032"));
     });
 
+    it("replaces direct argument references with documented aliases for GM1032", () => {
+        const source = [
+            "/// @function sample2",
+            "/// @param zero",
+            "/// @param first",
+            "/// @param two",
+            "/// @param second",
+            "function sample2() {",
+            "    var first = argument1;",
+            "    var second = argument3;",
+            "    var zero = argument0;",
+            "    var two = argument2;",
+            "    return argument3 + argument4;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [functionDeclaration] = ast.body ?? [];
+        assert.strictEqual(functionDeclaration?.type, "FunctionDeclaration");
+
+        const returnStatement = functionDeclaration?.body?.body?.find(
+            (node) => node?.type === "ReturnStatement"
+        );
+
+        assert.ok(returnStatement, "Expected a return statement to exist.");
+
+        const binaryExpression = returnStatement?.argument;
+        assert.strictEqual(binaryExpression?.type, "BinaryExpression");
+
+        const leftOperand = binaryExpression?.left;
+        assert.strictEqual(leftOperand?.type, "Identifier");
+        assert.strictEqual(leftOperand?.name, "second");
+
+        const metadataEntries = Array.isArray(
+            leftOperand?._appliedFeatherDiagnostics
+        )
+            ? leftOperand._appliedFeatherDiagnostics
+            : [];
+
+        assert.ok(
+            metadataEntries.some((entry) => entry.id === "GM1032"),
+            "Expected alias replacement to record GM1032 fix metadata."
+        );
+    });
+
     it("records duplicate semicolon fixes for GM1033", () => {
         const source = [
             "var value = 1;;",
