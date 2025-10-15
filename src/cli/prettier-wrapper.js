@@ -172,24 +172,35 @@ function parseCliArguments(args) {
 }
 
 let targetExtensions = DEFAULT_EXTENSIONS;
-let targetExtensionSet = new Set();
-let placeholderExtension = DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
 
-function applyTargetExtensions(candidateExtensions) {
-    const normalized =
-        Array.isArray(candidateExtensions) && candidateExtensions.length > 0
-            ? candidateExtensions
-            : DEFAULT_EXTENSIONS;
-
-    targetExtensions = normalized;
-    targetExtensionSet = new Set(
-        normalized.map((extension) => extension.toLowerCase())
-    );
-    placeholderExtension =
-        normalized[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+/**
+ * Create a lookup set for extension comparisons while formatting.
+ *
+ * @param {readonly string[]} extensions
+ * @returns {Set<string>}
+ */
+function createTargetExtensionSet(extensions) {
+    return new Set(extensions.map((extension) => extension.toLowerCase()));
 }
 
-applyTargetExtensions(targetExtensions);
+let targetExtensionSet = createTargetExtensionSet(targetExtensions);
+let placeholderExtension =
+    targetExtensions[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+
+/**
+ * Apply CLI configuration that influences which files are formatted.
+ *
+ * @param {readonly string[]} configuredExtensions
+ */
+function configureTargetExtensionState(configuredExtensions) {
+    targetExtensions =
+        configuredExtensions.length > 0
+            ? configuredExtensions
+            : DEFAULT_EXTENSIONS;
+    targetExtensionSet = createTargetExtensionSet(targetExtensions);
+    placeholderExtension =
+        targetExtensions[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+}
 
 function shouldFormatFile(filePath) {
     const fileExtension = path.extname(filePath).toLowerCase();
@@ -217,6 +228,34 @@ let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
+
+/**
+ * Reset run-specific state between CLI invocations.
+ *
+ * @param {string} onParseError
+ */
+function resetFormattingSession(onParseError) {
+    parseErrorAction = onParseError;
+    abortRequested = false;
+    revertTriggered = false;
+    formattedFileOriginalContents.clear();
+    skippedFileCount = 0;
+    encounteredFormattingError = false;
+}
+
+/**
+ * Persist ignore path information for use throughout the run.
+ *
+ * @param {readonly string[]} ignorePaths
+ */
+function setBaseProjectIgnorePaths(ignorePaths) {
+    baseProjectIgnorePaths = ignorePaths;
+    baseProjectIgnorePathSet.clear();
+
+    for (const projectIgnorePath of ignorePaths) {
+        baseProjectIgnorePathSet.add(projectIgnorePath);
+    }
+}
 
 function recordFormattedFileOriginalContents(filePath, contents) {
     if (parseErrorAction !== ParseErrorAction.REVERT) {
@@ -431,6 +470,17 @@ async function resolveProjectIgnorePaths(directory) {
     return ignoreFiles;
 }
 
+/**
+ * Discover ignore files for a project and register them with Prettier.
+ *
+ * @param {string} projectRoot
+ */
+async function initializeProjectIgnorePaths(projectRoot) {
+    const projectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
+    setBaseProjectIgnorePaths(projectIgnorePaths);
+    await registerIgnorePaths([ignorePath, ...projectIgnorePaths]);
+}
+
 async function resolveTargetStats(target) {
     try {
         return await stat(target);
@@ -587,13 +637,8 @@ async function run() {
     }
 
     const targetPath = path.resolve(process.cwd(), targetPathInput);
-    applyTargetExtensions(configuredExtensions);
-    parseErrorAction = onParseError;
-    abortRequested = false;
-    revertTriggered = false;
-    formattedFileOriginalContents.clear();
-    skippedFileCount = 0;
-    encounteredFormattingError = false;
+    configureTargetExtensionState(configuredExtensions);
+    resetFormattingSession(onParseError);
 
     const targetStats = await resolveTargetStats(targetPath);
     const targetIsDirectory = targetStats.isDirectory();
@@ -609,12 +654,7 @@ async function run() {
         ? targetPath
         : path.dirname(targetPath);
 
-    baseProjectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
-    baseProjectIgnorePathSet.clear();
-    for (const projectIgnorePath of baseProjectIgnorePaths) {
-        baseProjectIgnorePathSet.add(projectIgnorePath);
-    }
-    await registerIgnorePaths([ignorePath, ...baseProjectIgnorePaths]);
+    await initializeProjectIgnorePaths(projectRoot);
     if (targetIsDirectory) {
         await processDirectory(targetPath);
     } else if (shouldFormatFile(targetPath)) {
