@@ -36,8 +36,8 @@
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated .eslintcache",
-    "lint": "eslint . --cache --stats",
-    "lint:fix": "eslint . --cache --fix --prune-suppressions",
+    "lint": "eslint . --cache --stats --quiet",
+    "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",

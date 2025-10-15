@@ -2,6 +2,7 @@
 node_modules/
 src/parser/node_modules/
 src/plugin/node_modules/
+src/cli/node_modules/
 src/parser/.antlr/
 src/parser/src/generated/
 scripts/cache/

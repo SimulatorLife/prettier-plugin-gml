@@ -29,8 +29,8 @@ function createProjectIndex(projectRoot, metrics = null) {
 
 function createDeferred() {
     let resolve;
-    const promise = new Promise((res) => {
-        resolve = res;
+    const promise = new Promise((_resolve) => {
+        resolve = _resolve;
     });
     return { promise, resolve };
 }

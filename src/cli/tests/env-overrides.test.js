@@ -81,7 +81,7 @@ describe("applyEnvOptionOverride", () => {
                     envVar: "TEST_VALUE",
                     optionName: "testOption",
                     resolveValue() {
-                        throw new Error("");
+                        throw new Error("Error when resolving");
                     }
                 }),
             (error) => {

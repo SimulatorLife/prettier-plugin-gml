@@ -1,0 +1,29 @@
+name: Codex – Favor Composition Over Inheritance
+
+on:
+  schedule:
+    - cron: "45 4 * * *" # daily at 04:45 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Promote Composition"
+      pr_body: "Seed PR for Codex to replace overgrown inheritance with composition."
+      prompt: >
+        Locate the class that most egregiously subclasses another type (uses `extends`)
+        while overriding at least three methods from the parent. Study the inheritance
+        chain and determine whether those overrides are handling distinct concerns or
+        conditional branches that would be better served by composing helper objects or
+        mixins. Refactor the chosen class to delegate behaviour to injected
+        collaborators, mixin utilities, or other composition-friendly structures instead
+        of deepening the subclass. Keep the public API and observable behaviour
+        identical, trim any now-unused overrides, update tests/docs if directly
+        impacted, and verify formatters and linters succeed.

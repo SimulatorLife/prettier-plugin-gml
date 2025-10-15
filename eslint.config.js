@@ -79,19 +79,20 @@ export default [
             "no-prototype-builtins": ["off"],
             "no-useless-escape": ["off"],
             "no-with": ["error"],
+            "no-undef": ["warn"],
 
             /* --- core "bad practice" rules --- */
-            complexity: ["error", { max: 12 }],
-            "max-depth": ["error", 3],
+            complexity: ["warn", { max: 12 }],
+            "max-depth": ["warn", 3],
             "max-lines": ["warn", 500],
-            "max-lines-per-function": ["error", 90],
+            "max-lines-per-function": ["warn", 90],
             "max-params": ["warn", 4],
             "max-statements": ["warn", 20],
-            "require-atomic-updates": "error",
+            "require-atomic-updates": "warn",
             "no-implicit-coercion": ["error", { boolean: false }], // allow !!
             "no-implied-eval": "error",
             "no-param-reassign": ["warn", { props: true }],
-            "no-return-assign": ["warn", "always"],
+            "no-return-assign": ["error", "always"],
             "no-throw-literal": "error",
             "no-constructor-return": "warn",
             "no-warning-comments": [
@@ -99,7 +100,7 @@ export default [
                 { terms: ["todo", "fixme"], location: "start" }
             ],
             "no-restricted-syntax": [
-                "error",
+                "warn",
                 {
                     selector: "LabeledStatement",
                     message: "Labels make flow harder to follow."
@@ -110,16 +111,18 @@ export default [
                         "Use Object.keys/entries with for..of instead of for..in."
                 }
             ],
-            "consistent-return": "error",
-            eqeqeq: ["error", "always", { null: "ignore" }],
+            "consistent-return": [
+                "warn",
+                { treatUndefinedAsUnspecified: true }
+            ],
+            eqeqeq: ["warn", "always", { null: "ignore" }],
             "default-case-last": "error",
-            radix: ["error", "as-needed"],
+            radix: ["warn", "as-needed"],
             yoda: ["error", "never", { exceptRange: true }],
 
             /* unicorn plugin tweaks beyond the preset */
             "unicorn/no-empty-file": "error",
             "unicorn/consistent-function-scoping": "warn",
-            "unicorn/no-array-callback-reference": "error",
             "unicorn/no-abusive-eslint-disable": "warn",
             "unicorn/error-message": "error",
             "unicorn/no-useless-length-check": "error",
@@ -130,9 +133,30 @@ export default [
             "unicorn/no-hex-escape": "error",
             "unicorn/no-zero-fractions": "error",
             "unicorn/prevent-abbreviations": "off",
+            "unicorn/prefer-code-point": "warn",
+            "unicorn/no-array-sort": "warn",
+            "unicorn/no-array-callback-reference": "warn",
+            "unicorn/prefer-ternary": "warn",
+            "unicorn/no-useless-undefined": "warn",
+            "unicorn/no-array-method-this-argument": "warn",
+            "unicorn/no-object-as-default-parameter": "warn",
+            "unicorn/prefer-single-call": "warn",
+            "unicorn/prefer-default-parameters": "warn",
+            "unicorn/prefer-top-level-await": "warn",
+            "unicorn/prefer-switch": "warn",
+            "unicorn/prefer-array-some": "warn",
+            "unicorn/no-this-assignment": "warn",
+            "unicorn/prefer-at": "warn",
+            "unicorn/no-new-array": "warn",
+            "unicorn/no-array-reverse": "warn",
+
+            "unicorn/no-array-reduce": "off",
+            "unicorn/prefer-spread": "off",
+            "unicorn/no-array-for-each": "off",
+            "unicorn/no-null": "off",
 
             /* --- plugin: sonarjs (code smells) --- */
-            "sonarjs/cognitive-complexity": ["error", 15],
+            "sonarjs/cognitive-complexity": ["warn", 15],
             "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
             "sonarjs/no-identical-functions": "error",
             "sonarjs/no-inverted-boolean-check": "warn",
@@ -140,7 +164,7 @@ export default [
             "sonarjs/no-small-switch": "warn",
 
             /* --- plugin: regexp (regex safety/perf) --- */
-            "regexp/no-super-linear-backtracking": "error",
+            "regexp/no-super-linear-backtracking": "warn",
             "regexp/optimal-quantifier-concatenation": "error",
 
             /* --- plugin: import (correctness & hygiene) --- */
@@ -150,14 +174,14 @@ export default [
             "import/newline-after-import": ["error", { count: 1 }],
 
             /* --- plugin: promise (stricter async) --- */
-            "promise/no-return-wrap": "error",
+            "promise/no-return-wrap": "warn",
             "promise/no-multiple-resolved": "error",
 
             /* --- plugin: security (selected high-signal checks) --- */
             "security/detect-eval-with-expression": "error",
             "security/detect-new-buffer": "error",
             "security/detect-child-process": "error",
-            "security/detect-unsafe-regex": "error",
+            "security/detect-unsafe-regex": "warn",
 
             /* --- plugin: no-secrets (obvious credential leaks) --- */
             "no-secrets/no-secrets": [
@@ -177,9 +201,16 @@ export default [
             "eslint-comments/no-unused-disable": "error"
         }
     },
+    /* CLI: allow process.exit */
+    {
+        files: ["src/cli/**/*.js"],
+        rules: {
+            "unicorn/no-process-exit": "off"
+        }
+    },
     /* Tests: relax a few noisy limits */
     {
-        files: ["**/tests/**/*.js", "*.test.js"],
+        files: ["**/tests/**", "*.test.*js", "*.spec.js"],
         rules: {
             quotes: ["off"],
             "max-lines-per-function": "off",

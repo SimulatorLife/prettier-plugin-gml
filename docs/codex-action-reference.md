@@ -21,7 +21,7 @@ protected. Expect updates that:
 Reviewers should ensure the suggested explanations accurately reflect the code
 path and that any new links point at durable documentation.
 
-----
+---
 
 ## POLA behaviour audit workflow
 
@@ -55,18 +55,22 @@ When Codex opens a pull request for this workflow:
 Following this checklist keeps the formatter predictable and reduces "surprise"
 bugs stemming from mismatched intent and implementation.
 
-----
-
+---
 
 ## Abstraction Layer Stewardship (codex-sla)
 
 - **Workflow**: `.github/workflows/codex-sla.yml`
-- **Cadence**: Scheduled every four hours with an option for manual dispatch when urgent review is required.
-- **Objective**: Locate orchestrator-style functions that mix high-level sequencing with inline primitive work such as array/index manipulation, and restructure them so low-level mechanics live in named helpers.
-- **SLA Expectation**: Each Codex run that opens this workflow's PR should land a refinement keeping the orchestrator at a single abstraction layer—delegating detailed bookkeeping to helpers, documenting new contracts, and preserving behaviour with existing or new tests as needed.
+- **Cadence**: Scheduled every four hours with an option for manual dispatch
+  when urgent review is required.
+- **Objective**: Locate orchestrator-style functions that mix high-level
+  sequencing with inline primitive work such as array/index manipulation, and
+  restructure them so low-level mechanics live in named helpers.
+- **SLA Expectation**: Each Codex run that opens this workflow's PR should land
+  a refinement keeping the orchestrator at a single abstraction
+  layer—delegating detailed bookkeeping to helpers, documenting new contracts,
+  and preserving behaviour with existing or new tests as needed.
 
-----
-
+---
 
 ## Single Responsibility Guardrail
 
@@ -83,8 +87,7 @@ Tweak the workflow dispatch inputs to adjust the acceptable line threshold or
 to monitor a different list of verb cues. If a scheduled run finds no matches,
 Codex reports the audit instead of forcing a refactor.
 
-----
-
+---
 
 ## Codex 80 – Low Coupling Guardrail
 
@@ -113,7 +116,7 @@ Codex should note when deeper redesign is required, but its default move is to
 introduce the smallest abstraction that removes the deep import while preserving
 behaviour and test coverage.
 
-----
+---
 
 ## Defensive Input Hardening
 

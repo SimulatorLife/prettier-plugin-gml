@@ -17,7 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
+import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";

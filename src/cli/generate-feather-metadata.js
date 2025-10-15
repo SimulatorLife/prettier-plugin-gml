@@ -6,7 +6,7 @@ import { load } from "cheerio";
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
-import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import {
     createManualGitHubClient,
@@ -31,6 +31,7 @@ import {
     resolveManualRepoValue
 } from "./options/manual-repo.js";
 import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -174,21 +175,12 @@ function parseArgs({
         progressBar: isTty
     };
 
-    try {
-        command.parse(argv, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return {
-                helpRequested: true,
-                usage: command.helpInformation()
-            };
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested, usage } = parseCommandLine(command, argv);
+    if (helpRequested) {
+        return {
+            helpRequested: true,
+            usage
+        };
     }
 
     const options = command.opts();
@@ -210,7 +202,7 @@ function parseArgs({
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
-        usage: command.helpInformation()
+        usage
     };
 }
 
@@ -843,7 +835,7 @@ function parseTypeSystem(html) {
         specifierSections.push({
             id: $(element).attr("id") || slugify(title),
             title,
-            description: joinSections(content.paragraphs) || null,
+            description: joinSections(content.paragraphs) || undefined,
             notes: content.notes,
             codeExamples: content.codeExamples,
             lists: content.lists
@@ -853,7 +845,7 @@ function parseTypeSystem(html) {
     const typeValidationHeading = $("h2")
         .filter((_, element) => $(element).text().includes("Type Validation"))
         .first();
-    let typeValidation = null;
+    let typeValidation;
     let typeValidationBlocks = [];
     if (typeValidationHeading.length > 0) {
         typeValidationBlocks = collectBlocksAfter(
@@ -870,7 +862,7 @@ function parseTypeSystem(html) {
     const typeValidationContent = normaliseContent(typeValidationBlocks);
 
     return {
-        overview: joinSections(introContent.paragraphs) || null,
+        overview: joinSections(introContent.paragraphs) || undefined,
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
@@ -884,13 +876,14 @@ function parseTypeSystem(html) {
         typeValidation: typeValidation
             ? {
                   description:
-                      joinSections(typeValidationContent.paragraphs) || null,
+                      joinSections(typeValidationContent.paragraphs) ||
+                      undefined,
                   notes: typeValidationContent.notes,
                   codeExamples: typeValidationContent.codeExamples,
                   lists: typeValidationContent.lists,
                   table: typeValidation
               }
-            : null
+            : undefined
     };
 }
 
@@ -996,7 +989,7 @@ async function main({ argv, env, isTty } = {}) {
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
             outputPath,
-            `${JSON.stringify(payload, null, 2)}\n`,
+            `${JSON.stringify(payload, undefined, 2)}\n`,
             "utf8"
         );
 

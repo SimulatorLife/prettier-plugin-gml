@@ -2226,6 +2226,58 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(applied.some((entry) => entry.id === "GM1032"));
     });
 
+    it("replaces direct argument references with documented aliases for GM1032", () => {
+        const source = [
+            "/// @function sample2",
+            "/// @param zero",
+            "/// @param first",
+            "/// @param two",
+            "/// @param second",
+            "function sample2() {",
+            "    var first = argument1;",
+            "    var second = argument3;",
+            "    var zero = argument0;",
+            "    var two = argument2;",
+            "    return argument3 + argument4;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const [functionDeclaration] = ast.body ?? [];
+        assert.strictEqual(functionDeclaration?.type, "FunctionDeclaration");
+
+        const returnStatement = functionDeclaration?.body?.body?.find(
+            (node) => node?.type === "ReturnStatement"
+        );
+
+        assert.ok(returnStatement, "Expected a return statement to exist.");
+
+        const binaryExpression = returnStatement?.argument;
+        assert.strictEqual(binaryExpression?.type, "BinaryExpression");
+
+        const leftOperand = binaryExpression?.left;
+        assert.strictEqual(leftOperand?.type, "Identifier");
+        assert.strictEqual(leftOperand?.name, "second");
+
+        const metadataEntries = Array.isArray(
+            leftOperand?._appliedFeatherDiagnostics
+        )
+            ? leftOperand._appliedFeatherDiagnostics
+            : [];
+
+        assert.ok(
+            metadataEntries.some((entry) => entry.id === "GM1032"),
+            "Expected alias replacement to record GM1032 fix metadata."
+        );
+    });
+
     it("records duplicate semicolon fixes for GM1033", () => {
         const source = [
             "var value = 1;;",
@@ -4411,6 +4463,56 @@ describe("applyFeatherFixes transform", () => {
             true,
             "Expected GM2016 metadata to be recorded on the transformed declaration."
         );
+    });
+
+    it("does not localize GM2016 assignments when the identifier is read before assignment", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "if (!surface_exists(sf_canvas))",
+            "{",
+            "    sf_canvas = surface_create(512, 512);",
+            "}",
+            "",
+            "surface_set_target(sf_canvas);",
+            "draw_clear_alpha(c_white, 0);",
+            "draw_rectangle(4, 4, 40, 40);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(Array.isArray(body), true);
+        assert.ok(body.length >= 4);
+        assert.notStrictEqual(body[0]?.type, "VariableDeclaration");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2016Entries = appliedDiagnostics.filter(
+            (entry) => entry.id === "GM2016"
+        );
+
+        assert.strictEqual(
+            gm2016Entries.some((entry) => entry?.automatic === true),
+            false,
+            "GM2016 metadata should not record an automatic fix when localization is skipped."
+        );
+
+        const hasSfCanvasDeclaration = body.some(
+            (node) =>
+                node?.type === "VariableDeclaration" &&
+                Array.isArray(node.declarations) &&
+                node.declarations.some(
+                    (declarator) => declarator?.id?.name === "sf_canvas"
+                )
+        );
+
+        assert.strictEqual(hasSfCanvasDeclaration, false);
     });
 
     it("closes vertex buffers flagged by GM2011 and records metadata", () => {

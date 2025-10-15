@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import { toPosixPath } from "../shared/path-utils.js";
 import {
@@ -35,6 +35,7 @@ import {
     resolveManualRepoValue
 } from "./options/manual-repo.js";
 import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -191,21 +192,12 @@ function parseArgs({
         progressBar: isTty
     };
 
-    try {
-        command.parse(argv, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return {
-                helpRequested: true,
-                usage: command.helpInformation()
-            };
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested, usage } = parseCommandLine(command, argv);
+    if (helpRequested) {
+        return {
+            helpRequested: true,
+            usage
+        };
     }
 
     const options = command.opts();
@@ -218,7 +210,7 @@ function parseArgs({
     }
 
     return {
-        ref: options.ref ?? null,
+        ref: options.ref,
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
@@ -231,7 +223,7 @@ function parseArgs({
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
-        usage: command.helpInformation()
+        usage
     };
 }
 
@@ -250,7 +242,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
 
     let index = bracketStart;
     let depth = 0;
-    let inString = null;
+    let inString;
     let escaped = false;
     while (index < source.length) {
         const char = source[index];
@@ -260,7 +252,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
             } else if (char === "\\") {
                 escaped = true;
             } else if (char === inString) {
-                inString = null;
+                inString = undefined;
             }
         } else {
             if (char === '"' || char === "'" || char === "`") {
@@ -368,7 +360,7 @@ function mergeEntry(map, identifier, data) {
         map.set(identifier, {
             type: data.type ?? "unknown",
             sources: new Set(data.sources ?? []),
-            manualPath: data.manualPath ?? null,
+            manualPath: data.manualPath,
             tags: new Set(data.tags ?? []),
             deprecated: Boolean(data.deprecated)
         });
@@ -658,7 +650,7 @@ async function main({ argv, env, isTty } = {}) {
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
             outputPath,
-            `${JSON.stringify(payload, null, 2)}\n`,
+            `${JSON.stringify(payload, undefined, 2)}\n`,
             "utf8"
         );
 

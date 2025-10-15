@@ -18,17 +18,22 @@ import { fromPosixPath } from "../../shared/path-utils.js";
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
-async function createAssetRenameProject() {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-asset-rename-")
-    );
+async function createTempProjectWorkspace(prefix) {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
 
     const writeFile = async (relativePath, contents) => {
-        const absolutePath = path.join(tempRoot, relativePath);
+        const absolutePath = path.join(projectRoot, relativePath);
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
         await fs.writeFile(absolutePath, contents, "utf8");
         return absolutePath;
     };
+
+    return { projectRoot, writeFile };
+}
+
+async function createAssetRenameProject() {
+    const { projectRoot, writeFile } =
+        await createTempProjectWorkspace("gml-asset-rename-");
 
     await writeFile(
         "MyGame.yyp",
@@ -85,10 +90,10 @@ async function createAssetRenameProject() {
         ) + "\n"
     );
 
-    const projectIndex = await buildProjectIndex(tempRoot);
+    const projectIndex = await buildProjectIndex(projectRoot);
 
     return {
-        projectRoot: tempRoot,
+        projectRoot,
         projectIndex,
         scriptSource: source,
         scriptPath: gmlPath
@@ -96,16 +101,9 @@ async function createAssetRenameProject() {
 }
 
 async function createAssetCollisionProject() {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-asset-collision-")
+    const { projectRoot, writeFile } = await createTempProjectWorkspace(
+        "gml-asset-collision-"
     );
-
-    const writeFile = async (relativePath, contents) => {
-        const absolutePath = path.join(tempRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
-    };
 
     await writeFile(
         "MyGame.yyp",
@@ -171,26 +169,19 @@ async function createAssetCollisionProject() {
         secondarySource
     );
 
-    const projectIndex = await buildProjectIndex(tempRoot);
+    const projectIndex = await buildProjectIndex(projectRoot);
 
     return {
-        projectRoot: tempRoot,
+        projectRoot,
         projectIndex,
         scriptPath: primaryPath
     };
 }
 
 async function createAssetReservedProject() {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-asset-reserved-")
+    const { projectRoot, writeFile } = await createTempProjectWorkspace(
+        "gml-asset-reserved-"
     );
-
-    const writeFile = async (relativePath, contents) => {
-        const absolutePath = path.join(tempRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
-    };
 
     await writeFile(
         "MyGame.yyp",
@@ -231,10 +222,10 @@ async function createAssetReservedProject() {
         source
     );
 
-    const projectIndex = await buildProjectIndex(tempRoot);
+    const projectIndex = await buildProjectIndex(projectRoot);
 
     return {
-        projectRoot: tempRoot,
+        projectRoot,
         projectIndex,
         scriptPath
     };
