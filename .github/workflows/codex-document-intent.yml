@@ -1,0 +1,28 @@
+name: Codex Document Intent
+on:
+  schedule:
+    - cron: "40 4,16 * * *" # twice daily at 04:40, 16:40 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Document Intent"
+      pr_body: "Seed PR prompting Codex to clarify terse comments with intent and context."
+      prompt: >
+        Audit the repository for inline comments that describe changes as "no-op," "do X," or
+        similarly terse directives without giving the reader enough context to trust the change.
+        When you spot a fragile or context-heavy section guarded by a minimal comment, expand the
+        note to capture the intent behind the code, why the behaviour matters, and what would break
+        if it were altered. Where the surrounding implementation depends on external design docs or
+        longer write-ups, link to the relevant guide so the next reader can explore the background.
+        Prefer tightening comments near complex state transitions, unconventional control flow, or
+        maintenance hazards so future contributors understand the guardrails instead of treating the
+        comment as a throwaway placeholder.
