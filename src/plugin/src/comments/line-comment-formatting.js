@@ -261,12 +261,90 @@ function normalizeGameMakerType(typeText) {
     }
 
     TYPE_IDENTIFIER_PATTERN.lastIndex = 0;
-    return typeText.replace(TYPE_IDENTIFIER_PATTERN, (identifier) => {
-        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
-            identifier.toLowerCase()
-        );
-        return normalized ?? identifier;
-    });
+    const withNormalizedIdentifiers = typeText.replace(
+        TYPE_IDENTIFIER_PATTERN,
+        (identifier) => {
+            const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
+                identifier.toLowerCase()
+            );
+            return normalized ?? identifier;
+        }
+    );
+
+    return normalizeGameMakerTypeDelimiters(withNormalizedIdentifiers);
+}
+
+function normalizeGameMakerTypeDelimiters(typeText) {
+    if (typeof typeText !== "string") {
+        return typeText;
+    }
+
+    let normalized = typeText.replace(/\s+/g, " ").trim();
+    if (normalized.length === 0) {
+        return normalized;
+    }
+
+    normalized = normalized.replace(
+        /\b(Id|Constant|Asset|Struct)\s+([A-Za-z_][A-Za-z0-9_]*)\b/gi,
+        (match, base, suffix) => `${base}.${suffix}`
+    );
+
+    let squareDepth = 0;
+    let angleDepth = 0;
+    let parenDepth = 0;
+    let result = "";
+
+    for (let index = 0; index < normalized.length; ) {
+        const char = normalized[index];
+
+        if (/\s/.test(char)) {
+            while (index < normalized.length && /\s/.test(normalized[index])) {
+                index += 1;
+            }
+
+            const nextChar = normalized[index];
+            const prevChar = result[result.length - 1];
+            const atTopLevel =
+                squareDepth === 0 && angleDepth === 0 && parenDepth === 0;
+            const prevIsIdentifier = /[A-Za-z0-9_>\]]/.test(prevChar);
+            const nextIsIdentifier = /[A-Za-z_]/.test(nextChar);
+
+            if (atTopLevel && prevIsIdentifier && nextIsIdentifier) {
+                result += ",";
+            }
+
+            continue;
+        }
+
+        result += char;
+
+        switch (char) {
+            case "[":
+                squareDepth += 1;
+                break;
+            case "]":
+                squareDepth = Math.max(0, squareDepth - 1);
+                break;
+            case "<":
+                angleDepth += 1;
+                break;
+            case ">":
+                angleDepth = Math.max(0, angleDepth - 1);
+                break;
+            case "(":
+                parenDepth += 1;
+                break;
+            case ")":
+                parenDepth = Math.max(0, parenDepth - 1);
+                break;
+            default:
+                break;
+        }
+
+        index += 1;
+    }
+
+    return result;
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
