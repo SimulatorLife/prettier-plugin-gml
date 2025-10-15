@@ -8,6 +8,7 @@ import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { buildProjectIndex } from "../plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../plugin/src/identifier-case/local-plan.js";
 import { getIdentifierText } from "../shared/ast-node-helpers.js";
+import { formatByteSize } from "../shared/number-utils.js";
 import { toNormalizedLowerCaseString } from "../shared/string-utils.js";
 
 const AVAILABLE_SUITES = new Map();
@@ -218,25 +219,26 @@ async function runProjectIndexMemoryMeasurement({ projectRoot }) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const after = process.memoryUsage().heapUsed;
 
-    const formatBytes = (bytes) => {
-        const units = ["B", "KB", "MB", "GB"];
-        let value = bytes;
-        let unitIndex = 0;
-        while (value >= 1024 && unitIndex < units.length - 1) {
-            value /= 1024;
-            unitIndex += 1;
-        }
-        return `${value.toFixed(2)} ${units[unitIndex]}`;
-    };
-
     return {
         before,
         after,
         delta: after - before,
         formatted: {
-            before: formatBytes(before),
-            after: formatBytes(after),
-            delta: formatBytes(Math.abs(after - before))
+            before: formatByteSize(before, {
+                decimals: 2,
+                decimalsForBytes: 2,
+                separator: " "
+            }),
+            after: formatByteSize(after, {
+                decimals: 2,
+                decimalsForBytes: 2,
+                separator: " "
+            }),
+            delta: formatByteSize(Math.abs(after - before), {
+                decimals: 2,
+                decimalsForBytes: 2,
+                separator: " "
+            })
         }
     };
 }

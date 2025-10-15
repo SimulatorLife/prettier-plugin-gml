@@ -5,9 +5,7 @@ import { SingleBar, Presets } from "cli-progress";
 
 import { buildManualRepositoryEndpoints } from "../options/manual-repo.js";
 import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar.js";
-
-const KB = 1024;
-const MB = KB * 1024;
+import { formatByteSize } from "../../shared/number-utils.js";
 
 export function formatDuration(startTime) {
     const deltaMs = Date.now() - startTime;
@@ -20,14 +18,7 @@ export function formatDuration(startTime) {
 
 function formatBytes(text) {
     const size = Buffer.byteLength(text, "utf8");
-    if (size >= MB) {
-        return `${(size / MB).toFixed(1)}MB`;
-    }
-    if (size >= KB) {
-        return `${(size / KB).toFixed(1)}KB`;
-    }
-
-    return `${size}B`;
+    return formatByteSize(size, { decimals: 1 });
 }
 
 const activeProgressBars = new Map();
