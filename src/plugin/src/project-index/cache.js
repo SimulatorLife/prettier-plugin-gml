@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
@@ -318,9 +318,7 @@ export async function saveProjectIndexCache(
         };
     }
 
-    const uniqueSuffix = `${process.pid}-${Date.now()}-${Math.random()
-        .toString(16)
-        .slice(2)}`;
+    const uniqueSuffix = randomUUID();
     const tempFilePath = `${cacheFilePath}.${uniqueSuffix}.tmp`;
 
     try {
