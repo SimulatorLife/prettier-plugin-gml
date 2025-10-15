@@ -1782,17 +1782,31 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     }
 
     const name = declarator.id.name;
+    const functionNode = declarator.init;
+    const syntheticOverrides = { nameOverride: name };
+
+    if (
+        existingDocLines.length === 0 &&
+        (!Array.isArray(functionNode?.params) ||
+            functionNode.params.length === 0)
+    ) {
+        syntheticOverrides.suppressReturns = true;
+    }
+
     const syntheticLines =
         existingDocLines.length > 0
             ? mergeSyntheticDocComments(
-                declarator.init,
+                functionNode,
                 existingDocLines,
                 options,
-                { nameOverride: name }
+                syntheticOverrides
             )
-            : computeSyntheticFunctionDocLines(declarator.init, [], options, {
-                nameOverride: name
-            });
+            : computeSyntheticFunctionDocLines(
+                functionNode,
+                [],
+                options,
+                syntheticOverrides
+            );
 
     if (syntheticLines.length === 0) {
         return null;
@@ -2600,7 +2614,7 @@ function computeSyntheticFunctionDocLines(
             lines.push(`/// @param ${docName}`);
         }
 
-        return maybeAppendReturnsDoc(lines, node, hasReturnsTag);
+        return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
     }
 
     for (const param of node.params) {
@@ -2648,8 +2662,8 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @param ${docName}`);
     }
 
-    return maybeAppendReturnsDoc(lines, node, hasReturnsTag).map((line) =>
-        normalizeDocCommentTypeAnnotations(line)
+    return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
+        (line) => normalizeDocCommentTypeAnnotations(line)
     );
 }
 
@@ -2795,9 +2809,18 @@ function getArgumentIndexFromIdentifier(name) {
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function maybeAppendReturnsDoc(lines, functionNode, hasReturnsTag) {
+function maybeAppendReturnsDoc(
+    lines,
+    functionNode,
+    hasReturnsTag,
+    overrides = {}
+) {
     if (!Array.isArray(lines)) {
         return [];
+    }
+
+    if (overrides?.suppressReturns === true) {
+        return lines;
     }
 
     if (
