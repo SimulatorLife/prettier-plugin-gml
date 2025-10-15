@@ -37,6 +37,7 @@ export const printers = {
 };
 
 export const options = {
+    ...identifierCaseOptions,
     optimizeLoopLengthHoisting: {
         since: "0.0.0",
         type: "boolean",
@@ -165,7 +166,6 @@ export const options = {
         description:
             "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
     },
-    ...identifierCaseOptions,
     useStringInterpolation: {
         since: "0.0.0",
         type: "boolean",
@@ -200,11 +200,24 @@ export const options = {
     }
 };
 
+// Hard overrides for GML regardless of incoming config
+// These options are incompatible with GML or have no effect
+// So we force them to a specific value
+const CORE_OPTION_OVERRIDES = {
+    trailingComma: "none",
+    arrowParens: "always",
+    singleAttributePerLine: false,
+    jsxSingleQuote: false,
+    proseWrap: "preserve",
+    htmlWhitespaceSensitivity: "css"
+};
+
 const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
-    trailingComma: "none",
-    printWidth: 120
+    printWidth: 120,
+    bracketSpacing: true,
+    singleQuote: false
 };
 
 function extractOptionDefaults(optionConfigMap) {
@@ -222,6 +235,9 @@ function extractOptionDefaults(optionConfigMap) {
 const gmlOptionDefaults = extractOptionDefaults(options);
 
 export const defaultOptions = {
+    // Merge order:
+    // GML Prettier defaults -> option defaults -> fixed overrides
     ...BASE_PRETTIER_DEFAULTS,
-    ...gmlOptionDefaults
+    ...gmlOptionDefaults,
+    ...CORE_OPTION_OVERRIDES
 };

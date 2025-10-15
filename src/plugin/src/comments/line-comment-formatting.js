@@ -60,6 +60,24 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
+const TYPE_SPECIFIER_PREFIXES = new Set([
+    "asset",
+    "constant",
+    "enum",
+    "id",
+    "struct"
+]);
+
+const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
+    Object.entries({
+        asset: "Asset",
+        constant: "Constant",
+        enum: "Enum",
+        id: "Id",
+        struct: "Struct"
+    })
+);
+
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 const FUNCTION_SIGNATURE_PATTERN =
@@ -69,7 +87,6 @@ const FUNCTION_SIGNATURE_PATTERN =
 // formatter hits these helpers while iterating over comment lists, so avoiding
 // per-call RegExp construction keeps the hot path allocation-free.
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
-const TYPE_IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 function getLineCommentRawText(comment) {
     if (!isObjectLike(comment)) {
@@ -260,13 +277,112 @@ function normalizeGameMakerType(typeText) {
         return typeText;
     }
 
-    TYPE_IDENTIFIER_PATTERN.lastIndex = 0;
-    return typeText.replace(TYPE_IDENTIFIER_PATTERN, (identifier) => {
-        const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
-            identifier.toLowerCase()
-        );
-        return normalized ?? identifier;
-    });
+    const segments = [];
+    const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
+    let match;
+
+    while ((match = tokenPattern.exec(typeText)) !== null) {
+        if (match[1]) {
+            const identifier = match[1];
+            const normalizedIdentifier = GAME_MAKER_TYPE_NORMALIZATIONS.get(
+                identifier.toLowerCase()
+            );
+            segments.push({
+                type: "identifier",
+                value: normalizedIdentifier ?? identifier
+            });
+            continue;
+        }
+
+        if (match[2]) {
+            segments.push({ type: "separator", value: match[2] });
+        }
+    }
+
+    const findNextNonWhitespaceSegment = (startIndex) => {
+        for (let index = startIndex; index < segments.length; index += 1) {
+            const segment = segments[index];
+            if (
+                segment &&
+                segment.type === "separator" &&
+                /^\s+$/.test(segment.value)
+            ) {
+                continue;
+            }
+
+            return segment ?? null;
+        }
+
+        return null;
+    };
+
+    const outputSegments = [];
+
+    for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        if (!segment) {
+            continue;
+        }
+
+        if (segment.type === "identifier") {
+            outputSegments.push(segment.value);
+            continue;
+        }
+
+        const separatorValue = segment.value ?? "";
+        if (separatorValue.length === 0) {
+            continue;
+        }
+
+        if (/^\s+$/.test(separatorValue)) {
+            const previous = segments[index - 1];
+            const next = segments[index + 1];
+            const nextToken = findNextNonWhitespaceSegment(index + 1);
+
+            if (
+                nextToken &&
+                nextToken.type === "separator" &&
+                /^[\[\(<>{})]/.test(nextToken.value.trim())
+            ) {
+                continue;
+            }
+
+            const previousIdentifier =
+                previous && previous.type === "identifier"
+                    ? previous.value
+                    : null;
+            const nextIdentifier =
+                next && next.type === "identifier" ? next.value : null;
+
+            if (!previousIdentifier || !nextIdentifier) {
+                continue;
+            }
+
+            const previousKey = previousIdentifier.toLowerCase();
+            if (TYPE_SPECIFIER_PREFIXES.has(previousKey)) {
+                const canonicalPrefix =
+                    TYPE_SPECIFIER_CANONICAL_NAMES.get(previousKey);
+                if (canonicalPrefix && outputSegments.length > 0) {
+                    outputSegments[outputSegments.length - 1] = canonicalPrefix;
+                }
+                outputSegments.push(".");
+            } else {
+                outputSegments.push(",");
+            }
+
+            continue;
+        }
+
+        let normalizedSeparator = separatorValue.replace(/\s+/g, "");
+        if (normalizedSeparator.length === 0) {
+            continue;
+        }
+
+        normalizedSeparator = normalizedSeparator.replace(/\|/g, ",");
+        outputSegments.push(normalizedSeparator);
+    }
+
+    return outputSegments.join("");
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
