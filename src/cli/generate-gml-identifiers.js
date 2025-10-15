@@ -7,6 +7,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
+import { toPosixPath } from "../shared/path-utils.js";
 import {
     createManualGitHubClient,
     ensureDir,
@@ -585,7 +586,7 @@ async function main({ argv, env, isTty } = {}) {
                         continue;
                     }
 
-                    const normalisedPath = manualPath.replace(/\\/g, "/");
+                    const normalisedPath = toPosixPath(manualPath);
                     if (
                         !normalisedPath.startsWith("3_Scripting") ||
                         !normalisedPath.includes("4_GML_Reference")
