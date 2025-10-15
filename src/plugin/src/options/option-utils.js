@@ -1,11 +1,12 @@
 import { normalizeStringList } from "../../../shared/string-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 
 function coercePositiveIntegerOption(
     value,
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    if (typeof value === "number" && Number.isFinite(value)) {
+    if (isFiniteNumber(value)) {
         const normalized = Math.floor(value);
 
         if (normalized > 0) {
