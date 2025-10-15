@@ -1,7 +1,7 @@
 name: Codex 23 – Config Improvement
 on:
   schedule:
-    - cron: "20 0,12 * * *" # twice daily at 00:20, 12:20 UTC
+    - cron: "20 0,12 * * *"  # twice daily at 00:20, 12:20 UTC
   workflow_dispatch:
 
 permissions:
@@ -15,15 +15,20 @@ jobs:
     secrets: inherit
     with:
       pr_title: "Codex: Config Improvement"
-      pr_body: "Seed PR for Codex to refactor and improve a configuration surface."
+      pr_body: "Seed PR for Codex to refactor and fix a lint warning/error."
       prompt: >
-        Select one configuration surface that improves build, lint, or CI ergonomics
-        without touching application logic. Candidates include npm scripts, lint/format
-        configs, EditorConfig, TypeScript/Babel settings, Browserslist/engines fields,
-        bundler options, or CI workflows that orchestrate tests and checks. Deliver one
-        concrete upgrade such as clarifying npm script names, wiring a missing lint
-        check, aligning ESLint and Prettier to avoid conflicts, enhancing/adding 
-        missing package.json metadata, tightening CI triggers, or documenting environment 
-        expectations. Leave dependency version churn to the dedicated dependency workflow. 
-        Keep the change small, reversible, and thoroughly justified in the commit message 
-        so reviewers understand the before/after impact.
+        Run `npm run lint` and parse its output. Identify all ESLint warnings and errors, then select
+        one single instance to fix. Prioritize errors over warnings, and choose a target that is 
+        specific to a targeted location: either a single file or function. Your goal is to make one 
+        minimal, correct, and safe code change that resolves that particular ESLint rule violation 
+        without introducing new ones. The fix should focus only on that file and function, not on 
+        unrelated code or project-wide formatting. Do not refactor, reformat, or modify configuration 
+        files unless absolutely required by the rule itself. When selecting which issue to fix, 
+        prefer one that is deterministic, locally fixable, and least likely to alter runtime behavior. 
+        Once selected, explain briefly what the problem is and why your fix satisfies the ESLint rule.
+        After applying the fix, re-run npm run lint to confirm that the specific issue is resolved
+        and that the total number of warnings/errors has decreased. If the change affects logic,
+        include a short explanation of why behavior is preserved. Provide the patch diff for the
+        change, the before-and-after lint summary, and a concise commit message describing the rule
+        fixed and file/function updated. Never fix more than one lint issue per run, never disable a
+        rule globally, and never make stylistic changes beyond the single targeted fix.
