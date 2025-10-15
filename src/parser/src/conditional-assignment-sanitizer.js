@@ -1,8 +1,8 @@
-import { hasOwn } from "../../../shared/object-utils.js";
+import { hasOwn } from "../../shared/object-utils.js";
 import {
     isNonEmptyTrimmedString,
     isWordChar
-} from "../../../shared/string-utils.js";
+} from "../../shared/string-utils.js";
 
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
