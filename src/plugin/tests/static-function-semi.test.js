@@ -44,3 +44,33 @@ describe("top-level static function assignments", () => {
         assert.strictEqual(formatted, expected);
     });
 });
+
+describe("constructor static function assignments", () => {
+    it("adds semicolons for static members", async () => {
+        const source = [
+            "function Shape() constructor {",
+            "    static build = function() {",
+            "        return 1;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "",
+            "/// @function Shape",
+            "function Shape() constructor {",
+            "",
+            "    /// @function build",
+            "    static build = function() {",
+            "        return 1;",
+            "    };",
+            "}",
+            ""
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+});

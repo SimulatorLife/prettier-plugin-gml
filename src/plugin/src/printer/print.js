@@ -1537,33 +1537,31 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression) {
-                const isTopLevelStaticFunction =
-                    node.kind === "static" && isTopLevel;
+                const isStaticDeclaration = node.kind === "static";
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isTopLevelStaticFunction;
+                    !hasTerminatingSemicolon && !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style unless we're printing a top-level
-                    // static declaration, where the semicolon is required for
+                    // the original code style unless we're printing a static
+                    // declaration, where the semicolon is required for
                     // correctness.
                     semi = "";
                 }
             }
         }
 
+        const isStaticDeclaration =
+            node.type === "VariableDeclaration" && node.kind === "static";
+
         const shouldOmitSemicolon =
             semi === ";" &&
             !hasTerminatingSemicolon &&
             syntheticDocComment &&
             isLastStatement(childPath) &&
-            !(
-                node.type === "VariableDeclaration" &&
-                node.kind === "static" &&
-                isTopLevel
-            );
+            !isStaticDeclaration;
 
         if (shouldOmitSemicolon) {
             semi = "";
