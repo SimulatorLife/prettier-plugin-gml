@@ -30,6 +30,17 @@ function getSingleVariableDeclarator(node) {
     return declarator;
 }
 
+/**
+ * Read and normalize the `kind` field from a variable declaration node.
+ *
+ * @param {object | null | undefined} node - Possible variable declaration
+ *     wrapper exposed by the parser.
+ * @returns {"var" | "global" | "static" | string | null} Lowercase
+ *     declaration keyword when present, or {@code null} when the field is
+ *     missing/unknown. The return type intentionally remains permissive so the
+ *     printer can surface new keywords added by the parser without needing a
+ *     project-wide update.
+ */
 function getVariableDeclarationKind(node) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
@@ -43,6 +54,16 @@ function getVariableDeclarationKind(node) {
     return kind.toLowerCase();
 }
 
+/**
+ * Compare a declaration node against a specific keyword.
+ *
+ * @param {object | null | undefined} node - Candidate variable declaration.
+ * @param {string | null | undefined} expectedKind - Keyword to match (e.g.
+ *     {@code "var"}). The comparison is case-insensitive so callers may pass
+ *     user input without pre-normalizing it.
+ * @returns {boolean} {@code true} when {@code node.kind} resolves to the
+ *     provided keyword.
+ */
 function isVariableDeclarationOfKind(node, expectedKind) {
     if (typeof expectedKind !== "string" || expectedKind.length === 0) {
         return false;

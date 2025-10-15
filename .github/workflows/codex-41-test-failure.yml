@@ -51,17 +51,20 @@ jobs:
       pr_title: "Codex: Recover Failing Test"
       pr_body: "Seed PR for Codex to diagnose a failing test, repair the underlying issue, and re-verify."
       prompt: >
-        Start by running the full automated test suite (`npm test`). If everything
-        passes, report that the suite is green and make no code changes. When there is
-        at least one failure, pick a single failing test (or the tightest failing cluster
-        with a shared root cause) and focus on the smallest missing/broken behaviour you
-        can isolate inside it. If a golden fixture encodes multiple formatting rules,
-        choose one regression to tackle—implement the underlying production fix or
-        feature for that slice, leave the rest untouched, and document any remaining
-        gaps. Never rewrite the existing golden files in `src/plugin/tests/*.gml`.
-
-        Add a new targeted test (unit or integration) that proves the repaired behaviour,
-        even if the broader fixture-driven test still fails. Re-run `npm test` (or the
-        relevant subset) to confirm that previously passing suites stay green and that
-        your new coverage passes. Stop after landing that single improvement; do not
-        chase additional failures in the same run.
+        There is at least one failing unit test in the codebase. Start by running the
+        full automated test suite (npm test). Then, identify a single failing test
+        (or the smallest cluster of related failures with a shared root cause).
+        Focus on isolating and fixing the smallest piece of missing or broken
+        behavior within that failure. If a golden fixture encodes multiple
+        formatting rules, choose one regression to address—implement the necessary
+        production fix or feature for that specific case, leave the rest untouched,
+        and document any remaining gaps. Never modify the existing golden files in
+        src/plugin/tests/*.gml.
+        If your fix targets only part of a failing test—meaning the broader test
+        will still fail afterward—add a new, focused test (unit or integration)
+        that explicitly demonstrates the corrected behavior. Even if the original
+        fixture test continues to fail, your new targeted test should now pass. Re-
+        run npm test (or the relevant subset) to ensure all previously passing suites
+        remain green and that your new test passes. Stop after delivering that
+        single verified improvement; do not pursue additional failures in the same
+        run.
