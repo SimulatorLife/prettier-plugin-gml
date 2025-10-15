@@ -2830,7 +2830,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts missing vertex_format_end before subsequent begins and records metadata", () => {
+    it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
             "vertex_format_add_position_3d();",
@@ -2847,11 +2847,25 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        assert.strictEqual(programBody.length, 6);
-
-        const insertedCall = programBody[2];
-        assert.strictEqual(insertedCall?.type, "CallExpression");
-        assert.strictEqual(insertedCall?.object?.name, "vertex_format_end");
+        assert.strictEqual(programBody.length, 3);
+        assert.strictEqual(
+            programBody.filter(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "vertex_format_begin"
+            ).length,
+            1,
+            "Expected only a single vertex_format_begin call to remain."
+        );
+        assert.strictEqual(
+            programBody.some(
+                (node) =>
+                    node?.type === "CallExpression" &&
+                    node?.object?.name === "vertex_format_add_position_3d"
+            ),
+            false,
+            "Incomplete vertex format statements should be removed."
+        );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm2012 = appliedDiagnostics.find(
@@ -2863,13 +2877,6 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
-
-        const insertedMetadata = insertedCall?._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(
-            insertedMetadata.some((entry) => entry.id === "GM2012"),
-            true,
-            "Inserted vertex_format_end call should include GM2012 metadata."
-        );
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {

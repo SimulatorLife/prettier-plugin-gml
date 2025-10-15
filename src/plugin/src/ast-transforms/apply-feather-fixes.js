@@ -13663,37 +13663,53 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
         return;
     }
 
-    const openBegins = [];
+    let openBegins = [];
 
-    for (let index = 0; index < statements.length; index += 1) {
+    for (let index = 0; index < statements.length; ) {
         const statement = statements[index];
 
         if (!statement || typeof statement !== "object") {
+            index += 1;
             continue;
         }
 
         if (isVertexFormatBeginCall(statement)) {
-            if (openBegins.length > 0) {
-                const previousBegin = openBegins[openBegins.length - 1];
+            const previousEntry = openBegins[openBegins.length - 1];
 
-                if (previousBegin && previousBegin !== statement) {
-                    const fixDetail = insertVertexFormatEndBefore(
-                        statements,
-                        index,
-                        previousBegin,
-                        diagnostic
+            if (previousEntry && previousEntry.node !== statement) {
+                const removalCount = removeDanglingVertexFormatDefinition({
+                    statements,
+                    startIndex: previousEntry.index,
+                    stopIndex: index,
+                    diagnostic,
+                    fixes
+                });
+
+                if (removalCount > 0) {
+                    openBegins = openBegins.filter(
+                        (entry) => entry.index < previousEntry.index
                     );
+                    index = previousEntry.index;
+                    continue;
+                }
 
-                    if (fixDetail) {
-                        fixes.push(fixDetail);
-                        openBegins.pop();
-                    }
+                const fixDetail = insertVertexFormatEndBefore(
+                    statements,
+                    index,
+                    previousEntry.node,
+                    diagnostic
+                );
+
+                if (fixDetail) {
+                    fixes.push(fixDetail);
+                    openBegins.pop();
+                    index += 1;
+                    continue;
                 }
             }
 
-            if (openBegins[openBegins.length - 1] !== statement) {
-                openBegins.push(statement);
-            }
+            openBegins.push({ node: statement, index });
+            index += 1;
             continue;
         }
 
@@ -13706,7 +13722,70 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
         ) {
             openBegins.pop();
         }
+
+        index += 1;
     }
+}
+
+function removeDanglingVertexFormatDefinition({
+    statements,
+    startIndex,
+    stopIndex,
+    diagnostic,
+    fixes
+}) {
+    if (
+        !Array.isArray(statements) ||
+        typeof startIndex !== "number" ||
+        typeof stopIndex !== "number" ||
+        startIndex < 0 ||
+        startIndex >= stopIndex
+    ) {
+        return 0;
+    }
+
+    for (let index = startIndex; index < stopIndex; index += 1) {
+        const candidate = statements[index];
+
+        if (
+            !isVertexFormatBeginCall(candidate) &&
+            !isVertexFormatAddCall(candidate)
+        ) {
+            return 0;
+        }
+    }
+
+    const firstNode = statements[startIndex];
+    const lastNode = statements[stopIndex - 1] ?? firstNode;
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getCallExpressionCalleeName(firstNode) ?? null,
+        range: createRangeFromNodes(firstNode, lastNode)
+    });
+
+    if (!fixDetail) {
+        return 0;
+    }
+
+    const removalCount = stopIndex - startIndex;
+    statements.splice(startIndex, removalCount);
+
+    if (Array.isArray(fixes)) {
+        fixes.push(fixDetail);
+    }
+
+    return removalCount;
+}
+
+function createRangeFromNodes(startNode, endNode) {
+    const start = getNodeStartIndex(startNode);
+    const end = getNodeEndIndex(endNode);
+
+    if (typeof start === "number" && typeof end === "number" && end >= start) {
+        return { start, end };
+    }
+
+    return null;
 }
 
 function shouldProcessStatementSequence(parent, property) {
