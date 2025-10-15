@@ -8,6 +8,10 @@ const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
 const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
+    "__identifierCaseProjectIndexConcurrency";
+const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexConcurrency";
 
 function getFsFacade(options) {
     return coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
@@ -81,6 +85,14 @@ function formatCacheMaxSizeValueError(optionName, received) {
     return `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
 }
 
+function formatConcurrencyTypeError(optionName, type) {
+    return `${optionName} must be provided as a positive integer (received type '${type}').`;
+}
+
+function formatConcurrencyValueError(optionName, received) {
+    return `${optionName} must be provided as a positive integer (received ${received}).`;
+}
+
 function coerceCacheMaxSize(
     numericValue,
     { optionName, received, invalidNumberMessage }
@@ -95,6 +107,19 @@ function coerceCacheMaxSize(
     }
 
     return normalized === 0 ? null : normalized;
+}
+
+function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
+    if (!Number.isFinite(numericValue)) {
+        throw new Error(formatConcurrencyValueError(optionName, received));
+    }
+
+    const normalized = Math.trunc(numericValue);
+    if (normalized < 1) {
+        throw new Error(formatConcurrencyValueError(optionName, received));
+    }
+
+    return normalized;
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
@@ -164,6 +189,59 @@ function resolveCacheMaxSizeBytes(options) {
     });
 }
 
+function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
+    if (rawValue == null) {
+        return undefined;
+    }
+
+    const rawType = typeof rawValue;
+
+    if (rawType === "string") {
+        const trimmed = rawValue.trim();
+        if (trimmed === "") {
+            return undefined;
+        }
+
+        const received = `'${rawValue}'`;
+        return coerceProjectIndexConcurrency(Number(trimmed), {
+            optionName,
+            received
+        });
+    }
+
+    if (rawType === "number") {
+        return coerceProjectIndexConcurrency(rawValue, {
+            optionName,
+            received: rawValue
+        });
+    }
+
+    throw new Error(formatConcurrencyTypeError(optionName, rawType));
+}
+
+function resolveProjectIndexConcurrency(options) {
+    if (!isObjectLike(options)) {
+        return undefined;
+    }
+
+    const internalValue =
+        options[PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME];
+    if (internalValue !== undefined) {
+        return normalizeProjectIndexConcurrency(internalValue, {
+            optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+        });
+    }
+
+    const externalValue = options[PROJECT_INDEX_CONCURRENCY_OPTION_NAME];
+    if (externalValue === undefined) {
+        return undefined;
+    }
+
+    return normalizeProjectIndexConcurrency(externalValue, {
+        optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+    });
+}
+
 function resolveProjectRoot(options) {
     if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
         return path.resolve(options.__identifierCaseProjectRoot);
@@ -228,6 +306,15 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         );
     }
 
+    const projectIndexConcurrency = resolveProjectIndexConcurrency(options);
+    if (projectIndexConcurrency !== undefined) {
+        writeOption(
+            options,
+            PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
+            projectIndexConcurrency
+        );
+    }
+
     if (!projectRoot) {
         const filepath = options?.filepath ?? null;
         if (!isNonEmptyTrimmedString(filepath)) {
@@ -269,6 +356,13 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         logger: options?.logger ?? null,
         logMetrics: options?.logIdentifierCaseMetrics === true
     };
+
+    if (projectIndexConcurrency !== undefined) {
+        buildOptions.concurrency = {
+            gml: projectIndexConcurrency,
+            gmlParsing: projectIndexConcurrency
+        };
+    }
 
     const parserFacadeOverride =
         options.identifierCaseProjectIndexParserFacade ??
