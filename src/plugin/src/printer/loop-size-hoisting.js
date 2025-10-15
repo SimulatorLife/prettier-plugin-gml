@@ -7,7 +7,10 @@ import {
     getCallExpressionArguments
 } from "../../../shared/ast-node-helpers.js";
 import { createCachedOptionResolver } from "../../../shared/options-cache.js";
-import { toNormalizedLowerCaseString } from "../../../shared/string-utils.js";
+import {
+    normalizeStringList,
+    toNormalizedLowerCaseString
+} from "../../../shared/string-utils.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -46,32 +49,29 @@ function getSizeRetrievalFunctionSuffixes(options) {
 }
 
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
-    if (typeof rawValue !== "string") {
+    const entries = normalizeStringList(rawValue, {
+        allowInvalidType: true
+    });
+
+    if (entries.length === 0) {
         return new Map();
     }
 
-    const overrides = rawValue
-        .split(",")
-        .map((entry) => entry.trim())
-        .flatMap((entry) => {
-            if (!entry) {
-                return [];
-            }
+    const overrides = entries.flatMap((entry) => {
+        const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
+        const normalizedName = toNormalizedLowerCaseString(rawName);
+        if (!normalizedName) {
+            return [];
+        }
 
-            const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
-            const normalizedName = toNormalizedLowerCaseString(rawName);
-            if (!normalizedName) {
-                return [];
-            }
+        const trimmedSuffix = rawSuffix.trim();
+        if (trimmedSuffix === "-") {
+            return [[normalizedName, null]];
+        }
 
-            const trimmedSuffix = rawSuffix.trim();
-            if (trimmedSuffix === "-") {
-                return [[normalizedName, null]];
-            }
-
-            const normalizedSuffix = trimmedSuffix || "len";
-            return [[normalizedName, normalizedSuffix]];
-        });
+        const normalizedSuffix = trimmedSuffix || "len";
+        return [[normalizedName, normalizedSuffix]];
+    });
 
     return new Map(overrides);
 }
