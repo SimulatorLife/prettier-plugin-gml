@@ -118,8 +118,10 @@ test("wraps @description doc comments when printWidth is narrow but prevents a s
         "Expected formatter to emit a @description doc comment line."
     );
 
-    const [firstLine, secondLine, thirdLine, fourthLine, fifthLine] =
-        lines.slice(descriptionIndex, descriptionIndex + 5);
+    const [firstLine, secondLine, thirdLine, fourthLine] = lines.slice(
+        descriptionIndex,
+        descriptionIndex + 4
+    );
 
     assert.strictEqual(
         firstLine,
