@@ -128,6 +128,27 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ---
 
+## Documentation map
+
+- [Documentation index](docs/README.md) &mdash; Jumping-off point for design
+  notes, rollout guides, and research references maintained alongside the
+  formatter source.
+- [Identifier case & naming convention guide](docs/naming-conventions.md) &mdash;
+  Deep dive into the rename pipeline, supporting datasets, and operational
+  safeguards for enabling `gmlIdentifierCase`.
+- [Identifier case rollout playbook](docs/identifier-case-rollout.md) &mdash;
+  Step-by-step instructions for planning a migration with cache hygiene tips
+  for CI and editor integrations.
+- [Identifier case scope reference](docs/identifier-case-reference.md) &mdash;
+  Scope-by-scope behaviour reference useful when auditing dry-run output.
+- [Feather data plan](docs/feather-data-plan.md) &mdash; Background on the
+  metadata scrapers that power `applyFeatherFixes` and other opt-in fixes.
+- [Project index cache design](docs/project-index-cache-design.md) &mdash;
+  Architecture notes that explain how project discovery, cache writes, and
+  deterministic snapshots interact.
+
+---
+
 ## Quick start
 
 ### Requirements
@@ -204,6 +225,10 @@ nvm use
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
    npm run format:gml -- --path . --extensions=.gml,.yy
    ```
+
+   The `--support-info` probe confirms that Prettier can locate the plugin.
+   Re-run the `--check` and wrapper commands after dependency updates so
+   everyone stays aligned on formatter output.
 
 ### Format from a local clone
 
@@ -288,6 +313,22 @@ for the full suite of contributor commands.
   node ./node_modules/root/src/cli/prettier-wrapper.js --path . --extensions=.gml,.yy
   ```
 
+- Discover supported flags or double-check defaults:
+
+  ```bash
+  node ./node_modules/root/src/cli/prettier-wrapper.js --help
+  ```
+
+### CLI wrapper environment knobs
+
+The wrapper honours environment variables so CI systems can tune behaviour
+without editing project scripts:
+
+- `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
+  extension list used when `--extensions` is omitted.
+- `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
+  `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
+
 ### Visual Studio Code
 
 1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
@@ -330,6 +371,8 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 ### Plugin-specific options
 
+#### Core formatter behaviour
+
 | Option | Default | Summary |
 | --- | --- | --- |
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
@@ -346,13 +389,27 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
-| `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; pair with the rollout guide before enabling on large projects. |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
 
-Consult the [Identifier Case & Naming Convention Guide](docs/naming-conventions.md), the [identifier-case rollout playbook](docs/identifier-case-rollout.md), and the [identifier-case scope reference](docs/identifier-case-reference.md) before enabling renames.
+#### Identifier-case rollout
+
+| Option | Default | Summary |
+| --- | --- | --- |
+| `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; review the rollout guide before activating on large projects. |
+| `gmlIdentifierCase<Scope>` | `"inherit"` | Scope overrides such as `gmlIdentifierCaseLocals` or `gmlIdentifierCaseGlobals`; each accepts the same style choices as the base option. |
+| `gmlIdentifierCaseIgnore` | `""` | Comma- or newline-separated list of identifiers or glob patterns that should never be renamed. |
+| `gmlIdentifierCasePreserve` | `""` | Locks specific identifiers to their original spelling even when a new style is enabled. |
+| `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set to `0` to disable the size guard when coordinating cache writes manually. |
+
+Additional automation hooks such as `identifierCaseProjectIndex`,
+`identifierCaseDryRun`, and `identifierCaseReportLogPath` are documented in the
+[Identifier case rollout playbook](docs/identifier-case-rollout.md).
 
 ---
 
@@ -371,6 +428,7 @@ Consult the [Identifier Case & Naming Convention Guide](docs/naming-conventions.
 - `npm install` reports `EBADENGINE` → upgrade Node.js to 18.18.0+, 20.9.0+, or 21.1.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
+- Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.
 
 ---
 
@@ -401,6 +459,7 @@ The first install also wires up a local [Husky](https://typicode.github.io/husky
 
 ```bash
 npm test
+npm run check
 npm run test:plugin
 npm run test:parser
 npm run test:shared
@@ -410,7 +469,9 @@ npm run format:check
 npm run lint:fix
 ```
 
-All suites run on [Node.js’s built-in test runner](https://nodejs.org/api/test.html); append `-- --watch` to any `npm run test --workspace …` command for watch mode.
+`npm run check` chains the formatter audit, lint (CI mode), and full test suite.
+All suites run on [Node.js’s built-in test runner](https://nodejs.org/api/test.html);
+append `-- --watch` to any `npm run test --workspace …` command for watch mode.
 
 Fixtures under `src/plugin/tests` and `src/parser/tests/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
