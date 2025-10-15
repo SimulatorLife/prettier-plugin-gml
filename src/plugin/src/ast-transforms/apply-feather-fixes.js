@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import GMLParser from "gamemaker-language-parser";
 
 import {
@@ -18,6 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
@@ -29,7 +29,6 @@ import {
     getFeatherMetadata
 } from "../feather/metadata.js";
 
-const require = createRequire(import.meta.url);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -97,7 +96,7 @@ const RESERVED_KEYWORD_TOKENS = new Set([
     "while",
     "with"
 ]);
-const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierNameSet();
+const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     buildDeprecatedBuiltinVariableReplacements();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
@@ -16483,35 +16482,6 @@ function getMacroBaseText(macro, sourceText) {
     }
 
     return sourceText.slice(startIndex, endIndex);
-}
-
-function buildReservedIdentifierNameSet() {
-    try {
-        const metadata = require("../../../../resources/gml-identifiers.json");
-        const identifiers = metadata?.identifiers;
-
-        if (identifiers && typeof identifiers === "object") {
-            const disallowedTypes = new Set(["literal", "keyword"]);
-
-            return new Set(
-                Object.entries(identifiers)
-                    .filter(([name, info]) => {
-                        if (typeof name !== "string" || name.length === 0) {
-                            return false;
-                        }
-
-                        const type =
-                            typeof info?.type === "string" ? info.type : "";
-                        return !disallowedTypes.has(type.toLowerCase());
-                    })
-                    .map(([name]) => name.toLowerCase())
-            );
-        }
-    } catch {
-        // Ignore metadata loading failures and fall back to a no-op set.
-    }
-
-    return new Set();
 }
 
 function registerManualFeatherFix({ ast, diagnostic }) {
