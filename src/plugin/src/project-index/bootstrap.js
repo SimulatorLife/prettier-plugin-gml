@@ -66,7 +66,11 @@ function getOptionWriter(storeOption) {
         : DEFAULT_OPTION_WRITER;
 }
 
-function storeBootstrapResult(options, result, writeOption = DEFAULT_OPTION_WRITER) {
+function storeBootstrapResult(
+    options,
+    result,
+    writeOption = DEFAULT_OPTION_WRITER
+) {
     writeOption(options, "__identifierCaseProjectIndexBootstrap", result);
     return result;
 }
@@ -162,15 +166,19 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     if (options.__identifierCaseProjectIndex) {
         const projectRoot =
             options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
-        return storeBootstrapResult(options, {
-            status: "ready",
-            reason: "provided",
-            projectRoot,
-            projectIndex: options.__identifierCaseProjectIndex,
-            source: "provided",
-            cache: null,
-            dispose() {}
-        }, writeOption);
+        return storeBootstrapResult(
+            options,
+            {
+                status: "ready",
+                reason: "provided",
+                projectRoot,
+                projectIndex: options.__identifierCaseProjectIndex,
+                source: "provided",
+                cache: null,
+                dispose() {}
+            },
+            writeOption
+        );
     }
 
     if (options.gmlIdentifierCaseDiscoverProject === false) {
@@ -268,19 +276,27 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             coordinator.dispose();
         };
 
-    const result = storeBootstrapResult(options, {
-        status: ready?.projectIndex ? "ready" : "skipped",
-        reason: ready?.projectIndex ? rootResolution : "no-project-index",
-        projectRoot,
-        projectIndex: ready?.projectIndex ?? null,
-        source: ready?.source ?? rootResolution,
-        cache: ready?.cache ?? null,
-        coordinator,
-        dispose
-    }, writeOption);
+    const result = storeBootstrapResult(
+        options,
+        {
+            status: ready?.projectIndex ? "ready" : "skipped",
+            reason: ready?.projectIndex ? rootResolution : "no-project-index",
+            projectRoot,
+            projectIndex: ready?.projectIndex ?? null,
+            source: ready?.source ?? rootResolution,
+            cache: ready?.cache ?? null,
+            coordinator,
+            dispose
+        },
+        writeOption
+    );
 
     if (result.projectIndex) {
-        writeOption(options, "__identifierCaseProjectIndex", result.projectIndex);
+        writeOption(
+            options,
+            "__identifierCaseProjectIndex",
+            result.projectIndex
+        );
         writeOption(options, "__identifierCaseProjectRoot", projectRoot);
     }
 
