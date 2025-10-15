@@ -7,8 +7,8 @@ import { isNonEmptyString } from "./string-utils.js";
 /**
  * Count the number of line break characters in a string.
  *
- * @param {string} text - The text to inspect.
- * @returns {number} The count of recognised line break characters.
+ * @param {string} text Text to inspect.
+ * @returns {number} Number of recognized line break characters.
  */
 const CARRIAGE_RETURN = "\r".charCodeAt(0);
 const LINE_FEED = "\n".charCodeAt(0);

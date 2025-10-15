@@ -4,6 +4,7 @@ import {
     getNodeEndIndex,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
+import { getCallExpressionArguments } from "../../../shared/ast-node-helpers.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -423,25 +424,26 @@ function attemptConvertPointDistanceCall(node, helpers) {
     }
 
     const calleeName = getIdentifierName(node.object);
+    const callArguments = getCallExpressionArguments(node);
 
     let distanceExpression = null;
     if (calleeName === "sqrt") {
-        if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+        if (callArguments.length !== 1) {
             return false;
         }
 
-        distanceExpression = node.arguments[0];
+        distanceExpression = callArguments[0];
     } else if (calleeName === "power") {
-        if (!Array.isArray(node.arguments) || node.arguments.length !== 2) {
+        if (callArguments.length !== 2) {
             return false;
         }
 
-        const exponent = unwrapExpression(node.arguments[1]);
+        const exponent = unwrapExpression(callArguments[1]);
         if (!isHalfExponentLiteral(exponent)) {
             return false;
         }
 
-        distanceExpression = node.arguments[0];
+        distanceExpression = callArguments[0];
     } else {
         return false;
     }
@@ -476,16 +478,17 @@ function attemptConvertPowerToSqrt(node, helpers) {
         return false;
     }
 
-    if (!Array.isArray(node.arguments) || node.arguments.length !== 2) {
+    const args = getCallExpressionArguments(node);
+    if (args.length !== 2) {
         return false;
     }
 
-    const exponent = unwrapExpression(node.arguments[1]);
+    const exponent = unwrapExpression(args[1]);
     if (!isHalfExponentLiteral(exponent)) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqrt", [cloneNode(node.arguments[0])], node);
+    mutateToCallExpression(node, "sqrt", [cloneNode(args[0])], node);
     return true;
 }
 
@@ -499,12 +502,13 @@ function attemptConvertPowerToExp(node, helpers) {
         return false;
     }
 
-    if (!Array.isArray(node.arguments) || node.arguments.length !== 2) {
+    const args = getCallExpressionArguments(node);
+    if (args.length !== 2) {
         return false;
     }
 
-    const base = unwrapExpression(node.arguments[0]);
-    const exponent = node.arguments[1];
+    const base = unwrapExpression(args[0]);
+    const exponent = args[1];
 
     if (!isEulerLiteral(base)) {
         return false;
@@ -524,12 +528,13 @@ function attemptConvertPointDirection(node, helpers) {
         return false;
     }
 
-    if (!Array.isArray(node.arguments) || node.arguments.length !== 2) {
+    const args = getCallExpressionArguments(node);
+    if (args.length !== 2) {
         return false;
     }
 
-    const dy = unwrapExpression(node.arguments[0]);
-    const dx = unwrapExpression(node.arguments[1]);
+    const dy = unwrapExpression(args[0]);
+    const dx = unwrapExpression(args[1]);
 
     const dyDiff = matchDifference(dy);
     const dxDiff = matchDifference(dx);
@@ -562,11 +567,12 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
         return false;
     }
 
-    if (!Array.isArray(node.arguments) || node.arguments.length !== 1) {
+    const args = getCallExpressionArguments(node);
+    if (args.length !== 1) {
         return false;
     }
 
-    const argument = node.arguments[0];
+    const argument = args[0];
     const angle = matchDegreesToRadians(argument);
 
     if (!angle) {

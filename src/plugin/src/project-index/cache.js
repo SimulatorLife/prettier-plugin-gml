@@ -22,6 +22,25 @@ export const ProjectIndexCacheMissReason = Object.freeze({
     SOURCE_MTIME_MISMATCH: "source-mtime-mismatch"
 });
 
+function createCacheMiss(cacheFilePath, type, details) {
+    return {
+        status: "miss",
+        cacheFilePath,
+        reason: {
+            type,
+            ...details
+        }
+    };
+}
+
+function hasEntries(record) {
+    return (
+        record != null &&
+        typeof record === "object" &&
+        Object.keys(record).length > 0
+    );
+}
+
 function isManifestEntry(entry) {
     return (
         typeof entry === "string" &&
@@ -150,11 +169,10 @@ export async function loadProjectIndexCache(
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            return {
-                status: "miss",
+            return createCacheMiss(
                 cacheFilePath,
-                reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
-            };
+                ProjectIndexCacheMissReason.NOT_FOUND
+            );
         }
         throw error;
     }
@@ -166,83 +184,64 @@ export async function loadProjectIndexCache(
             description: "project index cache"
         });
     } catch (error) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: {
-                type: ProjectIndexCacheMissReason.INVALID_JSON,
-                error
-            }
-        };
+            ProjectIndexCacheMissReason.INVALID_JSON,
+            { error }
+        );
     }
 
     if (!validateCachePayload(parsed)) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: { type: ProjectIndexCacheMissReason.INVALID_SCHEMA }
-        };
+            ProjectIndexCacheMissReason.INVALID_SCHEMA
+        );
     }
 
     if (path.resolve(parsed.projectRoot) !== resolvedRoot) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: { type: ProjectIndexCacheMissReason.PROJECT_ROOT_MISMATCH }
-        };
+            ProjectIndexCacheMissReason.PROJECT_ROOT_MISMATCH
+        );
     }
 
     if (
         formatterVersion &&
         parsed.formatterVersion !== String(formatterVersion)
     ) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: {
-                type: ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH
-            }
-        };
+            ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH
+        );
     }
 
     if (pluginVersion && parsed.pluginVersion !== String(pluginVersion)) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: {
-                type: ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH
-            }
-        };
+            ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH
+        );
     }
 
-    const hasManifestExpectations =
-        manifestMtimes && Object.keys(manifestMtimes).length > 0;
+    const hasManifestExpectations = hasEntries(manifestMtimes);
     if (
         hasManifestExpectations &&
         !areMtimeMapsEqual(manifestMtimes, parsed.manifestMtimes)
     ) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: {
-                type: ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH
-            }
-        };
+            ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH
+        );
     }
 
-    const hasSourceExpectations =
-        sourceMtimes && Object.keys(sourceMtimes).length > 0;
+    const hasSourceExpectations = hasEntries(sourceMtimes);
     if (
         hasSourceExpectations &&
         !areMtimeMapsEqual(sourceMtimes, parsed.sourceMtimes)
     ) {
-        return {
-            status: "miss",
+        return createCacheMiss(
             cacheFilePath,
-            reason: {
-                type: ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH
-            }
-        };
+            ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH
+        );
     }
 
     const projectIndex = {

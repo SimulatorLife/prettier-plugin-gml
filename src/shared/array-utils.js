@@ -101,21 +101,25 @@ export function mergeUniqueValues(
     { coerce, getKey = (value) => value, freeze = true } = {}
 ) {
     const base = Array.isArray(defaultValues) ? defaultValues : [];
-    const merged = [...base];
+    const merged = base.slice();
     const seen = new Set();
 
-    // Populate the Set without going through Array#map. Avoiding the temporary
-    // array keeps the hot path allocation-free when `mergeUniqueValues` runs
-    // repeatedly while normalizing options.
     for (const element of merged) {
         seen.add(getKey(element));
     }
+
     const normalize = typeof coerce === "function" ? coerce : (value) => value;
 
-    if (additionalValues) {
-        for (const rawValue of additionalValues) {
+    if (additionalValues != null) {
+        const iterable =
+            Array.isArray(additionalValues) ||
+            typeof additionalValues[Symbol.iterator] === "function"
+                ? additionalValues
+                : [];
+
+        for (const rawValue of iterable) {
             const value = normalize(rawValue);
-            if (value == undefined) {
+            if (value == null) {
                 continue;
             }
 

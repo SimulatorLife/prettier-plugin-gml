@@ -4,37 +4,55 @@ import {
     isWordChar
 } from "../../shared/string-utils.js";
 
+const ASSIGNMENT_GUARD_CHARACTERS = new Set([
+    "*",
+    "+",
+    "-",
+    "/",
+    "%",
+    "|",
+    "&",
+    "^",
+    "<",
+    ">",
+    "!",
+    "=",
+    ":"
+]);
+
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
         return (index) => index;
     }
 
-    const sortedPositions = [...insertPositions].sort((a, b) => a - b);
+    const sortedPositions = insertPositions
+        .filter((position) => typeof position === "number")
+        .sort((a, b) => a - b);
+
+    if (sortedPositions.length === 0) {
+        return (index) => index;
+    }
 
     return (index) => {
         if (typeof index !== "number") {
             return index;
         }
 
-        let low = 0;
-        let high = sortedPositions.length;
+        let lowerBound = 0;
+        let upperBound = sortedPositions.length;
 
-        while (low < high) {
-            const mid = Math.floor((low + high) / 2);
-            if (index > sortedPositions[mid]) {
-                low = mid + 1;
+        while (lowerBound < upperBound) {
+            const middle = Math.floor((lowerBound + upperBound) / 2);
+
+            if (index <= sortedPositions[middle]) {
+                upperBound = middle;
             } else {
-                high = mid;
+                lowerBound = middle + 1;
             }
         }
 
-        return index - low;
+        return index - lowerBound;
     };
-}
-
-function pushChar(resultParts, character) {
-    resultParts.push(character);
-    return 1;
 }
 
 function isQuoteCharacter(character) {
@@ -76,7 +94,6 @@ export function sanitizeConditionalAssignments(sourceText) {
     const adjustmentPositions = [];
     const length = sourceText.length;
     let index = 0;
-    let sanitizedIndex = 0;
     let modified = false;
     let inLineComment = false;
     let inBlockComment = false;
@@ -86,24 +103,8 @@ export function sanitizeConditionalAssignments(sourceText) {
     let ifConditionDepth = 0;
 
     const append = (character) => {
-        sanitizedIndex += pushChar(parts, character);
+        parts.push(character);
     };
-
-    const assignmentGuardCharacters = new Set([
-        "*",
-        "+",
-        "-",
-        "/",
-        "%",
-        "|",
-        "&",
-        "^",
-        "<",
-        ">",
-        "!",
-        "=",
-        ":"
-    ]);
 
     while (index < length) {
         const character = sourceText[index];
@@ -243,12 +244,12 @@ export function sanitizeConditionalAssignments(sourceText) {
                 const prevCharacter = index > 0 ? sourceText[index - 1] : "";
                 const shouldSkip =
                     nextCharacter === "=" ||
-                    assignmentGuardCharacters.has(prevCharacter);
+                    ASSIGNMENT_GUARD_CHARACTERS.has(prevCharacter);
 
                 if (!shouldSkip) {
                     append("=");
                     append("=");
-                    adjustmentPositions.push(sanitizedIndex - 1);
+                    adjustmentPositions.push(parts.length - 1);
                     index += 1;
                     modified = true;
                     continue;

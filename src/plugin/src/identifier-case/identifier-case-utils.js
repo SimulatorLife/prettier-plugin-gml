@@ -1,4 +1,7 @@
-import { capitalize } from "../../../shared/string-utils.js";
+import {
+    capitalize,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
@@ -214,23 +217,13 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    const unique = new Set();
-    for (const entry of overrides) {
-        if (typeof entry !== "string") {
-            continue;
-        }
+    const entries = normalizeStringList(Array.from(overrides));
 
-        const trimmed = entry.trim();
-        if (trimmed) {
-            unique.add(trimmed);
-        }
-    }
-
-    if (unique.size === 0) {
+    if (entries.length === 0) {
         return [];
     }
 
-    return [...unique].sort((a, b) => {
+    return entries.sort((a, b) => {
         const lengthDifference = b.length - a.length;
         return lengthDifference || (a < b ? -1 : a > b ? 1 : 0);
     });

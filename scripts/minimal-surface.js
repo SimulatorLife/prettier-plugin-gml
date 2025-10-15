@@ -5,6 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const INDEX_FILE_PATTERN = /(^|\/)index\.(?:[cm]?jsx?|[cm]?ts|d\.ts)$/;
+const STAR_EXPORT_PATTERN = /export\s*\*\s*from\s*['"][^'"]+['"]/g;
+const NAMED_EXPORT_PATTERN = /export\s*{([^}]*)}/g;
+const LARGE_EXPORT_THRESHOLD = 8;
+
 function getRepoRoot() {
     return execSync("git rev-parse --show-toplevel", {
         encoding: "utf8"
@@ -17,17 +22,14 @@ function getIndexFiles() {
         .map((line) => line.trim())
         .filter(Boolean);
 
-    const indexPattern = /(^|\/)index\.(?:[cm]?jsx?|[cm]?ts|d\.ts)$/;
-    return files.filter((file) => indexPattern.test(file));
+    return files.filter((file) => INDEX_FILE_PATTERN.test(file));
 }
 
 function analyzeFile(filePath) {
     const content = fs.readFileSync(filePath, "utf8");
     const findings = [];
 
-    const starExports = [
-        ...content.matchAll(/export\s*\*\s*from\s*['"][^'"]+['"]/g)
-    ];
+    const starExports = [...content.matchAll(STAR_EXPORT_PATTERN)];
     if (starExports.length > 0) {
         findings.push({
             type: "wildcard-re-export",
@@ -35,10 +37,10 @@ function analyzeFile(filePath) {
         });
     }
 
-    const namedExportRegex = /export\s*{([^}]*)}/g;
+    const namedExportPattern = new RegExp(NAMED_EXPORT_PATTERN);
     const namedExports = [];
     let match;
-    while ((match = namedExportRegex.exec(content)) !== null) {
+    while ((match = namedExportPattern.exec(content)) !== null) {
         const body = match[1];
         const symbols = body
             .split(",")
@@ -54,9 +56,8 @@ function analyzeFile(filePath) {
         }
     }
 
-    const threshold = 8;
     const wideExports = namedExports.filter(
-        (entry) => entry.count >= threshold
+        (entry) => entry.count >= LARGE_EXPORT_THRESHOLD
     );
     if (wideExports.length > 0) {
         findings.push({
@@ -69,36 +70,30 @@ function analyzeFile(filePath) {
 }
 
 function formatReportEntry(file, findings) {
-    const lines = ["### " + file];
-    for (const finding of findings) {
+    const sections = findings.flatMap((finding) => {
         if (finding.type === "wildcard-re-export") {
-            lines.push(
-                "- Re-exports entire modules with `export * from` statements:"
-            );
-            for (const occurrence of finding.occurrences) {
-                lines.push("  - `" + occurrence + "`");
-            }
+            return [
+                "- Re-exports entire modules with `export * from` statements:",
+                ...finding.occurrences.map(
+                    (occurrence) => `  - \`${occurrence}\``
+                )
+            ];
         }
 
         if (finding.type === "large-named-export") {
-            lines.push("- Exports a wide surface area via named exports:");
-            for (const entry of finding.occurrences) {
-                const sanitized = entry.raw.replaceAll(/\s+/g, " ");
-                lines.push(
-                    "  - " +
-                        entry.count +
-                        " symbols exported in `" +
-                        sanitized +
-                        "`:" +
-                        " " +
-                        entry.symbols.join(", ")
-                );
-            }
+            return [
+                "- Exports a wide surface area via named exports:",
+                ...finding.occurrences.map((entry) => {
+                    const sanitized = entry.raw.replaceAll(/\s+/g, " ");
+                    return `  - ${entry.count} symbols exported in \`${sanitized}\`: ${entry.symbols.join(", ")}`;
+                })
+            ];
         }
-    }
 
-    lines.push("");
-    return lines.join("\n");
+        return [];
+    });
+
+    return ["### " + file, ...sections, ""].join("\n");
 }
 
 function writeReport(reportPath, entries) {
