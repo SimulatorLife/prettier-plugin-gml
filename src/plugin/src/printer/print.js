@@ -1506,7 +1506,10 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        const syntheticDocComment = syntheticDocByNode.get(node);
+        const syntheticDocRecord = syntheticDocByNode.get(node);
+        const syntheticDocComment = syntheticDocRecord
+            ? syntheticDocRecord.doc
+            : null;
         if (syntheticDocComment) {
             parts.push(syntheticDocComment);
             parts.push(hardline);
@@ -1540,7 +1543,9 @@ function printStatements(path, options, print, childrenAttribute) {
                 const isTopLevelStaticFunction =
                     node.kind === "static" && isTopLevel;
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isTopLevelStaticFunction;
+                    !hasTerminatingSemicolon &&
+                    !isTopLevelStaticFunction &&
+                    !(syntheticDocRecord && node.kind === "static");
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
@@ -1558,6 +1563,7 @@ function printStatements(path, options, print, childrenAttribute) {
             semi === ";" &&
             !hasTerminatingSemicolon &&
             syntheticDocComment &&
+            !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
             isLastStatement(childPath) &&
             !(
                 node.type === "VariableDeclaration" &&
@@ -1784,35 +1790,38 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    const hasExistingDocLines = existingDocLines.length > 0;
 
     if (
-        existingDocLines.length === 0 &&
+        !hasExistingDocLines &&
         (!Array.isArray(functionNode?.params) ||
             functionNode.params.length === 0)
     ) {
         syntheticOverrides.suppressReturns = true;
     }
 
-    const syntheticLines =
-        existingDocLines.length > 0
-            ? mergeSyntheticDocComments(
-                functionNode,
-                existingDocLines,
-                options,
-                syntheticOverrides
-            )
-            : computeSyntheticFunctionDocLines(
-                functionNode,
-                [],
-                options,
-                syntheticOverrides
-            );
+    const syntheticLines = hasExistingDocLines
+        ? mergeSyntheticDocComments(
+            functionNode,
+            existingDocLines,
+            options,
+            syntheticOverrides
+        )
+        : computeSyntheticFunctionDocLines(
+            functionNode,
+            [],
+            options,
+            syntheticOverrides
+        );
 
     if (syntheticLines.length === 0) {
         return null;
     }
 
-    return concat([hardline, join(hardline, syntheticLines)]);
+    return {
+        doc: concat([hardline, join(hardline, syntheticLines)]),
+        hasExistingDocLines
+    };
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
