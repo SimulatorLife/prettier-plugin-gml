@@ -1531,6 +1531,9 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        const isStaticDeclaration =
+            node.type === "VariableDeclaration" && node.kind === "static";
+
         if (semi === ";") {
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
@@ -1541,18 +1544,19 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (initializerIsFunctionExpression) {
                 const isTopLevelStaticFunction =
-                    node.kind === "static" && isTopLevel;
+                    isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
                     !hasTerminatingSemicolon &&
                     !isTopLevelStaticFunction &&
-                    !(syntheticDocRecord && node.kind === "static");
+                    !(syntheticDocRecord && isStaticDeclaration) &&
+                    !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style unless we're printing a top-level
-                    // static declaration, where the semicolon is required for
+                    // the original code style unless we're printing a static
+                    // declaration, where the semicolon is required for
                     // correctness.
                     semi = "";
                 }
@@ -1565,11 +1569,7 @@ function printStatements(path, options, print, childrenAttribute) {
             syntheticDocComment &&
             !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
             isLastStatement(childPath) &&
-            !(
-                node.type === "VariableDeclaration" &&
-                node.kind === "static" &&
-                isTopLevel
-            );
+            !isStaticDeclaration;
 
         if (shouldOmitSemicolon) {
             semi = "";
