@@ -8,10 +8,7 @@ import {
     formatLineComment,
     getLineCommentRawText
 } from "./line-comment-formatting.js";
-import {
-    getTrailingCommentPadding,
-    resolveLineCommentOptions
-} from "../options/line-comment-options.js";
+import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 
 const { addDanglingComment } = util;
 const { join, hardline } = builders;
@@ -137,7 +134,7 @@ function printComment(commentPath, options) {
         return "";
     }
 
-    applyTrailingCommentPadding(comment, options);
+    applyTrailingCommentPadding(comment);
     if (comment?._structPropertyTrailing) {
         if (comment._structPropertyHandled) {
             return "";
@@ -193,7 +190,7 @@ function printComment(commentPath, options) {
     }
 }
 
-function applyTrailingCommentPadding(comment, options) {
+function applyTrailingCommentPadding(comment) {
     if (!isObjectLike(comment)) {
         return;
     }
@@ -212,22 +209,12 @@ function applyTrailingCommentPadding(comment, options) {
         return;
     }
 
-    const trailingPadding = getTrailingCommentPadding(options);
-    const baseTrailingPadding = Math.max(trailingPadding, 0);
     const enumPadding =
         typeof comment._enumTrailingPadding === "number"
             ? comment._enumTrailingPadding
             : 0;
 
-    const trailingTotal = baseTrailingPadding + enumPadding;
-    const desiredTotalPadding = Math.max(baseTrailingPadding, trailingTotal);
-
-    // Prettier automatically inserts a single space between trailing comments and
-    // the preceding code. Treat the configured padding as the total desired
-    // spacing and only request the additional padding beyond Prettier's
-    // baseline. This keeps defaults like `trailingCommentPadding = 2` aligned
-    // with historical expectations, while still honouring larger custom values.
-    const adjustedPadding = Math.max(desiredTotalPadding - 1, 0);
+    const adjustedPadding = Math.max(enumPadding, 0);
 
     if (typeof comment.inlinePadding === "number") {
         comment.inlinePadding = Math.max(
