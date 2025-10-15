@@ -143,17 +143,11 @@ function collectTrailingEnumComments(member) {
         return [];
     }
 
-    const trailingComments = [];
-
-    for (const comment of comments) {
-        if (
-            comment &&
-            typeof comment === "object" &&
-            (comment.trailing === true || comment.placement === "endOfLine")
-        ) {
-            trailingComments.push(comment);
+    return comments.filter((comment) => {
+        if (comment === null || typeof comment !== "object") {
+            return false;
         }
-    }
 
-    return trailingComments;
+        return comment.trailing === true || comment.placement === "endOfLine";
+    });
 }
