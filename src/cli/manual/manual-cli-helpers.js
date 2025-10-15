@@ -4,7 +4,7 @@ import path from "node:path";
 import { SingleBar, Presets } from "cli-progress";
 
 import { DEFAULT_PROGRESS_BAR_WIDTH } from "./progress-bar-constants.js";
-import { formatByteSize } from "../../shared/number-utils.js";
+import { formatByteSize } from "../shared-dependencies.js";
 
 export function formatDuration(startTime) {
     const deltaMs = Date.now() - startTime;

@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { toTrimmedString } from "../../shared/string-utils.js";
+import { toTrimmedString } from "../shared-dependencies.js";
 
 export const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 

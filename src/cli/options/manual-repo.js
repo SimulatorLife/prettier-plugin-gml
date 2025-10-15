@@ -1,4 +1,4 @@
-import { toTrimmedString } from "../../shared/string-utils.js";
+import { toTrimmedString } from "../shared-dependencies.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
