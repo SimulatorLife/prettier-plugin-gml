@@ -1,14 +1,12 @@
+import { toTrimmedString } from "../../shared/string-utils.js";
+
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 
 function normalizeManualRepository(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
+    const trimmed = toTrimmedString(value);
     if (trimmed.length === 0) {
         return null;
     }
@@ -27,14 +25,17 @@ function normalizeManualRepository(value) {
 }
 
 function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
-    const repoToUse =
-        manualRepo === undefined || manualRepo === null || manualRepo === ""
-            ? DEFAULT_MANUAL_REPO
-            : manualRepo;
+    const isDefaultCandidate =
+        manualRepo === undefined || manualRepo === null || manualRepo === "";
+
+    const repoToUse = isDefaultCandidate
+        ? DEFAULT_MANUAL_REPO
+        : toTrimmedString(manualRepo);
 
     const normalized = normalizeManualRepository(repoToUse);
     if (!normalized) {
-        throw new Error(`Invalid manual repository provided: ${repoToUse}`);
+        const received = isDefaultCandidate ? DEFAULT_MANUAL_REPO : manualRepo;
+        throw new Error(`Invalid manual repository provided: ${received}`);
     }
 
     return {

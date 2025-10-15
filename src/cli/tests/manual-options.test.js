@@ -1,0 +1,102 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import { describe, it } from "node:test";
+
+import {
+    DEFAULT_MANUAL_REPO,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository,
+    resolveManualRepoValue
+} from "../options/manual-repo.js";
+import {
+    MANUAL_CACHE_ROOT_ENV_VAR,
+    resolveManualCacheRoot
+} from "../options/manual-cache.js";
+
+describe("manual option helpers", () => {
+    describe("normalizeManualRepository", () => {
+        it("trims input before validating repository segments", () => {
+            assert.equal(
+                normalizeManualRepository(
+                    " TwoScoopStudio/GameMaker-Manual \n"
+                ),
+                "TwoScoopStudio/GameMaker-Manual"
+            );
+        });
+
+        it("rejects repositories that do not contain an owner and name", () => {
+            assert.equal(normalizeManualRepository("TwoScoopStudio"), null);
+        });
+    });
+
+    describe("buildManualRepositoryEndpoints", () => {
+        it("falls back to the default repository when none is provided", () => {
+            const endpoints = buildManualRepositoryEndpoints();
+            assert.equal(endpoints.manualRepo, DEFAULT_MANUAL_REPO);
+            assert.equal(
+                endpoints.apiRoot,
+                `https://api.github.com/repos/${DEFAULT_MANUAL_REPO}`
+            );
+            assert.equal(
+                endpoints.rawRoot,
+                `https://raw.githubusercontent.com/${DEFAULT_MANUAL_REPO}`
+            );
+        });
+
+        it("trims repository input before deriving endpoint URLs", () => {
+            const endpoints = buildManualRepositoryEndpoints(
+                " TwoScoopStudio/GameMaker-Manual "
+            );
+
+            assert.equal(
+                endpoints.manualRepo,
+                "TwoScoopStudio/GameMaker-Manual"
+            );
+        });
+
+        it("throws when provided repository metadata is invalid", () => {
+            assert.throws(
+                () => buildManualRepositoryEndpoints("TwoScoopStudio"),
+                /Invalid manual repository provided: TwoScoopStudio/
+            );
+        });
+    });
+
+    describe("resolveManualRepoValue", () => {
+        it("normalizes string inputs and preserves the expected error message", () => {
+            assert.equal(
+                resolveManualRepoValue(" TwoScoopStudio/GameMaker-Manual "),
+                "TwoScoopStudio/GameMaker-Manual"
+            );
+
+            assert.throws(
+                () => resolveManualRepoValue(42, { source: "cli" }),
+                /Manual repository must be provided in 'owner\/name' format \(received '42'\)\./
+            );
+        });
+    });
+
+    describe("resolveManualCacheRoot", () => {
+        const repoRoot = path.resolve("/repo/root");
+
+        it("uses a trimmed cache override when provided", () => {
+            const env = {
+                [MANUAL_CACHE_ROOT_ENV_VAR]: "  cache/manual  "
+            };
+
+            assert.equal(
+                resolveManualCacheRoot({ repoRoot, env }),
+                path.resolve(repoRoot, "cache/manual")
+            );
+        });
+
+        it("falls back to the relative cache path when override is blank", () => {
+            const env = { [MANUAL_CACHE_ROOT_ENV_VAR]: "   " };
+
+            assert.equal(
+                resolveManualCacheRoot({ repoRoot, env }),
+                path.join(repoRoot, "scripts", "cache", "manual")
+            );
+        });
+    });
+});

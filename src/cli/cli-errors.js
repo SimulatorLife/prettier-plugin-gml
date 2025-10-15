@@ -2,6 +2,8 @@ import { toTrimmedString } from "../shared/string-utils.js";
 
 const DEFAULT_INDENT = "  ";
 
+const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
+
 function indentBlock(text, indent = DEFAULT_INDENT) {
     return text
         .split("\n")
@@ -23,106 +25,126 @@ function extractStackBody(stack) {
     return stackBody || null;
 }
 
+function formatAggregateErrors(error, seen) {
+    if (!(error instanceof AggregateError) || !Array.isArray(error.errors)) {
+        return null;
+    }
+
+    const lines = [];
+
+    for (const entry of error.errors) {
+        const text = formatErrorValue(entry, seen);
+        if (!text) {
+            continue;
+        }
+
+        lines.push(`- ${text.replace(/\n/g, "\n  ")}`);
+    }
+
+    if (lines.length === 0) {
+        return null;
+    }
+
+    const indented = lines.map((line) => indentBlock(line)).join("\n");
+    return `Errors:\n${indented}`;
+}
+
+function formatErrorHeader(error) {
+    const name = toTrimmedString(error.name);
+    const message = toTrimmedString(error.message);
+
+    if (name && message) {
+        return message.toLowerCase().startsWith(name.toLowerCase())
+            ? message
+            : `${name}: ${message}`;
+    }
+
+    if (message) {
+        return message;
+    }
+
+    if (name) {
+        return name;
+    }
+
+    if (typeof error.toString === "function") {
+        return error.toString();
+    }
+
+    return "";
+}
+
+function formatErrorObject(error, seen) {
+    if (seen.has(error)) {
+        return "[Circular error reference]";
+    }
+
+    seen.add(error);
+
+    const sections = [];
+    const header = formatErrorHeader(error);
+    if (header) {
+        sections.push(header);
+    }
+
+    const stack = typeof error.stack === "string" ? error.stack : null;
+    const stackBody = extractStackBody(stack);
+    if (stackBody) {
+        sections.push(stackBody);
+    }
+
+    if (error.cause) {
+        const causeText = formatErrorValue(error.cause, seen);
+        if (causeText) {
+            sections.push(`Caused by:\n${indentBlock(causeText)}`);
+        }
+    }
+
+    const aggregateSection = formatAggregateErrors(error, seen);
+    if (aggregateSection) {
+        sections.push(aggregateSection);
+    }
+
+    if (sections.length === 0 && stack) {
+        return stack;
+    }
+
+    return sections.join("\n");
+}
+
+function formatPlainObject(value, seen) {
+    if (seen.has(value)) {
+        return "[Circular value reference]";
+    }
+
+    seen.add(value);
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return String(value);
+    }
+}
+
 function formatErrorValue(value, seen) {
     if (value == null) {
         return "Unknown error";
     }
 
-    const valueType = typeof value;
-
-    if (valueType === "string") {
+    if (typeof value === "string") {
         return value;
     }
 
-    if (
-        valueType === "number" ||
-        valueType === "boolean" ||
-        valueType === "bigint"
-    ) {
+    if (SIMPLE_VALUE_TYPES.has(typeof value)) {
         return String(value);
     }
 
     if (value instanceof Error) {
-        if (seen.has(value)) {
-            return "[Circular error reference]";
-        }
-
-        seen.add(value);
-
-        const sections = [];
-        const name = toTrimmedString(value.name);
-        const message = toTrimmedString(value.message);
-
-        let header = "";
-        if (name && message) {
-            header = message.toLowerCase().startsWith(name.toLowerCase())
-                ? message
-                : `${name}: ${message}`;
-        } else if (message) {
-            header = message;
-        } else if (name) {
-            header = name;
-        } else if (typeof value.toString === "function") {
-            header = value.toString();
-        }
-
-        if (header) {
-            sections.push(header);
-        }
-
-        const stack = typeof value.stack === "string" ? value.stack : null;
-        const stackBody = extractStackBody(stack);
-        if (stackBody) {
-            sections.push(stackBody);
-        }
-
-        if (value.cause) {
-            const causeText = formatErrorValue(value.cause, seen);
-            if (causeText) {
-                sections.push(`Caused by:\n${indentBlock(causeText)}`);
-            }
-        }
-
-        if (value instanceof AggregateError && Array.isArray(value.errors)) {
-            const aggregateSections = value.errors
-                .map((entry) => {
-                    const text = formatErrorValue(entry, seen);
-                    if (!text) {
-                        return null;
-                    }
-                    const indented = text.replace(/\n/g, "\n  ");
-                    return `- ${indented}`;
-                })
-                .filter(Boolean);
-
-            if (aggregateSections.length > 0) {
-                sections.push(
-                    `Errors:\n${aggregateSections
-                        .map((line) => indentBlock(line))
-                        .join("\n")}`
-                );
-            }
-        }
-
-        if (sections.length === 0 && stack) {
-            return stack;
-        }
-
-        return sections.join("\n");
+        return formatErrorObject(value, seen);
     }
 
-    if (valueType === "object") {
-        if (seen.has(value)) {
-            return "[Circular value reference]";
-        }
-
-        seen.add(value);
-
-        try {
-            return JSON.stringify(value);
-        } catch {
-            return String(value);
-        }
+    if (typeof value === "object") {
+        return formatPlainObject(value, seen);
     }
 
     return String(value);
