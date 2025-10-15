@@ -5969,7 +5969,7 @@ function collectDeprecatedFunctionNames(ast, sourceText) {
     }
 
     const comments = getCommentArray(ast);
-    const body = Array.isArray(ast.body) ? ast.body : [];
+    const body = getBodyStatements(ast);
 
     if (comments.length === 0 || body.length === 0) {
         return names;
@@ -8257,9 +8257,7 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = Array.isArray(consequent.body)
-            ? consequent.body.filter(Boolean)
-            : [];
+        const statements = getBodyStatements(consequent).filter(Boolean);
 
         if (statements.length !== 1) {
             return null;
@@ -9159,9 +9157,9 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const body = Array.isArray(ast.body) ? ast.body : null;
+    const body = getBodyStatements(ast);
 
-    if (!body || body.length === 0) {
+    if (body.length === 0) {
         return [];
     }
 
@@ -9819,7 +9817,7 @@ function getDrawPrimitiveEndCallInfo(block) {
         return null;
     }
 
-    const body = Array.isArray(block.body) ? block.body : [];
+    const body = getBodyStatements(block);
     const matches = [];
 
     for (let index = 0; index < body.length; index += 1) {
@@ -13233,11 +13231,9 @@ function moveGpuPopStateCallOutOfConditional(
         return null;
     }
 
-    const consequentBody = Array.isArray(consequentBlock.body)
-        ? consequentBlock.body
-        : null;
+    const consequentBody = getBodyStatements(consequentBlock);
 
-    if (!consequentBody || consequentBody.length === 0) {
+    if (consequentBody.length === 0) {
         return null;
     }
 
@@ -13295,9 +13291,9 @@ function hasTrailingGpuPopInAlternate(alternate) {
     }
 
     if (alternate.type === "BlockStatement") {
-        const body = Array.isArray(alternate.body) ? alternate.body : null;
+        const body = getBodyStatements(alternate);
 
-        if (!body || body.length === 0) {
+        if (body.length === 0) {
             return false;
         }
 
@@ -16963,9 +16959,9 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const programBody = Array.isArray(ast.body) ? ast.body : null;
+    const programBody = getBodyStatements(ast);
 
-    if (!programBody || programBody.length === 0) {
+    if (programBody.length === 0) {
         return [];
     }
 
