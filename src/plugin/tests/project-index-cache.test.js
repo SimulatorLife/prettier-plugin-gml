@@ -295,6 +295,12 @@ test("loadProjectIndexCache handles corrupted cache payloads", async () => {
             result.reason.type,
             ProjectIndexCacheMissReason.INVALID_JSON
         );
+        assert.ok(result.reason.error instanceof SyntaxError);
+        assert.equal(result.reason.error.name, "JsonParseError");
+        assert.match(
+            result.reason.error.message,
+            /Failed to parse project index cache/
+        );
     });
 });
 

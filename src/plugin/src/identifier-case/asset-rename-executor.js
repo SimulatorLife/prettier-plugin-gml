@@ -11,6 +11,7 @@ import {
 
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
+import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
@@ -86,7 +87,7 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = parseJsonWithContext(raw, { source: absolutePath });
     if (cache) {
         cache.set(absolutePath, parsed);
     }

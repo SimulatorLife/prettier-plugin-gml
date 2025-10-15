@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 import { __private__ } from "../src/identifier-case/asset-rename-executor.js";
 
-const { ensureWritableDirectory, ensureWritableFile } = __private__;
+const { ensureWritableDirectory, ensureWritableFile, readJsonFile } =
+    __private__;
 
 describe("asset rename executor filesystem utilities", () => {
     it("skips directory creation when accessSync allows writing", () => {
@@ -83,5 +84,47 @@ describe("asset rename executor filesystem utilities", () => {
         ensureWritableFile(fsFacade, filePath);
 
         assert.deepStrictEqual(ensuredDirectories, [path.join("/tmp", "demo")]);
+    });
+});
+
+describe("asset rename executor JSON helpers", () => {
+    it("caches parsed JSON results", () => {
+        let readCount = 0;
+        const fsFacade = {
+            readFileSync(targetPath) {
+                readCount += 1;
+                assert.strictEqual(targetPath, "/tmp/resource.yy");
+                return '{"name":"demo"}';
+            }
+        };
+
+        const cache = new Map();
+        const first = readJsonFile(fsFacade, "/tmp/resource.yy", cache);
+        const second = readJsonFile(fsFacade, "/tmp/resource.yy", cache);
+
+        assert.equal(readCount, 1);
+        assert.strictEqual(first, second);
+        assert.deepStrictEqual(first, { name: "demo" });
+    });
+
+    it("wraps JSON parse failures with contextual errors", () => {
+        const fsFacade = {
+            readFileSync() {
+                return "{ invalid";
+            }
+        };
+
+        let error;
+        try {
+            readJsonFile(fsFacade, "/tmp/broken.yy", new Map());
+        } catch (thrown) {
+            error = thrown;
+        }
+
+        assert.ok(error);
+        assert.equal(error.name, "JsonParseError");
+        assert.match(error.message, /Failed to parse JSON/);
+        assert.match(error.message, /\/tmp\/broken\.yy/);
+        assert.ok(error.cause instanceof SyntaxError);
     });
 });
