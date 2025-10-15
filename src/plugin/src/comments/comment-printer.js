@@ -424,24 +424,24 @@ function isDocCommentCandidate(comment, followingNode) {
     );
 }
 
+function hasEmptyBody(candidate) {
+    return Array.isArray(candidate?.body) && candidate.body.length === 0;
+}
+
+function isEmptyProgramNode(candidate) {
+    return candidate?.type === "Program" && hasEmptyBody(candidate);
+}
+
 function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
-    if (Array.isArray(ast?.body) && ast.body.length === 0) {
+    if (hasEmptyBody(ast)) {
         return ast;
     }
 
-    const enclosingIsEmptyProgram =
-        enclosingNode?.type === "Program" &&
-        Array.isArray(enclosingNode.body) &&
-        enclosingNode.body.length === 0;
-    if (enclosingIsEmptyProgram) {
+    if (isEmptyProgramNode(enclosingNode)) {
         return enclosingNode;
     }
 
-    const followingIsEmptyProgram =
-        followingNode?.type === "Program" &&
-        Array.isArray(followingNode.body) &&
-        followingNode.body.length === 0;
-    if (followingIsEmptyProgram) {
+    if (isEmptyProgramNode(followingNode)) {
         return followingNode;
     }
 
