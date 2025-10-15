@@ -10,9 +10,6 @@ import {
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
 
-const DEFAULT_TRAILING_COMMENT_PADDING = 2;
-const DEFAULT_TRAILING_COMMENT_INLINE_OFFSET = 1;
-
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
@@ -186,24 +183,6 @@ function resolveLineCommentOptions(options) {
     return resolveLineCommentOptionsCached(options);
 }
 
-function getTrailingCommentPadding(options) {
-    return coercePositiveIntegerOption(
-        options?.trailingCommentPadding,
-        DEFAULT_TRAILING_COMMENT_PADDING,
-        { zeroReplacement: 0 }
-    );
-}
-
-function getTrailingCommentInlinePadding(options) {
-    const padding = getTrailingCommentPadding(options);
-    const inlineOffset = coercePositiveIntegerOption(
-        options?.trailingCommentInlineOffset,
-        DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
-        { zeroReplacement: 0 }
-    );
-    return Math.max(padding - inlineOffset, 0);
-}
-
 const BOILERPLATE_FRAGMENTS_CACHE_KEY = Symbol.for(
     "prettier-plugin-gml.lineCommentBoilerplateFragments"
 );
@@ -328,11 +307,7 @@ function normalizeLineCommentOptions(lineCommentOptions) {
 
 export {
     DEFAULT_LINE_COMMENT_OPTIONS,
-    DEFAULT_TRAILING_COMMENT_INLINE_OFFSET,
-    DEFAULT_TRAILING_COMMENT_PADDING,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    getTrailingCommentInlinePadding,
-    getTrailingCommentPadding,
     getLineCommentCodeDetectionPatterns,
     normalizeLineCommentOptions,
     resolveLineCommentOptions

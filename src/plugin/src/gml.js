@@ -148,24 +148,6 @@ export const options = {
         description:
             "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
     },
-    trailingCommentPadding: {
-        since: "0.0.0",
-        type: "int",
-        category: "gml",
-        default: 2,
-        range: { start: 0, end: Infinity },
-        description:
-            "Spaces inserted between the end of code and trailing comments. Increase to push inline comments further right or set to 0 to minimize padding."
-    },
-    trailingCommentInlineOffset: {
-        since: "0.0.0",
-        type: "int",
-        category: "gml",
-        default: 1,
-        range: { start: 0, end: Infinity },
-        description:
-            "Spaces trimmed from trailingCommentPadding when applying inline comment padding. Set to 0 to keep inline and trailing padding identical."
-    },
     maxParamsPerLine: {
         since: "0.0.0",
         type: "int",
