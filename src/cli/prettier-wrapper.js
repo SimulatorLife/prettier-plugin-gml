@@ -172,10 +172,24 @@ function parseCliArguments(args) {
 }
 
 let targetExtensions = DEFAULT_EXTENSIONS;
-let targetExtensionSet = new Set(
-    targetExtensions.map((extension) => extension.toLowerCase())
-);
-let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+let targetExtensionSet = new Set();
+let placeholderExtension = DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+
+function applyTargetExtensions(candidateExtensions) {
+    const normalized =
+        Array.isArray(candidateExtensions) && candidateExtensions.length > 0
+            ? candidateExtensions
+            : DEFAULT_EXTENSIONS;
+
+    targetExtensions = normalized;
+    targetExtensionSet = new Set(
+        normalized.map((extension) => extension.toLowerCase())
+    );
+    placeholderExtension =
+        normalized[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+}
+
+applyTargetExtensions(targetExtensions);
 
 function shouldFormatFile(filePath) {
     const fileExtension = path.extname(filePath).toLowerCase();
@@ -573,14 +587,7 @@ async function run() {
     }
 
     const targetPath = path.resolve(process.cwd(), targetPathInput);
-    targetExtensions =
-        configuredExtensions.length > 0
-            ? configuredExtensions
-            : DEFAULT_EXTENSIONS;
-    targetExtensionSet = new Set(
-        targetExtensions.map((extension) => extension.toLowerCase())
-    );
-    placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+    applyTargetExtensions(configuredExtensions);
     parseErrorAction = onParseError;
     abortRequested = false;
     revertTriggered = false;
