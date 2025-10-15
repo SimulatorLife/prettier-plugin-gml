@@ -724,50 +724,74 @@ jobs:
             const n     = Number('${{ needs.pr-meta.outputs.number }}');
             const REQUIRED_RUN_NAME = 'Detect new test failures (allow legacy failures)';
 
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
+            const MAX_ATTEMPTS = 3;
+            const BASE_MODIFIED_PATTERN = /Base branch was modified/i;
 
-            if (pr.draft) {
-              core.notice(`Skip merge #${n}: draft.`);
-              return;
-            }
-            const state = String(pr.mergeable_state || '').toLowerCase();
-            const ALLOWED_STATES = new Set(['clean', 'unstable', 'blocked']);
-            if (pr.mergeable !== true || !ALLOWED_STATES.has(state)) {
-              core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
-              return;
-            }
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            // Ensure the required check on this exact SHA is green.
-            const sha = pr.head.sha;
-            const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
-            const run = checks.check_runs.find(r => r.name === REQUIRED_RUN_NAME);
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
 
-            if (!run || run.status !== 'completed' || run.conclusion !== 'success') {
-              core.notice(`Skip merge #${n}: required check "${REQUIRED_RUN_NAME}" not green for ${sha.slice(0,7)}.`);
-              return;
-            }
-
-            // Merge
-            await github.rest.pulls.merge({ owner, repo, pull_number: n, merge_method: 'squash' });
-            core.notice(`Auto-merged PR #${n}.`);
-
-            // Delete head branch if safe
-            try {
-              const headRef = pr.head?.ref;
-              const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
-              const thisFull = `${owner}/${repo}`.toLowerCase();
-              if (!headRef || headRepoFull !== thisFull) {
-                core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
-              } else {
-                const { data: rinfo } = await github.rest.repos.get({ owner, repo });
-                const defaultBranch = rinfo.default_branch;
-                if (headRef === defaultBranch) {
-                  core.info(`Not deleting branch: ${headRef} is the default branch.`);
-                } else {
-                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
-                  core.notice(`Deleted branch ${headRef} after merge.`);
-                }
+              if (pr.draft) {
+                core.notice(`Skip merge #${n}: draft.`);
+                return;
               }
-            } catch (e) {
-              core.warning(`Unable to delete head branch: ${e.message}`);
+              const state = String(pr.mergeable_state || '').toLowerCase();
+              const ALLOWED_STATES = new Set(['clean', 'unstable', 'blocked']);
+              if (pr.mergeable !== true || !ALLOWED_STATES.has(state)) {
+                core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
+                return;
+              }
+
+              // Ensure the required check on this exact SHA is green.
+              const sha = pr.head.sha;
+              const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
+              const run = checks.check_runs.find(r => r.name === REQUIRED_RUN_NAME);
+
+              if (!run || run.status !== 'completed' || run.conclusion !== 'success') {
+                core.notice(`Skip merge #${n}: required check "${REQUIRED_RUN_NAME}" not green for ${sha.slice(0,7)}.`);
+                return;
+              }
+
+              try {
+                await github.rest.pulls.merge({ owner, repo, pull_number: n, merge_method: 'squash' });
+                core.notice(`Auto-merged PR #${n} (attempt ${attempt}/${MAX_ATTEMPTS}).`);
+
+                // Delete head branch if safe
+                try {
+                  const headRef = pr.head?.ref;
+                  const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+                  const thisFull = `${owner}/${repo}`.toLowerCase();
+                  if (!headRef || headRepoFull !== thisFull) {
+                    core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
+                  } else {
+                    const { data: rinfo } = await github.rest.repos.get({ owner, repo });
+                    const defaultBranch = rinfo.default_branch;
+                    if (headRef === defaultBranch) {
+                      core.info(`Not deleting branch: ${headRef} is the default branch.`);
+                    } else {
+                      await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+                      core.notice(`Deleted branch ${headRef} after merge.`);
+                    }
+                  }
+                } catch (e) {
+                  core.warning(`Unable to delete head branch: ${e.message}`);
+                }
+                return;
+              } catch (error) {
+                const message = error?.message || '';
+                const status = error?.status;
+                const baseModified = status === 409 && BASE_MODIFIED_PATTERN.test(message);
+
+                if (baseModified && attempt < MAX_ATTEMPTS) {
+                  const delayMs = 5000 * attempt;
+                  core.warning(`Attempt ${attempt} to merge PR #${n} failed: ${message}. Retrying after ${delayMs}ms.`);
+                  await sleep(delayMs);
+                  continue;
+                }
+
+                throw error;
+              }
             }
+
+            core.setFailed(`Auto-merge PR #${n}: exhausted ${MAX_ATTEMPTS} attempts after base branch updates.`);
