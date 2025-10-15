@@ -10,7 +10,7 @@ import { asArray, isNonEmptyArray } from "./array-utils.js";
  * @param {object | null | undefined} node - Potential variable declaration
  *     node to inspect.
  * @returns {object | null} The single declarator when present, otherwise
- *     {@code null}.
+ *     `null`.
  */
 function getSingleVariableDeclarator(node) {
     if (!node || node.type !== "VariableDeclaration") {
@@ -36,7 +36,7 @@ function getSingleVariableDeclarator(node) {
  * @param {object | null | undefined} node - Possible variable declaration
  *     wrapper exposed by the parser.
  * @returns {"var" | "global" | "static" | string | null} Lowercase
- *     declaration keyword when present, or {@code null} when the field is
+ *     declaration keyword when present, or `null` when the field is
  *     missing/unknown. The return type intentionally remains permissive so the
  *     printer can surface new keywords added by the parser without needing a
  *     project-wide update.
@@ -59,9 +59,9 @@ function getVariableDeclarationKind(node) {
  *
  * @param {object | null | undefined} node - Candidate variable declaration.
  * @param {string | null | undefined} expectedKind - Keyword to match (e.g.
- *     {@code "var"}). The comparison is case-insensitive so callers may pass
+ *     `"var"`). The comparison is case-insensitive so callers may pass
  *     user input without pre-normalizing it.
- * @returns {boolean} {@code true} when {@code node.kind} resolves to the
+ * @returns {boolean} `true` when `node.kind` resolves to the
  *     provided keyword.
  */
 function isVariableDeclarationOfKind(node, expectedKind) {
@@ -87,8 +87,8 @@ function isVarVariableDeclaration(node) {
  * @param {string | null | undefined | { type?: string, name?: unknown, value?: unknown, object?: unknown, property?: unknown }} node
  *     Any AST fragment that may carry a name. String values are returned as-is.
  * @returns {string | null} Canonical identifier text, using underscores to
- *     flatten member access (e.g. {@code foo.bar} -> {@code "foo_bar"}) or
- *     {@code null} when the node does not resolve to a string name. The helper
+ *     flatten member access (e.g. `foo.bar` -> `"foo_bar"`) or
+ *     `null` when the node does not resolve to a string name. The helper
  *     treats unexpected node shapes defensively, which allows callers inside
  *     hot printer paths to skip type checks without risking runtime failures.
  */
@@ -156,10 +156,10 @@ function getIdentifierText(node) {
  * Extract the printable index portion of a {@link MemberIndexExpression}.
  *
  * @param {string | null | undefined | object} indexNode Possible node nested
- *     within {@code MemberIndexExpression.property}. Arrays are handled by the
+ *     within `MemberIndexExpression.property`. Arrays are handled by the
  *     caller; this helper focuses on the single item case enforced by the
  *     parser.
- * @returns {string | null} Resolved index name or {@code null} when the parser
+ * @returns {string | null} Resolved index name or `null` when the parser
  *     emitted a non-string structure (for example, computed expressions). The
  *     defensive guards let callers gracefully skip edge cases without
  *     introducing conditional branches at the call site.
@@ -191,7 +191,7 @@ function getMemberIndexText(indexNode) {
  * Safely read the argument array from a call-like AST node.
  *
  * @param {object | null | undefined} callExpression Potential call expression
- *     node that may expose an {@code arguments} array.
+ *     node that may expose an `arguments` array.
  * @returns {Array<unknown>} Normalized argument collection. Returns a shared
  *     empty array when no arguments exist so callers can iterate without
  *     additional null checks.
