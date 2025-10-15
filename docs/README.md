@@ -49,3 +49,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.
+
+## Codex workflow index
+
+- **Law of Demeter Guardrails** (`codex-demeter.yml`) — Flags property chains that
+  stretch across more than three segments and nudges Codex to add intermediate
+  helpers or facades so each module only talks to its direct collaborators.
