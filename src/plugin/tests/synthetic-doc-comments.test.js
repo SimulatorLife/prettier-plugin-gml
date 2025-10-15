@@ -136,8 +136,8 @@ test("respects wider printWidth when wrapping description doc comments", async (
         lines.slice(0, 6),
         [
             "/// @function sample",
-            "/// @param {string array[string]} first - First input",
-            "/// @param {Id Instance} second - Second input",
+            "/// @param {string,array[string]} first - First input",
+            "/// @param {Id.Instance} second - Second input",
             "/// @description A longer example description that should wrap into multiple lines and appear after",
             "///              the",
             "/// @returns {undefined}"
