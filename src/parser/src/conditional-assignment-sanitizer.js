@@ -4,6 +4,22 @@ import {
     isWordChar
 } from "../../shared/string-utils.js";
 
+const ASSIGNMENT_GUARD_CHARACTERS = new Set([
+    "*",
+    "+",
+    "-",
+    "/",
+    "%",
+    "|",
+    "&",
+    "^",
+    "<",
+    ">",
+    "!",
+    "=",
+    ":"
+]);
+
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
         return (index) => index;
@@ -30,11 +46,6 @@ function createIndexMapper(insertPositions) {
 
         return index - low;
     };
-}
-
-function pushChar(resultParts, character) {
-    resultParts.push(character);
-    return 1;
 }
 
 function isQuoteCharacter(character) {
@@ -76,7 +87,6 @@ export function sanitizeConditionalAssignments(sourceText) {
     const adjustmentPositions = [];
     const length = sourceText.length;
     let index = 0;
-    let sanitizedIndex = 0;
     let modified = false;
     let inLineComment = false;
     let inBlockComment = false;
@@ -86,24 +96,8 @@ export function sanitizeConditionalAssignments(sourceText) {
     let ifConditionDepth = 0;
 
     const append = (character) => {
-        sanitizedIndex += pushChar(parts, character);
+        parts.push(character);
     };
-
-    const assignmentGuardCharacters = new Set([
-        "*",
-        "+",
-        "-",
-        "/",
-        "%",
-        "|",
-        "&",
-        "^",
-        "<",
-        ">",
-        "!",
-        "=",
-        ":"
-    ]);
 
     while (index < length) {
         const character = sourceText[index];
@@ -243,12 +237,12 @@ export function sanitizeConditionalAssignments(sourceText) {
                 const prevCharacter = index > 0 ? sourceText[index - 1] : "";
                 const shouldSkip =
                     nextCharacter === "=" ||
-                    assignmentGuardCharacters.has(prevCharacter);
+                    ASSIGNMENT_GUARD_CHARACTERS.has(prevCharacter);
 
                 if (!shouldSkip) {
                     append("=");
                     append("=");
-                    adjustmentPositions.push(sanitizedIndex - 1);
+                    adjustmentPositions.push(parts.length - 1);
                     index += 1;
                     modified = true;
                     continue;

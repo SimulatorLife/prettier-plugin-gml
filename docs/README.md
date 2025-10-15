@@ -17,9 +17,16 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Codex Automation Guide](codex-guide.md) — Explains how Codex workflows target
   recurring refactors, including the composition prompts that prefer injected
   collaborators or mixins over deep inheritance chains.
-- [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
-  steps for pruning unused code surfaced by the formatter’s metadata reports.
-- [Codex action reference](codex-action-reference.md) — Summaries of automated Github Actions utilizing Codex.
+- [Codex action list](codex-action-list.md) — Quick lookup for the recurring
+  automation sweeps Codex runs against this repository and the expectations for
+  each follow-up PR.
+- [Codex action reference](codex-action-reference.md) — Summaries of automated
+  GitHub Actions utilizing Codex with review checklists for each workflow.
+- [Dead code audit notes](dead-code-audit.md) — Running log of formatter-driven
+  cleanups with links back to the scripts or helpers that were retired.
+- [Interface Segregation audit](interface-segregation-audit.md) — Investigation
+  notes confirming no broad service-style interfaces currently ship in the
+  JavaScript codebase.
 
 ## Usage & rollout
 

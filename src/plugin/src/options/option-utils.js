@@ -6,16 +6,18 @@ function coercePositiveIntegerOption(
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    if (isFiniteNumber(value)) {
-        const normalized = Math.floor(value);
+    if (!isFiniteNumber(value)) {
+        return defaultValue;
+    }
 
-        if (normalized > 0) {
-            return normalized;
-        }
+    const normalized = Math.floor(value);
 
-        if (zeroReplacement !== undefined && normalized <= 0) {
-            return zeroReplacement;
-        }
+    if (normalized > 0) {
+        return normalized;
+    }
+
+    if (zeroReplacement !== undefined) {
+        return zeroReplacement;
     }
 
     return defaultValue;

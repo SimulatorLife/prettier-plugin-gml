@@ -75,49 +75,68 @@ function storeBootstrapResult(
     return result;
 }
 
+function formatCacheMaxSizeTypeError(optionName, type) {
+    return `${optionName} must be provided as a non-negative integer (received type '${type}').`;
+}
+
+function formatCacheMaxSizeValueError(optionName, received) {
+    return `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
+}
+
+function coerceCacheMaxSize(
+    numericValue,
+    { optionName, received, invalidNumberMessage }
+) {
+    if (!Number.isFinite(numericValue)) {
+        throw new Error(invalidNumberMessage);
+    }
+
+    const normalized = Math.trunc(numericValue);
+    if (normalized < 0) {
+        throw new Error(formatCacheMaxSizeValueError(optionName, received));
+    }
+
+    return normalized === 0 ? null : normalized;
+}
+
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
     if (rawValue == null) {
         return undefined;
     }
 
-    const describeTypeError = () =>
-        `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`;
-    const describeValueError = (received) =>
-        `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
+    const rawType = typeof rawValue;
 
-    let numericValue;
-    let receivedForError;
-
-    if (typeof rawValue === "string") {
+    if (rawType === "string") {
         const trimmed = rawValue.trim();
-
         if (trimmed === "") {
             return undefined;
         }
 
-        numericValue = Number(trimmed);
-        receivedForError = `'${rawValue}'`;
-    } else if (typeof rawValue === "number") {
-        numericValue = rawValue;
-        receivedForError = rawValue;
-    } else {
-        throw new Error(describeTypeError());
-    }
-
-    if (!Number.isFinite(numericValue)) {
-        throw new Error(
-            typeof rawValue === "string"
-                ? describeValueError(receivedForError)
-                : describeTypeError()
+        const received = `'${rawValue}'`;
+        const valueErrorMessage = formatCacheMaxSizeValueError(
+            optionName,
+            received
         );
+
+        return coerceCacheMaxSize(Number(trimmed), {
+            optionName,
+            received,
+            invalidNumberMessage: valueErrorMessage
+        });
     }
 
-    const normalized = Math.trunc(numericValue);
-    if (normalized < 0) {
-        throw new Error(describeValueError(receivedForError));
+    if (rawType === "number") {
+        return coerceCacheMaxSize(rawValue, {
+            optionName,
+            received: rawValue,
+            invalidNumberMessage: formatCacheMaxSizeTypeError(
+                optionName,
+                rawType
+            )
+        });
     }
 
-    return normalized === 0 ? null : normalized;
+    throw new Error(formatCacheMaxSizeTypeError(optionName, rawType));
 }
 
 function resolveCacheMaxSizeBytes(options) {

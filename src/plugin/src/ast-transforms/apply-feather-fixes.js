@@ -17,7 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
+import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
@@ -125,7 +125,8 @@ function getCallArgumentsOrEmpty(node) {
         return [];
     }
 
-    return Array.isArray(node.arguments) ? node.arguments : [];
+    const args = getCallExpressionArguments(node);
+    return Array.isArray(node.arguments) ? args : [];
 }
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
@@ -1638,8 +1639,12 @@ function createAutomaticFeatherFixHandlers() {
         ],
         [
             "GM1032",
-            ({ ast, diagnostic }) =>
-                normalizeArgumentBuiltinReferences({ ast, diagnostic })
+            ({ ast, diagnostic, sourceText }) =>
+                normalizeArgumentBuiltinReferences({
+                    ast,
+                    diagnostic,
+                    sourceText
+                })
         ],
         [
             "GM1033",
@@ -3750,12 +3755,16 @@ function isZeroLiteral(node) {
     return normalized === 0;
 }
 
-function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
+function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     if (!diagnostic || !ast || typeof ast !== "object") {
         return [];
     }
 
     const fixes = [];
+    const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
+        ast,
+        sourceText
+    );
 
     const visit = (node) => {
         if (!node) {
@@ -3774,9 +3783,12 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
         }
 
         if (isFunctionLikeNode(node)) {
+            const documentedParamNames =
+                documentedParamNamesByFunction.get(node) ?? new Set();
             const functionFixes = fixArgumentReferencesWithinFunction(
                 node,
-                diagnostic
+                diagnostic,
+                documentedParamNames
             );
 
             if (isNonEmptyArray(functionFixes)) {
@@ -3798,9 +3810,14 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
     return fixes;
 }
 
-function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
+function fixArgumentReferencesWithinFunction(
+    functionNode,
+    diagnostic,
+    documentedParamNames = new Set()
+) {
     const fixes = [];
     const references = [];
+    const aliasDeclarations = [];
 
     const traverse = (node) => {
         if (!node) {
@@ -3818,10 +3835,29 @@ function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
             return;
         }
 
+        if (node.type === "VariableDeclarator") {
+            const aliasIndex = getArgumentIdentifierIndex(node.init);
+
+            if (
+                typeof aliasIndex === "number" &&
+                node.id?.type === "Identifier" &&
+                typeof node.id.name === "string" &&
+                node.id.name.length > 0
+            ) {
+                aliasDeclarations.push({
+                    index: aliasIndex,
+                    name: node.id.name,
+                    init: node.init,
+                    declarator: node
+                });
+            }
+        }
+
         if (node !== functionNode && isFunctionLikeNode(node)) {
             const nestedFixes = fixArgumentReferencesWithinFunction(
                 node,
-                diagnostic
+                diagnostic,
+                documentedParamNames
             );
 
             if (isNonEmptyArray(nestedFixes)) {
@@ -3865,14 +3901,6 @@ function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
         return fixes;
     }
 
-    const hasChanges = [...mapping.entries()].some(
-        ([oldIndex, newIndex]) => oldIndex !== newIndex
-    );
-
-    if (!hasChanges) {
-        return fixes;
-    }
-
     for (const reference of references) {
         const newIndex = mapping.get(reference.index);
 
@@ -3898,7 +3926,298 @@ function fixArgumentReferencesWithinFunction(functionNode, diagnostic) {
         fixes.push(fixDetail);
     }
 
+    if (documentedParamNames.size > 0 && aliasDeclarations.length > 0) {
+        const normalizedDocNames = new Set(
+            [...documentedParamNames].map(normalizeDocParamNameForComparison)
+        );
+
+        const aliasInfos = aliasDeclarations
+            .map((alias) => {
+                const mappedIndex = mapping.get(alias.index);
+                const normalizedAliasName =
+                    typeof alias.name === "string" ? alias.name : null;
+
+                return {
+                    index:
+                        typeof mappedIndex === "number"
+                            ? mappedIndex
+                            : alias.index,
+                    name: normalizedAliasName,
+                    init: alias.init,
+                    declarator: alias.declarator
+                };
+            })
+            .filter(
+                (alias) =>
+                    typeof alias.index === "number" &&
+                    typeof alias.name === "string" &&
+                    alias.name.length > 0 &&
+                    normalizedDocNames.has(
+                        normalizeDocParamNameForComparison(alias.name)
+                    )
+            );
+
+        if (aliasInfos.length > 0) {
+            const aliasByIndex = new Map();
+            const aliasInitNodes = new Set();
+
+            for (const alias of aliasInfos) {
+                aliasByIndex.set(alias.index, alias);
+                if (alias.init) {
+                    aliasInitNodes.add(alias.init);
+                }
+            }
+
+            for (const reference of references) {
+                const normalizedIndex = mapping.has(reference.index)
+                    ? mapping.get(reference.index)
+                    : reference.index;
+                const alias = aliasByIndex.get(normalizedIndex);
+
+                if (!alias || aliasInitNodes.has(reference.node)) {
+                    continue;
+                }
+
+                if (reference.node?.type !== "Identifier") {
+                    continue;
+                }
+
+                if (reference.node.name === alias.name) {
+                    continue;
+                }
+
+                const aliasStart = getNodeStartIndex(alias.declarator);
+                const referenceStart = getNodeStartIndex(reference.node);
+
+                if (
+                    typeof aliasStart === "number" &&
+                    typeof referenceStart === "number" &&
+                    referenceStart < aliasStart
+                ) {
+                    continue;
+                }
+
+                const aliasFixDetail = createFeatherFixDetail(diagnostic, {
+                    target: alias.name,
+                    range: {
+                        start: getNodeStartIndex(reference.node),
+                        end: getNodeEndIndex(reference.node)
+                    }
+                });
+
+                if (aliasFixDetail) {
+                    attachFeatherFixMetadata(reference.node, [aliasFixDetail]);
+                    fixes.push(aliasFixDetail);
+                }
+
+                reference.node.name = alias.name;
+            }
+        }
+    }
+
     return fixes;
+}
+
+function buildDocumentedParamNameLookup(ast, sourceText) {
+    const lookup = new WeakMap();
+
+    if (!ast || typeof ast !== "object") {
+        return lookup;
+    }
+
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const paramComments = comments
+        .filter(
+            (comment) =>
+                comment &&
+                comment.type === "CommentLine" &&
+                typeof comment.value === "string" &&
+                /@param\b/i.test(comment.value)
+        )
+        .sort((left, right) => {
+            const leftStart =
+                typeof left.start === "number"
+                    ? left.start
+                    : Number.NEGATIVE_INFINITY;
+            const rightStart =
+                typeof right.start === "number"
+                    ? right.start
+                    : Number.NEGATIVE_INFINITY;
+            return leftStart - rightStart;
+        });
+
+    if (paramComments.length === 0) {
+        return lookup;
+    }
+
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                visit(child);
+            }
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        if (isFunctionLikeNode(node)) {
+            const documentedNames = extractDocumentedParamNames(
+                node,
+                paramComments,
+                sourceText
+            );
+
+            if (documentedNames.size > 0) {
+                lookup.set(node, documentedNames);
+            }
+
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                visit(value);
+            }
+        }
+    };
+
+    visit(ast);
+
+    return lookup;
+}
+
+function extractDocumentedParamNames(functionNode, paramComments, sourceText) {
+    const documentedNames = new Set();
+    if (!functionNode || typeof functionNode !== "object") {
+        return documentedNames;
+    }
+
+    const functionStart = getNodeStartIndex(functionNode);
+
+    if (typeof functionStart !== "number") {
+        return documentedNames;
+    }
+
+    let lastIndex = -1;
+
+    for (let index = paramComments.length - 1; index >= 0; index -= 1) {
+        const comment = paramComments[index];
+        const commentEnd = getCommentEndIndex(comment);
+
+        if (commentEnd !== null && commentEnd < functionStart) {
+            lastIndex = index;
+            break;
+        }
+    }
+
+    if (lastIndex === -1) {
+        return documentedNames;
+    }
+
+    let boundary = functionStart;
+
+    for (let index = lastIndex; index >= 0; index -= 1) {
+        const comment = paramComments[index];
+        const commentEnd = getCommentEndIndex(comment);
+        const commentStart = getCommentStartIndex(comment);
+
+        if (commentEnd === null || commentEnd >= boundary) {
+            continue;
+        }
+
+        if (typeof commentStart === "number" && commentStart >= boundary) {
+            continue;
+        }
+
+        if (!isWhitespaceBetween(commentEnd + 1, boundary, sourceText)) {
+            break;
+        }
+
+        const paramName = extractParamNameFromComment(comment.value);
+
+        if (!paramName) {
+            break;
+        }
+
+        documentedNames.add(paramName);
+        boundary = typeof commentStart === "number" ? commentStart : commentEnd;
+    }
+
+    return documentedNames;
+}
+
+function getCommentStartIndex(comment) {
+    if (!comment || typeof comment !== "object") {
+        return null;
+    }
+
+    const start = comment.start;
+
+    if (typeof start === "number") {
+        return start;
+    }
+
+    if (start && typeof start.index === "number") {
+        return start.index;
+    }
+
+    return null;
+}
+
+function isWhitespaceBetween(startIndex, endIndex, sourceText) {
+    if (!sourceText || typeof sourceText !== "string") {
+        return true;
+    }
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return true;
+    }
+
+    if (startIndex >= endIndex) {
+        return true;
+    }
+
+    const slice = sourceText.slice(startIndex, endIndex);
+    return !/\S/.test(slice);
+}
+
+function extractParamNameFromComment(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const match = value.match(/@param\s+(?:\{[^}]+\}\s*)?(\S+)/i);
+    if (!match) {
+        return null;
+    }
+
+    let name = match[1] ?? "";
+    name = name.trim();
+
+    if (name.startsWith("[") && name.endsWith("]")) {
+        name = name.slice(1, -1);
+    }
+
+    const equalsIndex = name.indexOf("=");
+    if (equalsIndex !== -1) {
+        name = name.slice(0, equalsIndex);
+    }
+
+    return name.trim();
+}
+
+function normalizeDocParamNameForComparison(name) {
+    if (typeof name !== "string") {
+        return "";
+    }
+
+    return name.trim().toLowerCase();
 }
 
 function createArgumentIndexMapping(indices) {
@@ -9228,7 +9547,15 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
+                originalDeclaration._suppressSyntheticReturnsDoc = true;
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
+
+                // Suppress synthetic @returns metadata when a Feather fix removes
+                // a redeclared global function. The formatter should keep
+                // existing documentation intact without introducing additional
+                // lines so the output remains stable for the surviving
+                // declaration.
+                originalDeclaration._suppressSyntheticReturnsDoc = true;
             }
         }
 

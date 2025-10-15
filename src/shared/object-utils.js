@@ -4,6 +4,25 @@ export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
 
+/**
+ * Executes the provided callback when `value` is an object-like entity. This
+ * avoids repeating the null and type checks that precede many object
+ * operations. An alternate return value (or thunk) can be supplied for
+ * non-object inputs to keep call sites expression-friendly.
+ *
+ * @template {object} TObject
+ * @template TResult
+ * @param {unknown} value The candidate value to inspect before invoking
+ *                        `onObjectLike`.
+ * @param {(object: TObject) => TResult} onObjectLike Callback run when `value`
+ *                                                   passes the object-like
+ *                                                   guard.
+ * @param {(() => TResult) | TResult} [onNotObjectLike] Optional fallback that
+ *                                                      runs (or is returned)
+ *                                                      when the guard fails.
+ * @returns {TResult | undefined} The result of `onObjectLike`, the fallback,
+ *                                or `undefined` when no fallback is supplied.
+ */
 export function withObjectLike(value, onObjectLike, onNotObjectLike) {
     if (typeof onObjectLike !== "function") {
         throw new TypeError("onObjectLike must be a function");
