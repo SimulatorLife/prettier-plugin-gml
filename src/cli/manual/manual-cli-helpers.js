@@ -3,8 +3,7 @@ import path from "node:path";
 
 import { SingleBar, Presets } from "cli-progress";
 
-import { buildManualRepositoryEndpoints } from "../options/manual-repo.js";
-import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar.js";
+import { DEFAULT_PROGRESS_BAR_WIDTH } from "./progress-bar-constants.js";
 import { formatByteSize } from "../../shared/number-utils.js";
 
 export function formatDuration(startTime) {
@@ -104,10 +103,16 @@ export async function ensureDir(dirPath) {
 export function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
-    defaultRawRoot = buildManualRepositoryEndpoints().rawRoot
+    defaultRawRoot
 } = {}) {
     if (typeof userAgent !== "string" || userAgent.length === 0) {
         throw new Error("A userAgent string is required.");
+    }
+
+    if (typeof defaultRawRoot !== "string" || defaultRawRoot.length === 0) {
+        throw new Error(
+            "A defaultRawRoot string is required to create the manual client."
+        );
     }
 
     const baseHeaders = { "User-Agent": userAgent };

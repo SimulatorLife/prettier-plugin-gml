@@ -14,8 +14,12 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
+- [Codex Automation Guide](codex-guide.md) — Explains how Codex workflows target
+  recurring refactors, including the composition prompts that prefer injected
+  collaborators or mixins over deep inheritance chains.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
+- [Codex action reference](codex-action-reference.md) — Summaries of automated Github Actions utilizing Codex.
 
 ## Usage & rollout
 
@@ -49,9 +53,3 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers.
-
-## Codex workflow index
-
-- **Law of Demeter Guardrails** (`codex-demeter.yml`) — Flags property chains that
-  stretch across more than three segments and nudges Codex to add intermediate
-  helpers or facades so each module only talks to its direct collaborators.
