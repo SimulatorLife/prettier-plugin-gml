@@ -1,4 +1,5 @@
 import { CliUsageError } from "../cli-errors.js";
+import { isNonEmptyString } from "../../shared/string-utils.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -17,7 +18,7 @@ function resolveUsage(getUsage) {
 function normalizeErrorMessage(error, envVar) {
     if (error instanceof Error) {
         const { message } = error;
-        if (typeof message === "string" && message.length > 0) {
+        if (isNonEmptyString(message)) {
             return message;
         }
     }

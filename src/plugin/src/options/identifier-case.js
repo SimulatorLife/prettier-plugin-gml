@@ -5,7 +5,10 @@
 // single source of truth.
 
 import { capitalize } from "../../../shared/string-utils.js";
-import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/index.js";
+import {
+    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
+} from "../project-index/index.js";
 import { normalizeStringList } from "./option-utils.js";
 
 export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
@@ -46,6 +49,8 @@ export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexCacheMaxBytes";
 export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME =
     "gmlIdentifierCaseOptionStoreMaxEntries";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexConcurrency";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -188,6 +193,16 @@ identifierCaseOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = {
     range: { start: 0, end: Infinity },
     description:
         "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
+};
+
+identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
+    since: BASE_IDENTIFIER_CASE_SINCE,
+    type: "int",
+    category: "gml",
+    default: DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    range: { start: 1, end: Infinity },
+    description:
+        "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
 };
 
 for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {

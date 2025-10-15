@@ -461,7 +461,7 @@ export function print(path, options, print) {
             }
 
             let functionNameDoc = "";
-            if (typeof node.id === "string" && node.id.length > 0) {
+            if (isNonEmptyString(node.id)) {
                 let renamed = null;
                 if (node.idLocation && node.idLocation.start) {
                     renamed = getIdentifierCaseRenameForNode(
@@ -479,7 +479,7 @@ export function print(path, options, print) {
 
             const hasFunctionName =
                 typeof functionNameDoc === "string"
-                    ? functionNameDoc.length > 0
+                    ? isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
             parts.push([
@@ -1120,7 +1120,7 @@ function printDelimitedList(
         groupId,
         forceInline = false,
         maxElementsPerLine = Infinity
-    } = delimiterOptions
+    }
 ) {
     const lineBreak = forceBreak ? hardline : line;
     const finalDelimiter = allowTrailingDelimiter ? delimiter : "";

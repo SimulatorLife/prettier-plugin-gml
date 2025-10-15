@@ -124,6 +124,14 @@ jobs:
           echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
         env:
           BASE_REF: ${{ needs.pr-meta.outputs.base_ref }}
+        
+      - name: Verify package-lock.json exists in base
+        run: |
+          if [ ! -f base/package-lock.json ]; then
+            echo "❌ base/package-lock.json not found after checkout!"
+            ls -l base
+            exit 1
+          fi
 
       - name: Setup Node (base)
         uses: actions/setup-node@v4
