@@ -1,3 +1,5 @@
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
+
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
@@ -6,7 +8,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     }
 
     const members = enumNode.members;
-    if (!Array.isArray(members) || members.length === 0) {
+    if (!isNonEmptyArray(members)) {
         return;
     }
 
@@ -63,7 +65,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     const lastIndex = memberStats.length - 1;
 
     memberStats.forEach((entry, index) => {
-        if (!entry.trailingComments || entry.trailingComments.length === 0) {
+        if (!isNonEmptyArray(entry.trailingComments)) {
             return;
         }
 
@@ -121,7 +123,7 @@ function getEnumInitializerWidth(initializer) {
 
 function collectTrailingEnumComments(member) {
     const comments = member?.comments;
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return [];
     }
 

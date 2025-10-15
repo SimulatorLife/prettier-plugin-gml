@@ -1,0 +1,27 @@
+name: Codex Minimal Surface
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Reduce exported surface area"
+      pr_body: |
+        Seed PR for Codex to evaluate index exports, document private modules, and trim the surface area.
+
+        Refer to `docs/minimal-surface-audit.md` for background and the `scripts/codex-minimal-surface.js` helper used during audits.
+      prompt: >
+        Review the repository's `index.*` entry points and identify modules that export entire directories or large sets of symbols.
+        Run `node scripts/codex-minimal-surface.js --report codex-minimal-surface-report.md` to generate findings, summarize the results in the PR,
+        and implement the smallest set of changes needed to narrow exports to the intended public API while marking internal modules as private.
+        Update documentation or comments if the audit results in new guidance. Commit the report file if it helps reviewers.

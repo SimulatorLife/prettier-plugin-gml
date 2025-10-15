@@ -238,8 +238,21 @@ function hasBodyStatements(node) {
     return hasArrayPropertyEntries(node, "body");
 }
 
+function getLiteralStringValue(node) {
+    if (!isNode(node) || node.type !== "Literal") {
+        return null;
+    }
+
+    const { value } = node;
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    return value.toLowerCase();
+}
+
 function getBooleanLiteralValue(node, options = {}) {
-    if (!node || node.type !== "Literal") {
+    if (!isNode(node) || node.type !== "Literal") {
         return null;
     }
 
@@ -258,11 +271,7 @@ function getBooleanLiteralValue(node, options = {}) {
         return value ? "true" : "false";
     }
 
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const normalized = value.toLowerCase();
+    const normalized = getLiteralStringValue(node);
     return normalized === "true" || normalized === "false" ? normalized : null;
 }
 
@@ -271,16 +280,7 @@ function isBooleanLiteral(node, options) {
 }
 
 function isUndefinedLiteral(node) {
-    if (!node || node.type !== "Literal") {
-        return false;
-    }
-
-    const { value } = node;
-    if (typeof value !== "string") {
-        return false;
-    }
-
-    return value.toLowerCase() === "undefined";
+    return getLiteralStringValue(node) === "undefined";
 }
 
 function isNode(value) {
