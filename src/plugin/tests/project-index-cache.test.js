@@ -154,6 +154,63 @@ test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
     });
 });
 
+test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestPath = path.join(projectRoot, "project.yyp");
+        await writeFile(manifestPath, "{}");
+        const scriptsDir = path.join(projectRoot, "scripts");
+        await mkdir(scriptsDir, { recursive: true });
+        const scriptPath = path.join(scriptsDir, "main.gml");
+        await writeFile(scriptPath, "// script\n");
+
+        async function runCase(rawValue) {
+            const descriptors = [];
+            const coordinator = {
+                async ensureReady(descriptor) {
+                    descriptors.push(descriptor);
+                    return { projectIndex: null, source: null, cache: null };
+                },
+                dispose() {}
+            };
+
+            const options = {
+                filepath: scriptPath,
+                __identifierCaseProjectIndexCoordinator: coordinator
+            };
+
+            if (rawValue !== undefined) {
+                options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
+            }
+
+            await bootstrapProjectIndex(options);
+
+            return { options, descriptor: descriptors[0] ?? {} };
+        }
+
+        {
+            const { options, descriptor } = await runCase("8");
+            assert.equal(options.__identifierCaseProjectIndexConcurrency, 8);
+            assert.equal(descriptor.buildOptions?.concurrency?.gml, 8);
+            assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 8);
+        }
+
+        {
+            const { options, descriptor } = await runCase("   ");
+            assert.equal(
+                Object.prototype.hasOwnProperty.call(
+                    options,
+                    "__identifierCaseProjectIndexConcurrency"
+                ),
+                false
+            );
+            assert.equal(descriptor.buildOptions?.concurrency, undefined);
+        }
+
+        await assert.rejects(runCase("0"));
+        await assert.rejects(runCase(-2));
+    });
+});
+
 test("loadProjectIndexCache reports version mismatches", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
