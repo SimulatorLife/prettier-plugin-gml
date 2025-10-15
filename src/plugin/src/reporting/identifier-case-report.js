@@ -8,6 +8,7 @@ import {
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
 import { toTrimmedString } from "../../../shared/string-utils.js";
+import { coalesceOption } from "../../../shared/object-utils.js";
 import { asArray, toArray } from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
@@ -564,21 +565,36 @@ function toDiagnosticsArray(value) {
 }
 
 function resolveInlineReportContext(options, renamePlan) {
+    const conflicts = coalesceOption(
+        options,
+        ["__identifierCaseConflicts", "identifierCaseConflicts"],
+        { fallback: [] }
+    );
+    const dryRun = coalesceOption(options, [
+        "__identifierCaseDryRun",
+        "identifierCaseDryRun"
+    ]);
+    const logFilePath = coalesceOption(
+        options,
+        ["__identifierCaseReportLogPath", "identifierCaseReportLogPath"],
+        { fallback: null }
+    );
+    const fsFacade = coalesceOption(
+        options,
+        ["__identifierCaseFs", "identifierCaseFs"],
+        {
+            fallback: null
+        }
+    );
+
     return {
         renamePlan,
-        conflicts:
-            options.__identifierCaseConflicts ??
-            options.identifierCaseConflicts ??
-            [],
-        dryRun: options.__identifierCaseDryRun ?? options.identifierCaseDryRun,
-        logFilePath:
-            options.__identifierCaseReportLogPath ??
-            options.identifierCaseReportLogPath ??
-            null,
+        conflicts,
+        dryRun,
+        logFilePath,
         logger: options.logger ?? null,
         diagnostics: toDiagnosticsArray(options.diagnostics),
-        fsFacade:
-            options.__identifierCaseFs ?? options.identifierCaseFs ?? null,
+        fsFacade,
         now: pickFunction(
             options.__identifierCaseNow,
             options.identifierCaseNow
@@ -587,10 +603,11 @@ function resolveInlineReportContext(options, renamePlan) {
 }
 
 function resolveReportContext(options) {
-    const inlinePlan =
-        options.__identifierCaseRenamePlan ??
-        options.identifierCaseRenamePlan ??
-        null;
+    const inlinePlan = coalesceOption(
+        options,
+        ["__identifierCaseRenamePlan", "identifierCaseRenamePlan"],
+        { fallback: null }
+    );
 
     if (inlinePlan) {
         return resolveInlineReportContext(options, inlinePlan);
@@ -600,8 +617,10 @@ function resolveReportContext(options) {
 }
 
 function resolveDryRunFlag(options, contextDryRun) {
-    const explicitDryRun =
-        options.__identifierCaseDryRun ?? options.identifierCaseDryRun;
+    const explicitDryRun = coalesceOption(options, [
+        "__identifierCaseDryRun",
+        "identifierCaseDryRun"
+    ]);
     if (explicitDryRun !== undefined) {
         return explicitDryRun !== false;
     }
@@ -663,16 +682,18 @@ export function maybeReportIdentifierCaseDryRun(options) {
     const effectiveLogger = logger ?? options.logger ?? console;
     const effectiveDiagnostics =
         diagnostics ?? toDiagnosticsArray(options.diagnostics);
-    const effectiveLogPath =
-        logFilePath ??
-        options.__identifierCaseReportLogPath ??
-        options.identifierCaseReportLogPath ??
-        null;
-    const effectiveFs =
-        fsFacade ??
-        options.__identifierCaseFs ??
-        options.identifierCaseFs ??
-        defaultFsFacade;
+    const optionLogPath = coalesceOption(
+        options,
+        ["__identifierCaseReportLogPath", "identifierCaseReportLogPath"],
+        { fallback: null }
+    );
+    const optionFsFacade = coalesceOption(
+        options,
+        ["__identifierCaseFs", "identifierCaseFs"],
+        { fallback: defaultFsFacade }
+    );
+    const effectiveLogPath = logFilePath ?? optionLogPath;
+    const effectiveFs = fsFacade ?? optionFsFacade;
     const effectiveNow =
         now ??
         pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
