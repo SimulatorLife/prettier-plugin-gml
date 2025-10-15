@@ -95,7 +95,7 @@ test("wraps @description doc comments when printWidth exceeds the wrapping cap",
     );
 });
 
-test("wraps @description doc comments when printWidth is narrow", async () => {
+test("wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped", async () => {
     const source = [
         `/// @description ${LONG_DESCRIPTION}`,
         "function wrap_example() {}",
@@ -118,8 +118,10 @@ test("wraps @description doc comments when printWidth is narrow", async () => {
         "Expected formatter to emit a @description doc comment line."
     );
 
-    const [firstLine, secondLine, thirdLine, fourthLine, fifthLine] =
-        lines.slice(descriptionIndex, descriptionIndex + 5);
+    const [firstLine, secondLine, thirdLine, fourthLine] = lines.slice(
+        descriptionIndex,
+        descriptionIndex + 4
+    );
 
     assert.strictEqual(
         firstLine,
@@ -135,7 +137,6 @@ test("wraps @description doc comments when printWidth is narrow", async () => {
     );
     assert.strictEqual(
         fourthLine,
-        "///              non-solid shapes will not collide with"
+        "///              non-solid shapes will not collide with anything."
     );
-    assert.strictEqual(fifthLine, "///              anything.");
 });

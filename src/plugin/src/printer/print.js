@@ -2381,6 +2381,29 @@ function mergeSyntheticDocComments(
         }
 
         segments.push(current);
+
+        if (segments.length >= 3) {
+            const lastSegment = segments[segments.length - 1];
+            const isSingleWord =
+                typeof lastSegment === "string" && !/\s/.test(lastSegment);
+
+            if (isSingleWord) {
+                const maxSingleWordLength = Math.max(
+                    Math.min(continuationAvailable / 2, 16),
+                    8
+                );
+
+                if (lastSegment.length <= maxSingleWordLength) {
+                    const penultimateIndex = segments.length - 2;
+                    const mergedSegment =
+                        segments[penultimateIndex] + ` ${lastSegment}`;
+
+                    segments[penultimateIndex] = mergedSegment;
+                    segments.pop();
+                }
+            }
+        }
+
         return segments;
     };
 

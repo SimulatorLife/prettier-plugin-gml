@@ -88,7 +88,7 @@ export default class GMLParser {
 
         for (
             let token = lexer.nextToken();
-            token.type != GameMakerLanguageLexer.EOF;
+            token.type !== GameMakerLanguageLexer.EOF;
             token = lexer.nextToken()
         ) {
             const name = names[token.type];
@@ -139,7 +139,7 @@ export default class GMLParser {
             const tokenText = token.text;
 
             if (token.type === SingleLineComment) {
-                let node = {
+                const node = {
                     type: "CommentLine",
                     value: tokenText.replace(/^[\/][\/]/, ""),
                     start: { line: token.line, index: token.start },
@@ -162,7 +162,7 @@ export default class GMLParser {
 
             if (token.type === MultiLineComment) {
                 const lineBreakCount = getLineBreakCount(tokenText);
-                let node = {
+                const node = {
                     type: "CommentBlock",
                     value: tokenText
                         .replace(/^[\/][\*]/, "")
@@ -189,7 +189,7 @@ export default class GMLParser {
             if (token.type === WhiteSpaces || token.type === LineTerminator) {
                 const isNewline = token.type === LineTerminator;
                 const lineBreakCount = getLineBreakCount(tokenText);
-                let node = {
+                const node = {
                     type: "Whitespace",
                     value: tokenText,
                     start: { line: token.line, index: token.start },
@@ -198,7 +198,7 @@ export default class GMLParser {
                         index: token.stop
                     },
                     line: token.line,
-                    isNewline: isNewline
+                    isNewline
                 };
                 this.whitespaces.push(node);
                 if (prevComment !== null) {
