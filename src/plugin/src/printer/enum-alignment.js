@@ -64,9 +64,9 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
     const lastIndex = memberStats.length - 1;
 
-    memberStats.forEach((entry, index) => {
+    for (const [index, entry] of memberStats.entries()) {
         if (!isNonEmptyArray(entry.trailingComments)) {
-            return;
+            continue;
         }
 
         const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
@@ -76,7 +76,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         );
 
         if (extraPadding === 0) {
-            return;
+            continue;
         }
 
         for (const comment of entry.trailingComments) {
@@ -88,7 +88,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
                 comment._enumTrailingPadding = Math.max(previous, extraPadding);
             }
         }
-    });
+    }
 }
 
 export function getEnumNameAlignmentPadding(member) {
@@ -105,7 +105,7 @@ function getEnumInitializerWidth(initializer) {
         return initializer.trim().length;
     }
 
-    if (initializer == null) {
+    if (initializer == undefined) {
         return 0;
     }
 

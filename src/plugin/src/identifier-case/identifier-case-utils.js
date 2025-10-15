@@ -89,8 +89,8 @@ function buildWordCase(normalized, transformToken) {
     }
 
     let base = "";
-    for (let index = 0; index < tokens.length; index += 1) {
-        base += transformToken(tokens[index], index);
+    for (const [index, token] of tokens.entries()) {
+        base += transformToken(token, index);
     }
 
     return finalizeIdentifier(normalized, base);
@@ -137,11 +137,7 @@ function buildSnakeCase(normalized, transform) {
         const previous = tokens[index - 1];
         const text = transform(token);
 
-        if (shouldJoinForSnake(previous, token)) {
-            base += text;
-        } else {
-            base += `_${text}`;
-        }
+        base += shouldJoinForSnake(previous, token) ? text : `_${text}`;
     }
 
     return finalizeIdentifier(normalized, base);
@@ -174,16 +170,21 @@ export function formatIdentifierCase(input, style) {
         typeof input === "string" ? normalizeIdentifierCase(input) : input;
 
     switch (style) {
-        case "camel":
+        case "camel": {
             return buildCamelCase(normalized);
-        case "pascal":
+        }
+        case "pascal": {
             return buildPascalCase(normalized);
-        case "snake-lower":
+        }
+        case "snake-lower": {
             return buildSnakeCase(normalized, transformSnakeLower);
-        case "snake-upper":
+        }
+        case "snake-upper": {
             return buildSnakeCase(normalized, transformSnakeUpper);
-        default:
+        }
+        default: {
             throw new Error(`Unsupported identifier case: ${style}`);
+        }
     }
 }
 
@@ -229,7 +230,7 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    return Array.from(unique).sort((a, b) => {
+    return [...unique].sort((a, b) => {
         const lengthDifference = b.length - a.length;
         return lengthDifference || (a < b ? -1 : a > b ? 1 : 0);
     });

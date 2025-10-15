@@ -9,7 +9,7 @@ import {
 describe("normalizeLogicalOperatorsStyle", () => {
     it("defaults to keywords when the option is unset", () => {
         assert.equal(
-            normalizeLogicalOperatorsStyle(undefined),
+            normalizeLogicalOperatorsStyle(),
             LogicalOperatorsStyle.KEYWORDS
         );
     });

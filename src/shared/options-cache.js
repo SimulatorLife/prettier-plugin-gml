@@ -4,14 +4,14 @@ const SHARED_CACHE = new WeakMap();
 
 function isCacheLike(candidate) {
     return (
-        candidate != null &&
+        candidate != undefined &&
         typeof candidate.get === "function" &&
         typeof candidate.set === "function"
     );
 }
 
 function defineCachedProperty(target, cacheKey, value) {
-    if (cacheKey == null || !Object.isExtensible(target)) {
+    if (cacheKey == undefined || !Object.isExtensible(target)) {
         return;
     }
 
@@ -57,7 +57,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
         return computeValue();
     }
 
-    if (cacheKey != null && hasOwn(options, cacheKey)) {
+    if (cacheKey != undefined && hasOwn(options, cacheKey)) {
         return options[cacheKey];
     }
 

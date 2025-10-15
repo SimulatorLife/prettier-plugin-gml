@@ -5,7 +5,7 @@
 
 function getLocationIndex(node, key) {
     if (!node) {
-        return undefined;
+        return;
     }
 
     const location = node[key];
@@ -17,12 +17,12 @@ function getLocationIndex(node, key) {
         return location.index;
     }
 
-    return undefined;
+    return;
 }
 
 function getStartIndex(node) {
     if (!node) {
-        return undefined;
+        return;
     }
 
     const isMemberAccess =
@@ -106,8 +106,8 @@ function clonePlainContainer(container) {
 }
 
 function cloneLocation(location) {
-    if (location == null) {
-        return undefined;
+    if (location == undefined) {
+        return;
     }
 
     if (typeof location !== "object") {

@@ -112,11 +112,11 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
         parts.push(displayPath);
     }
 
-    if (lineNumber != null) {
-        if (columnNumber != null) {
-            parts.push(`line ${lineNumber}, column ${columnNumber}`);
-        } else {
+    if (lineNumber != undefined) {
+        if (columnNumber == undefined) {
             parts.push(`line ${lineNumber}`);
+        } else {
+            parts.push(`line ${lineNumber}, column ${columnNumber}`);
         }
     }
 
@@ -129,7 +129,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
 
 function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     if (
-        lineNumber == null ||
+        lineNumber == undefined ||
         lineNumber < 1 ||
         typeof sourceText !== "string"
     ) {
@@ -152,7 +152,7 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     );
     const contentLine = `${gutter}${lineText}`;
 
-    if (columnNumber == null || columnNumber < 0) {
+    if (columnNumber == undefined || columnNumber < 0) {
         return contentLine;
     }
 
@@ -180,12 +180,11 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
     let expanded = "";
     let pointerOffset = 0;
 
-    for (let index = 0; index < lineText.length; index += 1) {
+    for (const [index, char] of lineText.entries()) {
         if (index === clampedIndex) {
             pointerOffset = expanded.length;
         }
 
-        const char = lineText[index];
         if (char === "\t") {
             const spacesToAdd =
                 tabSize - (expanded.length % tabSize) || tabSize;

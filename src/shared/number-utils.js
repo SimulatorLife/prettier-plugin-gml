@@ -20,7 +20,7 @@ function normalizeByteCount(value) {
         return 0;
     }
 
-    return value < 0 ? 0 : value;
+    return Math.max(value, 0);
 }
 
 export function formatByteSize(

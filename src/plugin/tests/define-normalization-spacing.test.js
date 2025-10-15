@@ -12,7 +12,7 @@ async function formatWithPlugin(source, overrides) {
     const formatted = await prettier.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
-        ...(overrides ?? {})
+        ...overrides
     });
 
     if (typeof formatted !== "string") {
@@ -66,7 +66,7 @@ describe("define normalization spacing", () => {
 
         const utilLineIndex = lines.indexOf("var util = function() {");
         assert.ok(
-            utilLineIndex >= 0,
+            utilLineIndex !== -1,
             "Expected the utility assignment to be printed."
         );
 

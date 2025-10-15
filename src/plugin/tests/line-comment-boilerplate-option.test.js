@@ -51,8 +51,7 @@ describe("lineCommentBoilerplateFragments option", () => {
         const comment = createLineComment(" Auto-generated file. Do not edit.");
 
         const customOptions = resolveLineCommentOptions({
-            lineCommentBoilerplateFragments:
-                "Auto-generated file. Do not edit."
+            lineCommentBoilerplateFragments: "Auto-generated file. Do not edit."
         });
 
         const formatted = formatLineComment(comment, customOptions);

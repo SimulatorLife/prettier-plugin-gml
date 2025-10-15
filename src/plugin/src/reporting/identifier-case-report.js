@@ -92,7 +92,7 @@ function normalizeReference(reference) {
 
     return {
         filePath,
-        occurrences: occurrences > 0 ? occurrences : 0
+        occurrences: Math.max(occurrences, 0)
     };
 }
 
@@ -210,7 +210,7 @@ function normalizeConflict(rawConflict) {
 }
 
 function sortOperations(operations) {
-    return operations.slice().sort((left, right) => {
+    return [...operations].sort((left, right) => {
         const scopeCompare = (left.scopeName ?? "").localeCompare(
             right.scopeName ?? ""
         );
@@ -236,7 +236,7 @@ function sortConflicts(conflicts) {
         ["info", 2]
     ]);
 
-    return conflicts.slice().sort((left, right) => {
+    return [...conflicts].sort((left, right) => {
         const severityA = severityOrder.get(left.severity) ?? 99;
         const severityB = severityOrder.get(right.severity) ?? 99;
         if (severityA !== severityB) {
@@ -317,10 +317,10 @@ export function formatIdentifierCaseSummaryText(report) {
     const renameDetails =
         summary.renameCount > 0
             ? ` (${summary.totalReferenceCount} reference${pluralize(
-                summary.totalReferenceCount
-            )} across ${summary.impactedFileCount} file${pluralize(
-                summary.impactedFileCount
-            )})`
+                  summary.totalReferenceCount
+              )} across ${summary.impactedFileCount} file${pluralize(
+                  summary.impactedFileCount
+              )})`
             : "";
     lines.push(`  Planned renames: ${summary.renameCount}${renameDetails}`);
 
@@ -328,8 +328,7 @@ export function formatIdentifierCaseSummaryText(report) {
         const severityParts = Object.entries(summary.severityCounts)
             .filter(([, count]) => count > 0)
             .map(
-                ([severity, count]) =>
-                    `${count} ${severity}${pluralize(count)}`
+                ([severity, count]) => `${count} ${severity}${pluralize(count)}`
             );
 
         const conflictSuffix =
@@ -340,17 +339,16 @@ export function formatIdentifierCaseSummaryText(report) {
     }
 
     if (operations.length > 0) {
-        lines.push("");
-        lines.push("Rename plan:");
+        lines.push("", "Rename plan:");
 
         for (const operation of operations) {
             const referenceSummary =
                 operation.occurrenceCount > 0
                     ? ` (${operation.occurrenceCount} reference${pluralize(
-                        operation.occurrenceCount
-                    )} across ${operation.referenceFileCount} file${pluralize(
-                        operation.referenceFileCount
-                    )})`
+                          operation.occurrenceCount
+                      )} across ${operation.referenceFileCount} file${pluralize(
+                          operation.referenceFileCount
+                      )})`
                     : "";
 
             const scopeName =
@@ -366,8 +364,8 @@ export function formatIdentifierCaseSummaryText(report) {
                 const referenceSuffix =
                     reference.occurrences > 0
                         ? ` (${reference.occurrences} reference${pluralize(
-                            reference.occurrences
-                        )})`
+                              reference.occurrences
+                          )})`
                         : "";
                 lines.push(`      • ${reference.filePath}${referenceSuffix}`);
             }
@@ -375,8 +373,7 @@ export function formatIdentifierCaseSummaryText(report) {
     }
 
     if (conflicts.length > 0) {
-        lines.push("");
-        lines.push("Conflicts:");
+        lines.push("", "Conflicts:");
 
         for (const conflict of conflicts) {
             const scopeName =
@@ -408,8 +405,8 @@ function getNormalizedReportCollections(report) {
 
     const renamesSource = Array.isArray(report?.renames)
         ? report.renames.filter(
-            (rename) => rename && typeof rename === "object"
-        )
+              (rename) => rename && typeof rename === "object"
+          )
         : null;
 
     const renames =
@@ -478,8 +475,8 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
     const severity = conflicts.some((conflict) => conflict.severity === "error")
         ? "error"
         : conflicts.some((conflict) => conflict.severity === "warning")
-            ? "warning"
-            : "info";
+          ? "warning"
+          : "info";
 
     diagnostics.push({
         code: `${REPORT_NAMESPACE}-summary`,

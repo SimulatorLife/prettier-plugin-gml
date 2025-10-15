@@ -93,7 +93,7 @@ function isVarVariableDeclaration(node) {
  *     hot printer paths to skip type checks without risking runtime failures.
  */
 function getIdentifierText(node) {
-    if (node == null) {
+    if (node == undefined) {
         return null;
     }
 
@@ -143,7 +143,9 @@ function getIdentifierText(node) {
             }
 
             const indexText = getMemberIndexText(property[0]);
-            return indexText == null ? null : object.name + "_" + indexText;
+            return indexText == undefined
+                ? null
+                : object.name + "_" + indexText;
         }
         default: {
             const { name } = node;
@@ -169,7 +171,7 @@ function getMemberIndexText(indexNode) {
         return indexNode;
     }
 
-    if (indexNode == null) {
+    if (indexNode == undefined) {
         return null;
     }
 
@@ -284,7 +286,7 @@ function isUndefinedLiteral(node) {
 }
 
 function isNode(value) {
-    return value != null && typeof value === "object";
+    return value != undefined && typeof value === "object";
 }
 
 export {

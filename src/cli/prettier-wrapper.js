@@ -40,7 +40,7 @@ const ParseErrorAction = Object.freeze({
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
 
 function normalizeParseErrorAction(value, fallbackValue) {
-    if (value == null) {
+    if (value == undefined) {
         return fallbackValue;
     }
 
@@ -104,7 +104,7 @@ const DEFAULT_PARSE_ERROR_ACTION =
         ParseErrorAction.SKIP
     ) ?? ParseErrorAction.SKIP;
 
-const [, , ...cliArgs] = process.argv;
+const cliArgs = process.argv.slice(2);
 
 function parseCliArguments(args) {
     const command = new Command()
@@ -173,7 +173,7 @@ function parseCliArguments(args) {
         targetPathInput: options.path ?? positionalTarget ?? null,
         extensions: Array.isArray(extensions)
             ? extensions
-            : Array.from(extensions ?? DEFAULT_EXTENSIONS),
+            : [...(extensions ?? DEFAULT_EXTENSIONS)],
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
         usage: command.helpInformation()
     };
@@ -510,7 +510,7 @@ async function resolveFormattingOptions(filePath) {
 
     const mergedOptions = {
         ...options,
-        ...(resolvedConfig ?? {}),
+        ...resolvedConfig,
         filepath: filePath
     };
 
@@ -555,8 +555,8 @@ async function processFile(filePath, activeIgnorePaths = []) {
         recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
-    } catch (err) {
-        await handleFormattingError(err, filePath);
+    } catch (error) {
+        await handleFormattingError(error, filePath);
     }
 }
 

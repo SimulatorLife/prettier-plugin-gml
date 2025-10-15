@@ -603,9 +603,9 @@ async function main({ argv, env, isTty } = {}) {
                     }
                     const tags = tagEntry
                         ? tagEntry
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter(Boolean)
+                              .split(",")
+                              .map((tag) => tag.trim())
+                              .filter(Boolean)
                         : [];
 
                     const type = classifyFromPath(normalisedPath, tags);
@@ -630,14 +630,14 @@ async function main({ argv, env, isTty } = {}) {
         const sortedIdentifiers = timeSync(
             "Sorting identifiers",
             () =>
-                Array.from(identifierMap.entries())
+                [...identifierMap.entries()]
                     .map(([identifier, data]) => [
                         identifier,
                         {
                             type: data.type,
-                            sources: Array.from(data.sources).sort(),
+                            sources: [...data.sources].sort(),
                             manualPath: data.manualPath,
-                            tags: Array.from(data.tags).sort(),
+                            tags: [...data.tags].sort(),
                             deprecated: data.deprecated
                         }
                     ])

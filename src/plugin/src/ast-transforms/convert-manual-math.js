@@ -65,8 +65,8 @@ function traverse(node, helpers, seen, context) {
     seen.add(node);
 
     if (Array.isArray(node)) {
-        for (let index = 0; index < node.length; index += 1) {
-            traverse(node[index], helpers, seen, context);
+        for (const element of node) {
+            traverse(element, helpers, seen, context);
         }
         return;
     }
@@ -777,11 +777,11 @@ function matchDegreesToRadians(node) {
         const left = unwrapExpression(expression.left);
         const right = unwrapExpression(expression.right);
 
-        if (isLiteralNumber(left, 0.017453292519943295)) {
+        if (isLiteralNumber(left, 0.017_453_292_519_943_295)) {
             return right;
         }
 
-        if (isLiteralNumber(right, 0.017453292519943295)) {
+        if (isLiteralNumber(right, 0.017_453_292_519_943_295)) {
             return left;
         }
 
@@ -827,7 +827,7 @@ function computeNumericTolerance(expected, providedTolerance) {
 
 function isLiteralNumber(node, expected, tolerance) {
     const value = parseNumericLiteral(node);
-    if (value == null) {
+    if (value == undefined) {
         return false;
     }
 
@@ -853,7 +853,7 @@ function isHalfExponentLiteral(node) {
 
 function isEulerLiteral(node) {
     const value = parseNumericLiteral(node);
-    if (value == null) {
+    if (value == undefined) {
         return false;
     }
 
@@ -901,31 +901,37 @@ function areNodesEquivalent(a, b) {
     }
 
     switch (left.type) {
-        case IDENTIFIER:
+        case IDENTIFIER: {
             return left.name === right.name;
-        case LITERAL:
+        }
+        case LITERAL: {
             return left.value === right.value;
-        case MEMBER_DOT_EXPRESSION:
+        }
+        case MEMBER_DOT_EXPRESSION: {
             return (
                 areNodesEquivalent(left.object, right.object) &&
                 areNodesEquivalent(left.property, right.property)
             );
-        case MEMBER_INDEX_EXPRESSION:
+        }
+        case MEMBER_INDEX_EXPRESSION: {
             return (
                 areNodesEquivalent(left.object, right.object) &&
                 compareIndexProperties(left.property, right.property)
             );
-        case BINARY_EXPRESSION:
+        }
+        case BINARY_EXPRESSION: {
             return (
                 left.operator === right.operator &&
                 areNodesEquivalent(left.left, right.left) &&
                 areNodesEquivalent(left.right, right.right)
             );
-        case UNARY_EXPRESSION:
+        }
+        case UNARY_EXPRESSION: {
             return (
                 left.operator === right.operator &&
                 areNodesEquivalent(left.argument, right.argument)
             );
+        }
         case CALL_EXPRESSION: {
             const leftName = getIdentifierName(left.object);
             const rightName = getIdentifierName(right.object);
@@ -945,16 +951,17 @@ function areNodesEquivalent(a, b) {
                 return false;
             }
 
-            for (let index = 0; index < leftArgs.length; index += 1) {
-                if (!areNodesEquivalent(leftArgs[index], rightArgs[index])) {
+            for (const [index, leftArg] of leftArgs.entries()) {
+                if (!areNodesEquivalent(leftArg, rightArgs[index])) {
                     return false;
                 }
             }
 
             return true;
         }
-        default:
+        default: {
             return false;
+        }
     }
 }
 
@@ -963,8 +970,8 @@ function compareIndexProperties(a, b) {
         return false;
     }
 
-    for (let index = 0; index < a.length; index += 1) {
-        if (!areNodesEquivalent(a[index], b[index])) {
+    for (const [index, element] of a.entries()) {
+        if (!areNodesEquivalent(element, b[index])) {
             return false;
         }
     }
@@ -979,20 +986,24 @@ function isSafeOperand(node) {
     }
 
     switch (expression.type) {
-        case IDENTIFIER:
+        case IDENTIFIER: {
             return typeof expression.name === "string";
+        }
         case MEMBER_DOT_EXPRESSION:
-        case MEMBER_INDEX_EXPRESSION:
+        case MEMBER_INDEX_EXPRESSION: {
             return (
                 isSafeOperand(expression.object) &&
                 (expression.type === MEMBER_DOT_EXPRESSION
                     ? isSafeOperand(expression.property)
                     : areAllSafe(expression.property))
             );
-        case LITERAL:
+        }
+        case LITERAL: {
             return true;
-        default:
+        }
+        default: {
             return false;
+        }
     }
 }
 
@@ -1125,20 +1136,16 @@ function hasInlineCommentBetween(left, right, context) {
     const rightStart = getNodeStartIndex(right);
 
     if (
-        leftEnd == null ||
-        rightStart == null ||
+        leftEnd == undefined ||
+        rightStart == undefined ||
         rightStart <= leftEnd ||
         rightStart > sourceText.length
     ) {
         return false;
     }
 
-    const between = sourceText.slice(leftEnd, rightStart);
-    return (
-        between.includes("/*") ||
-        between.includes("//") ||
-        between.includes("#")
-    );
+    const between = new Set(sourceText.slice(leftEnd, rightStart));
+    return between.has("/*") || between.has("//") || between.has("#");
 }
 
 function isLnCall(node) {

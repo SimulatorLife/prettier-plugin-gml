@@ -76,8 +76,8 @@ function storeBootstrapResult(
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
-    if (rawValue == null) {
-        return undefined;
+    if (rawValue == undefined) {
+        return;
     }
 
     const describeTypeError = () =>
@@ -92,7 +92,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         const trimmed = rawValue.trim();
 
         if (trimmed === "") {
-            return undefined;
+            return;
         }
 
         numericValue = Number(trimmed);
@@ -101,11 +101,11 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         numericValue = rawValue;
         receivedForError = rawValue;
     } else {
-        throw new Error(describeTypeError());
+        throw new TypeError(describeTypeError());
     }
 
     if (!Number.isFinite(numericValue)) {
-        throw new Error(
+        throw new TypeError(
             typeof rawValue === "string"
                 ? describeValueError(receivedForError)
                 : describeTypeError()
@@ -122,7 +122,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 
 function resolveCacheMaxSizeBytes(options) {
     if (!isObjectLike(options)) {
-        return undefined;
+        return;
     }
 
     const internalValue =
@@ -132,14 +132,14 @@ function resolveCacheMaxSizeBytes(options) {
         return internalValue === null
             ? null
             : normalizeCacheMaxSizeBytes(internalValue, {
-                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-            });
+                  optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+              });
     }
 
     const externalValue = options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME];
 
     if (externalValue === undefined) {
-        return undefined;
+        return;
     }
 
     return normalizeCacheMaxSizeBytes(externalValue, {
@@ -258,7 +258,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         options.gmlParserFacade ??
         options.parserFacade ??
         null;
-    if (parserFacadeOverride != null) {
+    if (parserFacadeOverride != undefined) {
         buildOptions.gmlParserFacade = parserFacadeOverride;
     } else if (typeof options.parseGml === "function") {
         buildOptions.parseGml = options.parseGml;
@@ -281,8 +281,8 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     const dispose = coordinatorOverride
         ? () => {}
         : () => {
-            coordinator.dispose();
-        };
+              coordinator.dispose();
+          };
 
     const result = storeBootstrapResult(
         options,

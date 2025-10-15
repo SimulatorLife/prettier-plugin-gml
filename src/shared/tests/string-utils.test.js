@@ -22,7 +22,7 @@ test("toTrimmedString returns trimmed strings", () => {
 
 test("toTrimmedString normalizes non-string values to empty strings", () => {
     assert.strictEqual(toTrimmedString(null), "");
-    assert.strictEqual(toTrimmedString(undefined), "");
+    assert.strictEqual(toTrimmedString(), "");
     assert.strictEqual(toTrimmedString(123), "");
     assert.strictEqual(toTrimmedString({}), "");
 });
@@ -35,7 +35,7 @@ test("toNormalizedLowerCaseString trims and lowercases input values", () => {
 
 test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
     assert.strictEqual(toNormalizedLowerCaseString(null), "");
-    assert.strictEqual(toNormalizedLowerCaseString(undefined), "");
+    assert.strictEqual(toNormalizedLowerCaseString(), "");
     assert.strictEqual(toNormalizedLowerCaseString("   "), "");
 });
 
@@ -54,13 +54,13 @@ test("getNonEmptyString returns null for empty candidates", () => {
     assert.strictEqual(getNonEmptyString("value"), "value");
     assert.strictEqual(getNonEmptyString(""), null);
     assert.strictEqual(getNonEmptyString(null), null);
-    assert.strictEqual(getNonEmptyString(undefined), null);
+    assert.strictEqual(getNonEmptyString(), null);
 });
 
 test("capitalize leaves falsy and non-string inputs unchanged", () => {
     assert.strictEqual(capitalize(""), "");
     assert.strictEqual(capitalize(null), null);
-    assert.strictEqual(capitalize(undefined), undefined);
+    assert.strictEqual(capitalize(), undefined);
     assert.strictEqual(capitalize(42), 42);
 });
 

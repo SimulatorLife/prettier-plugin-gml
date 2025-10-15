@@ -1,51 +1,28 @@
-import {
+export {
     collectCommentNodes,
-    getCommentArray,
     hasComment,
-    isBlockComment,
+    getCommentArray,
     isCommentNode,
+    isBlockComment,
     isDocCommentLine,
     isLineComment
 } from "../../../shared/comments.js";
-import {
+export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    DEFAULT_LINE_COMMENT_OPTIONS,
     getLineCommentCodeDetectionPatterns,
-    normalizeLineCommentOptions,
-    resolveLineCommentOptions
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    resolveLineCommentOptions,
+    normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
-import {
-    applyInlinePadding,
-    formatLineComment,
-    getLineCommentRawText,
-    normalizeDocCommentTypeAnnotations
-} from "./line-comment-formatting.js";
-import {
-    handleComments,
-    printComment,
-    printDanglingComments,
-    printDanglingCommentsAsGroup
-} from "./comment-printer.js";
-
 export {
     applyInlinePadding,
-    collectCommentNodes,
-    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    DEFAULT_LINE_COMMENT_OPTIONS,
-    formatLineComment,
-    getCommentArray,
-    getLineCommentCodeDetectionPatterns,
     getLineCommentRawText,
+    formatLineComment,
+    normalizeDocCommentTypeAnnotations
+} from "./line-comment-formatting.js";
+export {
     handleComments,
-    hasComment,
-    isBlockComment,
-    isCommentNode,
-    isDocCommentLine,
-    isLineComment,
-    normalizeDocCommentTypeAnnotations,
-    normalizeLineCommentOptions,
-    printComment,
     printDanglingComments,
-    printDanglingCommentsAsGroup,
-    resolveLineCommentOptions
-};
+    printComment,
+    printDanglingCommentsAsGroup
+} from "./comment-printer.js";

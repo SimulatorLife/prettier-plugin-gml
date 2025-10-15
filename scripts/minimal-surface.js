@@ -70,20 +70,20 @@ function analyzeFile(filePath) {
 
 function formatReportEntry(file, findings) {
     const lines = ["### " + file];
-    findings.forEach((finding) => {
+    for (const finding of findings) {
         if (finding.type === "wildcard-re-export") {
             lines.push(
                 "- Re-exports entire modules with `export * from` statements:"
             );
-            finding.occurrences.forEach((occurrence) => {
+            for (const occurrence of finding.occurrences) {
                 lines.push("  - `" + occurrence + "`");
-            });
+            }
         }
 
         if (finding.type === "large-named-export") {
             lines.push("- Exports a wide surface area via named exports:");
-            finding.occurrences.forEach((entry) => {
-                const sanitized = entry.raw.replace(/\s+/g, " ");
+            for (const entry of finding.occurrences) {
+                const sanitized = entry.raw.replaceAll(/\s+/g, " ");
                 lines.push(
                     "  - " +
                         entry.count +
@@ -93,9 +93,9 @@ function formatReportEntry(file, findings) {
                         " " +
                         entry.symbols.join(", ")
                 );
-            });
+            }
         }
-    });
+    }
 
     lines.push("");
     return lines.join("\n");
@@ -125,12 +125,12 @@ function main() {
     const indexFiles = getIndexFiles();
     const entries = [];
 
-    indexFiles.forEach((file) => {
+    for (const file of indexFiles) {
         const findings = analyzeFile(path.join(repoRoot, file));
         if (findings.length > 0) {
             entries.push(formatReportEntry(file, findings));
         }
-    });
+    }
 
     if (entries.length === 0) {
         const message = "No broad index exports found. No report generated.";

@@ -32,12 +32,12 @@
   ],
   "author": "Two Scoop Studio",
   "engines": {
-    "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+    "node": "^18.20.0 || ^20.18.1 || >=21.1.0"
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated .eslintcache",
-    "lint": "eslint . --cache",
-    "lint:fix": "eslint . --cache --fix",
+    "lint": "eslint . --cache --stats",
+    "lint:fix": "eslint . --cache --fix --prune-suppressions",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
@@ -61,6 +61,17 @@
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-no-secrets": "^2.2.1",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-regexp": "^2.10.0",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-sonarjs": "^3.0.5",
+    "eslint-plugin-unicorn": "^61.0.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.4.0",
     "husky": "^9.1.7",
     "prettier": "^3.6.2"
   }

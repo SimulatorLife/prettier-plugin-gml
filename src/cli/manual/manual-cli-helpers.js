@@ -66,13 +66,13 @@ export function renderProgressBar(
     const normalizedTotal = total > 0 ? total : 1;
     let bar = activeProgressBars.get(label);
 
-    if (!bar) {
+    if (bar) {
+        bar.setTotal(normalizedTotal);
+        bar.update(Math.min(current, normalizedTotal));
+    } else {
         bar = progressBarFactory(label, width);
         bar.start(normalizedTotal, Math.min(current, normalizedTotal));
         activeProgressBars.set(label, bar);
-    } else {
-        bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
     }
 
     if (current >= normalizedTotal) {

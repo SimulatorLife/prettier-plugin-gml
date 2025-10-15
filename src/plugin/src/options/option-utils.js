@@ -1,4 +1,3 @@
-import { normalizeStringList } from "../../../shared/string-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 
 function coercePositiveIntegerOption(
@@ -21,4 +20,5 @@ function coercePositiveIntegerOption(
     return defaultValue;
 }
 
-export { coercePositiveIntegerOption, normalizeStringList };
+export { coercePositiveIntegerOption };
+export { normalizeStringList } from "../../../shared/string-utils.js";

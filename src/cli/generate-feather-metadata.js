@@ -223,12 +223,12 @@ function normaliseMultilineText(text) {
     const lines = text.split("\n").map((line) => line.trim());
     const cleaned = [];
     for (const line of lines) {
-        if (!line) {
-            if (cleaned.length && cleaned[cleaned.length - 1] !== "") {
+        if (line) {
+            cleaned.push(line);
+        } else {
+            if (cleaned.length > 0 && cleaned.at(-1) !== "") {
                 cleaned.push("");
             }
-        } else {
-            cleaned.push(line);
         }
     }
     return cleaned.join("\n").trim();
@@ -243,7 +243,7 @@ function extractTable($, $node) {
             .map((_, cell) => {
                 const $cell = $(cell);
                 const lines = splitCellLines($cell);
-                if (!lines.length) {
+                if (lines.length === 0) {
                     return null;
                 }
                 return lines.join("\n");
@@ -257,7 +257,7 @@ function extractTable($, $node) {
             headers.push(
                 ...values
                     .map((value) => normaliseMultilineText(value))
-                    .filter((value) => Boolean(value))
+                    .filter(Boolean)
             );
             return;
         }
@@ -276,22 +276,40 @@ function createBlock($, node) {
     }
     const tagName = node.name?.toLowerCase() ?? "";
     let type = "html";
-    if (tagName === "p") {
-        if ($node.hasClass("code")) {
-            type = "code";
-        } else if ($node.hasClass("note") || $node.hasClass("warning")) {
-            type = "note";
-        } else {
-            type = "paragraph";
+    switch (tagName) {
+        case "p": {
+            if ($node.hasClass("code")) {
+                type = "code";
+            } else if ($node.hasClass("note") || $node.hasClass("warning")) {
+                type = "note";
+            } else {
+                type = "paragraph";
+            }
+
+            break;
         }
-    } else if (tagName === "h4" || tagName === "h5") {
-        type = "heading";
-    } else if (tagName === "ul" || tagName === "ol") {
-        type = "list";
-    } else if (tagName === "table") {
-        type = "table";
-    } else if (tagName === "div" && $node.hasClass("codeblock")) {
-        type = "code";
+        case "h4":
+        case "h5": {
+            type = "heading";
+
+            break;
+        }
+        case "ul":
+        case "ol": {
+            type = "list";
+
+            break;
+        }
+        case "table": {
+            type = "table";
+
+            break;
+        }
+        default: {
+            if (tagName === "div" && $node.hasClass("codeblock")) {
+                type = "code";
+            }
+        }
     }
 
     const preserveLineBreaks = type === "code" || type === "list";
@@ -303,7 +321,7 @@ function createBlock($, node) {
 
     const block = { type, text };
     if (tagName === "h4" || tagName === "h5") {
-        block.level = Number(tagName.substring(1));
+        block.level = Number(tagName.slice(1));
     }
     if (type === "list") {
         block.items = $node
@@ -313,7 +331,7 @@ function createBlock($, node) {
             )
             .get()
             .filter(Boolean);
-        if (!block.items.length && !text) {
+        if (block.items.length === 0 && !text) {
             return null;
         }
     }
@@ -326,16 +344,14 @@ function createBlock($, node) {
 function extractText($node, { preserveLineBreaks = false } = {}) {
     const clone = $node.clone();
     clone.find("br").replaceWith("\n");
-    let text = clone.text().replace(/\u00a0/g, " ");
-    if (preserveLineBreaks) {
-        text = text
-            .split("\n")
-            .map((line) => line.trimEnd())
-            .join("\n")
-            .trim();
-    } else {
-        text = text.replace(/\s+/g, " ").trim();
-    }
+    let text = clone.text().replaceAll("\u00A0", " ");
+    text = preserveLineBreaks
+        ? text
+              .split("\n")
+              .map((line) => line.trimEnd())
+              .join("\n")
+              .trim()
+        : text.replaceAll(/\s+/g, " ").trim();
     return text;
 }
 
@@ -409,10 +425,10 @@ function normaliseContent(blocks) {
         if (block.type === "list") {
             const items = Array.isArray(block.items)
                 ? block.items
-                    .map((item) => normaliseMultilineText(item))
-                    .filter(Boolean)
+                      .map((item) => normaliseMultilineText(item))
+                      .filter(Boolean)
                 : [];
-            if (items.length) {
+            if (items.length > 0) {
                 content.lists.push(items);
             }
             continue;
@@ -451,10 +467,7 @@ function parseDiagnostics(html) {
     const $ = load(html);
     const diagnostics = [];
     $("h3").each((_, element) => {
-        const headingText = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
+        const headingText = $(element).text().replaceAll("\u00A0", " ").trim();
         const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
         if (!match) {
             return;
@@ -473,9 +486,9 @@ function parseDiagnostics(html) {
         );
 
         let trailingStart = blocks.length;
-        if (exampleHeadingIndex >= 0) {
+        if (exampleHeadingIndex !== -1) {
             trailingStart = exampleHeadingIndex + 1;
-        } else if (firstCodeIndex >= 0) {
+        } else if (firstCodeIndex !== -1) {
             trailingStart = firstCodeIndex;
         }
 
@@ -508,10 +521,10 @@ function parseDiagnostics(html) {
                 }
                 if (!badExample) {
                     badExample = codeText;
-                } else if (!goodExample) {
-                    goodExample = codeText;
-                } else {
+                } else if (goodExample) {
                     goodExample = `${goodExample}\n\n${codeText}`.trim();
+                } else {
+                    goodExample = codeText;
                 }
                 continue;
             }
@@ -519,10 +532,10 @@ function parseDiagnostics(html) {
             if (!text) {
                 continue;
             }
-            if (!badExample) {
-                descriptionParts.push(text);
-            } else {
+            if (badExample) {
                 correctionParts.push(text);
+            } else {
+                descriptionParts.push(text);
             }
         }
 
@@ -579,7 +592,7 @@ function parseNamingRules(html) {
         mainList.find("li > strong").each((_, strongEl) => {
             const strongText = $(strongEl)
                 .text()
-                .replace(/\u00a0/g, " ")
+                .replaceAll("\u00A0", " ")
                 .trim();
             const listItem = $(strongEl).closest("li");
             if (strongText === "Naming Style") {
@@ -613,7 +626,7 @@ function parseNamingRules(html) {
                     .children("strong")
                     .first()
                     .text()
-                    .replace(/\u00a0/g, " ")
+                    .replaceAll("\u00A0", " ")
                     .trim() || null;
             const description = extractText($item, {
                 preserveLineBreaks: true
@@ -634,7 +647,7 @@ function parseNamingRules(html) {
             }
             const nestedList = $item.find("ul").first();
             let options = [];
-            if (nestedList.length) {
+            if (nestedList.length > 0) {
                 options = nestedList
                     .children("li")
                     .map((__, option) =>
@@ -674,8 +687,8 @@ function parseNamingRules(html) {
 function slugify(text) {
     return text
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
+        .replaceAll(/[^a-z0-9]+/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
         .slice(0, 64);
 }
 
@@ -683,10 +696,7 @@ function parseDirectiveSections(html) {
     const $ = load(html);
     const sections = [];
     $("h2").each((_, element) => {
-        const title = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
+        const title = $(element).text().replaceAll("\u00A0", " ").trim();
         if (!title) {
             return;
         }
@@ -712,9 +722,9 @@ function splitCellLines($cell) {
     clone.find("br").replaceWith("\n");
     return clone
         .text()
-        .replace(/\u00a0/g, " ")
+        .replaceAll("\u00A0", " ")
         .split("\n")
-        .map((line) => line.replace(/\s+/g, " ").trim())
+        .map((line) => line.replaceAll(/\s+/g, " ").trim())
         .filter(Boolean);
 }
 
@@ -770,16 +780,16 @@ function parseTypeValidationTable($, table) {
                 return;
             }
             const results = {};
-            columns.forEach((column, columnIndex) => {
+            for (const [columnIndex, column] of columns.entries()) {
                 const cell = cells.eq(columnIndex + 1);
                 const outcome =
                     extractText(cell, { preserveLineBreaks: false }) || null;
                 const style = cell.attr("style") || null;
                 results[column] = {
                     outcome,
-                    style: style?.replace(/\s+/g, " ").trim() || null
+                    style: style?.replaceAll(/\s+/g, " ").trim() || null
                 };
-            });
+            }
             rows.push({ from, results });
         });
 
@@ -809,9 +819,8 @@ function parseTypeSystem(html) {
 
     const tables = $("table");
     const baseTypeTable = tables.eq(0);
-    const baseTypes = baseTypeTable.length
-        ? parseBaseTypeTable($, baseTypeTable)
-        : [];
+    const baseTypes =
+        baseTypeTable.length > 0 ? parseBaseTypeTable($, baseTypeTable) : [];
 
     const noteBlocks = $("p.note")
         .map((_, element) => createBlock($, element))
@@ -823,10 +832,7 @@ function parseTypeSystem(html) {
 
     const specifierSections = [];
     $("h3").each((_, element) => {
-        const title = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
+        const title = $(element).text().replaceAll("\u00A0", " ").trim();
         if (!title) {
             return;
         }
@@ -877,13 +883,13 @@ function parseTypeSystem(html) {
         specifierSections,
         typeValidation: typeValidation
             ? {
-                description:
+                  description:
                       joinSections(typeValidationContent.paragraphs) || null,
-                notes: typeValidationContent.notes,
-                codeExamples: typeValidationContent.codeExamples,
-                lists: typeValidationContent.lists,
-                table: typeValidation
-            }
+                  notes: typeValidationContent.notes,
+                  codeExamples: typeValidationContent.codeExamples,
+                  lists: typeValidationContent.lists,
+                  table: typeValidation
+              }
             : null
     };
 }

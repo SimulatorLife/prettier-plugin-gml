@@ -25,7 +25,7 @@ export function toTrimmedString(value) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == null) {
+    if (value == undefined) {
         return "";
     }
 
@@ -69,7 +69,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == null) {
+    if (value == undefined) {
         return [];
     }
 

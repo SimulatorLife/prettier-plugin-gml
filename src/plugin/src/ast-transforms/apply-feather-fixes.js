@@ -159,7 +159,9 @@ export function preprocessSourceForFeatherFixes(sourceText) {
             return { line, context: pendingGM1100Context };
         }
 
-        const booleanLiteralMatch = line.match(/^(\s*)(true|false)\s*;?\s*$/);
+        const booleanLiteralMatch = line.match(
+            /^(\s*)(true|false)\s*(?:;\s*)?$/
+        );
 
         if (booleanLiteralMatch) {
             const leadingWhitespace = booleanLiteralMatch[1] ?? "";
@@ -589,10 +591,12 @@ function isBreakableConstruct(node) {
         case "RepeatStatement":
         case "SwitchStatement":
         case "WhileStatement":
-        case "WithStatement":
+        case "WithStatement": {
             return true;
-        default:
+        }
+        default: {
             return false;
+        }
     }
 }
 
@@ -1542,12 +1546,11 @@ function shouldConvertIdentifierInWith(identifier, parent, property) {
     }
 
     if (
-        parent.type === "FunctionDeclaration" ||
-        parent.type === "FunctionExpression"
+        (parent.type === "FunctionDeclaration" ||
+            parent.type === "FunctionExpression") &&
+        (property === "name" || property === "id")
     ) {
-        if (property === "name" || property === "id") {
-            return false;
-        }
+        return false;
     }
 
     if (parent.type === "StructLiteralMember" && property === "key") {
@@ -2250,9 +2253,9 @@ function sanitizeEnumMember(node, diagnostic) {
         range:
             typeof startIndex === "number" && typeof originalEnd === "number"
                 ? {
-                    start: startIndex,
-                    end: originalEnd
-                }
+                      start: startIndex,
+                      end: originalEnd
+                  }
                 : null
     });
 
@@ -2266,7 +2269,7 @@ function sanitizeEnumMember(node, diagnostic) {
 }
 
 function hasInvalidEnumInitializer(initializer) {
-    if (initializer == null) {
+    if (initializer == undefined) {
         return false;
     }
 
@@ -2702,9 +2705,9 @@ function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? {
-                start: startIndex,
-                end: endIndex
-            }
+                  start: startIndex,
+                  end: endIndex
+              }
             : null;
 
     const targetText = getSourceTextSlice({
@@ -3050,7 +3053,7 @@ function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
 
 function createReadOnlyReplacementName(originalName, nameRegistry) {
     const baseName = isNonEmptyString(originalName) ? originalName : "value";
-    const sanitized = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+    const sanitized = baseName.replaceAll(/[^a-zA-Z0-9_]/g, "_");
     let candidate = `__feather_${sanitized}`;
     let suffix = 1;
 
@@ -4196,17 +4199,15 @@ function shouldSkipDeprecatedIdentifierReplacement({
         return true;
     }
 
-    if (Array.isArray(parent)) {
-        if (ownerKey === "params") {
-            const ownerType = owner?.type;
+    if (Array.isArray(parent) && ownerKey === "params") {
+        const ownerType = owner?.type;
 
-            if (
-                ownerType === "FunctionDeclaration" ||
-                ownerType === "FunctionExpression" ||
-                ownerType === "ConstructorDeclaration"
-            ) {
-                return true;
-            }
+        if (
+            ownerType === "FunctionDeclaration" ||
+            ownerType === "FunctionExpression" ||
+            ownerType === "ConstructorDeclaration"
+        ) {
+            return true;
         }
     }
 
@@ -4698,7 +4699,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
 
         const segment = sourceText.slice(startIndex, endIndex);
 
-        if (!segment || segment.indexOf(";") === -1) {
+        if (!segment || !segment.includes(";")) {
             return;
         }
 
@@ -4727,11 +4728,10 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
                 processSegment(container, previousEnd, statementStart);
             }
 
-            if (typeof statementEnd === "number") {
-                previousEnd = statementEnd;
-            } else {
-                previousEnd = statementStart;
-            }
+            previousEnd =
+                typeof statementEnd === "number"
+                    ? statementEnd
+                    : statementStart;
         }
 
         if (typeof previousEnd === "number" && typeof bounds.end === "number") {
@@ -4779,30 +4779,41 @@ function getStatementListBounds(node, sourceText) {
     let start = getNodeStartIndex(node);
     let end = getNodeEndIndex(node);
 
-    if (node.type === "Program") {
-        start = 0;
-        end = sourceText.length;
-    } else if (node.type === "BlockStatement") {
-        if (typeof start === "number" && sourceText[start] === "{") {
-            start += 1;
-        }
+    switch (node.type) {
+        case "Program": {
+            start = 0;
+            end = sourceText.length;
 
-        if (typeof end === "number" && sourceText[end - 1] === "}") {
-            end -= 1;
+            break;
         }
-    } else if (node.type === "SwitchCase") {
-        if (typeof start === "number") {
-            const colonIndex = findCharacterInRange(
-                sourceText,
-                ":",
-                start,
-                end
-            );
-
-            if (colonIndex !== -1) {
-                start = colonIndex + 1;
+        case "BlockStatement": {
+            if (typeof start === "number" && sourceText[start] === "{") {
+                start += 1;
             }
+
+            if (typeof end === "number" && sourceText[end - 1] === "}") {
+                end -= 1;
+            }
+
+            break;
         }
+        case "SwitchCase": {
+            if (typeof start === "number") {
+                const colonIndex = findCharacterInRange(
+                    sourceText,
+                    ":",
+                    start,
+                    end
+                );
+
+                if (colonIndex !== -1) {
+                    start = colonIndex + 1;
+                }
+            }
+
+            break;
+        }
+        // No default
     }
 
     return {
@@ -5451,9 +5462,7 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
         }
 
         if (node.type === "BlockStatement") {
-            if (!bestMatch) {
-                bestMatch = node;
-            } else {
+            if (bestMatch) {
                 const bestStart = getNodeStartIndex(bestMatch);
                 const bestEnd = getNodeEndIndex(bestMatch);
 
@@ -5464,6 +5473,8 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
                 ) {
                     bestMatch = node;
                 }
+            } else {
+                bestMatch = node;
             }
         }
 
@@ -5504,7 +5515,7 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
         return null;
     }
 
-    const lastToken = tokens[tokens.length - 1];
+    const lastToken = tokens.at(-1);
     if (lastToken !== ";") {
         return null;
     }
@@ -5528,7 +5539,7 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
         return null;
     }
 
-    node.tokens = tokens.slice(0, tokens.length - 1);
+    node.tokens = tokens.slice(0, -1);
     node._featherMacroText = sanitizedText;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -5761,7 +5772,7 @@ function preserveTrailingCommentAlignmentForVarDeclaration({
         sourceText
     );
 
-    if (commentStartIndex == null) {
+    if (commentStartIndex == undefined) {
         return;
     }
 
@@ -6349,7 +6360,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        const scope = scopeStack[scopeStack.length - 1];
+        const scope = scopeStack.at(-1);
 
         if (!scope) {
             return true;
@@ -6799,7 +6810,7 @@ function replaceNodeInParent(parent, property, replacement) {
         return true;
     }
 
-    if (parent && typeof parent === "object" && property != null) {
+    if (parent && typeof parent === "object" && property != undefined) {
         parent[property] = replacement;
         return true;
     }
@@ -7419,11 +7430,9 @@ function convertForLoopToRepeat(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (Array.isArray(parent)) {
-        parent[property] = repeatStatement;
-    } else {
-        parent[property] = repeatStatement;
-    }
+    parent[property] = Array.isArray(parent)
+        ? repeatStatement
+        : repeatStatement;
 
     attachFeatherFixMetadata(repeatStatement, [fixDetail]);
 
@@ -7684,7 +7693,7 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
         }
 
         const nextAncestors = Array.isArray(ancestors)
-            ? ancestors.concat([{ node, parent, property }])
+            ? [...ancestors, { node, parent, property }]
             : [{ node, parent, property }];
 
         if (Array.isArray(node)) {
@@ -7744,9 +7753,7 @@ function normalizeCallExpressionArguments({
 
     const callArgumentInfos = [];
 
-    for (let index = 0; index < args.length; index += 1) {
-        const argument = args[index];
-
+    for (const [index, argument] of args.entries()) {
         if (!argument || argument.type !== "CallExpression") {
             continue;
         }
@@ -9009,10 +9016,12 @@ function containsFileFindFirstCall(node) {
     }
 
     for (const value of Object.values(node)) {
-        if (value && typeof value === "object") {
-            if (containsFileFindFirstCall(value)) {
-                return true;
-            }
+        if (
+            value &&
+            typeof value === "object" &&
+            containsFileFindFirstCall(value)
+        ) {
+            return true;
         }
     }
 
@@ -9298,11 +9307,10 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             }
         } else if (
             node.type === "FunctionDeclaration" &&
-            typeof node.id === "string"
+            typeof node.id === "string" &&
+            !functions.has(node.id)
         ) {
-            if (!functions.has(node.id)) {
-                functions.set(node.id, node);
-            }
+            functions.set(node.id, node);
         }
 
         for (const value of Object.values(node)) {
@@ -9338,55 +9346,47 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             if (parentClause && typeof parentClause === "object") {
                 const parentName = parentClause.id;
 
-                if (isNonEmptyString(parentName)) {
-                    if (!constructors.has(parentName)) {
-                        const fallback = functions.get(parentName);
+                if (
+                    isNonEmptyString(parentName) &&
+                    !constructors.has(parentName)
+                ) {
+                    const fallback = functions.get(parentName);
 
-                        if (
-                            fallback &&
-                            fallback.type === "FunctionDeclaration"
-                        ) {
-                            fallback.type = "ConstructorDeclaration";
+                    if (fallback && fallback.type === "FunctionDeclaration") {
+                        fallback.type = "ConstructorDeclaration";
 
-                            if (!Object.hasOwn(fallback, "parent")) {
-                                fallback.parent = null;
+                        if (!Object.hasOwn(fallback, "parent")) {
+                            fallback.parent = null;
+                        }
+
+                        constructors.set(parentName, fallback);
+                        functions.delete(parentName);
+
+                        const fixDetail = createFeatherFixDetail(diagnostic, {
+                            target: parentName,
+                            range: {
+                                start: getNodeStartIndex(fallback),
+                                end: getNodeEndIndex(fallback)
                             }
+                        });
 
-                            constructors.set(parentName, fallback);
-                            functions.delete(parentName);
-
-                            const fixDetail = createFeatherFixDetail(
-                                diagnostic,
-                                {
-                                    target: parentName,
-                                    range: {
-                                        start: getNodeStartIndex(fallback),
-                                        end: getNodeEndIndex(fallback)
-                                    }
-                                }
-                            );
-
-                            if (fixDetail) {
-                                attachFeatherFixMetadata(fallback, [fixDetail]);
-                                fixes.push(fixDetail);
+                        if (fixDetail) {
+                            attachFeatherFixMetadata(fallback, [fixDetail]);
+                            fixes.push(fixDetail);
+                        }
+                    } else {
+                        const fixDetail = createFeatherFixDetail(diagnostic, {
+                            target: parentName,
+                            range: {
+                                start: getNodeStartIndex(parentClause),
+                                end: getNodeEndIndex(parentClause)
                             }
-                        } else {
-                            const fixDetail = createFeatherFixDetail(
-                                diagnostic,
-                                {
-                                    target: parentName,
-                                    range: {
-                                        start: getNodeStartIndex(parentClause),
-                                        end: getNodeEndIndex(parentClause)
-                                    }
-                                }
-                            );
+                        });
 
-                            if (fixDetail) {
-                                node.parent = null;
-                                attachFeatherFixMetadata(node, [fixDetail]);
-                                fixes.push(fixDetail);
-                            }
+                        if (fixDetail) {
+                            node.parent = null;
+                            attachFeatherFixMetadata(node, [fixDetail]);
+                            fixes.push(fixDetail);
                         }
                     }
                 }
@@ -9737,7 +9737,7 @@ function liftDrawPrimitiveEndCallFromConditional(
 
     if (
         branchWithCall.matches.length !== 1 ||
-        branchWithoutCall.matches.length !== 0
+        branchWithoutCall.matches.length > 0
     ) {
         return null;
     }
@@ -9820,9 +9820,7 @@ function getDrawPrimitiveEndCallInfo(block) {
     const body = getBodyStatements(block);
     const matches = [];
 
-    for (let index = 0; index < body.length; index += 1) {
-        const statement = body[index];
-
+    for (const [index, statement] of body.entries()) {
         if (isDrawPrimitiveEndCall(statement)) {
             matches.push({ index, node: statement });
         }
@@ -11963,7 +11961,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
             functionName: callExpression.object.name,
             argumentTemplate: cloneNodeWithoutLocations(args[0])
         };
-    } catch (error) {
+    } catch {
         return null;
     }
 }
@@ -12133,7 +12131,7 @@ function isCoercibleStringLiteral(node) {
         literalText = rawValue.slice(2, -1);
     } else if (rawValue.length >= 2) {
         const startingQuote = rawValue[0];
-        const endingQuote = rawValue[rawValue.length - 1];
+        const endingQuote = rawValue.at(-1);
 
         if (
             (startingQuote === '"' || startingQuote === "'") &&
@@ -12143,7 +12141,7 @@ function isCoercibleStringLiteral(node) {
         }
     }
 
-    if (literalText == null) {
+    if (literalText == undefined) {
         return false;
     }
 
@@ -12567,10 +12565,12 @@ function isExitLikeStatement(node) {
     switch (node.type) {
         case "ReturnStatement":
         case "ThrowStatement":
-        case "ExitStatement":
+        case "ExitStatement": {
             return true;
-        default:
+        }
+        default: {
             return false;
+        }
     }
 }
 
@@ -12614,7 +12614,7 @@ function hasOriginalBlankLineBetween(beforeNode, afterNode) {
             ? afterNode.start.line
             : null;
 
-    if (beforeEndLine == null || afterStartLine == null) {
+    if (beforeEndLine == undefined || afterStartLine == undefined) {
         return false;
     }
 
@@ -12879,8 +12879,9 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
                 }
                 break;
             }
-            default:
+            default: {
                 break;
+            }
         }
     }
 
@@ -12959,12 +12960,14 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         switch (statement.type) {
-            case "CallExpression":
+            case "CallExpression": {
                 return isIdentifierWithName(statement.object, "file_find_first")
                     ? statement
                     : null;
-            case "AssignmentExpression":
+            }
+            case "AssignmentExpression": {
                 return getFileFindFirstCallFromExpression(statement.right);
+            }
             case "VariableDeclaration": {
                 const declarations = Array.isArray(statement.declarations)
                     ? statement.declarations
@@ -12981,12 +12984,15 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
                 return null;
             }
             case "ReturnStatement":
-            case "ThrowStatement":
+            case "ThrowStatement": {
                 return getFileFindFirstCallFromExpression(statement.argument);
-            case "ExpressionStatement":
+            }
+            case "ExpressionStatement": {
                 return getFileFindFirstCallFromExpression(statement.expression);
-            default:
+            }
+            default: {
                 return null;
+            }
         }
     }
 
@@ -13297,7 +13303,7 @@ function hasTrailingGpuPopInAlternate(alternate) {
             return false;
         }
 
-        return isGpuPopStateCallStatement(body[body.length - 1]);
+        return isGpuPopStateCallStatement(body.at(-1));
     }
 
     if (alternate.type === "IfStatement") {
@@ -13674,7 +13680,7 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
         if (isVertexFormatBeginCall(statement)) {
             if (openBegins.length > 0) {
-                const previousBegin = openBegins[openBegins.length - 1];
+                const previousBegin = openBegins.at(-1);
 
                 if (previousBegin && previousBegin !== statement) {
                     const fixDetail = insertVertexFormatEndBefore(
@@ -13691,7 +13697,7 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
                 }
             }
 
-            if (openBegins[openBegins.length - 1] !== statement) {
+            if (openBegins.at(-1) !== statement) {
                 openBegins.push(statement);
             }
             continue;
@@ -13782,8 +13788,8 @@ function countVertexFormatEndCalls(node) {
         }
 
         if (Array.isArray(current)) {
-            for (let index = 0; index < current.length; index += 1) {
-                stack.push(current[index]);
+            for (const element of current) {
+                stack.push(element);
             }
             continue;
         }
@@ -14517,16 +14523,16 @@ function copyCommentMetadata(source, target) {
         return;
     }
 
-    [
+    for (const key of [
         "leadingComments",
         "trailingComments",
         "innerComments",
         "comments"
-    ].forEach((key) => {
+    ]) {
         if (Object.hasOwn(source, key)) {
             target[key] = source[key];
         }
-    });
+    }
 }
 
 function extractIdentifierNameFromLiteral(value) {
@@ -14552,7 +14558,7 @@ function stripStringQuotes(value) {
     }
 
     const firstChar = value[0];
-    const lastChar = value[value.length - 1];
+    const lastChar = value.at(-1);
 
     if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
         return value.slice(1, -1);
@@ -15029,9 +15035,7 @@ function createColourWriteEnableResetCall(template) {
 
     for (let index = 0; index < 4; index += 1) {
         const argumentTemplate =
-            templateArgs[index] ??
-            templateArgs[templateArgs.length - 1] ??
-            template;
+            templateArgs[index] ?? templateArgs.at(-1) ?? template;
         const literalTrue = createLiteral("true", argumentTemplate);
         argumentsList.push(literalTrue);
     }
@@ -15488,11 +15492,7 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
 
     const rawValue = typeof comment.value === "string" ? comment.value : "";
 
-    if (
-        !rawValue ||
-        rawValue.indexOf("@") === -1 ||
-        rawValue.indexOf("{") === -1
-    ) {
+    if (!rawValue || !rawValue.includes("@") || !rawValue.includes("{")) {
         return null;
     }
 
@@ -15601,18 +15601,38 @@ function splitTypeAndRemainder(text) {
     for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
 
-        if (char === "[") {
-            depthSquare += 1;
-        } else if (char === "]") {
-            depthSquare = Math.max(0, depthSquare - 1);
-        } else if (char === "<") {
-            depthAngle += 1;
-        } else if (char === ">") {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (char === "(") {
-            depthParen += 1;
-        } else if (char === ")") {
-            depthParen = Math.max(0, depthParen - 1);
+        switch (char) {
+            case "[": {
+                depthSquare += 1;
+
+                break;
+            }
+            case "]": {
+                depthSquare = Math.max(0, depthSquare - 1);
+
+                break;
+            }
+            case "<": {
+                depthAngle += 1;
+
+                break;
+            }
+            case ">": {
+                depthAngle = Math.max(0, depthAngle - 1);
+
+                break;
+            }
+            case "(": {
+                depthParen += 1;
+
+                break;
+            }
+            case ")": {
+                depthParen = Math.max(0, depthParen - 1);
+
+                break;
+            }
+            // No default
         }
 
         if (
@@ -15662,16 +15682,32 @@ function balanceTypeAnnotationDelimiters(typeText) {
     const stack = [];
 
     for (const char of typeText) {
-        if (char === "[") {
-            stack.push("]");
-        } else if (char === "<") {
-            stack.push(">");
-        } else if (char === "(") {
-            stack.push(")");
-        } else if (char === "]" || char === ">" || char === ")") {
-            if (stack.length > 0 && stack[stack.length - 1] === char) {
-                stack.pop();
+        switch (char) {
+            case "[": {
+                stack.push("]");
+
+                break;
             }
+            case "<": {
+                stack.push(">");
+
+                break;
+            }
+            case "(": {
+                stack.push(")");
+
+                break;
+            }
+            case "]":
+            case ">":
+            case ")": {
+                if (stack.length > 0 && stack.at(-1) === char) {
+                    stack.pop();
+                }
+
+                break;
+            }
+            // No default
         }
     }
 
@@ -15715,11 +15751,9 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         const specifierInfo = readSpecifierToken(remainder);
 
         if (specifierInfo) {
-            if (specifierInfo.needsDot) {
-                result += `.${specifierInfo.token}`;
-            } else {
-                result += remainder.slice(0, specifierInfo.consumedLength);
-            }
+            result += specifierInfo.needsDot
+                ? `.${specifierInfo.token}`
+                : remainder.slice(0, specifierInfo.consumedLength);
 
             regex.lastIndex = matchEnd + specifierInfo.consumedLength;
             lastIndex = regex.lastIndex;
@@ -15789,18 +15823,38 @@ function readSpecifierToken(text) {
             break;
         }
 
-        if (char === "[") {
-            depthSquare += 1;
-        } else if (char === "]") {
-            depthSquare = Math.max(0, depthSquare - 1);
-        } else if (char === "<") {
-            depthAngle += 1;
-        } else if (char === ">") {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (char === "(") {
-            depthParen += 1;
-        } else if (char === ")") {
-            depthParen = Math.max(0, depthParen - 1);
+        switch (char) {
+            case "[": {
+                depthSquare += 1;
+
+                break;
+            }
+            case "]": {
+                depthSquare = Math.max(0, depthSquare - 1);
+
+                break;
+            }
+            case "<": {
+                depthAngle += 1;
+
+                break;
+            }
+            case ">": {
+                depthAngle = Math.max(0, depthAngle - 1);
+
+                break;
+            }
+            case "(": {
+                depthParen += 1;
+
+                break;
+            }
+            case ")": {
+                depthParen = Math.max(0, depthParen - 1);
+
+                break;
+            }
+            // No default
         }
 
         token += char;
@@ -15876,21 +15930,39 @@ function splitTypeSegments(text) {
     let depthAngle = 0;
     let depthParen = 0;
 
-    for (let index = 0; index < text.length; index += 1) {
-        const char = text[index];
+    for (const char of text) {
+        switch (char) {
+            case "[": {
+                depthSquare += 1;
 
-        if (char === "[") {
-            depthSquare += 1;
-        } else if (char === "]") {
-            depthSquare = Math.max(0, depthSquare - 1);
-        } else if (char === "<") {
-            depthAngle += 1;
-        } else if (char === ">") {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (char === "(") {
-            depthParen += 1;
-        } else if (char === ")") {
-            depthParen = Math.max(0, depthParen - 1);
+                break;
+            }
+            case "]": {
+                depthSquare = Math.max(0, depthSquare - 1);
+
+                break;
+            }
+            case "<": {
+                depthAngle += 1;
+
+                break;
+            }
+            case ">": {
+                depthAngle = Math.max(0, depthAngle - 1);
+
+                break;
+            }
+            case "(": {
+                depthParen += 1;
+
+                break;
+            }
+            case ")": {
+                depthParen = Math.max(0, depthParen - 1);
+
+                break;
+            }
+            // No default
         }
 
         if (
@@ -15927,18 +15999,38 @@ function hasDelimiterOutsideNesting(text, delimiters) {
     let depthParen = 0;
 
     for (const char of text) {
-        if (char === "[") {
-            depthSquare += 1;
-        } else if (char === "]") {
-            depthSquare = Math.max(0, depthSquare - 1);
-        } else if (char === "<") {
-            depthAngle += 1;
-        } else if (char === ">") {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (char === "(") {
-            depthParen += 1;
-        } else if (char === ")") {
-            depthParen = Math.max(0, depthParen - 1);
+        switch (char) {
+            case "[": {
+                depthSquare += 1;
+
+                break;
+            }
+            case "]": {
+                depthSquare = Math.max(0, depthSquare - 1);
+
+                break;
+            }
+            case "<": {
+                depthAngle += 1;
+
+                break;
+            }
+            case ">": {
+                depthAngle = Math.max(0, depthAngle - 1);
+
+                break;
+            }
+            case "(": {
+                depthParen += 1;
+
+                break;
+            }
+            case ")": {
+                depthParen = Math.max(0, depthParen - 1);
+
+                break;
+            }
+            // No default
         }
 
         if (
@@ -15983,7 +16075,7 @@ function sanitizeIdentifierName(name) {
         return "value";
     }
 
-    let sanitized = name.replace(/[^A-Za-z0-9_]/g, "_");
+    let sanitized = name.replaceAll(/[^A-Za-z0-9_]/g, "_");
 
     if (!/^[A-Za-z_]/.test(sanitized)) {
         sanitized = `value_${sanitized}`;
@@ -16437,7 +16529,7 @@ function buildMacroReplacementText({
     if (isNonEmptyString(originalName)) {
         const nameIndex = baseText.indexOf(originalName);
 
-        if (nameIndex >= 0) {
+        if (nameIndex !== -1) {
             return (
                 baseText.slice(0, nameIndex) +
                 replacement +
@@ -17142,7 +17234,7 @@ function getNodeStartLine(node) {
         return location.line;
     }
 
-    return undefined;
+    return;
 }
 
 function collectGM1100Candidates(node) {

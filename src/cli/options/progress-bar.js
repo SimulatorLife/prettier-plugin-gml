@@ -25,4 +25,4 @@ export function resolveProgressBarWidth(rawValue) {
     });
 }
 
-export { DEFAULT_PROGRESS_BAR_WIDTH };
+export { DEFAULT_PROGRESS_BAR_WIDTH } from "../manual/progress-bar-constants.js";

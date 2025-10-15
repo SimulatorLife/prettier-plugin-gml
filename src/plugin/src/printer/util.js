@@ -1,6 +1,5 @@
 import { util } from "prettier";
 import { toTrimmedString } from "../../../shared/string-utils.js";
-import { hasComment } from "../comments/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -29,7 +28,7 @@ function isLastStatement(path) {
         return true;
     }
     const node = path.getValue();
-    return body[body.length - 1] === node;
+    return body.at(-1) === node;
 }
 
 function getParentNodeListProperty(path) {
@@ -127,8 +126,8 @@ export {
     isLastStatement,
     optionalSemicolon,
     getNormalizedDefineReplacementDirective,
-    hasComment,
     isNextLineEmpty,
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement
 };
+export { hasComment } from "../comments/index.js";

@@ -179,7 +179,7 @@ function runIdentifierTextBenchmark() {
 }
 
 async function runProjectIndexMemoryMeasurement({ projectRoot }) {
-    if (typeof global.gc !== "function") {
+    if (typeof globalThis.gc !== "function") {
         return {
             skipped: true,
             reason: "Garbage collection is not exposed. Run with 'node --expose-gc' to enable the memory benchmark."
@@ -206,7 +206,7 @@ async function runProjectIndexMemoryMeasurement({ projectRoot }) {
         }
     };
 
-    global.gc();
+    globalThis.gc();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const before = process.memoryUsage().heapUsed;
 
@@ -215,7 +215,7 @@ async function runProjectIndexMemoryMeasurement({ projectRoot }) {
         fsFacade
     );
 
-    global.gc();
+    globalThis.gc();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const after = process.memoryUsage().heapUsed;
 

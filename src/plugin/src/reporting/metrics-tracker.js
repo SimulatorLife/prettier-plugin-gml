@@ -5,7 +5,7 @@ const hasHrtime = typeof process?.hrtime?.bigint === "function";
 function nowMs() {
     if (hasHrtime) {
         const ns = process.hrtime.bigint();
-        return Number(ns / 1000000n);
+        return Number(ns / 1_000_000n);
     }
     return Date.now();
 }

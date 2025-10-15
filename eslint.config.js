@@ -1,29 +1,74 @@
 import js from "@eslint/js";
-import { Legacy } from "@eslint/eslintrc/universal";
+import globals from "globals";
 
-const browserGlobals = Legacy.environments.get("browser")?.globals ?? {};
-const nodeGlobals = Legacy.environments.get("node")?.globals ?? {};
+/* Plugins (all optional but used for stricter scans) */
+import pluginUnicorn from "eslint-plugin-unicorn";
+import pluginSonarjs from "eslint-plugin-sonarjs";
+import pluginSecurity from "eslint-plugin-security";
+import pluginImport from "eslint-plugin-import";
+import pluginPromise from "eslint-plugin-promise";
+import pluginRegexp from "eslint-plugin-regexp";
+import pluginNoSecrets from "eslint-plugin-no-secrets";
+import pluginEslintComments from "eslint-plugin-eslint-comments";
+
+/* Config */
+import eslintConfigPrettier from "eslint-config-prettier";
 
 export default [
     {
         ignores: [
             "node_modules/*",
             "build/*",
+            "*.md",
+            ".antlr/*",
+            "resources/*",
             "src/vendor/*.js",
             "generated/*",
-            "src/parser/src/generated/**/*"
+            "src/parser/src/generated/**/*",
+            "*.gml",
+            ".DS_Store",
+            "LICENSE",
+            ".github/**",
+            "*.g4"
         ]
     },
+
+    /* Base ESLint recommended */
     js.configs.recommended,
+
+    /* ESLint plugin: unicorn recommended rules.
+     * This brings in { plugins: { unicorn: … }, rules: { unicorn/* … } } */
+    pluginUnicorn.configs.recommended,
+
+    pluginPromise.configs["flat/recommended"],
+
     {
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: "module",
             globals: {
-                ...browserGlobals,
-                ...nodeGlobals
+                ...globals.node,
+                ...globals.browser
             }
         },
+
+        /* Needed for plugin rules */
+        plugins: {
+            sonarjs: pluginSonarjs,
+            security: pluginSecurity,
+            import: pluginImport,
+            regexp: pluginRegexp,
+            "no-secrets": pluginNoSecrets,
+            "eslint-comments": pluginEslintComments
+        },
+
+        /* Helpful for import/plugin-import */
+        settings: {
+            "import/resolver": {
+                node: { extensions: [".js", ".cjs", ".mjs"] }
+            }
+        },
+
         rules: {
             indent: ["error", 4, { SwitchCase: 1 }],
             quotes: ["warn", "double", { avoidEscape: true }],
@@ -32,37 +77,120 @@ export default [
             "no-console": ["off"],
             "comma-dangle": ["error", "never"],
             "no-prototype-builtins": ["off"],
-            "no-useless-escape": ["off"]
+            "no-useless-escape": ["off"],
+            "no-with": ["error"],
+
+            /* --- core "bad practice" rules --- */
+            complexity: ["error", { max: 12 }],
+            "max-depth": ["error", 3],
+            "max-lines": ["warn", 500],
+            "max-lines-per-function": ["error", 90],
+            "max-params": ["warn", 4],
+            "max-statements": ["warn", 20],
+            "require-atomic-updates": "error",
+            "no-implicit-coercion": ["error", { boolean: false }], // allow !!
+            "no-implied-eval": "error",
+            "no-param-reassign": ["warn", { props: true }],
+            "no-return-assign": ["warn", "always"],
+            "no-throw-literal": "error",
+            "no-constructor-return": "warn",
+            "no-warning-comments": [
+                "warn",
+                { terms: ["todo", "fixme"], location: "start" }
+            ],
+            "no-restricted-syntax": [
+                "error",
+                {
+                    selector: "LabeledStatement",
+                    message: "Labels make flow harder to follow."
+                },
+                {
+                    selector: "ForInStatement",
+                    message:
+                        "Use Object.keys/entries with for..of instead of for..in."
+                }
+            ],
+            "consistent-return": "error",
+            eqeqeq: ["error", "always", { null: "ignore" }],
+            "default-case-last": "error",
+            radix: ["error", "as-needed"],
+            yoda: ["error", "never", { exceptRange: true }],
+
+            /* unicorn plugin tweaks beyond the preset */
+            "unicorn/no-empty-file": "error",
+            "unicorn/consistent-function-scoping": "warn",
+            "unicorn/no-array-callback-reference": "error",
+            "unicorn/no-abusive-eslint-disable": "warn",
+            "unicorn/error-message": "error",
+            "unicorn/no-useless-length-check": "error",
+            "unicorn/no-array-push-push": "error",
+            "unicorn/prefer-query-selector": "warn",
+            "unicorn/no-unreadable-array-destructuring": "warn",
+            "unicorn/no-await-in-promise-methods": "error",
+            "unicorn/no-hex-escape": "error",
+            "unicorn/no-zero-fractions": "error",
+            "unicorn/prevent-abbreviations": "off",
+
+            /* --- plugin: sonarjs (code smells) --- */
+            "sonarjs/cognitive-complexity": ["error", 15],
+            "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
+            "sonarjs/no-identical-functions": "error",
+            "sonarjs/no-inverted-boolean-check": "warn",
+            "sonarjs/no-redundant-boolean": "warn",
+            "sonarjs/no-small-switch": "warn",
+
+            /* --- plugin: regexp (regex safety/perf) --- */
+            "regexp/no-super-linear-backtracking": "error",
+            "regexp/optimal-quantifier-concatenation": "error",
+
+            /* --- plugin: import (correctness & hygiene) --- */
+            "import/first": "error",
+            "import/no-mutable-exports": "error",
+            "import/no-cycle": ["error", { maxDepth: 3 }],
+            "import/newline-after-import": ["error", { count: 1 }],
+
+            /* --- plugin: promise (stricter async) --- */
+            "promise/no-return-wrap": "error",
+            "promise/no-multiple-resolved": "error",
+
+            /* --- plugin: security (selected high-signal checks) --- */
+            "security/detect-eval-with-expression": "error",
+            "security/detect-new-buffer": "error",
+            "security/detect-child-process": "error",
+            "security/detect-unsafe-regex": "error",
+
+            /* --- plugin: no-secrets (obvious credential leaks) --- */
+            "no-secrets/no-secrets": [
+                "warn",
+                {
+                    tolerance: 4.2,
+                    ignoreContent: ["-----BEGIN"],
+                    ignoreIdentifiers: ["API_KEY"]
+                }
+            ],
+
+            /* --- plugin: eslint-comments (comment hygiene) --- */
+            "eslint-comments/require-description": [
+                "warn",
+                { ignore: ["eslint-enable", "eslint-env"] }
+            ],
+            "eslint-comments/no-unused-disable": "error"
         }
     },
+    /* Tests: relax a few noisy limits */
     {
-        files: ["src/plugin/src/printer/print.js"],
+        files: ["**/tests/**/*.js", "*.test.js"],
         rules: {
-            "no-undef": ["off"]
-        }
-    },
-    {
-        files: [
-            "src/plugin/src/printer/**/*.js",
-            "src/plugin/src/ast-transforms/apply-feather-fixes.js"
-        ],
-        rules: {
-            "no-unused-vars": ["off"]
-        }
-    },
-    {
-        files: ["src/parser/src/**/*.js"],
-        rules: {
-            "no-unused-vars": ["off"]
-        }
-    },
-    {
-        files: ["src/parser/tests/**/*.js"],
-        rules: {
-            indent: ["error", 2],
             quotes: ["off"],
-            "comma-dangle": ["off"],
-            "no-unused-vars": ["off"]
+            "max-lines-per-function": "off",
+            "max-lines": "off",
+            "max-statements": "off",
+            "sonarjs/no-duplicate-string": "off",
+            complexity: ["warn", { max: 35 }],
+            "no-restricted-syntax": "off"
         }
-    }
+    },
+
+    /* Place eslint-config-prettier last to prevent ESLint/Prettier fights */
+    eslintConfigPrettier
 ];

@@ -33,7 +33,7 @@ function formatAggregateErrors(error, seen) {
     const formatted = error.errors
         .map((entry) => formatErrorValue(entry, seen))
         .filter(Boolean)
-        .map((text) => indentBlock(`- ${text.replace(/\n/g, "\n  ")}`));
+        .map((text) => indentBlock(`- ${text.replaceAll("\n", "\n  ")}`));
 
     if (formatted.length === 0) {
         return null;
@@ -113,7 +113,7 @@ function formatPlainObject(value, seen) {
 }
 
 function formatErrorValue(value, seen) {
-    if (value == null) {
+    if (value == undefined) {
         return "Unknown error";
     }
 
@@ -166,7 +166,7 @@ export function handleCliError(error, { exitCode = 1, prefix } = {}) {
             : null;
 
     if (usage) {
-        if (lines.length > 0 && lines[lines.length - 1] !== "") {
+        if (lines.length > 0 && lines.at(-1) !== "") {
             lines.push("");
         }
         lines.push(usage);

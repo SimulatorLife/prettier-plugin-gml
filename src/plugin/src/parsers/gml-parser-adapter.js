@@ -35,7 +35,7 @@ async function parse(text, options) {
     if (
         options &&
         typeof options === "object" &&
-        options.originalText == null
+        options.originalText == undefined
     ) {
         options.originalText = text;
     }
@@ -179,8 +179,8 @@ function isMissingClosingBraceError(error) {
         typeof error.message === "string"
             ? error.message
             : typeof error === "string"
-                ? error
-                : String(error ?? "");
+              ? error
+              : String(error ?? "");
 
     return message.toLowerCase().includes("missing associated closing brace");
 }

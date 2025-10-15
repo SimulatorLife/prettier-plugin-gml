@@ -58,7 +58,7 @@ describe("applyEnvOptionOverride", () => {
                     getUsage: () => "usage information"
                 }),
             (error) => {
-                assert(error instanceof CliUsageError);
+                assert.ok(error instanceof CliUsageError);
                 assert.equal(error.message, "bad value");
                 assert.equal(error.usage, "usage information");
                 return true;
@@ -85,7 +85,7 @@ describe("applyEnvOptionOverride", () => {
                     }
                 }),
             (error) => {
-                assert(error instanceof CliUsageError);
+                assert.ok(error instanceof CliUsageError);
                 assert.equal(
                     error.message,
                     "Invalid value provided for TEST_VALUE."

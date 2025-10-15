@@ -8,10 +8,7 @@ import {
 
 describe("resolveVmEvalTimeout", () => {
     it("returns the default when value is undefined", () => {
-        assert.strictEqual(
-            resolveVmEvalTimeout(undefined),
-            DEFAULT_VM_EVAL_TIMEOUT_MS
-        );
+        assert.strictEqual(resolveVmEvalTimeout(), DEFAULT_VM_EVAL_TIMEOUT_MS);
     });
 
     it("returns the default when value is null", () => {

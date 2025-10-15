@@ -22,8 +22,8 @@ describe("parseJsonWithContext", () => {
                 source: "demo.json",
                 description: "project metadata"
             });
-        } catch (thrown) {
-            error = thrown;
+        } catch (error_) {
+            error = error_;
         }
 
         assert.ok(error instanceof JsonParseError);
@@ -52,8 +52,8 @@ describe("parseJsonWithContext", () => {
                     throw new SyntaxError("  spaced message  ");
                 }
             });
-        } catch (thrown) {
-            error = thrown;
+        } catch (error_) {
+            error = error_;
         }
 
         assert.ok(error instanceof JsonParseError);

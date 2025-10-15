@@ -110,7 +110,7 @@ function validateCachePayload(payload) {
     }
 
     if (
-        payload.metricsSummary != null &&
+        payload.metricsSummary != undefined &&
         typeof payload.metricsSummary !== "object"
     ) {
         return false;
@@ -248,7 +248,7 @@ export async function loadProjectIndexCache(
     const projectIndex = {
         ...parsed.projectIndex
     };
-    if (parsed.metricsSummary != null) {
+    if (parsed.metricsSummary != undefined) {
         projectIndex.metrics = parsed.metricsSummary;
     }
 
@@ -313,7 +313,7 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    if (maxSizeBytes != null && byteLength > maxSizeBytes) {
+    if (maxSizeBytes != undefined && byteLength > maxSizeBytes) {
         return {
             status: "skipped",
             cacheFilePath,

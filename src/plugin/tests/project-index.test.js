@@ -28,7 +28,7 @@ function createMockFs(entries) {
                 error.code = "ENOTDIR";
                 throw error;
             }
-            return node.entries.slice();
+            return [...node.entries];
         },
         async stat(targetPath) {
             const normalizedPath = path.resolve(targetPath);

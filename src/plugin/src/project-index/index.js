@@ -11,7 +11,7 @@ import {
 } from "../../../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
-import { defaultFsFacade, getDefaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
     DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
@@ -195,7 +195,6 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { getDefaultFsFacade };
 export { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
@@ -339,7 +338,17 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     let record = resourcesMap.get(resourcePath);
-    if (!record) {
+    if (record) {
+        if (resourceData.name && record.name !== resourceData.name) {
+            record.name = resourceData.name;
+        }
+        if (
+            resourceData.resourceType &&
+            record.resourceType !== resourceData.resourceType
+        ) {
+            record.resourceType = resourceData.resourceType;
+        }
+    } else {
         const lowerPath = resourcePath.toLowerCase();
         let defaultName = path.posix.basename(resourcePath);
         if (lowerPath.endsWith(".yy")) {
@@ -356,16 +365,6 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
             assetReferences: []
         };
         resourcesMap.set(resourcePath, record);
-    } else {
-        if (resourceData.name && record.name !== resourceData.name) {
-            record.name = resourceData.name;
-        }
-        if (
-            resourceData.resourceType &&
-            record.resourceType !== resourceData.resourceType
-        ) {
-            record.resourceType = resourceData.resourceType;
-        }
     }
 
     return record;
@@ -405,20 +404,20 @@ function deriveEventDisplayName(event) {
         typeof event?.eventType === "number"
             ? event.eventType
             : typeof event?.eventtype === "number"
-                ? event.eventtype
-                : null;
+              ? event.eventtype
+              : null;
     const eventNum =
         typeof event?.eventNum === "number"
             ? event.eventNum
             : typeof event?.enumb === "number"
-                ? event.enumb
-                : null;
+              ? event.enumb
+              : null;
 
-    if (eventType == null && eventNum == null) {
+    if (eventType == undefined && eventNum == undefined) {
         return "event";
     }
 
-    if (eventNum == null) {
+    if (eventNum == undefined) {
         return String(eventType);
     }
 
@@ -445,14 +444,14 @@ function createObjectEventScopeDescriptor(
                 typeof event?.eventType === "number"
                     ? event.eventType
                     : typeof event?.eventtype === "number"
-                        ? event.eventtype
-                        : null,
+                      ? event.eventtype
+                      : null,
             eventNum:
                 typeof event?.eventNum === "number"
                     ? event.eventNum
                     : typeof event?.enumb === "number"
-                        ? event.enumb
-                        : null
+                      ? event.enumb
+                      : null
         }
     };
 }
@@ -784,8 +783,8 @@ function computeLineOffsets(source) {
 
         if (
             codePoint === 0x0a /* \n */ ||
-            codePoint === 0x2028 ||
-            codePoint === 0x2029
+            codePoint === 0x20_28 ||
+            codePoint === 0x20_29
         ) {
             offsets.push(index + 1);
         }
@@ -847,7 +846,7 @@ function findIdentifierLocation({
     const effectiveStart = Math.max(0, searchStart ?? 0);
     const effectiveEnd = Math.min(
         source.length,
-        searchEnd == null ? source.length : searchEnd
+        searchEnd == undefined ? source.length : searchEnd
     );
 
     let index = source.indexOf(name, effectiveStart);
@@ -912,8 +911,8 @@ function createFunctionLikeIdentifierRecord({
         typeof node.id === "string"
             ? node.id
             : typeof node.id?.name === "string"
-                ? node.id.name
-                : null;
+              ? node.id.name
+              : null;
 
     if (!rawName) {
         return null;
@@ -1182,7 +1181,7 @@ function registerScriptReference({ identifierCollections, callRecord }) {
 }
 
 function mapToObject(map, transform) {
-    const entries = Array.from(map.entries()).sort(([a], [b]) =>
+    const entries = [...map.entries()].sort(([a], [b]) =>
         typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0
     );
     return Object.fromEntries(
@@ -1305,7 +1304,7 @@ function registerEnumMemberOccurrence({
             enumKey,
             enumName: memberInfo?.enumKey
                 ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)
-                    ?.name ?? null)
+                      ?.name ?? null)
                 : null,
             filePath: memberInfo?.filePath ?? filePath ?? null,
             declarations: [],
@@ -2094,15 +2093,15 @@ export async function buildProjectIndex(
     }
 
     const resources = Object.fromEntries(
-        Array.from(resourceAnalysis.resourcesMap.entries()).map(
+        [...resourceAnalysis.resourcesMap.entries()].map(
             ([resourcePath, record]) => [
                 resourcePath,
                 {
                     path: record.path,
                     name: record.name,
                     resourceType: record.resourceType,
-                    scopes: record.scopes.slice(),
-                    gmlFiles: record.gmlFiles.slice(),
+                    scopes: [...record.scopes],
+                    gmlFiles: [...record.gmlFiles],
                     assetReferences: record.assetReferences.map((reference) =>
                         cloneAssetReference(reference)
                     )
@@ -2112,7 +2111,7 @@ export async function buildProjectIndex(
     );
 
     const scopes = Object.fromEntries(
-        Array.from(scopeMap.entries()).map(([scopeId, record]) => [
+        [...scopeMap.entries()].map(([scopeId, record]) => [
             scopeId,
             {
                 id: record.id,
@@ -2121,7 +2120,7 @@ export async function buildProjectIndex(
                 displayName: record.displayName,
                 resourcePath: record.resourcePath,
                 event: record.event ? { ...record.event } : null,
-                filePaths: record.filePaths.slice(),
+                filePaths: [...record.filePaths],
                 declarations: record.declarations.map((item) => ({ ...item })),
                 references: record.references.map((item) => ({ ...item })),
                 ignoredIdentifiers: record.ignoredIdentifiers.map((item) => ({
@@ -2133,7 +2132,7 @@ export async function buildProjectIndex(
     );
 
     const files = Object.fromEntries(
-        Array.from(filesMap.entries()).map(([filePath, record]) => [
+        [...filesMap.entries()].map(([filePath, record]) => [
             filePath,
             {
                 filePath: record.filePath,
@@ -2158,7 +2157,7 @@ export async function buildProjectIndex(
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
             declarationKinds: Array.isArray(entry.declarationKinds)
-                ? entry.declarationKinds.slice()
+                ? [...entry.declarationKinds]
                 : [],
             declarations: entry.declarations.map((item) => ({ ...item })),
             references: entry.references.map((reference) => ({
@@ -2168,9 +2167,9 @@ export async function buildProjectIndex(
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                        start: cloneLocation(reference.location.start),
-                        end: cloneLocation(reference.location.end)
-                    }
+                          start: cloneLocation(reference.location.start),
+                          end: cloneLocation(reference.location.end)
+                      }
                     : null,
                 isResolved: reference.isResolved ?? false
             }))
@@ -2253,3 +2252,4 @@ export async function buildProjectIndex(
 
     return projectIndex;
 }
+export { getDefaultFsFacade } from "./fs-facade.js";

@@ -129,9 +129,7 @@ describe("project index identifier tracking", () => {
                 index.identifiers.instanceVariables
             );
             const speedBonusNames = instanceEntries.filter((entry) =>
-                ["speed_bonus", "SpeedBonus", "speedBonus"].includes(
-                    entry.name
-                )
+                ["speed_bonus", "SpeedBonus", "speedBonus"].includes(entry.name)
             );
             assert.equal(speedBonusNames.length, 3);
             for (const instance of speedBonusNames) {
