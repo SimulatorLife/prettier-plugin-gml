@@ -6,17 +6,16 @@ import {
 } from "./local-plan.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 
-const BOOTSTRAP_CLEANUP_FLAG = Symbol.for(
-    "prettier-plugin-gml.identifierCaseBootstrapNeedsDispose"
-);
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
+
+const managedBootstraps = new WeakSet();
 
 function registerBootstrapCleanup(bootstrapResult) {
     if (typeof bootstrapResult?.dispose !== "function") {
         return null;
     }
 
-    bootstrapResult[BOOTSTRAP_CLEANUP_FLAG] = true;
+    managedBootstraps.add(bootstrapResult);
     return bootstrapResult;
 }
 
@@ -25,11 +24,11 @@ function disposeBootstrap(bootstrapResult, logger = null) {
         return;
     }
 
-    if (!bootstrapResult[BOOTSTRAP_CLEANUP_FLAG]) {
+    if (!managedBootstraps.has(bootstrapResult)) {
         return;
     }
 
-    bootstrapResult[BOOTSTRAP_CLEANUP_FLAG] = false;
+    managedBootstraps.delete(bootstrapResult);
 
     try {
         bootstrapResult.dispose();

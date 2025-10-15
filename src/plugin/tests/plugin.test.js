@@ -474,7 +474,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("respects trailing comment padding overrides for enums", async () => {
+    it("aligns trailing enum comments according to member width", async () => {
         const source = [
             "enum Alignment {",
             "    Left, // left comment",
@@ -483,85 +483,51 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const defaultFormatted = await formatWithPlugin(source);
-        const compactFormatted = await formatWithPlugin(source, {
-            trailingCommentPadding: 0
-        });
+        const formatted = await formatWithPlugin(source);
 
-        const defaultLine = defaultFormatted
+        const leftLine = formatted
             .split("\n")
             .find((line) => line.includes("Left"));
-        const compactLine = compactFormatted
+        const rightLine = formatted
             .split("\n")
-            .find((line) => line.includes("Left"));
+            .find((line) => line.includes("Right"));
 
         assert.ok(
-            defaultLine && compactLine,
+            leftLine && rightLine,
             "Expected formatted enum members to be present."
         );
 
-        const defaultColumn = defaultLine.indexOf("//");
-        const compactColumn = compactLine.indexOf("//");
-
-        assert.ok(
-            defaultColumn >= compactColumn,
-            "Expected reduced padding to keep the trailing comment no further right than the default configuration."
+        assert.strictEqual(
+            leftLine.indexOf("//"),
+            rightLine.indexOf("//"),
+            "Expected aligned trailing comments to share the same column."
         );
     });
 
-    it("applies trailing comment padding to inline comments", async () => {
+    it("keeps default spacing before trailing comments", async () => {
         const source = [
             "var foo = 1; // comment",
             "var bar = 2; // comment",
             ""
         ].join("\n");
 
-        const defaultFormatted = await formatWithPlugin(source);
-        const expandedFormatted = await formatWithPlugin(source, {
-            trailingCommentPadding: 5
-        });
+        const formatted = await formatWithPlugin(source);
 
-        const defaultLine = defaultFormatted.split("\n")[0];
-        const expandedLine = expandedFormatted.split("\n")[0];
+        const firstLine = formatted.split("\n")[0];
+        const commentIndex = firstLine.indexOf("//");
 
         assert.ok(
-            defaultLine.includes("//") && expandedLine.includes("//"),
-            "Expected formatted inline comments to be present."
+            commentIndex > 0,
+            "Expected formatted inline comment to be present."
         );
 
-        const defaultColumn = defaultLine.indexOf("//");
-        const expandedColumn = expandedLine.indexOf("//");
+        const codeBeforeComment = firstLine.slice(0, commentIndex);
+        const trimmedCode = codeBeforeComment.trimEnd();
 
-        assert.ok(
-            expandedColumn > defaultColumn,
-            "Expected increased padding to move the trailing comment further right."
-        );
-    });
-
-    it("uses the configured trailing padding for inline comments", async () => {
-        const formatted = await formatWithPlugin(
-            ["var foo = 1; // inline", ""].join("\n")
-        );
-
-        const [firstLine] = formatted.split("\n");
-
-        assert.strictEqual(firstLine, "var foo = 1;  // inline");
-    });
-
-    it("respects the trailing comment inline offset option", async () => {
-        const source = ["var foo = 1; // inline", ""].join("\n");
-
-        const defaultFormatted = await formatWithPlugin(source);
-        const alignedFormatted = await formatWithPlugin(source, {
-            trailingCommentInlineOffset: 0
-        });
-
-        const defaultColumn = defaultFormatted.split("\n")[0].indexOf("//");
-        const alignedColumn = alignedFormatted.split("\n")[0].indexOf("//");
-
-        assert.ok(
-            alignedColumn > defaultColumn,
-            "Expected removing the inline offset to shift the inline comment further right."
+        assert.strictEqual(
+            codeBeforeComment.length - trimmedCode.length,
+            1,
+            "Expected exactly one space before the trailing comment."
         );
     });
 

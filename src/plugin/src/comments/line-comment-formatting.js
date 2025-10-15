@@ -60,6 +60,24 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
     })
 );
 
+const TYPE_SPECIFIER_PREFIXES = new Set([
+    "asset",
+    "constant",
+    "enum",
+    "id",
+    "struct"
+]);
+
+const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
+    Object.entries({
+        asset: "Asset",
+        constant: "Constant",
+        enum: "Enum",
+        id: "Id",
+        struct: "Struct"
+    })
+);
+
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
 const FUNCTION_SIGNATURE_PATTERN =
@@ -69,7 +87,6 @@ const FUNCTION_SIGNATURE_PATTERN =
 // formatter hits these helpers while iterating over comment lists, so avoiding
 // per-call RegExp construction keeps the hot path allocation-free.
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
-const TYPE_IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 function getLineCommentRawText(comment) {
     if (!isObjectLike(comment)) {
@@ -260,91 +277,112 @@ function normalizeGameMakerType(typeText) {
         return typeText;
     }
 
-    TYPE_IDENTIFIER_PATTERN.lastIndex = 0;
-    const withNormalizedIdentifiers = typeText.replace(
-        TYPE_IDENTIFIER_PATTERN,
-        (identifier) => {
-            const normalized = GAME_MAKER_TYPE_NORMALIZATIONS.get(
+    const segments = [];
+    const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
+    let match;
+
+    while ((match = tokenPattern.exec(typeText)) !== null) {
+        if (match[1]) {
+            const identifier = match[1];
+            const normalizedIdentifier = GAME_MAKER_TYPE_NORMALIZATIONS.get(
                 identifier.toLowerCase()
             );
-            return normalized ?? identifier;
+            segments.push({
+                type: "identifier",
+                value: normalizedIdentifier ?? identifier
+            });
+            continue;
         }
-    );
 
-    return normalizeGameMakerTypeDelimiters(withNormalizedIdentifiers);
-}
-
-function normalizeGameMakerTypeDelimiters(typeText) {
-    if (typeof typeText !== "string") {
-        return typeText;
+        if (match[2]) {
+            segments.push({ type: "separator", value: match[2] });
+        }
     }
 
-    let normalized = typeText.replace(/\s+/g, " ").trim();
-    if (normalized.length === 0) {
-        return normalized;
-    }
-
-    normalized = normalized.replace(
-        /\b(Id|Constant|Asset|Struct)\s+([A-Za-z_][A-Za-z0-9_]*)\b/gi,
-        (match, base, suffix) => `${base}.${suffix}`
-    );
-
-    let squareDepth = 0;
-    let angleDepth = 0;
-    let parenDepth = 0;
-    let result = "";
-
-    for (let index = 0; index < normalized.length; ) {
-        const char = normalized[index];
-
-        if (/\s/.test(char)) {
-            while (index < normalized.length && /\s/.test(normalized[index])) {
-                index += 1;
+    const findNextNonWhitespaceSegment = (startIndex) => {
+        for (let index = startIndex; index < segments.length; index += 1) {
+            const segment = segments[index];
+            if (
+                segment &&
+                segment.type === "separator" &&
+                /^\s+$/.test(segment.value)
+            ) {
+                continue;
             }
 
-            const nextChar = normalized[index];
-            const prevChar = result[result.length - 1];
-            const atTopLevel =
-                squareDepth === 0 && angleDepth === 0 && parenDepth === 0;
-            const prevIsIdentifier = /[A-Za-z0-9_>\]]/.test(prevChar);
-            const nextIsIdentifier = /[A-Za-z_]/.test(nextChar);
+            return segment ?? null;
+        }
 
-            if (atTopLevel && prevIsIdentifier && nextIsIdentifier) {
-                result += ",";
+        return null;
+    };
+
+    const outputSegments = [];
+
+    for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        if (!segment) {
+            continue;
+        }
+
+        if (segment.type === "identifier") {
+            outputSegments.push(segment.value);
+            continue;
+        }
+
+        const separatorValue = segment.value ?? "";
+        if (separatorValue.length === 0) {
+            continue;
+        }
+
+        if (/^\s+$/.test(separatorValue)) {
+            const previous = segments[index - 1];
+            const next = segments[index + 1];
+            const nextToken = findNextNonWhitespaceSegment(index + 1);
+
+            if (
+                nextToken &&
+                nextToken.type === "separator" &&
+                /^[\[\(<>{})]/.test(nextToken.value.trim())
+            ) {
+                continue;
+            }
+
+            const previousIdentifier =
+                previous && previous.type === "identifier"
+                    ? previous.value
+                    : null;
+            const nextIdentifier =
+                next && next.type === "identifier" ? next.value : null;
+
+            if (!previousIdentifier || !nextIdentifier) {
+                continue;
+            }
+
+            const previousKey = previousIdentifier.toLowerCase();
+            if (TYPE_SPECIFIER_PREFIXES.has(previousKey)) {
+                const canonicalPrefix =
+                    TYPE_SPECIFIER_CANONICAL_NAMES.get(previousKey);
+                if (canonicalPrefix && outputSegments.length > 0) {
+                    outputSegments[outputSegments.length - 1] = canonicalPrefix;
+                }
+                outputSegments.push(".");
+            } else {
+                outputSegments.push(",");
             }
 
             continue;
         }
 
-        result += char;
-
-        switch (char) {
-            case "[":
-                squareDepth += 1;
-                break;
-            case "]":
-                squareDepth = Math.max(0, squareDepth - 1);
-                break;
-            case "<":
-                angleDepth += 1;
-                break;
-            case ">":
-                angleDepth = Math.max(0, angleDepth - 1);
-                break;
-            case "(":
-                parenDepth += 1;
-                break;
-            case ")":
-                parenDepth = Math.max(0, parenDepth - 1);
-                break;
-            default:
-                break;
+        let normalizedSeparator = separatorValue.replace(/\s+/g, "");
+        if (normalizedSeparator.length === 0) {
+            continue;
         }
 
-        index += 1;
+        normalizedSeparator = normalizedSeparator.replace(/\|/g, ",");
+        outputSegments.push(normalizedSeparator);
     }
 
-    return result;
+    return outputSegments.join("");
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {

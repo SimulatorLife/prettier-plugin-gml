@@ -5,7 +5,10 @@ import { asArray } from "../../../shared/array-utils.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    getNonEmptyString
+} from "../../../shared/string-utils.js";
 import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
@@ -165,20 +168,20 @@ function resolveIdentifierEntryName(entry) {
 
     const declarations = getEntryDeclarations(entry);
     for (const declaration of declarations) {
-        if (
-            typeof declaration?.name === "string" &&
-            declaration.name.length > 0
-        ) {
-            return declaration.name;
+        const declarationName = getNonEmptyString(declaration?.name);
+        if (declarationName) {
+            return declarationName;
         }
     }
 
-    if (typeof entry.name === "string" && entry.name.length > 0) {
-        return entry.name;
+    const entryName = getNonEmptyString(entry?.name);
+    if (entryName) {
+        return entryName;
     }
 
-    if (typeof entry.displayName === "string" && entry.displayName.length > 0) {
-        return entry.displayName;
+    const displayName = getNonEmptyString(entry?.displayName);
+    if (displayName) {
+        return displayName;
     }
 
     return null;

@@ -936,7 +936,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
-                if (Array.isArray(fixes) && fixes.length > 0) {
+                if (isNonEmptyArray(fixes)) {
                     return fixes;
                 }
 
@@ -6949,7 +6949,7 @@ function createVertexEndCallFromBegin(template) {
         arguments: []
     };
 
-    if (Array.isArray(template.arguments) && template.arguments.length > 0) {
+    if (isNonEmptyArray(template.arguments)) {
         const clonedArgument = cloneNode(template.arguments[0]);
 
         if (clonedArgument) {

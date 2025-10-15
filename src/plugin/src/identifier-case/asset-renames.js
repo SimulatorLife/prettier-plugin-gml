@@ -3,6 +3,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,
@@ -155,9 +156,7 @@ function collectDirectoryEntries({ projectIndex, renames }) {
 }
 
 function hasPendingAssetRenames(projectIndex, renames) {
-    return (
-        Boolean(projectIndex) && Array.isArray(renames) && renames.length > 0
-    );
+    return Boolean(projectIndex) && isNonEmptyArray(renames);
 }
 
 function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
