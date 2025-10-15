@@ -10,14 +10,35 @@ export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
-const WORD_CHAR_PATTERN = /[A-Za-z0-9_]/;
+// Hoist frequently accessed character code constants so `isWordChar` can avoid
+// constructing a `RegExp` for every call while still remaining easy to read.
+const CHAR_CODE_UPPER_A = "A".charCodeAt(0);
+const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0);
+const CHAR_CODE_LOWER_A = "a".charCodeAt(0);
+const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
+const CHAR_CODE_DIGIT_0 = "0".charCodeAt(0);
+const CHAR_CODE_DIGIT_9 = "9".charCodeAt(0);
+const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
 
 export function isWordChar(character) {
     if (typeof character !== "string" || character.length === 0) {
         return false;
     }
 
-    return WORD_CHAR_PATTERN.test(character);
+    for (let index = 0; index < character.length; index += 1) {
+        const charCode = character.charCodeAt(index);
+
+        if (
+            (charCode >= CHAR_CODE_UPPER_A && charCode <= CHAR_CODE_UPPER_Z) ||
+            (charCode >= CHAR_CODE_LOWER_A && charCode <= CHAR_CODE_LOWER_Z) ||
+            (charCode >= CHAR_CODE_DIGIT_0 && charCode <= CHAR_CODE_DIGIT_9) ||
+            charCode === CHAR_CODE_UNDERSCORE
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function toTrimmedString(value) {
