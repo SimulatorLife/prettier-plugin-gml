@@ -1,7 +1,7 @@
 import { mergeUniqueValues } from "../../../shared/array-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { createCachedOptionResolver } from "./options-cache.js";
+import { createCachedOptionResolver } from "../../../shared/options-cache.js";
 import {
     coercePositiveIntegerOption,
     normalizeStringList
