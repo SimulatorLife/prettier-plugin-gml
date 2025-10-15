@@ -2344,12 +2344,35 @@ function mergeSyntheticDocComments(
         const normalizedName = rawName.trim();
         const remainderText = remainder.trim();
         const hasDescription = remainderText.length > 0;
-        const normalizedDescription = hasDescription
-            ? remainderText.replace(/^[-\s]+/, "")
-            : "";
-        const descriptionPart = hasDescription
-            ? ` - ${normalizedDescription}`
-            : "";
+        let descriptionPart = "";
+
+        if (hasDescription) {
+            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            let normalizedDescription = "";
+            let hyphenSpacing = " - ";
+
+            if (hyphenMatch) {
+                const [, rawHyphenSpacing = "", rawDescription = ""] =
+                    hyphenMatch;
+                normalizedDescription = rawDescription.trim();
+
+                const trailingSpaceMatch = rawHyphenSpacing.match(/-(\s*)$/);
+                if (trailingSpaceMatch) {
+                    const originalSpaceCount = trailingSpaceMatch[1].length;
+                    const preservedSpaceCount = Math.max(
+                        1,
+                        Math.min(originalSpaceCount, 2)
+                    );
+                    hyphenSpacing = ` - ${" ".repeat(preservedSpaceCount - 1)}`;
+                }
+            } else {
+                normalizedDescription = remainderText.replace(/^[-\s]+/, "");
+            }
+
+            if (normalizedDescription.length > 0) {
+                descriptionPart = `${hyphenSpacing}${normalizedDescription}`;
+            }
+        }
 
         const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);
