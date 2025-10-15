@@ -1,6 +1,6 @@
 import path from "node:path";
-import process from "node:process";
 import { performance } from "node:perf_hooks";
+import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 

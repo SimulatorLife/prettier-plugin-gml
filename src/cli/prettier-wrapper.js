@@ -1,8 +1,9 @@
-import prettier from "prettier";
+import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
+
+import prettier from "prettier";
 
 import { Command, InvalidArgumentError } from "commander";
 
