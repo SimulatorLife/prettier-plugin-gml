@@ -1,5 +1,5 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
@@ -52,54 +52,50 @@ function resolveMaxOptionStoreEntries(options) {
 }
 
 function getStoreKey(options) {
-    return withObjectLike(
-        options,
-        (object) => {
-            if (object.__identifierCaseOptionsStoreKey != null) {
-                return object.__identifierCaseOptionsStoreKey;
-            }
+    if (!isObjectLike(options)) {
+        return null;
+    }
 
-            if (isNonEmptyString(object.filepath)) {
-                return object.filepath;
-            }
+    if (options.__identifierCaseOptionsStoreKey != null) {
+        return options.__identifierCaseOptionsStoreKey;
+    }
 
-            return null;
-        },
-        null
-    );
+    if (isNonEmptyString(options.filepath)) {
+        return options.filepath;
+    }
+
+    return null;
 }
 
 function updateStore(options, key, value) {
-    withObjectLike(options, (object) => {
-        const store = object.__identifierCaseOptionsStore;
-        if (isObjectLike(store)) {
-            store[key] = value;
-        }
+    const store = options.__identifierCaseOptionsStore;
+    if (isObjectLike(store)) {
+        store[key] = value;
+    }
 
-        const storeKey = getStoreKey(object);
-        if (storeKey != null) {
-            let existing = optionStoreMap.get(storeKey);
-            if (!existing) {
-                existing = {};
-            }
+    const storeKey = getStoreKey(options);
+    if (storeKey == null) {
+        return;
+    }
 
-            existing[key] = value;
+    const entry = optionStoreMap.get(storeKey) ?? {};
+    entry[key] = value;
 
-            if (optionStoreMap.has(storeKey)) {
-                optionStoreMap.delete(storeKey);
-            }
+    if (optionStoreMap.has(storeKey)) {
+        optionStoreMap.delete(storeKey);
+    }
 
-            optionStoreMap.set(storeKey, existing);
-            trimOptionStoreMap(resolveMaxOptionStoreEntries(object));
-        }
-    });
+    optionStoreMap.set(storeKey, entry);
+    trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    withObjectLike(options, (object) => {
-        object[key] = value;
-        updateStore(object, key, value);
-    });
+    if (!isObjectLike(options)) {
+        return;
+    }
+
+    options[key] = value;
+    updateStore(options, key, value);
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
