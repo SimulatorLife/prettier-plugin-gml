@@ -1,0 +1,33 @@
+name: Codex 80 – Low Coupling Guardrail
+
+on:
+  schedule:
+    - cron: "20 4,16 * * *" # twice daily at 04:20, 16:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Low Coupling Guardrail"
+      pr_body: |
+        Seed PR for Codex to reduce deep peer coupling by replacing fragile deep imports
+        with stable abstractions and dependency boundaries.
+      prompt: >
+        Audit the repository for modules that import peers using deep relative paths
+        ("../.." or deeper) or paths containing "/internal/" segments. For each finding,
+        cite the file and import statement, explain why the coupling is risky, and
+        recommend an appropriate abstraction (interface, adapter, factory, or public
+        facade) that would let the consumer depend on stable contracts rather than
+        implementation details. Prefer dependency injection or other boundary-enforcing
+        patterns so callers receive collaborators via constructors or parameters instead
+        of reaching into internal modules. Where improvements are tractable, implement
+        the minimal changes needed to introduce the abstraction, update imports, and
+        keep behaviour identical. Run formatters, linters, and relevant tests before
+        finishing, and document any follow-up work if a larger refactor is required.

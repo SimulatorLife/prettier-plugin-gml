@@ -923,7 +923,16 @@ export async function prepareIdentifierCasePlan(options) {
         });
 
         if (operations.length === 0 && conflicts.length === 0) {
-            // no-op
+            // Leave `__identifierCaseRenamePlan` unset when there are no planned
+            // edits or conflicts. Downstream reporters treat the existence of a
+            // plan as a signal that fresh rename data is available; writing an
+            // empty object would still be truthy, causing editors and CLI dry
+            // runs to emit "empty" summaries and replace whichever snapshot was
+            // provided through the dry-run context. Keeping the option untouched
+            // preserves that snapshot while the metrics +
+            // `__identifierCasePlanGeneratedInternally` flag still communicate
+            // that planning finished. See docs/identifier-case-reference.md for
+            // how consumers stream rename plans across tooling boundaries.
         } else {
             setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
                 operations
@@ -1309,9 +1318,9 @@ export function captureIdentifierCasePlanSnapshot(options) {
             assetRenamesApplied:
                 object.__identifierCaseAssetRenamesApplied ?? null,
             dryRun:
-                object.__identifierCaseDryRun !== undefined
-                    ? object.__identifierCaseDryRun
-                    : null,
+                object.__identifierCaseDryRun === undefined
+                    ? null
+                    : object.__identifierCaseDryRun,
             planGenerated:
                 object.__identifierCasePlanGeneratedInternally === true
         }),
@@ -1373,7 +1382,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         assignSnapshotValue(
             "assetRenamesApplied",
             "__identifierCaseAssetRenamesApplied",
-            (value, current) => value != null && current == null
+            (value, current) => value != undefined && current == undefined
         );
 
         if (snapshot.dryRun !== null) {

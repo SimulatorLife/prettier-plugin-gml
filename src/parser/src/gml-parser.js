@@ -93,7 +93,7 @@ export default class GMLParser {
         ) {
             const name = names[token.type];
             console.log(
-                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", "\\n")}'`
+                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", String.raw`\n`)}'`
             );
         }
 
@@ -243,4 +243,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount };
+export { getLineBreakCount } from "../../shared/line-breaks.js";

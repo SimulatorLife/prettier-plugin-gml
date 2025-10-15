@@ -3,7 +3,7 @@ import path from "node:path";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
+import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
     PRESERVE_CONFLICT_CODE,

@@ -14,11 +14,12 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
+- [Codex Automation Guide](codex-guide.md) — Explains how Codex workflows target
+  recurring refactors, including the composition prompts that prefer injected
+  collaborators or mixins over deep inheritance chains.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
-- [Workflow automation](workflows.md) — Documents Codex guardrails, including
-  the dependency inversion patrol that keeps high-level modules wired to
-  abstractions instead of concrete adapters.
+- [Codex action reference](codex-action-reference.md) — Summaries of automated Github Actions utilizing Codex.
 
 ## Usage & rollout
 

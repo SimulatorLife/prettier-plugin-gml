@@ -18,7 +18,11 @@ try {
     projectIndex = JSON.parse(cachedIndex);
 } catch {
     projectIndex = await buildProjectIndex(projectRoot);
-    await writeFile(indexPath, `${JSON.stringify(projectIndex, null, 2)}\n`, "utf8");
+    await writeFile(
+        indexPath,
+        `${JSON.stringify(projectIndex, null, 2)}\n`,
+        "utf8"
+    );
 }
 
 export default {

@@ -111,12 +111,8 @@ function attemptConvertConcatenation(node, parent, key, helpers, stack) {
     delete node.right;
     node.atoms = atoms;
 
-    if (parent && key != null) {
-        if (Array.isArray(parent)) {
-            parent[key] = node;
-        } else {
-            parent[key] = node;
-        }
+    if (parent && key != undefined) {
+        parent[key] = Array.isArray(parent) ? node : node;
     }
 }
 
@@ -184,7 +180,7 @@ function buildTemplateAtoms(parts) {
             return;
         }
 
-        const lastAtom = atoms[atoms.length - 1];
+        const lastAtom = atoms.at(-1);
         if (lastAtom && lastAtom.type === TEMPLATE_STRING_TEXT) {
             lastAtom.value += pendingText;
         } else {
@@ -206,7 +202,7 @@ function buildTemplateAtoms(parts) {
 
         if (isStringLiteral(core)) {
             const literalText = extractLiteralText(core);
-            if (literalText == null) {
+            if (literalText == undefined) {
                 return null;
             }
 
@@ -292,12 +288,15 @@ function isSafeInterpolatedExpression(node) {
         case "CallExpression":
         case "NewExpression":
         case "ThisExpression":
-        case "SuperExpression":
+        case "SuperExpression": {
             return true;
-        case PARENTHESIZED_EXPRESSION:
+        }
+        case PARENTHESIZED_EXPRESSION: {
             return isSafeInterpolatedExpression(node.expression);
-        default:
+        }
+        default: {
             return false;
+        }
     }
 }
 
@@ -326,8 +325,8 @@ function isStringLiteral(node) {
         return false;
     }
 
-    const firstChar = node.value.charAt(0);
-    const lastChar = node.value.charAt(node.value.length - 1);
+    const firstChar = node.value.at(0);
+    const lastChar = node.value.at(-1);
     if (!firstChar || firstChar !== lastChar) {
         return false;
     }

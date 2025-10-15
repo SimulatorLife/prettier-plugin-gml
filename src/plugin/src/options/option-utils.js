@@ -1,4 +1,3 @@
-import { normalizeStringList } from "../../../shared/string-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 
 function coercePositiveIntegerOption(
@@ -6,19 +5,22 @@ function coercePositiveIntegerOption(
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    if (isFiniteNumber(value)) {
-        const normalized = Math.floor(value);
+    if (!isFiniteNumber(value)) {
+        return defaultValue;
+    }
 
-        if (normalized > 0) {
-            return normalized;
-        }
+    const normalized = Math.floor(value);
 
-        if (zeroReplacement !== undefined && normalized <= 0) {
-            return zeroReplacement;
-        }
+    if (normalized > 0) {
+        return normalized;
+    }
+
+    if (zeroReplacement !== undefined) {
+        return zeroReplacement;
     }
 
     return defaultValue;
 }
 
-export { coercePositiveIntegerOption, normalizeStringList };
+export { coercePositiveIntegerOption };
+export { normalizeStringList } from "../../../shared/string-utils.js";

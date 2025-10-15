@@ -117,8 +117,8 @@ describe("asset rename executor JSON helpers", () => {
         let error;
         try {
             readJsonFile(fsFacade, "/tmp/broken.yy", new Map());
-        } catch (thrown) {
-            error = thrown;
+        } catch (error_) {
+            error = error_;
         }
 
         assert.ok(error);

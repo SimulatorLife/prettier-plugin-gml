@@ -1,4 +1,9 @@
-// gml.js
+/**
+ * Entry point wiring the GameMaker Language plugin into Prettier.
+ *
+ * Centralizes the language, parser, printer, and option metadata exports so
+ * consumers can register the plugin without reaching into internal modules.
+ */
 
 import { gmlParserAdapter } from "./parsers/gml-parser-adapter.js";
 import { print } from "./printer/print.js";

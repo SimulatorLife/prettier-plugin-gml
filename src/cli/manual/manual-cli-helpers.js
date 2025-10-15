@@ -3,8 +3,7 @@ import path from "node:path";
 
 import { SingleBar, Presets } from "cli-progress";
 
-import { buildManualRepositoryEndpoints } from "../options/manual-repo.js";
-import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar.js";
+import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar-constants.js";
 import { formatByteSize } from "../../shared/number-utils.js";
 
 export function formatDuration(startTime) {
@@ -67,13 +66,13 @@ export function renderProgressBar(
     const normalizedTotal = total > 0 ? total : 1;
     let bar = activeProgressBars.get(label);
 
-    if (!bar) {
+    if (bar) {
+        bar.setTotal(normalizedTotal);
+        bar.update(Math.min(current, normalizedTotal));
+    } else {
         bar = progressBarFactory(label, width);
         bar.start(normalizedTotal, Math.min(current, normalizedTotal));
         activeProgressBars.set(label, bar);
-    } else {
-        bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
     }
 
     if (current >= normalizedTotal) {
@@ -104,10 +103,16 @@ export async function ensureDir(dirPath) {
 export function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
-    defaultRawRoot = buildManualRepositoryEndpoints().rawRoot
+    defaultRawRoot
 } = {}) {
     if (typeof userAgent !== "string" || userAgent.length === 0) {
         throw new Error("A userAgent string is required.");
+    }
+
+    if (typeof defaultRawRoot !== "string" || defaultRawRoot.length === 0) {
+        throw new Error(
+            "A defaultRawRoot string is required to create the manual client."
+        );
     }
 
     const baseHeaders = { "User-Agent": userAgent };

@@ -166,12 +166,7 @@ function preprocessFunctionDeclaration(node, helpers) {
     const statements = body.body;
     const matches = [];
 
-    for (
-        let statementIndex = 0;
-        statementIndex < statements.length;
-        statementIndex++
-    ) {
-        const statement = statements[statementIndex];
+    for (const [statementIndex, statement] of statements.entries()) {
         const match = matchArgumentCountFallbackStatement(statement, helpers);
 
         if (!match) {
@@ -202,19 +197,19 @@ function preprocessFunctionDeclaration(node, helpers) {
     }
 
     const paramInfoByName = new Map();
-    params.forEach((param, index) => {
+    for (const [index, param] of params.entries()) {
         const identifier = getIdentifierFromParameter(param, helpers);
         if (!identifier) {
-            return;
+            continue;
         }
 
         const name = getIdentifierText(identifier);
         if (!name) {
-            return;
+            continue;
         }
 
         paramInfoByName.set(name, { index, identifier });
-    });
+    }
 
     const statementsToRemove = new Set();
     let appliedChanges = false;
@@ -225,7 +220,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         }
 
         const { targetName, argumentIndex } = match;
-        if (argumentIndex == null || argumentIndex < 0) {
+        if (argumentIndex == undefined || argumentIndex < 0) {
             return null;
         }
 
@@ -704,16 +699,19 @@ function parseArgumentCountGuard(node) {
 
     switch (node.operator) {
         case ">=":
-        case "<":
+        case "<": {
             argumentIndex -= 1;
             break;
+        }
         case ">":
         case "<=":
         case "==":
-        case "!=":
+        case "!=": {
             break;
-        default:
+        }
+        default: {
             return null;
+        }
     }
 
     return argumentIndex >= 0 ? { argumentIndex } : null;

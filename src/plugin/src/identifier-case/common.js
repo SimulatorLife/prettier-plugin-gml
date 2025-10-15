@@ -27,8 +27,8 @@ export function createPatternRegExp(pattern) {
     }
 
     const wildcardExpanded = escaped
-        .replace(/\\\*/g, ".*")
-        .replace(/\\\?/g, ".");
+        .replaceAll(String.raw`\*`, ".*")
+        .replaceAll(String.raw`\?`, ".");
 
     return new RegExp(`^${wildcardExpanded}$`, "i");
 }
@@ -72,7 +72,7 @@ export function resolveIdentifierConfigurationConflict({
     filePath
 }) {
     if (
-        identifierName != null &&
+        identifierName != undefined &&
         typeof preservedSet?.has === "function" &&
         preservedSet.has(identifierName)
     ) {
@@ -146,7 +146,7 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
 }
 
 export function summarizeFileOccurrences(counts) {
-    return Array.from(counts.entries()).map(([filePath, occurrences]) => ({
+    return [...counts.entries()].map(([filePath, occurrences]) => ({
         filePath,
         occurrences
     }));

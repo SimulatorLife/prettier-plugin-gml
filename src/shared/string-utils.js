@@ -25,7 +25,7 @@ export function toTrimmedString(value) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == null) {
+    if (value == undefined) {
         return "";
     }
 
@@ -37,7 +37,7 @@ export function capitalize(value) {
         return value;
     }
 
-    return value.charAt(0).toUpperCase() + value.slice(1);
+    return value.at(0).toUpperCase() + value.slice(1);
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
@@ -69,7 +69,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == null) {
+    if (value == undefined) {
         return [];
     }
 

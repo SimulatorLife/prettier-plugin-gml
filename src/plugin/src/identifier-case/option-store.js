@@ -56,7 +56,7 @@ function getStoreKey(options) {
         return null;
     }
 
-    if (options.__identifierCaseOptionsStoreKey != null) {
+    if (options.__identifierCaseOptionsStoreKey != undefined) {
         return options.__identifierCaseOptionsStoreKey;
     }
 
@@ -74,7 +74,7 @@ function updateStore(options, key, value) {
     }
 
     const storeKey = getStoreKey(options);
-    if (storeKey == null) {
+    if (storeKey == undefined) {
         return;
     }
 
@@ -99,7 +99,7 @@ export function setIdentifierCaseOption(options, key, value) {
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
-    if (storeKey == null) {
+    if (storeKey == undefined) {
         return null;
     }
 
@@ -107,7 +107,7 @@ export function getIdentifierCaseOptionStore(storeKey) {
 }
 
 export function clearIdentifierCaseOptionStore(storeKey) {
-    if (storeKey == null) {
+    if (storeKey == undefined) {
         optionStoreMap.clear();
         return;
     }

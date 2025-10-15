@@ -22,7 +22,7 @@ test("toArray preserves arrays", () => {
 
 test("toArray normalizes nullish values to empty arrays", () => {
     assert.deepEqual(toArray(null), []);
-    assert.deepEqual(toArray(undefined), []);
+    assert.deepEqual(toArray(), []);
 });
 
 test("asArray returns arrays unchanged", () => {
@@ -32,7 +32,7 @@ test("asArray returns arrays unchanged", () => {
 
 test("asArray normalizes non-arrays to empty arrays", () => {
     assert.deepEqual(asArray(null), []);
-    assert.deepEqual(asArray(undefined), []);
+    assert.deepEqual(asArray(), []);
     assert.deepEqual(asArray("value"), []);
 });
 

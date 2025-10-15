@@ -153,7 +153,7 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ### Requirements
 
-- Node.js **18.18.0+** (20.9.0+ recommended). Use the bundled `.nvmrc` to align with the workspace version.
+- Node.js **18.18.0+** (20.9.0+ recommended). Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
 - npm (installed with Node.js). Verify availability with `node -v` and `npm -v`.
 
 <details>
@@ -197,6 +197,8 @@ nvm use
    }
    ```
 
+   The Git dependency installs under `node_modules/root` because the workspace root package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build.
+
 4. Wire a script or wrapper so team members can format consistently:
 
    ```jsonc
@@ -226,9 +228,7 @@ nvm use
    npm run format:gml -- --path . --extensions=.gml,.yy
    ```
 
-   The `--support-info` probe confirms that Prettier can locate the plugin.
-   Re-run the `--check` and wrapper commands after dependency updates so
-   everyone stays aligned on formatter output.
+   The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output.
 
 ### Format from a local clone
 
@@ -246,7 +246,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`.
+   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -325,7 +325,7 @@ The wrapper honours environment variables so CI systems can tune behaviour
 without editing project scripts:
 
 - `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
-  extension list used when `--extensions` is omitted.
+  extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
 
