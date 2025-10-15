@@ -18,6 +18,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
@@ -2643,9 +2644,7 @@ function removeInvalidAssignmentExpression({
 }
 
 function getFiniteIndex(value) {
-    return typeof value === "number" && Number.isFinite(value) && value >= 0
-        ? value
-        : null;
+    return isFiniteNumber(value) && value >= 0 ? value : null;
 }
 
 function removeNodeFromContainer(container, index, node) {
