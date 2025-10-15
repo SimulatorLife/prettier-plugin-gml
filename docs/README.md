@@ -40,6 +40,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   predictable.
 - [Project Index next steps](project-index-next-steps.md) — Tracks remaining
   follow-up work now that cache persistence and discovery ship in the plugin.
+- [Codex workflow guide](codex-workflow-guide.md) — Describes the Codex PR
+  seeders we rely on, including the policy/mechanism separation sweep and the
+  hotspots it targets.
 
 ## Metadata tooling
 
