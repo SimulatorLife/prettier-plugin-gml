@@ -614,11 +614,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -630,11 +626,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -643,11 +635,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = sanitizeEnumAssignments({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -664,11 +652,7 @@ function buildFeatherFixImplementations(diagnostics) {
                         callTemplate
                     });
 
-                    if (isNonEmptyArray(fixes)) {
-                        return fixes;
-                    }
-
-                    return registerManualFeatherFix({ ast, diagnostic });
+                    return resolveAutomaticFixes(fixes, { ast, diagnostic });
                 };
             });
             continue;
@@ -678,11 +662,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeDuplicateEnumMembers({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -699,11 +679,10 @@ function buildFeatherFixImplementations(diagnostics) {
                             diagnostic
                         });
 
-                        if (isNonEmptyArray(fixes)) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
                     }
             );
             continue;
@@ -713,11 +692,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureBlendModeIsReset({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -734,11 +709,10 @@ function buildFeatherFixImplementations(diagnostics) {
                             sourceText
                         });
 
-                        if (isNonEmptyArray(fixes)) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
                     }
             );
             continue;
@@ -748,11 +722,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -769,11 +739,10 @@ function buildFeatherFixImplementations(diagnostics) {
                             diagnostic
                         });
 
-                        if (isNonEmptyArray(fixes)) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
                     }
             );
             continue;
@@ -783,11 +752,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = closeOpenVertexBatches({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -799,11 +764,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -815,11 +776,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -831,11 +788,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -847,11 +800,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -863,11 +812,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -879,11 +824,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -895,11 +836,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -916,11 +853,10 @@ function buildFeatherFixImplementations(diagnostics) {
                             sourceText
                         });
 
-                        if (isNonEmptyArray(fixes)) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
                     }
             );
             continue;
@@ -933,11 +869,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -946,11 +878,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -962,11 +890,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -978,11 +902,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -994,11 +914,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1007,11 +923,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1020,11 +932,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureVertexBeginPrecedesEnd({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1036,11 +944,7 @@ function buildFeatherFixImplementations(diagnostics) {
                     diagnostic
                 });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1049,11 +953,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1062,11 +962,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureFogIsReset({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1075,11 +971,7 @@ function buildFeatherFixImplementations(diagnostics) {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
 
-                if (isNonEmptyArray(fixes)) {
-                    return fixes;
-                }
-
-                return registerManualFeatherFix({ ast, diagnostic });
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
             continue;
         }
@@ -1107,11 +999,10 @@ function buildFeatherFixImplementations(diagnostics) {
                             diagnostic
                         });
 
-                        if (isNonEmptyArray(fixes)) {
-                            return fixes;
-                        }
-
-                        return registerManualFeatherFix({ ast, diagnostic });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
                     }
             );
             continue;
@@ -1131,11 +1022,7 @@ function registerAutomaticFeatherFix({ registry, diagnostic, handler }) {
     registerFeatherFixer(registry, diagnostic.id, () => (context = {}) => {
         const fixes = handler({ ...context, diagnostic });
 
-        if (isNonEmptyArray(fixes)) {
-            return fixes;
-        }
-
-        return registerManualFeatherFix({ ast: context.ast, diagnostic });
+        return resolveAutomaticFixes(fixes, { ast: context.ast, diagnostic });
     });
 }
 
@@ -1151,6 +1038,14 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
             ({ ast }) =>
                 registerManualFeatherFix({ ast, diagnostic })
     );
+}
+
+function resolveAutomaticFixes(fixes, context) {
+    if (isNonEmptyArray(fixes)) {
+        return fixes;
+    }
+
+    return registerManualFeatherFix(context);
 }
 
 function resolveWithOtherVariableReferences({ ast, diagnostic }) {
