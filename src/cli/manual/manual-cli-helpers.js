@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { SingleBar, Presets } from "cli-progress";
 
-import { DEFAULT_PROGRESS_BAR_WIDTH } from "./progress-bar-constants.js";
+import { DEFAULT_PROGRESS_BAR_WIDTH } from "../options/progress-bar-constants.js";
 import { formatByteSize } from "../../shared/number-utils.js";
 
 export function formatDuration(startTime) {
