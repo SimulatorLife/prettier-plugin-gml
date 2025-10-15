@@ -11,6 +11,7 @@ import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
+    isNonEmptyTrimmedString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
 
@@ -140,7 +141,7 @@ function buildUpdatedDescription(existing, expression) {
 
     const normalizedExpression = ensureTrailingPeriod(expression.trim());
 
-    if (!existing || existing.trim().length === 0) {
+    if (!isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
     }
 
