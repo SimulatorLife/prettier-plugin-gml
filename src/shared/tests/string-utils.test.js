@@ -10,7 +10,8 @@ import {
     isWordChar,
     toTrimmedString,
     toNormalizedLowerCaseString,
-    capitalize
+    capitalize,
+    getNonEmptyString
 } from "../string-utils.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -47,6 +48,13 @@ test("string utility helpers interoperate with trimmed strings", () => {
     assert.strictEqual(isNonEmptyTrimmedString("  spaced  "), true);
     assert.strictEqual(isNonEmptyTrimmedString("   "), false);
     assert.strictEqual(capitalize("example"), "Example");
+});
+
+test("getNonEmptyString returns null for empty candidates", () => {
+    assert.strictEqual(getNonEmptyString("value"), "value");
+    assert.strictEqual(getNonEmptyString(""), null);
+    assert.strictEqual(getNonEmptyString(null), null);
+    assert.strictEqual(getNonEmptyString(undefined), null);
 });
 
 test("capitalize leaves falsy and non-string inputs unchanged", () => {
