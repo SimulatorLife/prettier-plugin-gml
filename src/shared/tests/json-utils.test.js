@@ -37,4 +37,31 @@ describe("parseJsonWithContext", () => {
         );
         assert.ok(error.cause instanceof SyntaxError);
     });
+
+    it("normalizes whitespace-only descriptions and error messages", () => {
+        let error;
+        try {
+            parseJsonWithContext('{"value": 1}', {
+                description: "   custom   ",
+                source: {
+                    toString() {
+                        return "demo.json";
+                    }
+                },
+                reviver() {
+                    throw new SyntaxError("  spaced message  ");
+                }
+            });
+        } catch (thrown) {
+            error = thrown;
+        }
+
+        assert.ok(error instanceof JsonParseError);
+        assert.equal(error.description, "custom");
+        assert.equal(error.source, "demo.json");
+        assert.match(
+            error.message,
+            /Failed to parse custom from demo\.json: spaced message/
+        );
+    });
 });

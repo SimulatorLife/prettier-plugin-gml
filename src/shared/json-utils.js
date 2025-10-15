@@ -1,3 +1,5 @@
+import { isNonEmptyString, toTrimmedString } from "./string-utils.js";
+
 function toError(value) {
     if (value instanceof Error) {
         return value;
@@ -37,17 +39,16 @@ export class JsonParseError extends SyntaxError {
 }
 
 function normalizeDescription(description) {
-    if (typeof description === "string" && description.trim().length > 0) {
-        return description.trim();
-    }
-    return "JSON";
+    const normalized = toTrimmedString(description);
+
+    return normalized.length > 0 ? normalized : "JSON";
 }
 
 function normalizeSource(source) {
     if (source == null) {
         return null;
     }
-    if (typeof source === "string" && source.length > 0) {
+    if (isNonEmptyString(source)) {
         return source;
     }
     try {
@@ -58,11 +59,9 @@ function normalizeSource(source) {
 }
 
 function extractErrorDetails(error) {
-    const { message } = error ?? {};
-    if (typeof message === "string" && message.trim().length > 0) {
-        return message.trim();
-    }
-    return "Unknown error";
+    const normalized = toTrimmedString(error?.message);
+
+    return normalized.length > 0 ? normalized : "Unknown error";
 }
 
 export function parseJsonWithContext(text, options = {}) {
