@@ -18,6 +18,7 @@ import {
 } from "../shared/string-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
+import { parseCommandLine } from "./command-parsing.js";
 
 const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginPath = path.resolve(
@@ -147,21 +148,12 @@ function parseCliArguments(args) {
             DEFAULT_PARSE_ERROR_ACTION
         );
 
-    try {
-        command.parse(args, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return {
-                helpRequested: true,
-                usage: command.helpInformation()
-            };
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested, usage } = parseCommandLine(command, args);
+    if (helpRequested) {
+        return {
+            helpRequested: true,
+            usage
+        };
     }
 
     const options = command.opts();
@@ -175,7 +167,7 @@ function parseCliArguments(args) {
             ? extensions
             : Array.from(extensions ?? DEFAULT_EXTENSIONS),
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        usage: command.helpInformation()
+        usage
     };
 }
 

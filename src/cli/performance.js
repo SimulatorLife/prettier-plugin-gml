@@ -5,6 +5,7 @@ import process from "node:process";
 import { Command, InvalidArgumentError } from "commander";
 
 import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { parseCommandLine } from "./command-parsing.js";
 import { buildProjectIndex } from "../plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../plugin/src/identifier-case/local-plan.js";
 import { getIdentifierText } from "../shared/ast-node-helpers.js";
@@ -320,18 +321,9 @@ function printHumanReadable(results) {
 async function main(argv = process.argv.slice(2)) {
     const command = createPerformanceCommand();
 
-    try {
-        command.parse(argv, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return 0;
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested } = parseCommandLine(command, argv);
+    if (helpRequested) {
+        return 0;
     }
 
     const options = command.opts();
