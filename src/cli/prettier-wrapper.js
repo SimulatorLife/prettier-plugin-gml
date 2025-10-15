@@ -7,7 +7,11 @@ import prettier from "prettier";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { asArray, uniqueArray } from "../shared/array-utils.js";
+import {
+    asArray,
+    mergeUniqueValues,
+    uniqueArray
+} from "../shared/array-utils.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
@@ -53,41 +57,40 @@ function normalizeParseErrorAction(value, fallbackValue) {
     return null;
 }
 
+function coerceExtensionValue(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const cleaned = value
+        .toLowerCase()
+        // Drop any directory/glob prefixes (e.g. **/*.gml or src/**/*.yy).
+        .replace(/.*[\\/]/, "")
+        // Trim leading wildcard tokens like * or ? that commonly appear in glob patterns.
+        .replace(/^[*?]+/, "");
+
+    if (!cleaned) {
+        return null;
+    }
+
+    return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
+}
+
 function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
 ) {
-    if (!rawExtensions) {
-        return fallbackExtensions;
-    }
-
     const candidateValues = normalizeStringList(rawExtensions, {
         splitPattern: /,/,
         allowInvalidType: true
     });
 
-    if (candidateValues.length === 0) {
-        return fallbackExtensions;
-    }
+    const normalized = mergeUniqueValues([], candidateValues, {
+        coerce: coerceExtensionValue,
+        freeze: false
+    });
 
-    const normalized = new Set();
-
-    for (const extension of candidateValues) {
-        const cleaned = extension
-            .toLowerCase()
-            // Drop any directory/glob prefixes (e.g. **/*.gml or src/**/*.yy).
-            .replace(/.*[\\/]/, "")
-            // Trim leading wildcard tokens like * or ? that commonly appear in glob patterns.
-            .replace(/^[*?]+/, "");
-
-        if (!cleaned) {
-            continue;
-        }
-
-        normalized.add(cleaned.startsWith(".") ? cleaned : `.${cleaned}`);
-    }
-
-    return normalized.size > 0 ? Array.from(normalized) : fallbackExtensions;
+    return normalized.length > 0 ? normalized : fallbackExtensions;
 }
 
 const DEFAULT_EXTENSIONS = normalizeExtensions(
