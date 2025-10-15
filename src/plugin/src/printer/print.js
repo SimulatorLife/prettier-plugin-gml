@@ -2339,8 +2339,8 @@ function mergeSyntheticDocComments(
     );
     const wrapWidth = Math.min(normalizedPrintWidth, 100);
 
-    const wrapSegments = (text, available) => {
-        if (available <= 0) {
+    const wrapSegments = (text, firstAvailable, continuationAvailable) => {
+        if (firstAvailable <= 0) {
             return [text];
         }
 
@@ -2351,12 +2351,32 @@ function mergeSyntheticDocComments(
 
         const segments = [];
         let current = words[0];
+        let currentAvailable = firstAvailable;
 
         for (let index = 1; index < words.length; index += 1) {
             const word = words[index];
-            if (current.length + 1 + word.length > available) {
+
+            const endsSentence = /[.!?]["')\]]?$/.test(current);
+            const startsSentence = /^[A-Z]/.test(word);
+            if (
+                endsSentence &&
+                startsSentence &&
+                currentAvailable >= 60 &&
+                current.length >= Math.max(
+                    Math.floor(currentAvailable * 0.6),
+                    24
+                )
+            ) {
                 segments.push(current);
                 current = word;
+                currentAvailable = continuationAvailable;
+                continue;
+            }
+
+            if (current.length + 1 + word.length > currentAvailable) {
+                segments.push(current);
+                current = word;
+                currentAvailable = continuationAvailable;
             } else {
                 current += ` ${word}`;
             }
@@ -2414,7 +2434,15 @@ function mergeSyntheticDocComments(
             }
 
             const available = Math.max(wrapWidth - prefix.length, 16);
-            const segments = wrapSegments(descriptionText, available);
+            const continuationAvailable = Math.max(
+                Math.min(available, 62),
+                16
+            );
+            const segments = wrapSegments(
+                descriptionText,
+                available,
+                continuationAvailable
+            );
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
