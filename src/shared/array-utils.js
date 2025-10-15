@@ -55,28 +55,20 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    if (values == undefined) {
+    const source =
+        values == null
+            ? []
+            : Array.isArray(values)
+              ? values
+              : typeof values[Symbol.iterator] === "function"
+                ? Array.from(values)
+                : [];
+
+    if (source.length === 0) {
         return freeze ? Object.freeze([]) : [];
     }
 
-    const iterable = Array.isArray(values)
-        ? values
-        : typeof values[Symbol.iterator] === "function"
-          ? [...values]
-          : [];
-
-    const uniqueValues = [];
-    const seen = new Set();
-
-    for (const value of iterable) {
-        if (seen.has(value)) {
-            continue;
-        }
-
-        uniqueValues.push(value);
-        seen.add(value);
-    }
-
+    const uniqueValues = Array.from(new Set(source));
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 
