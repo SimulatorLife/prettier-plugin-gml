@@ -9546,6 +9546,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
+                originalDeclaration._suppressSyntheticReturnsDoc = true;
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
             }
         }
