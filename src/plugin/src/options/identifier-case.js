@@ -8,6 +8,8 @@ import { capitalize } from "../../../shared/string-utils.js";
 import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/index.js";
 import { normalizeStringList } from "./option-utils.js";
 
+export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
+
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
 
@@ -42,6 +44,8 @@ export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
     "gmlIdentifierCaseProjectRoot";
 export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME =
+    "gmlIdentifierCaseOptionStoreMaxEntries";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -168,6 +172,16 @@ export const identifierCaseOptions = {
         description:
             "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
     }
+};
+
+identifierCaseOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = {
+    since: BASE_IDENTIFIER_CASE_SINCE,
+    type: "int",
+    category: "gml",
+    default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+    range: { start: 0, end: Infinity },
+    description:
+        "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
 };
 
 for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {

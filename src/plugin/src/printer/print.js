@@ -71,6 +71,7 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
+import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 const preservedUndefinedDefaultParameters = new WeakSet();
 
@@ -1015,7 +1016,14 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            // TODO: Add a plugin option to choose undefined or an empty comma.
+            const placeholder =
+                options.missingOptionalArgumentPlaceholder ??
+                MissingOptionalArgumentPlaceholder.UNDEFINED;
+
+            if (placeholder === MissingOptionalArgumentPlaceholder.EMPTY) {
+                return concat("");
+            }
+
             return concat("undefined");
         }
         case "NewExpression": {
@@ -1531,6 +1539,9 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        const isStaticDeclaration =
+            node.type === "VariableDeclaration" && node.kind === "static";
+
         if (semi === ";") {
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
@@ -1541,18 +1552,19 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (initializerIsFunctionExpression) {
                 const isTopLevelStaticFunction =
-                    node.kind === "static" && isTopLevel;
+                    isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
                     !hasTerminatingSemicolon &&
                     !isTopLevelStaticFunction &&
-                    !(syntheticDocRecord && node.kind === "static");
+                    !(syntheticDocRecord && isStaticDeclaration) &&
+                    !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style unless we're printing a top-level
-                    // static declaration, where the semicolon is required for
+                    // the original code style unless we're printing a static
+                    // declaration, where the semicolon is required for
                     // correctness.
                     semi = "";
                 }
@@ -1565,11 +1577,7 @@ function printStatements(path, options, print, childrenAttribute) {
             syntheticDocComment &&
             !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
             isLastStatement(childPath) &&
-            !(
-                node.type === "VariableDeclaration" &&
-                node.kind === "static" &&
-                isTopLevel
-            );
+            !isStaticDeclaration;
 
         if (shouldOmitSemicolon) {
             semi = "";
@@ -2344,12 +2352,35 @@ function mergeSyntheticDocComments(
         const normalizedName = rawName.trim();
         const remainderText = remainder.trim();
         const hasDescription = remainderText.length > 0;
-        const normalizedDescription = hasDescription
-            ? remainderText.replace(/^[-\s]+/, "")
-            : "";
-        const descriptionPart = hasDescription
-            ? ` - ${normalizedDescription}`
-            : "";
+        let descriptionPart = "";
+
+        if (hasDescription) {
+            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            let normalizedDescription = "";
+            let hyphenSpacing = " - ";
+
+            if (hyphenMatch) {
+                const [, rawHyphenSpacing = "", rawDescription = ""] =
+                    hyphenMatch;
+                normalizedDescription = rawDescription.trim();
+
+                const trailingSpaceMatch = rawHyphenSpacing.match(/-(\s*)$/);
+                if (trailingSpaceMatch) {
+                    const originalSpaceCount = trailingSpaceMatch[1].length;
+                    const preservedSpaceCount = Math.max(
+                        1,
+                        Math.min(originalSpaceCount, 2)
+                    );
+                    hyphenSpacing = ` - ${" ".repeat(preservedSpaceCount - 1)}`;
+                }
+            } else {
+                normalizedDescription = remainderText.replace(/^[-\s]+/, "");
+            }
+
+            if (normalizedDescription.length > 0) {
+                descriptionPart = `${hyphenSpacing}${normalizedDescription}`;
+            }
+        }
 
         const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);

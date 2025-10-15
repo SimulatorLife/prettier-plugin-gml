@@ -42,32 +42,7 @@ export function capitalize(value) {
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
-export function normalizeStringList(
-    value,
-    {
-        splitPattern = DEFAULT_STRING_LIST_SPLIT_PATTERN,
-        allowInvalidType = false,
-        errorMessage = "Value must be provided as a string or array of strings."
-    } = {}
-) {
-    if (value == null) {
-        return [];
-    }
-
-    let entries = null;
-    if (Array.isArray(value)) {
-        entries = value;
-    } else if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-        entries = pattern ? value.split(pattern) : [value];
-    } else if (allowInvalidType) {
-        return [];
-    }
-
-    if (!entries) {
-        throw new TypeError(errorMessage);
-    }
-
+function normalizeEntries(entries) {
     const seen = new Set();
 
     for (const entry of entries) {
@@ -84,4 +59,33 @@ export function normalizeStringList(
     }
 
     return [...seen];
+}
+
+export function normalizeStringList(
+    value,
+    {
+        splitPattern = DEFAULT_STRING_LIST_SPLIT_PATTERN,
+        allowInvalidType = false,
+        errorMessage = "Value must be provided as a string or array of strings."
+    } = {}
+) {
+    if (value == null) {
+        return [];
+    }
+
+    if (Array.isArray(value)) {
+        return normalizeEntries(value);
+    }
+
+    if (typeof value === "string") {
+        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const entries = pattern ? value.split(pattern) : [value];
+        return normalizeEntries(entries);
+    }
+
+    if (allowInvalidType) {
+        return [];
+    }
+
+    throw new TypeError(errorMessage);
 }

@@ -44,14 +44,22 @@ export function coalesceOption(
         return fallback;
     }
 
-    const candidates = Array.isArray(keys) ? keys : [keys];
+    if (Array.isArray(keys)) {
+        // Avoid allocating a throwaway array when callers pass a single key.
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of candidates) {
-        const value = object?.[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
+    }
+
+    const value = object[keys];
+    if (value !== undefined && (acceptNull || value !== null)) {
+        return value;
     }
 
     return fallback;

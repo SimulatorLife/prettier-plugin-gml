@@ -35,9 +35,9 @@
     "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
   },
   "scripts": {
-    "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules src/parser/src/generated .eslintcache",
+    "lint": "eslint . --cache",
+    "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",

@@ -52,29 +52,26 @@ function createSkipResult(reason) {
     };
 }
 
-function defaultStoreOption(options, key, value) {
+const DEFAULT_OPTION_WRITER = (options, key, value) => {
     if (!isObjectLike(options)) {
         return;
     }
 
     options[key] = value;
+};
+
+function getOptionWriter(storeOption) {
+    return typeof storeOption === "function"
+        ? storeOption
+        : DEFAULT_OPTION_WRITER;
 }
 
-function storeOptionValue(storeOption, options, key, value) {
-    if (typeof storeOption === "function") {
-        storeOption(options, key, value);
-    } else {
-        defaultStoreOption(options, key, value);
-    }
-}
-
-function storeBootstrapResult(options, result, storeOption) {
-    storeOptionValue(
-        storeOption,
-        options,
-        "__identifierCaseProjectIndexBootstrap",
-        result
-    );
+function storeBootstrapResult(
+    options,
+    result,
+    writeOption = DEFAULT_OPTION_WRITER
+) {
+    writeOption(options, "__identifierCaseProjectIndexBootstrap", result);
     return result;
 }
 
@@ -83,33 +80,41 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         return undefined;
     }
 
-    const type = typeof rawValue;
-    const typeErrorMessage = `${optionName} must be provided as a non-negative integer (received type '${type}').`;
-    const describeRangeError = (received) =>
+    const describeTypeError = () =>
+        `${optionName} must be provided as a non-negative integer (received type '${typeof rawValue}').`;
+    const describeValueError = (received) =>
         `${optionName} must be provided as a non-negative integer (received ${received}). Set to 0 to disable the size limit.`;
 
-    if (type !== "string" && type !== "number") {
-        throw new Error(typeErrorMessage);
+    let numericValue;
+    let receivedForError;
+
+    if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+
+        if (trimmed === "") {
+            return undefined;
+        }
+
+        numericValue = Number(trimmed);
+        receivedForError = `'${rawValue}'`;
+    } else if (typeof rawValue === "number") {
+        numericValue = rawValue;
+        receivedForError = rawValue;
+    } else {
+        throw new Error(describeTypeError());
     }
 
-    const isString = type === "string";
-    const sanitized = isString ? rawValue.trim() : rawValue;
-
-    if (isString && sanitized === "") {
-        return undefined;
-    }
-
-    const numericValue = Number(sanitized);
     if (!Number.isFinite(numericValue)) {
         throw new Error(
-            isString ? describeRangeError(`'${rawValue}'`) : typeErrorMessage
+            typeof rawValue === "string"
+                ? describeValueError(receivedForError)
+                : describeTypeError()
         );
     }
 
     const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
-        const received = isString ? `'${rawValue}'` : rawValue;
-        throw new Error(describeRangeError(received));
+        throw new Error(describeValueError(receivedForError));
     }
 
     return normalized === 0 ? null : normalized;
@@ -164,6 +169,8 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         return options.__identifierCaseProjectIndexBootstrap;
     }
 
+    const writeOption = getOptionWriter(storeOption);
+
     if (options.__identifierCaseProjectIndex) {
         const projectRoot =
             options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
@@ -178,7 +185,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
                 cache: null,
                 dispose() {}
             },
-            storeOption
+            writeOption
         );
     }
 
@@ -186,7 +193,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         return storeBootstrapResult(
             options,
             createSkipResult("discovery-disabled"),
-            storeOption
+            writeOption
         );
     }
 
@@ -197,8 +204,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
     if (cacheMaxSizeBytes !== undefined) {
-        storeOptionValue(
-            storeOption,
+        writeOption(
             options,
             PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
             cacheMaxSizeBytes
@@ -211,7 +217,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             return storeBootstrapResult(
                 options,
                 createSkipResult("missing-filepath"),
-                storeOption
+                writeOption
             );
         }
 
@@ -223,7 +229,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             return storeBootstrapResult(
                 options,
                 createSkipResult("project-root-not-found"),
-                storeOption
+                writeOption
             );
         }
 
@@ -290,22 +296,16 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             coordinator,
             dispose
         },
-        storeOption
+        writeOption
     );
 
     if (result.projectIndex) {
-        storeOptionValue(
-            storeOption,
+        writeOption(
             options,
             "__identifierCaseProjectIndex",
             result.projectIndex
         );
-        storeOptionValue(
-            storeOption,
-            options,
-            "__identifierCaseProjectRoot",
-            projectRoot
-        );
+        writeOption(options, "__identifierCaseProjectRoot", projectRoot);
     }
 
     return result;
@@ -316,13 +316,14 @@ export function applyBootstrappedProjectIndex(options, storeOption) {
         return null;
     }
 
+    const writeOption = getOptionWriter(storeOption);
+
     const bootstrapResult = options.__identifierCaseProjectIndexBootstrap;
     if (
         bootstrapResult?.projectIndex &&
         !options.__identifierCaseProjectIndex
     ) {
-        storeOptionValue(
-            storeOption,
+        writeOption(
             options,
             "__identifierCaseProjectIndex",
             bootstrapResult.projectIndex
@@ -331,8 +332,7 @@ export function applyBootstrappedProjectIndex(options, storeOption) {
             bootstrapResult.projectRoot &&
             !options.__identifierCaseProjectRoot
         ) {
-            storeOptionValue(
-                storeOption,
+            writeOption(
                 options,
                 "__identifierCaseProjectRoot",
                 bootstrapResult.projectRoot

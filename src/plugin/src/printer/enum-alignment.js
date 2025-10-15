@@ -10,62 +10,46 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         return;
     }
 
-    const memberCount = members.length;
-    const nameLengths = new Array(memberCount);
-    const initializerWidths = new Array(memberCount);
-    const memberWidths = new Array(memberCount);
-    const trailingCommentLists = new Array(memberCount);
-
     let maxInitializerNameLength = 0;
-
-    // A single indexed pass avoids re-scanning the array when computing
-    // `Math.max` / `Array#reduce`, keeping this hot alignment prep tight.
-    for (let index = 0; index < memberCount; index += 1) {
-        const member = members[index];
+    const memberStats = members.map((member) => {
         const rawName = getNodeName?.(member?.name);
-        const length = typeof rawName === "string" ? rawName.length : 0;
+        const nameLength = typeof rawName === "string" ? rawName.length : 0;
+        const initializer = member?.initializer;
+        const hasInitializer = Boolean(initializer);
+        const initializerWidth = getEnumInitializerWidth(initializer);
 
-        nameLengths[index] = length;
-
-        const initializerWidth = getEnumInitializerWidth(member?.initializer);
-        initializerWidths[index] = initializerWidth;
-
-        trailingCommentLists[index] = collectTrailingEnumComments(member);
-
-        if (member?.initializer && length > maxInitializerNameLength) {
-            maxInitializerNameLength = length;
+        if (hasInitializer && nameLength > maxInitializerNameLength) {
+            maxInitializerNameLength = nameLength;
         }
-    }
+
+        return {
+            member,
+            nameLength,
+            initializerWidth,
+            hasInitializer,
+            trailingComments: collectTrailingEnumComments(member)
+        };
+    });
 
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
-    const lastIndex = memberCount - 1;
     let maxMemberWidth = 0;
-
-    // A hand-rolled loop avoids creating a callback closure for `Array#forEach`
-    // and repeatedly reading `members.length` inside the hot post-processing
-    // pass. The body mirrors the original logic while keeping the tight loop
-    // friendlier to V8's optimizer.
-    for (let index = 0; index < memberCount; index += 1) {
-        const member = members[index];
-        const nameLength = nameLengths[index];
-        const hasInitializer = Boolean(member?.initializer);
-
+    for (const entry of memberStats) {
         const alignmentPadding =
-            shouldAlignInitializers && hasInitializer
-                ? maxInitializerNameLength - nameLength
+            shouldAlignInitializers && entry.hasInitializer
+                ? maxInitializerNameLength - entry.nameLength
                 : 0;
 
-        member._enumNameAlignmentPadding = alignmentPadding;
+        entry.member._enumNameAlignmentPadding = alignmentPadding;
 
-        const initializerWidth = initializerWidths[index] ?? 0;
-        const initializerSpan = hasInitializer
-            ? ENUM_INITIALIZER_OPERATOR_WIDTH + initializerWidth
+        const initializerSpan = entry.hasInitializer
+            ? ENUM_INITIALIZER_OPERATOR_WIDTH + entry.initializerWidth
             : 0;
 
-        const memberWidth = nameLength + alignmentPadding + initializerSpan;
+        const memberWidth =
+            entry.nameLength + alignmentPadding + initializerSpan;
 
-        memberWidths[index] = memberWidth;
+        entry.memberWidth = memberWidth;
         if (memberWidth > maxMemberWidth) {
             maxMemberWidth = memberWidth;
         }
@@ -76,26 +60,24 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     }
 
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
+    const lastIndex = memberStats.length - 1;
 
-    for (let index = 0; index < memberCount; index += 1) {
-        const comments = trailingCommentLists[index];
-        if (!comments || comments.length === 0) {
-            continue;
+    memberStats.forEach((entry, index) => {
+        if (!entry.trailingComments || entry.trailingComments.length === 0) {
+            return;
         }
 
-        const memberWidth = memberWidths[index] ?? 0;
-        const isLastMember = index === lastIndex;
-        const commaWidth = !isLastMember || hasTrailingComma ? 1 : 0;
+        const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
         const extraPadding = Math.max(
-            maxMemberWidth - memberWidth - commaWidth,
+            maxMemberWidth - (entry.memberWidth ?? 0) - commaWidth,
             0
         );
 
         if (extraPadding === 0) {
-            continue;
+            return;
         }
 
-        for (const comment of comments) {
+        for (const comment of entry.trailingComments) {
             if (comment && typeof comment === "object") {
                 const previous =
                     typeof comment._enumTrailingPadding === "number"
@@ -104,7 +86,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
                 comment._enumTrailingPadding = Math.max(previous, extraPadding);
             }
         }
-    }
+    });
 }
 
 export function getEnumNameAlignmentPadding(member) {

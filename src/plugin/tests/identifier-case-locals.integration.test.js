@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
@@ -61,32 +61,34 @@ async function createTempProject(fixtureFileName = "locals.gml") {
     };
 }
 
-describe("identifier case local renaming", () => {
+describe("identifier case local renaming", { concurrency: false }, () => {
     it("reports planned renames and conflicts during dry-run", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
             await createTempProject();
 
         const consoleMessages = [];
-        const originalConsoleLog = console.log;
+        const restoreConsole = mock.method(console, "log", (...args) => {
+            consoleMessages.push(args.join(" "));
+        });
 
         try {
             clearIdentifierCaseDryRunContexts();
-            setIdentifierCaseDryRunContext({
-                filepath: gmlPath,
-                projectIndex,
-                dryRun: true
-            });
-            const diagnostics = [];
             const messages = [];
             const logger = {
                 log(message) {
                     messages.push(message);
+                },
+                warn(message) {
+                    messages.push(`WARN: ${message}`);
                 }
             };
-            console.log = function (...args) {
-                consoleMessages.push(args.join(" "));
-                return originalConsoleLog.apply(this, args);
-            };
+            setIdentifierCaseDryRunContext({
+                filepath: gmlPath,
+                projectIndex,
+                dryRun: true,
+                logger
+            });
+            const diagnostics = [];
 
             const formatOptions = {
                 plugins: [pluginPath],
@@ -180,7 +182,7 @@ describe("identifier case local renaming", () => {
             assert.ok(codes.has("ignored"));
             assert.ok(codes.has("collision"));
         } finally {
-            console.log = originalConsoleLog;
+            restoreConsole.mock.restore();
             clearIdentifierCaseDryRunContexts();
             await fs.rm(projectRoot, { recursive: true, force: true });
         }

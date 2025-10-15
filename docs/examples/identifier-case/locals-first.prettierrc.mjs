@@ -40,7 +40,6 @@ export default {
     gmlIdentifierCaseGlobals: "inherit",
     gmlIdentifierCaseAssets: "off",
     gmlIdentifierCaseMacros: "inherit",
-    // Persist the index and dry-run report so teammates can review the rollout.
     identifierCaseProjectIndex: projectIndex,
     identifierCaseDryRun: true,
     identifierCaseReportLogPath: logPath

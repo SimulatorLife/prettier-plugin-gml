@@ -1,11 +1,25 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
+} from "../options/identifier-case.js";
 
 const optionStoreMap = new Map();
-const MAX_OPTION_STORE_ENTRIES = 128;
+const DEFAULT_MAX_OPTION_STORE_ENTRIES =
+    DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES;
 
-function trimOptionStoreMap() {
-    while (optionStoreMap.size > MAX_OPTION_STORE_ENTRIES) {
+function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
+    if (!Number.isFinite(maxEntries)) {
+        return;
+    }
+
+    const limit = Math.floor(maxEntries);
+    if (limit <= 0) {
+        return;
+    }
+
+    while (optionStoreMap.size > limit) {
         const oldestEntry = optionStoreMap.keys().next();
         if (oldestEntry.done) {
             break;
@@ -14,55 +28,74 @@ function trimOptionStoreMap() {
     }
 }
 
+function resolveMaxOptionStoreEntries(options) {
+    if (!isObjectLike(options)) {
+        return DEFAULT_MAX_OPTION_STORE_ENTRIES;
+    }
+
+    const configured =
+        options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
+
+    if (configured === Infinity) {
+        return configured;
+    }
+
+    if (typeof configured === "number" && Number.isFinite(configured)) {
+        if (configured <= 0) {
+            return 0;
+        }
+
+        return Math.floor(configured);
+    }
+
+    return DEFAULT_MAX_OPTION_STORE_ENTRIES;
+}
+
 function getStoreKey(options) {
-    return withObjectLike(
-        options,
-        (object) => {
-            if (object.__identifierCaseOptionsStoreKey != null) {
-                return object.__identifierCaseOptionsStoreKey;
-            }
+    if (!isObjectLike(options)) {
+        return null;
+    }
 
-            if (isNonEmptyString(object.filepath)) {
-                return object.filepath;
-            }
+    if (options.__identifierCaseOptionsStoreKey != null) {
+        return options.__identifierCaseOptionsStoreKey;
+    }
 
-            return null;
-        },
-        null
-    );
+    if (isNonEmptyString(options.filepath)) {
+        return options.filepath;
+    }
+
+    return null;
 }
 
 function updateStore(options, key, value) {
-    withObjectLike(options, (object) => {
-        const store = object.__identifierCaseOptionsStore;
-        if (isObjectLike(store)) {
-            store[key] = value;
-        }
+    const store = options.__identifierCaseOptionsStore;
+    if (isObjectLike(store)) {
+        store[key] = value;
+    }
 
-        const storeKey = getStoreKey(object);
-        if (storeKey != null) {
-            let existing = optionStoreMap.get(storeKey);
-            if (!existing) {
-                existing = {};
-            }
+    const storeKey = getStoreKey(options);
+    if (storeKey == null) {
+        return;
+    }
 
-            existing[key] = value;
+    const entry = optionStoreMap.get(storeKey) ?? {};
+    entry[key] = value;
 
-            if (optionStoreMap.has(storeKey)) {
-                optionStoreMap.delete(storeKey);
-            }
+    if (optionStoreMap.has(storeKey)) {
+        optionStoreMap.delete(storeKey);
+    }
 
-            optionStoreMap.set(storeKey, existing);
-            trimOptionStoreMap();
-        }
-    });
+    optionStoreMap.set(storeKey, entry);
+    trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    withObjectLike(options, (object) => {
-        object[key] = value;
-        updateStore(object, key, value);
-    });
+    if (!isObjectLike(options)) {
+        return;
+    }
+
+    options[key] = value;
+    updateStore(options, key, value);
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
@@ -82,5 +115,7 @@ export function clearIdentifierCaseOptionStore(storeKey) {
     optionStoreMap.delete(storeKey);
 }
 
+export const DEFAULT_MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES =
+    DEFAULT_MAX_OPTION_STORE_ENTRIES;
 export const MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES =
-    MAX_OPTION_STORE_ENTRIES;
+    DEFAULT_MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES;

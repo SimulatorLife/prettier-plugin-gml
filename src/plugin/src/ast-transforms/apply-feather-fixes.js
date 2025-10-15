@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import GMLParser from "gamemaker-language-parser";
 
 import {
@@ -18,6 +17,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
+import { loadReservedIdentifierNames } from "../../../shared/identifier-metadata.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
@@ -29,7 +29,6 @@ import {
     getFeatherMetadata
 } from "../feather/metadata.js";
 
-const require = createRequire(import.meta.url);
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -97,7 +96,7 @@ const RESERVED_KEYWORD_TOKENS = new Set([
     "while",
     "with"
 ]);
-const RESERVED_IDENTIFIER_NAMES = buildReservedIdentifierNameSet();
+const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     buildDeprecatedBuiltinVariableReplacements();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
@@ -5970,7 +5969,7 @@ function collectDeprecatedFunctionNames(ast, sourceText) {
     }
 
     const comments = getCommentArray(ast);
-    const body = Array.isArray(ast.body) ? ast.body : [];
+    const body = getBodyStatements(ast);
 
     if (comments.length === 0 || body.length === 0) {
         return names;
@@ -6075,11 +6074,7 @@ function isDeprecatedComment(comment) {
 }
 
 function isWhitespaceOnly(text) {
-    if (typeof text !== "string") {
-        return true;
-    }
-
-    return text.trim().length === 0;
+    return !isNonEmptyTrimmedString(text);
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
@@ -8262,9 +8257,7 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = Array.isArray(consequent.body)
-            ? consequent.body.filter(Boolean)
-            : [];
+        const statements = getBodyStatements(consequent).filter(Boolean);
 
         if (statements.length !== 1) {
             return null;
@@ -9164,9 +9157,9 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const body = Array.isArray(ast.body) ? ast.body : null;
+    const body = getBodyStatements(ast);
 
-    if (!body || body.length === 0) {
+    if (body.length === 0) {
         return [];
     }
 
@@ -9824,7 +9817,7 @@ function getDrawPrimitiveEndCallInfo(block) {
         return null;
     }
 
-    const body = Array.isArray(block.body) ? block.body : [];
+    const body = getBodyStatements(block);
     const matches = [];
 
     for (let index = 0; index < body.length; index += 1) {
@@ -10924,7 +10917,7 @@ function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
 
     const sanitized = between.replaceAll(";", "");
 
-    return sanitized.trim().length === 0;
+    return !isNonEmptyTrimmedString(sanitized);
 }
 
 function hasFirstArgumentIdentifier(node, name) {
@@ -13238,11 +13231,9 @@ function moveGpuPopStateCallOutOfConditional(
         return null;
     }
 
-    const consequentBody = Array.isArray(consequentBlock.body)
-        ? consequentBlock.body
-        : null;
+    const consequentBody = getBodyStatements(consequentBlock);
 
-    if (!consequentBody || consequentBody.length === 0) {
+    if (consequentBody.length === 0) {
         return null;
     }
 
@@ -13300,9 +13291,9 @@ function hasTrailingGpuPopInAlternate(alternate) {
     }
 
     if (alternate.type === "BlockStatement") {
-        const body = Array.isArray(alternate.body) ? alternate.body : null;
+        const body = getBodyStatements(alternate);
 
-        if (!body || body.length === 0) {
+        if (body.length === 0) {
             return false;
         }
 
@@ -16485,35 +16476,6 @@ function getMacroBaseText(macro, sourceText) {
     return sourceText.slice(startIndex, endIndex);
 }
 
-function buildReservedIdentifierNameSet() {
-    try {
-        const metadata = require("../../../../resources/gml-identifiers.json");
-        const identifiers = metadata?.identifiers;
-
-        if (identifiers && typeof identifiers === "object") {
-            const disallowedTypes = new Set(["literal", "keyword"]);
-
-            return new Set(
-                Object.entries(identifiers)
-                    .filter(([name, info]) => {
-                        if (typeof name !== "string" || name.length === 0) {
-                            return false;
-                        }
-
-                        const type =
-                            typeof info?.type === "string" ? info.type : "";
-                        return !disallowedTypes.has(type.toLowerCase());
-                    })
-                    .map(([name]) => name.toLowerCase())
-            );
-        }
-    } catch {
-        // Ignore metadata loading failures and fall back to a no-op set.
-    }
-
-    return new Set();
-}
-
 function registerManualFeatherFix({ ast, diagnostic }) {
     if (!ast || typeof ast !== "object" || !diagnostic?.id) {
         return [];
@@ -16971,7 +16933,7 @@ function extractFunctionCallNamesFromExample(exampleText) {
         }
 
         const [code] = line.split("//", 1);
-        if (!code || code.trim().length === 0) {
+        if (!isNonEmptyTrimmedString(code)) {
             continue;
         }
 
@@ -16997,9 +16959,9 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const programBody = Array.isArray(ast.body) ? ast.body : null;
+    const programBody = getBodyStatements(ast);
 
-    if (!programBody || programBody.length === 0) {
+    if (programBody.length === 0) {
         return [];
     }
 

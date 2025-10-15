@@ -1,5 +1,8 @@
 import { hasOwn } from "../../../shared/object-utils.js";
-import { isWordChar } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyTrimmedString,
+    isWordChar
+} from "../../../shared/string-utils.js";
 
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
@@ -181,7 +184,7 @@ export function sanitizeConditionalAssignments(sourceText) {
         }
 
         if (justSawIfKeyword) {
-            if (character.trim().length === 0) {
+            if (!isNonEmptyTrimmedString(character)) {
                 append(character);
                 index += 1;
                 continue;
