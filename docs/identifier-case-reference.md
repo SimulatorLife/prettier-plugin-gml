@@ -61,7 +61,9 @@ and all references are rewritten consistently.
   audit configuration-driven skips.
 - **Metrics and option store** — The planner attaches metrics, rename plans, and
   conflicts to the identifier-case option store. Tests and editor integrations
-  can snapshot this data to verify behaviour across dry-run and write scenarios.
+  can snapshot this data to verify behaviour across dry-run and write scenarios,
+  adjusting retention with `gmlIdentifierCaseOptionStoreMaxEntries` when longer
+  histories are needed for debugging.
 
 Refer to the updated integration tests under
 `src/plugin/tests/identifier-case-top-level.integration.test.js` for end-to-end
