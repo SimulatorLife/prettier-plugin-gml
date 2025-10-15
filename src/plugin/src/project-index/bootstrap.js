@@ -111,7 +111,7 @@ function coerceCacheMaxSize(
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
     if (!Number.isFinite(numericValue)) {
-        throw new Error(formatConcurrencyValueError(optionName, received));
+        throw new TypeError(formatConcurrencyValueError(optionName, received));
     }
 
     const normalized = Math.trunc(numericValue);
@@ -191,7 +191,7 @@ function resolveCacheMaxSizeBytes(options) {
 
 function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
     if (rawValue == null) {
-        return undefined;
+        return;
     }
 
     const rawType = typeof rawValue;
@@ -199,7 +199,7 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
     if (rawType === "string") {
         const trimmed = rawValue.trim();
         if (trimmed === "") {
-            return undefined;
+            return;
         }
 
         const received = `'${rawValue}'`;
@@ -221,7 +221,7 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
 
 function resolveProjectIndexConcurrency(options) {
     if (!isObjectLike(options)) {
-        return undefined;
+        return;
     }
 
     const internalValue =
@@ -234,7 +234,7 @@ function resolveProjectIndexConcurrency(options) {
 
     const externalValue = options[PROJECT_INDEX_CONCURRENCY_OPTION_NAME];
     if (externalValue === undefined) {
-        return undefined;
+        return;
     }
 
     return normalizeProjectIndexConcurrency(externalValue, {

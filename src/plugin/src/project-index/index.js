@@ -1896,11 +1896,7 @@ function cloneAssetReference(reference) {
 
 function clampConcurrency(
     value,
-    {
-        min = 1,
-        max = 16,
-        fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
-    } = {}
+    { min = 1, max = 16, fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY } = {}
 ) {
     const numeric = Number(value ?? fallback);
     if (!Number.isFinite(numeric) || numeric < min) {

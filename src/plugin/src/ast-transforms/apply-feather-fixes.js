@@ -13984,7 +13984,8 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
         }
 
         if (isVertexFormatBeginCall(statement)) {
-            const previousEntry = openBegins.length > 0 ? openBegins.at(-1) : null;
+            const previousEntry =
+                openBegins.length > 0 ? openBegins.at(-1) : null;
 
             if (previousEntry && previousEntry.node !== statement) {
                 const removalCount = removeDanglingVertexFormatDefinition({

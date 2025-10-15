@@ -1,4 +1,4 @@
-name: Auto-merge Codex PRs
+name: Auto-merge PRs
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ permissions:
 
 # Single run per PR; newer pushes cancel older runs
 concurrency:
-  group: codex-automerge-${{ github.event.pull_request.number || github.event.inputs.pr_number || 'manual' }}
+  group: automerge-${{ github.event.pull_request.number || github.event.inputs.pr_number || 'manual' }}
   cancel-in-progress: true
 
 jobs:
@@ -188,7 +188,7 @@ jobs:
 
       - name: Preserve base test results
         run: |
-          BASE_RESULTS_DIR="$RUNNER_TEMP/codex-base-test-results"
+          BASE_RESULTS_DIR="$RUNNER_TEMP/base-test-results"
           echo "BASE_RESULTS_DIR=$BASE_RESULTS_DIR" >> "$GITHUB_ENV"
           rm -rf base-test-results "$BASE_RESULTS_DIR"
           if [ -d base/test-results ]; then
@@ -339,7 +339,7 @@ jobs:
       - name: Preserve merged test results
         if: ${{ steps.has-merge.outputs.available == 'true' }}
         run: |
-          MERGE_RESULTS_DIR="$RUNNER_TEMP/codex-merge-test-results"
+          MERGE_RESULTS_DIR="$RUNNER_TEMP/merge-test-results"
           echo "MERGE_RESULTS_DIR=$MERGE_RESULTS_DIR" >> "$GITHUB_ENV"
           rm -rf merge-test-results "$MERGE_RESULTS_DIR"
           if [ -d merge/test-results ]; then
@@ -480,7 +480,7 @@ jobs:
               core.warning(`fast-xml-parser is unavailable: ${error.message}`);
             }
 
-            const marker = '<!-- codex-automerge-pr-test-summary -->';
+            const marker = '<!-- automerge-pr-test-summary -->';
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!prNumber) {
               core.warning('Cannot determine PR number for summary comment.');
