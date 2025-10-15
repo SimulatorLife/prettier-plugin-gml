@@ -2,16 +2,29 @@ import { hasOwn, isObjectLike } from "./object-utils.js";
 
 const SHARED_CACHE = new WeakMap();
 
-function getCacheStore(candidate) {
-    if (
-        candidate &&
+function isCacheLike(candidate) {
+    return (
+        candidate != null &&
         typeof candidate.get === "function" &&
         typeof candidate.set === "function"
-    ) {
-        return candidate;
+    );
+}
+
+function defineCachedProperty(target, cacheKey, value) {
+    if (cacheKey == null || !Object.isExtensible(target)) {
+        return;
     }
 
-    return SHARED_CACHE;
+    try {
+        Object.defineProperty(target, cacheKey, {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value
+        });
+    } catch {
+        // Ignore define failures and fall back to the cache store.
+    }
 }
 
 /**
@@ -48,26 +61,14 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
         return options[cacheKey];
     }
 
-    const cache = getCacheStore(fallbackCache);
+    const cache = isCacheLike(fallbackCache) ? fallbackCache : SHARED_CACHE;
     if (cache.has(options)) {
         return cache.get(options);
     }
 
     const computed = computeValue();
 
-    if (cacheKey != null && Object.isExtensible(options)) {
-        try {
-            Object.defineProperty(options, cacheKey, {
-                configurable: false,
-                enumerable: false,
-                writable: false,
-                value: computed
-            });
-        } catch {
-            // Ignore define failures and fall back to the cache store.
-        }
-    }
-
+    defineCachedProperty(options, cacheKey, computed);
     cache.set(options, computed);
     return computed;
 }
