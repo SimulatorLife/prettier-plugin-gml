@@ -9,7 +9,6 @@ import {
     getLineCommentRawText
 } from "./line-comment-formatting.js";
 import {
-    getTrailingCommentInlinePadding,
     getTrailingCommentPadding,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
@@ -213,7 +212,6 @@ function applyTrailingCommentPadding(comment, options) {
         return;
     }
 
-    const inlinePadding = getTrailingCommentInlinePadding(options);
     const trailingPadding = getTrailingCommentPadding(options);
     const baseTrailingPadding = Math.max(trailingPadding, 0);
     const enumPadding =
@@ -221,9 +219,8 @@ function applyTrailingCommentPadding(comment, options) {
             ? comment._enumTrailingPadding
             : 0;
 
-    const inlineTotal = inlinePadding + 1;
     const trailingTotal = baseTrailingPadding + enumPadding;
-    const desiredTotalPadding = Math.max(inlineTotal, trailingTotal);
+    const desiredTotalPadding = Math.max(baseTrailingPadding, trailingTotal);
 
     // Prettier automatically inserts a single space between trailing comments and
     // the preceding code. Treat the configured padding as the total desired
