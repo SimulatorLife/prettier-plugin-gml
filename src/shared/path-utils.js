@@ -8,7 +8,7 @@ const POSIX_SEPARATOR_PATTERN = /\/+/g;
 /**
  * Replace any Windows-style backslashes with forward slashes so downstream
  * consumers can rely on a stable, POSIX-style path. Empty and non-string
- * inputs are normalised to an empty string rather than throwing, which
+ * inputs are normalized to an empty string rather than throwing, which
  * mirrors how parser utilities treat optional path metadata.
  *
  * @param {unknown} inputPath Candidate file system path.
@@ -25,7 +25,7 @@ export function toPosixPath(inputPath) {
 
 /**
  * Convert a POSIX-style path into the current platform's native separator.
- * Non-string and empty inputs are normalised to an empty string so callers
+ * Non-string and empty inputs are normalized to an empty string so callers
  * can freely chain additional `path.join` invocations without defensive
  * nullish checks.
  *
