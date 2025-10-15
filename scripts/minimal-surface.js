@@ -119,7 +119,7 @@ function main() {
     const reportPath =
         reportFlagIndex !== -1 && args[reportFlagIndex + 1]
             ? args[reportFlagIndex + 1]
-            : "codex-minimal-surface-report.md";
+            : "minimal-surface-report.md";
 
     const repoRoot = getRepoRoot();
     const indexFiles = getIndexFiles();
