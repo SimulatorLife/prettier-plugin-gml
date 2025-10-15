@@ -2,8 +2,7 @@ import {
     coercePositiveInteger,
     resolveIntegerOption
 } from "./integer-utils.js";
-
-export const DEFAULT_PROGRESS_BAR_WIDTH = 24;
+import { DEFAULT_PROGRESS_BAR_WIDTH } from "../manual/progress-bar-constants.js";
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -25,3 +24,5 @@ export function resolveProgressBarWidth(rawValue) {
         typeErrorMessage: createTypeErrorMessage
     });
 }
+
+export { DEFAULT_PROGRESS_BAR_WIDTH };

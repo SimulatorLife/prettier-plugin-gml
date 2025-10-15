@@ -46,9 +46,12 @@ const OUTPUT_DEFAULT = path.join(
     "gml-identifiers.json"
 );
 
+const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
+
 const manualClient = createManualGitHubClient({
     userAgent: "prettier-plugin-gml identifier generator",
-    defaultCacheRoot: DEFAULT_CACHE_ROOT
+    defaultCacheRoot: DEFAULT_CACHE_ROOT,
+    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
 });
 
 const { fetchManualFile, resolveManualRef } = manualClient;
