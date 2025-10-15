@@ -52,7 +52,7 @@ export function isBlockComment(node) {
  *                     comment node.
  */
 export function hasComment(node) {
-    return getCommentArray(node).some(isCommentNode);
+    return getCommentArray(node).some((candidate) => isCommentNode(candidate));
 }
 
 /**

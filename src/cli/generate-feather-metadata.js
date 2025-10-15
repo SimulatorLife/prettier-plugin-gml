@@ -265,7 +265,7 @@ function splitCellLines(element) {
 
     return (
         clone.textContent
-            ?.replaceAll('\u00A0', " ")
+            ?.replaceAll("\u00A0", " ")
             .split("\n")
             .map((line) => line.replaceAll(/\s+/g, " ").trim())
             .filter(Boolean) ?? []
@@ -324,41 +324,42 @@ function createBlock(node) {
     const tagName = getTagName(element);
     let type = "html";
     switch (tagName) {
-    case "p": {
-        if (classList.contains("code")) {
-            type = "code";
-        } else if (
-            classList.contains("note") ||
-            classList.contains("warning")
-        ) {
-            type = "note";
-        } else {
-            type = "paragraph";
+        case "p": {
+            if (classList.contains("code")) {
+                type = "code";
+            } else if (
+                classList.contains("note") ||
+                classList.contains("warning")
+            ) {
+                type = "note";
+            } else {
+                type = "paragraph";
+            }
+
+            break;
         }
-    
-    break;
-    }
-    case "h4": 
-    case "h5": {
-        type = "heading";
-    
-    break;
-    }
-    case "ul": 
-    case "ol": {
-        type = "list";
-    
-    break;
-    }
-    case "table": {
-        type = "table";
-    
-    break;
-    }
-    default: { if (tagName === "div" && classList.contains("codeblock")) {
-        type = "code";
-    }
-    }
+        case "h4":
+        case "h5": {
+            type = "heading";
+
+            break;
+        }
+        case "ul":
+        case "ol": {
+            type = "list";
+
+            break;
+        }
+        case "table": {
+            type = "table";
+
+            break;
+        }
+        default: {
+            if (tagName === "div" && classList.contains("codeblock")) {
+                type = "code";
+            }
+        }
     }
 
     const preserveLineBreaks = type === "code" || type === "list";
@@ -395,7 +396,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    let text = clone.textContent?.replaceAll('\u00A0', " ") ?? "";
+    let text = clone.textContent?.replaceAll("\u00A0", " ") ?? "";
     if (preserveLineBreaks) {
         return text
             .split("\n")
@@ -628,7 +629,9 @@ function parseDiagnostics(html) {
     const diagnostics = [];
 
     for (const element of document.querySelectorAll("h3")) {
-        const headingText = element.textContent?.replaceAll('\u00A0', " ").trim();
+        const headingText = element.textContent
+            ?.replaceAll("\u00A0", " ")
+            .trim();
         if (!headingText) {
             continue;
         }
@@ -708,7 +711,7 @@ function parseNamingRules(html) {
     if (mainList) {
         for (const strongEl of mainList.querySelectorAll("li > strong")) {
             const strongText = strongEl.textContent
-                ?.replaceAll('\u00A0', " ")
+                ?.replaceAll("\u00A0", " ")
                 .trim();
             if (!strongText) {
                 continue;
@@ -746,7 +749,7 @@ function parseNamingRules(html) {
             const strongChildren = getDirectChildren(item, "strong");
             const title =
                 strongChildren[0]?.textContent
-                    ?.replaceAll('\u00A0', " ")
+                    ?.replaceAll("\u00A0", " ")
                     .trim() || null;
             const description = extractText(item, {
                 preserveLineBreaks: true
@@ -805,7 +808,7 @@ function parseDirectiveSections(html) {
     const sections = [];
 
     for (const element of document.querySelectorAll("h2")) {
-        const title = element.textContent?.replaceAll('\u00A0', " ").trim();
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
             continue;
         }
@@ -935,7 +938,7 @@ function parseTypeSystem(html) {
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
-        const title = element.textContent?.replaceAll('\u00A0', " ").trim();
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
             continue;
         }

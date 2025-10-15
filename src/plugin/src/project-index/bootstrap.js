@@ -53,11 +53,9 @@ function createSkipResult(reason) {
 }
 
 const DEFAULT_OPTION_WRITER = (options, key, value) => {
-    if (!isObjectLike(options)) {
-        return;
+    if (isObjectLike(options)) {
+        options[key] = value;
     }
-
-    options[key] = value;
 };
 
 function getOptionWriter(storeOption) {

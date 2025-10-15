@@ -42,7 +42,9 @@ test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
 test("string utility helpers interoperate with trimmed strings", () => {
     const values = ["  one  ", "", "  two", "three  ", null];
 
-    const normalized = values.map(toTrimmedString).filter(isNonEmptyString);
+    const normalized = values
+        .map((value) => toTrimmedString(value))
+        .filter((value) => isNonEmptyString(value));
     assert.deepStrictEqual(normalized, ["one", "two", "three"]);
 
     assert.strictEqual(isNonEmptyTrimmedString("  spaced  "), true);

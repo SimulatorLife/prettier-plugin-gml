@@ -37,7 +37,7 @@ export function capitalize(value) {
         return value;
     }
 
-    return value.charAt(0).toUpperCase() + value.slice(1);
+    return value.at(0).toUpperCase() + value.slice(1);
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
