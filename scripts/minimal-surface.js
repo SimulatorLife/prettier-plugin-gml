@@ -69,36 +69,30 @@ function analyzeFile(filePath) {
 }
 
 function formatReportEntry(file, findings) {
-    const lines = ["### " + file];
-    findings.forEach((finding) => {
+    const sections = findings.flatMap((finding) => {
         if (finding.type === "wildcard-re-export") {
-            lines.push(
-                "- Re-exports entire modules with `export * from` statements:"
-            );
-            finding.occurrences.forEach((occurrence) => {
-                lines.push("  - `" + occurrence + "`");
-            });
+            return [
+                "- Re-exports entire modules with `export * from` statements:",
+                ...finding.occurrences.map(
+                    (occurrence) => `  - \`${occurrence}\``
+                )
+            ];
         }
 
         if (finding.type === "large-named-export") {
-            lines.push("- Exports a wide surface area via named exports:");
-            finding.occurrences.forEach((entry) => {
-                const sanitized = entry.raw.replace(/\s+/g, " ");
-                lines.push(
-                    "  - " +
-                        entry.count +
-                        " symbols exported in `" +
-                        sanitized +
-                        "`:" +
-                        " " +
-                        entry.symbols.join(", ")
-                );
-            });
+            return [
+                "- Exports a wide surface area via named exports:",
+                ...finding.occurrences.map((entry) => {
+                    const sanitized = entry.raw.replace(/\s+/g, " ");
+                    return `  - ${entry.count} symbols exported in \`${sanitized}\`: ${entry.symbols.join(", ")}`;
+                })
+            ];
         }
+
+        return [];
     });
 
-    lines.push("");
-    return lines.join("\n");
+    return ["### " + file, ...sections, ""].join("\n");
 }
 
 function writeReport(reportPath, entries) {
