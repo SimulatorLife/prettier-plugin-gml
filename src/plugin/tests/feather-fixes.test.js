@@ -4420,6 +4420,56 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("does not localize GM2016 assignments when the identifier is read before assignment", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "if (!surface_exists(sf_canvas))",
+            "{",
+            "    sf_canvas = surface_create(512, 512);",
+            "}",
+            "",
+            "surface_set_target(sf_canvas);",
+            "draw_clear_alpha(c_white, 0);",
+            "draw_rectangle(4, 4, 40, 40);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(Array.isArray(body), true);
+        assert.ok(body.length >= 4);
+        assert.notStrictEqual(body[0]?.type, "VariableDeclaration");
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2016Entries = appliedDiagnostics.filter(
+            (entry) => entry.id === "GM2016"
+        );
+
+        assert.strictEqual(
+            gm2016Entries.some((entry) => entry?.automatic === true),
+            false,
+            "GM2016 metadata should not record an automatic fix when localization is skipped."
+        );
+
+        const hasSfCanvasDeclaration = body.some(
+            (node) =>
+                node?.type === "VariableDeclaration" &&
+                Array.isArray(node.declarations) &&
+                node.declarations.some(
+                    (declarator) => declarator?.id?.name === "sf_canvas"
+                )
+        );
+
+        assert.strictEqual(hasSfCanvasDeclaration, false);
+    });
+
     it("closes vertex buffers flagged by GM2011 and records metadata", () => {
         const source = [
             "/// Create Event",
