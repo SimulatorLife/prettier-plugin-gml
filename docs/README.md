@@ -16,6 +16,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   classifies edge cases and applies rename overrides.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
+- [Codex workflow reference](codex-workflow-reference.md) — Summaries of the
+  Codex automation guardrails and the abstraction patterns they recommend when
+  surfacing issues.
 
 ## Usage & rollout
 
