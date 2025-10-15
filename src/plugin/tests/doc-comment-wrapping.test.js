@@ -118,13 +118,8 @@ test("wraps @description doc comments when printWidth is narrow", async () => {
         "Expected formatter to emit a @description doc comment line."
     );
 
-    const [
-        firstLine,
-        secondLine,
-        thirdLine,
-        fourthLine,
-        fifthLine
-    ] = lines.slice(descriptionIndex, descriptionIndex + 5);
+    const [firstLine, secondLine, thirdLine, fourthLine, fifthLine] =
+        lines.slice(descriptionIndex, descriptionIndex + 5);
 
     assert.strictEqual(
         firstLine,
@@ -142,8 +137,5 @@ test("wraps @description doc comments when printWidth is narrow", async () => {
         fourthLine,
         "///              non-solid shapes will not collide with"
     );
-    assert.strictEqual(
-        fifthLine,
-        "///              anything."
-    );
+    assert.strictEqual(fifthLine, "///              anything.");
 });
