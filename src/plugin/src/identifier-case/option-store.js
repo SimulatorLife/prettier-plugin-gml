@@ -2,6 +2,17 @@ import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 
 const optionStoreMap = new Map();
+const MAX_OPTION_STORE_ENTRIES = 128;
+
+function trimOptionStoreMap() {
+    while (optionStoreMap.size > MAX_OPTION_STORE_ENTRIES) {
+        const oldestEntry = optionStoreMap.keys().next();
+        if (oldestEntry.done) {
+            break;
+        }
+        optionStoreMap.delete(oldestEntry.value);
+    }
+}
 
 function getStoreKey(options) {
     return withObjectLike(
@@ -30,9 +41,19 @@ function updateStore(options, key, value) {
 
         const storeKey = getStoreKey(object);
         if (storeKey != null) {
-            const existing = optionStoreMap.get(storeKey) ?? {};
+            let existing = optionStoreMap.get(storeKey);
+            if (!existing) {
+                existing = {};
+            }
+
             existing[key] = value;
+
+            if (optionStoreMap.has(storeKey)) {
+                optionStoreMap.delete(storeKey);
+            }
+
             optionStoreMap.set(storeKey, existing);
+            trimOptionStoreMap();
         }
     });
 }
@@ -60,3 +81,6 @@ export function clearIdentifierCaseOptionStore(storeKey) {
 
     optionStoreMap.delete(storeKey);
 }
+
+export const MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES =
+    MAX_OPTION_STORE_ENTRIES;
