@@ -1120,7 +1120,7 @@ function printDelimitedList(
         groupId,
         forceInline = false,
         maxElementsPerLine = Infinity
-    } = delimiterOptions
+    }
 ) {
     const lineBreak = forceBreak ? hardline : line;
     const finalDelimiter = allowTrailingDelimiter ? delimiter : "";
