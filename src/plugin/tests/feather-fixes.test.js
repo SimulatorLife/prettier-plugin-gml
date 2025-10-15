@@ -1867,11 +1867,15 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.ok(Array.isArray(body));
         assert.ok(
-            body.length >= 2,
-            "Expected shader_reset call to be inserted after shader_set."
+            body.length >= 3,
+            "Expected shader_reset call to be inserted after the draw call."
         );
 
-        const shaderResetCall = body[1];
+        const drawCall = body[1];
+        assert.strictEqual(drawCall?.type, "CallExpression");
+        assert.strictEqual(drawCall?.object?.name, "vertex_submit");
+
+        const shaderResetCall = body[2];
         assert.strictEqual(shaderResetCall?.type, "CallExpression");
         assert.strictEqual(shaderResetCall?.object?.name, "shader_reset");
 

@@ -1506,7 +1506,10 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        const syntheticDocComment = syntheticDocByNode.get(node);
+        const syntheticDocRecord = syntheticDocByNode.get(node);
+        const syntheticDocComment = syntheticDocRecord
+            ? syntheticDocRecord.doc
+            : null;
         if (syntheticDocComment) {
             parts.push(syntheticDocComment);
             parts.push(hardline);
@@ -1528,6 +1531,9 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        const isStaticDeclaration =
+            node.type === "VariableDeclaration" && node.kind === "static";
+
         if (semi === ";") {
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
@@ -1537,9 +1543,13 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression) {
-                const isStaticDeclaration = node.kind === "static";
+                const isTopLevelStaticFunction =
+                    isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isStaticDeclaration;
+                    !hasTerminatingSemicolon &&
+                    !isTopLevelStaticFunction &&
+                    !(syntheticDocRecord && isStaticDeclaration) &&
+                    !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
@@ -1553,13 +1563,11 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        const isStaticDeclaration =
-            node.type === "VariableDeclaration" && node.kind === "static";
-
         const shouldOmitSemicolon =
             semi === ";" &&
             !hasTerminatingSemicolon &&
             syntheticDocComment &&
+            !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
             isLastStatement(childPath) &&
             !isStaticDeclaration;
 
@@ -1782,35 +1790,38 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    const hasExistingDocLines = existingDocLines.length > 0;
 
     if (
-        existingDocLines.length === 0 &&
+        !hasExistingDocLines &&
         (!Array.isArray(functionNode?.params) ||
             functionNode.params.length === 0)
     ) {
         syntheticOverrides.suppressReturns = true;
     }
 
-    const syntheticLines =
-        existingDocLines.length > 0
-            ? mergeSyntheticDocComments(
-                functionNode,
-                existingDocLines,
-                options,
-                syntheticOverrides
-            )
-            : computeSyntheticFunctionDocLines(
-                functionNode,
-                [],
-                options,
-                syntheticOverrides
-            );
+    const syntheticLines = hasExistingDocLines
+        ? mergeSyntheticDocComments(
+            functionNode,
+            existingDocLines,
+            options,
+            syntheticOverrides
+        )
+        : computeSyntheticFunctionDocLines(
+            functionNode,
+            [],
+            options,
+            syntheticOverrides
+        );
 
     if (syntheticLines.length === 0) {
         return null;
     }
 
-    return concat([hardline, join(hardline, syntheticLines)]);
+    return {
+        doc: concat([hardline, join(hardline, syntheticLines)]),
+        hasExistingDocLines
+    };
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
