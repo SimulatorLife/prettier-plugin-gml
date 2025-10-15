@@ -74,7 +74,7 @@ function trailing_comment() {
 /// @function trailing_comment
 function trailing_comment() {
     var stats = {
-        hp: 100,  // base health
+        hp: 100, // base health
         mp: 50
     };
     return stats;

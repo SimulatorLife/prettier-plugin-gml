@@ -1235,7 +1235,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    if (Array.isArray(node.docComments) && node.docComments.length > 0) {
+    if (isNonEmptyArray(node.docComments)) {
         return null;
     }
 

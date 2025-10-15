@@ -6,12 +6,12 @@ var b = (x > y) ? (a + b) : (a - b);
 // Define states
 states.add_state(
     "opening",
-    function() {  // enter
+    function() { // enter
         gml_pragma("forceinline");
 
         scr_play_sound_at(snd_slot_machine, x, y, z);
         scaler.big_squish();
-        image_speed = 1;  // start animation
+        image_speed = 1; // start animation
 
         // Start spraying coins
         time_source_start(ts_spray_coins);
@@ -29,11 +29,11 @@ states.add_state(
             true
         );
     },
-    undefined,  // step
-    function() {  // leave
-        audio_stop_sound(snd_slot_machine);  // stop sound effect
-        pe_general.retire(true);  // stop sparkle particles
-        time_source_stop(ts_spray_coins);  // stop this time source
+    undefined, // step
+    function() { // leave
+        audio_stop_sound(snd_slot_machine); // stop sound effect
+        pe_general.retire(true); // stop sparkle particles
+        time_source_stop(ts_spray_coins); // stop this time source
     }
 );
 
@@ -94,4 +94,4 @@ with (instance_create_layer(x, y, "Instances", obj_Fire)) {
 }
 
 // The following line should be preserved; numbers with leading zeros are allowed in GML
-global.lighting.add_key_time(000, 253, 094, 083, 0.5);  // Sunset peak at 00h
+global.lighting.add_key_time(000, 253, 094, 083, 0.5); // Sunset peak at 00h
