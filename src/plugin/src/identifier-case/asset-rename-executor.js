@@ -26,10 +26,10 @@ const defaultFsFacade = Object.freeze({
         nodeRenameSync(fromPath, toPath);
     },
     accessSync(targetPath, mode = DEFAULT_WRITE_ACCESS_MODE) {
-        if (mode != null) {
-            nodeAccessSync(targetPath, mode);
-        } else {
+        if (mode == undefined) {
             nodeAccessSync(targetPath);
+        } else {
+            nodeAccessSync(targetPath, mode);
         }
     },
     statSync(targetPath) {
@@ -164,7 +164,9 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
     }
 
     const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
+        DEFAULT_WRITE_ACCESS_MODE == undefined
+            ? []
+            : [DEFAULT_WRITE_ACCESS_MODE];
 
     if (
         tryAccess(fsFacade, "accessSync", directoryPath, ...accessArgs) ||
@@ -180,7 +182,9 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
 
 function ensureWritableFile(fsFacade, filePath) {
     const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE != null ? [DEFAULT_WRITE_ACCESS_MODE] : [];
+        DEFAULT_WRITE_ACCESS_MODE == undefined
+            ? []
+            : [DEFAULT_WRITE_ACCESS_MODE];
 
     if (
         tryAccess(fsFacade, "accessSync", filePath, ...accessArgs) ||
@@ -357,7 +361,7 @@ export function createAssetRenameExecutor({
         },
 
         commit() {
-            const writeActions = Array.from(pendingWrites.entries()).map(
+            const writeActions = [...pendingWrites.entries()].map(
                 ([filePath, jsonData]) => ({
                     filePath,
                     contents: stringifyJson(jsonData)
@@ -398,7 +402,7 @@ export function createAssetRenameExecutor({
                 effectiveFs.renameSync(action.from, action.to);
             }
 
-            return { writes: writeActions, renames: renameActions.slice() };
+            return { writes: writeActions, renames: [...renameActions] };
         }
     };
 }

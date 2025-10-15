@@ -42,7 +42,7 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing = collection == null;
+        const isCollectionMissing = collection == undefined;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
             return true;
@@ -152,7 +152,7 @@ function printComment(commentPath, options) {
             const { bannerMinimum, bannerAutofillThreshold } =
                 lineCommentOptions;
             const rawText = getLineCommentRawText(comment);
-            const bannerMatch = rawText.match(/^\s*(\/\/+)/);
+            const bannerMatch = rawText.match(/^\s*(\/{2,})/);
 
             if (!bannerMatch) {
                 return formatLineComment(comment, lineCommentOptions);
@@ -168,7 +168,7 @@ function printComment(commentPath, options) {
                 typeof bannerMatch.index === "number"
                     ? bannerMatch.index
                     : rawText.indexOf(slashRun);
-            const safeBannerStart = bannerStart >= 0 ? bannerStart : 0;
+            const safeBannerStart = Math.max(bannerStart, 0);
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
             const shouldAutofillBanner =
@@ -290,7 +290,7 @@ function printDanglingCommentsAsGroup(path, options, filter) {
     const parts = [];
     const finalIndex = entries.length - 1;
 
-    entries.forEach(({ comment, printed }, index) => {
+    for (const [index, { comment, printed }] of entries.entries()) {
         if (index === 0) {
             parts.push(whitespaceToDoc(comment.leadingWS));
         }
@@ -304,7 +304,7 @@ function printDanglingCommentsAsGroup(path, options, filter) {
             }
             parts.push(wsDoc);
         }
-    });
+    }
 
     return parts;
 }

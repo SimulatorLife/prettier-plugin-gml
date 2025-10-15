@@ -108,7 +108,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
         assert.equal(globalUpper.identifierId, "global:GLOBAL_RATE");
 
         const enumEntries = Object.values(index.identifiers.enums);
-        assert.ok(enumEntries.length >= 1);
+        assert.ok(enumEntries.length > 0);
         for (const entry of enumEntries) {
             assert.ok(entry.identifierId?.startsWith("enum:"));
         }

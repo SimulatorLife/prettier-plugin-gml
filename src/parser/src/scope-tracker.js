@@ -51,7 +51,7 @@ export default class ScopeTracker {
             return null;
         }
 
-        return this.scopeStack[this.scopeStack.length - 1] ?? null;
+        return this.scopeStack.at(-1) ?? null;
     }
 
     getRootScope() {
@@ -109,7 +109,7 @@ export default class ScopeTracker {
             }
         }
 
-        return Array.from(tags);
+        return [...tags];
     }
 
     storeDeclaration(scope, name, metadata) {
@@ -192,14 +192,12 @@ export default class ScopeTracker {
         node.scopeId = scopeId;
         node.classifications = classifications;
 
-        if (declaration) {
-            node.declaration = {
-                start: cloneLocation(declaration.start),
-                end: cloneLocation(declaration.end),
-                scopeId: declaration.scopeId
-            };
-        } else {
-            node.declaration = null;
-        }
+        node.declaration = declaration
+            ? {
+                  start: cloneLocation(declaration.start),
+                  end: cloneLocation(declaration.end),
+                  scopeId: declaration.scopeId
+              }
+            : null;
     }
 }

@@ -1,12 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { load } from "cheerio";
+import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
-import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import {
     createManualGitHubClient,
@@ -30,6 +30,8 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "./options/manual-repo.js";
+import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,9 +43,12 @@ const OUTPUT_DEFAULT = path.join(
     "feather-metadata.json"
 );
 
+const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
+
 const manualClient = createManualGitHubClient({
     userAgent: "prettier-plugin-gml feather metadata generator",
-    defaultCacheRoot: DEFAULT_CACHE_ROOT
+    defaultCacheRoot: DEFAULT_CACHE_ROOT,
+    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
 });
 
 const { fetchManualFile, resolveManualRef } = manualClient;
@@ -138,36 +143,30 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createFeatherMetadataCommand();
+    const getUsage = () => command.helpInformation();
 
     if (env.GML_MANUAL_REF) {
         command.setOptionValueWithSource("ref", env.GML_MANUAL_REF, "env");
     }
 
-    if (env[MANUAL_REPO_ENV_VAR] !== undefined) {
-        try {
-            const repo = resolveManualRepoValue(env[MANUAL_REPO_ENV_VAR], {
-                source: "env"
-            });
-            command.setOptionValueWithSource("manualRepo", repo, "env");
-        } catch (error) {
-            throw new CliUsageError(error.message, {
-                usage: command.helpInformation()
-            });
-        }
-    }
+    applyEnvOptionOverride({
+        command,
+        env,
+        envVar: MANUAL_REPO_ENV_VAR,
+        optionName: "manualRepo",
+        resolveValue: (value) =>
+            resolveManualRepoValue(value, { source: "env" }),
+        getUsage
+    });
 
-    if (env[PROGRESS_BAR_WIDTH_ENV_VAR] !== undefined) {
-        try {
-            const width = resolveProgressBarWidth(
-                env[PROGRESS_BAR_WIDTH_ENV_VAR]
-            );
-            command.setOptionValueWithSource("progressBarWidth", width, "env");
-        } catch (error) {
-            throw new CliUsageError(error.message, {
-                usage: command.helpInformation()
-            });
-        }
-    }
+    applyEnvOptionOverride({
+        command,
+        env,
+        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+        optionName: "progressBarWidth",
+        resolveValue: resolveProgressBarWidth,
+        getUsage
+    });
 
     const verbose = {
         resolveRef: true,
@@ -176,21 +175,12 @@ function parseArgs({
         progressBar: isTty
     };
 
-    try {
-        command.parse(argv, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return {
-                helpRequested: true,
-                usage: command.helpInformation()
-            };
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested, usage } = parseCommandLine(command, argv);
+    if (helpRequested) {
+        return {
+            helpRequested: true,
+            usage
+        };
     }
 
     const options = command.opts();
@@ -212,7 +202,7 @@ function parseArgs({
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
-        usage: command.helpInformation()
+        usage
     };
 }
 
@@ -225,79 +215,155 @@ function normaliseMultilineText(text) {
     const lines = text.split("\n").map((line) => line.trim());
     const cleaned = [];
     for (const line of lines) {
-        if (!line) {
-            if (cleaned.length && cleaned[cleaned.length - 1] !== "") {
+        if (line) {
+            cleaned.push(line);
+        } else {
+            if (cleaned.length > 0 && cleaned.at(-1) !== "") {
                 cleaned.push("");
             }
-        } else {
-            cleaned.push(line);
         }
     }
     return cleaned.join("\n").trim();
 }
 
-function extractTable($, $node) {
+function parseDocument(html) {
+    return parseHTML(html).document;
+}
+
+function isElement(node) {
+    return node?.nodeType === node?.ownerDocument?.ELEMENT_NODE;
+}
+
+function getTagName(element) {
+    return element?.tagName?.toLowerCase() ?? "";
+}
+
+function getDirectChildren(element, selector) {
+    const matches = selector
+        ? (child) => child.matches?.(selector) === true
+        : () => true;
+    return Array.from(element?.children ?? []).filter((child) =>
+        matches(child)
+    );
+}
+
+function replaceBreaksWithNewlines(clone) {
+    const document = clone.ownerDocument;
+    for (const br of clone.querySelectorAll("br")) {
+        const textNode = document.createTextNode("\n");
+        br.parentNode?.replaceChild(textNode, br);
+    }
+}
+
+function splitCellLines(element) {
+    if (!element) {
+        return [];
+    }
+
+    const clone = element.cloneNode(true);
+    replaceBreaksWithNewlines(clone);
+
+    return (
+        clone.textContent
+            ?.replaceAll("\u00A0", " ")
+            .split("\n")
+            .map((line) => line.replaceAll(/\s+/g, " ").trim())
+            .filter(Boolean) ?? []
+    );
+}
+
+function extractTable(table) {
     const headers = [];
     const rows = [];
-    $node.find("tr").each((rowIndex, row) => {
-        const cells = $(row).children("th, td");
-        const values = cells
-            .map((_, cell) => {
-                const $cell = $(cell);
-                const lines = splitCellLines($cell);
-                if (!lines.length) {
-                    return null;
-                }
-                return lines.join("\n");
-            })
-            .get();
+    const rowElements = Array.from(table.querySelectorAll("tr"));
+
+    rowElements.forEach((row, rowIndex) => {
+        const cellElements = getDirectChildren(row, "th, td");
+        const values = cellElements.map((cell) => {
+            const lines = splitCellLines(cell);
+            if (lines.length === 0) {
+                return null;
+            }
+            return lines.join("\n");
+        });
+
         const hasContent = values.some((value) => value && value.trim());
         if (!hasContent) {
             return;
         }
-        if (rowIndex === 0 && $(row).find("th").length > 0) {
+
+        const hasHeaderCells = cellElements.some(
+            (cell) => getTagName(cell) === "th"
+        );
+        if (rowIndex === 0 && hasHeaderCells) {
             headers.push(
                 ...values
                     .map((value) => normaliseMultilineText(value))
-                    .filter((value) => Boolean(value))
+                    .filter(Boolean)
             );
             return;
         }
+
         rows.push(values.map((value) => normaliseMultilineText(value) ?? null));
     });
+
     return { headers, rows };
 }
 
-function createBlock($, node) {
-    if (node.type !== "tag") {
+function createBlock(node) {
+    if (!isElement(node)) {
         return null;
     }
-    const $node = $(node);
-    if ($node.hasClass("footer") || $node.hasClass("seealso")) {
+
+    const element = node;
+    const classList = element.classList ?? { contains: () => false };
+    if (classList.contains("footer") || classList.contains("seealso")) {
         return null;
     }
-    const tagName = node.name?.toLowerCase() ?? "";
+
+    const tagName = getTagName(element);
     let type = "html";
-    if (tagName === "p") {
-        if ($node.hasClass("code")) {
-            type = "code";
-        } else if ($node.hasClass("note") || $node.hasClass("warning")) {
-            type = "note";
-        } else {
-            type = "paragraph";
+    switch (tagName) {
+        case "p": {
+            if (classList.contains("code")) {
+                type = "code";
+            } else if (
+                classList.contains("note") ||
+                classList.contains("warning")
+            ) {
+                type = "note";
+            } else {
+                type = "paragraph";
+            }
+
+            break;
         }
-    } else if (tagName === "h4" || tagName === "h5") {
-        type = "heading";
-    } else if (tagName === "ul" || tagName === "ol") {
-        type = "list";
-    } else if (tagName === "table") {
-        type = "table";
-    } else if (tagName === "div" && $node.hasClass("codeblock")) {
-        type = "code";
+        case "h4":
+        case "h5": {
+            type = "heading";
+
+            break;
+        }
+        case "ul":
+        case "ol": {
+            type = "list";
+
+            break;
+        }
+        case "table": {
+            type = "table";
+
+            break;
+        }
+        default: {
+            if (tagName === "div" && classList.contains("codeblock")) {
+                type = "code";
+            }
+        }
     }
 
     const preserveLineBreaks = type === "code" || type === "list";
-    const text = extractText($node, { preserveLineBreaks });
+    const text = extractText(element, { preserveLineBreaks });
 
     if (!text && type !== "list") {
         return null;
@@ -305,60 +371,57 @@ function createBlock($, node) {
 
     const block = { type, text };
     if (tagName === "h4" || tagName === "h5") {
-        block.level = Number(tagName.substring(1));
+        block.level = Number(tagName.slice(1));
     }
     if (type === "list") {
-        block.items = $node
-            .children("li")
-            .map((_, item) =>
-                extractText($(item), { preserveLineBreaks: false })
-            )
-            .get()
-            .filter(Boolean);
-        if (!block.items.length && !text) {
+        const items = getDirectChildren(element, "li").map((item) =>
+            extractText(item, { preserveLineBreaks: false })
+        );
+        block.items = items.filter(Boolean);
+        if (block.items.length === 0 && !text) {
             return null;
         }
     }
     if (type === "table") {
-        block.table = extractTable($, $node);
+        block.table = extractTable(element);
     }
     return block;
 }
 
-function extractText($node, { preserveLineBreaks = false } = {}) {
-    const clone = $node.clone();
-    clone.find("br").replaceWith("\n");
-    let text = clone.text().replace(/\u00a0/g, " ");
+function extractText(element, { preserveLineBreaks = false } = {}) {
+    if (!element) {
+        return "";
+    }
+
+    const clone = element.cloneNode(true);
+    replaceBreaksWithNewlines(clone);
+
+    let text = clone.textContent?.replaceAll("\u00A0", " ") ?? "";
     if (preserveLineBreaks) {
-        text = text
+        return text
             .split("\n")
             .map((line) => line.trimEnd())
             .join("\n")
             .trim();
-    } else {
-        text = text.replace(/\s+/g, " ").trim();
     }
-    return text;
+
+    return text.replaceAll(/\s+/g, " ").trim();
 }
 
-function collectBlocksAfter($, element, { stopTags = [] } = {}) {
+function collectBlocksAfter(element, { stopTags = [] } = {}) {
     const stopSet = new Set(stopTags.map((tag) => tag.toLowerCase()));
     const blocks = [];
-    let node = element.nextSibling;
+    let node = element?.nextSibling;
     while (node) {
-        if (node.type === "tag") {
-            const tagName = node.name?.toLowerCase() ?? "";
+        if (isElement(node)) {
+            const tagName = getTagName(node);
             if (stopSet.has(tagName)) {
                 break;
             }
-            const classAttr = node.attribs?.class ?? "";
-            const classList = classAttr
-                ? classAttr.split(/\s+/).filter(Boolean)
-                : [];
-            if (tagName === "div" && classList.includes("footer")) {
+            if (tagName === "div" && node.classList?.contains("footer")) {
                 break;
             }
-            const block = createBlock($, node);
+            const block = createBlock(node);
             if (block) {
                 blocks.push(block);
             }
@@ -411,10 +474,10 @@ function normaliseContent(blocks) {
         if (block.type === "list") {
             const items = Array.isArray(block.items)
                 ? block.items
-                    .map((item) => normaliseMultilineText(item))
-                    .filter(Boolean)
+                      .map((item) => normaliseMultilineText(item))
+                      .filter(Boolean)
                 : [];
-            if (items.length) {
+            if (items.length > 0) {
                 content.lists.push(items);
             }
             continue;
@@ -449,84 +512,142 @@ function joinSections(parts) {
     );
 }
 
-function parseDiagnostics(html) {
-    const $ = load(html);
-    const diagnostics = [];
-    $("h3").each((_, element) => {
-        const headingText = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
-        const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
-        if (!match) {
-            return;
+function slugify(text) {
+    return text
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9]+/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
+        .slice(0, 64);
+}
+
+// Split the collected manual blocks into descriptive and trailing sections.
+function splitDiagnosticBlocks(blocks) {
+    const exampleHeadingIndex = blocks.findIndex(
+        (block) => block.type === "heading" && /example/i.test(block.text ?? "")
+    );
+    const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+
+    let trailingStart = blocks.length;
+    if (exampleHeadingIndex !== -1) {
+        trailingStart = exampleHeadingIndex + 1;
+    } else if (firstCodeIndex !== -1) {
+        trailingStart = firstCodeIndex;
+    }
+
+    return {
+        descriptionBlocks: blocks.slice(0, trailingStart),
+        trailingBlocks: blocks.slice(trailingStart)
+    };
+}
+
+// Extract paragraph-style content from the initial diagnostic blocks.
+function collectDiagnosticDescriptionParts(blocks) {
+    const descriptionParts = [];
+    for (const block of blocks) {
+        if (block.type === "heading") {
+            continue;
         }
-        const [, id, title] = match;
-        const blocks = collectBlocksAfter($, element, {
-            stopTags: ["h3", "h2"]
-        });
-
-        const exampleHeadingIndex = blocks.findIndex(
-            (block) =>
-                block.type === "heading" && /example/i.test(block.text ?? "")
-        );
-        const firstCodeIndex = blocks.findIndex(
-            (block) => block.type === "code"
-        );
-
-        let trailingStart = blocks.length;
-        if (exampleHeadingIndex >= 0) {
-            trailingStart = exampleHeadingIndex + 1;
-        } else if (firstCodeIndex >= 0) {
-            trailingStart = firstCodeIndex;
+        const text = normaliseTextBlock(block);
+        if (text) {
+            descriptionParts.push(text);
         }
+    }
+    return descriptionParts;
+}
 
-        const descriptionBlocks = blocks.slice(0, trailingStart);
-        const trailingBlocks = blocks.slice(trailingStart);
+// Analyse trailing blocks to determine examples and correction guidance.
+function collectDiagnosticTrailingContent(blocks) {
+    const additionalDescriptionParts = [];
+    const correctionParts = [];
+    let badExample = null;
+    let goodExample = null;
 
-        const descriptionParts = [];
-        const correctionParts = [];
-        let badExample = null;
-        let goodExample = null;
-
-        for (const block of descriptionBlocks) {
-            if (block.type === "heading") {
-                continue;
-            }
-            const text = normaliseTextBlock(block);
-            if (text) {
-                descriptionParts.push(text);
-            }
+    for (const block of blocks) {
+        if (block.type === "heading") {
+            continue;
         }
-
-        for (const block of trailingBlocks) {
-            if (block.type === "heading") {
-                continue;
-            }
-            if (block.type === "code") {
-                const codeText = normaliseTextBlock(block);
-                if (!codeText) {
-                    continue;
-                }
-                if (!badExample) {
-                    badExample = codeText;
-                } else if (!goodExample) {
-                    goodExample = codeText;
-                } else {
-                    goodExample = `${goodExample}\n\n${codeText}`.trim();
-                }
-                continue;
-            }
-            const text = normaliseTextBlock(block);
-            if (!text) {
+        if (block.type === "code") {
+            const codeText = normaliseTextBlock(block);
+            if (!codeText) {
                 continue;
             }
             if (!badExample) {
-                descriptionParts.push(text);
+                badExample = codeText;
+            } else if (goodExample) {
+                goodExample = `${goodExample}\n\n${codeText}`.trim();
             } else {
-                correctionParts.push(text);
+                goodExample = codeText;
             }
+            continue;
         }
+
+        const text = normaliseTextBlock(block);
+        if (!text) {
+            continue;
+        }
+        if (badExample) {
+            correctionParts.push(text);
+        } else {
+            additionalDescriptionParts.push(text);
+        }
+    }
+
+    return {
+        additionalDescriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    };
+}
+
+// Convert the raw manual blocks into structured diagnostic metadata.
+function summariseDiagnosticBlocks(blocks) {
+    const { descriptionBlocks, trailingBlocks } = splitDiagnosticBlocks(blocks);
+    const descriptionParts =
+        collectDiagnosticDescriptionParts(descriptionBlocks);
+    const {
+        additionalDescriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    } = collectDiagnosticTrailingContent(trailingBlocks);
+
+    if (additionalDescriptionParts.length > 0) {
+        descriptionParts.push(...additionalDescriptionParts);
+    }
+
+    return {
+        descriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    };
+}
+
+function parseDiagnostics(html) {
+    const document = parseDocument(html);
+    const diagnostics = [];
+
+    for (const element of document.querySelectorAll("h3")) {
+        const headingText = element.textContent
+            ?.replaceAll("\u00A0", " ")
+            .trim();
+        if (!headingText) {
+            continue;
+        }
+
+        const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
+        if (!match) {
+            continue;
+        }
+
+        const [, id, title] = match;
+        const blocks = collectBlocksAfter(element, {
+            stopTags: ["h3", "h2"]
+        });
+
+        const { descriptionParts, correctionParts, badExample, goodExample } =
+            summariseDiagnosticBlocks(blocks);
 
         const description = joinSections(descriptionParts);
         const correction = joinSections(correctionParts);
@@ -539,14 +660,15 @@ function parseDiagnostics(html) {
             goodExample,
             correction
         });
-    });
+    }
+
     return diagnostics;
 }
 
 function parseNamingRules(html) {
-    const $ = load(html);
-    const heading = $("h2#s4").first();
-    if (heading.length === 0) {
+    const document = parseDocument(html);
+    const heading = document.querySelector("h2#s4");
+    if (!heading) {
         return {
             overview: null,
             notes: [],
@@ -558,7 +680,7 @@ function parseNamingRules(html) {
         };
     }
 
-    const blocks = collectBlocksAfter($, heading.get(0), { stopTags: ["h2"] });
+    const blocks = collectBlocksAfter(heading, { stopTags: ["h2"] });
     const content = normaliseContent(blocks);
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
@@ -568,7 +690,16 @@ function parseNamingRules(html) {
             ? "GM2017"
             : null;
 
-    const mainList = heading.nextAll("ul").first();
+    let sibling = heading.nextElementSibling;
+    let mainList = null;
+    while (sibling) {
+        if (getTagName(sibling) === "ul") {
+            mainList = sibling;
+            break;
+        }
+        sibling = sibling.nextElementSibling;
+    }
+
     let namingStyleOptions = [];
     let identifierBlocklist = null;
     let identifierRuleSummary = null;
@@ -577,20 +708,26 @@ function parseNamingRules(html) {
     let supportsPreserveUnderscores = false;
     const ruleSections = [];
 
-    if (mainList.length > 0) {
-        mainList.find("li > strong").each((_, strongEl) => {
-            const strongText = $(strongEl)
-                .text()
-                .replace(/\u00a0/g, " ")
+    if (mainList) {
+        for (const strongEl of mainList.querySelectorAll("li > strong")) {
+            const strongText = strongEl.textContent
+                ?.replaceAll("\u00A0", " ")
                 .trim();
-            const listItem = $(strongEl).closest("li");
+            if (!strongText) {
+                continue;
+            }
+
+            const listItem = strongEl.closest("li");
+            if (!listItem) {
+                continue;
+            }
+
             if (strongText === "Naming Style") {
-                const styles = listItem.find("ul li");
-                namingStyleOptions = styles
-                    .map((__, styleEl) =>
-                        extractText($(styleEl), { preserveLineBreaks: false })
-                    )
-                    .get();
+                namingStyleOptions = Array.from(
+                    listItem.querySelectorAll("ul li")
+                ).map((styleEl) =>
+                    extractText(styleEl, { preserveLineBreaks: false })
+                );
             } else if (strongText === "Identifier Blocklist") {
                 identifierBlocklist = extractText(listItem, {
                     preserveLineBreaks: true
@@ -606,18 +743,15 @@ function parseNamingRules(html) {
             } else if (strongText.toLowerCase().includes("preserve")) {
                 supportsPreserveUnderscores = true;
             }
-        });
+        }
 
-        mainList.children("li").each((_, item) => {
-            const $item = $(item);
+        for (const item of getDirectChildren(mainList, "li")) {
+            const strongChildren = getDirectChildren(item, "strong");
             const title =
-                $item
-                    .children("strong")
-                    .first()
-                    .text()
-                    .replace(/\u00a0/g, " ")
+                strongChildren[0]?.textContent
+                    ?.replaceAll("\u00A0", " ")
                     .trim() || null;
-            const description = extractText($item, {
+            const description = extractText(item, {
                 preserveLineBreaks: true
             });
             let normalisedDescription = normaliseMultilineText(
@@ -634,66 +768,53 @@ function parseNamingRules(html) {
                 );
                 normalisedDescription = normalisedDescription.trim();
             }
-            const nestedList = $item.find("ul").first();
+
+            const nestedList = item.querySelector("ul");
             let options = [];
-            if (nestedList.length) {
-                options = nestedList
-                    .children("li")
-                    .map((__, option) =>
+            if (nestedList) {
+                options = getDirectChildren(nestedList, "li")
+                    .map((option) =>
                         normaliseMultilineText(
-                            extractText($(option), {
-                                preserveLineBreaks: false
-                            })
+                            extractText(option, { preserveLineBreaks: false })
                         )
                     )
-                    .get()
                     .filter(Boolean);
             }
+
             ruleSections.push({
-                title: title || null,
-                description: normalisedDescription || null,
+                title,
+                description: normalisedDescription,
                 options
             });
-        });
+        }
     }
 
     return {
         overview,
         notes,
+        namingStyleOptions,
         requiresMessage,
-        identifierBlocklist: normaliseMultilineText(identifierBlocklist),
-        identifierRuleSummary: normaliseMultilineText(identifierRuleSummary),
-        namingStyleOptions: namingStyleOptions
-            .map((option) => normaliseMultilineText(option))
-            .filter(Boolean),
         supportsPrefix,
         supportsSuffix,
         supportsPreserveUnderscores,
+        identifierBlocklist,
+        identifierRuleSummary,
         ruleSections
     };
 }
 
-function slugify(text) {
-    return text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 64);
-}
-
 function parseDirectiveSections(html) {
-    const $ = load(html);
+    const document = parseDocument(html);
     const sections = [];
-    $("h2").each((_, element) => {
-        const title = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
+
+    for (const element of document.querySelectorAll("h2")) {
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
-            return;
+            continue;
         }
-        const blocks = collectBlocksAfter($, element, { stopTags: ["h2"] });
-        const id = $(element).attr("id") || slugify(title);
+
+        const blocks = collectBlocksAfter(element, { stopTags: ["h2"] });
+        const id = element.getAttribute("id") || slugify(title);
         const content = normaliseContent(blocks);
         sections.push({
             id,
@@ -705,101 +826,96 @@ function parseDirectiveSections(html) {
             subheadings: content.headings,
             tables: content.tables
         });
-    });
+    }
+
     return sections;
 }
 
-function splitCellLines($cell) {
-    const clone = $cell.clone();
-    clone.find("br").replaceWith("\n");
-    return clone
-        .text()
-        .replace(/\u00a0/g, " ")
-        .split("\n")
-        .map((line) => line.replace(/\s+/g, " ").trim())
-        .filter(Boolean);
-}
-
-function parseBaseTypeTable($, table) {
+function parseBaseTypeTable(table) {
     const baseTypes = [];
-    const rows = $(table).find("tbody > tr");
-    rows.each((index, row) => {
+    const rowElements = Array.from(
+        table.querySelectorAll("tbody > tr, thead + tr")
+    );
+
+    rowElements.forEach((row, index) => {
         if (index === 0) {
             return;
         }
-        const cells = $(row).find("th, td");
+
+        const cells = getDirectChildren(row, "th, td");
         if (cells.length < 3) {
             return;
         }
-        const name = extractText(cells.eq(0), { preserveLineBreaks: false });
-        const specifierExamples = splitCellLines(cells.eq(1));
-        const description = extractText(cells.eq(2), {
+
+        const [nameCell, exampleCell, descriptionCell] = cells;
+        const name = extractText(nameCell, { preserveLineBreaks: false });
+        const specifierExamples = splitCellLines(exampleCell);
+        const description = extractText(descriptionCell, {
             preserveLineBreaks: false
         });
         baseTypes.push({ name, specifierExamples, description });
     });
+
     return baseTypes;
 }
 
-function parseTypeValidationTable($, table) {
-    if (!table || table.length === 0) {
+function parseTypeValidationTable(table) {
+    if (!table) {
         return null;
     }
-    const headerCells = table.find("tr").first().find("th, td");
+
+    const headerRow = table.querySelector("tr");
+    if (!headerRow) {
+        return null;
+    }
+
+    const headerCells = getDirectChildren(headerRow, "th, td");
     const columns = headerCells
-        .map((index, cell) => {
-            if (index === 0) {
-                return null;
-            }
-            return extractText($(cell), { preserveLineBreaks: false });
-        })
-        .get()
+        .slice(1)
+        .map((cell) => extractText(cell, { preserveLineBreaks: false }))
         .filter(Boolean);
 
     const rows = [];
-    table
-        .find("tr")
-        .slice(1)
-        .each((_, row) => {
-            const cells = $(row).find("th, td");
-            if (cells.length === 0) {
-                return;
-            }
-            const from = extractText(cells.eq(0), {
-                preserveLineBreaks: false
-            });
-            if (!from) {
-                return;
-            }
-            const results = {};
-            columns.forEach((column, columnIndex) => {
-                const cell = cells.eq(columnIndex + 1);
-                const outcome =
-                    extractText(cell, { preserveLineBreaks: false }) || null;
-                const style = cell.attr("style") || null;
-                results[column] = {
-                    outcome,
-                    style: style?.replace(/\s+/g, " ").trim() || null
-                };
-            });
-            rows.push({ from, results });
+    const dataRows = Array.from(table.querySelectorAll("tr")).slice(1);
+    for (const row of dataRows) {
+        const cells = getDirectChildren(row, "th, td");
+        if (cells.length === 0) {
+            continue;
+        }
+        const from = extractText(cells[0], { preserveLineBreaks: false });
+        if (!from) {
+            continue;
+        }
+        const results = {};
+        columns.forEach((column, columnIndex) => {
+            const cell = cells[columnIndex + 1];
+            const outcome = cell
+                ? extractText(cell, { preserveLineBreaks: false }) || null
+                : null;
+            const style = cell?.getAttribute?.("style") ?? null;
+            results[column] = {
+                outcome,
+                style: style?.replaceAll(/\s+/g, " ").trim() || null
+            };
         });
+        rows.push({ from, results });
+    }
 
     return { columns, rows };
 }
 
 function parseTypeSystem(html) {
-    const $ = load(html);
+    const document = parseDocument(html);
     const introBlocks = [];
-    const articleBody = $("h1").first();
-    if (articleBody.length > 0) {
-        let node = articleBody.get(0).nextSibling;
+    const articleBody = document.querySelector("h1");
+    if (articleBody) {
+        let node = articleBody.nextSibling;
         while (node) {
-            if (node.type === "tag" && node.name?.toLowerCase() === "table") {
+            if (isElement(node) && getTagName(node) === "table") {
                 break;
             }
-            if (node.type === "tag") {
-                const block = createBlock($, node);
+            if (isElement(node)) {
+                const block = createBlock(node);
                 if (block) {
                     introBlocks.push(block);
                 }
@@ -809,64 +925,68 @@ function parseTypeSystem(html) {
     }
     const introContent = normaliseContent(introBlocks);
 
-    const tables = $("table");
-    const baseTypeTable = tables.eq(0);
-    const baseTypes = baseTypeTable.length
-        ? parseBaseTypeTable($, baseTypeTable)
-        : [];
+    const tables = Array.from(document.querySelectorAll("table"));
+    const baseTypeTable = tables[0] ?? null;
+    const baseTypes = baseTypeTable ? parseBaseTypeTable(baseTypeTable) : [];
 
-    const noteBlocks = $("p.note")
-        .map((_, element) => createBlock($, element))
-        .get()
+    const noteBlocks = Array.from(document.querySelectorAll("p.note"))
+        .map((element) => createBlock(element))
         .filter(Boolean);
     const notes = noteBlocks
         .map((block) => normaliseMultilineText(block.text ?? ""))
         .filter(Boolean);
 
     const specifierSections = [];
-    $("h3").each((_, element) => {
-        const title = $(element)
-            .text()
-            .replace(/\u00a0/g, " ")
-            .trim();
+    for (const element of document.querySelectorAll("h3")) {
+        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
         if (!title) {
-            return;
+            continue;
         }
-        const blocks = collectBlocksAfter($, element, {
+        const blocks = collectBlocksAfter(element, {
             stopTags: ["h3", "h2"]
         });
         const content = normaliseContent(blocks);
         specifierSections.push({
-            id: $(element).attr("id") || slugify(title),
+            id: element.getAttribute("id") || slugify(title),
             title,
-            description: joinSections(content.paragraphs) || null,
+            description: joinSections(content.paragraphs) || undefined,
             notes: content.notes,
             codeExamples: content.codeExamples,
             lists: content.lists
         });
-    });
+    }
 
-    const typeValidationHeading = $("h2")
-        .filter((_, element) => $(element).text().includes("Type Validation"))
-        .first();
+    const typeValidationHeading = Array.from(
+        document.querySelectorAll("h2")
+    ).find((element) => element.textContent?.includes("Type Validation"));
+
     let typeValidation = null;
     let typeValidationBlocks = [];
-    if (typeValidationHeading.length > 0) {
-        typeValidationBlocks = collectBlocksAfter(
-            $,
-            typeValidationHeading.get(0),
-            {
-                stopTags: ["table", "h2"]
+    if (typeValidationHeading) {
+        typeValidationBlocks = collectBlocksAfter(typeValidationHeading, {
+            stopTags: ["table", "h2"]
+        });
+        let sibling = typeValidationHeading.nextElementSibling;
+        let validationTable = null;
+        while (sibling) {
+            if (getTagName(sibling) === "table") {
+                validationTable = sibling;
+                break;
             }
-        );
-        const validationTable = typeValidationHeading.nextAll("table").first();
-        typeValidation = parseTypeValidationTable($, validationTable);
+            if (getTagName(sibling) === "h2") {
+                break;
+            }
+            sibling = sibling.nextElementSibling;
+        }
+        typeValidation = validationTable
+            ? parseTypeValidationTable(validationTable)
+            : null;
     }
 
     const typeValidationContent = normaliseContent(typeValidationBlocks);
 
     return {
-        overview: joinSections(introContent.paragraphs) || null,
+        overview: joinSections(introContent.paragraphs) || undefined,
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
@@ -879,14 +999,15 @@ function parseTypeSystem(html) {
         specifierSections,
         typeValidation: typeValidation
             ? {
-                description:
-                      joinSections(typeValidationContent.paragraphs) || null,
-                notes: typeValidationContent.notes,
-                codeExamples: typeValidationContent.codeExamples,
-                lists: typeValidationContent.lists,
-                table: typeValidation
-            }
-            : null
+                  description:
+                      joinSections(typeValidationContent.paragraphs) ||
+                      undefined,
+                  notes: typeValidationContent.notes,
+                  codeExamples: typeValidationContent.codeExamples,
+                  lists: typeValidationContent.lists,
+                  table: typeValidation
+              }
+            : undefined
     };
 }
 
@@ -992,7 +1113,7 @@ async function main({ argv, env, isTty } = {}) {
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
             outputPath,
-            `${JSON.stringify(payload, null, 2)}\n`,
+            `${JSON.stringify(payload, undefined, 2)}\n`,
             "utf8"
         );
 

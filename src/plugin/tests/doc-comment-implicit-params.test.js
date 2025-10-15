@@ -47,22 +47,22 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
 
     const docStart = formatted.indexOf("/// @function sample2");
     let docEnd = formatted.indexOf("\nfunction sample2", docStart);
-    if (docEnd !== -1) {
-        docEnd += 1;
-    } else {
+    if (docEnd === -1) {
         docEnd = formatted.indexOf("function sample2", docStart + 1);
+    } else {
+        docEnd += 1;
     }
     if (docEnd === -1) {
         docEnd = formatted.length;
     }
-    const sample2Doc = formatted.slice(docStart, docEnd);
+    const sample2Doc = new Set(formatted.slice(docStart, docEnd));
 
     assert.ok(
-        sample2Doc.includes("/// @param two"),
+        sample2Doc.has("/// @param two"),
         "Expected synthetic doc comments to include alias doc line."
     );
     assert.ok(
-        !sample2Doc.includes("/// @param argument2"),
+        !sample2Doc.has("/// @param argument2"),
         "Expected stale argument doc entry to be removed."
     );
 
@@ -71,25 +71,25 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
         "\nfunction sample3",
         sample3DocStart
     );
-    if (sample3DocEnd !== -1) {
-        sample3DocEnd += 1;
-    } else {
+    if (sample3DocEnd === -1) {
         sample3DocEnd = formatted.indexOf(
             "function sample3",
             sample3DocStart + 1
         );
+    } else {
+        sample3DocEnd += 1;
     }
     if (sample3DocEnd === -1) {
         sample3DocEnd = formatted.length;
     }
-    const sample3Doc = formatted.slice(sample3DocStart, sample3DocEnd);
+    const sample3Doc = new Set(formatted.slice(sample3DocStart, sample3DocEnd));
 
     assert.ok(
-        sample3Doc.includes("/// @param two"),
+        sample3Doc.has("/// @param two"),
         "Expected alias doc line to remain when implicit references coexist."
     );
     assert.ok(
-        sample3Doc.includes("/// @param argument3"),
+        sample3Doc.has("/// @param argument3"),
         "Expected direct argument doc entry to be preserved when referenced."
     );
 });

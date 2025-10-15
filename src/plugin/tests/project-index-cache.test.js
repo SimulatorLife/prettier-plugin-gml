@@ -29,8 +29,8 @@ function createProjectIndex(projectRoot, metrics = null) {
 
 function createDeferred() {
     let resolve;
-    const promise = new Promise((res) => {
-        resolve = res;
+    const promise = new Promise((_resolve) => {
+        resolve = _resolve;
     });
     return { promise, resolve };
 }
@@ -331,7 +331,7 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
             const projectIndex = {
                 ...payload.projectIndex
             };
-            if (payload.metricsSummary != null) {
+            if (payload.metricsSummary != undefined) {
                 projectIndex.metrics = payload.metricsSummary;
             }
 

@@ -5,5 +5,5 @@ export function escapeRegExp(text) {
         return "";
     }
 
-    return text.replace(ESCAPE_REGEXP_PATTERN, "\\$&");
+    return text.replaceAll(ESCAPE_REGEXP_PATTERN, String.raw`\$&`);
 }

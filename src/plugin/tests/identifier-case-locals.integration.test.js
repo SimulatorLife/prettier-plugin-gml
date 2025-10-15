@@ -156,16 +156,16 @@ describe("identifier case local renaming", { concurrency: false }, () => {
                     assert.strictEqual(operation.toName, "counterValue");
 
                     const conflicts = summaryDiagnostic.conflicts ?? [];
-                    conflicts.forEach((conflict) => {
+                    for (const conflict of conflicts) {
                         if (conflict?.code) {
                             codes.add(conflict.code);
                         }
-                    });
+                    }
                 }
             }
 
             if (codes.size === 0) {
-                summaryText.split("\n").forEach((line) => {
+                for (const line of summaryText.split("\n")) {
                     if (line.includes("[preserve]")) {
                         codes.add("preserve");
                     }
@@ -175,7 +175,7 @@ describe("identifier case local renaming", { concurrency: false }, () => {
                     if (line.includes("[collision]")) {
                         codes.add("collision");
                     }
-                });
+                }
             }
 
             assert.ok(codes.has("preserve"));

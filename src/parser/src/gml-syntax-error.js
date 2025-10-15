@@ -66,7 +66,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
         }
 
         const currentRuleFormatted = currentRule
-            .replace(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
+            .replaceAll(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
             .toLowerCase();
 
         throw createError(
@@ -124,7 +124,8 @@ function getSpecificSyntaxErrorMessage({
                 `unexpected ${wrongSymbol} in function parameters, expected an identifier`
             );
         }
-        default:
+        default: {
             return null;
+        }
     }
 }

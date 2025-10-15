@@ -16,7 +16,19 @@ async function formatWithPlugin(source, overrides = {}) {
     });
 }
 
-test("adds synthetic @returns doc for functions without return value", async () => {
+test("omits synthetic docs for anonymous functions without return value", async () => {
+    const source = "var myFunc = function() {\n    var value = 1;\n}\n";
+    const formatted = await formatWithPlugin(source);
+    const trimmed = formatted.trim();
+
+    assert.match(
+        trimmed,
+        /^var myFunc = function\(\) \{/,
+        "Synthetic doc comments should be omitted for anonymous functions."
+    );
+});
+
+test("adds synthetic @returns doc for onymous/named functions without return value", async () => {
     const source = "function demo() {\n    var value = 1;\n}\n";
     const formatted = await formatWithPlugin(source);
     const trimmed = formatted.trim();
@@ -28,7 +40,7 @@ test("adds synthetic @returns doc for functions without return value", async () 
     );
 });
 
-test("adds synthetic @returns doc for empty function bodies", async () => {
+test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
     const source = "function noop() {}\n";
     const formatted = await formatWithPlugin(source);
     const trimmed = formatted.trim();
@@ -46,7 +58,7 @@ test("augments static function doc comments with missing @returns metadata", asy
         "static helper = function() {",
         "    var value = 0;",
         "    value += 1;",
-        "};",
+        "}",
         ""
     ].join("\n");
 
@@ -60,7 +72,7 @@ test("augments static function doc comments with missing @returns metadata", asy
     );
 });
 
-test("omits synthetic @returns metadata for parameterless static functions", async () => {
+test("adds synthetic @returns metadata for parameterless static functions", async () => {
     const source = [
         "function Example() constructor {",
         "    static ping = function() {",
@@ -75,17 +87,17 @@ test("omits synthetic @returns metadata for parameterless static functions", asy
 
     assert.ok(
         trimmed.includes(
-            "/// @function Example\nfunction Example() constructor {\n\n    /// @function ping\n    static ping = function() {"
+            "/// @function Example\nfunction Example() constructor {\n\n    /// @function ping\n    /// @returns {undefined}\n    static ping = function() {"
         ),
-        "Expected synthetic doc comments to describe the parameterless static function without inserting @returns metadata."
+        "Expected synthetic doc comments to describe the parameterless static function with inserted @returns metadata."
     );
     assert.ok(
-        !trimmed.includes("/// @returns {undefined}"),
-        "Synthetic doc comments should omit @returns metadata for parameterless static functions without existing docs."
+        trimmed.includes("/// @returns {undefined}"),
+        "Synthetic doc comments should include @returns metadata for parameterless static functions without existing docs."
     );
 });
 
-test("omits synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
+test("adds synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
     const source = [
         "function example(arg) {",
         "    if (argument_count > 0) {",
@@ -101,13 +113,13 @@ test("omits synthetic @returns metadata when defaults replace argument_count fal
     const trimmed = formatted.trim();
 
     assert.ok(
-        !/returns \{undefined\}/.test(trimmed),
-        "Argument fallback normalization should not emit synthetic @returns metadata."
+        /returns \{undefined\}/.test(trimmed),
+        "Argument fallback normalization should include synthetic @returns metadata."
     );
     assert.match(
         trimmed,
         /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\nfunction example\(arg = "default"\) \{\}/,
-        "Expected argument_count fallbacks to convert into default parameters without adding @returns."
+        "Expected argument_count fallbacks to convert into default parameters and add @returns."
     );
 });
 

@@ -12,7 +12,7 @@
 const EMPTY_ARRAY = Object.freeze([]);
 
 export function toArray(value) {
-    if (value == null) {
+    if (value == undefined) {
         return [];
     }
 
@@ -55,15 +55,15 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    if (values == null) {
+    if (values == undefined) {
         return freeze ? Object.freeze([]) : [];
     }
 
     const iterable = Array.isArray(values)
         ? values
         : typeof values[Symbol.iterator] === "function"
-            ? Array.from(values)
-            : [];
+          ? [...values]
+          : [];
 
     const uniqueValues = [];
     const seen = new Set();
@@ -104,16 +104,20 @@ export function mergeUniqueValues(
     const merged = base.slice();
     const seen = new Set();
 
-    // Populate the Set without going through Array#map. Avoiding the temporary
-    // array keeps the hot path allocation-free when `mergeUniqueValues` runs
-    // repeatedly while normalizing options.
-    for (let index = 0; index < merged.length; index += 1) {
-        seen.add(getKey(merged[index]));
+    for (const element of merged) {
+        seen.add(getKey(element));
     }
+
     const normalize = typeof coerce === "function" ? coerce : (value) => value;
 
-    if (additionalValues) {
-        for (const rawValue of additionalValues) {
+    if (additionalValues != null) {
+        const iterable =
+            Array.isArray(additionalValues) ||
+            typeof additionalValues[Symbol.iterator] === "function"
+                ? additionalValues
+                : [];
+
+        for (const rawValue of iterable) {
             const value = normalize(rawValue);
             if (value == null) {
                 continue;

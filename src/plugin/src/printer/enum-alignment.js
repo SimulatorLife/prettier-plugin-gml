@@ -1,3 +1,5 @@
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
+
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
@@ -6,7 +8,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     }
 
     const members = enumNode.members;
-    if (!Array.isArray(members) || members.length === 0) {
+    if (!isNonEmptyArray(members)) {
         return;
     }
 
@@ -62,9 +64,9 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
     const lastIndex = memberStats.length - 1;
 
-    memberStats.forEach((entry, index) => {
-        if (!entry.trailingComments || entry.trailingComments.length === 0) {
-            return;
+    for (const [index, entry] of memberStats.entries()) {
+        if (!isNonEmptyArray(entry.trailingComments)) {
+            continue;
         }
 
         const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
@@ -74,7 +76,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         );
 
         if (extraPadding === 0) {
-            return;
+            continue;
         }
 
         for (const comment of entry.trailingComments) {
@@ -86,7 +88,7 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
                 comment._enumTrailingPadding = Math.max(previous, extraPadding);
             }
         }
-    });
+    }
 }
 
 export function getEnumNameAlignmentPadding(member) {
@@ -103,7 +105,7 @@ function getEnumInitializerWidth(initializer) {
         return initializer.trim().length;
     }
 
-    if (initializer == null) {
+    if (initializer == undefined) {
         return 0;
     }
 
@@ -121,7 +123,7 @@ function getEnumInitializerWidth(initializer) {
 
 function collectTrailingEnumComments(member) {
     const comments = member?.comments;
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return [];
     }
 

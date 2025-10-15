@@ -95,7 +95,7 @@ describe("project index scope tracking", () => {
             const scriptEntry =
                 index.identifiers.scripts["scope:script:scopeTester"];
             assert.ok(scriptEntry, "expected script entry for scopeTester");
-            assert.equal(scriptEntry.declarations.length >= 1, true);
+            assert.equal(scriptEntry.declarations.length > 0, true);
         } finally {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
