@@ -7,6 +7,7 @@ import {
     cloneLocation,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
@@ -850,7 +851,7 @@ function canDropUnreachableStatement(node, helpers) {
         return false;
     }
 
-    if (Array.isArray(node.docComments) && node.docComments.length > 0) {
+    if (isNonEmptyArray(node.docComments)) {
         return false;
     }
 
