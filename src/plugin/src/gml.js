@@ -5,10 +5,7 @@ import { print } from "./printer/print.js";
 import { handleComments, printComment } from "./comments/comment-printer.js";
 import { identifierCaseOptions } from "./options/identifier-case.js";
 import { LogicalOperatorsStyle } from "./options/logical-operators-style.js";
-import {
-    DEFAULT_MISSING_OPTIONAL_ARGUMENT_PLACEHOLDER,
-    MissingOptionalArgumentPlaceholder
-} from "./options/missing-optional-argument-placeholder.js";
+import { MissingOptionalArgumentPlaceholder } from "./options/missing-optional-argument-placeholder.js";
 
 export const languages = [
     {
@@ -182,7 +179,7 @@ export const options = {
         since: "0.0.0",
         type: "choice",
         category: "gml",
-        default: DEFAULT_MISSING_OPTIONAL_ARGUMENT_PLACEHOLDER,
+        default: MissingOptionalArgumentPlaceholder.UNDEFINED,
         description:
             "Controls how omitted optional arguments are printed. Set to 'empty' to leave the slot blank instead of inserting 'undefined'.",
         choices: [
