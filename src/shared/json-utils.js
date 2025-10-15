@@ -36,14 +36,14 @@ export class JsonParseError extends SyntaxError {
     }
 }
 
-function normaliseDescription(description) {
+function normalizeDescription(description) {
     if (typeof description === "string" && description.trim().length > 0) {
         return description.trim();
     }
     return "JSON";
 }
 
-function normaliseSource(source) {
+function normalizeSource(source) {
     if (source == null) {
         return null;
     }
@@ -71,17 +71,17 @@ export function parseJsonWithContext(text, options = {}) {
         return JSON.parse(text, reviver);
     } catch (thrown) {
         const cause = toError(thrown);
-        const normalisedDescription = normaliseDescription(description);
-        const normalisedSource = normaliseSource(source);
+        const normalizedDescription = normalizeDescription(description);
+        const normalizedSource = normalizeSource(source);
         const details = extractErrorDetails(cause);
-        const locationSuffix = normalisedSource
-            ? ` from ${normalisedSource}`
+        const locationSuffix = normalizedSource
+            ? ` from ${normalizedSource}`
             : "";
-        const message = `Failed to parse ${normalisedDescription}${locationSuffix}: ${details}`;
+        const message = `Failed to parse ${normalizedDescription}${locationSuffix}: ${details}`;
         throw new JsonParseError(message, {
             cause,
-            source: normalisedSource ?? undefined,
-            description: normalisedDescription
+            source: normalizedSource ?? undefined,
+            description: normalizedDescription
         });
     }
 }
