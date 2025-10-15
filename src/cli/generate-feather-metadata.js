@@ -502,6 +502,111 @@ function slugify(text) {
         .slice(0, 64);
 }
 
+// Split the collected manual blocks into descriptive and trailing sections.
+function splitDiagnosticBlocks(blocks) {
+    const exampleHeadingIndex = blocks.findIndex(
+        (block) =>
+            block.type === "heading" && /example/i.test(block.text ?? "")
+    );
+    const firstCodeIndex = blocks.findIndex((block) => block.type === "code");
+
+    let trailingStart = blocks.length;
+    if (exampleHeadingIndex >= 0) {
+        trailingStart = exampleHeadingIndex + 1;
+    } else if (firstCodeIndex >= 0) {
+        trailingStart = firstCodeIndex;
+    }
+
+    return {
+        descriptionBlocks: blocks.slice(0, trailingStart),
+        trailingBlocks: blocks.slice(trailingStart)
+    };
+}
+
+// Extract paragraph-style content from the initial diagnostic blocks.
+function collectDiagnosticDescriptionParts(blocks) {
+    const descriptionParts = [];
+    for (const block of blocks) {
+        if (block.type === "heading") {
+            continue;
+        }
+        const text = normaliseTextBlock(block);
+        if (text) {
+            descriptionParts.push(text);
+        }
+    }
+    return descriptionParts;
+}
+
+// Analyse trailing blocks to determine examples and correction guidance.
+function collectDiagnosticTrailingContent(blocks) {
+    const additionalDescriptionParts = [];
+    const correctionParts = [];
+    let badExample = null;
+    let goodExample = null;
+
+    for (const block of blocks) {
+        if (block.type === "heading") {
+            continue;
+        }
+        if (block.type === "code") {
+            const codeText = normaliseTextBlock(block);
+            if (!codeText) {
+                continue;
+            }
+            if (!badExample) {
+                badExample = codeText;
+            } else if (!goodExample) {
+                goodExample = codeText;
+            } else {
+                goodExample = `${goodExample}\n\n${codeText}`.trim();
+            }
+            continue;
+        }
+
+        const text = normaliseTextBlock(block);
+        if (!text) {
+            continue;
+        }
+        if (!badExample) {
+            additionalDescriptionParts.push(text);
+        } else {
+            correctionParts.push(text);
+        }
+    }
+
+    return {
+        additionalDescriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    };
+}
+
+// Convert the raw manual blocks into structured diagnostic metadata.
+function summariseDiagnosticBlocks(blocks) {
+    const { descriptionBlocks, trailingBlocks } = splitDiagnosticBlocks(blocks);
+    const descriptionParts =
+        collectDiagnosticDescriptionParts(descriptionBlocks);
+    const {
+        additionalDescriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    } = collectDiagnosticTrailingContent(trailingBlocks);
+
+    if (additionalDescriptionParts.length) {
+        descriptionParts.push(...additionalDescriptionParts);
+    }
+
+    return {
+        descriptionParts,
+        correctionParts,
+        badExample,
+        goodExample
+    };
+}
+
 function parseDiagnostics(html) {
     const document = parseDocument(html);
     const diagnostics = [];
@@ -522,67 +627,8 @@ function parseDiagnostics(html) {
             stopTags: ["h3", "h2"]
         });
 
-        const exampleHeadingIndex = blocks.findIndex(
-            (block) =>
-                block.type === "heading" && /example/i.test(block.text ?? "")
-        );
-        const firstCodeIndex = blocks.findIndex(
-            (block) => block.type === "code"
-        );
-
-        let trailingStart = blocks.length;
-        if (exampleHeadingIndex >= 0) {
-            trailingStart = exampleHeadingIndex + 1;
-        } else if (firstCodeIndex >= 0) {
-            trailingStart = firstCodeIndex;
-        }
-
-        const descriptionBlocks = blocks.slice(0, trailingStart);
-        const trailingBlocks = blocks.slice(trailingStart);
-
-        const descriptionParts = [];
-        const correctionParts = [];
-        let badExample = null;
-        let goodExample = null;
-
-        for (const block of descriptionBlocks) {
-            if (block.type === "heading") {
-                continue;
-            }
-            const text = normaliseTextBlock(block);
-            if (text) {
-                descriptionParts.push(text);
-            }
-        }
-
-        for (const block of trailingBlocks) {
-            if (block.type === "heading") {
-                continue;
-            }
-            if (block.type === "code") {
-                const codeText = normaliseTextBlock(block);
-                if (!codeText) {
-                    continue;
-                }
-                if (!badExample) {
-                    badExample = codeText;
-                } else if (!goodExample) {
-                    goodExample = codeText;
-                } else {
-                    goodExample = `${goodExample}\n\n${codeText}`.trim();
-                }
-                continue;
-            }
-            const text = normaliseTextBlock(block);
-            if (!text) {
-                continue;
-            }
-            if (!badExample) {
-                descriptionParts.push(text);
-            } else {
-                correctionParts.push(text);
-            }
-        }
+        const { descriptionParts, correctionParts, badExample, goodExample } =
+            summariseDiagnosticBlocks(blocks);
 
         const description = joinSections(descriptionParts);
         const correction = joinSections(correctionParts);
