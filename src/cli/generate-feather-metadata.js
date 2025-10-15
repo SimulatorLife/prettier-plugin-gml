@@ -6,7 +6,7 @@ import { load } from "cheerio";
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
-import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import {
     createManualGitHubClient,
@@ -31,6 +31,7 @@ import {
     resolveManualRepoValue
 } from "./options/manual-repo.js";
 import { applyEnvOptionOverride } from "./options/env-overrides.js";
+import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -174,21 +175,12 @@ function parseArgs({
         progressBar: isTty
     };
 
-    try {
-        command.parse(argv, { from: "user" });
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
-            return {
-                helpRequested: true,
-                usage: command.helpInformation()
-            };
-        }
-        if (error instanceof Error && error.name === "CommanderError") {
-            throw new CliUsageError(error.message.trim(), {
-                usage: command.helpInformation()
-            });
-        }
-        throw error;
+    const { helpRequested, usage } = parseCommandLine(command, argv);
+    if (helpRequested) {
+        return {
+            helpRequested: true,
+            usage
+        };
     }
 
     const options = command.opts();
@@ -210,7 +202,7 @@ function parseArgs({
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
-        usage: command.helpInformation()
+        usage
     };
 }
 
