@@ -7004,7 +7004,8 @@ function localizeInstanceVariableAssignments({ ast, diagnostic, sourceText }) {
                 diagnostic,
                 eventMarkers,
                 memberPropertyNames,
-                sourceText
+                sourceText,
+                programAst: ast
             });
 
             if (fix) {
@@ -7032,7 +7033,8 @@ function convertAssignmentToLocalVariable({
     diagnostic,
     eventMarkers,
     memberPropertyNames,
-    sourceText
+    sourceText,
+    programAst
 }) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -7090,6 +7092,26 @@ function convertAssignmentToLocalVariable({
     const clonedIdentifier = cloneIdentifier(left);
 
     if (!clonedIdentifier) {
+        return null;
+    }
+
+    const assignmentStartIndex = getNodeStartIndex(node);
+
+    if (
+        typeof assignmentStartIndex === "number" &&
+        (referencesIdentifierBeforePosition(
+            programAst,
+            identifierName,
+            assignmentStartIndex
+        ) ||
+            (originalIdentifierName &&
+                originalIdentifierName !== identifierName &&
+                referencesIdentifierBeforePosition(
+                    programAst,
+                    originalIdentifierName,
+                    assignmentStartIndex
+                )))
+    ) {
         return null;
     }
 
@@ -11472,6 +11494,66 @@ function referencesIdentifier(node, variableName) {
         for (const [childKey, childValue] of Object.entries(value)) {
             if (childValue && typeof childValue === "object") {
                 stack.push({ value: childValue, parent: value, key: childKey });
+            }
+        }
+    }
+
+    return false;
+}
+
+function referencesIdentifierBeforePosition(node, variableName, beforeIndex) {
+    if (
+        !node ||
+        typeof node !== "object" ||
+        !variableName ||
+        typeof beforeIndex !== "number"
+    ) {
+        return false;
+    }
+
+    const stack = [{ value: node, parent: null, key: null }];
+
+    while (stack.length > 0) {
+        const { value, parent, key } = stack.pop();
+
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        if (isFunctionLikeNode(value)) {
+            continue;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                stack.push({ value: item, parent, key });
+            }
+            continue;
+        }
+
+        if (value.type === "Identifier" && value.name === variableName) {
+            const isDeclaratorId =
+                parent?.type === "VariableDeclarator" && key === "id";
+
+            if (!isDeclaratorId) {
+                const referenceIndex = getNodeStartIndex(value);
+
+                if (
+                    typeof referenceIndex === "number" &&
+                    referenceIndex < beforeIndex
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        for (const [childKey, childValue] of Object.entries(value)) {
+            if (childValue && typeof childValue === "object") {
+                stack.push({
+                    value: childValue,
+                    parent: value,
+                    key: childKey
+                });
             }
         }
     }
