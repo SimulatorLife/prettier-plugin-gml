@@ -29,7 +29,7 @@ function normalizeTypeList(types) {
     const normalized = toNormalizedLowerCaseSet(types);
 
     if (normalized.size === 0) {
-        return new Set(DEFAULT_DISALLOWED_IDENTIFIER_TYPES);
+        return normalized;
     }
 
     return normalized;
