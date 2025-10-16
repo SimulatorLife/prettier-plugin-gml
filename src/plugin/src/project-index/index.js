@@ -763,6 +763,8 @@ function buildIdentifierId(scope, value) {
     return `${scope}:${value}`;
 }
 
+const LINE_BREAK_PATTERN = /\r\n?|\n|\u2028|\u2029/g;
+
 function computeLineOffsets(source) {
     const offsets = [0];
 
@@ -770,27 +772,9 @@ function computeLineOffsets(source) {
         return offsets;
     }
 
-    for (let index = 0; index < source.length; index += 1) {
-        const codePoint = source.charCodeAt(index);
-
-        if (codePoint === 0x0d /* \r */) {
-            const nextCodePoint = source.charCodeAt(index + 1);
-            if (nextCodePoint === 0x0a /* \n */) {
-                offsets.push(index + 2);
-                index += 1;
-            } else {
-                offsets.push(index + 1);
-            }
-            continue;
-        }
-
-        if (
-            codePoint === 0x0a /* \n */ ||
-            codePoint === 0x20_28 ||
-            codePoint === 0x20_29
-        ) {
-            offsets.push(index + 1);
-        }
+    for (const match of source.matchAll(LINE_BREAK_PATTERN)) {
+        const startIndex = match.index ?? 0;
+        offsets.push(startIndex + match[0].length);
     }
 
     return offsets;
