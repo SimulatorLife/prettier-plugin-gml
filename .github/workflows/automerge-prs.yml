@@ -118,7 +118,7 @@ jobs:
           export BASE_RESULTS_DIR="$(pwd)/junit-base"
           export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
           # Falls back to head when merge isn't available (handled by your script)
-          node src/cli/commands/detect-test-regressions.mjs
+          node ../src/cli/commands/detect-test-regressions.mjs
           code=$?
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
