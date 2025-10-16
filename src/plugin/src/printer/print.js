@@ -1767,6 +1767,9 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    if (node._overridesStaticFunction === true) {
+        syntheticOverrides.includeOverrideTag = true;
+    }
     const hasExistingDocLines = existingDocLines.length > 0;
 
     const syntheticLines = hasExistingDocLines
@@ -1919,6 +1922,8 @@ function mergeSyntheticDocComments(
 
     const isFunctionLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+    const isOverrideLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
     const isParamLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
@@ -1928,6 +1933,8 @@ function mergeSyntheticDocComments(
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    const overrideLines = otherLines.filter(isOverrideLine);
+    otherLines = otherLines.filter((line) => !isOverrideLine(line));
     let returnsLines = [];
 
     // Cache canonical names so we only parse each doc comment line at most once.
@@ -2000,6 +2007,37 @@ function mergeSyntheticDocComments(
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
+            ];
+            removedAnyLine = true;
+        }
+    }
+
+    if (overrideLines.length > 0) {
+        const existingOverrideIndices = mergedLines
+            .map((line, index) => (isOverrideLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingOverrideIndices.length > 0) {
+            const [firstOverrideIndex, ...duplicateOverrideIndices] =
+                existingOverrideIndices;
+            mergedLines = [...mergedLines];
+
+            for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
+                mergedLines.splice(duplicateOverrideIndices[i], 1);
+                removedAnyLine = true;
+            }
+
+            mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
+            removedAnyLine = true;
+        } else {
+            const firstFunctionIndex = mergedLines.findIndex(isFunctionLine);
+            const insertionIndex =
+                firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertionIndex),
+                ...overrideLines,
+                ...mergedLines.slice(insertionIndex)
             ];
             removedAnyLine = true;
         }
@@ -2568,6 +2606,7 @@ function computeSyntheticFunctionDocLines(
         (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
     );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
+    const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
@@ -2591,7 +2630,14 @@ function computeSyntheticFunctionDocLines(
         }
     }
 
+    const shouldInsertOverrideTag =
+        overrides?.includeOverrideTag === true && !hasOverrideTag;
+
     const lines = [];
+
+    if (shouldInsertOverrideTag) {
+        lines.push("/// @override");
+    }
 
     if (functionName && !hasFunctionTag) {
         lines.push(`/// @function ${functionName}`);

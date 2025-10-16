@@ -21,6 +21,7 @@ import {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
 } from "../../../parser/gml-parser.js";
+import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,
@@ -146,6 +147,7 @@ async function parse(text, options) {
         }
 
         preprocessFunctionArgumentDefaults(ast);
+        annotateStaticFunctionOverrides(ast);
 
         return ast;
     } catch (error) {
