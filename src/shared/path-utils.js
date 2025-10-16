@@ -44,6 +44,19 @@ function fromPosixPath(inputPath) {
     return inputPath.replaceAll(POSIX_SEPARATOR_PATTERN, path.sep);
 }
 
+/**
+ * Checks whether `child` resides within `parent` when both paths are resolved
+ * to absolute locations. Empty strings short-circuit to `false` so callers can
+ * safely pass optional metadata without normalizing first.
+ *
+ * A relative result of `""` indicates that `child` and `parent` point to the
+ * same directory, which is considered "inside" for consumers that treat the
+ * parent as an allowed root.
+ *
+ * @param {string | undefined | null} child Path that may sit beneath `parent`.
+ * @param {string | undefined | null} parent Candidate ancestor directory.
+ * @returns {boolean} `true` when `child` resolves to `parent` or a descendant.
+ */
 function isPathInside(child, parent) {
     if (!child || !parent) {
         return false;
@@ -57,6 +70,19 @@ function isPathInside(child, parent) {
     return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
+/**
+ * Resolves every directory from the provided start paths up to the file system
+ * root, preserving discovery order. Duplicate directories are returned only
+ * once even when multiple starting points share ancestors. Empty inputs are
+ * ignored, mirroring the truthiness guard in {@link isPathInside}.
+ *
+ * @param {...(string | undefined | null)} startingDirectories Path(s) whose
+ *                                                             ancestor chains
+ *                                                             should be
+ *                                                             collected.
+ * @returns {Array<string>} Flat list of absolute directories, ordered from
+ *                          each start path toward the root.
+ */
 function collectAncestorDirectories(...startingDirectories) {
     const seen = new Set();
     const result = [];
