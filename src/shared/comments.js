@@ -111,8 +111,7 @@ export function collectCommentNodes(root) {
         if (Array.isArray(current)) {
             // Fast path for arrays: avoid allocating intermediate `Object.values`
             // arrays for every iteration by walking the existing elements.
-            for (let index = 0; index < current.length; index += 1) {
-                const child = current[index];
+            for (const child of current) {
                 if (isObjectLike(child)) {
                     stack.push(child);
                 }
