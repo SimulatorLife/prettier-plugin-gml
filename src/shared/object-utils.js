@@ -5,6 +5,18 @@ export function isObjectLike(value) {
 }
 
 /**
+ * Determine whether the provided value is a non-null object that is not an array.
+ * Useful for validating payloads from JSON APIs where arrays should be rejected
+ * in favour of plain object structures.
+ *
+ * @param {unknown} value
+ * @returns {value is Record<PropertyKey, unknown>} `true` when `value` is a plain object.
+ */
+export function isPlainObject(value) {
+    return isObjectLike(value) && !Array.isArray(value);
+}
+
+/**
  * Executes the provided callback when `value` is an object-like entity. This
  * avoids repeating the null and type checks that precede many object
  * operations. An alternate return value (or thunk) can be supplied for

@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { toTrimmedString } from "../../shared/string-utils.js";
+import { isPlainObject } from "../../shared/object-utils.js";
 import { formatBytes, formatDuration } from "../../shared/number-utils.js";
 import { ensureDir } from "./file-system.js";
 
@@ -20,7 +21,7 @@ function parseJsonOrThrow(text, description) {
 }
 
 function validateManualCommitPayload(payload, { ref }) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    if (!isPlainObject(payload)) {
         throw new TypeError(
             `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
         );
@@ -36,7 +37,7 @@ function validateManualCommitPayload(payload, { ref }) {
 }
 
 function normalizeManualTagEntry(entry) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    if (!isPlainObject(entry)) {
         throw new TypeError(
             "Manual tags response must contain objects with tag metadata."
         );
@@ -51,7 +52,7 @@ function normalizeManualTagEntry(entry) {
         return { name, sha: null };
     }
 
-    if (typeof commit !== "object" || Array.isArray(commit)) {
+    if (!isPlainObject(commit)) {
         throw new TypeError(
             "Manual tag entry commit must be an object when provided."
         );

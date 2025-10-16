@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { isPlainObject } from "../../shared/object-utils.js";
 import { isNonEmptyTrimmedString } from "../../shared/string-utils.js";
 
 let parser;
@@ -32,7 +33,7 @@ function hasAnyOwn(object, keys) {
 }
 
 function looksLikeTestCase(node) {
-    if (!node || typeof node !== "object" || Array.isArray(node)) {
+    if (!isPlainObject(node)) {
         return false;
     }
 
