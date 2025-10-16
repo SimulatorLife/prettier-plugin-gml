@@ -17,3 +17,8 @@ if (situation_2)
     gpu_pop_state();
     gpu_pop_state();
 }
+
+// Scenario 3
+gpu_push_state();
+draw_circle(x + 5, y + 5, 10, true);
+scr_custom_function_which_maypop_state();

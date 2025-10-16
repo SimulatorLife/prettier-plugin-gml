@@ -77,34 +77,6 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-function isPlainObjectOrArray(value) {
-    if (!value || typeof value !== "object") {
-        return false;
-    }
-
-    if (Array.isArray(value)) {
-        return true;
-    }
-
-    const prototype = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
-}
-
-function clonePlainContainer(container) {
-    if (Array.isArray(container)) {
-        return container.map((value) =>
-            isPlainObjectOrArray(value) ? clonePlainContainer(value) : value
-        );
-    }
-
-    return Object.fromEntries(
-        Object.entries(container).map(([key, value]) => [
-            key,
-            isPlainObjectOrArray(value) ? clonePlainContainer(value) : value
-        ])
-    );
-}
-
 function cloneLocation(location) {
     if (location == undefined) {
         return;
@@ -114,11 +86,7 @@ function cloneLocation(location) {
         return location;
     }
 
-    if (!isPlainObjectOrArray(location)) {
-        return structuredClone(location);
-    }
-
-    return clonePlainContainer(location);
+    return structuredClone(location);
 }
 
 /**

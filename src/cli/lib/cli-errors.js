@@ -11,6 +11,14 @@ function indentBlock(text, indent = DEFAULT_INDENT) {
         .join("\n");
 }
 
+function formatSection(label, content) {
+    if (!content) {
+        return null;
+    }
+
+    return `${label}:\n${content}`;
+}
+
 function extractStackBody(stack) {
     if (typeof stack !== "string") {
         return null;
@@ -39,7 +47,7 @@ function formatAggregateErrors(error, seen) {
         return null;
     }
 
-    return `Errors:\n${formatted.join("\n")}`;
+    return formatSection("Errors", formatted.join("\n"));
 }
 
 function formatErrorCause(cause, seen) {
@@ -48,7 +56,7 @@ function formatErrorCause(cause, seen) {
     }
 
     const text = formatErrorValue(cause, seen);
-    return text ? `Caused by:\n${indentBlock(text)}` : null;
+    return formatSection("Caused by", indentBlock(text));
 }
 
 function formatErrorHeader(error) {

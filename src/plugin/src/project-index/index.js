@@ -15,13 +15,93 @@ import {
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
-import {
-    createProjectIndexMetrics,
-    finalizeProjectIndexMetrics
-} from "./metrics.js";
+import { createMetricsTracker } from "../metrics/metrics-tracker.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
+
+const REQUIRED_METRIC_METHODS = [
+    "startTimer",
+    "timeAsync",
+    "timeSync",
+    "incrementCounter",
+    "setMetadata",
+    "recordCacheHit",
+    "recordCacheMiss",
+    "recordCacheStale",
+    "finalize"
+];
+
+function isMetricsTracker(candidate) {
+    return (
+        candidate &&
+        typeof candidate === "object" &&
+        REQUIRED_METRIC_METHODS.every(
+            (method) => typeof candidate[method] === "function"
+        )
+    );
+}
+
+function createNoopProjectIndexMetrics() {
+    const snapshot = (extra = {}) => ({
+        category: "project-index",
+        totalTimeMs: 0,
+        timings: {},
+        counters: {},
+        caches: {},
+        metadata: {},
+        ...extra
+    });
+
+    return {
+        category: "project-index",
+        startTimer() {
+            return () => {};
+        },
+        async timeAsync(_label, callback) {
+            return await callback();
+        },
+        timeSync(_label, callback) {
+            return callback();
+        },
+        incrementCounter() {},
+        setMetadata() {},
+        recordCacheHit() {},
+        recordCacheMiss() {},
+        recordCacheStale() {},
+        snapshot,
+        finalize(extra = {}) {
+            return snapshot(extra);
+        },
+        logSummary() {}
+    };
+}
+
+function createProjectIndexMetrics(options = {}) {
+    const { metrics, logger = null, logMetrics = false } = options ?? {};
+
+    if (isMetricsTracker(metrics)) {
+        return metrics;
+    }
+
+    if (metrics !== undefined) {
+        return createNoopProjectIndexMetrics();
+    }
+
+    return createMetricsTracker({
+        category: "project-index",
+        logger,
+        autoLog: logMetrics === true
+    });
+}
+
+function finalizeProjectIndexMetrics(metrics) {
+    if (!isMetricsTracker(metrics)) {
+        return null;
+    }
+
+    return metrics.finalize();
+}
 
 function isParserFacade(candidate) {
     return (
@@ -245,18 +325,21 @@ async function loadBuiltInIdentifiers(
     metrics = null
 ) {
     const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const cached = cachedBuiltInIdentifiers;
 
-    if (cachedBuiltInIdentifiers) {
-        const cachedMtime = cachedBuiltInIdentifiers.metadata?.mtimeMs ?? null;
+    if (cached) {
+        const cachedMtime = cached.metadata?.mtimeMs ?? null;
         if (cachedMtime === currentMtime) {
             metrics?.recordCacheHit("builtInIdentifiers");
-            return cachedBuiltInIdentifiers;
+            return cached;
         }
 
         metrics?.recordCacheStale("builtInIdentifiers");
     } else {
         metrics?.recordCacheMiss("builtInIdentifiers");
     }
+
+    let names = new Set();
 
     try {
         const rawContents = await fsFacade.readFile(
@@ -266,21 +349,15 @@ async function loadBuiltInIdentifiers(
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
-        const names = new Set();
-        for (const name of Object.keys(identifiers)) {
-            names.add(name);
-        }
-
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names
-        };
+        names = new Set(Object.keys(identifiers));
     } catch {
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names: new Set()
-        };
+        // Ignore read/parse failures and fall back to an empty identifier set.
     }
+
+    cachedBuiltInIdentifiers = {
+        metadata: { mtimeMs: currentMtime },
+        names
+    };
 
     return cachedBuiltInIdentifiers;
 }
@@ -422,11 +499,7 @@ function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
     };
 }
 
-function deriveEventDisplayName(event) {
-    if (event && typeof event.name === "string" && event.name.trim()) {
-        return event.name;
-    }
-
+function resolveEventMetadata(event) {
     const eventType =
         typeof event?.eventType === "number"
             ? event.eventType
@@ -440,15 +513,23 @@ function deriveEventDisplayName(event) {
               ? event.enumb
               : null;
 
+    if (event && typeof event.name === "string" && event.name.trim()) {
+        return { eventType, eventNum, displayName: event.name };
+    }
+
     if (eventType == undefined && eventNum == undefined) {
-        return "event";
+        return { eventType, eventNum, displayName: "event" };
     }
 
     if (eventNum == undefined) {
-        return String(eventType);
+        return { eventType, eventNum, displayName: String(eventType) };
     }
 
-    return `${eventType}_${eventNum}`;
+    return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
+}
+
+function deriveEventDisplayName(event) {
+    return resolveEventMetadata(event).displayName;
 }
 
 function createObjectEventScopeDescriptor(
@@ -456,7 +537,7 @@ function createObjectEventScopeDescriptor(
     event,
     gmlRelativePath
 ) {
-    const displayName = deriveEventDisplayName(event);
+    const { displayName, eventType, eventNum } = resolveEventMetadata(event);
     const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
     return {
         id: scopeId,
@@ -467,18 +548,8 @@ function createObjectEventScopeDescriptor(
         gmlFile: gmlRelativePath,
         event: {
             name: displayName,
-            eventType:
-                typeof event?.eventType === "number"
-                    ? event.eventType
-                    : typeof event?.eventtype === "number"
-                      ? event.eventtype
-                      : null,
-            eventNum:
-                typeof event?.eventNum === "number"
-                    ? event.eventNum
-                    : typeof event?.enumb === "number"
-                      ? event.enumb
-                      : null
+            eventType,
+            eventNum
         }
     };
 }
@@ -504,6 +575,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
+    const { displayName } = resolveEventMetadata(event);
     const candidatePaths = [];
     if (typeof event.eventContents === "string") {
         candidatePaths.push(event.eventContents);
@@ -532,7 +604,6 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
-    const displayName = deriveEventDisplayName(event);
     const guessed = path.posix.join(
         resourceRelativeDir,
         `${resourceRecord.name}_${displayName}.gml`
