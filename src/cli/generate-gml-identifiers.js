@@ -35,7 +35,11 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "./options/manual-repo.js";
-import { applyEnvOptionOverrides } from "./options/env-overrides.js";
+import {
+    applyManualEnvOptionOverrides,
+    MANUAL_REF_ENV_VAR,
+    PROGRESS_BAR_WIDTH_ENV_VAR
+} from "./options/manual-env.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,7 +62,6 @@ const manualClient = createManualGitHubClient({
 
 const { fetchManualFile, resolveManualRef } = manualClient;
 
-const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const VM_EVAL_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 function createGenerateIdentifiersCommand() {
@@ -139,7 +142,7 @@ function createGenerateIdentifiersCommand() {
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
             `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
             `  ${VM_EVAL_TIMEOUT_ENV_VAR}    Override the VM evaluation timeout in milliseconds.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
+            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`
         ].join("\n")
     );
 
@@ -154,26 +157,11 @@ function parseArgs({
     const command = createGenerateIdentifiersCommand();
     const getUsage = () => command.helpInformation();
 
-    applyEnvOptionOverrides({
+    applyManualEnvOptionOverrides({
         command,
         env,
         getUsage,
-        overrides: [
-            {
-                envVar: "GML_MANUAL_REF",
-                optionName: "ref"
-            },
-            {
-                envVar: MANUAL_REPO_ENV_VAR,
-                optionName: "manualRepo",
-                resolveValue: (value) =>
-                    resolveManualRepoValue(value, { source: "env" })
-            },
-            {
-                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-                optionName: "progressBarWidth",
-                resolveValue: resolveProgressBarWidth
-            },
+        additionalOverrides: [
             {
                 envVar: VM_EVAL_TIMEOUT_ENV_VAR,
                 optionName: "vmEvalTimeoutMs",
