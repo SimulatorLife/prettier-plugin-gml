@@ -7,6 +7,7 @@ import { SingleBar, Presets } from "cli-progress";
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const activeProgressBars = new Map();
 let progressBarFactory = createDefaultProgressBar;
+let stdoutOverride = null;
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -42,9 +43,17 @@ function createDefaultProgressBar(label, width) {
     );
 }
 
+function getStdout() {
+    return stdoutOverride ?? process.stdout;
+}
+
 function setProgressBarFactoryForTesting(factory) {
     progressBarFactory =
         typeof factory === "function" ? factory : createDefaultProgressBar;
+}
+
+function setProgressBarStdoutForTesting(stdout) {
+    stdoutOverride = stdout && typeof stdout === "object" ? stdout : null;
 }
 
 function disposeProgressBars() {
@@ -59,7 +68,8 @@ function disposeProgressBars() {
 }
 
 function renderProgressBar(label, current, total, width) {
-    if (!process.stdout.isTTY || width <= 0) {
+    const stdout = getStdout();
+    if (!stdout?.isTTY || width <= 0) {
         return;
     }
 
@@ -86,5 +96,6 @@ export {
     renderProgressBar,
     disposeProgressBars,
     setProgressBarFactoryForTesting,
+    setProgressBarStdoutForTesting,
     resolveProgressBarWidth
 };
