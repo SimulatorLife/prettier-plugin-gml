@@ -10,7 +10,10 @@ import {
     getNonEmptyString
 } from "../../../shared/string-utils.js";
 import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
-import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
+import {
+    normalizeIdentifierCaseOptions,
+    IdentifierCaseStyle
+} from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import {
     applyBootstrappedIdentifierCaseProjectIndex,
@@ -445,7 +448,7 @@ function planIdentifierRenamesForScope({
         return;
     }
 
-    if (style === "off") {
+    if (style === IdentifierCaseStyle.OFF) {
         return;
     }
 
@@ -768,7 +771,8 @@ export async function prepareIdentifierCasePlan(options) {
     // and rename maps without mutating sources when the style is disabled.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
-    const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
+    const localStyle =
+        normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
     const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
     const functionStyle = normalizedOptions.scopeStyles?.functions ?? "off";
     const structStyle = normalizedOptions.scopeStyles?.structs ?? "off";
@@ -776,7 +780,7 @@ export async function prepareIdentifierCasePlan(options) {
     const instanceStyle = normalizedOptions.scopeStyles?.instance ?? "off";
     const globalStyle = normalizedOptions.scopeStyles?.globals ?? "off";
 
-    const shouldPlanLocals = localStyle !== "off";
+    const shouldPlanLocals = localStyle !== IdentifierCaseStyle.OFF;
     const shouldPlanAssets = assetStyle !== "off";
     const shouldPlanFunctions = functionStyle !== "off";
     const shouldPlanStructs = structStyle !== "off";
@@ -883,7 +887,9 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     const hasLocalSupport =
-        projectIndex && projectIndex.files && localStyle !== "off";
+        projectIndex &&
+        projectIndex.files &&
+        localStyle !== IdentifierCaseStyle.OFF;
 
     if (hasLocalSupport) {
         metrics.incrementCounter("locals.supportedFiles");
@@ -1332,28 +1338,18 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
     }
 
     withObjectLike(options, (object) => {
-        const assignSnapshotValue = (
-            snapshotKey,
-            optionKey,
-            predicate = (value, current) => Boolean(value) && !current
-        ) => {
-            const value = snapshot[snapshotKey];
-            if (predicate(value, object[optionKey])) {
-                setIdentifierCaseOption(object, optionKey, value);
-            }
-        };
-
-        const assignTruthySnapshotValues = (entries) => {
-            for (const [snapshotKey, optionKey] of entries) {
-                assignSnapshotValue(snapshotKey, optionKey);
-            }
-        };
-
-        assignTruthySnapshotValues([
+        const truthyAssignments = [
             ["projectIndex", "__identifierCaseProjectIndex"],
             ["projectRoot", "__identifierCaseProjectRoot"],
             ["bootstrap", "__identifierCaseProjectIndexBootstrap"]
-        ]);
+        ];
+
+        for (const [snapshotKey, optionKey] of truthyAssignments) {
+            const value = snapshot[snapshotKey];
+            if (value && !object[optionKey]) {
+                setIdentifierCaseOption(object, optionKey, value);
+            }
+        }
 
         setIdentifierCaseOption(
             object,
@@ -1367,7 +1363,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
             enumerable: false
         });
 
-        assignTruthySnapshotValues([
+        const optionalAssignments = [
             ["renameMap", "__identifierCaseRenameMap"],
             ["renamePlan", "__identifierCaseRenamePlan"],
             ["conflicts", "__identifierCaseConflicts"],
@@ -1375,13 +1371,26 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
             ["metrics", "__identifierCaseMetrics"],
             ["assetRenames", "__identifierCaseAssetRenames"],
             ["assetRenameResult", "__identifierCaseAssetRenameResult"]
-        ]);
+        ];
 
-        assignSnapshotValue(
-            "assetRenamesApplied",
-            "__identifierCaseAssetRenamesApplied",
-            (value, current) => value != undefined && current == undefined
-        );
+        for (const [snapshotKey, optionKey] of optionalAssignments) {
+            const value = snapshot[snapshotKey];
+            if (value && !object[optionKey]) {
+                setIdentifierCaseOption(object, optionKey, value);
+            }
+        }
+
+        const assetRenamesApplied = snapshot.assetRenamesApplied;
+        if (
+            assetRenamesApplied != undefined &&
+            object.__identifierCaseAssetRenamesApplied == undefined
+        ) {
+            setIdentifierCaseOption(
+                object,
+                "__identifierCaseAssetRenamesApplied",
+                assetRenamesApplied
+            );
+        }
 
         if (snapshot.dryRun !== null) {
             setIdentifierCaseOption(

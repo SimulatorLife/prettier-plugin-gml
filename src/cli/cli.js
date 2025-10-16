@@ -599,13 +599,17 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-async function resolveTargetStats(target) {
+async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        throw new Error(`Unable to access ${target}: ${error.message}`, {
-            cause: error
-        });
+        const details = formatCliError(error) || "Unknown error";
+        const cliError = new CliUsageError(
+            `Unable to access ${target}: ${details}`,
+            { usage }
+        );
+        cliError.cause = error instanceof Error ? error : undefined;
+        throw cliError;
     }
 }
 
@@ -785,7 +789,7 @@ async function run() {
     await resetFormattingSession(onParseError);
 
     try {
-        const targetStats = await resolveTargetStats(targetPath);
+        const targetStats = await resolveTargetStats(targetPath, { usage });
         const targetIsDirectory = targetStats.isDirectory();
 
         if (!targetIsDirectory && !targetStats.isFile()) {
