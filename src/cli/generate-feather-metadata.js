@@ -227,6 +227,14 @@ function normaliseMultilineText(text) {
     return cleaned.join("\n").trim();
 }
 
+function sanitiseManualString(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    return normaliseMultilineText(value);
+}
+
 function parseDocument(html) {
     return parseHTML(html).document;
 }
@@ -407,6 +415,11 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     }
 
     return text.replaceAll(/\s+/g, " ").trim();
+}
+
+function extractSanitisedText(element, { preserveLineBreaks = false } = {}) {
+    const text = extractText(element, { preserveLineBreaks });
+    return sanitiseManualString(text) ?? null;
 }
 
 function collectBlocksAfter(element, { stopTags = [] } = {}) {
@@ -726,15 +739,19 @@ function parseNamingRules(html) {
             if (strongText === "Naming Style") {
                 namingStyleOptions = Array.from(
                     listItem.querySelectorAll("ul li")
-                ).map((styleEl) =>
-                    extractText(styleEl, { preserveLineBreaks: false })
-                );
+                )
+                    .map((styleEl) =>
+                        extractSanitisedText(styleEl, {
+                            preserveLineBreaks: false
+                        })
+                    )
+                    .filter(Boolean);
             } else if (strongText === "Identifier Blocklist") {
-                identifierBlocklist = extractText(listItem, {
+                identifierBlocklist = extractSanitisedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText.endsWith("Naming Rule")) {
-                identifierRuleSummary = extractText(listItem, {
+                identifierRuleSummary = extractSanitisedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText === "Prefix") {
@@ -798,8 +815,8 @@ function parseNamingRules(html) {
         supportsPrefix,
         supportsSuffix,
         supportsPreserveUnderscores,
-        identifierBlocklist,
-        identifierRuleSummary,
+        identifierBlocklist: identifierBlocklist ?? null,
+        identifierRuleSummary: identifierRuleSummary ?? null,
         ruleSections
     };
 }
