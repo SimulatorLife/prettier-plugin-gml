@@ -9,7 +9,11 @@ function toError(value) {
     try {
         if (typeof value === "string") {
             message = value;
-        } else if (value != undefined && typeof value.toString === "function") {
+        } else if (
+            value !== undefined &&
+            value !== null &&
+            typeof value.toString === "function"
+        ) {
             message = value.toString();
         }
     } catch {
