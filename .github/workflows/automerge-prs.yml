@@ -39,13 +39,8 @@ jobs:
             core.notice(`PR changed files: ${count}`);
             core.setOutput('skip', count === 0 ? 'true' : 'false');
 
-      - name: Stop early if no files changed
-        if: steps.changed.outputs.skip == 'true'
-        run: |
-          echo "No changed files in this PR — skipping test jobs."
-          exit 0
-
       - name: Resolve ref for ${{ matrix.target }}
+        if: ${{ steps.changed.outputs.skip != 'true' }}
         id: ref
         run: |
           if [ "${{ matrix.target }}" = "base" ]; then
@@ -58,28 +53,32 @@ jobs:
 
       # If the synthetic merge ref doesn't exist, continue so the leg can still upload nothing and be summarized.
       - name: Checkout (${{ matrix.target }})
+        if: ${{ steps.changed.outputs.skip != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ref.outputs.ref }}
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       - name: Setup Node
+        if: ${{ steps.changed.outputs.skip != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install deps
+        if: ${{ steps.changed.outputs.skip != 'true' }}
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       # Your npm script should create ./test-results/*.xml and NOT hard-exit early
       - name: Run test suite (JUnit XML)
+        if: ${{ steps.changed.outputs.skip != 'true' }}
         run: npm run test:report
         continue-on-error: true
 
       - name: Publish test summary (${{ matrix.target }})
-        if: ${{ always() }}
+        if: ${{ always() && steps.changed.outputs.skip != 'true' }}
         uses: dorny/test-reporter@v2
         with:
           name: Publish test summary (${{ matrix.target }})
@@ -90,7 +89,7 @@ jobs:
           use-actions-summary: false
 
       - name: Upload JUnit artifacts (${{ matrix.target }})
-        if: ${{ always() }}
+        if: ${{ always() && steps.changed.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: junit-${{ matrix.target }}
