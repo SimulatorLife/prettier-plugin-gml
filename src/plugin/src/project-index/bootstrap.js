@@ -2,7 +2,11 @@ import path from "node:path";
 
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
-import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
+import {
+    findProjectRoot,
+    createProjectIndexCoordinator,
+    getProjectIndexParserOverride
+} from "./index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
@@ -367,15 +371,12 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         };
     }
 
-    const parserFacadeOverride =
-        options.identifierCaseProjectIndexParserFacade ??
-        options.gmlParserFacade ??
-        options.parserFacade ??
-        null;
-    if (parserFacadeOverride != undefined) {
-        buildOptions.gmlParserFacade = parserFacadeOverride;
-    } else if (typeof options.parseGml === "function") {
-        buildOptions.parseGml = options.parseGml;
+    const parserOverride = getProjectIndexParserOverride(options);
+    if (parserOverride) {
+        if (parserOverride.facade) {
+            buildOptions.gmlParserFacade = parserOverride.facade;
+        }
+        buildOptions.parseGml = parserOverride.parse;
     }
 
     const descriptor = {
