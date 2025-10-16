@@ -64,7 +64,13 @@ function isManifestEntry(entry) {
     );
 }
 
-export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
+/**
+ * @param {import("./fs-facade.js").ProjectIndexDirectoryReader} directoryReader
+ */
+export async function findProjectRoot(
+    options,
+    directoryReader = defaultFsFacade
+) {
     const filepath = options?.filepath;
     if (!filepath) {
         return null;
@@ -75,7 +81,7 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
 
     while (!visited.has(current)) {
         visited.add(current);
-        const entries = await listDirectory(fsFacade, current);
+        const entries = await listDirectory(directoryReader, current);
         const hasManifest = entries.some(isManifestEntry);
         if (hasManifest) {
             return current;
@@ -93,12 +99,43 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
 
 export function createProjectIndexCoordinator(options = {}) {
     const {
-        fsFacade = defaultFsFacade,
+        fsFacade: legacyFsFacade = defaultFsFacade,
+        directoryReader = legacyFsFacade,
+        fileReader = legacyFsFacade,
+        statReader = legacyFsFacade,
+        cacheWriter = legacyFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
         buildIndex = buildProjectIndex,
         cacheMaxSizeBytes: rawCacheMaxSizeBytes
     } = options;
+
+    const fsReaders = {
+        async readDir(targetPath) {
+            return directoryReader.readDir(targetPath);
+        },
+        async stat(targetPath) {
+            return statReader.stat(targetPath);
+        },
+        async readFile(targetPath, encoding = "utf8") {
+            return fileReader.readFile(targetPath, encoding);
+        }
+    };
+
+    const cachePersistence = {
+        async mkdir(targetPath, makeDirectoryOptions) {
+            return cacheWriter.mkdir(targetPath, makeDirectoryOptions);
+        },
+        async writeFile(targetPath, contents, encoding = "utf8") {
+            return cacheWriter.writeFile(targetPath, contents, encoding);
+        },
+        async rename(fromPath, toPath) {
+            return cacheWriter.rename(fromPath, toPath);
+        },
+        async unlink(targetPath) {
+            return cacheWriter.unlink(targetPath);
+        }
+    };
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
@@ -130,7 +167,7 @@ export function createProjectIndexCoordinator(options = {}) {
         const operation = (async () => {
             const loadResult = await loadCache(
                 { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade
+                fsReaders
             );
 
             if (loadResult.status === "hit") {
@@ -143,7 +180,7 @@ export function createProjectIndexCoordinator(options = {}) {
 
             const projectIndex = await buildIndex(
                 resolvedRoot,
-                fsFacade,
+                fsReaders,
                 descriptor?.buildOptions ?? {}
             );
 
@@ -160,7 +197,7 @@ export function createProjectIndexCoordinator(options = {}) {
                     metricsSummary: projectIndex.metrics,
                     maxSizeBytes: descriptorMaxSizeBytes
                 },
-                fsFacade
+                cachePersistence
             ).catch((error) => {
                 return {
                     status: "failed",
@@ -217,10 +254,10 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 let cachedBuiltInIdentifiers = null;
 
 async function loadBuiltInIdentifiers(
-    fsFacade = defaultFsFacade,
+    fsReader = defaultFsFacade,
     metrics = null
 ) {
-    const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const currentMtime = await getFileMtime(fsReader, GML_IDENTIFIER_FILE_PATH);
 
     if (cachedBuiltInIdentifiers) {
         const cachedMtime = cachedBuiltInIdentifiers.metadata?.mtimeMs ?? null;
@@ -235,7 +272,7 @@ async function loadBuiltInIdentifiers(
     }
 
     try {
-        const rawContents = await fsFacade.readFile(
+        const rawContents = await fsReader.readFile(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
@@ -282,7 +319,11 @@ function normaliseResourcePath(rawPath, { projectRoot } = {}) {
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
-async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
+async function scanProjectTree(
+    projectRoot,
+    fsReader = defaultFsFacade,
+    metrics = null
+) {
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -290,7 +331,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        const entries = await listDirectory(fsFacade, absoluteDir);
+        const entries = await listDirectory(fsReader, absoluteDir);
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -298,7 +339,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
             const absolutePath = path.join(projectRoot, relativePath);
             let stats;
             try {
-                stats = await fsFacade.stat(absolutePath);
+                stats = await fsReader.stat(absolutePath);
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -564,7 +605,11 @@ function collectAssetReferences(root, callback) {
     }
 }
 
-async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
+async function analyseResourceFiles({
+    projectRoot,
+    yyFiles,
+    fileReader = defaultFsFacade
+}) {
     const resourcesMap = new Map();
     const gmlScopeMap = new Map();
     const assetReferences = [];
@@ -574,7 +619,7 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
     for (const file of yyFiles) {
         let rawContents;
         try {
-            rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
+            rawContents = await fileReader.readFile(file.absolutePath, "utf8");
         } catch (error) {
             if (isFsErrorCode(error, "ENOENT")) {
                 continue;
@@ -1924,7 +1969,7 @@ async function processWithConcurrency(items, limit, worker) {
 
 export async function buildProjectIndex(
     projectRoot,
-    fsFacade = defaultFsFacade,
+    fsReader = defaultFsFacade,
     options = {}
 ) {
     if (!projectRoot) {
@@ -1942,13 +1987,13 @@ export async function buildProjectIndex(
     const stopTotal = metrics.startTimer("total");
 
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics)
+        loadBuiltInIdentifiers(fsReader, metrics)
     );
     const builtInNames = builtInIdentifiers.names ?? new Set();
 
     const { yyFiles, gmlFiles } = await metrics.timeAsync(
         "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics)
+        () => scanProjectTree(resolvedRoot, fsReader, metrics)
     );
     metrics.setMetadata("yyFileCount", yyFiles.length);
     metrics.setMetadata("gmlFileCount", gmlFiles.length);
@@ -1959,7 +2004,7 @@ export async function buildProjectIndex(
             analyseResourceFiles({
                 projectRoot: resolvedRoot,
                 yyFiles,
-                fsFacade
+                fileReader: fsReader
             })
     );
 
@@ -1992,7 +2037,7 @@ export async function buildProjectIndex(
         let contents;
         try {
             contents = await metrics.timeAsync("fs.readGml", () =>
-                fsFacade.readFile(file.absolutePath, "utf8")
+                fsReader.readFile(file.absolutePath, "utf8")
             );
         } catch (error) {
             if (isFsErrorCode(error, "ENOENT")) {

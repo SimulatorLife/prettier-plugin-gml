@@ -1,5 +1,51 @@
 import { promises as fs } from "node:fs";
 
+/**
+ * Read-only file system contract for modules that need to enumerate
+ * directories.
+ *
+ * @typedef {object} ProjectIndexDirectoryReader
+ * @property {(targetPath: string) => Promise<Array<string>>} readDir
+ */
+
+/**
+ * Read-only file system contract for retrieving file metadata.
+ *
+ * @typedef {object} ProjectIndexFileStatReader
+ * @property {(targetPath: string) => Promise<import("node:fs").Stats>} stat
+ */
+
+/**
+ * Read-only file system contract for loading file contents.
+ *
+ * @typedef {object} ProjectIndexFileReader
+ * @property {(targetPath: string, encoding?: string) => Promise<string>} readFile
+ */
+
+/**
+ * File system contract for persisting cache data. The responsibilities are
+ * limited to the mutation operations required by the project index cache so
+ * consumers that only read from the file system can depend on a narrower API.
+ *
+ * @typedef {object} ProjectIndexCacheWriter
+ * @property {(targetPath: string, options?: import("node:fs").MakeDirectoryOptions) => Promise<unknown>} mkdir
+ * @property {(targetPath: string, contents: string | ArrayBufferView, encoding?: string) => Promise<unknown>} writeFile
+ * @property {(fromPath: string, toPath: string) => Promise<unknown>} rename
+ * @property {(targetPath: string) => Promise<unknown>} unlink
+ */
+
+/**
+ * Combined legacy facade retained for compatibility. New code should favour
+ * {@link ProjectIndexDirectoryReader}, {@link ProjectIndexFileReader}, and
+ * {@link ProjectIndexCacheWriter} so that each module only depends on the
+ * operations it actually performs.
+ *
+ * @typedef {ProjectIndexDirectoryReader &
+ *     ProjectIndexFileStatReader &
+ *     ProjectIndexFileReader &
+ *     ProjectIndexCacheWriter} ProjectIndexFsFacade
+ */
+
 const defaultFsFacade = {
     async readDir(targetPath) {
         return fs.readdir(targetPath);

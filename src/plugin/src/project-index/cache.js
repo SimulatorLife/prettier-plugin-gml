@@ -142,9 +142,12 @@ function validateCachePayload(payload) {
     return true;
 }
 
+/**
+ * @param {import("./fs-facade.js").ProjectIndexFileReader} fileReader
+ */
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fileReader = defaultFsFacade
 ) {
     const {
         projectRoot,
@@ -166,7 +169,7 @@ export async function loadProjectIndexCache(
 
     let rawContents;
     try {
-        rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
+        rawContents = await fileReader.readFile(cacheFilePath, "utf8");
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
             return createCacheMiss(
@@ -259,9 +262,12 @@ export async function loadProjectIndexCache(
     };
 }
 
+/**
+ * @param {import("./fs-facade.js").ProjectIndexCacheWriter} cacheWriter
+ */
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    cacheWriter = defaultFsFacade
 ) {
     const {
         projectRoot,
@@ -290,7 +296,7 @@ export async function saveProjectIndexCache(
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
-    await fsFacade.mkdir(cacheDir, { recursive: true });
+    await cacheWriter.mkdir(cacheDir, { recursive: true });
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -325,11 +331,11 @@ export async function saveProjectIndexCache(
     const tempFilePath = `${cacheFilePath}.${uniqueSuffix}.tmp`;
 
     try {
-        await fsFacade.writeFile(tempFilePath, serialized, "utf8");
-        await fsFacade.rename(tempFilePath, cacheFilePath);
+        await cacheWriter.writeFile(tempFilePath, serialized, "utf8");
+        await cacheWriter.rename(tempFilePath, cacheFilePath);
     } catch (error) {
         try {
-            await fsFacade.unlink(tempFilePath);
+            await cacheWriter.unlink(tempFilePath);
         } catch {
             // Ignore cleanup failures.
         }
@@ -343,9 +349,13 @@ export async function saveProjectIndexCache(
     };
 }
 
+/**
+ * @param {import("./fs-facade.js").ProjectIndexDirectoryReader &
+ *     import("./fs-facade.js").ProjectIndexFileStatReader} fsReader
+ */
 export async function deriveCacheKey(
     { filepath, projectRoot, formatterVersion = "dev" } = {},
-    fsFacade = defaultFsFacade
+    fsReader = defaultFsFacade
 ) {
     const hash = createHash("sha256");
     hash.update(String(formatterVersion));
@@ -356,14 +366,14 @@ export async function deriveCacheKey(
     hash.update("\0");
 
     if (resolvedRoot) {
-        const entries = await listDirectory(fsFacade, resolvedRoot);
+        const entries = await listDirectory(fsReader, resolvedRoot);
         const manifestNames = entries
             .filter(isManifestEntry)
             .sort((a, b) => a.localeCompare(b));
 
         for (const manifestName of manifestNames) {
             const manifestPath = path.join(resolvedRoot, manifestName);
-            const mtime = await getFileMtime(fsFacade, manifestPath);
+            const mtime = await getFileMtime(fsReader, manifestPath);
             if (mtime !== null) {
                 hash.update(manifestName);
                 hash.update("\0");
@@ -375,7 +385,7 @@ export async function deriveCacheKey(
 
     if (filepath) {
         const resolvedFile = path.resolve(filepath);
-        const mtime = await getFileMtime(fsFacade, resolvedFile);
+        const mtime = await getFileMtime(fsReader, resolvedFile);
         if (mtime !== null) {
             hash.update(
                 path.relative(

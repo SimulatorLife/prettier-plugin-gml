@@ -11,9 +11,13 @@ export function isFsErrorCode(error, ...codes) {
     return codes.includes(code);
 }
 
-export async function listDirectory(fsFacade, directoryPath) {
+/**
+ * @param {import("./fs-facade.js").ProjectIndexDirectoryReader} directoryReader
+ * @param {string} directoryPath
+ */
+export async function listDirectory(directoryReader, directoryPath) {
     try {
-        return await fsFacade.readDir(directoryPath);
+        return await directoryReader.readDir(directoryPath);
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
@@ -22,9 +26,13 @@ export async function listDirectory(fsFacade, directoryPath) {
     }
 }
 
-export async function getFileMtime(fsFacade, filePath) {
+/**
+ * @param {import("./fs-facade.js").ProjectIndexFileStatReader} statReader
+ * @param {string} filePath
+ */
+export async function getFileMtime(statReader, filePath) {
     try {
-        const stats = await fsFacade.stat(filePath);
+        const stats = await statReader.stat(filePath);
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
