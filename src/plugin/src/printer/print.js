@@ -1389,7 +1389,7 @@ function printElements(
         }
 
         return parts;
-    }, listKey);
+    });
 }
 
 function isComplexArgumentNode(node) {
@@ -1571,8 +1571,7 @@ function printStatements(path, options, print, childrenAttribute) {
             !hasTerminatingSemicolon &&
             syntheticDocComment &&
             !(syntheticDocRecord?.hasExistingDocLines ?? false) &&
-            isLastStatement(childPath) &&
-            !isStaticDeclaration;
+            isLastStatement(childPath);
 
         if (shouldOmitSemicolon) {
             semi = "";
@@ -1657,7 +1656,7 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         return parts;
-    }, childrenAttribute);
+    });
 }
 
 export function applyAssignmentAlignment(statements, options) {
