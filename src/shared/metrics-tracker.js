@@ -1,4 +1,4 @@
-import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { getNonEmptyString } from "./string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
