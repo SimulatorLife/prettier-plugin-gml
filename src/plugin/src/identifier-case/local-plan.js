@@ -13,9 +13,10 @@ import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import {
-    bootstrapProjectIndex,
-    applyBootstrappedProjectIndex
-} from "../project-index/bootstrap.js";
+    applyBootstrappedIdentifierCaseProjectIndex,
+    ensureIdentifierCaseProjectIndex,
+    resolveIdentifierCaseProjectIndex
+} from "./project-index-gateway.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 import {
     COLLISION_CONFLICT_CODE,
@@ -746,13 +747,12 @@ export async function prepareIdentifierCasePlan(options) {
             context.dryRun
         );
     }
-    applyBootstrappedProjectIndex(options, setIdentifierCaseOption);
+    applyBootstrappedIdentifierCaseProjectIndex(options);
 
-    let projectIndex =
-        options.__identifierCaseProjectIndex ??
-        options.identifierCaseProjectIndex ??
-        context?.projectIndex ??
-        null;
+    let projectIndex = resolveIdentifierCaseProjectIndex(
+        options,
+        context?.projectIndex ?? null
+    );
 
     const logger = options.logger ?? null;
     const metrics = createMetricsTracker({
@@ -794,12 +794,10 @@ export async function prepareIdentifierCasePlan(options) {
         shouldPlanGlobals;
 
     if (!projectIndex && requiresProjectIndex) {
-        await bootstrapProjectIndex(options, setIdentifierCaseOption);
-        projectIndex =
-            applyBootstrappedProjectIndex(options, setIdentifierCaseOption) ??
-            options.identifierCaseProjectIndex ??
-            context?.projectIndex ??
-            null;
+        projectIndex = await ensureIdentifierCaseProjectIndex(
+            options,
+            context?.projectIndex ?? null
+        );
     }
 
     metrics.setMetadata("localStyle", localStyle);
