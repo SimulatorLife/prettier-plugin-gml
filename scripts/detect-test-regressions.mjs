@@ -19,32 +19,44 @@ try {
     }
 }
 
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+
+function hasOwn(object, key) {
+    return hasOwnProperty.call(object, key);
+}
+
+function hasAnyOwn(object, keys) {
+    return keys.some((key) => hasOwn(object, key));
+}
+
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
 function looksLikeTestCase(node) {
-    if (!node || typeof node !== "object" || Array.isArray(node)) return false;
-    if (Object.prototype.hasOwnProperty.call(node, "testcase")) return false;
-    if (Object.prototype.hasOwnProperty.call(node, "testsuite")) return false;
-    const hasName =
-        typeof node.name === "string" && node.name.trim().length > 0;
-    if (!hasName) return false;
-    if (typeof node.classname === "string" && node.classname.trim().length > 0)
+    if (!node || typeof node !== "object" || Array.isArray(node)) {
+        return false;
+    }
+
+    if (hasAnyOwn(node, ["testcase", "testsuite"])) {
+        return false;
+    }
+
+    if (!isNonEmptyString(node.name)) {
+        return false;
+    }
+
+    if (isNonEmptyString(node.classname)) {
         return true;
+    }
+
     if (
-        Object.prototype.hasOwnProperty.call(node, "failure") ||
-        Object.prototype.hasOwnProperty.call(node, "failures") ||
-        Object.prototype.hasOwnProperty.call(node, "error") ||
-        Object.prototype.hasOwnProperty.call(node, "errors") ||
-        Object.prototype.hasOwnProperty.call(node, "skipped")
+        hasAnyOwn(node, ["failure", "failures", "error", "errors", "skipped"])
     ) {
         return true;
     }
-    if (
-        Object.prototype.hasOwnProperty.call(node, "time") ||
-        Object.prototype.hasOwnProperty.call(node, "duration") ||
-        Object.prototype.hasOwnProperty.call(node, "elapsed")
-    ) {
-        return true;
-    }
-    return false;
+
+    return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
 function toArray(value) {
@@ -62,11 +74,11 @@ function decodeEntities(value) {
         .replaceAll(/&#([0-9]+);/g, (_, dec) =>
             String.fromCodePoint(Number.parseInt(dec, 10))
         )
-        .replaceAll('&lt;', "<")
-        .replaceAll('&gt;', ">")
-        .replaceAll('&apos;', "'")
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', "&");
+        .replaceAll("&lt;", "<")
+        .replaceAll("&gt;", ">")
+        .replaceAll("&apos;", "'")
+        .replaceAll("&quot;", '"')
+        .replaceAll("&amp;", "&");
 }
 
 function isMissingFastXmlParserError(error) {
