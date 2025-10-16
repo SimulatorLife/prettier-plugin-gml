@@ -9,13 +9,9 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import {
-    formatDuration,
-    renderProgressBar,
-    disposeProgressBars,
-    timeSync
-} from "../../shared/number-utils.js";
+import { formatDuration } from "../../shared/number-utils.js";
 import { ensureDir } from "../lib/file-system.js";
+import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
@@ -27,6 +23,7 @@ import {
 } from "../lib/manual-utils.js";
 import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
+import { timeSync } from "../lib/timing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
