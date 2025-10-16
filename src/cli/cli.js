@@ -48,9 +48,13 @@ import {
     collectAncestorDirectories
 } from "../shared/path-utils.js";
 
-import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
-import { parseCommandLine } from "./command-parsing.js";
-import { resolvePluginEntryPoint } from "./plugin-entry-point.js";
+import {
+    CliUsageError,
+    formatCliError,
+    handleCliError
+} from "./lib/cli-errors.js";
+import { parseCommandLine } from "./lib/command-parsing.js";
+import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();

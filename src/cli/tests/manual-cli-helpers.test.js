@@ -5,7 +5,7 @@ import {
     disposeProgressBars,
     renderProgressBar,
     setProgressBarFactoryForTesting
-} from "../manual/manual-cli-helpers.js";
+} from "../lib/progress-bar.js";
 
 class FakeProgressBar {
     constructor(label, width) {
