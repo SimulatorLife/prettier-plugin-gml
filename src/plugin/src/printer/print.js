@@ -1389,7 +1389,7 @@ function printElements(
         }
 
         return parts;
-    }, listKey);
+    });
 }
 
 function isComplexArgumentNode(node) {
@@ -1537,6 +1537,16 @@ function printStatements(path, options, print, childrenAttribute) {
         const isStaticDeclaration =
             node.type === "VariableDeclaration" && node.kind === "static";
 
+        const isFirstStatementInBlock =
+            index === 0 && childPath.parent?.type !== "Program";
+        if (
+            isFirstStatementInBlock &&
+            isStaticDeclaration &&
+            !syntheticDocComment
+        ) {
+            parts.push(hardline);
+        }
+
         if (semi === ";") {
             const initializerIsFunctionExpression =
                 node.type === "VariableDeclaration" &&
@@ -1549,18 +1559,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 const isTopLevelStaticFunction =
                     isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon &&
-                    !isTopLevelStaticFunction &&
-                    !(syntheticDocRecord && isStaticDeclaration) &&
-                    !isStaticDeclaration;
+                    !hasTerminatingSemicolon && !isTopLevelStaticFunction;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style unless we're printing a static
-                    // declaration, where the semicolon is required for
-                    // correctness.
+                    // the original code style. Top-level static declarations keep
+                    // the semicolon to avoid changing exported statements.
                     semi = "";
                 }
             }
@@ -1657,7 +1663,7 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         return parts;
-    }, childrenAttribute);
+    });
 }
 
 export function applyAssignmentAlignment(statements, options) {
