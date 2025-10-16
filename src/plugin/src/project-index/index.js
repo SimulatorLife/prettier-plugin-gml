@@ -248,18 +248,21 @@ async function loadBuiltInIdentifiers(
     metrics = null
 ) {
     const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const cached = cachedBuiltInIdentifiers;
 
-    if (cachedBuiltInIdentifiers) {
-        const cachedMtime = cachedBuiltInIdentifiers.metadata?.mtimeMs ?? null;
+    if (cached) {
+        const cachedMtime = cached.metadata?.mtimeMs ?? null;
         if (cachedMtime === currentMtime) {
             metrics?.recordCacheHit("builtInIdentifiers");
-            return cachedBuiltInIdentifiers;
+            return cached;
         }
 
         metrics?.recordCacheStale("builtInIdentifiers");
     } else {
         metrics?.recordCacheMiss("builtInIdentifiers");
     }
+
+    let names = new Set();
 
     try {
         const rawContents = await fsFacade.readFile(
@@ -269,21 +272,15 @@ async function loadBuiltInIdentifiers(
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
-        const names = new Set();
-        for (const name of Object.keys(identifiers)) {
-            names.add(name);
-        }
-
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names
-        };
+        names = new Set(Object.keys(identifiers));
     } catch {
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names: new Set()
-        };
+        // Ignore read/parse failures and fall back to an empty identifier set.
     }
+
+    cachedBuiltInIdentifiers = {
+        metadata: { mtimeMs: currentMtime },
+        names
+    };
 
     return cachedBuiltInIdentifiers;
 }
