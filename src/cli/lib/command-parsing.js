@@ -1,3 +1,4 @@
+import { toNormalizedInteger } from "../../shared/number-utils.js";
 import { CliUsageError } from "./cli-errors.js";
 
 /**
@@ -36,11 +37,9 @@ export function parseCommandLine(command, args) {
 const DEFAULT_PARSE_STRING = (text) => Number.parseInt(text, 10);
 
 function coerceInteger(value, { min, received, createErrorMessage }) {
-    if (Number.isFinite(value)) {
-        const normalized = Math.trunc(value);
-        if (normalized >= min) {
-            return normalized;
-        }
+    const normalized = toNormalizedInteger(value);
+    if (normalized !== null && normalized >= min) {
+        return normalized;
     }
 
     const formattedReceived = received ?? value;
