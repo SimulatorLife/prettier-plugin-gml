@@ -31,15 +31,15 @@ import {
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
 import { parseCommandLine } from "./command-parsing.js";
 
-const wrapperDirectory = path.dirname(fileURLToPath(import.meta.url));
-const pluginPath = path.resolve(
-    wrapperDirectory,
+const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_PATH = path.resolve(
+    WRAPPER_DIRECTORY,
     "..",
     "plugin",
     "src",
     "gml.js"
 );
-const ignorePath = path.resolve(wrapperDirectory, ".prettierignore");
+const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
@@ -223,9 +223,9 @@ function shouldFormatFile(filePath) {
  */
 const options = {
     parser: "gml-parse",
-    plugins: [pluginPath],
+    plugins: [PLUGIN_PATH],
     loglevel: "warn",
-    ignorePath,
+    ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
 };
 
@@ -488,7 +488,7 @@ async function registerIgnorePaths(ignoreFiles) {
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
     const ignoreCandidates = [
-        ignorePath,
+        IGNORE_PATH,
         ...baseProjectIgnorePaths,
         ...additionalIgnorePaths
     ].filter(Boolean);
@@ -617,7 +617,7 @@ async function resolveProjectIgnorePaths(directory) {
 async function initializeProjectIgnorePaths(projectRoot) {
     const projectIgnorePaths = await resolveProjectIgnorePaths(projectRoot);
     setBaseProjectIgnorePaths(projectIgnorePaths);
-    await registerIgnorePaths([ignorePath, ...projectIgnorePaths]);
+    await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
 async function resolveTargetStats(target) {
