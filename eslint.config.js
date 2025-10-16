@@ -219,7 +219,7 @@ export default [
     },
     /* CLI: allow process.exit */
     {
-        files: ["src/cli/**/*.js"],
+        files: ["src/cli/**"],
         rules: {
             "unicorn/no-process-exit": "off"
         }

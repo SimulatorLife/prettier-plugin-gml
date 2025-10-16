@@ -5,37 +5,30 @@ import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { handleCliError } from "./cli-errors.js";
-import { assertSupportedNodeVersion } from "./runtime/node-version.js";
-import { toPosixPath } from "../shared/path-utils.js";
-import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
+import { handleCliError } from "../lib/cli-errors.js";
+import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { toPosixPath, ensureDir } from "../../shared/path-utils.js";
+import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import {
     createManualGitHubClient,
-    ensureDir,
-    formatDuration,
-    renderProgressBar,
-    disposeProgressBars,
-    timeSync
-} from "./manual/manual-cli-helpers.js";
-import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    resolveProgressBarWidth
-} from "./options/progress-bar.js";
-import {
-    DEFAULT_VM_EVAL_TIMEOUT_MS,
-    resolveVmEvalTimeout
-} from "./options/vm-eval-timeout.js";
-import {
-    MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot
-} from "./options/manual-cache.js";
-import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    resolveManualRepoValue
-} from "./options/manual-repo.js";
-import { applyEnvOptionOverrides } from "./options/env-overrides.js";
+    resolveManualRepoValue,
+    MANUAL_CACHE_ROOT_ENV_VAR,
+    resolveManualCacheRoot
+} from "../lib/manual-utils.js";
+import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    renderProgressBar,
+    disposeProgressBars
+} from "../lib/progress-bar.js";
+import {
+    DEFAULT_VM_EVAL_TIMEOUT_MS,
+    resolveVmEvalTimeout
+} from "../lib/vm-eval-timeout.js";
+import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -87,18 +80,6 @@ function createGenerateIdentifiersCommand() {
             "Ignore cached manual artefacts and re-download."
         )
         .option("--quiet", "Suppress progress logging (useful in CI).")
-        .option(
-            "--progress-bar-width <n>",
-            `Width of the terminal progress bar (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_PROGRESS_BAR_WIDTH
-        )
         .option(
             "--vm-eval-timeout-ms <ms>",
             `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
@@ -172,7 +153,7 @@ function parseArgs({
             {
                 envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
                 optionName: "progressBarWidth",
-                resolveValue: resolveProgressBarWidth
+                resolveValue: () => DEFAULT_PROGRESS_BAR_WIDTH
             },
             {
                 envVar: VM_EVAL_TIMEOUT_ENV_VAR,
@@ -211,8 +192,6 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
         vmEvalTimeoutMs:
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS

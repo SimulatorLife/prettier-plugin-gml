@@ -5,34 +5,28 @@ import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp } from "../shared/regexp.js";
-import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
-import { handleCliError } from "./cli-errors.js";
-import { assertSupportedNodeVersion } from "./runtime/node-version.js";
+import { escapeRegExp } from "../../shared/regexp.js";
+import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
+import { handleCliError } from "../lib/cli-errors.js";
+import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import {
-    createManualGitHubClient,
-    ensureDir,
     formatDuration,
     renderProgressBar,
     disposeProgressBars,
     timeSync
-} from "./manual/manual-cli-helpers.js";
+} from "../../shared/number-utils.js";
+import { ensureDir } from "../../shared/path-utils.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot
-} from "./options/manual-cache.js";
-import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    resolveProgressBarWidth
-} from "./options/progress-bar.js";
-import {
+    resolveManualCacheRoot,
+    createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
-} from "./options/manual-repo.js";
-import { applyEnvOptionOverrides } from "./options/env-overrides.js";
-import { parseCommandLine } from "./command-parsing.js";
+} from "../lib/manual-utils.js";
+import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
+import { parseCommandLine } from "../lib/command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,18 +87,6 @@ function createFeatherMetadataCommand() {
         )
         .option("--quiet", "Suppress progress output (useful in CI).")
         .option(
-            "--progress-bar-width <n>",
-            `Width of the terminal progress bar (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_PROGRESS_BAR_WIDTH
-        )
-        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -130,7 +112,6 @@ function createFeatherMetadataCommand() {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
             "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
         ].join("\n")
     );
@@ -160,11 +141,6 @@ function parseArgs({
                 optionName: "manualRepo",
                 resolveValue: (value) =>
                     resolveManualRepoValue(value, { source: "env" })
-            },
-            {
-                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-                optionName: "progressBarWidth",
-                resolveValue: resolveProgressBarWidth
             }
         ]
     });
@@ -198,8 +174,6 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

@@ -1,3 +1,19 @@
+/**
+ * Command-line interface for running utilities for this project.
+ *
+ * Commands provided include:
+ * - A wrapper around the GML-Prettier plugin to provide a convenient
+ *   way to format GameMaker Language files.
+ * - Performance benchmarking utilities.
+ * - Memory usage benchmarking utilities.
+ * - Regression testing utilities.
+ * - Generating/retrieving GML identifiers and Feather metadata.
+ *
+ * This CLI is primarily intended for use in development and CI environments.
+ * For formatting GML files, it is recommended to use the Prettier CLI or
+ * editor integrations directly.
+ */
+
 import {
     lstat,
     mkdtemp,
@@ -27,6 +43,10 @@ import {
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
+import {
+    isPathInside,
+    collectAncestorDirectories
+} from "../shared/path-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
 import { parseCommandLine } from "./command-parsing.js";
@@ -535,46 +555,6 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
     }
 
     return false;
-}
-
-function isPathInside(child, parent) {
-    if (!child || !parent) {
-        return false;
-    }
-
-    const relative = path.relative(parent, child);
-    if (!relative) {
-        return true;
-    }
-
-    return !relative.startsWith("..") && !path.isAbsolute(relative);
-}
-
-function collectAncestorDirectories(...startingDirectories) {
-    const seen = new Set();
-    const result = [];
-
-    for (const start of startingDirectories) {
-        if (!start) {
-            continue;
-        }
-
-        let current = path.resolve(start);
-
-        while (!seen.has(current)) {
-            seen.add(current);
-            result.push(current);
-
-            const parent = path.dirname(current);
-            if (parent === current) {
-                break;
-            }
-
-            current = parent;
-        }
-    }
-
-    return result;
 }
 
 async function resolveProjectIgnorePaths(directory) {

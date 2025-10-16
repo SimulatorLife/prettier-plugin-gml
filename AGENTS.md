@@ -75,7 +75,7 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
 
 7. **Validate Thoroughly**
    - Execute relevant test suites or build commands to confirm that the resolution does not introduce regressions.
-   - Re-run any scripts or generators if the conflict involved derived artifacts, ensuring outputs remain correct.
+   - Re-run any CLI commands or generators if the conflict involved derived artifacts, ensuring outputs remain correct.
    - Double-check that no golden fixtures were modified unintentionally.
    - Run `git diff --stat origin/<base>...HEAD` again; the stat output should list only the files you deliberately touched.
 

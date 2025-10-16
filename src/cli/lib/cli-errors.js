@@ -1,4 +1,4 @@
-import { toTrimmedString } from "../shared/string-utils.js";
+import { toTrimmedString } from "../../shared/string-utils.js";
 
 const DEFAULT_INDENT = "  ";
 

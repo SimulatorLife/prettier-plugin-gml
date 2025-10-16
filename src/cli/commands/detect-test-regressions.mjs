@@ -59,10 +59,7 @@ function buildTestKey(testNode, suitePath) {
     }
     const className =
         typeof testNode.classname === "string" ? testNode.classname.trim() : "";
-    if (
-        className &&
-        (parts.length === 0 || parts.at(-1) !== className)
-    ) {
+    if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
     }
     const testName =
