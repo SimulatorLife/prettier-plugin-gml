@@ -104,6 +104,18 @@ jobs:
     outputs:
       all_green: ${{ steps.regress.outputs.all_green }}
     steps:
+      - name: Checkout repo (for scripts)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+      
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -118,7 +130,7 @@ jobs:
           export BASE_RESULTS_DIR="$(pwd)/junit-base"
           export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
           # Falls back to head when merge isn't available (handled by your script)
-          node ../src/cli/commands/detect-test-regressions.mjs
+          node src/cli/commands/detect-test-regressions.mjs
           code=$?
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
