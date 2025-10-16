@@ -69,6 +69,7 @@ function Shape(color = undefined) constructor {
             group &= ~cmGroupSolid; // Remove solid flag
         }
     };
+
 }
 
 /// @function Circle
@@ -169,6 +170,7 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
+
 }
 
 /// @function greet
