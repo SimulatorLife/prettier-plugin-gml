@@ -10,6 +10,7 @@ import {
     isWordChar,
     toTrimmedString,
     toNormalizedLowerCaseString,
+    toNormalizedLowerCaseSet,
     capitalize,
     getNonEmptyString
 } from "../string-utils.js";
@@ -57,6 +58,18 @@ test("getNonEmptyString returns null for empty candidates", () => {
     assert.strictEqual(getNonEmptyString(""), null);
     assert.strictEqual(getNonEmptyString(null), null);
     assert.strictEqual(getNonEmptyString(), null);
+});
+
+test("toNormalizedLowerCaseSet trims, deduplicates, and lowercases entries", () => {
+    const values = ["  Foo  ", "BAR", "foo", null, "   "];
+    const result = toNormalizedLowerCaseSet(values);
+    assert.deepStrictEqual([...result], ["foo", "bar"]);
+});
+
+test("toNormalizedLowerCaseSet tolerates invalid inputs when allowed", () => {
+    assert.deepStrictEqual([...toNormalizedLowerCaseSet(null)], []);
+    assert.deepStrictEqual([...toNormalizedLowerCaseSet()], []);
+    assert.deepStrictEqual([...toNormalizedLowerCaseSet(42)], []);
 });
 
 test("capitalize leaves falsy and non-string inputs unchanged", () => {

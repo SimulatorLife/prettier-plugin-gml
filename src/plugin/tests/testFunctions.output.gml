@@ -167,7 +167,7 @@ function __ChatterboxBufferBatch() constructor {
         if (is_undefined(__inBuffer)) {
             __destroyed = true;
         }
-    }
+    };
 }
 
 /// @function greet

@@ -2,7 +2,7 @@
   "meta": {
     "manualRef": "develop",
     "commitSha": "a01af8043147f259d0f0c0282ea2ce25054e517a",
-    "generatedAt": "2025-10-15T21:13:58.034Z",
+    "generatedAt": "2025-10-16T01:57:08.414Z",
     "source": "YoYoGames/GameMaker-Manual",
     "manualPaths": {
       "diagnostics": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
@@ -1002,9 +1002,6 @@
   "namingRules": {
     "overview": "This section allows you to set naming rules for assets, variables and various other parts of GML Code. Any newly created assets in the Asset Browser will follow the naming rules set here.\n\nThe GM2017 rule under \"Message Severity\" must be enabled for naming rules to take effect. By default, it's disabled (set to \"Ignore\").\n\nThe settings in this section are as follows:",
     "notes": [],
-    "requiresMessage": "GM2017",
-    "identifierBlocklist": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\nFor example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\nIn that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
-    "identifierRuleSummary": "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\nEach naming rule drop-down has the following options:\n\nNaming Style: Choose the naming style for the identifier. Your options are:\n\nUnconstrained: No formatting is forced on this type of identifier.\nUpperCamelCase: MyHealth, ObjGrappleHook\nlowerCamelCase: myHealth, objGrappleHook\nALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\nall_lower: my_health, obj_grapple_hook\n\nPrefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\nSuffix: Text that should appear after the identifier name.\nPreserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\nWith this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
     "namingStyleOptions": [
       "Unconstrained: No formatting is forced on this type of identifier.",
       "UpperCamelCase: MyHealth, ObjGrappleHook",
@@ -1012,9 +1009,12 @@
       "ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK",
       "all_lower: my_health, obj_grapple_hook"
     ],
+    "requiresMessage": "GM2017",
     "supportsPrefix": true,
     "supportsSuffix": true,
     "supportsPreserveUnderscores": true,
+    "identifierBlocklist": "Identifier Blocklist: This is a space-separated list of identifiers that will be ignored for all naming rules.\n\n\n\n      For example, say you have a rule to use obj_ as a prefix for objects, but you want your objects manager and network to remain as-is and not use the obj_ prefix.\n\n\n\n      In that case, you would write manager network into the Identifier Blocklist field. Feather will ignore those objects and any other identifiers (variables, enums, parameters, etc.) with the same names.",
+    "identifierRuleSummary": "<identifier> Naming Rule: You can set naming rules for each type of identifier in the list, such as assets, macros, enums, function parameters, variables, etc.\n\n\n\n      Each naming rule drop-down has the following options:\n\n        Naming Style: Choose the naming style for the identifier. Your options are:\n\n            Unconstrained: No formatting is forced on this type of identifier.\n            UpperCamelCase: MyHealth, ObjGrappleHook\n            lowerCamelCase: myHealth, objGrappleHook\n            ALL_UPPER: MY_HEALTH, OBJ_GRAPPLE_HOOK\n            all_lower: my_health, obj_grapple_hook\n\n\n        Prefix: Text that should appear before the identifier name, which may be obj_ for objects, _ for local variables, etc. depending on your preferences.\n        Suffix: Text that should appear after the identifier name.\n        Preserve trailing and leading underscores: If enabled, preserves underscores around your asset's name even after suggestions.\n\n\n\n          With this, you can use asset names such as __objCamera, keeping any leading and trailing underscores where they are.",
     "ruleSections": [
       {
         "title": "Identifier Blocklist",

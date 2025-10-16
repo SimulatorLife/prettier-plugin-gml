@@ -1,4 +1,4 @@
-name: Codex 23 – Config Improvement
+name: Codex 23 – Lint Fixes
 on:
   schedule:
     - cron: "20 0,12 * * *"  # twice daily at 00:20, 12:20 UTC
@@ -14,8 +14,8 @@ jobs:
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:
-      pr_title: "Codex: Config Improvement"
-      pr_body: "Seed PR for Codex to refactor and fix a lint warning/error."
+      pr_title: "Codex: Lint Fixes"
+      pr_body: "Seed PR for Codex to refactor and fix lint warnings and errors."
       prompt: >
         Run `npm run lint` and parse its output. Identify all ESLint warnings and errors, then select
         one single instance to fix. Prioritize errors over warnings, and choose a target that is 

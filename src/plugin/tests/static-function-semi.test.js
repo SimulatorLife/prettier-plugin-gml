@@ -22,7 +22,7 @@ async function formatWithPlugin(source, overrides) {
 }
 
 describe("constructor static function assignments", () => {
-    it("omits semicolons for static function members", async () => {
+    it("adds semicolons for static function assignments", async () => {
         const source = [
             "function Shape() constructor {",
             "    static build = function() {",
@@ -42,7 +42,7 @@ describe("constructor static function assignments", () => {
             "    /// @function build",
             "    static build = function() {",
             "        return 1;",
-            "    }",
+            "    };",
             "}",
             ""
         ].join("\n");
@@ -55,6 +55,29 @@ describe("constructor static function assignments", () => {
             "function Shape() constructor {",
             "    static value = 1",
             "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "",
+            "/// @function Shape",
+            "function Shape() constructor {",
+            "",
+            "    static value = 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
+
+    it("omits semicolons for constructor functions", async () => {
+        const source = [
+            "function Shape() constructor {",
+            "    static value = 1;",
+            "};",
             ""
         ].join("\n");
 

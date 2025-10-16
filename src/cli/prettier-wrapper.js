@@ -1,7 +1,17 @@
-import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+    lstat,
+    mkdtemp,
+    readdir,
+    readFile,
+    rm,
+    stat,
+    writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
+import { randomUUID } from "node:crypto";
 
 import prettier from "prettier";
 
@@ -14,7 +24,8 @@ import {
 } from "../shared/array-utils.js";
 import {
     normalizeStringList,
-    toNormalizedLowerCaseString
+    toNormalizedLowerCaseString,
+    toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
@@ -180,7 +191,7 @@ let targetExtensions = DEFAULT_EXTENSIONS;
  * @returns {Set<string>}
  */
 function createTargetExtensionSet(extensions) {
-    return new Set(extensions.map((extension) => extension.toLowerCase()));
+    return toNormalizedLowerCaseSet(extensions);
 }
 
 let targetExtensionSet = createTargetExtensionSet(targetExtensions);
@@ -228,17 +239,114 @@ let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
+let revertSnapshotDirectoryPromise = null;
+let revertSnapshotDirectory = null;
+let revertSnapshotFileCount = 0;
+
+async function ensureRevertSnapshotDirectory() {
+    if (revertSnapshotDirectory) {
+        return revertSnapshotDirectory;
+    }
+
+    if (!revertSnapshotDirectoryPromise) {
+        const prefix = path.join(os.tmpdir(), "prettier-plugin-gml-revert-");
+        revertSnapshotDirectoryPromise = mkdtemp(prefix).then(
+            (directory) => {
+                revertSnapshotDirectory = directory;
+                return directory;
+            },
+            (error) => {
+                revertSnapshotDirectoryPromise = null;
+                throw error;
+            }
+        );
+    }
+
+    return revertSnapshotDirectoryPromise;
+}
+
+async function cleanupRevertSnapshotDirectory() {
+    const directory = revertSnapshotDirectory;
+    revertSnapshotDirectory = null;
+    revertSnapshotDirectoryPromise = null;
+
+    if (!directory) {
+        return;
+    }
+
+    try {
+        await rm(directory, { recursive: true, force: true });
+    } catch {
+        // Ignore cleanup failures; the OS will eventually purge the temp dir.
+    }
+}
+
+async function releaseSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+        return;
+    }
+
+    const snapshotPath = snapshot.snapshotPath;
+    if (!snapshotPath) {
+        return;
+    }
+
+    try {
+        await rm(snapshotPath, { force: true });
+    } catch {
+        // Ignore individual file cleanup failures to avoid masking the
+        // original error that triggered the revert.
+    } finally {
+        if (revertSnapshotFileCount > 0) {
+            revertSnapshotFileCount -= 1;
+        }
+    }
+}
+
+async function discardFormattedFileOriginalContents() {
+    const snapshots = [...formattedFileOriginalContents.values()];
+    formattedFileOriginalContents.clear();
+
+    for (const snapshot of snapshots) {
+        // shared snapshot counter accurate and the directory removal deterministic.
+        await releaseSnapshot(snapshot);
+    }
+
+    if (revertSnapshotFileCount === 0) {
+        await cleanupRevertSnapshotDirectory();
+    }
+}
+
+async function readSnapshotContents(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+        return "";
+    }
+
+    if (snapshot.inlineContents != null) {
+        return snapshot.inlineContents;
+    }
+
+    if (!snapshot.snapshotPath) {
+        return "";
+    }
+
+    try {
+        return await readFile(snapshot.snapshotPath, "utf8");
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Reset run-specific state between CLI invocations.
  *
  * @param {string} onParseError
  */
-function resetFormattingSession(onParseError) {
+async function resetFormattingSession(onParseError) {
     parseErrorAction = onParseError;
     abortRequested = false;
     revertTriggered = false;
-    formattedFileOriginalContents.clear();
+    await discardFormattedFileOriginalContents();
     skippedFileCount = 0;
     encounteredFormattingError = false;
 }
@@ -257,14 +365,34 @@ function setBaseProjectIgnorePaths(ignorePaths) {
     }
 }
 
-function recordFormattedFileOriginalContents(filePath, contents) {
+async function recordFormattedFileOriginalContents(filePath, contents) {
     if (parseErrorAction !== ParseErrorAction.REVERT) {
         return;
     }
 
-    if (!formattedFileOriginalContents.has(filePath)) {
-        formattedFileOriginalContents.set(filePath, contents);
+    if (formattedFileOriginalContents.has(filePath)) {
+        return;
     }
+
+    const snapshot = {
+        snapshotPath: null,
+        inlineContents: null
+    };
+
+    try {
+        const directory = await ensureRevertSnapshotDirectory();
+        const extension = path.extname(filePath) || ".snapshot";
+        const snapshotName = `${randomUUID()}${extension}`;
+        const snapshotPath = path.join(directory, snapshotName);
+        await writeFile(snapshotPath, contents, "utf8");
+        snapshot.snapshotPath = snapshotPath;
+        revertSnapshotFileCount += 1;
+    } catch {
+        // Fallback to storing the contents in memory if writing to disk fails.
+        snapshot.inlineContents = contents;
+    }
+
+    formattedFileOriginalContents.set(filePath, snapshot);
 }
 
 async function revertFormattedFiles() {
@@ -281,8 +409,12 @@ async function revertFormattedFiles() {
         } due to parser failure.`
     );
 
-    for (const [filePath, originalContents] of revertEntries) {
+    for (const [filePath, snapshot] of revertEntries) {
         try {
+            const originalContents = await readSnapshotContents(snapshot);
+            if (originalContents == null) {
+                throw new Error("Revert snapshot is unavailable");
+            }
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
         } catch (revertError) {
@@ -293,7 +425,14 @@ async function revertFormattedFiles() {
             console.error(
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
+        } finally {
+            // the counter and directory lifecycle deterministic.
+            await releaseSnapshot(snapshot);
         }
+    }
+
+    if (revertSnapshotFileCount === 0) {
+        await cleanupRevertSnapshotDirectory();
     }
 }
 
@@ -608,7 +747,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
             return;
         }
 
-        recordFormattedFileOriginalContents(filePath, data);
+        await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
     } catch (error) {
@@ -638,33 +777,37 @@ async function run() {
 
     const targetPath = path.resolve(process.cwd(), targetPathInput);
     configureTargetExtensionState(configuredExtensions);
-    resetFormattingSession(onParseError);
+    await resetFormattingSession(onParseError);
 
-    const targetStats = await resolveTargetStats(targetPath);
-    const targetIsDirectory = targetStats.isDirectory();
+    try {
+        const targetStats = await resolveTargetStats(targetPath);
+        const targetIsDirectory = targetStats.isDirectory();
 
-    if (!targetIsDirectory && !targetStats.isFile()) {
-        throw new CliUsageError(
-            `${targetPath} is not a file or directory that can be formatted`,
-            { usage }
-        );
-    }
+        if (!targetIsDirectory && !targetStats.isFile()) {
+            throw new CliUsageError(
+                `${targetPath} is not a file or directory that can be formatted`,
+                { usage }
+            );
+        }
 
-    const projectRoot = targetIsDirectory
-        ? targetPath
-        : path.dirname(targetPath);
+        const projectRoot = targetIsDirectory
+            ? targetPath
+            : path.dirname(targetPath);
 
-    await initializeProjectIgnorePaths(projectRoot);
-    if (targetIsDirectory) {
-        await processDirectory(targetPath);
-    } else if (shouldFormatFile(targetPath)) {
-        await processFile(targetPath, baseProjectIgnorePaths);
-    } else {
-        skippedFileCount += 1;
-    }
-    console.debug(`Skipped ${skippedFileCount} files`);
-    if (encounteredFormattingError) {
-        process.exitCode = 1;
+        await initializeProjectIgnorePaths(projectRoot);
+        if (targetIsDirectory) {
+            await processDirectory(targetPath);
+        } else if (shouldFormatFile(targetPath)) {
+            await processFile(targetPath, baseProjectIgnorePaths);
+        } else {
+            skippedFileCount += 1;
+        }
+        console.debug(`Skipped ${skippedFileCount} files`);
+        if (encounteredFormattingError) {
+            process.exitCode = 1;
+        }
+    } finally {
+        await discardFormattedFileOriginalContents();
     }
 }
 
