@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { hasOwn } from "../../shared/object-utils.js";
+import { isNonEmptyTrimmedString } from "../../shared/string-utils.js";
 
 let parser;
 
@@ -19,18 +21,8 @@ try {
     }
 }
 
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
-}
-
 function hasAnyOwn(object, keys) {
     return keys.some((key) => hasOwn(object, key));
-}
-
-function isNonEmptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
 }
 
 function looksLikeTestCase(node) {
@@ -42,11 +34,11 @@ function looksLikeTestCase(node) {
         return false;
     }
 
-    if (!isNonEmptyString(node.name)) {
+    if (!isNonEmptyTrimmedString(node.name)) {
         return false;
     }
 
-    if (isNonEmptyString(node.classname)) {
+    if (isNonEmptyTrimmedString(node.classname)) {
         return true;
     }
 
