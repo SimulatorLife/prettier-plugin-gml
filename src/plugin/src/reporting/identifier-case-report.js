@@ -1,4 +1,10 @@
-// reporting/identifier-case-report.js
+/**
+ * Identifier case reporting helpers.
+ *
+ * Normalizes rename plans/conflicts collected during identifier case dry runs
+ * so downstream consumers (CLI output, diagnostics, and log files) receive
+ * consistently shaped metadata regardless of the input source.
+ */
 
 import path from "node:path";
 import {
@@ -25,7 +31,9 @@ const defaultFsFacade = Object.freeze({
     }
 });
 
-const defaultNow = () => Date.now();
+function defaultNow() {
+    return Date.now();
+}
 
 function getNormalizedOperations(report) {
     return asArray(report?.operations);
