@@ -9,12 +9,13 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { formatDuration, timeSync } from "../../shared/number-utils.js";
 import {
-    formatDuration,
     renderProgressBar,
     disposeProgressBars,
-    timeSync
-} from "../../shared/number-utils.js";
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
+} from "../lib/progress-bar.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
@@ -25,7 +26,7 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "../lib/manual-utils.js";
-import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
+import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -85,6 +86,18 @@ function createFeatherMetadataCommand() {
         )
         .option("--quiet", "Suppress progress output (useful in CI).")
         .option(
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            getDefaultProgressBarWidth()
+        )
+        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -123,25 +136,8 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createFeatherMetadataCommand();
-    const getUsage = () => command.helpInformation();
 
-    applyEnvOptionOverrides({
-        command,
-        env,
-        getUsage,
-        overrides: [
-            {
-                envVar: "GML_MANUAL_REF",
-                optionName: "ref"
-            },
-            {
-                envVar: MANUAL_REPO_ENV_VAR,
-                optionName: "manualRepo",
-                resolveValue: (value) =>
-                    resolveManualRepoValue(value, { source: "env" })
-            }
-        ]
-    });
+    applyManualEnvOptionOverrides({ command, env });
 
     const verbose = {
         resolveRef: true,
@@ -172,6 +168,8 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
+        progressBarWidth:
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

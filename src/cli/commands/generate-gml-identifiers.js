@@ -18,12 +18,18 @@ import {
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
 import { formatDuration, timeSync } from "../../shared/number-utils.js";
-import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
+import {
+    renderProgressBar,
+    disposeProgressBars,
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
+} from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
+import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +78,18 @@ function createGenerateIdentifiersCommand() {
         )
         .option("--quiet", "Suppress progress logging (useful in CI).")
         .option(
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            getDefaultProgressBarWidth()
+        )
+        .option(
             "--vm-eval-timeout-ms <ms>",
             `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
             (value) => {
@@ -112,6 +130,8 @@ function parseArgs({
 } = {}) {
     const command = createGenerateIdentifiersCommand();
 
+    applyManualEnvOptionOverrides({ command, env });
+
     const verbose = {
         resolveRef: true,
         downloads: true,
@@ -141,6 +161,8 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
+        progressBarWidth:
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         vmEvalTimeoutMs:
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
