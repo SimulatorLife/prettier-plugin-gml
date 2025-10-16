@@ -78,11 +78,11 @@ jobs:
         run: npm run test:report
         continue-on-error: true
 
-      - name: Publish PR test summary (${{ matrix.target }})
+      - name: Publish test summary (${{ matrix.target }})
         if: ${{ always() }}
         uses: dorny/test-reporter@v2
         with:
-          name: Node.js test results (${{ matrix.target }})
+          name: Publish test summary (${{ matrix.target }})
           path: test-results/*.xml
           reporter: java-junit
           fail-on-error: false
