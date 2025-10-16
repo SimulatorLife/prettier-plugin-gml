@@ -118,7 +118,7 @@ test("adds synthetic @returns metadata when defaults replace argument_count fall
     );
     assert.match(
         trimmed,
-        /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\nfunction example\(arg = "default"\) \{\}/,
+        /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\n\/\/\/ @returns \{undefined\}\nfunction example\(arg = "default"\) \{\}/,
         "Expected argument_count fallbacks to convert into default parameters and add @returns."
     );
 });
