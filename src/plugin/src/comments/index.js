@@ -6,7 +6,7 @@ export {
     isBlockComment,
     isDocCommentLine,
     isLineComment
-} from "../../../shared/comments.js";
+} from "./comment-boundary.js";
 export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     getLineCommentCodeDetectionPatterns,

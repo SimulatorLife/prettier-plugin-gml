@@ -26,7 +26,10 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "../lib/manual-utils.js";
-import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
+import {
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    applyManualEnvOptionOverrides
+} from "../lib/manual-env.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,18 +89,6 @@ function createFeatherMetadataCommand() {
         )
         .option("--quiet", "Suppress progress output (useful in CI).")
         .option(
-            "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultProgressBarWidth()
-        )
-        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -114,6 +105,18 @@ function createFeatherMetadataCommand() {
             `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
             (value) => path.resolve(value),
             DEFAULT_CACHE_ROOT
+        )
+        .option(
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            getDefaultProgressBarWidth()
         );
 
     command.addHelpText(
@@ -123,7 +126,8 @@ function createFeatherMetadataCommand() {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
+            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit).",
+            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
         ].join("\n")
     );
 
@@ -136,8 +140,11 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createFeatherMetadataCommand();
-
-    applyManualEnvOptionOverrides({ command, env });
+    applyManualEnvOptionOverrides({
+        command,
+        env,
+        getUsage: () => command.helpInformation()
+    });
 
     const verbose = {
         resolveRef: true,
@@ -183,18 +190,23 @@ function normaliseMultilineText(text) {
     if (!text) {
         return null;
     }
-    const lines = text.split("\n").map((line) => line.trim());
-    const cleaned = [];
-    for (const line of lines) {
-        if (line) {
-            cleaned.push(line);
-        } else {
-            if (cleaned.length > 0 && cleaned.at(-1) !== "") {
-                cleaned.push("");
-            }
+
+    const normalizedLines = [];
+    let previousBlank = true;
+
+    for (const rawLine of text.split("\n")) {
+        const line = rawLine.trim();
+        const isBlank = line.length === 0;
+
+        if (isBlank && previousBlank) {
+            continue;
         }
+
+        normalizedLines.push(line);
+        previousBlank = isBlank;
     }
-    return cleaned.join("\n").trim();
+
+    return normalizedLines.join("\n").trim();
 }
 
 function sanitiseManualString(value) {
@@ -438,24 +450,23 @@ function normaliseContent(blocks) {
         headings: [],
         tables: []
     };
-    for (const block of blocks) {
-        if (!block) {
-            continue;
+    const appendNormalizedText = (target, text) => {
+        const normalized = normaliseMultilineText(text ?? "");
+        if (normalized) {
+            target.push(normalized);
         }
-        if (block.type === "code") {
+    };
+
+    const handlers = {
+        code(block) {
             if (block.text) {
                 content.codeExamples.push(block.text);
             }
-            continue;
-        }
-        if (block.type === "note") {
-            const note = normaliseMultilineText(block.text ?? "");
-            if (note) {
-                content.notes.push(note);
-            }
-            continue;
-        }
-        if (block.type === "list") {
+        },
+        note(block) {
+            appendNormalizedText(content.notes, block.text);
+        },
+        list(block) {
             const items = Array.isArray(block.items)
                 ? block.items
                       .map((item) => normaliseMultilineText(item))
@@ -464,25 +475,29 @@ function normaliseContent(blocks) {
             if (items.length > 0) {
                 content.lists.push(items);
             }
-            continue;
-        }
-        if (block.type === "table") {
+        },
+        table(block) {
             if (block.table) {
                 content.tables.push(block.table);
             }
+        },
+        heading(block) {
+            appendNormalizedText(content.headings, block.text);
+        }
+    };
+
+    for (const block of blocks) {
+        if (!block) {
             continue;
         }
-        if (block.type === "heading") {
-            const heading = normaliseMultilineText(block.text ?? "");
-            if (heading) {
-                content.headings.push(heading);
-            }
+
+        const handler = handlers[block.type];
+        if (handler) {
+            handler(block);
             continue;
         }
-        const paragraph = normaliseMultilineText(block.text ?? "");
-        if (paragraph) {
-            content.paragraphs.push(paragraph);
-        }
+
+        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }

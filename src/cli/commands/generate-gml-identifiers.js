@@ -78,18 +78,6 @@ function createGenerateIdentifiersCommand() {
         )
         .option("--quiet", "Suppress progress logging (useful in CI).")
         .option(
-            "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultProgressBarWidth()
-        )
-        .option(
             "--vm-eval-timeout-ms <ms>",
             `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
             (value) => {
@@ -100,6 +88,18 @@ function createGenerateIdentifiersCommand() {
                 }
             },
             DEFAULT_VM_EVAL_TIMEOUT_MS
+        )
+        .option(
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            getDefaultProgressBarWidth()
         )
         .option(
             "--manual-repo <owner/name>",
@@ -161,12 +161,12 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         vmEvalTimeoutMs:
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
                 : options.vmEvalTimeoutMs,
+        progressBarWidth:
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

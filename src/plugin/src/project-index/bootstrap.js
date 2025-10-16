@@ -1,7 +1,9 @@
 import path from "node:path";
 
+import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
+import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
@@ -101,11 +103,11 @@ function coerceCacheMaxSize(
     numericValue,
     { optionName, received, invalidNumberMessage }
 ) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(invalidNumberMessage);
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
         throw new Error(formatCacheMaxSizeValueError(optionName, received));
     }
@@ -114,51 +116,16 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(formatConcurrencyValueError(optionName, received));
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 1) {
         throw new Error(formatConcurrencyValueError(optionName, received));
     }
 
     return normalized;
-}
-
-function normalizeNumericOption(
-    rawValue,
-    { optionName, coerce, formatTypeError, createCoerceOptions }
-) {
-    if (rawValue == null) {
-        return;
-    }
-
-    const rawType = typeof rawValue;
-    const isString = rawType === "string";
-
-    if (rawType !== "number" && !isString) {
-        throw new Error(formatTypeError(optionName, rawType));
-    }
-
-    const normalized = isString ? rawValue.trim() : rawValue;
-    if (isString && normalized === "") {
-        return;
-    }
-
-    const received = isString ? `'${rawValue}'` : normalized;
-    const numericValue = isString ? Number(normalized) : normalized;
-
-    return coerce(
-        numericValue,
-        createCoerceOptions({
-            optionName,
-            rawType,
-            rawValue,
-            received,
-            isString
-        })
-    );
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {

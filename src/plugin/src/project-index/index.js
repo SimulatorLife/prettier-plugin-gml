@@ -248,18 +248,21 @@ async function loadBuiltInIdentifiers(
     metrics = null
 ) {
     const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const cached = cachedBuiltInIdentifiers;
 
-    if (cachedBuiltInIdentifiers) {
-        const cachedMtime = cachedBuiltInIdentifiers.metadata?.mtimeMs ?? null;
+    if (cached) {
+        const cachedMtime = cached.metadata?.mtimeMs ?? null;
         if (cachedMtime === currentMtime) {
             metrics?.recordCacheHit("builtInIdentifiers");
-            return cachedBuiltInIdentifiers;
+            return cached;
         }
 
         metrics?.recordCacheStale("builtInIdentifiers");
     } else {
         metrics?.recordCacheMiss("builtInIdentifiers");
     }
+
+    let names = new Set();
 
     try {
         const rawContents = await fsFacade.readFile(
@@ -269,21 +272,15 @@ async function loadBuiltInIdentifiers(
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
-        const names = new Set();
-        for (const name of Object.keys(identifiers)) {
-            names.add(name);
-        }
-
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names
-        };
+        names = new Set(Object.keys(identifiers));
     } catch {
-        cachedBuiltInIdentifiers = {
-            metadata: { mtimeMs: currentMtime },
-            names: new Set()
-        };
+        // Ignore read/parse failures and fall back to an empty identifier set.
     }
+
+    cachedBuiltInIdentifiers = {
+        metadata: { mtimeMs: currentMtime },
+        names
+    };
 
     return cachedBuiltInIdentifiers;
 }
@@ -293,19 +290,19 @@ function toProjectRelativePath(projectRoot, absolutePath) {
     return toPosixPath(relative);
 }
 
-function normaliseResourcePath(rawPath, { projectRoot } = {}) {
+function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     if (typeof rawPath !== "string" || rawPath.length === 0) {
         return null;
     }
 
-    const normalised = toPosixPath(rawPath).replace(/^\.\//, "");
+    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
     if (!projectRoot) {
-        return normalised;
+        return normalized;
     }
 
-    const absoluteCandidate = path.isAbsolute(normalised)
-        ? normalised
-        : path.join(projectRoot, normalised);
+    const absoluteCandidate = path.isAbsolute(normalized)
+        ? normalized
+        : path.join(projectRoot, normalized);
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
@@ -425,11 +422,7 @@ function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
     };
 }
 
-function deriveEventDisplayName(event) {
-    if (event && typeof event.name === "string" && event.name.trim()) {
-        return event.name;
-    }
-
+function resolveEventMetadata(event) {
     const eventType =
         typeof event?.eventType === "number"
             ? event.eventType
@@ -443,15 +436,23 @@ function deriveEventDisplayName(event) {
               ? event.enumb
               : null;
 
+    if (event && typeof event.name === "string" && event.name.trim()) {
+        return { eventType, eventNum, displayName: event.name };
+    }
+
     if (eventType == undefined && eventNum == undefined) {
-        return "event";
+        return { eventType, eventNum, displayName: "event" };
     }
 
     if (eventNum == undefined) {
-        return String(eventType);
+        return { eventType, eventNum, displayName: String(eventType) };
     }
 
-    return `${eventType}_${eventNum}`;
+    return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
+}
+
+function deriveEventDisplayName(event) {
+    return resolveEventMetadata(event).displayName;
 }
 
 function createObjectEventScopeDescriptor(
@@ -459,7 +460,7 @@ function createObjectEventScopeDescriptor(
     event,
     gmlRelativePath
 ) {
-    const displayName = deriveEventDisplayName(event);
+    const { displayName, eventType, eventNum } = resolveEventMetadata(event);
     const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
     return {
         id: scopeId,
@@ -470,18 +471,8 @@ function createObjectEventScopeDescriptor(
         gmlFile: gmlRelativePath,
         event: {
             name: displayName,
-            eventType:
-                typeof event?.eventType === "number"
-                    ? event.eventType
-                    : typeof event?.eventtype === "number"
-                      ? event.eventtype
-                      : null,
-            eventNum:
-                typeof event?.eventNum === "number"
-                    ? event.eventNum
-                    : typeof event?.enumb === "number"
-                      ? event.enumb
-                      : null
+            eventType,
+            eventNum
         }
     };
 }
@@ -507,6 +498,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
+    const { displayName } = resolveEventMetadata(event);
     const candidatePaths = [];
     if (typeof event.eventContents === "string") {
         candidatePaths.push(event.eventContents);
@@ -525,9 +517,9 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     }
 
     for (const candidate of candidatePaths) {
-        const normalised = normaliseResourcePath(candidate);
-        if (normalised) {
-            return normalised;
+        const normalized = normalizeResourcePath(candidate);
+        if (normalized) {
+            return normalized;
         }
     }
 
@@ -535,7 +527,6 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
-    const displayName = deriveEventDisplayName(event);
     const guessed = path.posix.join(
         resourceRelativeDir,
         `${resourceRecord.name}_${displayName}.gml`
@@ -676,10 +667,10 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
         collectAssetReferences(
             parsed,
             ({ propertyPath, targetPath, targetName }) => {
-                const normalisedTarget = normaliseResourcePath(targetPath, {
+                const normalizedTarget = normalizeResourcePath(targetPath, {
                     projectRoot
                 });
-                if (!normalisedTarget) {
+                if (!normalizedTarget) {
                     return;
                 }
 
@@ -687,7 +678,7 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
                     fromResourcePath: file.relativePath,
                     fromResourceName: resourceRecord.name,
                     propertyPath,
-                    targetPath: normalisedTarget,
+                    targetPath: normalizedTarget,
                     targetName: targetName ?? null,
                     targetResourceType: null
                 };
