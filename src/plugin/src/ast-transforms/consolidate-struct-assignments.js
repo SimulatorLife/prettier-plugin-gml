@@ -5,7 +5,8 @@ import {
 } from "../../../shared/ast-locations.js";
 import {
     getSingleVariableDeclarator,
-    isNode
+    isNode,
+    getSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
 import { getCommentArray, isLineComment } from "../../../shared/comments.js";
 
@@ -395,11 +396,7 @@ function getStructPropertyAccess(left, identifierName) {
     }
 
     if (left.type === MEMBER_INDEX_EXPRESSION) {
-        if (!Array.isArray(left.property) || left.property.length !== 1) {
-            return null;
-        }
-
-        const [propertyNode] = left.property;
+        const propertyNode = getSingleMemberIndexPropertyEntry(left);
         if (!isNode(propertyNode)) {
             return null;
         }
