@@ -352,7 +352,7 @@ jobs:
 
       # === Regression compare (base vs synthetic merge; fall back to head) ===
       - name: Compare JUnit results (fail only on regressions)
-        run: node scripts/detect-test-regressions.mjs
+        run: node src/cli/commands/detect-test-regressions.mjs
         shell: bash
 
       - name: Publish PR test summary (head + merged)
