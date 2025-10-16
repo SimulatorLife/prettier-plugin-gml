@@ -7,6 +7,8 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../shared/string-utils.js";
+import { toArray } from "../../shared/array-utils.js";
+import { hasOwn } from "../../shared/object-utils.js";
 
 let parser;
 
@@ -22,12 +24,6 @@ try {
     } else {
         throw error;
     }
-}
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
 }
 
 function hasAnyOwn(object, keys) {
@@ -58,12 +54,6 @@ function looksLikeTestCase(node) {
     }
 
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
-}
-
-function toArray(value) {
-    if (Array.isArray(value)) return value;
-    if (value === undefined || value === null) return [];
-    return [value];
 }
 
 function decodeEntities(value) {
