@@ -3,7 +3,7 @@ import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike } from "./comment-boundary.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -152,7 +152,10 @@ function formatLineComment(
     }
 
     const isInlineComment =
-        isObjectLike(comment) && typeof comment.inlinePadding === "number";
+        isObjectLike(comment) &&
+        (typeof comment.inlinePadding === "number" ||
+            comment.trailing === true ||
+            comment.placement === "endOfLine");
     const isTrailingComment =
         isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&

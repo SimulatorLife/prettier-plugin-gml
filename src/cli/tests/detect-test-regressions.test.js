@@ -134,3 +134,33 @@ test("parses top-level test cases that are not nested in a suite", () => {
         true
     );
 });
+
+test("normalizes whitespace when describing regression candidates", () => {
+    const headDir = path.join(workspace, "test-results");
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name=" outer ">
+        <testsuite name=" inner ">
+          <testcase name="  spaced name  " classname="  spaced class  " file="  /tmp/example  ">
+            <failure message="boom" />
+          </testcase>
+        </testsuite>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const head = readTestResults(["test-results"], { workspace });
+    const records = [...head.results.values()];
+
+    assert.equal(records.length, 1);
+    const record = records[0];
+
+    assert.equal(record.key, "outer :: inner :: spaced class :: spaced name");
+    assert.equal(
+        record.displayName,
+        "outer :: inner :: spaced name [/tmp/example]"
+    );
+});

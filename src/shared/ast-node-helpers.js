@@ -263,6 +263,19 @@ function hasBodyStatements(node) {
     return hasArrayPropertyEntries(node, "body");
 }
 
+function isProgramOrBlockStatement(node) {
+    if (!isNode(node)) {
+        return false;
+    }
+
+    const { type } = node;
+    if (typeof type !== "string") {
+        return false;
+    }
+
+    return type === "Program" || type === "BlockStatement";
+}
+
 function getLiteralStringValue(node) {
     if (!isNode(node) || node.type !== "Literal") {
         return null;
@@ -321,6 +334,7 @@ export {
     hasArrayPropertyEntries,
     getBodyStatements,
     hasBodyStatements,
+    isProgramOrBlockStatement,
     getSingleMemberIndexPropertyEntry,
     getBooleanLiteralValue,
     isBooleanLiteral,
