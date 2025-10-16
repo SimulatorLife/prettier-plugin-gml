@@ -605,12 +605,9 @@ async function resolveTargetStats(target) {
     }
 }
 
-async function processDirectory(directory, inheritedIgnorePaths = []) {
-    if (abortRequested) {
-        return;
-    }
-    let currentIgnorePaths = inheritedIgnorePaths;
+async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
     const localIgnorePath = path.join(directory, ".prettierignore");
+    let effectiveIgnorePaths = inheritedIgnorePaths;
     let shouldRegisterLocalIgnore =
         baseProjectIgnorePathSet.has(localIgnorePath);
 
@@ -621,48 +618,77 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
             shouldRegisterLocalIgnore = true;
 
             if (!inheritedIgnorePaths.includes(localIgnorePath)) {
-                currentIgnorePaths = [...inheritedIgnorePaths, localIgnorePath];
+                effectiveIgnorePaths = [
+                    ...inheritedIgnorePaths,
+                    localIgnorePath
+                ];
             }
         }
     } catch {
         // Ignore missing files.
     }
 
+    return {
+        effectiveIgnorePaths,
+        localIgnorePath,
+        shouldRegisterLocalIgnore
+    };
+}
+
+async function processDirectoryEntry(filePath, currentIgnorePaths) {
+    const stats = await lstat(filePath);
+
+    if (stats.isSymbolicLink()) {
+        console.log(`Skipping ${filePath} (symbolic link)`);
+        skippedFileCount += 1;
+        return;
+    }
+
+    if (stats.isDirectory()) {
+        if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
+            return;
+        }
+        await processDirectory(filePath, currentIgnorePaths);
+        return;
+    }
+
+    if (shouldFormatFile(filePath)) {
+        await processFile(filePath, currentIgnorePaths);
+        return;
+    }
+
+    skippedFileCount += 1;
+}
+
+async function processDirectoryEntries(directory, files, currentIgnorePaths) {
+    for (const file of files) {
+        if (abortRequested) {
+            return;
+        }
+
+        const filePath = path.join(directory, file);
+        await processDirectoryEntry(filePath, currentIgnorePaths);
+
+        if (abortRequested) {
+            return;
+        }
+    }
+}
+
+async function processDirectory(directory, inheritedIgnorePaths = []) {
+    if (abortRequested) {
+        return;
+    }
+
+    const { effectiveIgnorePaths, localIgnorePath, shouldRegisterLocalIgnore } =
+        await resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths);
+
     if (shouldRegisterLocalIgnore) {
         await registerIgnorePaths([localIgnorePath]);
     }
 
     const files = await readdir(directory);
-    for (const file of files) {
-        if (abortRequested) {
-            return;
-        }
-        const filePath = path.join(directory, file);
-        const stats = await lstat(filePath);
-
-        if (stats.isSymbolicLink()) {
-            console.log(`Skipping ${filePath} (symbolic link)`);
-            skippedFileCount += 1;
-            continue;
-        }
-
-        if (stats.isDirectory()) {
-            if (await shouldSkipDirectory(filePath, currentIgnorePaths)) {
-                continue;
-            }
-            await processDirectory(filePath, currentIgnorePaths);
-            if (abortRequested) {
-                return;
-            }
-        } else if (shouldFormatFile(filePath)) {
-            await processFile(filePath, currentIgnorePaths);
-            if (abortRequested) {
-                return;
-            }
-        } else {
-            skippedFileCount += 1;
-        }
-    }
+    await processDirectoryEntries(directory, files, effectiveIgnorePaths);
 }
 
 async function resolveFormattingOptions(filePath) {
