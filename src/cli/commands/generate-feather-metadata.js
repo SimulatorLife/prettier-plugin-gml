@@ -187,26 +187,16 @@ function parseArgs({
 // Manual fetching helpers are provided by manual-cli-helpers.js
 
 function normaliseMultilineText(text) {
-    if (!text) {
+    if (typeof text !== "string" || text.length === 0) {
         return null;
     }
 
-    const normalizedLines = [];
-    let previousBlank = true;
+    const trimmedLines = text.split("\n").map((line) => line.trim());
+    const collapsedLines = trimmedLines.filter((line, index) => {
+        return line.length > 0 || trimmedLines[index - 1]?.length > 0;
+    });
 
-    for (const rawLine of text.split("\n")) {
-        const line = rawLine.trim();
-        const isBlank = line.length === 0;
-
-        if (isBlank && previousBlank) {
-            continue;
-        }
-
-        normalizedLines.push(line);
-        previousBlank = isBlank;
-    }
-
-    return normalizedLines.join("\n").trim();
+    return collapsedLines.join("\n").trim();
 }
 
 function sanitiseManualString(value) {
