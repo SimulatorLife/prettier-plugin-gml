@@ -6,6 +6,7 @@ import { parseHTML } from "linkedom";
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp } from "../shared/regexp.js";
+import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
 import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import {
@@ -409,7 +410,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
 }
 
 function collectBlocksAfter(element, { stopTags = [] } = {}) {
-    const stopSet = new Set(stopTags.map((tag) => tag.toLowerCase()));
+    const stopSet = toNormalizedLowerCaseSet(stopTags);
     const blocks = [];
     let node = element?.nextSibling;
     while (node) {
