@@ -15,7 +15,7 @@
  */
 
 import { asArray } from "./array-utils.js";
-import { isObjectLike } from "./object-utils.js";
+import { hasOwn, isObjectLike } from "./object-utils.js";
 
 export function isCommentNode(node) {
     return (
@@ -108,11 +108,27 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        const children = Array.isArray(current)
-            ? current
-            : Object.values(current);
+        if (Array.isArray(current)) {
+            // Fast path for arrays: avoid allocating intermediate `Object.values`
+            // arrays for every iteration by walking the existing elements.
+            for (let index = 0; index < current.length; index += 1) {
+                const child = current[index];
+                if (isObjectLike(child)) {
+                    stack.push(child);
+                }
+            }
+            continue;
+        }
 
-        for (const child of children) {
+        // Plain objects fall back to a property scan guarded by `hasOwn` so we
+        // skip prototype entries while also sidestepping `Object.values`
+        // allocations on the hot path.
+        for (const key in current) {
+            if (!hasOwn(current, key)) {
+                continue;
+            }
+
+            const child = current[key];
             if (isObjectLike(child)) {
                 stack.push(child);
             }
