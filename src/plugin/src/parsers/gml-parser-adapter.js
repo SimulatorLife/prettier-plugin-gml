@@ -20,7 +20,7 @@ import {
 import {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
-} from "../../../parser/src/conditional-assignment-sanitizer.js";
+} from "../../../parser/gml-parser.js";
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot
