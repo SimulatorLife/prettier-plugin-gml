@@ -16,7 +16,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run_tests: ${{ steps.decide.outputs.should_run_tests }}
+    steps:
+      - id: decide
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const n = context.payload.pull_request?.number;
+            if (!n) { core.setOutput('should_run_tests', 'false'); return; }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: n, per_page: 100
+            });
+            core.notice(`PR changed files: ${files.length}`);
+            core.setOutput('should_run_tests', files.length > 0 ? 'true' : 'false');
+
   tests:
+    needs: gate
+    if: ${{ needs.gate.outputs.should_run_tests == 'true' }}   # <- job-level gate (will show Skipped)
     name: Run tests (${{ matrix.target }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -26,21 +46,7 @@ jobs:
         target: [base, head, merge]
 
     steps:
-      - name: Check if PR has any changed files
-        id: changed
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const number = context.payload.pull_request?.number;
-            if (!number) { core.setOutput('skip','false'); return; }
-            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
-            const count = files.length;
-            core.notice(`PR changed files: ${count}`);
-            core.setOutput('skip', count === 0 ? 'true' : 'false');
-
       - name: Resolve ref for ${{ matrix.target }}
-        if: ${{ steps.changed.outputs.skip != 'true' }}
         id: ref
         run: |
           if [ "${{ matrix.target }}" = "base" ]; then
@@ -53,32 +59,28 @@ jobs:
 
       # If the synthetic merge ref doesn't exist, continue so the leg can still upload nothing and be summarized.
       - name: Checkout (${{ matrix.target }})
-        if: ${{ steps.changed.outputs.skip != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ref.outputs.ref }}
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       - name: Setup Node
-        if: ${{ steps.changed.outputs.skip != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install deps
-        if: ${{ steps.changed.outputs.skip != 'true' }}
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       # Your npm script should create ./test-results/*.xml and NOT hard-exit early
       - name: Run test suite (JUnit XML)
-        if: ${{ steps.changed.outputs.skip != 'true' }}
         run: npm run test:report
         continue-on-error: true
 
       - name: Publish test summary (${{ matrix.target }})
-        if: ${{ always() && steps.changed.outputs.skip != 'true' }}
+        if: ${{ always() }}
         uses: dorny/test-reporter@v2
         with:
           name: Publish test summary (${{ matrix.target }})
@@ -89,7 +91,7 @@ jobs:
           use-actions-summary: false
 
       - name: Upload JUnit artifacts (${{ matrix.target }})
-        if: ${{ always() && steps.changed.outputs.skip != 'true' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: junit-${{ matrix.target }}
