@@ -24,7 +24,8 @@ import {
 } from "../shared/array-utils.js";
 import {
     normalizeStringList,
-    toNormalizedLowerCaseString
+    toNormalizedLowerCaseString,
+    toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
@@ -190,7 +191,7 @@ let targetExtensions = DEFAULT_EXTENSIONS;
  * @returns {Set<string>}
  */
 function createTargetExtensionSet(extensions) {
-    return new Set(extensions.map((extension) => extension.toLowerCase()));
+    return toNormalizedLowerCaseSet(extensions);
 }
 
 let targetExtensionSet = createTargetExtensionSet(targetExtensions);
@@ -307,7 +308,7 @@ async function discardFormattedFileOriginalContents() {
     formattedFileOriginalContents.clear();
 
     for (const snapshot of snapshots) {
-        // eslint-disable-next-line no-await-in-loop -- Sequential cleanup keeps the
+         
         // shared snapshot counter accurate and the directory removal deterministic.
         await releaseSnapshot(snapshot);
     }
@@ -426,7 +427,7 @@ async function revertFormattedFiles() {
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
         } finally {
-            // eslint-disable-next-line no-await-in-loop -- Sequential cleanup keeps
+             
             // the counter and directory lifecycle deterministic.
             await releaseSnapshot(snapshot);
         }

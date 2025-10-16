@@ -1,6 +1,9 @@
 import { createRequire } from "node:module";
 
-import { isNonEmptyString } from "../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    toNormalizedLowerCaseSet
+} from "../../shared/string-utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -23,14 +26,10 @@ function normalizeTypeList(types) {
         return new Set(DEFAULT_DISALLOWED_IDENTIFIER_TYPES);
     }
 
-    const normalized = new Set();
+    const normalized = toNormalizedLowerCaseSet(types);
 
-    for (const entry of types) {
-        if (!isNonEmptyString(entry)) {
-            continue;
-        }
-
-        normalized.add(entry.toLowerCase());
+    if (normalized.size === 0) {
+        return new Set(DEFAULT_DISALLOWED_IDENTIFIER_TYPES);
     }
 
     return normalized;
