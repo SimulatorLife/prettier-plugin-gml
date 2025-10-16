@@ -1,4 +1,7 @@
-import { hasComment as sharedHasComment } from "../comments/index.js";
+import {
+    hasComment as sharedHasComment,
+    normalizeHasCommentHelpers
+} from "../comments/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -21,12 +24,7 @@ export function convertStringConcatenations(ast, helpers = DEFAULT_HELPERS) {
         return ast;
     }
 
-    const normalizedHelpers = {
-        hasComment:
-            typeof helpers.hasComment === "function"
-                ? helpers.hasComment
-                : DEFAULT_HELPERS.hasComment
-    };
+    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
 
     traverse(ast, null, null, normalizedHelpers);
 
