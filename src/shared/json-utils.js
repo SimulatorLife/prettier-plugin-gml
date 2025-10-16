@@ -1,28 +1,35 @@
 import { isNonEmptyString, toTrimmedString } from "./string-utils.js";
 
+function getErrorMessage(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    if (typeof value.toString !== "function") {
+        return null;
+    }
+
+    try {
+        return value.toString();
+    } catch {
+        return null;
+    }
+}
+
 function toError(value) {
     if (value instanceof Error) {
         return value;
     }
 
-    let message;
-    try {
-        if (typeof value === "string") {
-            message = value;
-        } else if (
-            value !== undefined &&
-            value !== null &&
-            typeof value.toString === "function"
-        ) {
-            message = value.toString();
-        }
-    } catch {
-        // Ignore toString failures and fall back to a generic description below.
-    }
-
-    if (!message || message === "[object Object]") {
-        message = "Unknown error";
-    }
+    const rawMessage = getErrorMessage(value);
+    const message =
+        rawMessage && rawMessage !== "[object Object]"
+            ? rawMessage
+            : "Unknown error";
 
     const fallback = new Error(message);
     fallback.name = "NonErrorThrown";
