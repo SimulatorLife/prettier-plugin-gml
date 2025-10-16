@@ -44,6 +44,7 @@ function Shape(color = undefined) constructor {
     self.color = color;
 
     /// @function print
+    /// @returns {undefined}
     static print = function() {
         show_debug_message("I'm a shape");
     };

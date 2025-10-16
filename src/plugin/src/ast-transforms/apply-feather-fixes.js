@@ -1242,10 +1242,7 @@ function convertIdentifierReference({
     }
 
     const candidates = variableDeclarations.get(identifier.name);
-
-    if (!Array.isArray(candidates) || candidates.length === 0) {
-        return;
-    }
+    const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
 
     const withBodies = Array.isArray(context?.withBodies)
         ? context.withBodies
@@ -1254,35 +1251,58 @@ function convertIdentifierReference({
     const identifierEnd = getNodeEndIndex(identifier);
 
     let matchedContext = null;
+    let sawUnpromotableCandidate = false;
 
-    for (let index = candidates.length - 1; index >= 0; index -= 1) {
-        const candidate = candidates[index];
+    if (hasCandidates) {
+        for (let index = candidates.length - 1; index >= 0; index -= 1) {
+            const candidate = candidates[index];
 
-        if (!candidate || candidate.invalid) {
-            continue;
+            if (!candidate || candidate.invalid) {
+                continue;
+            }
+
+            if (!isPromotableWithOtherCandidate(candidate)) {
+                sawUnpromotableCandidate = true;
+                continue;
+            }
+
+            if (candidate.owner && withBodies.includes(candidate.owner)) {
+                continue;
+            }
+
+            if (candidate.owner && !ancestorStack.includes(candidate.owner)) {
+                continue;
+            }
+
+            if (
+                typeof candidate.startIndex === "number" &&
+                typeof identifierStart === "number" &&
+                candidate.startIndex > identifierStart
+            ) {
+                continue;
+            }
+
+            matchedContext = candidate;
+            break;
         }
-
-        if (candidate.owner && withBodies.includes(candidate.owner)) {
-            continue;
-        }
-
-        if (candidate.owner && !ancestorStack.includes(candidate.owner)) {
-            continue;
-        }
-
-        if (
-            typeof candidate.startIndex === "number" &&
-            typeof identifierStart === "number" &&
-            candidate.startIndex > identifierStart
-        ) {
-            continue;
-        }
-
-        matchedContext = candidate;
-        break;
     }
 
     if (!matchedContext) {
+        if (hasCandidates || sawUnpromotableCandidate) {
+            return;
+        }
+
+        replaceIdentifierWithOtherMember({
+            identifier,
+            parent,
+            property,
+            arrayOwner,
+            arrayProperty,
+            diagnostic,
+            fixes,
+            identifierStart,
+            identifierEnd
+        });
         return;
     }
 
@@ -1299,6 +1319,30 @@ function convertIdentifierReference({
         }
     }
 
+    replaceIdentifierWithOtherMember({
+        identifier,
+        parent,
+        property,
+        arrayOwner,
+        arrayProperty,
+        diagnostic,
+        fixes,
+        identifierStart,
+        identifierEnd
+    });
+}
+
+function replaceIdentifierWithOtherMember({
+    identifier,
+    parent,
+    property,
+    arrayOwner,
+    arrayProperty,
+    diagnostic,
+    fixes,
+    identifierStart,
+    identifierEnd
+}) {
     const memberExpression = createOtherMemberExpression(identifier);
 
     if (Array.isArray(parent)) {
@@ -1313,7 +1357,7 @@ function convertIdentifierReference({
             : null;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: identifier.name ?? null,
+        target: identifier?.name ?? null,
         range
     });
 
@@ -1383,6 +1427,20 @@ function promoteVariableDeclaration(context, diagnostic, fixes) {
     context.assignment = assignment;
 
     return assignment;
+}
+
+function isPromotableWithOtherCandidate(candidate) {
+    if (!candidate) {
+        return false;
+    }
+
+    const owner = candidate.owner;
+
+    if (!owner || typeof owner !== "object") {
+        return true;
+    }
+
+    return owner.type === "Program";
 }
 
 function isWithStatementTargetingOther(node) {
