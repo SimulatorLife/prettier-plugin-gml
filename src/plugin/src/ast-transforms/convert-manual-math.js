@@ -1148,8 +1148,17 @@ function hasInlineCommentBetween(left, right, context) {
         return false;
     }
 
-    const between = new Set(sourceText.slice(leftEnd, rightStart));
-    return between.has("/*") || between.has("//") || between.has("#");
+    const between = sourceText.slice(leftEnd, rightStart);
+
+    if (between.length === 0) {
+        return false;
+    }
+
+    return (
+        between.includes("/*") ||
+        between.includes("//") ||
+        between.includes("#")
+    );
 }
 
 function isLnCall(node) {

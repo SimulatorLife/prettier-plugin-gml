@@ -52,7 +52,24 @@ export function isBlockComment(node) {
  *                     comment node.
  */
 export function hasComment(node) {
-    return getCommentArray(node).some((candidate) => isCommentNode(candidate));
+    const comments = getCommentArray(node);
+    const { length } = comments;
+
+    if (length === 0) {
+        return false;
+    }
+
+    // This helper runs inside tight printer loops, so iterate with an indexed
+    // `for` loop instead of allocating a new callback for `Array#some` on every
+    // invocation. The manual scan keeps the hot path allocation-free while
+    // preserving the same short-circuit semantics.
+    for (let index = 0; index < length; index += 1) {
+        if (isCommentNode(comments[index])) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**

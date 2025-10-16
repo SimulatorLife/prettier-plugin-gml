@@ -16,15 +16,52 @@ export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";
 
-export const IDENTIFIER_CASE_STYLES = Object.freeze([
-    "off",
-    "camel",
-    "pascal",
-    "snake-lower",
-    "snake-upper"
-]);
+export const IdentifierCaseStyle = Object.freeze({
+    OFF: "off",
+    CAMEL: "camel",
+    PASCAL: "pascal",
+    SNAKE_LOWER: "snake-lower",
+    SNAKE_UPPER: "snake-upper"
+});
+
+const IDENTIFIER_CASE_STYLE_SET = new Set(Object.values(IdentifierCaseStyle));
+
+export const IDENTIFIER_CASE_STYLES = Object.freeze(
+    Object.values(IdentifierCaseStyle)
+);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
+
+function isIdentifierCaseStyle(style) {
+    return IDENTIFIER_CASE_STYLE_SET.has(style);
+}
+
+function createUnknownIdentifierCaseStyleError(style, optionName) {
+    const validStyles = Array.from(IDENTIFIER_CASE_STYLE_SET).join(", ");
+
+    return new RangeError(
+        `Invalid identifier case style '${style}' for ${optionName}. Valid styles: ${validStyles}.`
+    );
+}
+
+function assertIdentifierCaseStyle(style, optionName) {
+    if (!isIdentifierCaseStyle(style)) {
+        throw createUnknownIdentifierCaseStyleError(style, optionName);
+    }
+}
+
+function normalizeIdentifierCaseStyleOption(
+    style,
+    { optionName, defaultValue }
+) {
+    if (style === undefined) {
+        return defaultValue;
+    }
+
+    assertIdentifierCaseStyle(style, optionName);
+
+    return style;
+}
 
 export const IDENTIFIER_CASE_SCOPE_NAMES = Object.freeze([
     "functions",
@@ -230,6 +267,13 @@ function resolveScopeSettings(options, baseStyle) {
                 ? IDENTIFIER_CASE_INHERIT_VALUE
                 : configuredValue;
 
+        if (
+            scope === "locals" &&
+            normalizedValue !== IDENTIFIER_CASE_INHERIT_VALUE
+        ) {
+            assertIdentifierCaseStyle(normalizedValue, optionName);
+        }
+
         scopeSettings[scope] = normalizedValue;
 
         scopeStyles[scope] =
@@ -242,7 +286,13 @@ function resolveScopeSettings(options, baseStyle) {
 }
 
 export function normalizeIdentifierCaseOptions(options = {}) {
-    const baseStyle = options?.[IDENTIFIER_CASE_BASE_OPTION_NAME] ?? "off";
+    const baseStyle = normalizeIdentifierCaseStyleOption(
+        options?.[IDENTIFIER_CASE_BASE_OPTION_NAME],
+        {
+            optionName: IDENTIFIER_CASE_BASE_OPTION_NAME,
+            defaultValue: IdentifierCaseStyle.OFF
+        }
+    );
 
     const { scopeSettings, scopeStyles } = resolveScopeSettings(
         options,

@@ -154,7 +154,9 @@ export default [
             "unicorn/no-array-callback-reference": "warn",
             "unicorn/prefer-ternary": "warn",
             "unicorn/no-useless-undefined": "warn",
-            "unicorn/no-array-method-this-argument": "warn",
+            // Prettier's path.map(callback, property) requires the second argument,
+            // so disable the auto-fix that strips it as an unused thisArg.
+            "unicorn/no-array-method-this-argument": "off",
             "unicorn/no-object-as-default-parameter": "warn",
             "unicorn/prefer-single-call": "warn",
             "unicorn/prefer-default-parameters": "warn",

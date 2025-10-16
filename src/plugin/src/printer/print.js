@@ -197,44 +197,7 @@ export function print(path, options, print) {
             if (simplifiedReturn) {
                 return simplifiedReturn;
             }
-            const parts = [];
-            parts.push(
-                printSingleClauseStatement(
-                    path,
-                    options,
-                    print,
-                    "if",
-                    "test",
-                    "consequent"
-                )
-            );
-
-            if (node.alternate != undefined) {
-                const alternateNode = node.alternate;
-
-                let elseDoc;
-                if (alternateNode.type === "IfStatement") {
-                    // Keep chained `else if` statements unwrapped. Printing the alternate
-                    // with braces would produce `else { if (...) ... }`, which breaks the
-                    // cascade that GameMaker expects, introduces an extra block for the
-                    // runtime to evaluate, and diverges from the control-structure style
-                    // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
-                    // By delegating directly to the child printer we preserve the
-                    // flattened `else if` ladder that authors wrote and that downstream
-                    // tools rely on when parsing the control flow.
-                    elseDoc = print("alternate");
-                } else if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
-                    elseDoc = path.call(
-                        (alternatePath) => alternatePath.call(print, "body", 0),
-                        "alternate"
-                    );
-                } else {
-                    elseDoc = printInBlock(path, options, print, "alternate");
-                }
-
-                parts.push([" else ", elseDoc]);
-            }
-            return concat(parts);
+            return buildIfStatementDoc(path, options, print, node);
         }
         case "SwitchStatement": {
             const parts = [];
@@ -3246,6 +3209,60 @@ function getBooleanReturnBranch(branchNode) {
     }
 
     return null;
+}
+
+/**
+ * Builds the document representation for an if statement, ensuring that the
+ * orchestration logic in the main printer delegates the clause assembly and
+ * alternate handling to a single abstraction layer.
+ */
+function buildIfStatementDoc(path, options, print, node) {
+    const parts = [
+        printSingleClauseStatement(
+            path,
+            options,
+            print,
+            "if",
+            "test",
+            "consequent"
+        )
+    ];
+
+    const elseDoc = buildIfAlternateDoc(path, options, print, node);
+    if (elseDoc) {
+        parts.push([" else ", elseDoc]);
+    }
+
+    return concat(parts);
+}
+
+function buildIfAlternateDoc(path, options, print, node) {
+    if (!node || node.alternate == null) {
+        return null;
+    }
+
+    const alternateNode = node.alternate;
+
+    if (alternateNode.type === "IfStatement") {
+        // Keep chained `else if` statements unwrapped. Printing the alternate
+        // with braces would produce `else { if (...) ... }`, which breaks the
+        // cascade that GameMaker expects, introduces an extra block for the
+        // runtime to evaluate, and diverges from the control-structure style
+        // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
+        // By delegating directly to the child printer we preserve the
+        // flattened `else if` ladder that authors wrote and that downstream
+        // tools rely on when parsing the control flow.
+        return print("alternate");
+    }
+
+    if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
+        return path.call(
+            (alternatePath) => alternatePath.call(print, "body", 0),
+            "alternate"
+        );
+    }
+
+    return printInBlock(path, options, print, "alternate");
 }
 
 function getBooleanReturnStatementInfo(returnNode) {
