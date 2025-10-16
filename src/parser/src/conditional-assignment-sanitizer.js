@@ -38,20 +38,16 @@ function createIndexMapper(insertPositions) {
             return index;
         }
 
-        let lowerBound = 0;
-        let upperBound = sortedPositions.length;
-
-        while (lowerBound < upperBound) {
-            const middle = Math.floor((lowerBound + upperBound) / 2);
-
-            if (index <= sortedPositions[middle]) {
-                upperBound = middle;
-            } else {
-                lowerBound = middle + 1;
+        let offset = 0;
+        for (const position of sortedPositions) {
+            if (index <= position) {
+                break;
             }
+
+            offset += 1;
         }
 
-        return index - lowerBound;
+        return index - offset;
     };
 }
 
