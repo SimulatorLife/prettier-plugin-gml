@@ -44,8 +44,7 @@
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
-    "test:performance": "node scripts/run-performance.mjs",
-    "format:gml": "node ./src/cli/prettier-wrapper.js",
+    "format:gml": "node ./src/cli/cli.js",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,scripts/**/*.{js,mjs},*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
@@ -74,6 +73,7 @@
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.4.0",
     "husky": "^9.1.7",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "fast-xml-parser": "^4.5.1"
   }
 }

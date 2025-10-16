@@ -5,7 +5,16 @@ src/plugin/node_modules/
 src/cli/node_modules/
 src/parser/.antlr/
 src/parser/src/generated/
-scripts/cache/
+src/cli/commands/cache/
+dist/
+build/
+coverage/
+.vscode/
+.idea/
+.husky/
+.DS_Store
+*.yarn-integrity
+*.eslintcache
 *.gml
 *.json
 *.g4

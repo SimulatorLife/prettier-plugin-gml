@@ -1,4 +1,5 @@
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { getCommentArray } from "../../../shared/comments.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
@@ -122,8 +123,8 @@ function getEnumInitializerWidth(initializer) {
 }
 
 function collectTrailingEnumComments(member) {
-    const comments = member?.comments;
-    if (!isNonEmptyArray(comments)) {
+    const comments = getCommentArray(member);
+    if (comments.length === 0) {
         return [];
     }
 

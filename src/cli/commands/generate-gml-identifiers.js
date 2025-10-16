@@ -5,37 +5,23 @@ import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { handleCliError } from "./cli-errors.js";
-import { assertSupportedNodeVersion } from "./runtime/node-version.js";
-import { toPosixPath } from "../shared/path-utils.js";
-import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
+import { handleCliError } from "../lib/cli-errors.js";
+import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { toPosixPath, ensureDir } from "../../shared/path-utils.js";
+import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import {
     createManualGitHubClient,
-    ensureDir,
-    formatDuration,
-    renderProgressBar,
-    disposeProgressBars,
-    timeSync
-} from "./manual/manual-cli-helpers.js";
-import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    resolveProgressBarWidth
-} from "./options/progress-bar.js";
+    DEFAULT_MANUAL_REPO,
+    buildManualRepositoryEndpoints,
+    resolveManualRepoValue,
+    resolveManualCacheRoot
+} from "../lib/manual-utils.js";
+import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
-} from "./options/vm-eval-timeout.js";
-import {
-    MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot
-} from "./options/manual-cache.js";
-import {
-    DEFAULT_MANUAL_REPO,
-    MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
-    resolveManualRepoValue
-} from "./options/manual-repo.js";
-import { applyEnvOptionOverrides } from "./options/env-overrides.js";
+} from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,9 +43,6 @@ const manualClient = createManualGitHubClient({
 });
 
 const { fetchManualFile, resolveManualRef } = manualClient;
-
-const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const VM_EVAL_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 function createGenerateIdentifiersCommand() {
     const command = new Command()
@@ -87,18 +70,6 @@ function createGenerateIdentifiersCommand() {
             "Ignore cached manual artefacts and re-download."
         )
         .option("--quiet", "Suppress progress logging (useful in CI).")
-        .option(
-            "--progress-bar-width <n>",
-            `Width of the terminal progress bar (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_PROGRESS_BAR_WIDTH
-        )
         .option(
             "--vm-eval-timeout-ms <ms>",
             `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
@@ -130,19 +101,6 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_CACHE_ROOT
         );
 
-    command.addHelpText(
-        "after",
-        [
-            "",
-            "Environment variables:",
-            `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
-            `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
-            `  ${VM_EVAL_TIMEOUT_ENV_VAR}    Override the VM evaluation timeout in milliseconds.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
-        ].join("\n")
-    );
-
     return command;
 }
 
@@ -152,35 +110,6 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createGenerateIdentifiersCommand();
-    const getUsage = () => command.helpInformation();
-
-    applyEnvOptionOverrides({
-        command,
-        env,
-        getUsage,
-        overrides: [
-            {
-                envVar: "GML_MANUAL_REF",
-                optionName: "ref"
-            },
-            {
-                envVar: MANUAL_REPO_ENV_VAR,
-                optionName: "manualRepo",
-                resolveValue: (value) =>
-                    resolveManualRepoValue(value, { source: "env" })
-            },
-            {
-                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-                optionName: "progressBarWidth",
-                resolveValue: resolveProgressBarWidth
-            },
-            {
-                envVar: VM_EVAL_TIMEOUT_ENV_VAR,
-                optionName: "vmEvalTimeoutMs",
-                resolveValue: resolveVmEvalTimeout
-            }
-        ]
-    });
 
     const verbose = {
         resolveRef: true,
@@ -211,8 +140,6 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
         vmEvalTimeoutMs:
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
