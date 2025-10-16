@@ -10,7 +10,10 @@ import {
     getNonEmptyString
 } from "../../../shared/string-utils.js";
 import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
-import { normalizeIdentifierCaseOptions } from "../options/identifier-case.js";
+import {
+    normalizeIdentifierCaseOptions,
+    IdentifierCaseStyle
+} from "../options/identifier-case.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import {
     applyBootstrappedIdentifierCaseProjectIndex,
@@ -445,7 +448,7 @@ function planIdentifierRenamesForScope({
         return;
     }
 
-    if (style === "off") {
+    if (style === IdentifierCaseStyle.OFF) {
         return;
     }
 
@@ -768,7 +771,8 @@ export async function prepareIdentifierCasePlan(options) {
     // and rename maps without mutating sources when the style is disabled.
 
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
-    const localStyle = normalizedOptions.scopeStyles?.locals ?? "off";
+    const localStyle =
+        normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
     const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
     const functionStyle = normalizedOptions.scopeStyles?.functions ?? "off";
     const structStyle = normalizedOptions.scopeStyles?.structs ?? "off";
@@ -776,7 +780,7 @@ export async function prepareIdentifierCasePlan(options) {
     const instanceStyle = normalizedOptions.scopeStyles?.instance ?? "off";
     const globalStyle = normalizedOptions.scopeStyles?.globals ?? "off";
 
-    const shouldPlanLocals = localStyle !== "off";
+    const shouldPlanLocals = localStyle !== IdentifierCaseStyle.OFF;
     const shouldPlanAssets = assetStyle !== "off";
     const shouldPlanFunctions = functionStyle !== "off";
     const shouldPlanStructs = structStyle !== "off";
@@ -883,7 +887,9 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     const hasLocalSupport =
-        projectIndex && projectIndex.files && localStyle !== "off";
+        projectIndex &&
+        projectIndex.files &&
+        localStyle !== IdentifierCaseStyle.OFF;
 
     if (hasLocalSupport) {
         metrics.incrementCounter("locals.supportedFiles");
