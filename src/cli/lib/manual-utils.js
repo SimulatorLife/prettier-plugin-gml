@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { toTrimmedString } from "../../shared/string-utils.js";
 import { formatBytes, formatDuration } from "../../shared/number-utils.js";
-import { ensureDir } from "../../shared/path-utils.js";
+import { ensureDir } from "./file-system.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";

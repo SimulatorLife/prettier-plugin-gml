@@ -15,7 +15,7 @@ import {
     disposeProgressBars,
     timeSync
 } from "../../shared/number-utils.js";
-import { ensureDir } from "../../shared/path-utils.js";
+import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
