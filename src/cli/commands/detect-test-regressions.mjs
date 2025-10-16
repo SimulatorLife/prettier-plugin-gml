@@ -3,6 +3,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { isNonEmptyTrimmedString } from "../../shared/string-utils.js";
+
 let parser;
 
 try {
@@ -29,10 +31,6 @@ function hasAnyOwn(object, keys) {
     return keys.some((key) => hasOwn(object, key));
 }
 
-function isNonEmptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
-}
-
 function looksLikeTestCase(node) {
     if (!node || typeof node !== "object" || Array.isArray(node)) {
         return false;
@@ -42,11 +40,11 @@ function looksLikeTestCase(node) {
         return false;
     }
 
-    if (!isNonEmptyString(node.name)) {
+    if (!isNonEmptyTrimmedString(node.name)) {
         return false;
     }
 
-    if (isNonEmptyString(node.classname)) {
+    if (isNonEmptyTrimmedString(node.classname)) {
         return true;
     }
 
