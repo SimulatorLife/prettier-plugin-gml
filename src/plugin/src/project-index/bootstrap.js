@@ -135,40 +135,30 @@ function normalizeNumericOption(
     }
 
     const rawType = typeof rawValue;
+    const isString = rawType === "string";
 
-    if (rawType === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "") {
-            return;
-        }
-
-        const received = `'${rawValue}'`;
-        return coerce(
-            Number(trimmed),
-            createCoerceOptions({
-                optionName,
-                rawType,
-                rawValue,
-                received,
-                isString: true
-            })
-        );
+    if (rawType !== "number" && !isString) {
+        throw new Error(formatTypeError(optionName, rawType));
     }
 
-    if (rawType === "number") {
-        return coerce(
+    const normalized = isString ? rawValue.trim() : rawValue;
+    if (isString && normalized === "") {
+        return;
+    }
+
+    const received = isString ? `'${rawValue}'` : normalized;
+    const numericValue = isString ? Number(normalized) : normalized;
+
+    return coerce(
+        numericValue,
+        createCoerceOptions({
+            optionName,
+            rawType,
             rawValue,
-            createCoerceOptions({
-                optionName,
-                rawType,
-                rawValue,
-                received: rawValue,
-                isString: false
-            })
-        );
-    }
-
-    throw new Error(formatTypeError(optionName, rawType));
+            received,
+            isString
+        })
+    );
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
