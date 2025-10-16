@@ -7,6 +7,8 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../shared/string-utils.js";
+import { toArray } from "../../shared/array-utils.js";
+import { hasOwn } from "../../shared/object-utils.js";
 
 let parser;
 
@@ -22,12 +24,6 @@ try {
     } else {
         throw error;
     }
-}
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
 }
 
 function hasAnyOwn(object, keys) {
@@ -58,12 +54,6 @@ function looksLikeTestCase(node) {
     }
 
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
-}
-
-function toArray(value) {
-    if (Array.isArray(value)) return value;
-    if (value === undefined || value === null) return [];
-    return [value];
 }
 
 function decodeEntities(value) {
@@ -152,7 +142,7 @@ function parseXmlDocument(xml) {
             : text.replaceAll(/\s+/g, " ").trim();
         if (!normalized) return;
         const decoded = decodeEntities(normalized);
-        if (Object.prototype.hasOwnProperty.call(target, "#text")) {
+        if (hasOwn(target, "#text")) {
             target["#text"] = preserveWhitespace
                 ? target["#text"] + decoded
                 : `${target["#text"]} ${decoded}`.trim();
@@ -305,14 +295,14 @@ function describeTestCase(testNode, suitePath) {
 
 function computeStatus(testNode) {
     const hasFailure =
-        Object.prototype.hasOwnProperty.call(testNode, "failure") ||
-        Object.prototype.hasOwnProperty.call(testNode, "failures") ||
-        Object.prototype.hasOwnProperty.call(testNode, "error") ||
-        Object.prototype.hasOwnProperty.call(testNode, "errors");
+        hasOwn(testNode, "failure") ||
+        hasOwn(testNode, "failures") ||
+        hasOwn(testNode, "error") ||
+        hasOwn(testNode, "errors");
     if (hasFailure) {
         return "failed";
     }
-    if (Object.prototype.hasOwnProperty.call(testNode, "skipped")) {
+    if (hasOwn(testNode, "skipped")) {
         return "skipped";
     }
     return "passed";
@@ -339,14 +329,8 @@ function collectTestCases(root) {
             continue;
         }
 
-        const hasTestcase = Object.prototype.hasOwnProperty.call(
-            node,
-            "testcase"
-        );
-        const hasTestsuite = Object.prototype.hasOwnProperty.call(
-            node,
-            "testsuite"
-        );
+        const hasTestcase = hasOwn(node, "testcase");
+        const hasTestsuite = hasOwn(node, "testsuite");
         const normalizedSuiteName = normalizeSuiteName(node.name);
         const shouldExtendSuitePath =
             normalizedSuiteName && (hasTestcase || hasTestsuite);
