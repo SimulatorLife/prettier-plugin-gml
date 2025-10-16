@@ -42,6 +42,7 @@
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
+    "test:reports": "bash -lc 'rm -rf test-results && mkdir -p test-results; status=0; node --test --test-reporter=junit --test-reporter-destination=./test-results/shared.xml src/shared/tests/*.test.js || status=1; (cd src/parser && node --test --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml tests/*.test.js) || status=1; (cd src/plugin && node --test --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml tests/*.test.js) || status=1; (cd src/cli && node --test --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml tests/*.test.js) || status=1; exit $status'",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:parser": "cd src/parser && npm test",
     "format:gml": "node ./src/cli/cli.js",

@@ -45,6 +45,7 @@ build/Release
 node_modules/
 jspm_packages/
 .husky/_/
+test-results/
 
 # Manual cache artefacts
 src/cli/commands/cache/
