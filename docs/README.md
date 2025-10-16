@@ -15,7 +15,6 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
 
-
 ## Usage & rollout
 
 - [Identifier-case rollout playbook](identifier-case-rollout.md) — Step-by-step
