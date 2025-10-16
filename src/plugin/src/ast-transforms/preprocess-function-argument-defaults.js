@@ -315,11 +315,13 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
-    node._flattenSyntheticNumericParens = true;
-
-    body.body = body.body.filter(
+    const filteredStatements = body.body.filter(
         (statement) => !statementsToRemove.has(statement)
     );
+
+    delete node._suppressSyntheticReturnsDoc;
+    node._flattenSyntheticNumericParens = true;
+    body.body = filteredStatements;
 }
 
 /**
