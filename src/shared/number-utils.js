@@ -10,6 +10,29 @@ function isFiniteNumber(value) {
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const BYTE_RADIX = 1024;
+const FLOAT_COMPARISON_TOLERANCE_MULTIPLIER = 8;
+
+/**
+ * Determine whether two floating point numbers are effectively equal within a
+ * scaled tolerance. The scale prevents comparisons near larger unit
+ * thresholds from requiring impossibly tiny differences to be considered a
+ * match.
+ */
+function areApproximatelyEqual(a, b) {
+    if (a === b) {
+        return true;
+    }
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance =
+        Number.EPSILON * scale * FLOAT_COMPARISON_TOLERANCE_MULTIPLIER;
+
+    return Math.abs(a - b) <= tolerance;
+}
+
+function isApproximatelyAtLeast(value, threshold) {
+    return value > threshold || areApproximatelyEqual(value, threshold);
+}
 
 function normalizeByteCount(value) {
     const numericValue = typeof value === "bigint" ? Number(value) : value;
@@ -44,7 +67,10 @@ function formatByteSize(
     let value = normalizeByteCount(bytes);
     let unitIndex = 0;
 
-    while (value >= BYTE_RADIX && unitIndex < BYTE_UNITS.length - 1) {
+    while (
+        unitIndex < BYTE_UNITS.length - 1 &&
+        isApproximatelyAtLeast(value, BYTE_RADIX)
+    ) {
         value /= BYTE_RADIX;
         unitIndex += 1;
     }

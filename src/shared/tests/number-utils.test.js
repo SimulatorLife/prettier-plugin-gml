@@ -46,5 +46,12 @@ describe("number-utils", () => {
                 "5 MB"
             );
         });
+
+        it("promotes values near unit boundaries despite rounding noise", () => {
+            const truncatedThird = 0.333_333_333_333_333;
+            const bytes = truncatedThird * 3 * 1024 * 1024;
+
+            assert.equal(formatByteSize(bytes), "1.0MB");
+        });
     });
 });
