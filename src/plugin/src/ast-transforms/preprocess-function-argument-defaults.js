@@ -5,7 +5,8 @@ import {
 import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,
-    isUndefinedLiteral as sharedIsUndefinedLiteral
+    isUndefinedLiteral as sharedIsUndefinedLiteral,
+    getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
 
 const DEFAULT_HELPERS = {
@@ -784,12 +785,12 @@ function isArgumentArrayAccess(node, expectedIndex) {
         return false;
     }
 
-    if (!Array.isArray(node.property) || node.property.length !== 1) {
+    const propertyEntry = sharedGetSingleMemberIndexPropertyEntry(node);
+    if (!propertyEntry) {
         return false;
     }
 
-    const indexNode = node.property[0];
-    const actualIndex = parseArgumentIndexValue(indexNode);
+    const actualIndex = parseArgumentIndexValue(propertyEntry);
     if (actualIndex === null) {
         return false;
     }

@@ -190,6 +190,29 @@ function getMemberIndexText(indexNode) {
 }
 
 /**
+ * Return the sole property entry from a {@link MemberIndexExpression} when the
+ * parser emitted exactly one index element. Several transforms guard against
+ * unexpected array shapes before inspecting the property, so this helper
+ * centralizes the defensive checks and keeps those call sites in sync.
+ *
+ * @param {unknown} node Candidate member index expression.
+ * @returns {unknown | null} The single property entry or `null` when missing.
+ */
+function getSingleMemberIndexPropertyEntry(node) {
+    if (!isNode(node) || node.type !== "MemberIndexExpression") {
+        return null;
+    }
+
+    const { property } = node;
+    if (!Array.isArray(property) || property.length !== 1) {
+        return null;
+    }
+
+    const [propertyEntry] = property;
+    return propertyEntry ?? null;
+}
+
+/**
  * Safely read the argument array from a call-like AST node.
  *
  * @param {object | null | undefined} callExpression Potential call expression
@@ -298,6 +321,7 @@ export {
     hasArrayPropertyEntries,
     getBodyStatements,
     hasBodyStatements,
+    getSingleMemberIndexPropertyEntry,
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
