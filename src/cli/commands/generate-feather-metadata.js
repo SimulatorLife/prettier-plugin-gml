@@ -185,18 +185,23 @@ function normaliseMultilineText(text) {
     if (!text) {
         return null;
     }
-    const lines = text.split("\n").map((line) => line.trim());
-    const cleaned = [];
-    for (const line of lines) {
-        if (line) {
-            cleaned.push(line);
-        } else {
-            if (cleaned.length > 0 && cleaned.at(-1) !== "") {
-                cleaned.push("");
-            }
+
+    const normalizedLines = [];
+    let previousBlank = true;
+
+    for (const rawLine of text.split("\n")) {
+        const line = rawLine.trim();
+        const isBlank = line.length === 0;
+
+        if (isBlank && previousBlank) {
+            continue;
         }
+
+        normalizedLines.push(line);
+        previousBlank = isBlank;
     }
-    return cleaned.join("\n").trim();
+
+    return normalizedLines.join("\n").trim();
 }
 
 function sanitiseManualString(value) {
