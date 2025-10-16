@@ -10,7 +10,7 @@ import { describe, it } from "node:test";
 
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const wrapperPath = path.resolve(currentDirectory, "../prettier-wrapper.js");
+const wrapperPath = path.resolve(currentDirectory, "../cli.js");
 
 // These integration tests intentionally rely on the strict assertion helpers
 // (e.g. assert.strictEqual/assert.deepStrictEqual) to avoid the deprecated

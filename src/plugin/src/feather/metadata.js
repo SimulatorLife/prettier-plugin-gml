@@ -18,6 +18,9 @@
 
 import { createRequire } from "node:module";
 
+import { asArray } from "../../../shared/array-utils.js";
+import { toTrimmedString } from "../../../shared/string-utils.js";
+
 const require = createRequire(import.meta.url);
 
 /** @type {FeatherMetadata | null} */
@@ -50,13 +53,7 @@ export function getFeatherMetadata() {
  */
 export function getFeatherDiagnostics() {
     const metadata = loadFeatherMetadata();
-    const diagnostics = metadata?.diagnostics;
-
-    if (!Array.isArray(diagnostics)) {
-        return [];
-    }
-
-    return diagnostics;
+    return asArray(metadata?.diagnostics);
 }
 
 /**
@@ -66,11 +63,16 @@ export function getFeatherDiagnostics() {
  * @returns {FeatherDiagnostic | null}
  */
 export function getFeatherDiagnosticById(id) {
-    if (!id) {
+    const normalizedId = toTrimmedString(id);
+    if (!normalizedId) {
         return null;
     }
 
     const diagnostics = getFeatherDiagnostics();
 
-    return diagnostics.find((diagnostic) => diagnostic?.id === id) ?? null;
+    return (
+        diagnostics.find(
+            (diagnostic) => toTrimmedString(diagnostic?.id) === normalizedId
+        ) ?? null
+    );
 }
