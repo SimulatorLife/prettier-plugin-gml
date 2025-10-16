@@ -62,7 +62,8 @@ async function parse(text, options) {
         }
 
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
-        const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+        const { sourceText: sanitizedSource, indexAdjustments } =
+            sanitizedResult;
 
         if (typeof sanitizedSource === "string") {
             parseSource = sanitizedSource;
@@ -76,27 +77,27 @@ async function parse(text, options) {
                 simplifyLocations: false
             });
         } catch (error) {
-            if (options?.applyFeatherFixes) {
-                const recoveredSource = recoverParseSourceFromMissingBrace(
-                    parseSource,
-                    error
-                );
-
-                if (
-                    typeof recoveredSource === "string" &&
-                    recoveredSource !== parseSource
-                ) {
-                    parseSource = recoveredSource;
-                    ast = GMLParser.parse(parseSource, {
-                        getLocations: true,
-                        simplifyLocations: false
-                    });
-                } else {
-                    throw error;
-                }
-            } else {
+            if (!options?.applyFeatherFixes) {
                 throw error;
             }
+
+            const recoveredSource = recoverParseSourceFromMissingBrace(
+                parseSource,
+                error
+            );
+
+            const hasUsableRecovery =
+                typeof recoveredSource === "string" &&
+                recoveredSource !== parseSource;
+            if (!hasUsableRecovery) {
+                throw error;
+            }
+
+            parseSource = recoveredSource;
+            ast = GMLParser.parse(parseSource, {
+                getLocations: true,
+                simplifyLocations: false
+            });
         }
 
         attachIdentifierCasePlanSnapshot(ast, options);
