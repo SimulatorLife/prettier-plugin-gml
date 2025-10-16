@@ -254,6 +254,50 @@ function sortConflicts(conflicts) {
     });
 }
 
+/**
+ * Build a concise summary of how rename operations affect reference files.
+ *
+ * @param {Array} operations Normalized rename operations.
+ * @returns {{ impactedFileCount: number, totalReferenceCount: number }}
+ */
+function buildOperationReferenceMetrics(operations) {
+    const impactedFileSet = new Set();
+    let totalReferenceCount = 0;
+
+    for (const operation of operations) {
+        for (const reference of operation?.references ?? []) {
+            if (!reference?.filePath) {
+                continue;
+            }
+
+            impactedFileSet.add(reference.filePath);
+            totalReferenceCount += reference.occurrences ?? 0;
+        }
+    }
+
+    return {
+        impactedFileCount: impactedFileSet.size,
+        totalReferenceCount
+    };
+}
+
+/**
+ * Count how many conflicts occur for each severity level.
+ *
+ * @param {Array} conflicts Normalized conflict entries.
+ * @returns {Record<string, number>}
+ */
+function buildConflictSeverityCounts(conflicts) {
+    const severityCounts = new Map();
+
+    for (const conflict of conflicts) {
+        const severity = conflict?.severity ?? "info";
+        severityCounts.set(severity, (severityCounts.get(severity) ?? 0) + 1);
+    }
+
+    return Object.fromEntries(severityCounts.entries());
+}
+
 function pluralize(value, suffix = "s") {
     return value === 1 ? "" : suffix;
 }
@@ -271,29 +315,16 @@ export function summarizeIdentifierCasePlan({
     );
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
-
-    const impactedFileSet = new Set();
-    let totalReferenceCount = 0;
-
-    for (const operation of normalizedOperations) {
-        for (const reference of operation.references) {
-            impactedFileSet.add(reference.filePath);
-            totalReferenceCount += reference.occurrences ?? 0;
-        }
-    }
-
-    const severityCounts = new Map();
-    for (const conflict of normalizedConflicts) {
-        const severity = conflict.severity ?? "info";
-        severityCounts.set(severity, (severityCounts.get(severity) ?? 0) + 1);
-    }
+    const { impactedFileCount, totalReferenceCount } =
+        buildOperationReferenceMetrics(normalizedOperations);
+    const severityCounts = buildConflictSeverityCounts(normalizedConflicts);
 
     const summary = {
         renameCount: normalizedOperations.length,
-        impactedFileCount: impactedFileSet.size,
+        impactedFileCount,
         totalReferenceCount,
         conflictCount: normalizedConflicts.length,
-        severityCounts: Object.fromEntries(severityCounts.entries())
+        severityCounts
     };
 
     return {
