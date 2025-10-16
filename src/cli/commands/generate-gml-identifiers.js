@@ -7,8 +7,9 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { toPosixPath, ensureDir } from "../../shared/path-utils.js";
+import { toPosixPath } from "../../shared/path-utils.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
+import { ensureDir } from "../lib/file-system.js";
 import {
     createManualGitHubClient,
     DEFAULT_MANUAL_REPO,

@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 
 import { isNonEmptyString } from "./string-utils.js";
@@ -45,14 +44,6 @@ function fromPosixPath(inputPath) {
     return inputPath.replaceAll(POSIX_SEPARATOR_PATTERN, path.sep);
 }
 
-/**
- * Ensure that a directory exists, creating it if necessary.
- * @param {string} dirPath - The path to the directory to ensure.
- */
-async function ensureDir(dirPath) {
-    await fs.mkdir(dirPath, { recursive: true });
-}
-
 function isPathInside(child, parent) {
     if (!child || !parent) {
         return false;
@@ -93,10 +84,4 @@ function collectAncestorDirectories(...startingDirectories) {
     return result;
 }
 
-export {
-    toPosixPath,
-    fromPosixPath,
-    ensureDir,
-    isPathInside,
-    collectAncestorDirectories
-};
+export { toPosixPath, fromPosixPath, isPathInside, collectAncestorDirectories };
