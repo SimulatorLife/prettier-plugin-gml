@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
-} from "../options/vm-eval-timeout.js";
+} from "../lib/vm-eval-timeout.js";
 
 describe("resolveVmEvalTimeout", () => {
     it("returns the default when value is undefined", () => {

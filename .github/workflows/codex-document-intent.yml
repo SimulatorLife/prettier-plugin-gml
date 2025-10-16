@@ -25,4 +25,4 @@ jobs:
         longer write-ups, link to the relevant guide so the next reader can explore the background.
         Prefer tightening comments near complex state transitions, unconventional control flow, or
         maintenance hazards so future contributors understand the guardrails instead of treating the
-        comment as a throwaway placeholder.
+        comment as a throwaway placeholder. ONLY make changes to comments, do not modify code.
