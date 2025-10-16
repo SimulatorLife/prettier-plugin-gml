@@ -4,7 +4,7 @@
  * @param {unknown} value Potential numeric value.
  * @returns {value is number} `true` when `value` is a finite number.
  */
-export function isFiniteNumber(value) {
+function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 
@@ -32,7 +32,7 @@ function normalizeByteCount(value) {
  * @param {boolean} [options.trimTrailingZeros=false] Remove insignificant zeros from the fractional part.
  * @returns {string} Human-readable representation of the byte size.
  */
-export function formatByteSize(
+function formatByteSize(
     bytes,
     {
         decimals = 1,
@@ -65,3 +65,40 @@ export function formatByteSize(
 
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
+
+function formatDuration(startTime) {
+    const deltaMs = Date.now() - startTime;
+    if (deltaMs < 1000) {
+        return `${deltaMs}ms`;
+    }
+
+    return `${(deltaMs / 1000).toFixed(1)}s`;
+}
+
+function formatBytes(text) {
+    const size = Buffer.byteLength(text, "utf8");
+    return formatByteSize(size, { decimals: 1 });
+}
+
+function timeSync(label, fn, { verbose }) {
+    if (verbose.parsing) {
+        console.log(`→ ${label}`);
+    }
+
+    const startTime = Date.now();
+    const result = fn();
+
+    if (verbose.parsing) {
+        console.log(`  ${label} completed in ${formatDuration(startTime)}.`);
+    }
+
+    return result;
+}
+
+export {
+    timeSync,
+    formatBytes,
+    formatDuration,
+    formatByteSize,
+    isFiniteNumber
+};

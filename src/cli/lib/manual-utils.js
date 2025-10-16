@@ -1,106 +1,97 @@
-import fs from "node:fs/promises";
 import path from "node:path";
+import fs from "node:fs";
+import { toTrimmedString } from "../../shared/string-utils.js";
+import { formatBytes, formatDuration } from "../../shared/number-utils.js";
+import { ensureDir } from "../../shared/path-utils.js";
 
-import { SingleBar, Presets } from "cli-progress";
+const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
+const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
+const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
+const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
-import { DEFAULT_PROGRESS_BAR_WIDTH } from "./progress-bar-constants.js";
-import { formatByteSize } from "../../shared/number-utils.js";
-
-export function formatDuration(startTime) {
-    const deltaMs = Date.now() - startTime;
-    if (deltaMs < 1000) {
-        return `${deltaMs}ms`;
+function resolveManualCacheRoot({
+    repoRoot,
+    env = process.env,
+    relativeFallback = ["scripts", "cache", "manual"]
+} = {}) {
+    if (!repoRoot) {
+        throw new TypeError(
+            "repoRoot must be provided to resolveManualCacheRoot."
+        );
     }
 
-    return `${(deltaMs / 1000).toFixed(1)}s`;
-}
-
-function formatBytes(text) {
-    const size = Buffer.byteLength(text, "utf8");
-    return formatByteSize(size, { decimals: 1 });
-}
-
-const activeProgressBars = new Map();
-
-function createDefaultProgressBar(label, width) {
-    return new SingleBar(
-        {
-            format: `${label} [{bar}] {value}/{total}`,
-            barsize: width,
-            hideCursor: true,
-            clearOnComplete: true,
-            linewrap: true
-        },
-        Presets.shades_classic
-    );
-}
-
-let progressBarFactory = createDefaultProgressBar;
-
-export function setProgressBarFactoryForTesting(factory) {
-    progressBarFactory =
-        typeof factory === "function" ? factory : createDefaultProgressBar;
-}
-
-export function disposeProgressBars() {
-    for (const [, bar] of activeProgressBars) {
-        try {
-            bar.stop();
-        } catch {
-            // Ignore cleanup failures so disposal continues for remaining bars.
-        }
-    }
-    activeProgressBars.clear();
-}
-
-export function renderProgressBar(
-    label,
-    current,
-    total,
-    width = DEFAULT_PROGRESS_BAR_WIDTH
-) {
-    if (!process.stdout.isTTY || width <= 0) {
-        return;
+    const override = toTrimmedString(env?.[MANUAL_CACHE_ROOT_ENV_VAR]);
+    if (override.length > 0) {
+        return path.resolve(repoRoot, override);
     }
 
-    const normalizedTotal = total > 0 ? total : 1;
-    let bar = activeProgressBars.get(label);
+    return path.join(repoRoot, ...relativeFallback);
+}
 
-    if (bar) {
-        bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
+function normalizeManualRepository(value) {
+    const trimmed = toTrimmedString(value);
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    const segments = trimmed.split("/");
+    if (segments.length !== 2) {
+        return null;
+    }
+
+    const [owner, repo] = segments;
+    if (!REPO_SEGMENT_PATTERN.test(owner) || !REPO_SEGMENT_PATTERN.test(repo)) {
+        return null;
+    }
+
+    return `${owner}/${repo}`;
+}
+
+function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
+    const isDefaultCandidate =
+        manualRepo === undefined || manualRepo === null || manualRepo === "";
+
+    const repoToUse = isDefaultCandidate
+        ? DEFAULT_MANUAL_REPO
+        : toTrimmedString(manualRepo);
+
+    const normalized = normalizeManualRepository(repoToUse);
+    if (!normalized) {
+        const received = isDefaultCandidate ? DEFAULT_MANUAL_REPO : manualRepo;
+        throw new Error(`Invalid manual repository provided: ${received}`);
+    }
+
+    return {
+        manualRepo: normalized,
+        apiRoot: `https://api.github.com/repos/${normalized}`,
+        rawRoot: `https://raw.githubusercontent.com/${normalized}`
+    };
+}
+
+function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
+    const normalized = normalizeManualRepository(rawValue);
+    if (normalized) {
+        return normalized;
+    }
+
+    let received;
+    if (rawValue === undefined) {
+        received = "undefined";
+    } else if (rawValue === null) {
+        received = "null";
     } else {
-        bar = progressBarFactory(label, width);
-        bar.start(normalizedTotal, Math.min(current, normalizedTotal));
-        activeProgressBars.set(label, bar);
+        received = `'${rawValue}'`;
     }
 
-    if (current >= normalizedTotal) {
-        bar.stop();
-        activeProgressBars.delete(label);
-    }
+    const requirement =
+        source === "env"
+            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
+            : "Manual repository must be provided in 'owner/name' format";
+
+    throw new TypeError(`${requirement} (received ${received}).`);
 }
 
-export function timeSync(label, fn, { verbose }) {
-    if (verbose.parsing) {
-        console.log(`→ ${label}`);
-    }
-
-    const startTime = Date.now();
-    const result = fn();
-
-    if (verbose.parsing) {
-        console.log(`  ${label} completed in ${formatDuration(startTime)}.`);
-    }
-
-    return result;
-}
-
-export async function ensureDir(dirPath) {
-    await fs.mkdir(dirPath, { recursive: true });
-}
-
-export function createManualGitHubClient({
+function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
     defaultRawRoot
@@ -240,3 +231,14 @@ export function createManualGitHubClient({
         fetchManualFile
     };
 }
+
+export {
+    DEFAULT_MANUAL_REPO,
+    MANUAL_CACHE_ROOT_ENV_VAR,
+    MANUAL_REPO_ENV_VAR,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository,
+    resolveManualRepoValue,
+    resolveManualCacheRoot,
+    createManualGitHubClient
+};

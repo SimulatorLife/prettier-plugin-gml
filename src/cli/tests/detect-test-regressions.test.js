@@ -6,7 +6,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import {
     detectRegressions,
     readTestResults
-} from "../../../scripts/detect-test-regressions.mjs";
+} from "../commands/detect-test-regressions.mjs";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 

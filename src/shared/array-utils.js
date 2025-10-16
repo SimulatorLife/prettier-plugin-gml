@@ -27,21 +27,6 @@ function toArrayFromIterable(values) {
     return [];
 }
 
-function getIterableValues(values) {
-    if (values == null) {
-        return [];
-    }
-
-    if (
-        Array.isArray(values) ||
-        typeof values[Symbol.iterator] === "function"
-    ) {
-        return values;
-    }
-
-    return [];
-}
-
 export function toArray(value) {
     if (value == undefined) {
         return [];
@@ -116,17 +101,20 @@ export function mergeUniqueValues(
     additionalValues,
     { coerce, getKey = (value) => value, freeze = true } = {}
 ) {
-    const base = Array.isArray(defaultValues) ? defaultValues : [];
-    const merged = base.slice();
+    const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
+    const normalize = typeof coerce === "function" ? coerce : (value) => value;
     const seen = new Set();
 
     for (const element of merged) {
         seen.add(getKey(element));
     }
 
-    const normalize = typeof coerce === "function" ? coerce : (value) => value;
+    const iterable =
+        typeof additionalValues?.[Symbol.iterator] === "function"
+            ? additionalValues
+            : [];
 
-    for (const rawValue of getIterableValues(additionalValues)) {
+    for (const rawValue of iterable) {
         const value = normalize(rawValue);
         if (value == null) {
             continue;
