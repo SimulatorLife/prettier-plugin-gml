@@ -327,9 +327,10 @@ function collectTestCases(root) {
     const queue = [{ node: root, suitePath: [] }];
 
     while (queue.length > 0) {
-        const current = queue.pop();
-        const { node, suitePath } = current;
-        if (!node) continue;
+        const { node, suitePath } = queue.pop();
+        if (!node) {
+            continue;
+        }
 
         if (Array.isArray(node)) {
             for (const child of node) {
@@ -338,48 +339,60 @@ function collectTestCases(root) {
             continue;
         }
 
-        if (typeof node !== "object") continue;
+        if (typeof node !== "object") {
+            continue;
+        }
 
-        const hasSuiteChildren =
-            Object.prototype.hasOwnProperty.call(node, "testsuite") ||
-            Object.prototype.hasOwnProperty.call(node, "testcase");
-
-        const nextSuitePath =
-            hasSuiteChildren && normalizeSuiteName(node.name)
-                ? [...suitePath, normalizeSuiteName(node.name)]
-                : suitePath;
+        const hasTestcase = Object.prototype.hasOwnProperty.call(
+            node,
+            "testcase"
+        );
+        const hasTestsuite = Object.prototype.hasOwnProperty.call(
+            node,
+            "testsuite"
+        );
+        const normalizedSuiteName = normalizeSuiteName(node.name);
+        const shouldExtendSuitePath =
+            normalizedSuiteName && (hasTestcase || hasTestsuite);
+        const nextSuitePath = shouldExtendSuitePath
+            ? [...suitePath, normalizedSuiteName]
+            : suitePath;
 
         if (looksLikeTestCase(node)) {
+            const key = buildTestKey(node, suitePath);
+            const displayName = describeTestCase(node, suitePath) || key;
+
             cases.push({
                 node,
                 suitePath,
-                key: buildTestKey(node, suitePath),
+                key,
                 status: computeStatus(node),
-                displayName:
-                    describeTestCase(node, suitePath) ||
-                    buildTestKey(node, suitePath)
+                displayName
             });
         }
 
-        if (Object.prototype.hasOwnProperty.call(node, "testcase")) {
-            const childCases = toArray(node.testcase);
-            for (const child of childCases) {
+        if (hasTestcase) {
+            for (const child of toArray(node.testcase)) {
                 queue.push({ node: child, suitePath: nextSuitePath });
             }
         }
 
-        if (Object.prototype.hasOwnProperty.call(node, "testsuite")) {
-            const childSuites = toArray(node.testsuite);
-            for (const child of childSuites) {
+        if (hasTestsuite) {
+            for (const child of toArray(node.testsuite)) {
                 queue.push({ node: child, suitePath: nextSuitePath });
             }
         }
 
         for (const [key, value] of Object.entries(node)) {
-            if (key === "testcase" || key === "testsuite") continue;
-            if (value && typeof value === "object") {
-                queue.push({ node: value, suitePath: nextSuitePath });
+            if (key === "testcase" || key === "testsuite") {
+                continue;
             }
+
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            queue.push({ node: value, suitePath: nextSuitePath });
         }
     }
 
