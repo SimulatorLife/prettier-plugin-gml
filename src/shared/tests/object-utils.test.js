@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
     coalesceOption,
+    isPlainObject,
     isObjectLike,
     withObjectLike
 } from "../object-utils.js";
@@ -11,6 +12,14 @@ test("isObjectLike returns true for non-null objects", () => {
     assert.equal(isObjectLike({}), true);
     assert.equal(isObjectLike(Object.create(null)), true);
     assert.equal(isObjectLike([]), true);
+});
+
+test("isPlainObject rejects arrays and nullish values", () => {
+    assert.equal(isPlainObject({}), true);
+    assert.equal(isPlainObject(Object.create(null)), true);
+    assert.equal(isPlainObject([]), false);
+    assert.equal(isPlainObject(null), false);
+    assert.equal(isPlainObject(), false);
 });
 
 test("isObjectLike returns false for primitives and functions", () => {

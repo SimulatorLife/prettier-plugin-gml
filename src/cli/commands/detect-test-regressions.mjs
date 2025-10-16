@@ -3,6 +3,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { isPlainObject } from "../../shared/object-utils.js";
+
 let parser;
 
 try {
@@ -34,7 +36,7 @@ function isNonEmptyString(value) {
 }
 
 function looksLikeTestCase(node) {
-    if (!node || typeof node !== "object" || Array.isArray(node)) {
+    if (!isPlainObject(node)) {
         return false;
     }
 
