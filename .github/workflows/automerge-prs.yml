@@ -113,7 +113,10 @@ jobs:
       - name: Checkout base (merge target)
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.base_ref }}
+          # Use the exact commit that GitHub will merge instead of the moving
+          # branch tip so regression comparisons stay consistent even when
+          # "Update branch" merges new main commits into the PR.
+          ref: ${{ needs.pr-meta.outputs.base_sha }}
           path: base
           fetch-depth: 1
 
