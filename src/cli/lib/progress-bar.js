@@ -1,7 +1,7 @@
 import {
     coercePositiveInteger,
     resolveIntegerOption
-} from "./integer-utils.js";
+} from "./command-parsing.js";
 import { SingleBar, Presets } from "cli-progress";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
