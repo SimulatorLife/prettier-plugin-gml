@@ -884,6 +884,15 @@ function canDropUnreachableStatement(node, helpers) {
             }
             return true;
         }
+        case "ExpressionStatement": {
+            const expression = node.expression ?? null;
+
+            if (expression && helpers.hasComment(expression)) {
+                return false;
+            }
+
+            return true;
+        }
         default: {
             return node.type.endsWith("Expression");
         }
