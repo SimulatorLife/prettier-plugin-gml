@@ -63,23 +63,17 @@ export function capitalize(value) {
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
-function normalizeEntries(entries) {
-    const seen = new Set();
-
-    for (const entry of entries) {
-        if (typeof entry !== "string") {
-            continue;
-        }
-
-        const trimmed = entry.trim();
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        seen.add(trimmed);
+function getCandidateEntries(value, splitPattern) {
+    if (Array.isArray(value)) {
+        return value;
     }
 
-    return [...seen];
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+    return pattern ? value.split(pattern) : [value];
 }
 
 export function normalizeStringList(
@@ -94,21 +88,34 @@ export function normalizeStringList(
         return [];
     }
 
-    if (Array.isArray(value)) {
-        return normalizeEntries(value);
+    const entries = getCandidateEntries(value, splitPattern);
+
+    if (!entries) {
+        if (allowInvalidType) {
+            return [];
+        }
+
+        throw new TypeError(errorMessage);
     }
 
-    if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-        const entries = pattern ? value.split(pattern) : [value];
-        return normalizeEntries(entries);
+    const normalized = [];
+    const seen = new Set();
+
+    for (const entry of entries) {
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0 || seen.has(trimmed)) {
+            continue;
+        }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
-    if (allowInvalidType) {
-        return [];
-    }
-
-    throw new TypeError(errorMessage);
+    return normalized;
 }
 
 export function toNormalizedLowerCaseSet(
@@ -121,11 +128,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    const result = new Set();
-
-    for (const entry of normalizedValues) {
-        result.add(entry.toLowerCase());
-    }
-
-    return result;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }
