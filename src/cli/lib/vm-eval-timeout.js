@@ -1,7 +1,7 @@
 import {
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "./command-parsing.js";
+} from "../../shared/numeric-option-utils.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 

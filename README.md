@@ -136,6 +136,9 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Identifier case & naming convention guide](docs/naming-conventions.md) &mdash;
   Deep dive into the rename pipeline, supporting datasets, and operational
   safeguards for enabling `gmlIdentifierCase`.
+- [Identifier-case examples library](docs/examples/naming-convention/tricky-identifiers.md) &mdash;
+  Real-world before/after snippets that demonstrate how rename heuristics handle
+  edge cases and manual overrides.
 - [Identifier case rollout playbook](docs/identifier-case-rollout.md) &mdash;
   Step-by-step instructions for planning a migration with cache hygiene tips
   for CI and editor integrations.
@@ -146,6 +149,9 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Project index cache design](docs/project-index-cache-design.md) &mdash;
   Architecture notes that explain how project discovery, cache writes, and
   deterministic snapshots interact.
+- [Project index next steps](docs/project-index-next-steps.md) &mdash;
+  Rolling roadmap that tracks bootstrap hardening, scope integration, and
+  follow-up observability work.
 
 ---
 
@@ -180,6 +186,7 @@ nvm use
 
    - Quote dependency specifiers so shells such as `zsh` do not expand `^` as a glob.
    - Resolve any `EBADENGINE` errors by upgrading Node.js to a supported release.
+   - Pin to a tag or commit (`#vX.Y.Z` or `#<sha>`) when you need a reproducible build for CI or audits.
 
 3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`):
 
@@ -198,6 +205,7 @@ nvm use
    ```
 
    The Git dependency installs under `node_modules/root` because the workspace root package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build.
+   Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
 
 4. Wire a script or wrapper so team members can format consistently:
 
@@ -210,7 +218,7 @@ nvm use
    ```
 
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
-   project reuses the same wrapper entry point.
+   project reuses the same wrapper entry point and inherits future wrapper updates automatically.
 
 5. Run the formatter:
 
@@ -228,7 +236,7 @@ nvm use
    npm run format:gml -- --path . --extensions=.gml,.yy
    ```
 
-   The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output.
+   The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
 
 ### Format from a local clone
 
@@ -327,6 +335,10 @@ without editing project scripts:
   extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
+- `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
+  Adds repository-relative or absolute plugin entry point paths for the wrapper
+  to consider before falling back to its built-in candidates. Useful when CI
+  jobs build the plugin into a temporary directory.
 
 ### Visual Studio Code
 

@@ -15,6 +15,7 @@ function normalizeLabel(label) {
 }
 
 const DEFAULT_CACHE_KEYS = ["hits", "misses", "stale"];
+const SUMMARY_SECTIONS = ["timings", "counters", "caches", "metadata"];
 
 function toPlainObject(map) {
     return Object.fromEntries(map);
@@ -85,11 +86,19 @@ export function createMetricsTracker({
         stats.set(key, (stats.get(key) ?? 0) + 1);
     }
 
+    function mergeSummarySections(summary, extra) {
+        for (const key of SUMMARY_SECTIONS) {
+            const additions = extra[key];
+            if (additions && typeof additions === "object") {
+                Object.assign(summary[key], additions);
+            }
+        }
+    }
+
     function snapshot(extra = {}) {
-        const endTime = nowMs();
         const summary = {
             category,
-            totalTimeMs: endTime - startTime,
+            totalTimeMs: nowMs() - startTime,
             timings: toPlainObject(timings),
             counters: toPlainObject(counters),
             caches: Object.fromEntries(
@@ -105,29 +114,7 @@ export function createMetricsTracker({
             return summary;
         }
 
-        const {
-            timings: extraTimings,
-            counters: extraCounters,
-            caches: extraCaches,
-            metadata: extraMetadata
-        } = extra;
-
-        if (extraTimings && typeof extraTimings === "object") {
-            Object.assign(summary.timings, extraTimings);
-        }
-
-        if (extraCounters && typeof extraCounters === "object") {
-            Object.assign(summary.counters, extraCounters);
-        }
-
-        if (extraCaches && typeof extraCaches === "object") {
-            Object.assign(summary.caches, extraCaches);
-        }
-
-        if (extraMetadata && typeof extraMetadata === "object") {
-            Object.assign(summary.metadata, extraMetadata);
-        }
-
+        mergeSummarySections(summary, extra);
         return summary;
     }
 

@@ -197,44 +197,7 @@ export function print(path, options, print) {
             if (simplifiedReturn) {
                 return simplifiedReturn;
             }
-            const parts = [];
-            parts.push(
-                printSingleClauseStatement(
-                    path,
-                    options,
-                    print,
-                    "if",
-                    "test",
-                    "consequent"
-                )
-            );
-
-            if (node.alternate != undefined) {
-                const alternateNode = node.alternate;
-
-                let elseDoc;
-                if (alternateNode.type === "IfStatement") {
-                    // Keep chained `else if` statements unwrapped. Printing the alternate
-                    // with braces would produce `else { if (...) ... }`, which breaks the
-                    // cascade that GameMaker expects, introduces an extra block for the
-                    // runtime to evaluate, and diverges from the control-structure style
-                    // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
-                    // By delegating directly to the child printer we preserve the
-                    // flattened `else if` ladder that authors wrote and that downstream
-                    // tools rely on when parsing the control flow.
-                    elseDoc = print("alternate");
-                } else if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
-                    elseDoc = path.call(
-                        (alternatePath) => alternatePath.call(print, "body", 0),
-                        "alternate"
-                    );
-                } else {
-                    elseDoc = printInBlock(path, options, print, "alternate");
-                }
-
-                parts.push([" else ", elseDoc]);
-            }
-            return concat(parts);
+            return buildIfStatementDoc(path, options, print, node);
         }
         case "SwitchStatement": {
             const parts = [];
@@ -1804,6 +1767,9 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    if (node._overridesStaticFunction === true) {
+        syntheticOverrides.includeOverrideTag = true;
+    }
     const hasExistingDocLines = existingDocLines.length > 0;
 
     const syntheticLines = hasExistingDocLines
@@ -1956,6 +1922,8 @@ function mergeSyntheticDocComments(
 
     const isFunctionLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+    const isOverrideLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
     const isParamLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
@@ -1965,6 +1933,8 @@ function mergeSyntheticDocComments(
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    const overrideLines = otherLines.filter(isOverrideLine);
+    otherLines = otherLines.filter((line) => !isOverrideLine(line));
     let returnsLines = [];
 
     // Cache canonical names so we only parse each doc comment line at most once.
@@ -2037,6 +2007,37 @@ function mergeSyntheticDocComments(
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
+            ];
+            removedAnyLine = true;
+        }
+    }
+
+    if (overrideLines.length > 0) {
+        const existingOverrideIndices = mergedLines
+            .map((line, index) => (isOverrideLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingOverrideIndices.length > 0) {
+            const [firstOverrideIndex, ...duplicateOverrideIndices] =
+                existingOverrideIndices;
+            mergedLines = [...mergedLines];
+
+            for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
+                mergedLines.splice(duplicateOverrideIndices[i], 1);
+                removedAnyLine = true;
+            }
+
+            mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
+            removedAnyLine = true;
+        } else {
+            const firstFunctionIndex = mergedLines.findIndex(isFunctionLine);
+            const insertionIndex =
+                firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertionIndex),
+                ...overrideLines,
+                ...mergedLines.slice(insertionIndex)
             ];
             removedAnyLine = true;
         }
@@ -2605,6 +2606,7 @@ function computeSyntheticFunctionDocLines(
         (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
     );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
+    const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
@@ -2628,7 +2630,14 @@ function computeSyntheticFunctionDocLines(
         }
     }
 
+    const shouldInsertOverrideTag =
+        overrides?.includeOverrideTag === true && !hasOverrideTag;
+
     const lines = [];
+
+    if (shouldInsertOverrideTag) {
+        lines.push("/// @override");
+    }
 
     if (functionName && !hasFunctionTag) {
         lines.push(`/// @function ${functionName}`);
@@ -3246,6 +3255,60 @@ function getBooleanReturnBranch(branchNode) {
     }
 
     return null;
+}
+
+/**
+ * Builds the document representation for an if statement, ensuring that the
+ * orchestration logic in the main printer delegates the clause assembly and
+ * alternate handling to a single abstraction layer.
+ */
+function buildIfStatementDoc(path, options, print, node) {
+    const parts = [
+        printSingleClauseStatement(
+            path,
+            options,
+            print,
+            "if",
+            "test",
+            "consequent"
+        )
+    ];
+
+    const elseDoc = buildIfAlternateDoc(path, options, print, node);
+    if (elseDoc) {
+        parts.push([" else ", elseDoc]);
+    }
+
+    return concat(parts);
+}
+
+function buildIfAlternateDoc(path, options, print, node) {
+    if (!node || node.alternate == null) {
+        return null;
+    }
+
+    const alternateNode = node.alternate;
+
+    if (alternateNode.type === "IfStatement") {
+        // Keep chained `else if` statements unwrapped. Printing the alternate
+        // with braces would produce `else { if (...) ... }`, which breaks the
+        // cascade that GameMaker expects, introduces an extra block for the
+        // runtime to evaluate, and diverges from the control-structure style
+        // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
+        // By delegating directly to the child printer we preserve the
+        // flattened `else if` ladder that authors wrote and that downstream
+        // tools rely on when parsing the control flow.
+        return print("alternate");
+    }
+
+    if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
+        return path.call(
+            (alternatePath) => alternatePath.call(print, "body", 0),
+            "alternate"
+        );
+    }
+
+    return printInBlock(path, options, print, "alternate");
 }
 
 function getBooleanReturnStatementInfo(returnNode) {

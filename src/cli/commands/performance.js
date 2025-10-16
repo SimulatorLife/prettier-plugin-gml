@@ -53,81 +53,159 @@ function formatMetrics(label, metrics) {
     };
 }
 
+function createBenchmarkContext(resolvedProjectRoot) {
+    return {
+        results: {
+            projectRoot: resolvedProjectRoot,
+            index: []
+        }
+    };
+}
+
+async function executeProjectIndexAttempt({
+    resolvedProjectRoot,
+    logger,
+    verbose,
+    attempt
+}) {
+    try {
+        const index = await buildProjectIndex(resolvedProjectRoot, undefined, {
+            logger,
+            logMetrics: verbose
+        });
+
+        return {
+            index,
+            runRecord: formatMetrics(
+                `project-index-run-${attempt}`,
+                index.metrics
+            )
+        };
+    } catch (error) {
+        const formattedError = formatErrorDetails(error);
+        formattedError.hint =
+            "Provide --project <path> to a GameMaker project to run this benchmark against real data.";
+
+        return {
+            index: null,
+            error: formattedError,
+            runRecord: {
+                label: `project-index-run-${attempt}`,
+                error: formattedError
+            }
+        };
+    }
+}
+
+async function collectProjectIndexRuns({
+    context,
+    resolvedProjectRoot,
+    logger,
+    verbose
+}) {
+    let latestIndex = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const attemptResult = await executeProjectIndexAttempt({
+            resolvedProjectRoot,
+            logger,
+            verbose,
+            attempt
+        });
+
+        context.results.index.push(attemptResult.runRecord);
+
+        if (attemptResult.error) {
+            context.results.error = attemptResult.error;
+            return { latestIndex: null };
+        }
+
+        latestIndex = attemptResult.index;
+    }
+
+    return { latestIndex };
+}
+
+function createRenameOptions({ file, latestIndex, logger, verbose }) {
+    return {
+        filepath: path.resolve(file),
+        __identifierCaseProjectIndex: latestIndex,
+        gmlIdentifierCase: "camel",
+        gmlIdentifierCaseLocals: "camel",
+        gmlIdentifierCaseAssets: "pascal",
+        gmlIdentifierCaseAcknowledgeAssetRenames: true,
+        logIdentifierCaseMetrics: verbose,
+        logger
+    };
+}
+
+function createRenamePlanResult(renameOptions) {
+    const renamePlan = formatMetrics(
+        "identifier-case-plan",
+        renameOptions.__identifierCaseMetricsReport
+    );
+    renamePlan.operations =
+        renameOptions.__identifierCaseRenamePlan?.operations?.length ?? 0;
+    renamePlan.conflicts = renameOptions.__identifierCaseConflicts?.length ?? 0;
+    return renamePlan;
+}
+
+async function attachRenamePlanIfRequested({
+    context,
+    file,
+    latestIndex,
+    logger,
+    verbose
+}) {
+    if (!file) {
+        return;
+    }
+
+    if (!latestIndex) {
+        context.results.renamePlan = {
+            skipped: true,
+            reason: "Project index could not be built; rename plan skipped."
+        };
+        return;
+    }
+
+    const renameOptions = createRenameOptions({
+        file,
+        latestIndex,
+        logger,
+        verbose
+    });
+
+    try {
+        await prepareIdentifierCasePlan(renameOptions);
+        context.results.renamePlan = createRenamePlanResult(renameOptions);
+    } catch (error) {
+        context.results.renamePlan = { error: formatErrorDetails(error) };
+    }
+}
+
 async function runIdentifierPipelineBenchmark({ projectRoot, file, verbose }) {
     const resolvedProjectRoot = path.resolve(projectRoot ?? process.cwd());
     const logger = verbose
         ? { debug: (...args) => console.debug(...args) }
         : null;
 
-    const indexRuns = [];
-    const results = {
-        projectRoot: resolvedProjectRoot,
-        index: indexRuns
-    };
-    let latestIndex = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-        try {
-            const index = await buildProjectIndex(
-                resolvedProjectRoot,
-                undefined,
-                {
-                    logger,
-                    logMetrics: verbose
-                }
-            );
-            indexRuns.push(
-                formatMetrics(`project-index-run-${attempt}`, index.metrics)
-            );
-            latestIndex = index;
-        } catch (error) {
-            const formattedError = formatErrorDetails(error);
-            formattedError.hint =
-                "Provide --project <path> to a GameMaker project to run this benchmark against real data.";
-            indexRuns.push({
-                label: `project-index-run-${attempt}`,
-                error: formattedError
-            });
-            results.error = formattedError;
-            break;
-        }
-    }
+    const context = createBenchmarkContext(resolvedProjectRoot);
+    const { latestIndex } = await collectProjectIndexRuns({
+        context,
+        resolvedProjectRoot,
+        logger,
+        verbose
+    });
 
-    if (file && latestIndex) {
-        const filepath = path.resolve(file);
-        const renameOptions = {
-            filepath,
-            __identifierCaseProjectIndex: latestIndex,
-            gmlIdentifierCase: "camel",
-            gmlIdentifierCaseLocals: "camel",
-            gmlIdentifierCaseAssets: "pascal",
-            gmlIdentifierCaseAcknowledgeAssetRenames: true,
-            logIdentifierCaseMetrics: verbose,
-            logger
-        };
+    await attachRenamePlanIfRequested({
+        context,
+        file,
+        latestIndex,
+        logger,
+        verbose
+    });
 
-        try {
-            await prepareIdentifierCasePlan(renameOptions);
-
-            results.renamePlan = formatMetrics(
-                "identifier-case-plan",
-                renameOptions.__identifierCaseMetricsReport
-            );
-            results.renamePlan.operations =
-                renameOptions.__identifierCaseRenamePlan?.operations?.length ??
-                0;
-            results.renamePlan.conflicts =
-                renameOptions.__identifierCaseConflicts?.length ?? 0;
-        } catch (error) {
-            results.renamePlan = { error: formatErrorDetails(error) };
-        }
-    } else if (file) {
-        results.renamePlan = {
-            skipped: true,
-            reason: "Project index could not be built; rename plan skipped."
-        };
-    }
-
-    return results;
+    return context.results;
 }
 
 function runIdentifierTextBenchmark() {
