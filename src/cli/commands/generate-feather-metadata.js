@@ -11,10 +11,10 @@ import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { formatDuration, timeSync } from "../../shared/number-utils.js";
 import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
     renderProgressBar,
     disposeProgressBars,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
 } from "../lib/progress-bar.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
@@ -107,8 +107,8 @@ function createFeatherMetadataCommand() {
             DEFAULT_CACHE_ROOT
         )
         .option(
-            "--progress-bar-width <n>",
-            `Width of the terminal progress indicator (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
             (value) => {
                 try {
                     return resolveProgressBarWidth(value);
@@ -116,7 +116,7 @@ function createFeatherMetadataCommand() {
                     throw new InvalidArgumentError(error.message);
                 }
             },
-            DEFAULT_PROGRESS_BAR_WIDTH
+            getDefaultProgressBarWidth()
         );
 
     command.addHelpText(
@@ -176,7 +176,7 @@ function parseArgs({
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
         progressBarWidth:
-            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

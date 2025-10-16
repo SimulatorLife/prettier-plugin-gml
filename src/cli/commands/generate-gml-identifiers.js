@@ -19,10 +19,10 @@ import {
 } from "../lib/manual-utils.js";
 import { formatDuration, timeSync } from "../../shared/number-utils.js";
 import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
     renderProgressBar,
     disposeProgressBars,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
 } from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
@@ -90,8 +90,8 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_VM_EVAL_TIMEOUT_MS
         )
         .option(
-            "--progress-bar-width <n>",
-            `Width of the terminal progress indicator (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
             (value) => {
                 try {
                     return resolveProgressBarWidth(value);
@@ -99,7 +99,7 @@ function createGenerateIdentifiersCommand() {
                     throw new InvalidArgumentError(error.message);
                 }
             },
-            DEFAULT_PROGRESS_BAR_WIDTH
+            getDefaultProgressBarWidth()
         )
         .option(
             "--manual-repo <owner/name>",
@@ -166,7 +166,7 @@ function parseArgs({
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
                 : options.vmEvalTimeoutMs,
         progressBarWidth:
-            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
