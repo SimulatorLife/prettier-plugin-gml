@@ -38,7 +38,8 @@ import {
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     getNodeStartIndex,
-    getNodeEndIndex
+    getNodeEndIndex,
+    getNodeRangeIndices
 } from "../../../shared/ast-locations.js";
 import {
     getBodyStatements,
@@ -924,26 +925,26 @@ export function print(path, options, print) {
 
             let textToPrint = macroText;
 
-            if (node.name && node.name.start && node.name.end) {
+            const macroStartIndex = getNodeStartIndex(node);
+            const { start: nameStartIndex, end: nameEndIndex } =
+                getNodeRangeIndices(node.name);
+            if (
+                typeof macroStartIndex === "number" &&
+                typeof nameStartIndex === "number" &&
+                typeof nameEndIndex === "number" &&
+                nameStartIndex >= macroStartIndex &&
+                nameEndIndex >= nameStartIndex
+            ) {
                 const renamed = getIdentifierCaseRenameForNode(
                     node.name,
                     options
                 );
                 if (isNonEmptyString(renamed)) {
-                    const nameStartIndex = node.name.start.index;
-                    const nameEndIndex = node.name.end.index;
-                    if (
-                        typeof nameStartIndex === "number" &&
-                        typeof nameEndIndex === "number" &&
-                        nameStartIndex >= node.start.index &&
-                        nameEndIndex >= nameStartIndex
-                    ) {
-                        const relativeStart = nameStartIndex - node.start.index;
-                        const relativeEnd = nameEndIndex - node.start.index + 1;
-                        const before = textToPrint.slice(0, relativeStart);
-                        const after = textToPrint.slice(relativeEnd);
-                        textToPrint = `${before}${renamed}${after}`;
-                    }
+                    const relativeStart = nameStartIndex - macroStartIndex;
+                    const relativeEnd = nameEndIndex - macroStartIndex;
+                    const before = textToPrint.slice(0, relativeStart);
+                    const after = textToPrint.slice(relativeEnd);
+                    textToPrint = `${before}${renamed}${after}`;
                 }
             }
 

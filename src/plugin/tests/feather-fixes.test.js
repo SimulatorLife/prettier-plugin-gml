@@ -3852,6 +3852,77 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("maintains GM2023 hoist order for nested call arguments", () => {
+        const source = "foo(bar(quux(baz(), qux()), corge()), grault());";
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+
+        assert.strictEqual(
+            body.length >= 7,
+            true,
+            "Expected temporaries to be hoisted before the call expression."
+        );
+
+        const expectedDeclarations = [
+            ["__feather_call_arg_0", "baz"],
+            ["__feather_call_arg_1", "qux"],
+            ["__feather_call_arg_2", "quux"],
+            ["__feather_call_arg_3", "corge"],
+            ["__feather_call_arg_4", "bar"],
+            ["__feather_call_arg_5", "grault"]
+        ];
+
+        for (const [index, [name, callee]] of expectedDeclarations.entries()) {
+            const declaration = body[index];
+            assert.ok(
+                declaration,
+                `Expected declaration for ${name} at index ${index}.`
+            );
+            assert.strictEqual(declaration.type, "VariableDeclaration");
+
+            const declarators = Array.isArray(declaration.declarations)
+                ? declaration.declarations
+                : [];
+            assert.strictEqual(declarators.length, 1);
+
+            const [declarator] = declarators;
+
+            assert.strictEqual(declarator?.id?.type, "Identifier");
+            assert.strictEqual(
+                declarator?.id?.name,
+                name,
+                `Expected declaration name ${name}.`
+            );
+
+            const init = declarator?.init;
+            assert.ok(init);
+            assert.strictEqual(init.type, "CallExpression");
+            assert.strictEqual(init?.object?.name, callee);
+        }
+
+        const callExpression = body.at(-1);
+        assert.ok(callExpression);
+        assert.strictEqual(callExpression.type, "CallExpression");
+        assert.strictEqual(callExpression?.object?.name, "foo");
+
+        const callArgs = Array.isArray(callExpression.arguments)
+            ? callExpression.arguments
+            : [];
+
+        assert.strictEqual(callArgs.length, 2);
+        assert.strictEqual(callArgs[0]?.type, "Identifier");
+        assert.strictEqual(callArgs[0]?.name, "__feather_call_arg_4");
+        assert.strictEqual(callArgs[1]?.type, "Identifier");
+        assert.strictEqual(callArgs[1]?.name, "__feather_call_arg_5");
+    });
+
     it("coalesces undefined fallbacks flagged by GM2061", () => {
         const source = [
             "array = modify_array(array);",
