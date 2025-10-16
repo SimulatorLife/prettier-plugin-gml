@@ -38,6 +38,7 @@ import {
     mergeUniqueValues,
     uniqueArray
 } from "../shared/array-utils.js";
+import { isObjectLike } from "../shared/object-utils.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString,
@@ -300,25 +301,39 @@ async function cleanupRevertSnapshotDirectory() {
     }
 }
 
+function getSnapshotPath(snapshot) {
+    if (!isObjectLike(snapshot)) {
+        return null;
+    }
+
+    const { snapshotPath } = snapshot;
+    return typeof snapshotPath === "string" && snapshotPath.length > 0
+        ? snapshotPath
+        : null;
+}
+
 async function releaseSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return;
     }
 
-    const snapshotPath = snapshot.snapshotPath;
-    if (!snapshotPath) {
-        return;
-    }
+    const snapshotPath = getSnapshotPath(snapshot);
 
-    try {
-        await rm(snapshotPath, { force: true });
-    } catch {
-        // Ignore individual file cleanup failures to avoid masking the
-        // original error that triggered the revert.
-    } finally {
-        if (revertSnapshotFileCount > 0) {
-            revertSnapshotFileCount -= 1;
+    if (snapshotPath) {
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
+            }
         }
+    }
+
+    if (revertSnapshotFileCount === 0) {
+        await cleanupRevertSnapshotDirectory();
     }
 }
 
@@ -330,14 +345,10 @@ async function discardFormattedFileOriginalContents() {
         // shared snapshot counter accurate and the directory removal deterministic.
         await releaseSnapshot(snapshot);
     }
-
-    if (revertSnapshotFileCount === 0) {
-        await cleanupRevertSnapshotDirectory();
-    }
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return "";
     }
 
@@ -345,12 +356,13 @@ async function readSnapshotContents(snapshot) {
         return snapshot.inlineContents;
     }
 
-    if (!snapshot.snapshotPath) {
+    const snapshotPath = getSnapshotPath(snapshot);
+    if (!snapshotPath) {
         return "";
     }
 
     try {
-        return await readFile(snapshot.snapshotPath, "utf8");
+        return await readFile(snapshotPath, "utf8");
     } catch {
         return null;
     }
@@ -448,10 +460,6 @@ async function revertFormattedFiles() {
             // the counter and directory lifecycle deterministic.
             await releaseSnapshot(snapshot);
         }
-    }
-
-    if (revertSnapshotFileCount === 0) {
-        await cleanupRevertSnapshotDirectory();
     }
 }
 
