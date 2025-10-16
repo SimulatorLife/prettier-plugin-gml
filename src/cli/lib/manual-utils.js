@@ -9,6 +9,67 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+function parseJsonOrThrow(text, description) {
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        throw new SyntaxError(
+            `Failed to parse ${description} as JSON: ${error.message}`
+        );
+    }
+}
+
+function validateManualCommitPayload(payload, { ref }) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new TypeError(
+            `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
+        );
+    }
+
+    if (typeof payload.sha !== "string" || payload.sha.length === 0) {
+        throw new TypeError(
+            `Manual ref '${ref}' response did not include a commit SHA.`
+        );
+    }
+
+    return payload.sha;
+}
+
+function normalizeManualTagEntry(entry) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError(
+            "Manual tags response must contain objects with tag metadata."
+        );
+    }
+
+    const { name, commit } = entry;
+    if (typeof name !== "string" || name.length === 0) {
+        throw new TypeError("Manual tag entry is missing a tag name.");
+    }
+
+    if (commit === undefined || commit === null) {
+        return { name, sha: null };
+    }
+
+    if (typeof commit !== "object" || Array.isArray(commit)) {
+        throw new TypeError(
+            "Manual tag entry commit must be an object when provided."
+        );
+    }
+
+    if (commit.sha === undefined || commit.sha === null) {
+        return { name, sha: null };
+    }
+
+    if (typeof commit.sha !== "string" || commit.sha.length === 0) {
+        throw new TypeError(
+            "Manual tag entry commit SHA must be a non-empty string when provided."
+        );
+    }
+
+    return { name, sha: commit.sha };
+}
+
 function resolveManualCacheRoot({
     repoRoot,
     env = process.env,
@@ -134,13 +195,10 @@ function createManualGitHubClient({
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
         const body = await curlRequest(url, { acceptJson: true });
-        const payload = JSON.parse(body);
+        const payload = parseJsonOrThrow(body, "manual commit response");
+        const sha = validateManualCommitPayload(payload, { ref });
 
-        if (!payload?.sha) {
-            throw new Error(`Could not determine commit SHA for ref '${ref}'.`);
-        }
-
-        return { ref, sha: payload.sha };
+        return { ref, sha };
     }
 
     async function resolveManualRef(ref, { verbose, apiRoot }) {
@@ -158,7 +216,7 @@ function createManualGitHubClient({
 
         const latestTagUrl = `${apiRoot}/tags?per_page=1`;
         const body = await curlRequest(latestTagUrl, { acceptJson: true });
-        const tags = JSON.parse(body);
+        const tags = parseJsonOrThrow(body, "manual tags response");
 
         if (!Array.isArray(tags) || tags.length === 0) {
             console.warn(
@@ -167,10 +225,10 @@ function createManualGitHubClient({
             return resolveCommitFromRef("develop", { apiRoot });
         }
 
-        const { name, commit } = tags[0];
+        const { name, sha } = normalizeManualTagEntry(tags[0]);
         return {
             ref: name,
-            sha: commit?.sha ?? null
+            sha
         };
     }
 
