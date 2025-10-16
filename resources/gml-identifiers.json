@@ -1,8 +1,8 @@
 {
   "meta": {
     "manualRef": "develop",
-    "commitSha": "8539feb61e46005516b03efbe470fae1abfdbdc7",
-    "generatedAt": "2025-10-11T00:57:02.022Z",
+    "commitSha": "a01af8043147f259d0f0c0282ea2ce25054e517a",
+    "generatedAt": "2025-10-16T01:57:07.952Z",
     "source": "YoYoGames/GameMaker-Manual"
   },
   "identifiers": {
@@ -88,7 +88,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -330,7 +329,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -350,7 +348,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -359,7 +356,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -379,7 +375,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -388,7 +383,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -397,7 +391,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -483,7 +476,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -526,7 +518,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -546,7 +537,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -555,7 +545,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -564,7 +553,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -584,7 +572,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -649,7 +636,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -702,7 +688,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -711,7 +696,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -720,7 +704,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -729,7 +712,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -738,7 +720,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -747,7 +728,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -756,7 +736,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -765,7 +744,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -774,7 +752,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -783,7 +760,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -792,7 +768,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -801,7 +776,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -810,7 +784,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -819,7 +792,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -828,7 +800,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -837,7 +808,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -846,7 +816,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -855,7 +824,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -864,7 +832,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -942,7 +909,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1056,7 +1022,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1137,7 +1102,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1241,7 +1205,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1298,7 +1261,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1307,7 +1269,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1330,7 +1291,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1668,7 +1628,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -1717,7 +1676,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2106,7 +2064,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2115,7 +2072,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2480,7 +2436,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2513,7 +2468,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2522,7 +2476,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2531,7 +2484,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2540,7 +2492,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2549,7 +2500,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2628,7 +2578,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -2653,7 +2602,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -3055,7 +3003,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -3087,7 +3034,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -3790,7 +3736,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4103,7 +4048,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4123,7 +4067,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4178,7 +4121,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4210,7 +4152,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4272,7 +4213,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4907,7 +4847,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4916,7 +4855,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4925,7 +4863,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4934,7 +4871,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4943,7 +4879,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -4976,7 +4911,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -5536,7 +5470,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -5545,7 +5478,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -6696,7 +6628,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -6705,7 +6636,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -6725,7 +6655,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -7504,7 +7433,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -7545,7 +7473,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10375,7 +10302,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10561,7 +10487,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10593,7 +10518,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10631,7 +10555,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10640,7 +10563,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -10982,7 +10904,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16652,7 +16573,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16661,7 +16581,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16670,7 +16589,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16679,7 +16597,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16688,7 +16605,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16697,7 +16613,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16706,7 +16621,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16715,7 +16629,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16724,7 +16637,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16733,7 +16645,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16742,7 +16653,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16751,7 +16661,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16760,7 +16669,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16769,7 +16677,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16778,7 +16685,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16787,7 +16693,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16796,7 +16701,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16805,7 +16709,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16814,7 +16717,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16823,7 +16725,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16832,7 +16733,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16841,7 +16741,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16850,7 +16749,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -16859,7 +16757,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -21863,7 +21760,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -21872,7 +21768,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22050,7 +21945,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22451,7 +22345,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22460,7 +22353,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22469,7 +22361,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22478,7 +22369,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22487,7 +22377,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22496,7 +22385,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22505,7 +22393,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -22905,7 +22792,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23148,7 +23034,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23232,7 +23117,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23392,7 +23276,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23401,7 +23284,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23410,7 +23292,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23634,7 +23515,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -23643,7 +23523,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24011,7 +23890,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24059,7 +23937,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24086,7 +23963,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24113,7 +23989,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24140,7 +24015,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -24698,7 +24572,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -25715,7 +25588,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -25749,7 +25621,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -25769,7 +25640,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -25778,7 +25648,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -25986,7 +25855,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26045,7 +25913,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26054,7 +25921,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26277,7 +26143,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26286,7 +26151,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26295,7 +26159,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26361,7 +26224,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26503,7 +26365,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26633,7 +26494,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26952,7 +26812,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -26996,7 +26855,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27005,7 +26863,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27014,7 +26871,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27023,7 +26879,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27032,7 +26887,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27041,7 +26895,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27050,7 +26903,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27059,7 +26911,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27068,7 +26919,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27077,7 +26927,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27086,7 +26935,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27095,7 +26943,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27104,7 +26951,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27113,7 +26959,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27122,7 +26967,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27131,7 +26975,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27140,7 +26983,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27149,7 +26991,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27158,7 +26999,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27167,7 +27007,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27176,7 +27015,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27185,7 +27023,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -27194,7 +27031,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28399,7 +28235,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28408,7 +28243,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28417,7 +28251,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28426,7 +28259,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28435,7 +28267,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28444,7 +28275,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28453,7 +28283,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28462,7 +28291,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28608,7 +28436,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28617,7 +28444,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28734,7 +28560,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28766,7 +28591,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28809,7 +28633,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -28862,7 +28685,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -29468,7 +29290,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -29566,7 +29387,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -29960,7 +29780,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -29984,7 +29803,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -29993,7 +29811,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30002,7 +29819,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30011,7 +29827,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30257,7 +30072,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30266,7 +30080,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30275,7 +30088,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30299,7 +30111,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30308,7 +30119,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30317,7 +30127,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30475,7 +30284,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30484,7 +30292,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30493,7 +30300,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30502,7 +30308,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30511,7 +30316,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30531,7 +30335,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30562,7 +30365,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30770,7 +30572,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30801,7 +30602,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30810,7 +30610,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30819,7 +30618,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30828,7 +30626,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30837,7 +30634,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30924,7 +30720,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30933,7 +30728,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30942,7 +30736,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30973,7 +30766,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -30982,7 +30774,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -31013,7 +30804,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -32772,7 +32562,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35184,7 +34973,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35231,7 +35019,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35240,7 +35027,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35249,7 +35035,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35258,7 +35043,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35267,7 +35051,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35276,7 +35059,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35285,7 +35067,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35294,7 +35075,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35378,7 +35158,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -35387,7 +35166,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36255,7 +36033,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36264,7 +36041,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36285,7 +36061,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36294,7 +36069,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36303,7 +36077,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36312,7 +36085,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36321,7 +36093,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36330,7 +36101,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36339,7 +36109,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36348,7 +36117,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36357,7 +36125,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36366,7 +36133,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36375,7 +36141,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36384,7 +36149,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36393,7 +36157,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36402,7 +36165,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36411,7 +36173,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36420,7 +36181,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36463,7 +36223,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36816,7 +36575,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36825,7 +36583,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -36889,7 +36646,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -37112,7 +36868,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -37165,7 +36920,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -37174,7 +36928,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -37227,7 +36980,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -38113,7 +37865,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39568,7 +39319,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39577,7 +39327,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39620,7 +39369,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39762,7 +39510,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39771,7 +39518,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -39780,7 +39526,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40257,7 +40002,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40266,7 +40010,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40275,7 +40018,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40284,7 +40026,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40293,7 +40034,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40302,7 +40042,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40311,7 +40050,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40320,7 +40058,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40329,7 +40066,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40338,7 +40074,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40347,7 +40082,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40506,7 +40240,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40515,7 +40248,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40524,7 +40256,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40533,7 +40264,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40572,7 +40302,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40581,7 +40310,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -40590,7 +40318,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -42067,7 +41794,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -42076,7 +41802,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -42151,7 +41876,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -42529,7 +42253,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -42973,7 +42696,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43040,7 +42762,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43078,7 +42799,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43087,7 +42807,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43096,7 +42815,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43105,7 +42823,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43114,7 +42831,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43123,7 +42839,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43132,7 +42847,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43141,7 +42855,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43263,7 +42976,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43284,7 +42996,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43293,7 +43004,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43302,7 +43012,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43400,7 +43109,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43421,7 +43129,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43442,7 +43149,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43463,7 +43169,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -43484,7 +43189,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -46909,7 +46613,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47420,7 +47123,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47429,7 +47131,6 @@
       "sources": [
         "manual:gml.js:SYMBOLS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47450,7 +47151,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47841,7 +47541,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47874,7 +47573,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47883,7 +47581,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47892,7 +47589,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47901,7 +47597,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47910,7 +47605,6 @@
       "sources": [
         "manual:gml.js:LITERALS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
@@ -47997,7 +47691,6 @@
       "sources": [
         "manual:gml.js:KEYWORDS"
       ],
-      "manualPath": null,
       "tags": [],
       "deprecated": false
     },
