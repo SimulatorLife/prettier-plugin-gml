@@ -315,11 +315,18 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
-    node._flattenSyntheticNumericParens = true;
-
-    body.body = body.body.filter(
+    const filteredStatements = body.body.filter(
         (statement) => !statementsToRemove.has(statement)
     );
+
+    if (filteredStatements.length > 0) {
+        node._suppressSyntheticReturnsDoc = true;
+    } else {
+        delete node._suppressSyntheticReturnsDoc;
+    }
+
+    node._flattenSyntheticNumericParens = true;
+    body.body = filteredStatements;
 }
 
 /**

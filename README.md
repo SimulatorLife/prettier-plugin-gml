@@ -327,6 +327,10 @@ without editing project scripts:
   extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
+- `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
+  Adds repository-relative or absolute plugin entry point paths for the wrapper
+  to consider before falling back to its built-in candidates. Useful when CI
+  jobs build the plugin into a temporary directory.
 
 ### Visual Studio Code
 

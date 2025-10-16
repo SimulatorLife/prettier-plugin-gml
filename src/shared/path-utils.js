@@ -15,7 +15,7 @@ const POSIX_SEPARATOR_PATTERN = /\/+/g;
  * @returns {string} Normalized POSIX path string, or an empty string when the
  *                   input is missing/invalid.
  */
-function toPosixPath(inputPath) {
+export function toPosixPath(inputPath) {
     if (!isNonEmptyString(inputPath)) {
         return "";
     }
@@ -32,7 +32,7 @@ function toPosixPath(inputPath) {
  * @param {unknown} inputPath Candidate POSIX path string.
  * @returns {string} Path rewritten using the runtime's path separator.
  */
-function fromPosixPath(inputPath) {
+export function fromPosixPath(inputPath) {
     if (!isNonEmptyString(inputPath)) {
         return "";
     }
@@ -57,7 +57,7 @@ function fromPosixPath(inputPath) {
  * @param {string | undefined | null} parent Candidate ancestor directory.
  * @returns {boolean} `true` when `child` resolves to `parent` or a descendant.
  */
-function isPathInside(child, parent) {
+export function isPathInside(child, parent) {
     if (!child || !parent) {
         return false;
     }
@@ -83,7 +83,7 @@ function isPathInside(child, parent) {
  * @returns {Array<string>} Flat list of absolute directories, ordered from
  *                          each start path toward the root.
  */
-function collectAncestorDirectories(...startingDirectories) {
+export function collectAncestorDirectories(...startingDirectories) {
     const seen = new Set();
     const result = [];
 
@@ -109,5 +109,3 @@ function collectAncestorDirectories(...startingDirectories) {
 
     return result;
 }
-
-export { toPosixPath, fromPosixPath, isPathInside, collectAncestorDirectories };

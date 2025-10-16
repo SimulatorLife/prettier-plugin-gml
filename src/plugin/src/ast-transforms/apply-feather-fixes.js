@@ -13750,24 +13750,32 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     return false;
 }
 
-function isGpuPopStateCallStatement(node) {
-    const expression = getCallExpression(node);
+function isGpuStateCall(node, expectedName, { allowStatements = false } = {}) {
+    if (typeof expectedName !== "string" || expectedName.length === 0) {
+        return false;
+    }
+
+    let expression = null;
+
+    if (allowStatements) {
+        expression = getCallExpression(node);
+    } else if (node && node.type === "CallExpression") {
+        expression = node;
+    }
 
     if (!expression) {
         return false;
     }
 
-    return isIdentifierWithName(expression.object, "gpu_pop_state");
+    return isIdentifierWithName(expression.object, expectedName);
+}
+
+function isGpuPopStateCallStatement(node) {
+    return isGpuStateCall(node, "gpu_pop_state", { allowStatements: true });
 }
 
 function isGpuPushStateCallStatement(node) {
-    const expression = getCallExpression(node);
-
-    if (!expression) {
-        return false;
-    }
-
-    return isIdentifierWithName(expression.object, "gpu_push_state");
+    return isGpuStateCall(node, "gpu_push_state", { allowStatements: true });
 }
 
 function getCallExpression(node) {
@@ -17261,19 +17269,11 @@ function createGpuStateCall(name, template) {
 }
 
 function isGpuPushStateCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, "gpu_push_state");
+    return isGpuStateCall(node, "gpu_push_state");
 }
 
 function isGpuPopStateCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, "gpu_pop_state");
+    return isGpuStateCall(node, "gpu_pop_state");
 }
 
 function getManualFeatherFixRegistry(ast) {
