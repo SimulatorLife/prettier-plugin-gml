@@ -213,7 +213,14 @@ export function print(path, options, print) {
 
                 let elseDoc;
                 if (alternateNode.type === "IfStatement") {
-                    // don't add braces to else-if chains
+                    // Keep chained `else if` statements unwrapped. Printing the alternate
+                    // with braces would produce `else { if (...) ... }`, which breaks the
+                    // cascade that GameMaker expects, introduces an extra block for the
+                    // runtime to evaluate, and diverges from the control-structure style
+                    // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
+                    // By delegating directly to the child printer we preserve the
+                    // flattened `else if` ladder that authors wrote and that downstream
+                    // tools rely on when parsing the control flow.
                     elseDoc = print("alternate");
                 } else if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
                     elseDoc = path.call(
@@ -1389,7 +1396,7 @@ function printElements(
         }
 
         return parts;
-    }, listKey);
+    });
 }
 
 function isComplexArgumentNode(node) {
@@ -1663,7 +1670,7 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         return parts;
-    }, childrenAttribute);
+    });
 }
 
 export function applyAssignmentAlignment(statements, options) {
