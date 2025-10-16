@@ -18,14 +18,16 @@ test("cloneLocation clones plain location objects", () => {
     assert.notStrictEqual(cloned.meta, location.meta);
 });
 
+// Prefer strict assertions; Node.js deprecated the loose equality helpers like
+// assert.equal/assert.notEqual.
 test("cloneLocation returns undefined for nullish input", () => {
-    assert.equal(cloneLocation(null), undefined);
-    assert.equal(cloneLocation(), undefined);
+    assert.strictEqual(cloneLocation(null), undefined);
+    assert.strictEqual(cloneLocation(), undefined);
 });
 
 test("cloneLocation preserves primitive values", () => {
-    assert.equal(cloneLocation(42), 42);
-    assert.equal(cloneLocation("start"), "start");
+    assert.strictEqual(cloneLocation(42), 42);
+    assert.strictEqual(cloneLocation("start"), "start");
 });
 
 test("cloneLocation clones nested arrays and objects", () => {
