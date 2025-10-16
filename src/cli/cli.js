@@ -25,9 +25,9 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import os from "node:os";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
@@ -50,15 +50,10 @@ import {
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
 import { parseCommandLine } from "./command-parsing.js";
+import { resolvePluginEntryPoint } from "./plugin-entry-point.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const PLUGIN_PATH = path.resolve(
-    WRAPPER_DIRECTORY,
-    "..",
-    "plugin",
-    "src",
-    "gml.js"
-);
+const PLUGIN_PATH = resolvePluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);

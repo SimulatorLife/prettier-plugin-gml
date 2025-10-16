@@ -58,8 +58,6 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-
 function createFeatherMetadataCommand() {
     const command = new Command()
         .name("generate-feather-metadata")

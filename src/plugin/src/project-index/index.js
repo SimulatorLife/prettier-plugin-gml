@@ -34,27 +34,54 @@ function isParserFacade(candidate) {
     );
 }
 
-function resolveProjectIndexParser(options) {
+function createFacadeParser(facade) {
+    return (sourceText, context) => facade.parse(sourceText, context);
+}
+
+function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
+        return null;
+    }
+
+    const identifierCaseParser = options.identifierCaseProjectIndexParserFacade;
+    if (isParserFacade(identifierCaseParser)) {
+        return {
+            facade: identifierCaseParser,
+            parse: createFacadeParser(identifierCaseParser)
+        };
+    }
+
+    const gmlParserFacade = options.gmlParserFacade;
+    if (isParserFacade(gmlParserFacade)) {
+        return {
+            facade: gmlParserFacade,
+            parse: createFacadeParser(gmlParserFacade)
+        };
+    }
+
+    const parserFacade = options.parserFacade;
+    if (isParserFacade(parserFacade)) {
+        return {
+            facade: parserFacade,
+            parse: createFacadeParser(parserFacade)
+        };
+    }
+
+    const { parseGml } = options;
+    if (typeof parseGml === "function") {
+        return { facade: null, parse: parseGml };
+    }
+
+    return null;
+}
+
+function resolveProjectIndexParser(options) {
+    const override = getProjectIndexParserOverride(options);
+    if (!override) {
         return defaultProjectIndexParser;
     }
 
-    const { gmlParserFacade, parserFacade, parseGml } = options;
-
-    if (isParserFacade(gmlParserFacade)) {
-        return (sourceText, context) =>
-            gmlParserFacade.parse(sourceText, context);
-    }
-
-    if (isParserFacade(parserFacade)) {
-        return (sourceText, context) => parserFacade.parse(sourceText, context);
-    }
-
-    if (typeof parseGml === "function") {
-        return parseGml;
-    }
-
-    return defaultProjectIndexParser;
+    return override.parse;
 }
 
 function isManifestEntry(entry) {
@@ -2244,3 +2271,4 @@ export async function buildProjectIndex(
     return projectIndex;
 }
 export { getDefaultFsFacade } from "./fs-facade.js";
+export { getProjectIndexParserOverride };

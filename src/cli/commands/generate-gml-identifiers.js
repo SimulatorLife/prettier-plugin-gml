@@ -12,23 +12,16 @@ import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import {
     createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
-    MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
     resolveManualRepoValue,
-    MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
 import { formatDuration, timeSync } from "../../shared/number-utils.js";
-import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    renderProgressBar,
-    disposeProgressBars
-} from "../lib/progress-bar.js";
+import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
 } from "../lib/vm-eval-timeout.js";
-import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
 import { parseCommandLine } from "./command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,9 +43,6 @@ const manualClient = createManualGitHubClient({
 });
 
 const { fetchManualFile, resolveManualRef } = manualClient;
-
-const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const VM_EVAL_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 function createGenerateIdentifiersCommand() {
     const command = new Command()
@@ -111,19 +101,6 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_CACHE_ROOT
         );
 
-    command.addHelpText(
-        "after",
-        [
-            "",
-            "Environment variables:",
-            `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
-            `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}    Override the progress bar width.`,
-            `  ${VM_EVAL_TIMEOUT_ENV_VAR}    Override the VM evaluation timeout in milliseconds.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
-        ].join("\n")
-    );
-
     return command;
 }
 
@@ -133,35 +110,6 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createGenerateIdentifiersCommand();
-    const getUsage = () => command.helpInformation();
-
-    applyEnvOptionOverrides({
-        command,
-        env,
-        getUsage,
-        overrides: [
-            {
-                envVar: "GML_MANUAL_REF",
-                optionName: "ref"
-            },
-            {
-                envVar: MANUAL_REPO_ENV_VAR,
-                optionName: "manualRepo",
-                resolveValue: (value) =>
-                    resolveManualRepoValue(value, { source: "env" })
-            },
-            {
-                envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-                optionName: "progressBarWidth",
-                resolveValue: () => DEFAULT_PROGRESS_BAR_WIDTH
-            },
-            {
-                envVar: VM_EVAL_TIMEOUT_ENV_VAR,
-                optionName: "vmEvalTimeoutMs",
-                resolveValue: resolveVmEvalTimeout
-            }
-        ]
-    });
 
     const verbose = {
         resolveRef: true,
