@@ -153,7 +153,7 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ### Requirements
 
-- Node.js **18.18.0+** (20.9.0+ recommended). Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
+- Node.js **18.20.0+** (20.18.1+ recommended). Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
 - npm (installed with Node.js). Verify availability with `node -v` and `npm -v`.
 
 <details>
@@ -204,7 +204,7 @@ nvm use
    ```jsonc
    {
      "scripts": {
-       "format:gml": "node ./node_modules/root/src/cli/prettier-wrapper.js"
+       "format:gml": "node ./node_modules/root/src/cli/cli.js"
      }
    }
    ```
@@ -217,7 +217,7 @@ nvm use
    ```bash
    npm run format:gml -- --path .
    # or
-   node ./node_modules/root/src/cli/prettier-wrapper.js --path .
+   node ./node_modules/root/src/cli/cli.js --path .
    ```
 
 6. Validate your setup whenever you pull new revisions:
@@ -309,13 +309,13 @@ for the full suite of contributor commands.
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/cli/prettier-wrapper.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js --path . --extensions=.gml,.yy
   ```
 
 - Discover supported flags or double-check defaults:
 
   ```bash
-  node ./node_modules/root/src/cli/prettier-wrapper.js --help
+  node ./node_modules/root/src/cli/cli.js --help
   ```
 
 ### CLI wrapper environment knobs
@@ -427,7 +427,7 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 ## Troubleshooting
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
-- `npm install` reports `EBADENGINE` → upgrade Node.js to 18.18.0+, 20.9.0+, or 21.1.0+.
+- `npm install` reports `EBADENGINE` → upgrade Node.js to 18.20.0+, 20.18.1+, or 21.1.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
 - Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.

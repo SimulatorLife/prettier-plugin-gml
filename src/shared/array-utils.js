@@ -71,13 +71,7 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const source = toArrayFromIterable(values);
-
-    if (source.length === 0) {
-        return freeze ? Object.freeze([]) : [];
-    }
-
-    const uniqueValues = Array.from(new Set(source));
+    const uniqueValues = [...new Set(toArrayFromIterable(values))];
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 
