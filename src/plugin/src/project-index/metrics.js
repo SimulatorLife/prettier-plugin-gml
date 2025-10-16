@@ -1,5 +1,5 @@
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { createMetricsTracker } from "../../../shared/metrics-tracker.js";
+import { createMetricsTracker } from "../metrics/metrics-tracker.js";
 
 const REQUIRED_METRIC_METHODS = [
     "startTimer",
