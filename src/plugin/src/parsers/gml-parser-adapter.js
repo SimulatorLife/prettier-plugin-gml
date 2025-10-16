@@ -62,7 +62,8 @@ async function parse(text, options) {
         }
 
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
-        const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+        const { sourceText: sanitizedSource, indexAdjustments } =
+            sanitizedResult;
 
         if (typeof sanitizedSource === "string") {
             parseSource = sanitizedSource;
