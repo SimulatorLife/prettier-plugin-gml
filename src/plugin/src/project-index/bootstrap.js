@@ -122,8 +122,11 @@ function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
     return normalized;
 }
 
-function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
-    if (rawValue == undefined) {
+function normalizeNumericOption(
+    rawValue,
+    { optionName, coerce, formatTypeError, createCoerceOptions }
+) {
+    if (rawValue == null) {
         return;
     }
 
@@ -136,30 +139,49 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
         }
 
         const received = `'${rawValue}'`;
-        const valueErrorMessage = formatCacheMaxSizeValueError(
-            optionName,
-            received
+        return coerce(
+            Number(trimmed),
+            createCoerceOptions({
+                optionName,
+                rawType,
+                rawValue,
+                received,
+                isString: true
+            })
         );
-
-        return coerceCacheMaxSize(Number(trimmed), {
-            optionName,
-            received,
-            invalidNumberMessage: valueErrorMessage
-        });
     }
 
     if (rawType === "number") {
-        return coerceCacheMaxSize(rawValue, {
-            optionName,
-            received: rawValue,
-            invalidNumberMessage: formatCacheMaxSizeTypeError(
+        return coerce(
+            rawValue,
+            createCoerceOptions({
                 optionName,
-                rawType
-            )
-        });
+                rawType,
+                rawValue,
+                received: rawValue,
+                isString: false
+            })
+        );
     }
 
-    throw new Error(formatCacheMaxSizeTypeError(optionName, rawType));
+    throw new Error(formatTypeError(optionName, rawType));
+}
+
+function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
+    return normalizeNumericOption(rawValue, {
+        optionName,
+        coerce: coerceCacheMaxSize,
+        formatTypeError: formatCacheMaxSizeTypeError,
+        createCoerceOptions({ optionName, rawType, received, isString }) {
+            return {
+                optionName,
+                received,
+                invalidNumberMessage: isString
+                    ? formatCacheMaxSizeValueError(optionName, received)
+                    : formatCacheMaxSizeTypeError(optionName, rawType)
+            };
+        }
+    });
 }
 
 function resolveCacheMaxSizeBytes(options) {
@@ -190,33 +212,14 @@ function resolveCacheMaxSizeBytes(options) {
 }
 
 function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
-    if (rawValue == null) {
-        return;
-    }
-
-    const rawType = typeof rawValue;
-
-    if (rawType === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "") {
-            return;
+    return normalizeNumericOption(rawValue, {
+        optionName,
+        coerce: coerceProjectIndexConcurrency,
+        formatTypeError: formatConcurrencyTypeError,
+        createCoerceOptions({ optionName, received }) {
+            return { optionName, received };
         }
-
-        const received = `'${rawValue}'`;
-        return coerceProjectIndexConcurrency(Number(trimmed), {
-            optionName,
-            received
-        });
-    }
-
-    if (rawType === "number") {
-        return coerceProjectIndexConcurrency(rawValue, {
-            optionName,
-            received: rawValue
-        });
-    }
-
-    throw new Error(formatConcurrencyTypeError(optionName, rawType));
+    });
 }
 
 function resolveProjectIndexConcurrency(options) {
