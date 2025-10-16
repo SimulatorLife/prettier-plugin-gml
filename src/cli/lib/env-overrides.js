@@ -3,6 +3,27 @@ import { isNonEmptyString } from "../../shared/string-utils.js";
 
 const DEFAULT_SOURCE = "env";
 
+/**
+ * Apply an environment-driven override to a Commander option.
+ *
+ * Normalises optional hooks and error handling so individual overrides can
+ * focus on the mapping logic instead of defensive plumbing.
+ *
+ * @param {object} parameters
+ * @param {import("commander").Command} parameters.command Command receiving
+ *                                                          the override.
+ * @param {NodeJS.ProcessEnv | undefined} parameters.env Environment variables
+ *                                                       to read from.
+ * @param {string} parameters.envVar Environment variable powering the
+ *                                   override.
+ * @param {string} parameters.optionName Commander option to update.
+ * @param {(value: string) => unknown} [parameters.resolveValue] Mapper invoked
+ *        before the option is set.
+ * @param {string} [parameters.source="env"] Source label forwarded to
+ *        Commander.
+ * @param {(() => string) | string | null} [parameters.getUsage] Optional usage
+ *        helper displayed when validation fails.
+ */
 export function applyEnvOptionOverride({
     command,
     env,
@@ -56,7 +77,7 @@ export function applyEnvOptionOverride({
  *                                                       to read from.
  * @param {Array<object>} parameters.overrides Override descriptors forwarded to
  *                                             {@link applyEnvOptionOverride}.
- * @param {() => string | string | null} [parameters.getUsage] Usage provider
+ * @param {(() => string) | string | null} [parameters.getUsage] Usage provider
  *                                                             used when an
  *                                                             override fails
  *                                                             without its own.
