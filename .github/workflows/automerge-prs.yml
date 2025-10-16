@@ -5,715 +5,246 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [main, master, mainline]
   workflow_dispatch:
-    inputs:
-      pr_number:
-        description: "PR number to verify (optional; omit to auto-resolve from branch)"
-        required: false
 
 permissions:
   contents: write
   pull-requests: write
   checks: write
-  actions: write
 
-# Single run per PR; newer pushes cancel older runs
 concurrency:
-  group: automerge-${{ github.event.pull_request.number || github.event.inputs.pr_number || 'manual' }}
+  group: automerge-${{ github.event.pull_request.number || 'manual' }}
   cancel-in-progress: true
 
 jobs:
-  ###########################################################################
-  # PR metadata: decide if tests should run (skip when opened with 0 files)
-  ###########################################################################
-  pr-meta:
+  tests:
+    name: Run tests (${{ matrix.target }})
     runs-on: ubuntu-latest
-    outputs:
-      number: ${{ steps.get.outputs.number }}
-      head_ref: ${{ steps.get.outputs.head_ref }}
-      head_sha: ${{ steps.get.outputs.head_sha }}
-      base_ref: ${{ steps.get.outputs.base_ref }}
-      base_sha: ${{ steps.get.outputs.base_sha }}
-      should_run_tests: ${{ steps.get.outputs.should_run_tests }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [base, head, merge]
+
     steps:
-      - name: Read PR details & changed file count
-        id: get
+      - name: Check if PR has any changed files
+        id: changed
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const eventName = context.eventName;
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request?.number;
+            if (!number) { core.setOutput('skip','false'); return; }
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
+            const count = files.length;
+            core.notice(`PR changed files: ${count}`);
+            core.setOutput('skip', count === 0 ? 'true' : 'false');
 
-            function setOutputs(o) {
-              for (const [k,v] of Object.entries(o)) core.setOutput(k, String(v ?? ''));
-            }
-
-            async function resolvePrNumber() {
-              if (eventName === 'pull_request') return context.payload.pull_request?.number || 0;
-              const n = Number((context.payload.inputs?.pr_number || '').trim() || 0);
-              if (n) return n;
-
-              // Fallback for manual dispatch from a PR head branch
-              const ref = (context.ref || '').replace('refs/heads/', '');
-              if (!ref) return 0;
-              const prs = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
-              const match = prs.find(p => p.head?.ref === ref);
-              return match?.number || 0;
-            }
-
-            const number = await resolvePrNumber();
-            if (!number) {
-              core.setFailed('pr-meta: Could not determine PR number.');
-              return;
-            }
-
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-
-            // Count changed files robustly (listFiles is the most accurate and avoids races)
-            let changedFiles = 0;
-            try {
-              const files = await github.paginate(github.rest.pulls.listFiles, {
-                owner, repo, pull_number: number, per_page: 100
-              });
-              changedFiles = Array.isArray(files) ? files.length : 0;
-            } catch (e) {
-              core.warning(`pulls.listFiles failed: ${e.message}`);
-            }
-
-            // Decide: run tests only if there are changes
-            const should_run_tests = changedFiles > 0 ? 'true' : 'false';
-
-            setOutputs({
-              number: pr.number,
-              head_ref: pr.head?.ref || '',
-              head_sha: pr.head?.sha || '',
-              base_ref: pr.base?.ref || '',
-              base_sha: pr.base?.sha || '',
-              should_run_tests
-            });
-
-            if (should_run_tests === 'true') {
-              core.notice(`PR #${pr.number}: ${changedFiles} changed file(s) → tests WILL run.`);
-            } else {
-              core.notice(`PR #${pr.number}: 0 changed files → tests will be SKIPPED (will run on next synchronize).`);
-            }
-
-  ###########################################################################
-  # Regression detection (runs only when should_run_tests == 'true')
-  ###########################################################################
-  regression-tests:
-    needs: pr-meta
-    name: Detect new test failures (allow legacy failures)
-    if: ${{ needs.pr-meta.outputs.should_run_tests == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      # === BASE (merge target) ===
-      - name: Checkout base (merge target)
-        uses: actions/checkout@v4
-        with:
-          # Use the exact commit that GitHub will merge instead of the moving
-          # branch tip so regression comparisons stay consistent even when
-          # "Update branch" merges new main commits into the PR.
-          ref: ${{ needs.pr-meta.outputs.base_sha }}
-          path: base
-          fetch-depth: 1
-
-      - name: Record resolved base ref/commit
-        working-directory: base
+      - name: Stop early if no files changed
+        if: steps.changed.outputs.skip == 'true'
         run: |
-          echo "BASE_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
-        env:
-          BASE_REF: ${{ needs.pr-meta.outputs.base_ref }}
-        
-      - name: Verify package-lock.json exists in base
+          echo "No changed files in this PR — skipping test jobs."
+          exit 0
+
+      - name: Resolve ref for ${{ matrix.target }}
+        id: ref
         run: |
-          if [ ! -f base/package-lock.json ]; then
-            echo "❌ base/package-lock.json not found after checkout!"
-            ls -l base
-            exit 1
+          if [ "${{ matrix.target }}" = "base" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.target }}" = "head" ]; then
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=refs/pull/${{ github.event.pull_request.number }}/merge" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Node (base)
+      # If the synthetic merge ref doesn't exist, continue so the leg can still upload nothing and be summarized.
+      - name: Checkout (${{ matrix.target }})
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+        continue-on-error: ${{ matrix.target == 'merge' }}
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: base/package-lock.json
 
-      - name: Install deps (base)
-        working-directory: base
+      - name: Install deps
         run: npm ci
+        continue-on-error: ${{ matrix.target == 'merge' }}
 
-      - name: Prepare test result directory (base)
-        working-directory: base
-        run: |
-          rm -rf test-results
-          mkdir -p test-results
-
-      - name: Run shared tests (base)
-        working-directory: base
-        run: |
-          mkdir -p test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            src/shared/tests/*.test.js
+      # Your npm script should create ./test-results/*.xml and NOT hard-exit early
+      - name: Run test suite (JUnit XML)
+        run: npm run test:report
         continue-on-error: true
 
-      - name: Run parser tests (base)
-        working-directory: base/src/parser
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run plugin tests (base)
-        working-directory: base/src/plugin
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run CLI tests (base)
-        working-directory: base/src/cli
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Preserve base test results
-        run: |
-          BASE_RESULTS_DIR="$RUNNER_TEMP/base-test-results"
-          echo "BASE_RESULTS_DIR=$BASE_RESULTS_DIR" >> "$GITHUB_ENV"
-          rm -rf base-test-results "$BASE_RESULTS_DIR"
-          if [ -d base/test-results ]; then
-            mkdir -p base-test-results "$BASE_RESULTS_DIR"
-            cp -R base/test-results/. base-test-results/
-            cp -R base/test-results/. "$BASE_RESULTS_DIR/"
-          else
-            echo "No base/test-results directory found to preserve."
-          fi
-
-      # === HEAD (PR) at workspace root ===
-      - name: Checkout head (PR)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.pr-meta.outputs.head_sha }}
-          clean: false
-          fetch-depth: 1
-
-      - name: Setup Node (head)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install deps (head)
-        run: npm ci
-
-      - name: Prepare test result directory (head)
-        run: |
-          rm -rf test-results
-          mkdir -p test-results
-
-      - name: Run shared tests (head)
-        run: |
-          mkdir -p test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            src/shared/tests/*.test.js
-        continue-on-error: true
-
-      - name: Run parser tests (head)
-        working-directory: src/parser
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run plugin tests (head)
-        working-directory: src/plugin
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run CLI tests (head)
-        working-directory: src/cli
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      # === MERGED VIEW (synthetic test-merge ref) ===
-      - name: Checkout merged (PR applied onto base)
-        id: checkout-merge
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: refs/pull/${{ needs.pr-meta.outputs.number }}/merge
-          path: merge
-          fetch-depth: 1
-
-      - name: Detect availability of merge ref
-        id: has-merge
-        run: |
-          if [ -d merge/.git ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT";
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT";
-          fi
-
-      - name: Setup Node (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: merge/package-lock.json
-
-      - name: Install deps (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge
-        run: npm ci
-
-      - name: Prepare test result directory (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge
-        run: |
-          rm -rf test-results
-          mkdir -p test-results
-
-      - name: Run shared tests (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge
-        run: |
-          mkdir -p test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=./test-results/shared.xml \
-            src/shared/tests/*.test.js
-        continue-on-error: true
-
-      - name: Run parser tests (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge/src/parser
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/parser.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run plugin tests (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge/src/plugin
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/plugin.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Run CLI tests (merged)
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        working-directory: merge/src/cli
-        run: |
-          mkdir -p ../../test-results
-          node --test \
-            --test-reporter=junit --test-reporter-destination=../../test-results/cli.xml \
-            tests/*.test.js
-        continue-on-error: true
-
-      - name: Preserve merged test results
-        if: ${{ steps.has-merge.outputs.available == 'true' }}
-        run: |
-          MERGE_RESULTS_DIR="$RUNNER_TEMP/merge-test-results"
-          echo "MERGE_RESULTS_DIR=$MERGE_RESULTS_DIR" >> "$GITHUB_ENV"
-          rm -rf merge-test-results "$MERGE_RESULTS_DIR"
-          if [ -d merge/test-results ]; then
-            mkdir -p merge-test-results "$MERGE_RESULTS_DIR"
-            cp -R merge/test-results/. merge-test-results/
-            cp -R merge/test-results/. "$MERGE_RESULTS_DIR/"
-          else
-            echo "No merge/test-results directory found to preserve."
-          fi
-
-      # === Regression compare (base vs synthetic merge; fall back to head) ===
-      - name: Compare JUnit results (fail only on regressions)
-        run: node src/cli/commands/detect-test-regressions.mjs
-        shell: bash
-
-      - name: Publish PR test summary (head + merged)
-        if: ${{ always() && needs.pr-meta.outputs.should_run_tests == 'true' }}
-        continue-on-error: true
+      - name: Publish PR test summary (${{ matrix.target }})
+        if: ${{ always() }}
         uses: dorny/test-reporter@v2
         with:
-          name: Node.js test results (PR head & merged)
-          path: |
-            test-results/*.xml
-            merge/test-results/*.xml
+          name: Node.js test results (${{ matrix.target }})
+          path: test-results/*.xml
           reporter: java-junit
           fail-on-error: false
           fail-on-empty: false
-          use-actions-summary: true
+          use-actions-summary: false
 
-      # 👇 Adds/updates a sticky PR comment with a concise summary & failures
-      - name: Comment summarized test results on PR
-        if: ${{ always() && github.event_name == 'pull_request' && needs.pr-meta.outputs.should_run_tests == 'true' }}
-        continue-on-error: true
+      - name: Upload JUnit artifacts (${{ matrix.target }})
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.target }}
+          path: test-results/*.xml
+          retention-days: 7
+
+  summarize:
+    name: Summarize & comment table
+    needs: tests
+    runs-on: ubuntu-latest
+    outputs:
+      all_green: ${{ steps.regress.outputs.all_green }}
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          merge-multiple: false
+
+      # Use your repo’s logic to compute regressions (allows legacy failures)
+      - name: Detect regressions (repo script)
+        id: regress
+        run: |
+          set +e
+          export BASE_RESULTS_DIR="$(pwd)/junit-base"
+          export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
+          # Falls back to head when merge isn't available (handled by your script)
+          node src/cli/commands/detect-test-regressions.mjs
+          code=$?
+          if [ $code -eq 0 ]; then
+            echo "all_green=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "all_green=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: Summarize and comment
         uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ needs.pr-meta.outputs.number }}
         with:
           script: |
             const fs = require('node:fs');
             const path = require('node:path');
 
-            let XMLParser;
-            try {
-              const { createRequire } = require('node:module');
-              const requireFromWorkspace = createRequire(path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'package.json'));
-              const resolved = requireFromWorkspace.resolve('fast-xml-parser');
-              ({ XMLParser } = requireFromWorkspace(resolved));
-            } catch (error) {
-              core.warning(`fast-xml-parser is unavailable: ${error.message}`);
+            const MARKER = '<!-- automerge-pr-test-summary -->';
+            const targets = ['base','head','merge'];
+            const totals = {};
+            const notes = [];
+
+            function readSuites(dir) {
+              const xmlFiles = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.xml')).map(f => path.join(dir,f)) : [];
+              let t = { tests:0, failures:0, errors:0, skipped:0, time:0 };
+              for (const file of xmlFiles) {
+                const xml = fs.readFileSync(file,'utf8');
+                const suiteAttrs = [...xml.matchAll(/<testsuite\b([^>]*)>/g)];
+                for (const m of suiteAttrs) {
+                  const a = m[1] || '';
+                  const pick = k => (a.match(new RegExp(`${k}="([^"]*)"`)) || [])[1] ?? null;
+                  const n = v => (v === null ? 0 : Number.parseFloat(v)) || 0;
+                  t.tests    += n(pick('tests'));
+                  t.failures += n(pick('failures'));
+                  t.errors   += n(pick('errors'));
+                  t.skipped  += n(pick('skipped'));
+                  t.time     += n(pick('time'));
+                }
+              }
+              return t;
             }
 
-            const marker = '<!-- automerge-pr-test-summary -->';
-            const prNumber = Number(process.env.PR_NUMBER || 0);
-            if (!prNumber) {
-              core.warning('Cannot determine PR number for summary comment.');
-              return;
+            for (const tgt of targets) {
+              const dir = path.join(process.cwd(), `junit-${tgt}`);
+              totals[tgt] = readSuites(dir);
+              if (!fs.existsSync(dir)) notes.push(`No JUnit XML found for **${tgt}**.`);
             }
 
-            const pr = context.payload.pull_request || {};
-            const envBaseRef = (process.env.BASE_REF || '').trim();
-            const envBaseSha = (process.env.BASE_COMMIT_SHA || '').trim();
-            const baseLabel = `${envBaseRef || pr.base?.ref || 'base'} @ ${
-              (envBaseSha || pr.base?.sha || '').slice(0, 7) || '???????'
-            }`;
-            const headLabel = `${pr.head?.ref || 'head'} @ ${(pr.head?.sha || context.sha || '').slice(0, 7) || '???????'}`;
+            const fmtTime = s => !Number.isFinite(s) || s <= 0 ? '—'
+              : s < 1 ? `${(s*1000).toFixed(0)}ms`
+              : s >= 60 ? `${Math.floor(s/60)}m ${(s - Math.floor(s/60)*60).toFixed(1)}s`
+              : `${s.toFixed(2)}s`;
 
-            function collectSuiteStats(dir) {
-              const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-              const totals = { tests: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
-              const notes = [];
-
-              if (!XMLParser) {
-                notes.push('fast-xml-parser dependency is missing; cannot summarize results.');
-                return { available: false, totals, notes };
-              }
-
-              const candidates = (Array.isArray(dir) ? dir : [dir]).filter(Boolean);
-              const tried = [];
-              let resolvedDir = null;
-              let displayDir = '';
-
-              for (const candidate of candidates) {
-                const resolvedCandidate = path.isAbsolute(candidate)
-                  ? candidate
-                  : path.join(workspace, candidate);
-                const displayCandidate = path.relative(workspace, resolvedCandidate) || resolvedCandidate;
-                tried.push(displayCandidate);
-                if (fs.existsSync(resolvedCandidate) && fs.statSync(resolvedCandidate).isDirectory()) {
-                  resolvedDir = resolvedCandidate;
-                  displayDir = displayCandidate;
-                  break;
-                }
-              }
-
-              if (!resolvedDir) {
-                if (tried.length === 1) {
-                  notes.push(`No directory found at ${tried[0]}.`);
-                } else if (tried.length > 1) {
-                  notes.push(`No directory found at any of: ${tried.join(', ')}.`);
-                } else {
-                  notes.push('No result directory configured.');
-                }
-                return { available: false, totals, notes };
-              }
-
-              const files = fs.readdirSync(resolvedDir).filter(f => f.endsWith('.xml'));
-              if (files.length === 0) {
-                notes.push(`No JUnit XML files found in ${displayDir}.`);
-                return { available: false, totals, notes };
-              }
-
-              const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
-
-              const suiteList = [];
-              const seenSuites = new Set();
-              const visitNode = (node) => {
-                if (!node || typeof node !== 'object') return;
-                if (Array.isArray(node)) {
-                  for (const child of node) visitNode(child);
-                  return;
-                }
-                const hasCases = Object.prototype.hasOwnProperty.call(node, 'testcase');
-                const hasCounts = Object.prototype.hasOwnProperty.call(node, 'tests');
-                const hasNestedSuites = Object.prototype.hasOwnProperty.call(node, 'testsuite');
-                const shouldRecord = hasCases || (!hasNestedSuites && hasCounts);
-                if (shouldRecord && !seenSuites.has(node)) {
-                  seenSuites.add(node);
-                  suiteList.push(node);
-                }
-                for (const value of Object.values(node)) visitNode(value);
-              };
-
-              for (const file of files) {
-                try {
-                  const xml = fs.readFileSync(path.join(resolvedDir, file), 'utf8');
-                  if (!xml.trim()) continue;
-                  const data = parser.parse(xml);
-                  visitNode(data);
-                } catch (error) {
-                  notes.push(`Failed to parse ${path.join(displayDir, file)}: ${error.message}`);
-                }
-              }
-
-              if (suiteList.length === 0) {
-                notes.push(`No test suites discovered in ${displayDir}.`);
-                return { available: false, totals, notes };
-              }
-
-              for (const suite of suiteList) {
-                const rawCases = suite.testcase;
-                const cases = rawCases ? (Array.isArray(rawCases) ? rawCases : [rawCases]) : [];
-                if (cases.length > 0) {
-                  let recordedTime = false;
-                  for (const tc of cases) {
-                    if (!tc || typeof tc !== 'object') continue;
-                    totals.tests += 1;
-                    const hasFailure = tc.failure !== undefined || tc.failures !== undefined || tc.error !== undefined || tc.errors !== undefined;
-                    const isSkipped = tc.skipped !== undefined;
-                    if (hasFailure) {
-                      totals.failed += 1;
-                    } else if (isSkipped) {
-                      totals.skipped += 1;
-                    } else {
-                      totals.passed += 1;
-                    }
-                    const caseTime = Number.parseFloat(tc.time ?? tc.duration ?? tc.elapsed ?? 0);
-                    if (Number.isFinite(caseTime)) {
-                      totals.time += caseTime;
-                      recordedTime = true;
-                    }
-                  }
-                  if (!recordedTime) {
-                    const suiteTime = Number.parseFloat(suite.time ?? 0);
-                    if (Number.isFinite(suiteTime)) {
-                      totals.time += suiteTime;
-                    }
-                  }
-                } else {
-                  const tests = Number.parseInt(suite.tests ?? 0, 10);
-                  const failures = Number.parseInt(suite.failures ?? 0, 10) + Number.parseInt(suite.errors ?? 0, 10);
-                  const skipped = Number.parseInt(suite.skipped ?? 0, 10);
-                  if (Number.isFinite(tests)) totals.tests += tests;
-                  if (Number.isFinite(failures)) totals.failed += failures;
-                  if (Number.isFinite(skipped)) totals.skipped += skipped;
-                  const inferredPassed = tests - failures - skipped;
-                  if (Number.isFinite(inferredPassed) && inferredPassed > 0) {
-                    totals.passed += inferredPassed;
-                  }
-                  const suiteTime = Number.parseFloat(suite.time ?? 0);
-                  if (Number.isFinite(suiteTime)) {
-                    totals.time += suiteTime;
-                  }
-                }
-              }
-
-              return { available: true, totals, notes };
-            }
-
-            const baseCandidates = [path.join('base', 'test-results'), 'base-test-results'];
-            if (process.env.BASE_RESULTS_DIR) baseCandidates.push(process.env.BASE_RESULTS_DIR);
-
-            const mergeCandidates = [path.join('merge', 'test-results'), 'merge-test-results'];
-            if (process.env.MERGE_RESULTS_DIR) mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
-
-            const baseSummary  = collectSuiteStats(baseCandidates);
-            const headSummary  = collectSuiteStats('test-results');
-            const mergeSummary = collectSuiteStats(mergeCandidates);
-
-            const formatDuration = (seconds) => {
-              if (!Number.isFinite(seconds) || seconds < 0) return '—';
-              if (seconds === 0) return '0s';
-              if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-              if (seconds >= 60) {
-                const minutes = Math.floor(seconds / 60);
-                const rem = seconds - minutes * 60;
-                return `${minutes}m ${rem.toFixed(1)}s`;
-              }
-              return `${seconds.toFixed(2)}s`;
+            const row = (label, t) => {
+              const hasAny = (t.tests + t.failures + t.errors + t.skipped) > 0;
+              if (!hasAny) return `| ${label} | — | — | — | — | — |`;
+              const failed = t.failures + t.errors;
+              const passed = Math.max(0, t.tests - failed - t.skipped);
+              return `| ${label} | ${t.tests} | ${passed} | ${failed} | ${t.skipped} | ${fmtTime(t.time)} |`;
             };
 
-            const formatRow = (label, summary) => {
-              if (!summary.available || summary.totals.tests === 0) {
-                return `| ${label} | — | — | — | — | — |`;
-              }
-              const { tests, passed, failed, skipped, time } = summary.totals;
-              return `| ${label} | ${tests} | ${passed} | ${failed} | ${skipped} | ${formatDuration(time)} |`;
-            };
+            const baseRef = context.payload.pull_request?.base?.ref || 'base';
+            const baseSha = (context.payload.pull_request?.base?.sha || '').slice(0,7) || '???????';
+            const headRef = context.payload.pull_request?.head?.ref || 'head';
+            const headSha = (context.payload.pull_request?.head?.sha || context.sha || '').slice(0,7) || '???????';
 
-            const lines = [
-              marker,
-              '### Node.js regression test summary',
-              '',
+            const table = [
               '| Target | Total | Passed | Failed | Skipped | Duration |',
               '| --- | ---: | ---: | ---: | ---: | ---: |',
-              formatRow(`Base (${baseLabel})`, baseSummary),
-              formatRow(`PR (${headLabel})`, headSummary),
-              formatRow('Merged (base+PR)', mergeSummary),
-            ];
+              row(`Base (${baseRef} @ ${baseSha})`, totals.base),
+              row(`PR (${headRef} @ ${headSha})`, totals.head),
+              row('Merged (base+PR)', totals.merge),
+              '',
+              ...notes.map(n => `> ⚠️ ${n}`)
+            ].join('\n');
 
-            const notes = [...baseSummary.notes, ...headSummary.notes, ...mergeSummary.notes];
-            if (notes.length) {
-              lines.push('', ...notes.map(n => `> ⚠️ ${n}`));
-            }
+            const body = [ '<!-- automerge-pr-test-summary -->', '### Node.js regression test summary', '', table ].join('\n');
 
-            const body = lines.join('\n');
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request?.number;
+            if (!number) { core.notice('No PR number; skipping comment.'); return; }
 
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
             if (existing) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body,
-              });
-              core.notice('Updated existing test summary comment.');
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
             } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
-              core.notice('Created new test summary comment.');
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
             }
 
-      - name: Upload test reports as artifacts
-        if: ${{ always() }}
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-${{ github.sha }}
-          path: |
-            test-results/*.xml
-            merge/test-results/*.xml
-          retention-days: 7
-
-  ###########################################################################
-  # Auto-merge (require green regression on current SHA)
-  ###########################################################################
-  auto-merge-pr:
-    if: ${{ github.event_name == 'pull_request' }}
-    needs: [pr-meta, regression-tests]
+  auto-merge:
+    name: Auto-merge when green
+    needs: summarize
+    if: ${{ github.event_name == 'pull_request' && needs.summarize.outputs.all_green == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Require green regression (or run it), then merge
+      - name: Merge PR (and delete branch if safe)
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const n     = Number('${{ needs.pr-meta.outputs.number }}');
-            const REQUIRED_RUN_NAME = 'Detect new test failures (allow legacy failures)';
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
 
-            const MAX_ATTEMPTS = 3;
-            const BASE_MODIFIED_PATTERN = /Base branch was modified/i;
+            if (pr.draft) { core.notice(`Skip merge #${number}: draft.`); return; }
+            const ok = pr.mergeable === true && ['clean','unstable','blocked'].includes(String(pr.mergeable_state).toLowerCase());
+            if (!ok) { core.notice(`Skip merge #${number}: mergeable=${pr.mergeable}, state=${pr.mergeable_state}.`); return; }
 
-            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
+            core.notice(`Auto-merged PR #${number}.`);
 
-            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: n });
-
-              if (pr.draft) {
-                core.notice(`Skip merge #${n}: draft.`);
-                return;
-              }
-              const state = String(pr.mergeable_state || '').toLowerCase();
-              const ALLOWED_STATES = new Set(['clean', 'unstable', 'blocked']);
-              if (pr.mergeable !== true || !ALLOWED_STATES.has(state)) {
-                core.notice(`Skip merge #${n}: mergeable=${pr.mergeable}, state=${state}.`);
-                return;
-              }
-
-              // Ensure the required check on this exact SHA is green.
-              const sha = pr.head.sha;
-              const { data: checks } = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
-              const run = checks.check_runs.find(r => r.name === REQUIRED_RUN_NAME);
-
-              if (!run || run.status !== 'completed' || run.conclusion !== 'success') {
-                core.notice(`Skip merge #${n}: required check "${REQUIRED_RUN_NAME}" not green for ${sha.slice(0,7)}.`);
-                return;
-              }
-
-              try {
-                await github.rest.pulls.merge({ owner, repo, pull_number: n, merge_method: 'squash' });
-                core.notice(`Auto-merged PR #${n} (attempt ${attempt}/${MAX_ATTEMPTS}).`);
-
-                // Delete head branch if safe
-                try {
-                  const headRef = pr.head?.ref;
-                  const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
-                  const thisFull = `${owner}/${repo}`.toLowerCase();
-                  if (!headRef || headRepoFull !== thisFull) {
-                    core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
-                  } else {
-                    const { data: rinfo } = await github.rest.repos.get({ owner, repo });
-                    const defaultBranch = rinfo.default_branch;
-                    if (headRef === defaultBranch) {
-                      core.info(`Not deleting branch: ${headRef} is the default branch.`);
-                    } else {
-                      await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
-                      core.notice(`Deleted branch ${headRef} after merge.`);
-                    }
-                  }
-                } catch (e) {
-                  core.warning(`Unable to delete head branch: ${e.message}`);
+            // Delete head branch if safe
+            try {
+              const headRef = pr.head?.ref;
+              const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+              const thisFull = `${owner}/${repo}`.toLowerCase();
+              if (!headRef || headRepoFull !== thisFull) {
+                core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
+              } else {
+                const { data: rinfo } = await github.rest.repos.get({ owner, repo });
+                const defaultBranch = rinfo.default_branch;
+                if (headRef === defaultBranch) {
+                  core.info(`Not deleting branch: ${headRef} is the default branch.`);
+                } else {
+                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+                  core.notice(`Deleted branch ${headRef} after merge.`);
                 }
-                return;
-              } catch (error) {
-                const message = error?.message || '';
-                const status = error?.status;
-                const baseModified = status === 409 && BASE_MODIFIED_PATTERN.test(message);
-
-                if (baseModified && attempt < MAX_ATTEMPTS) {
-                  const delayMs = 5000 * attempt;
-                  core.warning(`Attempt ${attempt} to merge PR #${n} failed: ${message}. Retrying after ${delayMs}ms.`);
-                  await sleep(delayMs);
-                  continue;
-                }
-
-                throw error;
               }
+            } catch (e) {
+              core.warning(`Unable to delete head branch: ${e.message}`);
             }
-
-            core.setFailed(`Auto-merge PR #${n}: exhausted ${MAX_ATTEMPTS} attempts after base branch updates.`);
