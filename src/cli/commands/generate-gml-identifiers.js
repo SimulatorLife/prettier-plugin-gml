@@ -18,12 +18,18 @@ import {
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
 import { formatDuration, timeSync } from "../../shared/number-utils.js";
-import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    renderProgressBar,
+    disposeProgressBars,
+    resolveProgressBarWidth
+} from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
+import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,6 +90,18 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_VM_EVAL_TIMEOUT_MS
         )
         .option(
+            "--progress-bar-width <n>",
+            `Width of the terminal progress indicator (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            DEFAULT_PROGRESS_BAR_WIDTH
+        )
+        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -111,6 +129,8 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createGenerateIdentifiersCommand();
+
+    applyManualEnvOptionOverrides({ command, env });
 
     const verbose = {
         resolveRef: true,
@@ -145,6 +165,8 @@ function parseArgs({
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
                 : options.vmEvalTimeoutMs,
+        progressBarWidth:
+            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

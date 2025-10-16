@@ -16,6 +16,10 @@ import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR
 } from "../lib/manual-env.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    resolveProgressBarWidth
+} from "../lib/progress-bar.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -101,6 +105,26 @@ describe("manual option helpers", () => {
                 resolveManualCacheRoot({ repoRoot, env }),
                 path.join(repoRoot, "scripts", "cache", "manual")
             );
+        });
+    });
+
+    describe("resolveProgressBarWidth", () => {
+        it("defaults to the configured width when no value is provided", () => {
+            assert.equal(
+                resolveProgressBarWidth(),
+                DEFAULT_PROGRESS_BAR_WIDTH
+            );
+        });
+
+        it("normalizes numeric string inputs", () => {
+            assert.equal(resolveProgressBarWidth("  37  "), 37);
+        });
+
+        it("throws when provided with non-positive values", () => {
+            assert.throws(() => resolveProgressBarWidth("0"), {
+                name: "TypeError",
+                message: /positive integer/i
+            });
         });
     });
 
