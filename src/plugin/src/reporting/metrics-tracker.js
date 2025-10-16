@@ -20,6 +20,41 @@ function toPlainObject(map) {
     return Object.fromEntries(map);
 }
 
+/**
+ * Factory for lightweight timing/counter helpers used when collecting
+ * formatter diagnostics. The tracker keeps per-label aggregates instead of
+ * individual samples so callers can incrementally feed it event data without
+ * worrying about memory growth.
+ *
+ * Timings and counters default to zero and may be incremented even when no
+ * prior value exists; cache statistics are pre-seeded with "hits", "misses",
+ * and "stale" counters so downstream reporters can assume each key is present.
+ *
+ * @param {{
+ *     category?: string,
+ *     logger?: { debug?: (message: string, payload: any) => void } | null,
+ *     autoLog?: boolean
+ * } | undefined} [options] Optional configuration. `category` prefixes log
+ *     messages, `logger` supplies a debug sink (only its `debug` method is
+ *     used), and `autoLog` controls whether {@link finalize} emits a summary
+ *     automatically.
+ * @returns {{
+ *     category: string,
+ *     timeSync: <T>(label: string, callback: () => T) => T,
+ *     timeAsync: <T>(label: string, callback: () => Promise<T>) => Promise<T>,
+ *     startTimer: (label: string) => () => void,
+ *     incrementCounter: (label: string, amount?: number) => void,
+ *     recordCacheHit: (cacheName: string) => void,
+ *     recordCacheMiss: (cacheName: string) => void,
+ *     recordCacheStale: (cacheName: string) => void,
+ *     snapshot: (extra?: Record<string, unknown>) => Record<string, unknown>,
+ *     finalize: (extra?: Record<string, unknown>) => Record<string, unknown>,
+ *     logSummary: (message?: string, extra?: Record<string, unknown>) => void,
+ *     setMetadata: (key: unknown, value: unknown) => void
+ * }} A reusable tracker instance. None of the helpers throw when labels are
+ *     blank; instead they coerce to "unknown" so instrumentation can be wired
+ *     inline with minimal guard code.
+ */
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
