@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { CliUsageError } from "../cli-errors.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 import {
     applyEnvOptionOverride,
     applyEnvOptionOverrides
-} from "../options/env-overrides.js";
+} from "../lib/env-overrides.js";
 
 describe("applyEnvOptionOverride", () => {
     it("sets the option when the environment variable is defined", () => {

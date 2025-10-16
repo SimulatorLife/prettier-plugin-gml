@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Command } from "commander";
 
-import { parseCommandLine } from "../command-parsing.js";
-import { CliUsageError } from "../cli-errors.js";
+import { parseCommandLine } from "../lib/command-parsing.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 
 describe("parseCommandLine", () => {
     it("parses arguments and exposes command state", () => {

@@ -7,17 +7,15 @@ import {
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
-    resolveManualRepoValue
-} from "../options/manual-repo.js";
-import {
+    resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
-} from "../options/manual-cache.js";
+} from "../lib/manual-utils.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR
-} from "../options/manual-env.js";
+} from "../lib/manual-env.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
