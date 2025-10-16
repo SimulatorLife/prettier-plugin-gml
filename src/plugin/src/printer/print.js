@@ -71,7 +71,8 @@ const {
     ifBreak,
     hardline,
     softline,
-    concat
+    concat,
+    lineSuffixBoundary
 } = builders;
 const { willBreak } = utils;
 
@@ -177,6 +178,43 @@ export function print(path, options, print) {
                 return concat(printEmptyBlock(path, options, print));
             }
 
+            let leadingDocs = [hardline];
+
+            const parentNode =
+                typeof path.getParentNode === "function"
+                    ? path.getParentNode()
+                    : null;
+
+            if (
+                parentNode?.type === "ConstructorDeclaration" &&
+                typeof options.originalText === "string"
+            ) {
+                const firstStatement = node.body[0];
+                const startProp = firstStatement?.start;
+                const fallbackStart =
+                    typeof startProp === "number"
+                        ? startProp
+                        : typeof startProp?.index === "number"
+                          ? startProp.index
+                          : 0;
+                const locStart =
+                    typeof options.locStart === "function"
+                        ? options.locStart
+                        : null;
+                const firstStatementStartIndex = locStart
+                    ? locStart(firstStatement)
+                    : fallbackStart;
+
+                if (
+                    isPreviousLineEmpty(
+                        options.originalText,
+                        firstStatementStartIndex
+                    )
+                ) {
+                    leadingDocs.push(lineSuffixBoundary, hardline);
+                }
+            }
+
             return concat([
                 "{",
                 printDanglingComments(
@@ -185,7 +223,7 @@ export function print(path, options, print) {
                     (comment) => comment.attachToBrace
                 ),
                 indent([
-                    hardline, // the first statement of a non-empty block must begin on its own line.
+                    ...leadingDocs,
                     printStatements(path, options, print, "body")
                 ]),
                 hardline,
@@ -1510,6 +1548,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&

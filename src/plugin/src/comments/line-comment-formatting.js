@@ -183,7 +183,10 @@ function formatLineComment(
     }
 
     const isInlineComment =
-        isObjectLike(comment) && typeof comment.inlinePadding === "number";
+        isObjectLike(comment) &&
+        (typeof comment.inlinePadding === "number" ||
+            comment.trailing === true ||
+            comment.placement === "endOfLine");
     const sentences = isInlineComment
         ? [trimmedValue]
         : splitCommentIntoSentences(trimmedValue);
