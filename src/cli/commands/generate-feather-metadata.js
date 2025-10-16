@@ -440,24 +440,23 @@ function normaliseContent(blocks) {
         headings: [],
         tables: []
     };
-    for (const block of blocks) {
-        if (!block) {
-            continue;
+    const appendNormalizedText = (target, text) => {
+        const normalized = normaliseMultilineText(text ?? "");
+        if (normalized) {
+            target.push(normalized);
         }
-        if (block.type === "code") {
+    };
+
+    const handlers = {
+        code(block) {
             if (block.text) {
                 content.codeExamples.push(block.text);
             }
-            continue;
-        }
-        if (block.type === "note") {
-            const note = normaliseMultilineText(block.text ?? "");
-            if (note) {
-                content.notes.push(note);
-            }
-            continue;
-        }
-        if (block.type === "list") {
+        },
+        note(block) {
+            appendNormalizedText(content.notes, block.text);
+        },
+        list(block) {
             const items = Array.isArray(block.items)
                 ? block.items
                       .map((item) => normaliseMultilineText(item))
@@ -466,25 +465,29 @@ function normaliseContent(blocks) {
             if (items.length > 0) {
                 content.lists.push(items);
             }
-            continue;
-        }
-        if (block.type === "table") {
+        },
+        table(block) {
             if (block.table) {
                 content.tables.push(block.table);
             }
+        },
+        heading(block) {
+            appendNormalizedText(content.headings, block.text);
+        }
+    };
+
+    for (const block of blocks) {
+        if (!block) {
             continue;
         }
-        if (block.type === "heading") {
-            const heading = normaliseMultilineText(block.text ?? "");
-            if (heading) {
-                content.headings.push(heading);
-            }
+
+        const handler = handlers[block.type];
+        if (handler) {
+            handler(block);
             continue;
         }
-        const paragraph = normaliseMultilineText(block.text ?? "");
-        if (paragraph) {
-            content.paragraphs.push(paragraph);
-        }
+
+        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }
