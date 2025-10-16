@@ -121,4 +121,30 @@ function cloneLocation(location) {
     return clonePlainContainer(location);
 }
 
-export { getNodeStartIndex, getNodeEndIndex, cloneLocation };
+/**
+ * Resolves both the starting and ending offsets for a node in a single call.
+ *
+ * The helper mirrors {@link getNodeStartIndex} / {@link getNodeEndIndex}
+ * by returning `null` when either boundary is unavailable so callers can
+ * branch without repeatedly validating nested location objects.
+ *
+ * @param {unknown} node AST node whose bounds should be retrieved.
+ * @returns {{ start: number | null, end: number | null }} Character indices
+ *          where `end` is exclusive when defined.
+ */
+function getNodeRangeIndices(node) {
+    const start = getNodeStartIndex(node);
+    const end = getNodeEndIndex(node);
+
+    return {
+        start: typeof start === "number" ? start : null,
+        end: typeof end === "number" ? end : null
+    };
+}
+
+export {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    getNodeRangeIndices,
+    cloneLocation
+};

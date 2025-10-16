@@ -7920,7 +7920,8 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
 
     const fixes = [];
     const state = {
-        counter: 0
+        counter: 0,
+        statementInsertionOffsets: new WeakMap()
     };
 
     const visit = (node, parent, property, ancestors) => {
@@ -7933,9 +7934,30 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
             : [{ node, parent, property }];
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index, nextAncestors);
+            let index = 0;
+
+            while (index < node.length) {
+                const beforeLength = node.length;
+                const child = node[index];
+
+                visit(child, node, index, nextAncestors);
+
+                const afterLength = node.length;
+
+                if (afterLength > beforeLength) {
+                    const inserted = afterLength - beforeLength;
+                    index = Math.max(0, index - inserted);
+                    continue;
+                }
+
+                if (afterLength < beforeLength) {
+                    index = Math.max(0, index - 1);
+                    continue;
+                }
+
+                index += 1;
             }
+
             return;
         }
 
@@ -8010,6 +8032,17 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
+    const insertionInfo = getStatementInsertionInfo(
+        state,
+        statementContext.statements,
+        statementContext.index
+    );
+
+    const insertionOffset =
+        insertionInfo && typeof insertionInfo.offset === "number"
+            ? insertionInfo.offset
+            : 0;
+
     const temporaryDeclarations = [];
 
     for (const { argument, index } of callArgumentInfos) {
@@ -8056,11 +8089,17 @@ function normalizeCallExpressionArguments({
         node.arguments[index] = createIdentifier(identifier.name, identifier);
     }
 
-    statementContext.statements.splice(
-        statementContext.index,
-        0,
-        ...temporaryDeclarations.map(({ declaration }) => declaration)
+    const declarations = temporaryDeclarations.map(
+        ({ declaration }) => declaration
     );
+
+    const insertionIndex = statementContext.index + insertionOffset;
+
+    statementContext.statements.splice(insertionIndex, 0, ...declarations);
+
+    if (insertionInfo) {
+        insertionInfo.offset += declarations.length;
+    }
 
     for (const { declaration } of temporaryDeclarations) {
         attachFeatherFixMetadata(declaration, [fixDetail]);
@@ -8110,6 +8149,37 @@ function createTemporaryVariableDeclaration(name, init) {
     };
 
     return declaration;
+}
+
+function getStatementInsertionInfo(state, statements, baseIndex) {
+    if (
+        !state ||
+        typeof state !== "object" ||
+        !Array.isArray(statements) ||
+        typeof baseIndex !== "number"
+    ) {
+        return null;
+    }
+
+    if (!state.statementInsertionOffsets) {
+        state.statementInsertionOffsets = new WeakMap();
+    }
+
+    let arrayInfo = state.statementInsertionOffsets.get(statements);
+
+    if (!arrayInfo) {
+        arrayInfo = new Map();
+        state.statementInsertionOffsets.set(statements, arrayInfo);
+    }
+
+    let info = arrayInfo.get(baseIndex);
+
+    if (!info) {
+        info = { offset: 0 };
+        arrayInfo.set(baseIndex, info);
+    }
+
+    return info;
 }
 
 function findStatementContext(ancestors) {
