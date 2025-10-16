@@ -6,6 +6,7 @@ import {
     IDENTIFIER_CASE_SCOPE_NAMES,
     IDENTIFIER_CASE_INHERIT_VALUE,
     IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME,
+    IdentifierCaseStyle,
     normalizeIdentifierCaseOptions,
     getIdentifierCaseScopeOptionName,
     IDENTIFIER_CASE_IGNORE_OPTION_NAME,
@@ -16,13 +17,16 @@ describe("gml identifier case option normalization", () => {
     it("defaults to disabled renaming when options are omitted", () => {
         const normalized = normalizeIdentifierCaseOptions({});
 
-        assert.strictEqual(normalized.baseStyle, "off");
+        assert.strictEqual(normalized.baseStyle, IdentifierCaseStyle.OFF);
         for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
             assert.strictEqual(
                 normalized.scopeSettings[scope],
                 IDENTIFIER_CASE_INHERIT_VALUE
             );
-            assert.strictEqual(normalized.scopeStyles[scope], "off");
+            assert.strictEqual(
+                normalized.scopeStyles[scope],
+                IdentifierCaseStyle.OFF
+            );
         }
         assert.deepStrictEqual(normalized.ignorePatterns, []);
         assert.deepStrictEqual(normalized.preservedIdentifiers, []);
@@ -53,6 +57,28 @@ describe("gml identifier case option normalization", () => {
             "PlayerScore"
         ]);
         assert.strictEqual(normalized.assetRenamesAcknowledged, true);
+    });
+
+    it("rejects unknown locals identifier case style values", () => {
+        assert.throws(
+            () =>
+                normalizeIdentifierCaseOptions({
+                    [getIdentifierCaseScopeOptionName("locals")]: "kebab"
+                }),
+            /invalid identifier case style/i
+        );
+    });
+
+    it("accepts valid locals identifier case style values", () => {
+        const normalized = normalizeIdentifierCaseOptions({
+            [getIdentifierCaseScopeOptionName("locals")]:
+                IdentifierCaseStyle.SNAKE_UPPER
+        });
+
+        assert.strictEqual(
+            normalized.scopeStyles.locals,
+            IdentifierCaseStyle.SNAKE_UPPER
+        );
     });
 
     it("rejects enabling asset renames without acknowledgment", () => {
