@@ -28,7 +28,7 @@ const defaultFsFacade = Object.freeze({
 const defaultNow = () => Date.now();
 
 function getNormalizedOperations(report) {
-    return Array.isArray(report?.operations) ? report.operations : [];
+    return asArray(report?.operations);
 }
 
 function getNormalizedConflicts(conflicts) {
