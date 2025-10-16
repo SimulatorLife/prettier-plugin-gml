@@ -177,6 +177,29 @@ export function print(path, options, print) {
                 return concat(printEmptyBlock(path, options, print));
             }
 
+            const leadingLines = [hardline];
+            const blockParent = path.getParentNode();
+            const parentAllowsLeadingBlankLine =
+                blockParent?.type === "ConstructorDeclaration" ||
+                (blockParent?.type === "FunctionDeclaration" &&
+                    (() => {
+                        const declaratorParent = path.getParentNode(1);
+                        const declarationAncestor = path.getParentNode(2);
+                        return (
+                            declaratorParent?.type === "VariableDeclarator" &&
+                            declarationAncestor?.type ===
+                                "VariableDeclaration" &&
+                            declarationAncestor.kind === "static"
+                        );
+                    })());
+
+            if (
+                parentAllowsLeadingBlankLine &&
+                shouldPreserveLeadingBlankLine(node, options)
+            ) {
+                leadingLines.push(hardline);
+            }
+
             return concat([
                 "{",
                 printDanglingComments(
@@ -185,7 +208,7 @@ export function print(path, options, print) {
                     (comment) => comment.attachToBrace
                 ),
                 indent([
-                    hardline, // the first statement of a non-empty block must begin on its own line.
+                    ...leadingLines,
                     printStatements(path, options, print, "body")
                 ]),
                 hardline,
@@ -1404,6 +1427,49 @@ function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
     return false;
 }
 
+function shouldPreserveLeadingBlankLine(blockNode, options) {
+    if (!blockNode || blockNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    const statements = Array.isArray(blockNode.body) ? blockNode.body : [];
+    if (statements.length === 0) {
+        return false;
+    }
+
+    const originalText = options?.originalText;
+    if (typeof originalText !== "string" || originalText.length === 0) {
+        return false;
+    }
+
+    const firstStatement = statements[0];
+    const locStartFn =
+        typeof options?.locStart === "function" ? options.locStart : null;
+    const blockStartIndex = locStartFn
+        ? locStartFn(blockNode)
+        : getNodeStartIndex(blockNode);
+    const statementStartIndex = locStartFn
+        ? locStartFn(firstStatement)
+        : getNodeStartIndex(firstStatement);
+
+    if (
+        typeof blockStartIndex !== "number" ||
+        typeof statementStartIndex !== "number" ||
+        statementStartIndex <= blockStartIndex
+    ) {
+        return false;
+    }
+
+    const between = originalText.slice(
+        blockStartIndex + 1,
+        statementStartIndex
+    );
+
+    return /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
+        between
+    );
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -1767,6 +1833,12 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const name = declarator.id.name;
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
+    if (functionNode._docCommentOverride) {
+        syntheticOverrides.forceOverride = true;
+    }
+    if (functionNode._suppressSyntheticReturnsDoc) {
+        syntheticOverrides.suppressReturns = true;
+    }
     const hasExistingDocLines = existingDocLines.length > 0;
 
     const syntheticLines = hasExistingDocLines
@@ -2592,6 +2664,15 @@ function computeSyntheticFunctionDocLines(
     }
 
     const lines = [];
+
+    const shouldPrependOverride =
+        (overrides?.forceOverride === true ||
+            node?._docCommentOverride === true) &&
+        !metadata.some((meta) => meta.tag === "override");
+
+    if (shouldPrependOverride) {
+        lines.push("/// @override");
+    }
 
     if (functionName && !hasFunctionTag) {
         lines.push(`/// @function ${functionName}`);
@@ -3518,12 +3599,23 @@ function shouldGenerateSyntheticDocForFunction(
 ) {
     const node = path.getValue();
     const parent = path.getParentNode();
-    if (!node || !parent || parent.type !== "Program") {
+    if (!node || !parent) {
+        return false;
+    }
+
+    const parentIsProgram = parent.type === "Program";
+    const grandParent = path.getParentNode(1);
+    const parentIsConstructorBody =
+        parent.type === "BlockStatement" &&
+        grandParent?.type === "ConstructorDeclaration" &&
+        grandParent.body === parent;
+
+    if (!parentIsProgram && !parentIsConstructorBody) {
         return false;
     }
 
     if (node.type === "ConstructorDeclaration") {
-        return true;
+        return parentIsProgram;
     }
 
     if (node.type !== "FunctionDeclaration") {

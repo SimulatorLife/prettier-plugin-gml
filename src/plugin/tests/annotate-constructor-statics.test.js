@@ -6,6 +6,7 @@ import { annotateConstructorStatics } from "../src/ast-transforms/annotate-const
 const sourceText = [
     "/// @hide",
     "function Base() constructor {",
+    "    /// @function print",
     "    static print = function() {",
     "    };",
     "}",

@@ -13,6 +13,7 @@ import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import { annotateConstructorStatics } from "../ast-transforms/annotate-constructor-statics.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex
@@ -146,6 +147,10 @@ async function parse(text, options) {
         }
 
         preprocessFunctionArgumentDefaults(ast);
+
+        annotateConstructorStatics(ast, {
+            sourceText: options?.originalText ?? text
+        });
 
         return ast;
     } catch (error) {

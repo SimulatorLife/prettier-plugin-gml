@@ -56,43 +56,6 @@ function constructorDocHasHide(constructorNode, sourceText) {
     return false;
 }
 
-function hasPrecedingComment(sourceText, startIndex) {
-    if (typeof startIndex !== "number" || startIndex <= 0) {
-        return false;
-    }
-
-    let cursor = startIndex - 1;
-
-    while (cursor >= 0) {
-        const currentChar = sourceText.charCodeAt(cursor);
-        if (currentChar === 10 || currentChar === 13) {
-            cursor -= 1;
-            continue;
-        }
-
-        const lineStart = sourceText.lastIndexOf("\n", cursor) + 1;
-        const line = sourceText.slice(lineStart, cursor + 1);
-        const trimmed = line.trim();
-
-        if (trimmed.length === 0) {
-            cursor = lineStart - 1;
-            continue;
-        }
-
-        if (
-            trimmed.startsWith("//") ||
-            trimmed.startsWith("///") ||
-            trimmed.startsWith("/*")
-        ) {
-            return true;
-        }
-
-        return false;
-    }
-
-    return false;
-}
-
 export function annotateConstructorStatics(ast, { sourceText } = {}) {
     if (!ast || typeof ast !== "object" || !Array.isArray(ast.body)) {
         return;
@@ -197,8 +160,7 @@ export function annotateConstructorStatics(ast, { sourceText } = {}) {
             if (
                 entry.isHidden &&
                 (!Array.isArray(staticInfo.functionNode.params) ||
-                    staticInfo.functionNode.params.length === 0) &&
-                !hasPrecedingComment(sourceText, staticInfo.startIndex)
+                    staticInfo.functionNode.params.length === 0)
             ) {
                 staticInfo.functionNode._suppressSyntheticReturnsDoc = true;
             }
