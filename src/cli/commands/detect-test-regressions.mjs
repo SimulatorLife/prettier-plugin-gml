@@ -3,6 +3,11 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import {
+    isNonEmptyTrimmedString,
+    toTrimmedString
+} from "../../shared/string-utils.js";
+
 let parser;
 
 try {
@@ -29,10 +34,6 @@ function hasAnyOwn(object, keys) {
     return keys.some((key) => hasOwn(object, key));
 }
 
-function isNonEmptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
-}
-
 function looksLikeTestCase(node) {
     if (!node || typeof node !== "object" || Array.isArray(node)) {
         return false;
@@ -42,11 +43,11 @@ function looksLikeTestCase(node) {
         return false;
     }
 
-    if (!isNonEmptyString(node.name)) {
+    if (!isNonEmptyTrimmedString(node.name)) {
         return false;
     }
 
-    if (isNonEmptyString(node.classname)) {
+    if (isNonEmptyTrimmedString(node.classname)) {
         return true;
     }
 
@@ -263,9 +264,7 @@ function parseXmlDocument(xml) {
 }
 
 function normalizeSuiteName(name) {
-    if (typeof name !== "string") return "";
-    const trimmed = name.trim();
-    return trimmed;
+    return toTrimmedString(name);
 }
 
 function buildTestKey(testNode, suitePath) {
@@ -276,13 +275,11 @@ function buildTestKey(testNode, suitePath) {
     if (normalizedSuitePath.length > 0) {
         parts.push(...normalizedSuitePath);
     }
-    const className =
-        typeof testNode.classname === "string" ? testNode.classname.trim() : "";
+    const className = toTrimmedString(testNode.classname);
     if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
     }
-    const testName =
-        typeof testNode.name === "string" ? testNode.name.trim() : "";
+    const testName = toTrimmedString(testNode.name);
     parts.push(testName || "(unnamed test)");
     return parts.join(" :: ");
 }
@@ -295,12 +292,11 @@ function describeTestCase(testNode, suitePath) {
     if (normalizedSuitePath.length > 0) {
         parts.push(...normalizedSuitePath);
     }
-    const testName =
-        typeof testNode.name === "string" ? testNode.name.trim() : "";
+    const testName = toTrimmedString(testNode.name);
     if (testName) {
         parts.push(testName);
     }
-    const file = typeof testNode.file === "string" ? testNode.file.trim() : "";
+    const file = toTrimmedString(testNode.file);
     if (file) {
         return `${parts.join(" :: ")} [${file}]`;
     }
