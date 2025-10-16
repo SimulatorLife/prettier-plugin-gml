@@ -19,7 +19,8 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   collaborators or mixins over deep inheritance chains.
 - [Dead code audit playbook](dead-code-audit.md) — Checklist and remediation
   steps for pruning unused code surfaced by the formatter’s metadata reports.
-- [Codex action reference](codex-action-reference.md) — Summaries of automated Github Actions utilizing Codex.
+- [Codex action reference](codex-action-reference.md) — Summaries of automated
+  GitHub Actions utilizing Codex.
 
 ## Usage & rollout
 
