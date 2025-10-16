@@ -9,12 +9,13 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { formatDuration, timeSync } from "../../shared/number-utils.js";
 import {
-    formatDuration,
+    DEFAULT_PROGRESS_BAR_WIDTH,
     renderProgressBar,
     disposeProgressBars,
-    timeSync
-} from "../../shared/number-utils.js";
+    resolveProgressBarWidth
+} from "../lib/progress-bar.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
@@ -25,7 +26,10 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "../lib/manual-utils.js";
-import { applyEnvOptionOverrides } from "../lib/env-overrides.js";
+import {
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    applyManualEnvOptionOverrides
+} from "../lib/manual-env.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,6 +105,18 @@ function createFeatherMetadataCommand() {
             `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
             (value) => path.resolve(value),
             DEFAULT_CACHE_ROOT
+        )
+        .option(
+            "--progress-bar-width <n>",
+            `Width of the terminal progress indicator (default: ${DEFAULT_PROGRESS_BAR_WIDTH}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            DEFAULT_PROGRESS_BAR_WIDTH
         );
 
     command.addHelpText(
@@ -110,7 +126,8 @@ function createFeatherMetadataCommand() {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit)."
+            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit).",
+            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
         ].join("\n")
     );
 
@@ -123,24 +140,10 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createFeatherMetadataCommand();
-    const getUsage = () => command.helpInformation();
-
-    applyEnvOptionOverrides({
+    applyManualEnvOptionOverrides({
         command,
         env,
-        getUsage,
-        overrides: [
-            {
-                envVar: "GML_MANUAL_REF",
-                optionName: "ref"
-            },
-            {
-                envVar: MANUAL_REPO_ENV_VAR,
-                optionName: "manualRepo",
-                resolveValue: (value) =>
-                    resolveManualRepoValue(value, { source: "env" })
-            }
-        ]
+        getUsage: () => command.helpInformation()
     });
 
     const verbose = {
@@ -172,6 +175,8 @@ function parseArgs({
         outputPath: options.output ?? OUTPUT_DEFAULT,
         forceRefresh: Boolean(options.forceRefresh),
         verbose,
+        progressBarWidth:
+            options.progressBarWidth ?? DEFAULT_PROGRESS_BAR_WIDTH,
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,
