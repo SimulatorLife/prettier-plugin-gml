@@ -425,11 +425,7 @@ function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
     };
 }
 
-function deriveEventDisplayName(event) {
-    if (event && typeof event.name === "string" && event.name.trim()) {
-        return event.name;
-    }
-
+function resolveEventMetadata(event) {
     const eventType =
         typeof event?.eventType === "number"
             ? event.eventType
@@ -443,15 +439,23 @@ function deriveEventDisplayName(event) {
               ? event.enumb
               : null;
 
+    if (event && typeof event.name === "string" && event.name.trim()) {
+        return { eventType, eventNum, displayName: event.name };
+    }
+
     if (eventType == undefined && eventNum == undefined) {
-        return "event";
+        return { eventType, eventNum, displayName: "event" };
     }
 
     if (eventNum == undefined) {
-        return String(eventType);
+        return { eventType, eventNum, displayName: String(eventType) };
     }
 
-    return `${eventType}_${eventNum}`;
+    return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
+}
+
+function deriveEventDisplayName(event) {
+    return resolveEventMetadata(event).displayName;
 }
 
 function createObjectEventScopeDescriptor(
@@ -459,7 +463,7 @@ function createObjectEventScopeDescriptor(
     event,
     gmlRelativePath
 ) {
-    const displayName = deriveEventDisplayName(event);
+    const { displayName, eventType, eventNum } = resolveEventMetadata(event);
     const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
     return {
         id: scopeId,
@@ -470,18 +474,8 @@ function createObjectEventScopeDescriptor(
         gmlFile: gmlRelativePath,
         event: {
             name: displayName,
-            eventType:
-                typeof event?.eventType === "number"
-                    ? event.eventType
-                    : typeof event?.eventtype === "number"
-                      ? event.eventtype
-                      : null,
-            eventNum:
-                typeof event?.eventNum === "number"
-                    ? event.eventNum
-                    : typeof event?.enumb === "number"
-                      ? event.enumb
-                      : null
+            eventType,
+            eventNum
         }
     };
 }
@@ -507,6 +501,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
+    const { displayName } = resolveEventMetadata(event);
     const candidatePaths = [];
     if (typeof event.eventContents === "string") {
         candidatePaths.push(event.eventContents);
@@ -535,7 +530,6 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
-    const displayName = deriveEventDisplayName(event);
     const guessed = path.posix.join(
         resourceRelativeDir,
         `${resourceRecord.name}_${displayName}.gml`
