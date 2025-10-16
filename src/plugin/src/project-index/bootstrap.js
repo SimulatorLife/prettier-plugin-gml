@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
 import {
@@ -124,41 +125,6 @@ function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
     }
 
     return normalized;
-}
-
-function normalizeNumericOption(
-    rawValue,
-    { optionName, coerce, formatTypeError, createCoerceOptions }
-) {
-    if (rawValue == null) {
-        return;
-    }
-
-    const rawType = typeof rawValue;
-    const isString = rawType === "string";
-
-    if (rawType !== "number" && !isString) {
-        throw new Error(formatTypeError(optionName, rawType));
-    }
-
-    const normalized = isString ? rawValue.trim() : rawValue;
-    if (isString && normalized === "") {
-        return;
-    }
-
-    const received = isString ? `'${rawValue}'` : normalized;
-    const numericValue = isString ? Number(normalized) : normalized;
-
-    return coerce(
-        numericValue,
-        createCoerceOptions({
-            optionName,
-            rawType,
-            rawValue,
-            received,
-            isString
-        })
-    );
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
