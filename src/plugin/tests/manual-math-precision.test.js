@@ -41,3 +41,29 @@ test("converts manual mean with floating point noise", async () => {
         ].join("\n")
     );
 });
+
+test("preserves inline comments between manual math operands", async () => {
+    const source = [
+        "function keep_comment(value) {",
+        "    return value /* keep */ * value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function keep_comment",
+            "/// @param value",
+            "function keep_comment(value) {",
+            "    return value /* keep */ * value;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
