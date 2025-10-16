@@ -293,19 +293,19 @@ function toProjectRelativePath(projectRoot, absolutePath) {
     return toPosixPath(relative);
 }
 
-function normaliseResourcePath(rawPath, { projectRoot } = {}) {
+function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     if (typeof rawPath !== "string" || rawPath.length === 0) {
         return null;
     }
 
-    const normalised = toPosixPath(rawPath).replace(/^\.\//, "");
+    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
     if (!projectRoot) {
-        return normalised;
+        return normalized;
     }
 
-    const absoluteCandidate = path.isAbsolute(normalised)
-        ? normalised
-        : path.join(projectRoot, normalised);
+    const absoluteCandidate = path.isAbsolute(normalized)
+        ? normalized
+        : path.join(projectRoot, normalized);
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
@@ -525,9 +525,9 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     }
 
     for (const candidate of candidatePaths) {
-        const normalised = normaliseResourcePath(candidate);
-        if (normalised) {
-            return normalised;
+        const normalized = normalizeResourcePath(candidate);
+        if (normalized) {
+            return normalized;
         }
     }
 
@@ -676,10 +676,10 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
         collectAssetReferences(
             parsed,
             ({ propertyPath, targetPath, targetName }) => {
-                const normalisedTarget = normaliseResourcePath(targetPath, {
+                const normalizedTarget = normalizeResourcePath(targetPath, {
                     projectRoot
                 });
-                if (!normalisedTarget) {
+                if (!normalizedTarget) {
                     return;
                 }
 
@@ -687,7 +687,7 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
                     fromResourcePath: file.relativePath,
                     fromResourceName: resourceRecord.name,
                     propertyPath,
-                    targetPath: normalisedTarget,
+                    targetPath: normalizedTarget,
                     targetName: targetName ?? null,
                     targetResourceType: null
                 };
