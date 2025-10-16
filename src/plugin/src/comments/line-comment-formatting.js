@@ -151,6 +151,20 @@ function formatLineComment(
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
+    const isInlineComment =
+        isObjectLike(comment) && typeof comment.inlinePadding === "number";
+    const isTrailingComment =
+        isObjectLike(comment) &&
+        typeof comment.leadingWS === "string" &&
+        comment.leadingWS.length >= 0 &&
+        !comment.leadingWS.includes("\n") &&
+        typeof comment.leadingChar === "string" &&
+        comment.leadingChar !== "";
+
+    if (isTrailingComment) {
+        return applyInlinePadding(comment, `// ${trimmedValue}`);
+    }
+
     const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
     if (
         docContinuationMatch &&
@@ -182,11 +196,10 @@ function formatLineComment(
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
-    const isInlineComment =
-        isObjectLike(comment) && typeof comment.inlinePadding === "number";
-    const sentences = isInlineComment
-        ? [trimmedValue]
-        : splitCommentIntoSentences(trimmedValue);
+    const sentences =
+        isInlineComment || isTrailingComment
+            ? [trimmedValue]
+            : splitCommentIntoSentences(trimmedValue);
     if (sentences.length > 1) {
         const formattedSentences = sentences.map((sentence) =>
             applyInlinePadding(comment, `// ${sentence}`)
