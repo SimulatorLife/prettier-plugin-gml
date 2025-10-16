@@ -17,13 +17,14 @@ import {
     resolveManualRepoValue,
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { formatDuration } from "../../shared/number-utils.js";
 import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
+import { timeSync } from "../lib/timing.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
