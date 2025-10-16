@@ -27,3 +27,17 @@ test("cloneLocation preserves primitive values", () => {
     assert.equal(cloneLocation(42), 42);
     assert.equal(cloneLocation("start"), "start");
 });
+
+test("cloneLocation clones nested arrays and objects", () => {
+    const location = {
+        index: 4,
+        trail: [1, { nested: [2, 3] }]
+    };
+
+    const cloned = cloneLocation(location);
+
+    assert.deepEqual(cloned, location);
+    assert.notStrictEqual(cloned, location);
+    assert.notStrictEqual(cloned.trail, location.trail);
+    assert.notStrictEqual(cloned.trail[1], location.trail[1]);
+});
