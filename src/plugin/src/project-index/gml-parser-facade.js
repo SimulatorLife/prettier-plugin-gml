@@ -1,7 +1,6 @@
 import path from "node:path";
 
-import GMLParser from "../../../parser/gml-parser.js";
-import { GameMakerSyntaxError } from "../../../parser/src/gml-syntax-error.js";
+import GMLParser, { GameMakerSyntaxError } from "../../../parser/gml-parser.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
