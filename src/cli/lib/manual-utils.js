@@ -6,7 +6,7 @@ import { ensureDir } from "./file-system.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
-const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
+const MANUAL_REPO_PATTERN = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
 function parseJsonOrThrow(text, description) {
@@ -95,17 +95,8 @@ function normalizeManualRepository(value) {
         return null;
     }
 
-    const segments = trimmed.split("/");
-    if (segments.length !== 2) {
-        return null;
-    }
-
-    const [owner, repo] = segments;
-    if (!REPO_SEGMENT_PATTERN.test(owner) || !REPO_SEGMENT_PATTERN.test(repo)) {
-        return null;
-    }
-
-    return `${owner}/${repo}`;
+    const match = MANUAL_REPO_PATTERN.exec(trimmed);
+    return match ? `${match[1]}/${match[2]}` : null;
 }
 
 function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
