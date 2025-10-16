@@ -307,7 +307,7 @@ async function discardFormattedFileOriginalContents() {
     formattedFileOriginalContents.clear();
 
     for (const snapshot of snapshots) {
-        // eslint-disable-next-line no-await-in-loop -- Sequential cleanup keeps the
+         
         // shared snapshot counter accurate and the directory removal deterministic.
         await releaseSnapshot(snapshot);
     }
@@ -426,7 +426,7 @@ async function revertFormattedFiles() {
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
         } finally {
-            // eslint-disable-next-line no-await-in-loop -- Sequential cleanup keeps
+             
             // the counter and directory lifecycle deterministic.
             await releaseSnapshot(snapshot);
         }
