@@ -19,13 +19,13 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
         return;
     }
 
-    let remaining = optionStoreMap.size - limit;
-    for (const key of optionStoreMap.keys()) {
-        optionStoreMap.delete(key);
-        remaining -= 1;
-        if (remaining === 0) {
+    const oldestKeys = optionStoreMap.keys();
+    while (optionStoreMap.size > limit) {
+        const { value, done } = oldestKeys.next();
+        if (done) {
             break;
         }
+        optionStoreMap.delete(value);
     }
 }
 
