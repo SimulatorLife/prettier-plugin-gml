@@ -4,7 +4,7 @@ import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { asArray } from "../../../shared/array-utils.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../reporting/metrics-tracker.js";
-import { buildLocationKey } from "../../../shared/location-keys.js";
+import { buildLocationKey } from "../project-index/location-keys.js";
 import {
     isNonEmptyString,
     getNonEmptyString
