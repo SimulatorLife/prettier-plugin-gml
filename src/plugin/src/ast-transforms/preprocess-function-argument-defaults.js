@@ -315,7 +315,6 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
-    node._suppressSyntheticReturnsDoc = true;
     node._flattenSyntheticNumericParens = true;
 
     body.body = body.body.filter(
