@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
+import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
@@ -101,11 +102,11 @@ function coerceCacheMaxSize(
     numericValue,
     { optionName, received, invalidNumberMessage }
 ) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(invalidNumberMessage);
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
         throw new Error(formatCacheMaxSizeValueError(optionName, received));
     }
@@ -114,11 +115,11 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(formatConcurrencyValueError(optionName, received));
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 1) {
         throw new Error(formatConcurrencyValueError(optionName, received));
     }
