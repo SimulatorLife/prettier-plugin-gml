@@ -23,7 +23,8 @@ import {
 } from "../../../parser/gml-parser.js";
 import {
     prepareIdentifierCaseEnvironment,
-    attachIdentifierCasePlanSnapshot
+    attachIdentifierCasePlanSnapshot,
+    teardownIdentifierCaseEnvironment
 } from "../identifier-case/environment.js";
 
 const { addTrailingComment } = util;
@@ -31,6 +32,7 @@ const { addTrailingComment } = util;
 async function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
+    let environmentPrepared = false;
 
     if (
         options &&
@@ -40,109 +42,117 @@ async function parse(text, options) {
         options.originalText = text;
     }
 
-    if (options) {
-        await prepareIdentifierCaseEnvironment(options);
-    }
-
-    if (options?.applyFeatherFixes) {
-        const preprocessResult = preprocessSourceForFeatherFixes(text);
-
-        if (
-            preprocessResult &&
-            typeof preprocessResult.sourceText === "string"
-        ) {
-            parseSource = preprocessResult.sourceText;
+    try {
+        if (options) {
+            await prepareIdentifierCaseEnvironment(options);
+            environmentPrepared = true;
         }
 
-        preprocessedFixMetadata = preprocessResult?.metadata ?? null;
-    }
-
-    const sanitizedResult = sanitizeConditionalAssignments(parseSource);
-    const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
-
-    if (typeof sanitizedSource === "string") {
-        parseSource = sanitizedSource;
-    }
-
-    let ast;
-
-    try {
-        ast = GMLParser.parse(parseSource, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-    } catch (error) {
         if (options?.applyFeatherFixes) {
-            const recoveredSource = recoverParseSourceFromMissingBrace(
-                parseSource,
-                error
-            );
+            const preprocessResult = preprocessSourceForFeatherFixes(text);
 
             if (
-                typeof recoveredSource === "string" &&
-                recoveredSource !== parseSource
+                preprocessResult &&
+                typeof preprocessResult.sourceText === "string"
             ) {
-                parseSource = recoveredSource;
-                ast = GMLParser.parse(parseSource, {
-                    getLocations: true,
-                    simplifyLocations: false
-                });
+                parseSource = preprocessResult.sourceText;
+            }
+
+            preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+        }
+
+        const sanitizedResult = sanitizeConditionalAssignments(parseSource);
+        const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+
+        if (typeof sanitizedSource === "string") {
+            parseSource = sanitizedSource;
+        }
+
+        let ast;
+
+        try {
+            ast = GMLParser.parse(parseSource, {
+                getLocations: true,
+                simplifyLocations: false
+            });
+        } catch (error) {
+            if (options?.applyFeatherFixes) {
+                const recoveredSource = recoverParseSourceFromMissingBrace(
+                    parseSource,
+                    error
+                );
+
+                if (
+                    typeof recoveredSource === "string" &&
+                    recoveredSource !== parseSource
+                ) {
+                    parseSource = recoveredSource;
+                    ast = GMLParser.parse(parseSource, {
+                        getLocations: true,
+                        simplifyLocations: false
+                    });
+                } else {
+                    throw error;
+                }
             } else {
                 throw error;
             }
-        } else {
-            throw error;
         }
-    }
 
-    attachIdentifierCasePlanSnapshot(ast, options);
+        attachIdentifierCasePlanSnapshot(ast, options);
 
-    if (!ast || typeof ast !== "object") {
-        throw new Error(
-            "GameMaker parser returned no AST for the provided source."
-        );
-    }
-
-    if (options?.condenseStructAssignments ?? true) {
-        consolidateStructAssignments(ast, { addTrailingComment });
-    }
-
-    if (options?.applyFeatherFixes) {
-        applyFeatherFixes(ast, {
-            sourceText: parseSource,
-            preprocessedFixMetadata,
-            options
-        });
-    }
-
-    if (indexAdjustments && indexAdjustments.length > 0) {
-        applySanitizedIndexAdjustments(ast, indexAdjustments);
-        if (preprocessedFixMetadata) {
-            applySanitizedIndexAdjustments(
-                preprocessedFixMetadata,
-                indexAdjustments
+        if (!ast || typeof ast !== "object") {
+            throw new Error(
+                "GameMaker parser returned no AST for the provided source."
             );
         }
+
+        if (options?.condenseStructAssignments ?? true) {
+            consolidateStructAssignments(ast, { addTrailingComment });
+        }
+
+        if (options?.applyFeatherFixes) {
+            applyFeatherFixes(ast, {
+                sourceText: parseSource,
+                preprocessedFixMetadata,
+                options
+            });
+        }
+
+        if (indexAdjustments && indexAdjustments.length > 0) {
+            applySanitizedIndexAdjustments(ast, indexAdjustments);
+            if (preprocessedFixMetadata) {
+                applySanitizedIndexAdjustments(
+                    preprocessedFixMetadata,
+                    indexAdjustments
+                );
+            }
+        }
+
+        if (options?.useStringInterpolation) {
+            convertStringConcatenations(ast);
+        }
+
+        if (options?.condenseLogicalExpressions) {
+            condenseLogicalExpressions(ast);
+        }
+
+        if (options?.convertManualMathToBuiltins) {
+            convertManualMathExpressions(ast, undefined, {
+                sourceText: parseSource,
+                originalText: options?.originalText
+            });
+        }
+
+        preprocessFunctionArgumentDefaults(ast);
+
+        return ast;
+    } catch (error) {
+        if (environmentPrepared) {
+            teardownIdentifierCaseEnvironment(options);
+        }
+        throw error;
     }
-
-    if (options?.useStringInterpolation) {
-        convertStringConcatenations(ast);
-    }
-
-    if (options?.condenseLogicalExpressions) {
-        condenseLogicalExpressions(ast);
-    }
-
-    if (options?.convertManualMathToBuiltins) {
-        convertManualMathExpressions(ast, undefined, {
-            sourceText: parseSource,
-            originalText: options?.originalText
-        });
-    }
-
-    preprocessFunctionArgumentDefaults(ast);
-
-    return ast;
 }
 
 function locStart(node) {

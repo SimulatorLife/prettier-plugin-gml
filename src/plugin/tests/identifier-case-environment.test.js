@@ -6,6 +6,7 @@ import {
     prepareIdentifierCaseEnvironment,
     teardownIdentifierCaseEnvironment
 } from "../src/identifier-case/environment.js";
+import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
 import { clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 
 function createBootstrap(dispose) {
@@ -39,6 +40,34 @@ test("identifier case bootstrap disposes when the environment is torn down", asy
     teardownIdentifierCaseEnvironment(options);
 
     assert.equal(disposeCount, 1, "Expected bootstrap dispose to run once");
+
+    clearIdentifierCaseOptionStore(filepath);
+});
+
+test("identifier case bootstrap is disposed when parsing fails", async () => {
+    let disposeCalls = 0;
+    const filepath = path.join("/virtual/project", "leaky.gml");
+    const bootstrap = {
+        status: "ready",
+        reason: "provided",
+        projectRoot: "/virtual/project",
+        projectIndex: {},
+        source: "provided",
+        cache: null,
+        dispose() {
+            disposeCalls += 1;
+        }
+    };
+
+    const options = {
+        filepath,
+        __identifierCasePlanGeneratedInternally: true,
+        __identifierCaseProjectIndexBootstrap: bootstrap
+    };
+
+    await assert.rejects(() => gmlParserAdapter.parse("if (", options));
+
+    assert.equal(disposeCalls, 1);
 
     clearIdentifierCaseOptionStore(filepath);
 });
