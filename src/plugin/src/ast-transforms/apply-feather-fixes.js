@@ -10,6 +10,7 @@ import {
     getBodyStatements,
     getCallExpressionArguments,
     isBooleanLiteral,
+    isProgramOrBlockStatement,
     isVarVariableDeclaration,
     isNode
 } from "../../../shared/ast-node-helpers.js";
@@ -13879,7 +13880,7 @@ function isStatementList(parent, property) {
     }
 
     if (property === "body") {
-        return parent.type === "Program" || parent.type === "BlockStatement";
+        return isProgramOrBlockStatement(parent);
     }
 
     if (property === "consequent" && parent.type === "SwitchCase") {
@@ -14177,7 +14178,7 @@ function shouldProcessStatementSequence(parent, property) {
     }
 
     if (property === "body") {
-        return parent.type === "Program" || parent.type === "BlockStatement";
+        return isProgramOrBlockStatement(parent);
     }
 
     return parent.type === "CaseClause" && property === "consequent";
@@ -16734,7 +16735,7 @@ function isStatementContainer(owner, ownerKey) {
     }
 
     if (ownerKey === "body") {
-        return owner.type === "Program" || owner.type === "BlockStatement";
+        return isProgramOrBlockStatement(owner);
     }
 
     if (owner.type === "SwitchCase" && ownerKey === "consequent") {
@@ -17069,7 +17070,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "Program" || node.type === "BlockStatement") {
+        if (isProgramOrBlockStatement(node)) {
             const statements = getBodyStatements(node);
 
             if (statements.length > 0) {
