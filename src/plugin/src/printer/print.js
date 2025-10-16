@@ -1397,7 +1397,7 @@ function printElements(
         }
 
         return parts;
-    }, listKey);
+    });
 }
 
 function isComplexArgumentNode(node) {
@@ -1547,12 +1547,25 @@ function printStatements(path, options, print, childrenAttribute) {
 
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
-        if (
-            isFirstStatementInBlock &&
-            isStaticDeclaration &&
-            !syntheticDocComment
-        ) {
-            parts.push(hardline);
+        if (isFirstStatementInBlock && !syntheticDocComment) {
+            const blockNode = childPath.getParentNode
+                ? childPath.getParentNode()
+                : null;
+            const ownerNode = childPath.getParentNode
+                ? childPath.getParentNode(1)
+                : null;
+            const isFunctionBodyBlock =
+                blockNode?.type === "BlockStatement" &&
+                (ownerNode?.type === "FunctionDeclaration" ||
+                    ownerNode?.type === "ConstructorDeclaration");
+
+            const shouldPreserveLeadingBlankLine =
+                isFunctionBodyBlock &&
+                isPreviousLineEmpty(options.originalText, nodeStartIndex);
+
+            if (shouldPreserveLeadingBlankLine || isStaticDeclaration) {
+                parts.push(hardline);
+            }
         }
 
         if (semi === ";") {
@@ -1669,7 +1682,7 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         return parts;
-    }, childrenAttribute);
+    });
 }
 
 export function applyAssignmentAlignment(statements, options) {
