@@ -2,12 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { XMLParser } from "fast-xml-parser";
 
-const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: ""
-});
+let parser;
+
+try {
+    const { XMLParser } = await import("fast-xml-parser");
+    parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: ""
+    });
+} catch (error) {
+    if (isMissingFastXmlParserError(error)) {
+        parser = createFallbackXmlParser();
+    } else {
+        throw error;
+    }
+}
 
 function looksLikeTestCase(node) {
     if (!node || typeof node !== "object" || Array.isArray(node)) return false;
@@ -43,6 +53,203 @@ function toArray(value) {
     return [value];
 }
 
+function decodeEntities(value) {
+    if (typeof value !== "string" || value.length === 0) return value ?? "";
+    return value
+        .replaceAll(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+            String.fromCodePoint(Number.parseInt(hex, 16))
+        )
+        .replaceAll(/&#([0-9]+);/g, (_, dec) =>
+            String.fromCodePoint(Number.parseInt(dec, 10))
+        )
+        .replaceAll('&lt;', "<")
+        .replaceAll('&gt;', ">")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', "&");
+}
+
+function isMissingFastXmlParserError(error) {
+    if (!error || typeof error !== "object") return false;
+    if (error.code !== "ERR_MODULE_NOT_FOUND") return false;
+    if (typeof error.message === "string") {
+        return error.message.includes("'fast-xml-parser'");
+    }
+    return false;
+}
+
+function createFallbackXmlParser() {
+    return {
+        parse(xml) {
+            try {
+                return parseXmlDocument(xml);
+            } catch (innerError) {
+                const message =
+                    innerError && typeof innerError.message === "string"
+                        ? innerError.message
+                        : String(innerError);
+                throw new Error(`Fallback XML parser failed: ${message}`);
+            }
+        }
+    };
+}
+
+function attachChildNode(parent, name, value) {
+    const existing = parent[name];
+    if (existing === undefined) {
+        parent[name] = value;
+    } else if (Array.isArray(existing)) {
+        existing.push(value);
+    } else {
+        parent[name] = [existing, value];
+    }
+}
+
+function parseAttributes(source) {
+    const attributes = {};
+    if (!source) return attributes;
+    const attributePattern = /([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
+    let match;
+    while ((match = attributePattern.exec(source))) {
+        const name = match[1];
+        const rawValue = match[3] ?? match[4] ?? "";
+        attributes[name] = decodeEntities(rawValue);
+    }
+    return attributes;
+}
+
+function parseXmlDocument(xml) {
+    if (typeof xml !== "string") {
+        throw new TypeError("XML content must be a string.");
+    }
+
+    const root = {};
+    const stack = [];
+    let index = 0;
+
+    function currentParent() {
+        return stack.length > 0 ? stack.at(-1).value : root;
+    }
+
+    function appendText(text, { preserveWhitespace = false } = {}) {
+        if (stack.length === 0) return;
+        const target = stack.at(-1).value;
+        const normalized = preserveWhitespace
+            ? text
+            : text.replaceAll(/\s+/g, " ").trim();
+        if (!normalized) return;
+        const decoded = decodeEntities(normalized);
+        if (Object.prototype.hasOwnProperty.call(target, "#text")) {
+            target["#text"] = preserveWhitespace
+                ? target["#text"] + decoded
+                : `${target["#text"]} ${decoded}`.trim();
+        } else {
+            target["#text"] = decoded;
+        }
+    }
+
+    while (index < xml.length) {
+        const nextTag = xml.indexOf("<", index);
+        if (nextTag === -1) {
+            appendText(xml.slice(index));
+            break;
+        }
+
+        if (nextTag > index) {
+            appendText(xml.slice(index, nextTag));
+        }
+
+        if (xml.startsWith("<!--", nextTag)) {
+            const endComment = xml.indexOf("-->", nextTag + 4);
+            if (endComment === -1) {
+                throw new Error("Unterminated XML comment.");
+            }
+            index = endComment + 3;
+            continue;
+        }
+
+        if (xml.startsWith("<![CDATA[", nextTag)) {
+            const endCdata = xml.indexOf("]]>", nextTag + 9);
+            if (endCdata === -1) {
+                throw new Error("Unterminated CDATA section.");
+            }
+            appendText(xml.slice(nextTag + 9, endCdata), {
+                preserveWhitespace: true
+            });
+            index = endCdata + 3;
+            continue;
+        }
+
+        if (xml.startsWith("<?", nextTag)) {
+            const endInstruction = xml.indexOf("?>", nextTag + 2);
+            if (endInstruction === -1) {
+                throw new Error("Unterminated processing instruction.");
+            }
+            index = endInstruction + 2;
+            continue;
+        }
+
+        if (xml.startsWith("<!DOCTYPE", nextTag)) {
+            const endDoctype = xml.indexOf(">", nextTag + 9);
+            if (endDoctype === -1) {
+                throw new Error("Unterminated DOCTYPE declaration.");
+            }
+            index = endDoctype + 1;
+            continue;
+        }
+
+        const closingBracket = xml.indexOf(">", nextTag + 1);
+        if (closingBracket === -1) {
+            throw new Error("Unterminated XML tag.");
+        }
+
+        const rawContent = xml.slice(nextTag + 1, closingBracket);
+        index = closingBracket + 1;
+        const trimmed = rawContent.trim();
+        if (!trimmed) continue;
+
+        if (trimmed.startsWith("/")) {
+            if (stack.length === 0) continue;
+            const closingName = trimmed.slice(1).trim();
+            const last = stack.pop();
+            if (closingName && last && last.name && closingName !== last.name) {
+                throw new Error(
+                    `Mismatched closing tag: expected </${last.name}>, received </${closingName}>.`
+                );
+            }
+            continue;
+        }
+
+        const selfClosing = /\/\s*$/.test(trimmed);
+        const content = selfClosing
+            ? trimmed.replace(/\/\s*$/, "").trim()
+            : trimmed;
+        if (!content) continue;
+
+        const nameMatch = content.match(/^([\w:.-]+)/);
+        if (!nameMatch) {
+            throw new Error(`Unable to parse XML tag: <${content}>.`);
+        }
+        const tagName = nameMatch[1];
+        const attributeSource = content.slice(tagName.length).trim();
+        const attributes = parseAttributes(attributeSource);
+        const nodeValue =
+            Object.keys(attributes).length > 0 ? { ...attributes } : {};
+        const parent = currentParent();
+        attachChildNode(parent, tagName, nodeValue);
+
+        if (!selfClosing) {
+            stack.push({ name: tagName, value: nodeValue });
+        }
+    }
+
+    if (stack.length > 0) {
+        throw new Error(`Unclosed XML tag: <${stack.at(-1).name}>.`);
+    }
+
+    return root;
+}
+
 function normalizeSuiteName(name) {
     if (typeof name !== "string") return "";
     const trimmed = name.trim();
@@ -59,10 +266,7 @@ function buildTestKey(testNode, suitePath) {
     }
     const className =
         typeof testNode.classname === "string" ? testNode.classname.trim() : "";
-    if (
-        className &&
-        (parts.length === 0 || parts.at(-1) !== className)
-    ) {
+    if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
     }
     const testName =
