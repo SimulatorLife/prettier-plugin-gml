@@ -1564,17 +1564,15 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression) {
-                const isTopLevelStaticFunction =
-                    isStaticDeclaration && isTopLevel;
                 const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isTopLevelStaticFunction;
+                    !hasTerminatingSemicolon && !isStaticDeclaration;
 
                 if (shouldPreserveMissingSemicolon) {
                     // Normalised legacy `#define` directives often emit function
                     // expressions assigned to variables without a trailing
                     // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style. Top-level static declarations keep
-                    // the semicolon to avoid changing exported statements.
+                    // the original code style while static declarations always
+                    // receive a terminating semicolon for consistency.
                     semi = "";
                 }
             }
@@ -1807,14 +1805,6 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const functionNode = declarator.init;
     const syntheticOverrides = { nameOverride: name };
     const hasExistingDocLines = existingDocLines.length > 0;
-
-    if (
-        !hasExistingDocLines &&
-        (!Array.isArray(functionNode?.params) ||
-            functionNode.params.length === 0)
-    ) {
-        syntheticOverrides.suppressReturns = true;
-    }
 
     const syntheticLines = hasExistingDocLines
         ? mergeSyntheticDocComments(

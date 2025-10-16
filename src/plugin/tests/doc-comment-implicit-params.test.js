@@ -55,7 +55,13 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
     if (docEnd === -1) {
         docEnd = formatted.length;
     }
-    const sample2Doc = new Set(formatted.slice(docStart, docEnd));
+    const sample2Doc = new Set(
+        formatted
+            .slice(docStart, docEnd)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+    );
 
     assert.ok(
         sample2Doc.has("/// @param two"),
@@ -82,7 +88,13 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
     if (sample3DocEnd === -1) {
         sample3DocEnd = formatted.length;
     }
-    const sample3Doc = new Set(formatted.slice(sample3DocStart, sample3DocEnd));
+    const sample3Doc = new Set(
+        formatted
+            .slice(sample3DocStart, sample3DocEnd)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+    );
 
     assert.ok(
         sample3Doc.has("/// @param two"),
