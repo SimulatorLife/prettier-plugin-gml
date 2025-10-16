@@ -8,6 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { handleCliError } from "./cli-errors.js";
 import { assertSupportedNodeVersion } from "./runtime/node-version.js";
 import { toPosixPath } from "../shared/path-utils.js";
+import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
 import {
     createManualGitHubClient,
     ensureDir,
@@ -282,7 +283,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
 }
 
 function classifyFromPath(manualPath, tagList) {
-    const normalizedTags = new Set(tagList.map((tag) => tag.toLowerCase()));
+    const normalizedTags = toNormalizedLowerCaseSet(tagList);
     const segments = manualPath.split("/").map((part) => part.toLowerCase());
     const hasSegment = (needles) =>
         segments.some((segment) =>

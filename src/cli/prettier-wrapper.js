@@ -24,7 +24,8 @@ import {
 } from "../shared/array-utils.js";
 import {
     normalizeStringList,
-    toNormalizedLowerCaseString
+    toNormalizedLowerCaseString,
+    toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
 
 import { CliUsageError, formatCliError, handleCliError } from "./cli-errors.js";
@@ -190,7 +191,7 @@ let targetExtensions = DEFAULT_EXTENSIONS;
  * @returns {Set<string>}
  */
 function createTargetExtensionSet(extensions) {
-    return new Set(extensions.map((extension) => extension.toLowerCase()));
+    return toNormalizedLowerCaseSet(extensions);
 }
 
 let targetExtensionSet = createTargetExtensionSet(targetExtensions);
