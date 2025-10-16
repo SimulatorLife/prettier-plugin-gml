@@ -26,3 +26,7 @@ export {
     printComment,
     printDanglingCommentsAsGroup
 } from "./comment-printer.js";
+export {
+    getHasCommentHelper,
+    normalizeHasCommentHelpers
+} from "./has-comment-helpers.js";
