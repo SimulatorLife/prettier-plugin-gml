@@ -1,7 +1,10 @@
 # Agent Instructions
 - The existing plugin test input and output fixtures (src/plugin/tests) and the parser input fixtures (src/parser/tests/input) in this project are considered golden files and **MUST NEVER BE MODIFIED**. They capture parsing behavior and the desired formatting for GML and must be preserved byte-for-byte. NEVER update or change these files, certainly not to "fix" a test failure.
 - You may add new tests or adjust the way tests are executed, but do not change or replace the current input/output text fixtures.
-- Do not modify the Github Actions workflows in `.github/workflows` unless explicitly instructed to do so.
+- Do **NOT** modify the Github Actions workflows in `.github/workflows` unless explicitly instructed to do so. When updating these files, ensure the changes are limited to the specific instructions or guidelines provided, without altering other sections.
+- Do **NOT** modify the `eslint.config.js` or `.prettierrc` files unless explicitly instructed to do so. When updating this file, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
+- Do **NOT** modify the `AGENTS.md` file unless explicitly instructed to do so. When updating this file, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
+- Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 
 ## Repository & Commit Conflict Resolution Strategy
 To ensure smooth collaboration and maintain a healthy commit history, follow this structured process whenever you encounter merge, rebase, or commit conflicts within this repository:

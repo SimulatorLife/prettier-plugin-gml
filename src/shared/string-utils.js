@@ -110,3 +110,22 @@ export function normalizeStringList(
 
     throw new TypeError(errorMessage);
 }
+
+export function toNormalizedLowerCaseSet(
+    value,
+    { splitPattern = null, allowInvalidType = true, errorMessage } = {}
+) {
+    const normalizedValues = normalizeStringList(value, {
+        splitPattern,
+        allowInvalidType,
+        errorMessage
+    });
+
+    const result = new Set();
+
+    for (const entry of normalizedValues) {
+        result.add(entry.toLowerCase());
+    }
+
+    return result;
+}

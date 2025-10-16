@@ -11,6 +11,37 @@
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
 
+function toArrayFromIterable(values) {
+    if (values == null) {
+        return [];
+    }
+
+    if (Array.isArray(values)) {
+        return values;
+    }
+
+    if (typeof values[Symbol.iterator] === "function") {
+        return Array.from(values);
+    }
+
+    return [];
+}
+
+function getIterableValues(values) {
+    if (values == null) {
+        return [];
+    }
+
+    if (
+        Array.isArray(values) ||
+        typeof values[Symbol.iterator] === "function"
+    ) {
+        return values;
+    }
+
+    return [];
+}
+
 export function toArray(value) {
     if (value == undefined) {
         return [];
@@ -55,14 +86,7 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const source =
-        values == null
-            ? []
-            : Array.isArray(values)
-              ? values
-              : typeof values[Symbol.iterator] === "function"
-                ? Array.from(values)
-                : [];
+    const source = toArrayFromIterable(values);
 
     if (source.length === 0) {
         return freeze ? Object.freeze([]) : [];
@@ -102,27 +126,19 @@ export function mergeUniqueValues(
 
     const normalize = typeof coerce === "function" ? coerce : (value) => value;
 
-    if (additionalValues != null) {
-        const iterable =
-            Array.isArray(additionalValues) ||
-            typeof additionalValues[Symbol.iterator] === "function"
-                ? additionalValues
-                : [];
-
-        for (const rawValue of iterable) {
-            const value = normalize(rawValue);
-            if (value == null) {
-                continue;
-            }
-
-            const key = getKey(value);
-            if (seen.has(key)) {
-                continue;
-            }
-
-            seen.add(key);
-            merged.push(value);
+    for (const rawValue of getIterableValues(additionalValues)) {
+        const value = normalize(rawValue);
+        if (value == null) {
+            continue;
         }
+
+        const key = getKey(value);
+        if (seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        merged.push(value);
     }
 
     return freeze ? Object.freeze(merged) : merged;

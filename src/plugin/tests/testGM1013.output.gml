@@ -14,7 +14,7 @@ function AttackController(attack_bonus = 10) constructor {
             var total_atk = (base_atk + other.attack_bonus);
             hp.subtract(total_atk); // Assumes 'hp' is a variable in the target/calling instance
         }
-    }
+    };
 
 }
 
