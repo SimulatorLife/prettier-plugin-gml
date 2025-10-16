@@ -4,13 +4,13 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "./cli-errors.js";
-import { parseCommandLine } from "./command-parsing.js";
-import { buildProjectIndex } from "../plugin/src/project-index/index.js";
-import { prepareIdentifierCasePlan } from "../plugin/src/identifier-case/local-plan.js";
-import { getIdentifierText } from "../shared/ast-node-helpers.js";
-import { formatByteSize } from "../shared/number-utils.js";
-import { toNormalizedLowerCaseString } from "../shared/string-utils.js";
+import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
+import { parseCommandLine } from "../lib/command-parsing.js";
+import { buildProjectIndex } from "../../plugin/src/project-index/index.js";
+import { prepareIdentifierCasePlan } from "../../plugin/src/identifier-case/local-plan.js";
+import { getIdentifierText } from "../../shared/ast-node-helpers.js";
+import { formatByteSize } from "../../shared/number-utils.js";
+import { toNormalizedLowerCaseString } from "../../shared/string-utils.js";
 
 const AVAILABLE_SUITES = new Map();
 

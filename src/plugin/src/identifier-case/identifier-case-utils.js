@@ -6,6 +6,29 @@ import {
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
 
+// Hoist frequently re-created regular expressions so identifier normalization
+// can reuse them across calls. This helper runs in tight loops while
+// tokenizing identifiers, so avoiding per-call RegExp allocation keeps the hot
+// path allocation-free.
+const CORE_SEGMENT_DELIMITER_PATTERN = /_+/;
+const CASE_SEGMENT_PATTERN =
+    /[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g;
+const TOKEN_PART_PATTERN = /[A-Za-z]+|[0-9]+/g;
+const NUMBER_ONLY_PATTERN = /^\d+$/;
+
+function getGlobalMatches(pattern, text) {
+    pattern.lastIndex = 0;
+
+    const matches = [];
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+        matches.push(match[0]);
+    }
+
+    return matches;
+}
+
 function extractReservedPrefix(identifier) {
     const match = identifier.match(RESERVED_PREFIX_PATTERN);
     if (!match) {
@@ -49,20 +72,18 @@ function tokenizeCore(core) {
     }
 
     const rawSegments = core
-        .split(/_+/)
+        .split(CORE_SEGMENT_DELIMITER_PATTERN)
         .map((segment) => segment.trim())
         .filter(Boolean);
 
     const tokens = [];
     for (const segment of rawSegments) {
-        const caseSegments =
-            segment.match(
-                /[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g
-            ) || [];
+        const caseSegments = getGlobalMatches(CASE_SEGMENT_PATTERN, segment);
         for (const caseSegment of caseSegments) {
-            const parts = caseSegment.match(/[A-Za-z]+|[0-9]+/g) || [];
+            const parts = getGlobalMatches(TOKEN_PART_PATTERN, caseSegment);
             for (const part of parts) {
-                const isNumber = /^\d+$/.test(part);
+                NUMBER_ONLY_PATTERN.lastIndex = 0;
+                const isNumber = NUMBER_ONLY_PATTERN.test(part);
                 const normalized = isNumber ? part : part.toLowerCase();
                 tokens.push({ normalized, type: isNumber ? "number" : "word" });
             }

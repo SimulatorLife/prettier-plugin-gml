@@ -1,4 +1,4 @@
-import { CliUsageError } from "../cli-errors.js";
+import { CliUsageError } from "./cli-errors.js";
 import { isNonEmptyString } from "../../shared/string-utils.js";
 
 const DEFAULT_SOURCE = "env";

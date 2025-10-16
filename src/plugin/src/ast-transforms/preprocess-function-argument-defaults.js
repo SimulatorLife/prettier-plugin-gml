@@ -1,4 +1,7 @@
-import { hasComment as sharedHasComment } from "../comments/index.js";
+import {
+    hasComment as sharedHasComment,
+    getHasCommentHelper
+} from "../comments/index.js";
 import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,
@@ -59,10 +62,7 @@ export function preprocessFunctionArgumentDefaults(
             typeof helpers.getSingleVariableDeclarator === "function"
                 ? helpers.getSingleVariableDeclarator
                 : DEFAULT_HELPERS.getSingleVariableDeclarator,
-        hasComment:
-            typeof helpers.hasComment === "function"
-                ? helpers.hasComment
-                : DEFAULT_HELPERS.hasComment
+        hasComment: getHasCommentHelper(helpers)
     };
 
     traverse(ast, (node) => {

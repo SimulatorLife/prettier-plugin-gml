@@ -113,7 +113,10 @@ jobs:
       - name: Checkout base (merge target)
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.pr-meta.outputs.base_ref }}
+          # Use the exact commit that GitHub will merge instead of the moving
+          # branch tip so regression comparisons stay consistent even when
+          # "Update branch" merges new main commits into the PR.
+          ref: ${{ needs.pr-meta.outputs.base_sha }}
           path: base
           fetch-depth: 1
 
@@ -351,97 +354,8 @@ jobs:
           fi
 
       # === Regression compare (base vs synthetic merge; fall back to head) ===
-      - name: Install compare script dependency
-        run: npm install --no-save fast-xml-parser@^4
-
       - name: Compare JUnit results (fail only on regressions)
-        run: |
-          cat <<'EOF' > compare-junit.mjs
-          import fs from 'node:fs';
-          import path from 'node:path';
-          import { XMLParser } from 'fast-xml-parser';
-
-          const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-
-          function readCases(...dirs) {
-            const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
-            const results = new Map();
-            const queue = dirs.flat().filter(Boolean);
-            let usedDir = null;
-            let displayDir = '';
-
-            for (const dir of queue) {
-              const resolved = path.isAbsolute(dir) ? dir : path.join(workspace, dir);
-              if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) continue;
-
-              const files = fs.readdirSync(resolved).filter(f => f.endsWith('.xml'));
-              if (files.length === 0) continue;
-
-              usedDir = resolved;
-              displayDir = path.relative(workspace, resolved) || resolved;
-
-              for (const file of files) {
-                const xml = fs.readFileSync(path.join(resolved, file), 'utf8');
-                const data = parser.parse(xml);
-                const suites = [];
-                if (data.testsuites && Array.isArray(data.testsuites.testsuite)) { suites.push(...data.testsuites.testsuite); }
-                else if (data.testsuite) { suites.push(data.testsuite); }
-                else if (Array.isArray(data.testsuites)) { suites.push(...data.testsuites); }
-
-                for (const suite of suites) {
-                  const cases = suite.testcase ? (Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase]) : [];
-                  for (const tc of cases) {
-                    const name = String(tc.name ?? '');
-                    const cls = String(tc.classname ?? suite.name ?? '');
-                    const key = cls + ' :: ' + name;
-                    let status = 'passed';
-                    if (tc.skipped !== undefined) status = 'skipped';
-                    if (tc.error !== undefined || tc.errors !== undefined) status = 'failed';
-                    if (tc.failure !== undefined || tc.failures !== undefined) status = 'failed';
-                    results.set(key, status);
-                  }
-                }
-              }
-
-              break;
-            }
-
-            return { results, usedDir, displayDir };
-          }
-
-          const base = readCases(['base/test-results', 'base-test-results', process.env.BASE_RESULTS_DIR]);
-          const head = readCases(['test-results']);
-          const merged = readCases(['merge/test-results', 'merge-test-results', process.env.MERGE_RESULTS_DIR]);
-
-          const target = merged.usedDir ? merged : head;
-          const targetLabel = merged.usedDir
-            ? `synthetic merge (${merged.displayDir || 'merge/test-results'})`
-            : `PR head (${head.displayDir || 'test-results'})`;
-
-          if (merged.usedDir) {
-            console.log(`Using synthetic merge test results for regression detection: ${targetLabel}.`);
-          } else {
-            console.log('Synthetic merge test results were not found; falling back to PR head results.');
-          }
-
-          const regressions = [];
-          for (const [key, targetStatus] of target.results.entries()) {
-            const baseStatus = base.results.get(key);
-            if (baseStatus === undefined) continue; // new test -> ignore
-            if ((baseStatus === 'passed' || baseStatus === 'skipped') && targetStatus === 'failed') {
-              regressions.push({ test: key, from: baseStatus, to: targetStatus });
-            }
-          }
-
-          if (regressions.length) {
-            console.log(`New failing tests detected (compared to base using ${targetLabel}):`);
-            for (const r of regressions) console.log('- ' + r.test + ' (' + r.from + ' -> ' + r.to + ')');
-            process.exit(1);
-          } else {
-            console.log(`No new failing tests compared to base using ${targetLabel}.`);
-          }
-          EOF
-          node compare-junit.mjs
+        run: node src/cli/commands/detect-test-regressions.mjs
         shell: bash
 
       - name: Publish PR test summary (head + merged)

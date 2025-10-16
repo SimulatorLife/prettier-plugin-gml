@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 import {
     DEFAULT_MANUAL_REPO,
+    MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
     resolveManualRepoValue
@@ -12,6 +13,11 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot
 } from "../options/manual-cache.js";
+import {
+    applyManualEnvOptionOverrides,
+    MANUAL_REF_ENV_VAR,
+    PROGRESS_BAR_WIDTH_ENV_VAR
+} from "../options/manual-env.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -97,6 +103,51 @@ describe("manual option helpers", () => {
                 resolveManualCacheRoot({ repoRoot, env }),
                 path.join(repoRoot, "scripts", "cache", "manual")
             );
+        });
+    });
+
+    describe("applyManualEnvOptionOverrides", () => {
+        it("applies the standard manual overrides", () => {
+            const calls = [];
+            const command = {
+                setOptionValueWithSource(...args) {
+                    calls.push(args);
+                }
+            };
+
+            applyManualEnvOptionOverrides({
+                command,
+                env: {
+                    [MANUAL_REF_ENV_VAR]: " release ",
+                    [MANUAL_REPO_ENV_VAR]: " Example/Manual ",
+                    [PROGRESS_BAR_WIDTH_ENV_VAR]: "42"
+                }
+            });
+
+            assert.deepEqual(calls, [
+                ["ref", " release ", "env"],
+                ["manualRepo", "Example/Manual", "env"],
+                ["progressBarWidth", 42, "env"]
+            ]);
+        });
+
+        it("appends additional overrides when provided", () => {
+            const calls = [];
+            const command = {
+                setOptionValueWithSource(...args) {
+                    calls.push(args);
+                }
+            };
+
+            applyManualEnvOptionOverrides({
+                command,
+                env: { EXTRA: "value" },
+                additionalOverrides: [
+                    { envVar: "EXTRA", optionName: "extraOption" }
+                ]
+            });
+
+            assert.deepEqual(calls, [["extraOption", "value", "env"]]);
         });
     });
 });

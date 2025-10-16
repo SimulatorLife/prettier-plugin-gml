@@ -2,7 +2,11 @@ import path from "node:path";
 
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
-import { findProjectRoot, createProjectIndexCoordinator } from "./index.js";
+import {
+    findProjectRoot,
+    createProjectIndexCoordinator,
+    getProjectIndexParserOverride
+} from "./index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
@@ -122,44 +126,56 @@ function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
     return normalized;
 }
 
-function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
-    if (rawValue == undefined) {
+function normalizeNumericOption(
+    rawValue,
+    { optionName, coerce, formatTypeError, createCoerceOptions }
+) {
+    if (rawValue == null) {
         return;
     }
 
     const rawType = typeof rawValue;
+    const isString = rawType === "string";
 
-    if (rawType === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "") {
-            return;
-        }
+    if (rawType !== "number" && !isString) {
+        throw new Error(formatTypeError(optionName, rawType));
+    }
 
-        const received = `'${rawValue}'`;
-        const valueErrorMessage = formatCacheMaxSizeValueError(
+    const normalized = isString ? rawValue.trim() : rawValue;
+    if (isString && normalized === "") {
+        return;
+    }
+
+    const received = isString ? `'${rawValue}'` : normalized;
+    const numericValue = isString ? Number(normalized) : normalized;
+
+    return coerce(
+        numericValue,
+        createCoerceOptions({
             optionName,
-            received
-        );
-
-        return coerceCacheMaxSize(Number(trimmed), {
-            optionName,
+            rawType,
+            rawValue,
             received,
-            invalidNumberMessage: valueErrorMessage
-        });
-    }
+            isString
+        })
+    );
+}
 
-    if (rawType === "number") {
-        return coerceCacheMaxSize(rawValue, {
-            optionName,
-            received: rawValue,
-            invalidNumberMessage: formatCacheMaxSizeTypeError(
+function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
+    return normalizeNumericOption(rawValue, {
+        optionName,
+        coerce: coerceCacheMaxSize,
+        formatTypeError: formatCacheMaxSizeTypeError,
+        createCoerceOptions({ optionName, rawType, received, isString }) {
+            return {
                 optionName,
-                rawType
-            )
-        });
-    }
-
-    throw new Error(formatCacheMaxSizeTypeError(optionName, rawType));
+                received,
+                invalidNumberMessage: isString
+                    ? formatCacheMaxSizeValueError(optionName, received)
+                    : formatCacheMaxSizeTypeError(optionName, rawType)
+            };
+        }
+    });
 }
 
 function resolveCacheMaxSizeBytes(options) {
@@ -190,33 +206,14 @@ function resolveCacheMaxSizeBytes(options) {
 }
 
 function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
-    if (rawValue == null) {
-        return;
-    }
-
-    const rawType = typeof rawValue;
-
-    if (rawType === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "") {
-            return;
+    return normalizeNumericOption(rawValue, {
+        optionName,
+        coerce: coerceProjectIndexConcurrency,
+        formatTypeError: formatConcurrencyTypeError,
+        createCoerceOptions({ optionName, received }) {
+            return { optionName, received };
         }
-
-        const received = `'${rawValue}'`;
-        return coerceProjectIndexConcurrency(Number(trimmed), {
-            optionName,
-            received
-        });
-    }
-
-    if (rawType === "number") {
-        return coerceProjectIndexConcurrency(rawValue, {
-            optionName,
-            received: rawValue
-        });
-    }
-
-    throw new Error(formatConcurrencyTypeError(optionName, rawType));
+    });
 }
 
 function resolveProjectIndexConcurrency(options) {
@@ -364,15 +361,12 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         };
     }
 
-    const parserFacadeOverride =
-        options.identifierCaseProjectIndexParserFacade ??
-        options.gmlParserFacade ??
-        options.parserFacade ??
-        null;
-    if (parserFacadeOverride != undefined) {
-        buildOptions.gmlParserFacade = parserFacadeOverride;
-    } else if (typeof options.parseGml === "function") {
-        buildOptions.parseGml = options.parseGml;
+    const parserOverride = getProjectIndexParserOverride(options);
+    if (parserOverride) {
+        if (parserOverride.facade) {
+            buildOptions.gmlParserFacade = parserOverride.facade;
+        }
+        buildOptions.parseGml = parserOverride.parse;
     }
 
     const descriptor = {

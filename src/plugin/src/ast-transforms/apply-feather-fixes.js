@@ -3923,7 +3923,7 @@ function buildDocumentedParamNameLookup(ast, sourceText) {
         return lookup;
     }
 
-    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const comments = getCommentArray(ast);
     const paramComments = comments
         .filter(
             (comment) =>
@@ -7382,7 +7382,7 @@ function buildEventMarkerIndex(ast) {
     }
 
     const markerComments = new Set();
-    const directComments = Array.isArray(ast.comments) ? ast.comments : [];
+    const directComments = getCommentArray(ast);
 
     for (const comment of directComments) {
         if (comment) {

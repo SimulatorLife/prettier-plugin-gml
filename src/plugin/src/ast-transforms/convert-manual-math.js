@@ -1,4 +1,7 @@
-import { hasComment as sharedHasComment } from "../comments/index.js";
+import {
+    hasComment as sharedHasComment,
+    normalizeHasCommentHelpers
+} from "../comments/index.js";
 import {
     cloneLocation,
     getNodeEndIndex,
@@ -42,12 +45,7 @@ export function convertManualMathExpressions(
         return ast;
     }
 
-    const normalizedHelpers = {
-        hasComment:
-            typeof helpers.hasComment === "function"
-                ? helpers.hasComment
-                : DEFAULT_HELPERS.hasComment
-    };
+    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
 
     traverse(ast, normalizedHelpers, new Set(), context);
 

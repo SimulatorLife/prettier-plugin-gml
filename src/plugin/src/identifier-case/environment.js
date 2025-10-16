@@ -1,5 +1,4 @@
-import { bootstrapProjectIndex } from "../project-index/bootstrap.js";
-import { setIdentifierCaseOption } from "./option-store.js";
+import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
 import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
@@ -44,10 +43,8 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 
 export async function prepareIdentifierCaseEnvironment(options) {
     return withObjectLike(options, async (object) => {
-        const bootstrapResult = await bootstrapProjectIndex(
-            object,
-            setIdentifierCaseOption
-        );
+        const bootstrapResult =
+            await bootstrapIdentifierCaseProjectIndex(object);
         registerBootstrapCleanup(bootstrapResult);
 
         try {

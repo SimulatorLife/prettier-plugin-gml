@@ -15,7 +15,7 @@ const POSIX_SEPARATOR_PATTERN = /\/+/g;
  * @returns {string} Normalized POSIX path string, or an empty string when the
  *                   input is missing/invalid.
  */
-export function toPosixPath(inputPath) {
+function toPosixPath(inputPath) {
     if (!isNonEmptyString(inputPath)) {
         return "";
     }
@@ -32,7 +32,7 @@ export function toPosixPath(inputPath) {
  * @param {unknown} inputPath Candidate POSIX path string.
  * @returns {string} Path rewritten using the runtime's path separator.
  */
-export function fromPosixPath(inputPath) {
+function fromPosixPath(inputPath) {
     if (!isNonEmptyString(inputPath)) {
         return "";
     }
@@ -43,3 +43,45 @@ export function fromPosixPath(inputPath) {
 
     return inputPath.replaceAll(POSIX_SEPARATOR_PATTERN, path.sep);
 }
+
+function isPathInside(child, parent) {
+    if (!child || !parent) {
+        return false;
+    }
+
+    const relative = path.relative(parent, child);
+    if (!relative) {
+        return true;
+    }
+
+    return !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function collectAncestorDirectories(...startingDirectories) {
+    const seen = new Set();
+    const result = [];
+
+    for (const start of startingDirectories) {
+        if (!start) {
+            continue;
+        }
+
+        let current = path.resolve(start);
+
+        while (!seen.has(current)) {
+            seen.add(current);
+            result.push(current);
+
+            const parent = path.dirname(current);
+            if (parent === current) {
+                break;
+            }
+
+            current = parent;
+        }
+    }
+
+    return result;
+}
+
+export { toPosixPath, fromPosixPath, isPathInside, collectAncestorDirectories };

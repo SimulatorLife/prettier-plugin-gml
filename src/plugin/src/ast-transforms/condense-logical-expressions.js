@@ -1,7 +1,8 @@
 import {
     getCommentArray,
     hasComment as sharedHasComment,
-    isDocCommentLine
+    isDocCommentLine,
+    normalizeHasCommentHelpers
 } from "../comments/index.js";
 import {
     cloneLocation,
@@ -51,7 +52,7 @@ export function condenseLogicalExpressions(ast, helpers) {
     }
 
     normalizeDocCommentWhitespace(ast);
-    const normalizedHelpers = normalizeHelpers(helpers);
+    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
@@ -553,19 +554,6 @@ function renderSimpleNode(node) {
             return "";
         }
     }
-}
-
-function normalizeHelpers(helpers) {
-    if (!helpers || typeof helpers !== "object") {
-        return DEFAULT_HELPERS;
-    }
-
-    const { hasComment } = helpers;
-    if (typeof hasComment === "function") {
-        return helpers;
-    }
-
-    return { ...helpers, hasComment: sharedHasComment };
 }
 
 function visit(node, helpers, parent) {

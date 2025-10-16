@@ -270,10 +270,9 @@ sharing utilities via the `src/shared/` module.
 | --- | --- |
 | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, and regression fixtures. |
 | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `src/cli/` | Command-line wrapper (`prettier-wrapper.js`), metadata generators, and integration tests for the CLI. |
+| `src/cli/` | Command-line interface (`cli.js`) for metadata generating, formatting-wrapper, integration tests, performance testing, etc. |
 | `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
 | `resources/` | Generated metadata snapshots consumed by the formatter (identifier datasets, Feather metadata). |
-| `scripts/` | Node.js entry points that rebuild resources or run maintenance tasks. |
 | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
 The `npm run format:gml` script wires the CLI wrapper to the workspace copy of
