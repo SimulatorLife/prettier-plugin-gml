@@ -9,7 +9,8 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { formatDuration } from "../../shared/number-utils.js";
+import { timeSync } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,

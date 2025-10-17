@@ -17,7 +17,8 @@ import {
     resolveManualRepoValue,
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { formatDuration } from "../../shared/number-utils.js";
+import { timeSync } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
