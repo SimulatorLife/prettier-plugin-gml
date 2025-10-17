@@ -32,6 +32,10 @@ import {
     summarizeFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
+import {
+    getIterableSize,
+    isMapLike
+} from "../../../shared/utils/capability-probes.js";
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (!isNonEmptyString(absoluteFilePath)) {
@@ -1264,7 +1268,10 @@ export async function prepareIdentifierCasePlan(options) {
         relativeFilePath,
         operationCount: operations.length,
         conflictCount: conflicts.length,
-        renameEntries: renameMap.size
+        renameEntries:
+            typeof renameMap.size === "number"
+                ? renameMap.size
+                : getIterableSize(renameMap)
     });
 
     if (options.__identifierCaseRenamePlan) {
@@ -1278,7 +1285,7 @@ export function getIdentifierCaseRenameForNode(node, options) {
     }
 
     const renameMap = options.__identifierCaseRenameMap;
-    if (!(renameMap instanceof Map)) {
+    if (!isMapLike(renameMap)) {
         return null;
     }
 

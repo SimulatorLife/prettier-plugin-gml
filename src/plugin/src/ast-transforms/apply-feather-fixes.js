@@ -24,6 +24,11 @@ import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
+import {
+    hasIterableItems,
+    isMapLike,
+    isSetLike
+} from "../../../shared/utils/capability-probes.js";
 import { collectCommentNodes, getCommentArray } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -3848,7 +3853,7 @@ function fixArgumentReferencesWithinFunction(
         references.map((reference) => reference.index)
     );
 
-    if (!(mapping instanceof Map) || mapping.size === 0) {
+    if (!isMapLike(mapping) || !hasIterableItems(mapping)) {
         return fixes;
     }
 
@@ -16292,7 +16297,10 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText ?? "";
     }
 
-    if (!(specifierBaseTypes instanceof Set) || specifierBaseTypes.size === 0) {
+    if (
+        !isSetLike(specifierBaseTypes) ||
+        !hasIterableItems(specifierBaseTypes)
+    ) {
         return typeText;
     }
 
@@ -16449,7 +16457,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!(baseTypesLower instanceof Set) || baseTypesLower.size === 0) {
+    if (!isSetLike(baseTypesLower) || !hasIterableItems(baseTypesLower)) {
         return typeText;
     }
 
@@ -17381,7 +17389,7 @@ function isGpuPopStateCall(node) {
 function getManualFeatherFixRegistry(ast) {
     let registry = ast[MANUAL_FIX_TRACKING_KEY];
 
-    if (registry instanceof Set) {
+    if (isSetLike(registry)) {
         return registry;
     }
 
@@ -17448,7 +17456,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
     const replacements =
         extractFunctionCallReplacementsFromExamples(diagnostic);
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return [];
     }
 
@@ -17500,7 +17508,7 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return null;
     }
 

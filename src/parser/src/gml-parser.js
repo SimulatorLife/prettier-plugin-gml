@@ -5,6 +5,7 @@ import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { isErrorLike } from "../../shared/utils/capability-probes.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -49,9 +50,11 @@ export default class GMLParser {
             tree = parser.program();
         } catch (error) {
             if (error) {
-                const normalisedError =
-                    error instanceof Error ? error : new Error(String(error));
-                throw normalisedError;
+                if (isErrorLike(error)) {
+                    throw error;
+                }
+
+                throw new Error(String(error));
             }
             throw new Error("Unknown syntax error while parsing GML source.");
         }
