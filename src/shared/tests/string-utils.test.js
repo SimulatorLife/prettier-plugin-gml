@@ -12,7 +12,8 @@ import {
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet,
     capitalize,
-    getNonEmptyString
+    getNonEmptyString,
+    normalizeStringList
 } from "../string-utils.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -87,4 +88,13 @@ test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar(""), false);
     assert.strictEqual(isWordChar("-"), false);
     assert.strictEqual(isWordChar(null), false);
+});
+
+test("normalizeStringList trims entries, removes exact duplicates, and skips invalid inputs", () => {
+    const values = ["  foo  ", "bar", " ", "foo", "Foo", 42, "baz  "];
+    const normalized = normalizeStringList(values);
+    assert.deepStrictEqual(normalized, ["foo", "bar", "Foo", "baz"]);
+
+    assert.deepStrictEqual(normalizeStringList("a, b ,a"), ["a", "b"]);
+    assert.deepStrictEqual(normalizeStringList(null), []);
 });

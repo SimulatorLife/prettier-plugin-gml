@@ -64,22 +64,13 @@ export function capitalize(value) {
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
 function normalizeEntries(entries) {
-    const seen = new Set();
-
-    for (const entry of entries) {
-        if (typeof entry !== "string") {
-            continue;
-        }
-
-        const trimmed = entry.trim();
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        seen.add(trimmed);
-    }
-
-    return [...seen];
+    return Array.from(
+        new Set(
+            Array.from(entries ?? [], (entry) =>
+                typeof entry === "string" ? entry.trim() : ""
+            ).filter(Boolean)
+        )
+    );
 }
 
 export function normalizeStringList(
