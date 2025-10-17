@@ -1,14 +1,7 @@
+import { isErrorWithCode } from "../../../shared/error-utils.js";
+
 export function isFsErrorCode(error, ...codes) {
-    if (!error || typeof error !== "object") {
-        return false;
-    }
-
-    const { code } = error;
-    if (typeof code !== "string") {
-        return false;
-    }
-
-    return codes.includes(code);
+    return isErrorWithCode(error, ...codes);
 }
 
 export async function listDirectory(fsFacade, directoryPath) {
