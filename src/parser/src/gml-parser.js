@@ -230,23 +230,42 @@ export default class GMLParser {
     }
 
     removeLocationInfo(obj) {
-        for (const prop in obj) {
+        if (!obj || typeof obj !== "object") {
+            return;
+        }
+
+        for (const prop of Object.keys(obj)) {
             if (prop === "start" || prop === "end") {
                 delete obj[prop];
-            } else if (typeof obj[prop] === "object") {
-                this.removeLocationInfo(obj[prop]);
+                continue;
+            }
+
+            const value = obj[prop];
+            if (value && typeof value === "object") {
+                this.removeLocationInfo(value);
             }
         }
     }
 
     simplifyLocationInfo(obj) {
-        for (const prop in obj) {
+        if (!obj || typeof obj !== "object") {
+            return;
+        }
+
+        for (const prop of Object.keys(obj)) {
             if (prop === "start") {
                 obj.start = obj.start.index;
-            } else if (prop === "end") {
+                continue;
+            }
+
+            if (prop === "end") {
                 obj.end = obj.end.index;
-            } else if (typeof obj[prop] === "object") {
-                this.simplifyLocationInfo(obj[prop]);
+                continue;
+            }
+
+            const value = obj[prop];
+            if (value && typeof value === "object") {
+                this.simplifyLocationInfo(value);
             }
         }
     }
