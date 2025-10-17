@@ -4803,21 +4803,35 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
+        const callExpressions = statements.filter(
+            (statement) => statement?.type === "CallExpression"
+        );
         assert.strictEqual(
-            statements.length >= 3,
+            callExpressions.length >= 3,
             true,
-            "Expected blend mode reset to be inserted."
+            "Expected blend mode reset to be inserted after draw calls."
         );
 
-        const originalCall = statements[0];
+        const originalCall = callExpressions[0];
         assert.ok(originalCall);
-        assert.strictEqual(originalCall.type, "CallExpression");
         assert.strictEqual(originalCall.object?.name, "gpu_set_blendmode");
 
-        const resetCall = statements[1];
+        const resetCall = callExpressions.at(-1);
         assert.ok(resetCall);
-        assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendmode");
+
+        const drawCalls = callExpressions.slice(1, -1);
+        assert.strictEqual(
+            drawCalls.length > 0,
+            true,
+            "Expected at least one draw call between blend mode changes."
+        );
+        for (const drawCall of drawCalls) {
+            assert.strictEqual(
+                drawCall.object?.name?.startsWith("draw_"),
+                true
+            );
+        }
 
         const [resetArgument] = Array.isArray(resetCall.arguments)
             ? resetCall.arguments
