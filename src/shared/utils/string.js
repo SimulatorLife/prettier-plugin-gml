@@ -91,6 +91,29 @@ function getCandidateEntries(value, splitPattern) {
     return pattern ? value.split(pattern) : [value];
 }
 
+/**
+ * Normalize a string-or-string-array option into a deduplicated list of
+ * trimmed strings.
+ *
+ * Non-string entries are discarded and duplicate values (after trimming) are
+ * collapsed. When `allowInvalidType` is `false` the helper mirrors native
+ * `TypeError` semantics for invalid types so option parsing can surface clear
+ * feedback to callers.
+ *
+ * @param {string|string[]|null|undefined} value Raw option value provided by a
+ *   consumer. Arrays are flattened as-is; strings are split using
+ *   `splitPattern`.
+ * @param {Object} [options]
+ * @param {RegExp|null} [options.splitPattern=/[\n,]/] Pattern used to split
+ *   string input. A `null` pattern keeps the entire string as a single entry.
+ * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
+ *   are treated as "no value" instead of throwing.
+ * @param {string} [options.errorMessage] Message used when raising a
+ *   `TypeError` for invalid types. Defaults to a generic string when omitted.
+ * @returns {string[]} A list of unique, trimmed entries in input order.
+ * @throws {TypeError} When `value` is not a string or array and
+ *   `allowInvalidType` is `false`.
+ */
 export function normalizeStringList(
     value,
     {
@@ -133,6 +156,23 @@ export function normalizeStringList(
     return normalized;
 }
 
+/**
+ * Convert user-provided string-ish options into a case-insensitive lookup set.
+ *
+ * The helper applies `normalizeStringList` semantics before lowercasing each
+ * entry so callers can compare configuration values without worrying about
+ * minor formatting differences.
+ *
+ * @param {string|string[]|null|undefined} value Raw option value.
+ * @param {Object} [options]
+ * @param {RegExp|null} [options.splitPattern=null] Pattern passed through to
+ *   `normalizeStringList` for string input.
+ * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid
+ *   types as empty input.
+ * @param {string} [options.errorMessage] Message forwarded to
+ *   `normalizeStringList` when raising a `TypeError`.
+ * @returns {Set<string>} Lower-cased set of unique entries.
+ */
 export function toNormalizedLowerCaseSet(
     value,
     { splitPattern = null, allowInvalidType = true, errorMessage } = {}
