@@ -2,32 +2,42 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    registerCliPluginServices,
+    registerCliProjectIndexBuilder,
+    registerCliIdentifierCasePlanPreparer,
     resetRegisteredCliPluginServices,
-    resolveCliPluginServices
+    resolveCliProjectIndexBuilder,
+    resolveCliIdentifierCasePlanPreparer
 } from "../lib/plugin-services.js";
-import { createDefaultCliPluginServices } from "../lib/plugin-service-providers/default-plugin-services.js";
+import {
+    createDefaultProjectIndexBuilder,
+    createDefaultIdentifierCasePlanPreparer
+} from "../lib/plugin-service-providers/default-plugin-services.js";
 
 test("CLI plugin service registration", async (t) => {
     t.after(() => {
         resetRegisteredCliPluginServices();
-        resolveCliPluginServices();
+        resolveCliProjectIndexBuilder();
+        resolveCliIdentifierCasePlanPreparer();
     });
 
     await t.test("exposes the default plugin services", () => {
         resetRegisteredCliPluginServices();
 
-        const services = resolveCliPluginServices();
-        const defaults = createDefaultCliPluginServices();
+        const buildProjectIndex = resolveCliProjectIndexBuilder();
+        const prepareIdentifierCasePlan =
+            resolveCliIdentifierCasePlanPreparer();
+        const defaultBuildProjectIndex = createDefaultProjectIndexBuilder();
+        const defaultPrepareIdentifierCasePlan =
+            createDefaultIdentifierCasePlanPreparer();
 
         assert.strictEqual(
-            services.buildProjectIndex,
-            defaults.buildProjectIndex,
+            buildProjectIndex,
+            defaultBuildProjectIndex,
             "default project index builder should be registered"
         );
         assert.strictEqual(
-            services.prepareIdentifierCasePlan,
-            defaults.prepareIdentifierCasePlan,
+            prepareIdentifierCasePlan,
+            defaultPrepareIdentifierCasePlan,
             "default identifier case planner should be registered"
         );
     });
@@ -36,20 +46,16 @@ test("CLI plugin service registration", async (t) => {
         const buildProjectIndex = async () => ({ metrics: {} });
         const prepareIdentifierCasePlan = async () => {};
 
-        registerCliPluginServices(() => ({
-            buildProjectIndex,
-            prepareIdentifierCasePlan
-        }));
-
-        const services = resolveCliPluginServices();
+        registerCliProjectIndexBuilder(() => buildProjectIndex);
+        registerCliIdentifierCasePlanPreparer(() => prepareIdentifierCasePlan);
 
         assert.strictEqual(
-            services.buildProjectIndex,
+            resolveCliProjectIndexBuilder(),
             buildProjectIndex,
             "overridden project index builder should be returned"
         );
         assert.strictEqual(
-            services.prepareIdentifierCasePlan,
+            resolveCliIdentifierCasePlanPreparer(),
             prepareIdentifierCasePlan,
             "overridden identifier case planner should be returned"
         );
@@ -58,29 +64,32 @@ test("CLI plugin service registration", async (t) => {
     });
 
     await t.test("reset restores the default services", () => {
-        registerCliPluginServices(() => ({
-            buildProjectIndex: async () => {
-                throw new Error("should not be called");
-            },
-            prepareIdentifierCasePlan: async () => {
-                throw new Error("should not be called");
-            }
-        }));
+        registerCliProjectIndexBuilder(() => () => {
+            throw new Error("should not be called");
+        });
+        registerCliIdentifierCasePlanPreparer(() => async () => {
+            throw new Error("should not be called");
+        });
 
-        resolveCliPluginServices();
+        resolveCliProjectIndexBuilder();
+        resolveCliIdentifierCasePlanPreparer();
         resetRegisteredCliPluginServices();
 
-        const services = resolveCliPluginServices();
-        const defaults = createDefaultCliPluginServices();
+        const buildProjectIndex = resolveCliProjectIndexBuilder();
+        const prepareIdentifierCasePlan =
+            resolveCliIdentifierCasePlanPreparer();
+        const defaultBuildProjectIndex = createDefaultProjectIndexBuilder();
+        const defaultPrepareIdentifierCasePlan =
+            createDefaultIdentifierCasePlanPreparer();
 
         assert.strictEqual(
-            services.buildProjectIndex,
-            defaults.buildProjectIndex,
+            buildProjectIndex,
+            defaultBuildProjectIndex,
             "default project index builder should be restored"
         );
         assert.strictEqual(
-            services.prepareIdentifierCasePlan,
-            defaults.prepareIdentifierCasePlan,
+            prepareIdentifierCasePlan,
+            defaultPrepareIdentifierCasePlan,
             "default identifier case planner should be restored"
         );
     });

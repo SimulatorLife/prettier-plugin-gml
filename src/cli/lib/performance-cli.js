@@ -6,7 +6,10 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { parseCommandLine } from "./command-parsing.js";
-import { resolveCliPluginServices } from "./plugin-services.js";
+import {
+    resolveCliProjectIndexBuilder,
+    resolveCliIdentifierCasePlanPreparer
+} from "./plugin-services.js";
 import { getIdentifierText } from "../../shared/ast-node-helpers.js";
 import { formatByteSize } from "../../shared/number-utils.js";
 import { toNormalizedLowerCaseString } from "../../shared/string-utils.js";
@@ -50,10 +53,6 @@ function formatMetrics(label, metrics) {
         caches: metrics?.caches ?? {},
         metadata: metrics?.metadata ?? {}
     };
-}
-
-function resolvePluginServices() {
-    return resolveCliPluginServices();
 }
 
 function createBenchmarkContext(resolvedProjectRoot) {
@@ -110,7 +109,7 @@ async function executeProjectIndexAttempt({
     verbose,
     attempt
 }) {
-    const { buildProjectIndex } = resolvePluginServices();
+    const buildProjectIndex = resolveCliProjectIndexBuilder();
     try {
         const index = await buildProjectIndex(resolvedProjectRoot, undefined, {
             logger,
@@ -219,7 +218,8 @@ async function attachRenamePlanIfRequested({
     });
 
     try {
-        const { prepareIdentifierCasePlan } = resolvePluginServices();
+        const prepareIdentifierCasePlan =
+            resolveCliIdentifierCasePlanPreparer();
         await prepareIdentifierCasePlan(renameOptions);
         context.results.renamePlan = createRenamePlanResult(renameOptions);
     } catch (error) {
@@ -311,7 +311,7 @@ async function runProjectIndexMemoryMeasurement({ projectRoot }) {
 
     const { readFile } = await import("node:fs/promises");
 
-    const { buildProjectIndex } = resolvePluginServices();
+    const buildProjectIndex = resolveCliProjectIndexBuilder();
 
     const fsFacade = {
         async readDir() {
