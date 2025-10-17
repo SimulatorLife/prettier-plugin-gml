@@ -235,6 +235,39 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("closes GM2008 vertex batches without leading padding", async () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x2, y2, z2);",
+            "vertex_end(vb);",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source, {
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_end(vb);",
+            "",
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x2, y2, z2);",
+            "vertex_end(vb);"
+        ].join("\n");
+
+        assert.strictEqual(
+            formatted,
+            expected,
+            "Expected Feather fixes to close vertex batches without extra blank lines."
+        );
+    });
+
     it("retains blank lines following macro directives", async () => {
         const source = [
             "#define  TRIPLE(value) ((value) * 3)",

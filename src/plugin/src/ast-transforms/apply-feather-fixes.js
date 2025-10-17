@@ -7181,6 +7181,7 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
         const statement = statements[index];
 
         if (isVertexBeginCallNode(statement)) {
+            markStatementToSuppressFollowingEmptyLine(statement);
             if (lastBeginCall) {
                 const vertexEndCall =
                     createVertexEndCallFromBegin(lastBeginCall);
@@ -7193,6 +7194,8 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                 });
 
                 if (vertexEndCall && fixDetail) {
+                    markStatementToSuppressFollowingEmptyLine(lastBeginCall);
+                    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
                     statements.splice(index, 0, vertexEndCall);
                     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
                     fixes.push(fixDetail);
