@@ -14,12 +14,14 @@ import {
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
-    PROGRESS_BAR_WIDTH_ENV_VAR
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../lib/manual-env.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth
 } from "../lib/progress-bar.js";
+import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -167,6 +169,29 @@ describe("manual option helpers", () => {
             });
 
             assert.deepEqual(calls, [["extraOption", "value", "env"]]);
+        });
+
+        it("supports overriding the VM evaluation timeout via the env helper", () => {
+            const calls = [];
+            const command = {
+                setOptionValueWithSource(...args) {
+                    calls.push(args);
+                }
+            };
+
+            applyManualEnvOptionOverrides({
+                command,
+                env: { [IDENTIFIER_VM_TIMEOUT_ENV_VAR]: "6500" },
+                additionalOverrides: [
+                    {
+                        envVar: IDENTIFIER_VM_TIMEOUT_ENV_VAR,
+                        optionName: "vmEvalTimeoutMs",
+                        resolveValue: resolveVmEvalTimeout
+                    }
+                ]
+            });
+
+            assert.deepEqual(calls, [["vmEvalTimeoutMs", 6500, "env"]]);
         });
     });
 });
