@@ -3,6 +3,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { escapeRegExp } from "../../shared/regexp.js";
+
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
@@ -15,6 +17,14 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["plugin", "index.js"]
 ]);
 
+const LIST_SEPARATORS = Array.from(
+    new Set([",", path.delimiter].filter(Boolean))
+);
+
+const LIST_SPLIT_PATTERN = new RegExp(
+    `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
+);
+
 function normalizeCandidateDescriptors(candidates) {
     if (!candidates) {
         return [];
@@ -24,18 +34,10 @@ function normalizeCandidateDescriptors(candidates) {
 }
 
 function splitCandidateList(rawValue) {
-    const entries = [];
-
-    for (const delimiterChunk of rawValue.split(path.delimiter)) {
-        for (const entry of delimiterChunk.split(",")) {
-            const trimmed = entry.trim();
-            if (trimmed) {
-                entries.push(trimmed);
-            }
-        }
-    }
-
-    return entries;
+    return rawValue
+        .split(LIST_SPLIT_PATTERN)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
 }
 
 function getEnvironmentCandidates(env) {
