@@ -2641,15 +2641,25 @@ function computeSyntheticFunctionDocLines(
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
 
-    const hasFunctionTag = metadata.some(
-        (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
-    );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
+    const existingFunctionMetadata = metadata.find(
+        (meta) => meta.tag === "function"
+    );
+    const normalizedFunctionName =
+        typeof functionName === "string" &&
+        isNonEmptyTrimmedString(functionName)
+            ? normalizeDocMetadataName(functionName)
+            : null;
+    const normalizedExistingFunctionName =
+        typeof existingFunctionMetadata?.name === "string" &&
+        isNonEmptyTrimmedString(existingFunctionMetadata.name)
+            ? normalizeDocMetadataName(existingFunctionMetadata.name)
+            : null;
 
     for (const meta of metadata) {
         if (meta.tag !== "param") {
@@ -2678,7 +2688,12 @@ function computeSyntheticFunctionDocLines(
         lines.push("/// @override");
     }
 
-    if (functionName && !hasFunctionTag) {
+    const shouldInsertFunctionTag =
+        normalizedFunctionName &&
+        (normalizedExistingFunctionName === null ||
+            normalizedExistingFunctionName !== normalizedFunctionName);
+
+    if (shouldInsertFunctionTag) {
         lines.push(`/// @function ${functionName}`);
     }
 
