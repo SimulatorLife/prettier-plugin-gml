@@ -1,10 +1,7 @@
-export { default } from "./src/gml-parser.js";
-export { getLineBreakCount } from "./src/gml-parser.js";
+export { default, getLineBreakCount } from "./src/gml-parser.js";
 export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
 } from "./src/conditional-assignment-sanitizer.js";
-export {
-    isSyntaxErrorWithLocation
-} from "./src/utils/syntax-error-guards.js";
+export { isSyntaxErrorWithLocation } from "./src/utils/syntax-error-guards.js";
