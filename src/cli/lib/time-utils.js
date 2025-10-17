@@ -1,9 +1,7 @@
-import { formatDuration } from "../../shared/number-utils.js";
-
 /**
  * Create a logger that reports how long an operation took when verbose parsing
  * output is enabled. Callers can provide either a static string or a factory to
- * customise the final message while reusing the shared duration formatting.
+ * customise the final message while reusing the module's duration formatting.
  *
  * @param {{
  *   verbose?: { parsing?: boolean },
@@ -11,6 +9,15 @@ import { formatDuration } from "../../shared/number-utils.js";
  * }} [options]
  * @returns {() => void} A function that logs the elapsed duration when invoked.
  */
+export function formatDuration(startTime) {
+    const deltaMs = Date.now() - startTime;
+    if (deltaMs < 1000) {
+        return `${deltaMs}ms`;
+    }
+
+    return `${(deltaMs / 1000).toFixed(1)}s`;
+}
+
 export function createVerboseDurationLogger({ verbose, formatMessage } = {}) {
     const startTime = Date.now();
 

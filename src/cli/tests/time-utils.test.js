@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { timeSync } from "../lib/time-utils.js";
+import { formatDuration, timeSync } from "../lib/time-utils.js";
 
 function withMockedConsole(callback) {
     const originalLog = console.log;
@@ -17,6 +17,28 @@ function withMockedConsole(callback) {
 }
 
 describe("time-utils", () => {
+    describe("formatDuration", () => {
+        it("returns millisecond precision for sub-second durations", () => {
+            const originalNow = Date.now;
+            Date.now = () => 200;
+            try {
+                assert.equal(formatDuration(0), "200ms");
+            } finally {
+                Date.now = originalNow;
+            }
+        });
+
+        it("returns seconds with a decimal when duration exceeds a second", () => {
+            const originalNow = Date.now;
+            Date.now = () => 1500;
+            try {
+                assert.equal(formatDuration(0), "1.5s");
+            } finally {
+                Date.now = originalNow;
+            }
+        });
+    });
+
     it("logs progress when verbose parsing is enabled", () => {
         const originalNow = Date.now;
         let invocation = 0;

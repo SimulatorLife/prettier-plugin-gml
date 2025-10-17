@@ -84,24 +84,9 @@ function formatByteSize(
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
 
-function formatDuration(startTime) {
-    const deltaMs = Date.now() - startTime;
-    if (deltaMs < 1000) {
-        return `${deltaMs}ms`;
-    }
-
-    return `${(deltaMs / 1000).toFixed(1)}s`;
-}
-
 function formatBytes(text) {
     const size = Buffer.byteLength(text, "utf8");
     return formatByteSize(size, { decimals: 1 });
 }
 
-export {
-    formatBytes,
-    formatDuration,
-    formatByteSize,
-    isFiniteNumber,
-    toNormalizedInteger
-};
+export { formatBytes, formatByteSize, isFiniteNumber, toNormalizedInteger };

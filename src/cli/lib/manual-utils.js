@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseJsonWithContext } from "../../shared/json-utils.js";
 import { toTrimmedString } from "../../shared/string-utils.js";
-import { formatBytes, formatDuration } from "../../shared/number-utils.js";
+import { formatBytes } from "../../shared/number-utils.js";
 import { ensureDir } from "./file-system.js";
+import { formatDuration } from "./time-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
