@@ -1,0 +1,30 @@
+name: Codex 77 – Usability Exerciser
+on:
+  schedule:
+    - cron: "0 */5 * * *" # every five hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Usability Exerciser"
+      pr_body: "Seed PR for Codex to perform targeted usability improvements based on hands-on entrypoint tests."
+      prompt: >
+        Identify one meaningful entrypoint—CLI command, npm script, executable, or other
+        runnable task—that a typical contributor or user would run during day-to-day
+        work. Execute it end-to-end and capture how approachable and informative the
+        experience feels, focusing on clear help text, obvious success/failure signals,
+        actionable errors, and consistent messaging with related tooling. Prioritize
+        uncovering gaps such as missing usage guidance, confusing defaults, inconsistent
+        flags between similar commands, or opaque output. Pick exactly one improvement
+        that resolves the most painful usability issue you find, implement that change,
+        and update any accompanying docs or examples needed to lock in the better
+        experience. Keep the fix self-contained and focused on delivering that improved
+        experience.
