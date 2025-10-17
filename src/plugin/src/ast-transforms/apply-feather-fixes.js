@@ -806,6 +806,7 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
+                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
                     ast,
                     diagnostic
                 });

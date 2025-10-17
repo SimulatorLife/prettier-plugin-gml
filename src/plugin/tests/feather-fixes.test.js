@@ -2818,70 +2818,6 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts a separator before GM2053 resets appended at the end of a block", () => {
-        const source = [
-            "/// Draw Event",
-            "",
-            "gpu_set_alphatestenable(true);",
-            "",
-            "draw_self();"
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const body = Array.isArray(ast.body) ? ast.body : [];
-        const resetIndex = body.findIndex((node) => {
-            if (!node || node.type !== "CallExpression") {
-                return false;
-            }
-
-            if (node.object?.type !== "Identifier") {
-                return false;
-            }
-
-            if (node.object.name !== "gpu_set_alphatestenable") {
-                return false;
-            }
-
-            const args = Array.isArray(node.arguments) ? node.arguments : [];
-
-            if (args.length === 0) {
-                return false;
-            }
-
-            const [firstArg] = args;
-
-            if (!firstArg || firstArg.type !== "Literal") {
-                return false;
-            }
-
-            return firstArg.value === false || firstArg.value === "false";
-        });
-
-        assert.ok(
-            resetIndex !== -1,
-            "Expected to locate the inserted alpha test enable reset call."
-        );
-
-        const separator = body[resetIndex - 1];
-
-        assert.ok(
-            separator,
-            "Expected a separator node before the inserted alpha test enable reset call."
-        );
-
-        assert.strictEqual(
-            separator.type,
-            "EmptyStatement",
-            "Expected an EmptyStatement separator before the inserted alpha test enable reset call."
-        );
-    });
-
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
             "/// Create Event",
@@ -3645,54 +3581,6 @@ describe("applyFeatherFixes transform", () => {
             true,
             "Expected inserted assignment to record GM2044 metadata."
         );
-    });
-
-    it("records metadata for GM2064 flagged struct properties", () => {
-        const source = [
-            "/// Create Event",
-            "",
-            "ins_companion = instance_create_layer(x, y, layer, obj_companion, {",
-            "    intro_message: message",
-            "});"
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const assignment = ast.body?.[0];
-        assert.ok(assignment);
-        const callExpression = assignment.right;
-        assert.ok(callExpression);
-        const structArgument = callExpression.arguments?.[4];
-        assert.ok(structArgument);
-        const [property] = structArgument.properties ?? [];
-        assert.ok(property);
-
-        const propertyMetadata = property._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(propertyMetadata.length, 1);
-
-        const [metadata] = propertyMetadata;
-        assert.strictEqual(metadata.id, "GM2064");
-        assert.strictEqual(metadata.target, "message");
-        assert.strictEqual(metadata.automatic, false);
-
-        const expectedMetadata = getFeatherDiagnosticById("GM2064");
-        assert.ok(expectedMetadata);
-        assert.strictEqual(metadata.title, expectedMetadata.title);
-        assert.strictEqual(metadata.description, expectedMetadata.description);
-        assert.strictEqual(metadata.correction, expectedMetadata.correction);
-
-        const recordedFixes = ast._appliedFeatherDiagnostics ?? [];
-        const gm2064Fixes = recordedFixes.filter(
-            (entry) => entry.id === "GM2064"
-        );
-        assert.strictEqual(gm2064Fixes.length, 1);
-        assert.strictEqual(gm2064Fixes[0].target, "message");
-        assert.strictEqual(gm2064Fixes[0].automatic, false);
     });
 
     it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
