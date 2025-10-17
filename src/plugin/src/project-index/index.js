@@ -5,10 +5,7 @@ import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
-import {
-    buildLocationKey,
-    buildFileLocationKey
-} from "../../../shared/location-keys.js";
+import { buildLocationKey, buildFileLocationKey } from "./location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
