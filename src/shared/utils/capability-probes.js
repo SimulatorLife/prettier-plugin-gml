@@ -20,7 +20,12 @@ function getIteratorMethod(iterable) {
 
 function getIterator(iterable) {
     const method = getIteratorMethod(iterable);
-    return method ? method.call(iterable) : null;
+    if (!method) {
+        return null;
+    }
+
+    const iterator = method.call(iterable);
+    return typeof iterator?.[Symbol.iterator] === "function" ? iterator : null;
 }
 
 function hasIterator(iterable) {
@@ -110,21 +115,15 @@ export function hasIterableItems(iterable) {
     }
 
     const iterator = getIterator(iterable);
-    if (!iterator || typeof iterator.next !== "function") {
+    if (!iterator) {
         return false;
     }
 
-    const { done } = iterator.next();
-
-    if (typeof iterator.return === "function") {
-        try {
-            iterator.return();
-        } catch {
-            // Ignore iterator close errors.
-        }
+    for (const _ of iterator) {
+        return true;
     }
 
-    return done === false;
+    return false;
 }
 
 export function getIterableSize(iterable) {
@@ -134,16 +133,12 @@ export function getIterableSize(iterable) {
     }
 
     const iterator = getIterator(iterable);
-    if (!iterator || typeof iterator.next !== "function") {
+    if (!iterator) {
         return 0;
     }
 
     let count = 0;
-    while (true) {
-        const { done } = iterator.next();
-        if (done) {
-            break;
-        }
+    for (const _ of iterator) {
         count += 1;
     }
 
