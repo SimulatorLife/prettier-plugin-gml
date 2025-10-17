@@ -1,30 +1,47 @@
 import { isNonEmptyString, toTrimmedString } from "./string-utils.js";
 
+function getErrorMessage(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    if (typeof value.toString !== "function") {
+        return null;
+    }
+
+    try {
+        return value.toString();
+    } catch {
+        return null;
+    }
+}
+
 function toError(value) {
     if (value instanceof Error) {
         return value;
     }
 
-    let message;
-    try {
-        if (typeof value === "string") {
-            message = value;
-        } else if (value != undefined && typeof value.toString === "function") {
-            message = value.toString();
-        }
-    } catch {
-        // Ignore toString failures and fall back to a generic description below.
-    }
-
-    if (!message || message === "[object Object]") {
-        message = "Unknown error";
-    }
+    const rawMessage = getErrorMessage(value);
+    const message =
+        rawMessage && rawMessage !== "[object Object]"
+            ? rawMessage
+            : "Unknown error";
 
     const fallback = new Error(message);
     fallback.name = "NonErrorThrown";
     return fallback;
 }
 
+/**
+ * Specialized syntax error raised when JSON parsing fails. The wrapper keeps
+ * the original `cause` intact (when supported) while also carrying extra
+ * metadata about the source being parsed so callers can produce actionable
+ * error messages without re-threading context through every call site.
+ */
 export class JsonParseError extends SyntaxError {
     constructor(message, { cause, source, description } = {}) {
         super(message, cause ? { cause } : undefined);
@@ -64,6 +81,28 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
+/**
+ * Parse a JSON payload while annotating any failures with high-level context.
+ *
+ * The helper mirrors `JSON.parse` semantics but decorates thrown errors with
+ * {@link JsonParseError}, ensuring the resulting message includes the
+ * normalized description/source and the original failure details. This keeps
+ * diagnostics stable even when upstream code throws non-`Error` values or
+ * provides blank description strings.
+ *
+ * @param {string} text Raw JSON text to parse.
+ * @param {{
+ *     source?: string | unknown,
+ *     description?: string | unknown,
+ *     reviver?: (this: any, key: string, value: any) => any
+ * }} [options] Parsing options. `source` is surfaced in error messages to
+ *     highlight where the JSON originated. `description` labels the payload
+ *     (defaults to "JSON"), and `reviver` mirrors the native `JSON.parse`
+ *     reviver hook.
+ * @returns {any} Parsed JavaScript value when `text` is valid JSON.
+ * @throws {JsonParseError} When parsing fails. The error exposes `cause`,
+ *     `source`, and `description` properties when available.
+ */
 export function parseJsonWithContext(text, options = {}) {
     const { source, description, reviver } = options;
     try {

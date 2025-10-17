@@ -17,13 +17,20 @@ import {
     resolveManualRepoValue,
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
-import { renderProgressBar, disposeProgressBars } from "../lib/progress-bar.js";
+import { formatDuration } from "../../shared/number-utils.js";
+import { timeSync } from "../lib/time-utils.js";
+import {
+    renderProgressBar,
+    disposeProgressBars,
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
+} from "../lib/progress-bar.js";
 import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
+import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,6 +91,18 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_VM_EVAL_TIMEOUT_MS
         )
         .option(
+            "--progress-bar-width <columns>",
+            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            (value) => {
+                try {
+                    return resolveProgressBarWidth(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            getDefaultProgressBarWidth()
+        )
+        .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
             (value) => {
@@ -111,6 +130,8 @@ function parseArgs({
     isTty = process.stdout.isTTY === true
 } = {}) {
     const command = createGenerateIdentifiersCommand();
+
+    applyManualEnvOptionOverrides({ command, env });
 
     const verbose = {
         resolveRef: true,
@@ -145,6 +166,8 @@ function parseArgs({
             options.vmEvalTimeoutMs === undefined
                 ? DEFAULT_VM_EVAL_TIMEOUT_MS
                 : options.vmEvalTimeoutMs,
+        progressBarWidth:
+            options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
         helpRequested: false,

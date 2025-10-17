@@ -319,6 +319,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function example",
             '/// @param [arg="default"]',
+            "/// @returns {undefined}",
             'function example(arg = "default") {}'
         ].join("\n");
 
@@ -341,6 +342,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function equalityExample",
             '/// @param [arg="fallback"]',
+            "/// @returns {undefined}",
             'function equalityExample(arg = "fallback") {}'
         ].join("\n");
 
@@ -363,6 +365,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function inequalityExample",
             '/// @param [arg="fallback"]',
+            "/// @returns {undefined}",
             'function inequalityExample(arg = "fallback") {}'
         ].join("\n");
 
@@ -386,6 +389,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function equalityExample",
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
+            "/// @returns {undefined}",
             'function equalityExample(arg0, arg1 = "fallback") {}'
         ].join("\n");
 
@@ -409,6 +413,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function inequalityExample",
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
+            "/// @returns {undefined}",
             'function inequalityExample(arg0, arg1 = "fallback") {}'
         ].join("\n");
 

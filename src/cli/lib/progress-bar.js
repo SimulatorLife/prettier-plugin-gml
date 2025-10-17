@@ -1,10 +1,11 @@
 import {
     coercePositiveInteger,
     resolveIntegerOption
-} from "./command-parsing.js";
+} from "../../shared/numeric-option-utils.js";
 import { SingleBar, Presets } from "cli-progress";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
+let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
 const activeProgressBars = new Map();
 let progressBarFactory = createDefaultProgressBar;
 
@@ -21,9 +22,24 @@ function coerceProgressBarWidth(value, { received }) {
     });
 }
 
-function resolveProgressBarWidth(rawValue) {
+function getDefaultProgressBarWidth() {
+    return configuredDefaultProgressBarWidth;
+}
+
+function setDefaultProgressBarWidth(width) {
+    configuredDefaultProgressBarWidth = coerceProgressBarWidth(width, {
+        received: width
+    });
+}
+
+function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
+    const fallback =
+        defaultWidth === undefined
+            ? getDefaultProgressBarWidth()
+            : defaultWidth;
+
     return resolveIntegerOption(rawValue, {
-        defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+        defaultValue: fallback,
         coerce: coerceProgressBarWidth,
         typeErrorMessage: createTypeErrorMessage
     });
@@ -83,6 +99,8 @@ function renderProgressBar(label, current, total, width) {
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
+    getDefaultProgressBarWidth,
+    setDefaultProgressBarWidth,
     renderProgressBar,
     disposeProgressBars,
     setProgressBarFactoryForTesting,
