@@ -29,8 +29,6 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-import prettier from "prettier";
-
 import { Command, InvalidArgumentError } from "commander";
 
 import {
@@ -76,6 +74,45 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
+
+function isMissingPrettierDependency(error) {
+    if (!error || typeof error !== "object") {
+        return false;
+    }
+
+    if (error.code !== "ERR_MODULE_NOT_FOUND") {
+        return false;
+    }
+
+    const message = typeof error.message === "string" ? error.message : "";
+    return message.includes("'prettier'");
+}
+
+let prettierModulePromise = null;
+
+async function resolvePrettier() {
+    if (!prettierModulePromise) {
+        prettierModulePromise = import("prettier")
+            .then((module) => module?.default ?? module)
+            .catch((error) => {
+                if (isMissingPrettierDependency(error)) {
+                    const instructions = [
+                        "Prettier v3 must be installed alongside prettier-plugin-gml.",
+                        "Install it with:",
+                        "  npm install --save-dev prettier@^3"
+                    ].join("\n");
+                    const cliError = new CliUsageError(instructions);
+                    if (isErrorLike(error)) {
+                        cliError.cause = error;
+                    }
+                    throw cliError;
+                }
+                throw error;
+            });
+    }
+
+    return prettierModulePromise;
+}
 
 function normalizeParseErrorAction(value, fallbackValue) {
     if (value == undefined) {
@@ -541,6 +578,8 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         `__prettier_plugin_gml_ignore_test__${placeholderExtension}`
     );
 
+    const prettier = await resolvePrettier();
+
     try {
         const fileInfo = await prettier.getFileInfo(placeholderPath, {
             ignorePath: ignorePathOption,
@@ -704,6 +743,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
 }
 
 async function resolveFormattingOptions(filePath) {
+    const prettier = await resolvePrettier();
     let resolvedConfig = null;
 
     try {
@@ -741,6 +781,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
     }
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
+        const prettier = await resolvePrettier();
         const ignorePathOption = getIgnorePathOptions(activeIgnorePaths);
         const fileInfo = await prettier.getFileInfo(filePath, {
             ...(ignorePathOption ? { ignorePath: ignorePathOption } : {}),
