@@ -32,6 +32,7 @@
 - Update high-traffic modules (printers, parser adapters, CLI tooling) to import
   from the new barrel modules. Once the majority of call sites use the grouped
   paths we can consider removing the transitional re-export shims.
-- Revisit the remaining files in `src/shared/` (for example `line-breaks.js` or
-  `ast-locations` consumers) to decide whether they belong in the `ast` folder
-  or merit their own category.
+- Revisit the remaining files in `src/shared/` (for example the transitional
+  `ast-locations` shim) to decide whether they belong in the `ast` folder or
+  merit their own category now that the line break helpers live under
+  `src/shared/utils/line-breaks.js`.
