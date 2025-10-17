@@ -1183,9 +1183,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const declarations = Array.isArray(declaration?.declarations)
-        ? declaration.declarations
-        : [];
+    const declarations = asArray(declaration?.declarations);
 
     if (declarations.length !== 1) {
         return;
@@ -1262,11 +1260,9 @@ function convertIdentifierReference({
     }
 
     const candidates = variableDeclarations.get(identifier.name);
-    const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
+    const hasCandidates = isNonEmptyArray(candidates);
 
-    const withBodies = Array.isArray(context?.withBodies)
-        ? context.withBodies
-        : [];
+    const withBodies = asArray(context?.withBodies);
     const identifierStart = getNodeStartIndex(identifier);
     const identifierEnd = getNodeEndIndex(identifier);
 
@@ -2099,9 +2095,7 @@ function buildFeatherTypeSystemInfo() {
     const baseTypesLowercase = new Set();
     const specifierBaseTypes = new Set();
 
-    const entries = Array.isArray(typeSystem?.baseTypes)
-        ? typeSystem.baseTypes
-        : [];
+    const entries = asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
         const name = toTrimmedString(entry?.name);
@@ -2113,9 +2107,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = Array.isArray(entry?.specifierExamples)
-            ? entry.specifierExamples
-            : [];
+        const specifierExamples = asArray(entry?.specifierExamples);
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;
@@ -5247,9 +5239,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
         return [];
     }
 
-    const gm1100Entries = Array.isArray(metadata?.GM1100)
-        ? metadata.GM1100
-        : [];
+    const gm1100Entries = asArray(metadata?.GM1100);
 
     if (gm1100Entries.length === 0) {
         return [];
@@ -5691,7 +5681,7 @@ function extractFeatherPreprocessMetadata(metadata, key) {
 
     const entries = metadata[key];
 
-    return Array.isArray(entries) ? entries.filter(Boolean) : [];
+    return asArray(entries).filter(Boolean);
 }
 
 function normalizePreprocessedRange(entry) {
@@ -10680,9 +10670,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
             continue;
         }
 
-        const metadata = Array.isArray(candidate?._appliedFeatherDiagnostics)
-            ? candidate._appliedFeatherDiagnostics
-            : [];
+        const metadata = asArray(candidate?._appliedFeatherDiagnostics);
 
         const hasGM2005Metadata = metadata.some(
             (entry) => entry?.id === "GM2005"
