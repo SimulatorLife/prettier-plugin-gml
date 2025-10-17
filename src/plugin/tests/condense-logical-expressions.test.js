@@ -46,3 +46,36 @@ test("condenses boolean branches with unreachable statements", async () => {
         ].join("\n")
     );
 });
+
+test("preserves guard extraction descriptions when condensing", async () => {
+    const source = [
+        "/// @function condense_guard",
+        "/// @param {bool} foo",
+        "/// @param {bool} bar",
+        "/// @param {bool} qux",
+        "/// @description Guard extraction: (foo and qux) or (bar and qux).",
+        "/// @returns {bool}",
+        "function condense_guard(foo, bar, qux) {",
+        "    if ((foo and qux) or (bar and qux)) {",
+        "        return true;",
+        "    }",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.match(
+        formatted,
+        /Guard extraction: \(foo and qux\) or \(bar and qux\)\./,
+        "Expected guard extraction description to remain unchanged."
+    );
+
+    assert.ok(
+        !formatted.includes(" == "),
+        "Expected guard extraction description to omit simplified equality."
+    );
+});

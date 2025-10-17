@@ -12,6 +12,11 @@ export function registerGmlPluginComponents(factory) {
     cachedComponents = null;
 }
 
+export function resetRegisteredGmlPluginComponents() {
+    componentFactory = createDefaultGmlPluginComponents;
+    cachedComponents = null;
+}
+
 export function resolveGmlPluginComponents() {
     if (!cachedComponents) {
         const components = componentFactory();

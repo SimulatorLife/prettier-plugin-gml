@@ -98,23 +98,7 @@ function formatBytes(text) {
     return formatByteSize(size, { decimals: 1 });
 }
 
-function timeSync(label, fn, { verbose }) {
-    if (verbose.parsing) {
-        console.log(`→ ${label}`);
-    }
-
-    const startTime = Date.now();
-    const result = fn();
-
-    if (verbose.parsing) {
-        console.log(`  ${label} completed in ${formatDuration(startTime)}.`);
-    }
-
-    return result;
-}
-
 export {
-    timeSync,
     formatBytes,
     formatDuration,
     formatByteSize,

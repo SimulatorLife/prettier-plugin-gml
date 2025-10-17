@@ -55,7 +55,7 @@ function scr_logic_xor_equivalent(foo, bar) {
 /// @param {bool} bar
 /// @param {bool} baz
 /// @param {bool} qux
-/// @description Guard extraction: (foo and qux) or (bar and qux) or (baz and qux) == (foo or bar or baz) and qux.
+/// @description Guard extraction: (foo and qux) or (bar and qux) or (baz and qux).
 /// @returns {bool}
 function scr_logic_guard_extraction(foo, bar, baz, qux) {
     return (foo || bar || baz) && qux;
@@ -64,7 +64,7 @@ function scr_logic_guard_extraction(foo, bar, baz, qux) {
 /// @function scr_logic_implication_form
 /// @param {bool} foo
 /// @param {bool} bar
-/// @description Implication: if (foo) return bar; else return true; == !foo or bar.
+/// @description Implication: if (foo) return bar; else return true.
 /// @returns {bool}
 function scr_logic_implication_form(foo, bar) {
     return !foo || bar;
@@ -92,7 +92,7 @@ function scr_logic_demorgan_or(foo, bar) {
 /// @param {bool} foo
 /// @param {bool} bar
 /// @param {bool} baz
-/// @description Simplified: foo and (!baz or bar).
+/// @description Original multi-branch: if (foo and bar or baz) return (foo and bar); else return (foo or baz).
 /// @returns {bool}
 function scr_logic_branch_collapse(foo, bar, baz) {
     return foo && (!baz || bar);
@@ -102,10 +102,18 @@ function scr_logic_branch_collapse(foo, bar, baz) {
 /// @param {bool} foo
 /// @param {bool} bar
 /// @param {bool} baz
-/// @description Simplified: !(foo and bar) or baz.
+/// @description Multi-clause reduction: (foo or bar) and (!foo or baz) and (!bar or baz).
 /// @returns {bool}
 function scr_logic_mixed_reduction(foo, bar, baz) {
     return !(foo && bar) || baz;
+}
+
+/// @function logical_example
+/// @param foo
+/// @param bar
+/// @param baz
+function logical_example(foo, bar, baz) {
+    return foo && (bar || !baz);
 }
 
 /// @function scr_nearest_power_of_2
