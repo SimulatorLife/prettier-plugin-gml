@@ -38,6 +38,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   predictable.
 - [Project Index next steps](project-index-next-steps.md) — Tracks remaining
   follow-up work now that cache persistence and discovery ship in the plugin.
+- [Shared module layout refresh](shared-module-layout.md) — Summarises the
+  repository-wide audit that reorganised the `src/shared` helpers into
+  `ast/` and `utils/` entry points.
 
 ## Metadata tooling
 

@@ -17,3 +17,8 @@ apple = ["granny smith","fuji","gala"];
 for (var index = 0; index < array_length(apple); index += 1) {
 	show_debug_message(apple[index]);
 }
+
+var arr3=[1,2,3];
+for(var i=0;i<array_length(arr3);i++){
+show_debug_message(arr3[i]);
+};

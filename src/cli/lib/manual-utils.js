@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseJsonWithContext } from "../../shared/json-utils.js";
 import { toTrimmedString } from "../../shared/string-utils.js";
 import { formatBytes, formatDuration } from "../../shared/number-utils.js";
 import { ensureDir } from "./file-system.js";
@@ -15,16 +16,6 @@ function assertPlainObject(value, message) {
     }
 
     return value;
-}
-
-function parseJsonOrThrow(text, description) {
-    try {
-        return JSON.parse(text);
-    } catch (error) {
-        throw new SyntaxError(
-            `Failed to parse ${description} as JSON: ${error.message}`
-        );
-    }
 }
 
 function validateManualCommitPayload(payload, { ref }) {
@@ -201,7 +192,10 @@ function createManualGitHubClient({
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
         const body = await curlRequest(url, { acceptJson: true });
-        const payload = parseJsonOrThrow(body, "manual commit response");
+        const payload = parseJsonWithContext(body, {
+            description: "manual commit response",
+            source: url
+        });
         const sha = validateManualCommitPayload(payload, { ref });
 
         return { ref, sha };
@@ -222,7 +216,10 @@ function createManualGitHubClient({
 
         const latestTagUrl = `${apiRoot}/tags?per_page=1`;
         const body = await curlRequest(latestTagUrl, { acceptJson: true });
-        const tags = parseJsonOrThrow(body, "manual tags response");
+        const tags = parseJsonWithContext(body, {
+            description: "manual tags response",
+            source: latestTagUrl
+        });
 
         if (!Array.isArray(tags) || tags.length === 0) {
             console.warn(

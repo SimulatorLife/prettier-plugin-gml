@@ -38,6 +38,7 @@ import {
     mergeUniqueValues,
     uniqueArray
 } from "../shared/array-utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString,
@@ -52,7 +53,13 @@ import {
     handleCliError
 } from "./lib/cli-errors.js";
 import { parseCommandLine } from "./lib/command-parsing.js";
+import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "./lib/ignore-path-registry.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -136,16 +143,14 @@ const DEFAULT_PARSE_ERROR_ACTION =
 const cliArgs = process.argv.slice(2);
 
 function parseCliArguments(args) {
-    const command = new Command()
-        .name("prettier-wrapper")
-        .usage("[options] <path>")
-        .description(
-            "Format GameMaker Language files using the prettier plugin."
-        )
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+    const command = applyStandardCommandOptions(
+        new Command()
+            .name("prettier-wrapper")
+            .usage("[options] <path>")
+            .description(
+                "Format GameMaker Language files using the prettier plugin."
+            )
+    )
         .argument("[targetPath]", "Directory or file to format.")
         .option(
             "--path <path>",
@@ -251,7 +256,6 @@ let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
-const registeredIgnorePaths = new Set();
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -366,6 +370,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     skippedFileCount = 0;
     encounteredFormattingError = false;
+    resetRegisteredIgnorePaths();
 }
 
 /**
@@ -481,11 +486,11 @@ async function handleFormattingError(error, filePath) {
 
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || registeredIgnorePaths.has(ignoreFilePath)) {
+        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
             continue;
         }
 
-        registeredIgnorePaths.add(ignoreFilePath);
+        registerIgnorePath(ignoreFilePath);
 
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
@@ -564,26 +569,23 @@ async function resolveProjectIgnorePaths(directory) {
             : null
     );
 
-    const ignoreFiles = [];
+    const candidatePaths = directoriesToInspect.map((candidateDirectory) =>
+        path.join(candidateDirectory, ".prettierignore")
+    );
 
-    for (const candidateDirectory of directoriesToInspect) {
-        const ignoreCandidate = path.join(
-            candidateDirectory,
-            ".prettierignore"
-        );
-
-        try {
-            const candidateStats = await stat(ignoreCandidate);
-
-            if (candidateStats.isFile()) {
-                ignoreFiles.push(ignoreCandidate);
+    const discovered = await Promise.all(
+        candidatePaths.map(async (ignoreCandidate) => {
+            try {
+                const stats = await stat(ignoreCandidate);
+                return stats.isFile() ? ignoreCandidate : null;
+            } catch {
+                // Ignore missing files.
+                return null;
             }
-        } catch {
-            // Ignore missing files.
-        }
-    }
+        })
+    );
 
-    return ignoreFiles;
+    return discovered.filter(Boolean);
 }
 
 /**
@@ -606,7 +608,9 @@ async function resolveTargetStats(target, { usage } = {}) {
             `Unable to access ${target}: ${details}`,
             { usage }
         );
-        cliError.cause = error instanceof Error ? error : undefined;
+        if (isErrorLike(error)) {
+            cliError.cause = error;
+        }
         throw cliError;
     }
 }

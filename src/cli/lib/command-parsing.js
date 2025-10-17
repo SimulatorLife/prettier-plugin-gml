@@ -1,4 +1,13 @@
 import { CliUsageError } from "./cli-errors.js";
+import { isErrorLike } from "../../shared/utils/capability-probes.js";
+
+function isCommanderError(error) {
+    return (
+        isErrorLike(error) &&
+        error.name === "CommanderError" &&
+        typeof error.code === "string"
+    );
+}
 
 export {
     coercePositiveInteger,
@@ -29,7 +38,7 @@ export function parseCommandLine(command, args) {
             };
         }
 
-        if (error instanceof Error && error.name === "CommanderError") {
+        if (isCommanderError(error)) {
             throw new CliUsageError(error.message.trim(), {
                 usage: command.helpInformation()
             });

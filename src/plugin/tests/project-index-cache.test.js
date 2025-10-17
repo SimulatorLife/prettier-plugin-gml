@@ -75,6 +75,51 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
     });
 });
 
+test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestMtimes = {
+            "project.yyp": "101",
+            "project-alt.yyp": 0,
+            "ignore-nan": "NaN",
+            "ignore-infinity": Number.POSITIVE_INFINITY
+        };
+        const sourceMtimes = {
+            "scripts/a.gml": 200,
+            "scripts/b.gml": "300",
+            "scripts/c.gml": "-42.5",
+            "scripts/ignored.gml": undefined
+        };
+
+        const saveResult = await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes,
+            sourceMtimes,
+            projectIndex: createProjectIndex(projectRoot)
+        });
+
+        assert.equal(saveResult.status, "written");
+
+        const loadResult = await loadProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0"
+        });
+
+        assert.equal(loadResult.status, "hit");
+        assert.deepEqual(loadResult.payload.manifestMtimes, {
+            "project.yyp": 101,
+            "project-alt.yyp": 0
+        });
+        assert.deepEqual(loadResult.payload.sourceMtimes, {
+            "scripts/a.gml": 200,
+            "scripts/b.gml": 300,
+            "scripts/c.gml": -42.5
+        });
+    });
+});
+
 test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
     await withTempDir(async (projectRoot) => {
         const saveResult = await saveProjectIndexCache({

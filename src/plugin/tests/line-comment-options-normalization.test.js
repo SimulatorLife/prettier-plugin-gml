@@ -7,6 +7,7 @@ import {
     formatLineComment,
     resolveLineCommentOptions
 } from "../src/comments/index.js";
+import { isRegExpLike } from "../../shared/utils/capability-probes.js";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -53,11 +54,14 @@ describe("resolveLineCommentOptions", () => {
         );
 
         const sqlPattern = resolved.codeDetectionPatterns.find((pattern) => {
-            if (!(pattern instanceof RegExp)) {
+            if (!isRegExpLike(pattern)) {
                 return false;
             }
 
-            pattern.lastIndex = 0;
+            if (typeof pattern.lastIndex === "number") {
+                pattern.lastIndex = 0;
+            }
+
             return pattern.test("SQL: SELECT * FROM logs");
         });
 
@@ -65,6 +69,29 @@ describe("resolveLineCommentOptions", () => {
             sqlPattern,
             "Expected merged patterns to include SQL detector"
         );
+    });
+
+    it("retains RegExp-like detectors provided through options", () => {
+        const probe = {
+            lastIndex: 0,
+            test(text) {
+                this.lastIndex = 0;
+                return text.startsWith("Alpha");
+            },
+            exec() {
+                return null;
+            }
+        };
+
+        const resolved = resolveLineCommentOptions({
+            lineCommentCodeDetectionPatterns: probe
+        });
+
+        const match = resolved.codeDetectionPatterns.find((pattern) => {
+            return pattern === probe;
+        });
+
+        assert.ok(match, "Expected to preserve RegExp-like detectors");
     });
 });
 
@@ -111,5 +138,25 @@ describe("formatLineComment", () => {
         });
 
         assert.equal(formatted, "//SQL: SELECT * FROM logs");
+    });
+
+    it("respects RegExp-like detection patterns when formatting", () => {
+        const comment = createLineComment("AlphaBeta", "//AlphaBeta");
+        const regExpLike = {
+            lastIndex: 0,
+            test(text) {
+                this.lastIndex = 0;
+                return text.startsWith("Alpha");
+            },
+            exec() {
+                return null;
+            }
+        };
+
+        const formatted = formatLineComment(comment, {
+            codeDetectionPatterns: [regExpLike]
+        });
+
+        assert.equal(formatted, "//AlphaBeta");
     });
 });

@@ -6,6 +6,7 @@ import {
     coercePositiveIntegerOption,
     normalizeStringList
 } from "./option-utils.js";
+import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
@@ -225,7 +226,7 @@ function mergeCodeDetectionPatterns(
 
     if (Array.isArray(rawValue)) {
         entries = rawValue;
-    } else if (rawValue instanceof RegExp) {
+    } else if (isRegExpLike(rawValue)) {
         entries = [rawValue];
     } else if (allowStringLists) {
         entries = normalizeStringList(rawValue, { allowInvalidType: true });
@@ -237,12 +238,15 @@ function mergeCodeDetectionPatterns(
 
     return mergeUniqueValues(DEFAULT_COMMENTED_OUT_CODE_PATTERNS, entries, {
         coerce: coerceRegExp,
-        getKey: (pattern) => pattern.toString()
+        getKey: (pattern) =>
+            typeof pattern?.toString === "function"
+                ? pattern.toString()
+                : String(pattern)
     });
 }
 
 function coerceRegExp(value) {
-    if (value instanceof RegExp) {
+    if (isRegExpLike(value)) {
         return value;
     }
 
@@ -277,7 +281,7 @@ function hasCodeDetectionOverride(value) {
         return value.length > 0;
     }
 
-    if (value instanceof RegExp) {
+    if (isRegExpLike(value)) {
         return true;
     }
 

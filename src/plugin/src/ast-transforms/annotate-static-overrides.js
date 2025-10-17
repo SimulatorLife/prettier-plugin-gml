@@ -1,4 +1,5 @@
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { isNonEmptyString } from "../../../shared/string-utils.js";
 
 function isStaticFunctionDeclaration(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
@@ -35,10 +36,7 @@ function extractStaticFunctionName(statement) {
         return null;
     }
 
-    return typeof declarator.id.name === "string" &&
-        declarator.id.name.length > 0
-        ? declarator.id.name
-        : null;
+    return isNonEmptyString(declarator.id.name) ? declarator.id.name : null;
 }
 
 function collectConstructorInfos(ast) {
@@ -53,16 +51,14 @@ function collectConstructorInfos(ast) {
             continue;
         }
 
-        const name =
-            typeof node.id === "string" && node.id.length > 0 ? node.id : null;
+        const name = isNonEmptyString(node.id) ? node.id : null;
         if (!name) {
             continue;
         }
 
         const parentName =
             node.parent?.type === "ConstructorParentClause" &&
-            typeof node.parent.id === "string" &&
-            node.parent.id.length > 0
+            isNonEmptyString(node.parent.id)
                 ? node.parent.id
                 : null;
 
@@ -98,7 +94,7 @@ function hasAncestorStaticFunction(constructors, startName, targetName) {
     const visited = new Set();
     let currentName = startName;
 
-    while (typeof currentName === "string" && currentName.length > 0) {
+    while (isNonEmptyString(currentName)) {
         if (visited.has(currentName)) {
             break;
         }

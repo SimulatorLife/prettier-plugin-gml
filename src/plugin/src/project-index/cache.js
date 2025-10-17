@@ -63,14 +63,11 @@ function cloneMtimeMap(source) {
     if (!source || typeof source !== "object") {
         return {};
     }
-    const result = {};
-    for (const [key, value] of Object.entries(source)) {
-        const numeric = Number(value);
-        if (Number.isFinite(numeric)) {
-            result[key] = numeric;
-        }
-    }
-    return result;
+    return Object.fromEntries(
+        Object.entries(source)
+            .map(([key, value]) => [key, Number(value)])
+            .filter(([, numeric]) => Number.isFinite(numeric))
+    );
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
