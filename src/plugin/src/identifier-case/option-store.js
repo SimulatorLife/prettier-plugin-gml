@@ -1,5 +1,5 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
@@ -35,42 +35,46 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
 }
 
 function resolveMaxOptionStoreEntries(options) {
-    if (!isObjectLike(options)) {
-        return DEFAULT_MAX_OPTION_STORE_ENTRIES;
-    }
+    return withObjectLike(
+        options,
+        (object) => {
+            const configured =
+                object[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
 
-    const configured =
-        options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
+            if (configured === Infinity) {
+                return configured;
+            }
 
-    if (configured === Infinity) {
-        return configured;
-    }
+            if (typeof configured !== "number" || !Number.isFinite(configured)) {
+                return DEFAULT_MAX_OPTION_STORE_ENTRIES;
+            }
 
-    if (typeof configured !== "number" || !Number.isFinite(configured)) {
-        return DEFAULT_MAX_OPTION_STORE_ENTRIES;
-    }
+            if (configured <= 0) {
+                return 0;
+            }
 
-    if (configured <= 0) {
-        return 0;
-    }
-
-    return Math.floor(configured);
+            return Math.floor(configured);
+        },
+        DEFAULT_MAX_OPTION_STORE_ENTRIES
+    );
 }
 
 function getStoreKey(options) {
-    if (!isObjectLike(options)) {
-        return null;
-    }
+    return withObjectLike(
+        options,
+        (object) => {
+            if (object.__identifierCaseOptionsStoreKey != undefined) {
+                return object.__identifierCaseOptionsStoreKey;
+            }
 
-    if (options.__identifierCaseOptionsStoreKey != undefined) {
-        return options.__identifierCaseOptionsStoreKey;
-    }
+            if (isNonEmptyString(object.filepath)) {
+                return object.filepath;
+            }
 
-    if (isNonEmptyString(options.filepath)) {
-        return options.filepath;
-    }
-
-    return null;
+            return null;
+        },
+        null
+    );
 }
 
 function getOrCreateStoreEntry(storeKey) {
@@ -87,28 +91,28 @@ function getOrCreateStoreEntry(storeKey) {
 }
 
 function updateStore(options, key, value) {
-    const store = options.__identifierCaseOptionsStore;
-    if (isObjectLike(store)) {
-        store[key] = value;
-    }
+    withObjectLike(options, (object) => {
+        const store = object.__identifierCaseOptionsStore;
+        if (isObjectLike(store)) {
+            store[key] = value;
+        }
 
-    const storeKey = getStoreKey(options);
-    if (storeKey == undefined) {
-        return;
-    }
+        const storeKey = getStoreKey(object);
+        if (storeKey == undefined) {
+            return;
+        }
 
-    const entry = getOrCreateStoreEntry(storeKey);
-    entry[key] = value;
-    trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
+        const entry = getOrCreateStoreEntry(storeKey);
+        entry[key] = value;
+        trimOptionStoreMap(resolveMaxOptionStoreEntries(object));
+    });
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    if (!isObjectLike(options)) {
-        return;
-    }
-
-    options[key] = value;
-    updateStore(options, key, value);
+    withObjectLike(options, (object) => {
+        object[key] = value;
+        updateStore(object, key, value);
+    });
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
