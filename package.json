@@ -61,7 +61,8 @@
     "build:gml-identifiers": "node ./scripts/generate-gml-identifiers.mjs",
     "build:feather-metadata": "node ./scripts/generate-feather-metadata.mjs",
     "example:plugin": "cd src/plugin && npm run example",
-    "prepare": "husky"
+    "prepare": "husky",
+    "cli": "cd src/cli && node ./cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

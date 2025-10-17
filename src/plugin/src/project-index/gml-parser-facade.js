@@ -180,6 +180,7 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
     let pointerOffset = 0;
 
     for (const [index, char] of lineText.entries()) {
+        // TODO: Get this error when parsing a GameMaker project: TypeError: lineText.entries is not a function
         if (index === clampedIndex) {
             pointerOffset = expanded.length;
         }
