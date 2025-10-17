@@ -547,25 +547,11 @@ function collectDiagnosticDescriptionParts(blocks) {
 function collectDiagnosticTrailingContent(blocks) {
     const additionalDescriptionParts = [];
     const correctionParts = [];
+    const goodExampleParts = [];
     let badExample = null;
-    let goodExample = null;
 
     for (const block of blocks) {
-        if (block.type === "heading") {
-            continue;
-        }
-        if (block.type === "code") {
-            const codeText = normaliseTextBlock(block);
-            if (!codeText) {
-                continue;
-            }
-            if (!badExample) {
-                badExample = codeText;
-            } else if (goodExample) {
-                goodExample = `${goodExample}\n\n${codeText}`.trim();
-            } else {
-                goodExample = codeText;
-            }
+        if (!block || block.type === "heading") {
             continue;
         }
 
@@ -573,12 +559,27 @@ function collectDiagnosticTrailingContent(blocks) {
         if (!text) {
             continue;
         }
+
+        if (block.type === "code") {
+            if (!badExample) {
+                badExample = text;
+            } else {
+                goodExampleParts.push(text);
+            }
+            continue;
+        }
+
         if (badExample) {
             correctionParts.push(text);
         } else {
             additionalDescriptionParts.push(text);
         }
     }
+
+    const goodExample =
+        goodExampleParts.length > 0
+            ? goodExampleParts.join("\n\n").trim()
+            : null;
 
     return {
         additionalDescriptionParts,
