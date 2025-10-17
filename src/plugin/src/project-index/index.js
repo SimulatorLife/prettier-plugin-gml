@@ -18,13 +18,103 @@ import {
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
-import {
-    createProjectIndexMetrics,
-    finalizeProjectIndexMetrics
-} from "./metrics.js";
+import { createMetricsTracker } from "../metrics/metrics-tracker.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
+
+const REQUIRED_METRIC_METHODS = [
+    "startTimer",
+    "timeAsync",
+    "timeSync",
+    "incrementCounter",
+    "setMetadata",
+    "recordCacheHit",
+    "recordCacheMiss",
+    "recordCacheStale",
+    "finalize"
+];
+
+function isMetricsTracker(candidate) {
+    return (
+        candidate &&
+        typeof candidate === "object" &&
+        REQUIRED_METRIC_METHODS.every(
+            (method) => typeof candidate[method] === "function"
+        )
+    );
+}
+
+function createNoopProjectIndexMetrics() {
+    // Project index builds always wire metrics hooks, and later stages expect
+    // every tracker method to exist so they can record timings and cache
+    // counters without re-checking capabilities. When callers pass
+    // `metrics: undefined` or an invalid shim we preserve that contract by
+    // installing a stub that mirrors the public API while doing nothing. This
+    // keeps cache coordination, concurrency throttling, and rename planning
+    // stable even when instrumentation is disabled; returning `null` here would
+    // push `TypeError` crashes into hot paths. The behaviour mirrors the
+    // fallbacks outlined in docs/project-index-cache-design.md, which rely on
+    // metrics snapshots being structurally sound even when empty.
+    const snapshot = (extra = {}) => ({
+        category: "project-index",
+        totalTimeMs: 0,
+        timings: {},
+        counters: {},
+        caches: {},
+        metadata: {},
+        ...extra
+    });
+
+    return {
+        category: "project-index",
+        startTimer() {
+            return () => {};
+        },
+        async timeAsync(_label, callback) {
+            return await callback();
+        },
+        timeSync(_label, callback) {
+            return callback();
+        },
+        incrementCounter() {},
+        setMetadata() {},
+        recordCacheHit() {},
+        recordCacheMiss() {},
+        recordCacheStale() {},
+        snapshot,
+        finalize(extra = {}) {
+            return snapshot(extra);
+        },
+        logSummary() {}
+    };
+}
+
+function createProjectIndexMetrics(options = {}) {
+    const { metrics, logger = null, logMetrics = false } = options ?? {};
+
+    if (isMetricsTracker(metrics)) {
+        return metrics;
+    }
+
+    if (metrics !== undefined) {
+        return createNoopProjectIndexMetrics();
+    }
+
+    return createMetricsTracker({
+        category: "project-index",
+        logger,
+        autoLog: logMetrics === true
+    });
+}
+
+function finalizeProjectIndexMetrics(metrics) {
+    if (!isMetricsTracker(metrics)) {
+        return null;
+    }
+
+    return metrics.finalize();
+}
 
 function isParserFacade(candidate) {
     return (
@@ -38,33 +128,33 @@ function createFacadeParser(facade) {
     return (sourceText, context) => facade.parse(sourceText, context);
 }
 
+function createFacadeOverride(candidate) {
+    if (!isParserFacade(candidate)) {
+        return null;
+    }
+
+    return {
+        facade: candidate,
+        parse: createFacadeParser(candidate)
+    };
+}
+
 function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
         return null;
     }
 
-    const identifierCaseParser = options.identifierCaseProjectIndexParserFacade;
-    if (isParserFacade(identifierCaseParser)) {
-        return {
-            facade: identifierCaseParser,
-            parse: createFacadeParser(identifierCaseParser)
-        };
-    }
+    const facades = [
+        options.identifierCaseProjectIndexParserFacade,
+        options.gmlParserFacade,
+        options.parserFacade
+    ];
 
-    const gmlParserFacade = options.gmlParserFacade;
-    if (isParserFacade(gmlParserFacade)) {
-        return {
-            facade: gmlParserFacade,
-            parse: createFacadeParser(gmlParserFacade)
-        };
-    }
-
-    const parserFacade = options.parserFacade;
-    if (isParserFacade(parserFacade)) {
-        return {
-            facade: parserFacade,
-            parse: createFacadeParser(parserFacade)
-        };
+    for (const facade of facades) {
+        const override = createFacadeOverride(facade);
+        if (override) {
+            return override;
+        }
     }
 
     const { parseGml } = options;

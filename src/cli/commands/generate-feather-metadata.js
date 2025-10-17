@@ -9,7 +9,7 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
@@ -31,6 +31,7 @@ import {
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
+import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,16 +64,14 @@ const FEATHER_PAGES = {
 };
 
 function createFeatherMetadataCommand() {
-    const command = new Command()
-        .name("generate-feather-metadata")
-        .usage("[options]")
-        .description(
-            "Generate feather-metadata.json from the GameMaker manual."
-        )
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+    const command = applyStandardCommandOptions(
+        new Command()
+            .name("generate-feather-metadata")
+            .usage("[options]")
+            .description(
+                "Generate feather-metadata.json from the GameMaker manual."
+            )
+    )
         .option(
             "-r, --ref <git-ref>",
             "Manual git ref (tag, branch, or commit)."
@@ -1023,7 +1022,7 @@ async function main({ argv, env, isTty } = {}) {
             return 0;
         }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const startTime = Date.now();
+        const logCompletion = createVerboseDurationLogger({ verbose });
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef?.sha) {
             throw new Error("Could not resolve manual commit SHA.");
@@ -1111,9 +1110,7 @@ async function main({ argv, env, isTty } = {}) {
         );
 
         console.log(`Wrote Feather metadata to ${outputPath}`);
-        if (verbose.parsing) {
-            console.log(`Completed in ${formatDuration(startTime)}.`);
-        }
+        logCompletion();
         return 0;
     } finally {
         disposeProgressBars();

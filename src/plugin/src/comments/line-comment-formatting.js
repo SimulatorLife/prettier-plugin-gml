@@ -4,6 +4,7 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -87,6 +88,7 @@ const FUNCTION_SIGNATURE_PATTERN =
 // formatter hits these helpers while iterating over comment lists, so avoiding
 // per-call RegExp construction keeps the hot path allocation-free.
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
+const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+(\s*)@/;
 
 function getLineCommentRawText(comment) {
     if (!isObjectLike(comment)) {
@@ -173,11 +175,10 @@ function formatLineComment(
         }
     }
 
-    const regexPattern = /^\/+(\s*)@/;
-    const match = trimmedValue.match(regexPattern);
+    const match = trimmedValue.match(DOC_TAG_LINE_PREFIX_PATTERN);
     if (match) {
         let formattedCommentLine =
-            "///" + trimmedValue.replace(regexPattern, " @");
+            "///" + trimmedValue.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @");
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
@@ -403,11 +404,14 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
         : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
-        if (!(pattern instanceof RegExp)) {
+        if (!isRegExpLike(pattern)) {
             continue;
         }
 
-        pattern.lastIndex = 0;
+        if (typeof pattern.lastIndex === "number") {
+            pattern.lastIndex = 0;
+        }
+
         if (pattern.test(trimmed)) {
             return true;
         }

@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./string-utils.js";
+import { isNonEmptyString } from "./string.js";
 
 // Shared text utility helpers related to line break detection.
 // This module centralizes line break handling so parser and printer code

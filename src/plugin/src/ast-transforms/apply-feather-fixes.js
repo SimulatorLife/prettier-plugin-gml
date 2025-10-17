@@ -24,6 +24,11 @@ import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
+import {
+    hasIterableItems,
+    isMapLike,
+    isSetLike
+} from "../../../shared/utils/capability-probes.js";
 import { collectCommentNodes, getCommentArray } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -385,6 +390,15 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
 }
 
 function createNoOpFixer() {
+    // Feather diagnostics are harvested independently of the formatter bundle,
+    // so the plugin frequently encounters rule IDs before their fixer
+    // implementations land. Returning an empty fixer keeps the pipeline
+    // tolerant of that skew: downstream call sites treat "no edits" as "leave
+    // the AST untouched" while still surfacing diagnostic metadata. If we threw
+    // or mutated nodes here the formatter would either crash or apply
+    // speculative edits without the guard rails described in
+    // docs/feather-data-plan.md, so the noop is deliberate until the real fixer
+    // ships.
     return () => [];
 }
 
@@ -806,6 +820,7 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
+                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
                     ast,
                     diagnostic
                 });
@@ -3847,7 +3862,7 @@ function fixArgumentReferencesWithinFunction(
         references.map((reference) => reference.index)
     );
 
-    if (!(mapping instanceof Map) || mapping.size === 0) {
+    if (!isMapLike(mapping) || !hasIterableItems(mapping)) {
         return fixes;
     }
 
@@ -6133,6 +6148,22 @@ function markCommentForTrailingPaddingPreservation(comment) {
         writable: true,
         value: true
     });
+}
+
+function markStatementToSuppressFollowingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressFollowingEmptyLine = true;
+}
+
+function markStatementToSuppressLeadingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressLeadingEmptyLine = true;
 }
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
@@ -8760,6 +8791,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
+    markStatementToSuppressFollowingEmptyLine(node);
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
@@ -8954,6 +8986,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
             break;
         }
 
+        markStatementToSuppressLeadingEmptyLine(candidate);
         lastDrawCallIndex = insertionIndex;
         insertionIndex += 1;
     }
@@ -9194,9 +9227,43 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
+    let lastDrawCallIndex = property;
 
-    if (isBlendModeResetCall(nextNode)) {
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (isBlendModeResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate) {
+            break;
+        }
+
+        if (isTriviallyIgnorableStatement(candidate)) {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (!isCallExpression(candidate)) {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        lastDrawCallIndex = insertionIndex;
+        insertionIndex += 1;
+    }
+
+    if (lastDrawCallIndex > property) {
+        insertionIndex = lastDrawCallIndex + 1;
+    } else if (insertionIndex >= siblings.length) {
+        insertionIndex = siblings.length;
+    } else {
         return null;
     }
 
@@ -9218,7 +9285,8 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    markStatementToSuppressFollowingEmptyLine(node);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -16238,7 +16306,10 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText ?? "";
     }
 
-    if (!(specifierBaseTypes instanceof Set) || specifierBaseTypes.size === 0) {
+    if (
+        !isSetLike(specifierBaseTypes) ||
+        !hasIterableItems(specifierBaseTypes)
+    ) {
         return typeText;
     }
 
@@ -16395,7 +16466,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!(baseTypesLower instanceof Set) || baseTypesLower.size === 0) {
+    if (!isSetLike(baseTypesLower) || !hasIterableItems(baseTypesLower)) {
         return typeText;
     }
 
@@ -17327,7 +17398,7 @@ function isGpuPopStateCall(node) {
 function getManualFeatherFixRegistry(ast) {
     let registry = ast[MANUAL_FIX_TRACKING_KEY];
 
-    if (registry instanceof Set) {
+    if (isSetLike(registry)) {
         return registry;
     }
 
@@ -17394,7 +17465,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
     const replacements =
         extractFunctionCallReplacementsFromExamples(diagnostic);
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return [];
     }
 
@@ -17446,7 +17517,7 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return null;
     }
 

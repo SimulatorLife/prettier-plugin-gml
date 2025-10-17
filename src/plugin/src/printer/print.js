@@ -1565,18 +1565,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 (node.declarations[0]?.init?.type === "FunctionExpression" ||
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
-            if (initializerIsFunctionExpression) {
-                const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isStaticDeclaration;
-
-                if (shouldPreserveMissingSemicolon) {
-                    // Normalised legacy `#define` directives often emit function
-                    // expressions assigned to variables without a trailing
-                    // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style while static declarations always
-                    // receive a terminating semicolon for consistency.
-                    semi = "";
-                }
+            if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
+                // Normalised legacy `#define` directives used to omit trailing
+                // semicolons when rewriting to function expressions. The
+                // formatter now standardises those assignments so they always
+                // emit an explicit semicolon, matching the golden fixtures and
+                // keeping the output consistent regardless of the original
+                // source style.
+                semi = ";";
             }
         }
 
@@ -1629,10 +1625,15 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
 
-            const nextLineEmpty = isNextLineEmpty(
-                options.originalText,
-                nextLineProbeIndex
-            );
+            const suppressFollowingEmptyLine =
+                node?._featherSuppressFollowingEmptyLine === true;
+            const suppressLeadingEmptyLine =
+                nextNode?._featherSuppressLeadingEmptyLine === true;
+
+            const nextLineEmpty =
+                suppressFollowingEmptyLine || suppressLeadingEmptyLine
+                    ? false
+                    : isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
             const isSanitizedMacro =
                 node?.type === "MacroDeclaration" &&
@@ -2641,15 +2642,25 @@ function computeSyntheticFunctionDocLines(
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
 
-    const hasFunctionTag = metadata.some(
-        (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
-    );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
+    const existingFunctionMetadata = metadata.find(
+        (meta) => meta.tag === "function"
+    );
+    const normalizedFunctionName =
+        typeof functionName === "string" &&
+        isNonEmptyTrimmedString(functionName)
+            ? normalizeDocMetadataName(functionName)
+            : null;
+    const normalizedExistingFunctionName =
+        typeof existingFunctionMetadata?.name === "string" &&
+        isNonEmptyTrimmedString(existingFunctionMetadata.name)
+            ? normalizeDocMetadataName(existingFunctionMetadata.name)
+            : null;
 
     for (const meta of metadata) {
         if (meta.tag !== "param") {
@@ -2678,7 +2689,12 @@ function computeSyntheticFunctionDocLines(
         lines.push("/// @override");
     }
 
-    if (functionName && !hasFunctionTag) {
+    const shouldInsertFunctionTag =
+        normalizedFunctionName &&
+        (normalizedExistingFunctionName === null ||
+            normalizedExistingFunctionName !== normalizedFunctionName);
+
+    if (shouldInsertFunctionTag) {
         lines.push(`/// @function ${functionName}`);
     }
 
