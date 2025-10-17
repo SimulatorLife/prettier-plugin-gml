@@ -385,6 +385,15 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
 }
 
 function createNoOpFixer() {
+    // Feather diagnostics are harvested independently of the formatter bundle,
+    // so the plugin frequently encounters rule IDs before their fixer
+    // implementations land. Returning an empty fixer keeps the pipeline
+    // tolerant of that skew: downstream call sites treat "no edits" as "leave
+    // the AST untouched" while still surfacing diagnostic metadata. If we threw
+    // or mutated nodes here the formatter would either crash or apply
+    // speculative edits without the guard rails described in
+    // docs/feather-data-plan.md, so the noop is deliberate until the real fixer
+    // ships.
     return () => [];
 }
 
