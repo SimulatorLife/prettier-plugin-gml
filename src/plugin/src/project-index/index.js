@@ -46,6 +46,16 @@ function isMetricsTracker(candidate) {
 }
 
 function createNoopProjectIndexMetrics() {
+    // Project index builds always wire metrics hooks, and later stages expect
+    // every tracker method to exist so they can record timings and cache
+    // counters without re-checking capabilities. When callers pass
+    // `metrics: undefined` or an invalid shim we preserve that contract by
+    // installing a stub that mirrors the public API while doing nothing. This
+    // keeps cache coordination, concurrency throttling, and rename planning
+    // stable even when instrumentation is disabled; returning `null` here would
+    // push `TypeError` crashes into hot paths. The behaviour mirrors the
+    // fallbacks outlined in docs/project-index-cache-design.md, which rely on
+    // metrics snapshots being structurally sound even when empty.
     const snapshot = (extra = {}) => ({
         category: "project-index",
         totalTimeMs: 0,
