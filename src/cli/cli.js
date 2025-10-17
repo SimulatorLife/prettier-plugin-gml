@@ -44,8 +44,10 @@ import {
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
-import { isPathInside } from "../shared/path-utils.js";
-import { collectAncestorDirectories } from "./lib/ancestor-directories.js";
+import {
+    isPathInside,
+    collectAncestorDirectories
+} from "../shared/path-utils.js";
 
 import {
     CliUsageError,
