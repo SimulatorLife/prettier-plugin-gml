@@ -9,7 +9,7 @@
 import path from "node:path";
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
-import { toTrimmedString } from "../../../shared/string-utils.js";
+import { coalesceTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption } from "../../../shared/object-utils.js";
 import { asArray, toArray } from "../../../shared/array-utils.js";
 
@@ -29,10 +29,6 @@ function getNormalizedOperations(report) {
 
 function getNormalizedConflicts(conflicts) {
     return asArray(conflicts);
-}
-
-function normalizeString(...values) {
-    return values.map(toTrimmedString).find(Boolean) ?? "";
 }
 
 function buildIdentifierCaseOptionKeys(baseName) {
@@ -70,7 +66,7 @@ function normalizeReference(reference) {
         return null;
     }
 
-    const filePath = normalizeString(
+    const filePath = coalesceTrimmedString(
         reference.filePath,
         reference.path,
         reference.file
@@ -97,18 +93,18 @@ function normalizeScope(scope) {
         return { id: null, displayName: null, name: null };
     }
 
-    const displayName = normalizeString(
+    const displayName = coalesceTrimmedString(
         scope.displayName,
         scope.name,
         scope.scope,
         scope.path
     );
-    const id = normalizeString(scope.id, scope.scopeId);
+    const id = coalesceTrimmedString(scope.id, scope.scopeId);
 
     return {
         id: id || null,
         displayName: displayName || null,
-        name: normalizeString(scope.name) || null
+        name: coalesceTrimmedString(scope.name) || null
     };
 }
 
@@ -119,14 +115,14 @@ function normalizeOperation(rawOperation) {
 
     const scope = normalizeScope(rawOperation.scope ?? {});
 
-    const fromName = normalizeString(
+    const fromName = coalesceTrimmedString(
         rawOperation.from?.name,
         rawOperation.source?.name,
         rawOperation.originalName,
         rawOperation.from,
         rawOperation.source
     );
-    const toName = normalizeString(
+    const toName = coalesceTrimmedString(
         rawOperation.to?.name,
         rawOperation.target?.name,
         rawOperation.updatedName,
@@ -149,9 +145,11 @@ function normalizeOperation(rawOperation) {
     ).size;
 
     return {
-        id: normalizeString(rawOperation.id, rawOperation.identifier) || null,
+        id:
+            coalesceTrimmedString(rawOperation.id, rawOperation.identifier) ||
+            null,
         kind:
-            normalizeString(rawOperation.kind, rawOperation.type) ||
+            coalesceTrimmedString(rawOperation.kind, rawOperation.type) ||
             "identifier",
         scopeId: scope.id,
         scopeName: scope.displayName ?? scope.name ?? null,
@@ -169,30 +167,32 @@ function normalizeConflict(rawConflict) {
     }
 
     const scope = normalizeScope(rawConflict.scope ?? {});
-    const severityCandidate = normalizeString(rawConflict.severity);
+    const severityCandidate = coalesceTrimmedString(rawConflict.severity);
     const severity = severityCandidate
         ? severityCandidate.toLowerCase()
         : "error";
 
     const suggestions = toArray(rawConflict.suggestions ?? rawConflict.hints)
-        .map((entry) => normalizeString(entry))
+        .map((entry) => coalesceTrimmedString(entry))
         .filter(Boolean);
 
     return {
         code:
-            normalizeString(
+            coalesceTrimmedString(
                 rawConflict.code,
                 rawConflict.identifier,
                 rawConflict.type
             ) || null,
-        message: normalizeString(rawConflict.message, rawConflict.reason) || "",
+        message:
+            coalesceTrimmedString(rawConflict.message, rawConflict.reason) ||
+            "",
         severity,
         scope: {
             id: scope.id,
             displayName: scope.displayName ?? scope.name ?? null
         },
         identifier:
-            normalizeString(
+            coalesceTrimmedString(
                 rawConflict.identifier,
                 rawConflict.name,
                 rawConflict.originalName
