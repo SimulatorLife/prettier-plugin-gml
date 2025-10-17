@@ -1,43 +1,70 @@
-import { createDefaultCliPluginServices } from "./plugin-service-providers/default-plugin-services.js";
+import {
+    createDefaultProjectIndexBuilder,
+    createDefaultIdentifierCasePlanPreparer
+} from "./plugin-service-providers/default-plugin-services.js";
 
-let serviceFactory = createDefaultCliPluginServices;
-let cachedServices = null;
+/**
+ * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
+ * @typedef {(options: object) => Promise<void>} CliIdentifierCasePlanPreparer
+ */
 
-export function registerCliPluginServices(factory) {
+let projectIndexBuilderFactory = createDefaultProjectIndexBuilder;
+let identifierCasePlanPreparerFactory = createDefaultIdentifierCasePlanPreparer;
+
+/** @type {CliProjectIndexBuilder | null} */
+let cachedProjectIndexBuilder = null;
+/** @type {CliIdentifierCasePlanPreparer | null} */
+let cachedIdentifierCasePlanPreparer = null;
+
+function assertFactory(factory, name) {
     if (typeof factory !== "function") {
-        throw new TypeError("factory must be a function");
+        throw new TypeError(`${name} must be a function`);
     }
+}
 
-    serviceFactory = factory;
-    cachedServices = null;
+function assertService(candidate, description) {
+    if (typeof candidate !== "function") {
+        throw new TypeError(
+            `CLI plugin services must provide a ${description} function`
+        );
+    }
+}
+
+export function registerCliProjectIndexBuilder(factory) {
+    assertFactory(factory, "project index builder factory");
+    projectIndexBuilderFactory = factory;
+    cachedProjectIndexBuilder = null;
+}
+
+export function registerCliIdentifierCasePlanPreparer(factory) {
+    assertFactory(factory, "identifier case plan preparer factory");
+    identifierCasePlanPreparerFactory = factory;
+    cachedIdentifierCasePlanPreparer = null;
 }
 
 export function resetRegisteredCliPluginServices() {
-    serviceFactory = createDefaultCliPluginServices;
-    cachedServices = null;
+    projectIndexBuilderFactory = createDefaultProjectIndexBuilder;
+    identifierCasePlanPreparerFactory = createDefaultIdentifierCasePlanPreparer;
+    cachedProjectIndexBuilder = null;
+    cachedIdentifierCasePlanPreparer = null;
 }
 
-export function resolveCliPluginServices() {
-    if (!cachedServices) {
-        const services = serviceFactory();
-        if (!services || typeof services !== "object") {
-            throw new TypeError("CLI plugin services must be an object");
-        }
-
-        const { buildProjectIndex, prepareIdentifierCasePlan } = services;
-        if (typeof buildProjectIndex !== "function") {
-            throw new TypeError(
-                "CLI plugin services must include a buildProjectIndex function"
-            );
-        }
-        if (typeof prepareIdentifierCasePlan !== "function") {
-            throw new TypeError(
-                "CLI plugin services must include a prepareIdentifierCasePlan function"
-            );
-        }
-
-        cachedServices = { buildProjectIndex, prepareIdentifierCasePlan };
+export function resolveCliProjectIndexBuilder() {
+    if (!cachedProjectIndexBuilder) {
+        const builder = projectIndexBuilderFactory();
+        assertService(builder, "buildProjectIndex");
+        cachedProjectIndexBuilder = builder;
     }
 
-    return cachedServices;
+    return cachedProjectIndexBuilder;
+}
+
+export function resolveCliIdentifierCasePlanPreparer() {
+    if (!cachedIdentifierCasePlanPreparer) {
+        const preparer = identifierCasePlanPreparerFactory();
+        assertService(preparer, "prepareIdentifierCasePlan");
+        cachedIdentifierCasePlanPreparer = preparer;
+    }
+
+    return cachedIdentifierCasePlanPreparer;
 }
