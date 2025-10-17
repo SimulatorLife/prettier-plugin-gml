@@ -7,10 +7,6 @@
  */
 
 import path from "node:path";
-import {
-    mkdirSync as nodeMkdirSync,
-    writeFileSync as nodeWriteFileSync
-} from "node:fs";
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
 import { toTrimmedString } from "../../../shared/string-utils.js";
@@ -18,18 +14,10 @@ import { coalesceOption } from "../../../shared/object-utils.js";
 import { asArray, toArray } from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../identifier-case/fs-facade.js";
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
-
-const defaultFsFacade = Object.freeze({
-    mkdirSync(targetPath) {
-        nodeMkdirSync(targetPath, { recursive: true });
-    },
-    writeFileSync(targetPath, contents) {
-        nodeWriteFileSync(targetPath, contents, "utf8");
-    }
-});
 
 function defaultNow() {
     return Date.now();
