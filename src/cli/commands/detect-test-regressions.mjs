@@ -8,7 +8,8 @@ import {
     toTrimmedString
 } from "../../shared/string-utils.js";
 import { toArray } from "../../shared/array-utils.js";
-import { hasOwn } from "../../shared/object-utils.js";
+import { hasOwn, isObjectLike } from "../../shared/object-utils.js";
+import { getErrorMessage, isErrorWithCode } from "../../shared/error-utils.js";
 
 let parser;
 
@@ -31,7 +32,7 @@ function hasAnyOwn(object, keys) {
 }
 
 function looksLikeTestCase(node) {
-    if (!node || typeof node !== "object" || Array.isArray(node)) {
+    if (!isObjectLike(node) || Array.isArray(node)) {
         return false;
     }
 
@@ -73,12 +74,10 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!error || typeof error !== "object") return false;
-    if (error.code !== "ERR_MODULE_NOT_FOUND") return false;
-    if (typeof error.message === "string") {
-        return error.message.includes("'fast-xml-parser'");
-    }
-    return false;
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) return false;
+    return getErrorMessage(error, { fallback: "" }).includes(
+        "'fast-xml-parser'"
+    );
 }
 
 function createFallbackXmlParser() {
@@ -325,7 +324,7 @@ function collectTestCases(root) {
             continue;
         }
 
-        if (typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -368,7 +367,7 @@ function collectTestCases(root) {
                 continue;
             }
 
-            if (!value || typeof value !== "object") {
+            if (!isObjectLike(value)) {
                 continue;
             }
 

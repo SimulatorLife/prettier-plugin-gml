@@ -63,9 +63,9 @@ export function coalesceOption(
         return fallback;
     }
 
-    const keysToInspect = Array.isArray(keys) ? keys : [keys];
+    const keyList = Array.isArray(keys) ? keys : [keys];
 
-    for (const key of keysToInspect) {
+    for (const key of keyList) {
         const value = object[key];
 
         if (value !== undefined && (acceptNull || value !== null)) {

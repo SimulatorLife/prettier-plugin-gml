@@ -1,6 +1,7 @@
 import { CliUsageError } from "./cli-errors.js";
 import { isNonEmptyString } from "../../shared/string-utils.js";
 import { isErrorLike } from "../../shared/utils/capability-probes.js";
+import { isObjectLike } from "../../shared/object-utils.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -100,7 +101,7 @@ export function applyEnvOptionOverrides({ command, env, overrides, getUsage }) {
     }
 
     for (const override of overrides) {
-        if (!override || typeof override !== "object") {
+        if (!isObjectLike(override)) {
             continue;
         }
 

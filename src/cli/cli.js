@@ -36,6 +36,7 @@ import {
     mergeUniqueValues,
     uniqueArray
 } from "../shared/array-utils.js";
+import { getErrorMessage, isErrorWithCode } from "../shared/error-utils.js";
 import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     normalizeStringList,
@@ -46,6 +47,7 @@ import {
     isPathInside,
     collectAncestorDirectories
 } from "../shared/path-utils.js";
+import { isObjectLike } from "../shared/object-utils.js";
 
 import {
     CliUsageError,
@@ -76,15 +78,11 @@ const ParseErrorAction = Object.freeze({
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
 
 function isMissingPrettierDependency(error) {
-    if (!error || typeof error !== "object") {
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
     }
 
-    if (error.code !== "ERR_MODULE_NOT_FOUND") {
-        return false;
-    }
-
-    const message = typeof error.message === "string" ? error.message : "";
+    const message = getErrorMessage(error, { fallback: "" });
     return message.includes("'prettier'");
 }
 
@@ -342,7 +340,7 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return;
     }
 
@@ -378,7 +376,7 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return "";
     }
 

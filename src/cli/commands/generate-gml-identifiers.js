@@ -25,11 +25,14 @@ import {
     getDefaultProgressBarWidth
 } from "../lib/progress-bar.js";
 import {
-    DEFAULT_VM_EVAL_TIMEOUT_MS,
-    resolveVmEvalTimeout
+    resolveVmEvalTimeout,
+    getDefaultVmEvalTimeoutMs
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
-import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
+import {
+    applyManualEnvOptionOverrides,
+    IDENTIFIER_VM_TIMEOUT_ENV_VAR
+} from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,7 +81,7 @@ function createGenerateIdentifiersCommand() {
         .option("--quiet", "Suppress progress logging (useful in CI).")
         .option(
             "--vm-eval-timeout-ms <ms>",
-            `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${DEFAULT_VM_EVAL_TIMEOUT_MS}). Set to 0 to disable the timeout.`,
+            `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${getDefaultVmEvalTimeoutMs()}). Set to 0 to disable the timeout.`,
             (value) => {
                 try {
                     return resolveVmEvalTimeout(value);
@@ -86,7 +89,7 @@ function createGenerateIdentifiersCommand() {
                     throw new InvalidArgumentError(error.message);
                 }
             },
-            DEFAULT_VM_EVAL_TIMEOUT_MS
+            getDefaultVmEvalTimeoutMs()
         )
         .option(
             "--progress-bar-width <columns>",
@@ -129,7 +132,17 @@ function parseArgs({
 } = {}) {
     const command = createGenerateIdentifiersCommand();
 
-    applyManualEnvOptionOverrides({ command, env });
+    applyManualEnvOptionOverrides({
+        command,
+        env,
+        additionalOverrides: [
+            {
+                envVar: IDENTIFIER_VM_TIMEOUT_ENV_VAR,
+                optionName: "vmEvalTimeoutMs",
+                resolveValue: resolveVmEvalTimeout
+            }
+        ]
+    });
 
     const verbose = {
         resolveRef: true,
@@ -162,7 +175,7 @@ function parseArgs({
         verbose,
         vmEvalTimeoutMs:
             options.vmEvalTimeoutMs === undefined
-                ? DEFAULT_VM_EVAL_TIMEOUT_MS
+                ? getDefaultVmEvalTimeoutMs()
                 : options.vmEvalTimeoutMs,
         progressBarWidth:
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
