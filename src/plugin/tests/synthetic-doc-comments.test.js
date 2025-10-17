@@ -97,6 +97,39 @@ test("adds synthetic @returns metadata for parameterless static functions", asyn
     );
 });
 
+test("updates existing @function tags to reflect static function names", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    /// @function helper_wrong",
+        "    static helper_right = function() {",
+        "        return 1;",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source, {
+        applyFeatherFixes: true
+    });
+    const lines = formatted.trim().split("\n");
+    const helperIndex = lines.findIndex(
+        (line) =>
+            line.trimStart().startsWith("/// @function") &&
+            line.includes("helper")
+    );
+
+    assert.notStrictEqual(
+        helperIndex,
+        -1,
+        "Expected the formatted output to contain a @function doc comment."
+    );
+    assert.equal(
+        lines[helperIndex].trim(),
+        "/// @function helper_right",
+        "Existing @function doc comments should be rewritten to describe the static function name."
+    );
+});
+
 test("annotates overriding static functions with @override metadata", async () => {
     const source = [
         "function Base() constructor {",

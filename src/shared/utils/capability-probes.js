@@ -1,0 +1,189 @@
+import { isObjectLike } from "./object.js";
+
+function hasFunction(value, property) {
+    return typeof value?.[property] === "function";
+}
+
+function getIteratorFactory(value) {
+    const iteratorMethod = value?.[Symbol.iterator];
+    if (typeof iteratorMethod === "function") {
+        return () => iteratorMethod.call(value);
+    }
+
+    const entries = value?.entries;
+    if (typeof entries === "function") {
+        return () => entries.call(value);
+    }
+
+    const values = value?.values;
+    if (typeof values === "function") {
+        return () => values.call(value);
+    }
+
+    return null;
+}
+
+function getIterator(iterable) {
+    const factory = getIteratorFactory(iterable);
+    return factory ? factory() : null;
+}
+
+function hasIterator(iterable) {
+    return Boolean(getIteratorFactory(iterable));
+}
+
+function getFiniteSize(candidate) {
+    return typeof candidate === "number" && Number.isFinite(candidate)
+        ? candidate
+        : null;
+}
+
+function getLengthHint(iterable) {
+    const size = getFiniteSize(iterable?.size);
+    if (size !== null) {
+        return size;
+    }
+
+    const length = getFiniteSize(iterable?.length);
+    return length !== null ? length : null;
+}
+
+export function isErrorLike(value) {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    if (typeof value.message !== "string") {
+        return false;
+    }
+
+    if (value.name != undefined && typeof value.name !== "string") {
+        return false;
+    }
+
+    return true;
+}
+
+export function isAggregateErrorLike(value) {
+    return isErrorLike(value) && Array.isArray(value.errors);
+}
+
+export function isRegExpLike(value) {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    return hasFunction(value, "test") && hasFunction(value, "exec");
+}
+
+export function isMapLike(value) {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    if (!hasFunction(value, "get") || !hasFunction(value, "set")) {
+        return false;
+    }
+
+    if (!hasFunction(value, "has")) {
+        return false;
+    }
+
+    return hasIterator(value);
+}
+
+export function isSetLike(value) {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    if (!hasFunction(value, "has") || !hasFunction(value, "add")) {
+        return false;
+    }
+
+    return hasIterator(value);
+}
+
+export function hasIterableItems(iterable) {
+    if (!iterable) {
+        return false;
+    }
+
+    const lengthHint = getLengthHint(iterable);
+    if (lengthHint !== null) {
+        return lengthHint > 0;
+    }
+
+    const iterator = getIterator(iterable);
+    if (!iterator || typeof iterator.next !== "function") {
+        return false;
+    }
+
+    const { done } = iterator.next();
+
+    if (typeof iterator.return === "function") {
+        try {
+            iterator.return();
+        } catch {
+            // Ignore iterator close errors.
+        }
+    }
+
+    return done === false;
+}
+
+export function getIterableSize(iterable) {
+    const lengthHint = getLengthHint(iterable);
+    if (lengthHint !== null) {
+        return lengthHint;
+    }
+
+    const iterator = getIterator(iterable);
+    if (!iterator || typeof iterator.next !== "function") {
+        return 0;
+    }
+
+    let count = 0;
+    while (true) {
+        const { done } = iterator.next();
+        if (done) {
+            break;
+        }
+        count += 1;
+    }
+
+    return count;
+}
+
+export function isSyntaxErrorWithLocation(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    const hasFiniteLine = Number.isFinite(Number(value.line));
+    const hasFiniteColumn = Number.isFinite(Number(value.column));
+
+    if (!hasFiniteLine && !hasFiniteColumn) {
+        return false;
+    }
+
+    if (value.rule != undefined && typeof value.rule !== "string") {
+        return false;
+    }
+
+    if (
+        value.wrongSymbol != undefined &&
+        typeof value.wrongSymbol !== "string"
+    ) {
+        return false;
+    }
+
+    if (
+        value.offendingText != undefined &&
+        typeof value.offendingText !== "string"
+    ) {
+        return false;
+    }
+
+    return true;
+}

@@ -473,18 +473,29 @@ function buildLogPayload(report, generatedAt) {
     };
 }
 
+function resolveSummarySeverity(conflicts) {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        return "info";
+    }
+
+    if (conflicts.some((conflict) => conflict.severity === "error")) {
+        return "error";
+    }
+
+    if (conflicts.some((conflict) => conflict.severity === "warning")) {
+        return "warning";
+    }
+
+    return "info";
+}
+
 function pushDiagnosticEntry({ diagnostics, report, text }) {
     if (!Array.isArray(diagnostics)) {
         return;
     }
 
     const { renames, conflicts } = getNormalizedReportCollections(report);
-
-    const severity = conflicts.some((conflict) => conflict.severity === "error")
-        ? "error"
-        : conflicts.some((conflict) => conflict.severity === "warning")
-          ? "warning"
-          : "info";
+    const severity = resolveSummarySeverity(conflicts);
 
     diagnostics.push({
         code: `${REPORT_NAMESPACE}-summary`,
@@ -617,6 +628,38 @@ function resolveDryRunFlag(options, contextDryRun) {
     return false;
 }
 
+function finalizeIdentifierCaseReport(options, result) {
+    setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
+
+    if (result !== undefined) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseReportResult",
+            result
+        );
+    }
+
+    return result ?? null;
+}
+
+function resolveReportIo(options, context) {
+    const logger = context.logger ?? options.logger ?? console;
+    const diagnostics =
+        context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
+    const logFilePath =
+        context.logFilePath ??
+        getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
+    const fsFacade =
+        context.fsFacade ??
+        getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
+    const now =
+        context.now ??
+        pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
+        defaultNow;
+
+    return { logger, diagnostics, logFilePath, fsFacade, now };
+}
+
 export function maybeReportIdentifierCaseDryRun(options) {
     if (!options || options.__identifierCaseReportEmitted) {
         return null;
@@ -628,21 +671,13 @@ export function maybeReportIdentifierCaseDryRun(options) {
         return null;
     }
 
-    const {
-        renamePlan,
-        conflicts = [],
-        dryRun: contextDryRun,
-        logFilePath = null,
-        logger = null,
-        diagnostics = null,
-        fsFacade = null,
-        now = null
-    } = context;
+    const { renamePlan } = context;
 
     if (!renamePlan) {
-        setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
-        return null;
+        return finalizeIdentifierCaseReport(options);
     }
+
+    const { conflicts = [], dryRun: contextDryRun } = context;
 
     const shouldDryRun = resolveDryRunFlag(options, contextDryRun);
 
@@ -654,44 +689,16 @@ export function maybeReportIdentifierCaseDryRun(options) {
             conflicts
         });
 
-        setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseReportResult",
-            result
-        );
-
-        return result;
+        return finalizeIdentifierCaseReport(options, result);
     }
 
-    const effectiveLogger = logger ?? options.logger ?? console;
-    const effectiveDiagnostics =
-        diagnostics ?? toDiagnosticsArray(options.diagnostics);
-    const optionLogPath = getIdentifierCaseOption(options, "ReportLogPath", {
-        fallback: null
-    });
-    const optionFsFacade = getIdentifierCaseOption(options, "Fs", {
-        fallback: defaultFsFacade
-    });
-    const effectiveLogPath = logFilePath ?? optionLogPath;
-    const effectiveFs = fsFacade ?? optionFsFacade;
-    const effectiveNow =
-        now ??
-        pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
-        defaultNow;
+    const reportIo = resolveReportIo(options, context);
 
     const result = reportIdentifierCasePlan({
         renamePlan,
         conflicts,
-        logger: effectiveLogger,
-        diagnostics: effectiveDiagnostics,
-        logFilePath: effectiveLogPath,
-        fsFacade: effectiveFs,
-        now: effectiveNow
+        ...reportIo
     });
 
-    setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
-    setIdentifierCaseOption(options, "__identifierCaseReportResult", result);
-
-    return result;
+    return finalizeIdentifierCaseReport(options, result);
 }

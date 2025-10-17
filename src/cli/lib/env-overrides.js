@@ -1,7 +1,33 @@
 import { CliUsageError } from "./cli-errors.js";
 import { isNonEmptyString } from "../../shared/string-utils.js";
+import { isErrorLike } from "../../shared/utils/capability-probes.js";
 
 const DEFAULT_SOURCE = "env";
+
+function resolveUsage(getUsage) {
+    if (typeof getUsage === "function") {
+        return getUsage();
+    }
+
+    return getUsage ?? null;
+}
+
+function createOverrideError({ error, envVar, getUsage }) {
+    const usage = resolveUsage(getUsage);
+    const fallbackMessage = envVar
+        ? `Invalid value provided for ${envVar}.`
+        : "Invalid environment variable value provided.";
+    const message =
+        isErrorLike(error) &&
+        isNonEmptyString(error.message) &&
+        !/^error\b/i.test(error.message.trim())
+            ? error.message
+            : fallbackMessage;
+
+    const cliError = new CliUsageError(message, { usage });
+    cliError.cause = isErrorLike(error) ? error : undefined;
+    return cliError;
+}
 
 /**
  * Apply an environment-driven override to a Commander option.
@@ -45,21 +71,7 @@ export function applyEnvOptionOverride({
         const resolved = resolver(rawValue);
         command.setOptionValueWithSource(optionName, resolved, source);
     } catch (error) {
-        const usage =
-            typeof getUsage === "function" ? getUsage() : (getUsage ?? null);
-        const fallbackMessage = envVar
-            ? `Invalid value provided for ${envVar}.`
-            : "Invalid environment variable value provided.";
-        const message =
-            error instanceof Error &&
-            isNonEmptyString(error.message) &&
-            !/^error\b/i.test(error.message.trim())
-                ? error.message
-                : fallbackMessage;
-
-        const cliError = new CliUsageError(message, { usage });
-        cliError.cause = error instanceof Error ? error : undefined;
-        throw cliError;
+        throw createOverrideError({ error, envVar, getUsage });
     }
 }
 

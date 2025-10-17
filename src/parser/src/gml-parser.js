@@ -4,7 +4,8 @@ import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { isErrorLike } from "../../shared/utils/capability-probes.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -49,9 +50,11 @@ export default class GMLParser {
             tree = parser.program();
         } catch (error) {
             if (error) {
-                const normalisedError =
-                    error instanceof Error ? error : new Error(String(error));
-                throw normalisedError;
+                if (isErrorLike(error)) {
+                    throw error;
+                }
+
+                throw new Error(String(error));
             }
             throw new Error("Unknown syntax error while parsing GML source.");
         }
@@ -230,26 +233,45 @@ export default class GMLParser {
     }
 
     removeLocationInfo(obj) {
-        for (const prop in obj) {
+        if (!obj || typeof obj !== "object") {
+            return;
+        }
+
+        for (const prop of Object.keys(obj)) {
             if (prop === "start" || prop === "end") {
                 delete obj[prop];
-            } else if (typeof obj[prop] === "object") {
-                this.removeLocationInfo(obj[prop]);
+                continue;
+            }
+
+            const value = obj[prop];
+            if (value && typeof value === "object") {
+                this.removeLocationInfo(value);
             }
         }
     }
 
     simplifyLocationInfo(obj) {
-        for (const prop in obj) {
+        if (!obj || typeof obj !== "object") {
+            return;
+        }
+
+        for (const prop of Object.keys(obj)) {
             if (prop === "start") {
                 obj.start = obj.start.index;
-            } else if (prop === "end") {
+                continue;
+            }
+
+            if (prop === "end") {
                 obj.end = obj.end.index;
-            } else if (typeof obj[prop] === "object") {
-                this.simplifyLocationInfo(obj[prop]);
+                continue;
+            }
+
+            const value = obj[prop];
+            if (value && typeof value === "object") {
+                this.simplifyLocationInfo(value);
             }
         }
     }
 }
 
-export { getLineBreakCount } from "../../shared/line-breaks.js";
+export { getLineBreakCount } from "../../shared/utils/line-breaks.js";

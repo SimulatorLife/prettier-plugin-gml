@@ -1,4 +1,1 @@
-/// Draw Event
-
-draw_primitive_begin(pr_linelist);
-draw_primitive_end();
+/// Cannot close a primitive without starting one

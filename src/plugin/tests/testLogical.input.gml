@@ -99,7 +99,7 @@ function scr_logic_implication_form(foo, bar){
 /// @function scr_logic_demorgan_and
 /// @param {bool} foo
 /// @param {bool} bar
-/// @description De Morgan’s law: !(foo or bar).
+/// @description De Morgan’s law: !(foo or bar) == !foo and !bar.
 /// @returns {bool}
 function scr_logic_demorgan_and(foo, bar){
     if (!(foo || bar)) {
@@ -111,7 +111,7 @@ function scr_logic_demorgan_and(foo, bar){
 /// @function scr_logic_demorgan_or
 /// @param {bool} foo
 /// @param {bool} bar
-/// @description De Morgan’s law: !(foo and bar).
+/// @description De Morgan’s law: !(foo and bar) == !foo or !bar.
 /// @returns {bool}
 function scr_logic_demorgan_or(foo, bar){
     if (!(foo && bar)) {
@@ -147,7 +147,7 @@ function scr_logic_mixed_reduction(foo, bar, baz){
 }
 
 
-function logical_example(){
+function logical_example(foo , bar, baz) {
     if(foo&&bar||baz){
         return foo && bar;
     }

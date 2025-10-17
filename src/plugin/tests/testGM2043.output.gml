@@ -4,8 +4,9 @@ var i = 0;
 
 i = 34;
 
-var _msg;
 /// Example 2
+
+var _msg;
 
 if (something_occurred) {
     _msg = "Something happened!";
