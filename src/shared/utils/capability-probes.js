@@ -5,19 +5,47 @@ function hasFunction(value, property) {
 }
 
 function getIteratorFactory(value) {
-    if (typeof value?.[Symbol.iterator] === "function") {
-        return () => value[Symbol.iterator]();
+    const iteratorMethod = value?.[Symbol.iterator];
+    if (typeof iteratorMethod === "function") {
+        return () => iteratorMethod.call(value);
     }
 
-    if (hasFunction(value, "entries")) {
-        return () => value.entries();
+    const entries = value?.entries;
+    if (typeof entries === "function") {
+        return () => entries.call(value);
     }
 
-    if (hasFunction(value, "values")) {
-        return () => value.values();
+    const values = value?.values;
+    if (typeof values === "function") {
+        return () => values.call(value);
     }
 
     return null;
+}
+
+function getIterator(iterable) {
+    const factory = getIteratorFactory(iterable);
+    return factory ? factory() : null;
+}
+
+function hasIterator(iterable) {
+    return Boolean(getIteratorFactory(iterable));
+}
+
+function getFiniteSize(candidate) {
+    return typeof candidate === "number" && Number.isFinite(candidate)
+        ? candidate
+        : null;
+}
+
+function getLengthHint(iterable) {
+    const size = getFiniteSize(iterable?.size);
+    if (size !== null) {
+        return size;
+    }
+
+    const length = getFiniteSize(iterable?.length);
+    return length !== null ? length : null;
 }
 
 export function isErrorLike(value) {
@@ -61,7 +89,7 @@ export function isMapLike(value) {
         return false;
     }
 
-    return Boolean(getIteratorFactory(value));
+    return hasIterator(value);
 }
 
 export function isSetLike(value) {
@@ -73,7 +101,7 @@ export function isSetLike(value) {
         return false;
     }
 
-    return Boolean(getIteratorFactory(value));
+    return hasIterator(value);
 }
 
 export function hasIterableItems(iterable) {
@@ -81,23 +109,12 @@ export function hasIterableItems(iterable) {
         return false;
     }
 
-    if (typeof iterable.size === "number" && Number.isFinite(iterable.size)) {
-        return iterable.size > 0;
+    const lengthHint = getLengthHint(iterable);
+    if (lengthHint !== null) {
+        return lengthHint > 0;
     }
 
-    if (
-        typeof iterable.length === "number" &&
-        Number.isFinite(iterable.length)
-    ) {
-        return iterable.length > 0;
-    }
-
-    const iteratorFactory = getIteratorFactory(iterable);
-    if (!iteratorFactory) {
-        return false;
-    }
-
-    const iterator = iteratorFactory();
+    const iterator = getIterator(iterable);
     if (!iterator || typeof iterator.next !== "function") {
         return false;
     }
@@ -116,23 +133,12 @@ export function hasIterableItems(iterable) {
 }
 
 export function getIterableSize(iterable) {
-    if (typeof iterable.size === "number" && Number.isFinite(iterable.size)) {
-        return iterable.size;
+    const lengthHint = getLengthHint(iterable);
+    if (lengthHint !== null) {
+        return lengthHint;
     }
 
-    if (
-        typeof iterable.length === "number" &&
-        Number.isFinite(iterable.length)
-    ) {
-        return iterable.length;
-    }
-
-    const iteratorFactory = getIteratorFactory(iterable);
-    if (!iteratorFactory) {
-        return 0;
-    }
-
-    const iterator = iteratorFactory();
+    const iterator = getIterator(iterable);
     if (!iterator || typeof iterator.next !== "function") {
         return 0;
     }
