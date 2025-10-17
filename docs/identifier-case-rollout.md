@@ -54,7 +54,9 @@ Automatic discovery removes the need to generate `.gml-reports/project-index.jso
 for everyday formatting, but you can still keep manual snapshots for audit
 purposes:
 
-1. Run the inline Node script mentioned in the README to generate a manual index.
+1. Use the scripted example in
+   [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](./examples/identifier-case/locals-first.prettierrc.mjs)
+   or call `buildProjectIndex(projectRoot)` directly to generate a manual index.
 2. Commit the JSON alongside your branch or store it as a CI artifact.
 3. Pass the file via `identifierCaseProjectIndex` to force the formatter to use
    the exact snapshot instead of the live bootstrap.

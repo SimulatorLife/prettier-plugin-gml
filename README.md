@@ -178,15 +178,16 @@ nvm use
 ### Install in a GameMaker project
 
 1. Change into the folder that contains your `.yyp` file.
-2. Install Prettier, the plugin, and the ANTLR runtime next to the project:
+2. Install Prettier v3, the plugin, and the ANTLR runtime next to the project:
 
    ```bash
-   npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
+   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
    ```
 
    - Quote dependency specifiers so shells such as `zsh` do not expand `^` as a glob.
    - Resolve any `EBADENGINE` errors by upgrading Node.js to a supported release.
    - Pin to a tag or commit (`#vX.Y.Z` or `#<sha>`) when you need a reproducible build for CI or audits.
+   - Swap the Git URL for a registry tag once an official package is published; adjust the plugin path below to match the package name exposed in `node_modules`.
 
 3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`):
 
@@ -429,10 +430,11 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 
 ## Identifier case rollout
 
-1. **Generate a project index** using `npm run format:gml -- --path <project> --dump-project-index` (see the playbook for details).
-2. **Dry-run renames** with locals-first safety nets before writing changes to disk.
-3. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
-4. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
+1. **Enable identifier casing** in your Prettier configuration. Start with a locals-first plan similar to [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](docs/examples/identifier-case/locals-first.prettierrc.mjs) so other scopes stay in observation mode.
+2. **Warm the project index cache** by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
+3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
+4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
+5. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
 
 ---
 
