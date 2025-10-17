@@ -6136,6 +6136,22 @@ function markCommentForTrailingPaddingPreservation(comment) {
     });
 }
 
+function markStatementToSuppressFollowingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressFollowingEmptyLine = true;
+}
+
+function markStatementToSuppressLeadingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressLeadingEmptyLine = true;
+}
+
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
         !diagnostic ||
@@ -8761,6 +8777,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
+    markStatementToSuppressFollowingEmptyLine(node);
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
@@ -8955,6 +8972,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
             break;
         }
 
+        markStatementToSuppressLeadingEmptyLine(candidate);
         lastDrawCallIndex = insertionIndex;
         insertionIndex += 1;
     }
@@ -9195,9 +9213,43 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
+    let lastDrawCallIndex = property;
 
-    if (isBlendModeResetCall(nextNode)) {
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (isBlendModeResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate) {
+            break;
+        }
+
+        if (isTriviallyIgnorableStatement(candidate)) {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (!isCallExpression(candidate)) {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        lastDrawCallIndex = insertionIndex;
+        insertionIndex += 1;
+    }
+
+    if (lastDrawCallIndex > property) {
+        insertionIndex = lastDrawCallIndex + 1;
+    } else if (insertionIndex >= siblings.length) {
+        insertionIndex = siblings.length;
+    } else {
         return null;
     }
 
@@ -9219,7 +9271,8 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    markStatementToSuppressFollowingEmptyLine(node);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
