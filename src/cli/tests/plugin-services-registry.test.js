@@ -12,6 +12,7 @@ import {
     createDefaultProjectIndexBuilder,
     createDefaultIdentifierCasePlanPreparer
 } from "../lib/plugin-service-providers/default-plugin-services.js";
+import { createDefaultCliPluginServices } from "../lib/plugin-service-providers/default-cli-plugin-services.js";
 
 async function metricsOnlyProjectIndexBuilder() {
     return { metrics: {} };
@@ -43,6 +44,7 @@ test("CLI plugin service registration", async (t) => {
         const defaultBuildProjectIndex = createDefaultProjectIndexBuilder();
         const defaultPrepareIdentifierCasePlan =
             createDefaultIdentifierCasePlanPreparer();
+        const defaultCliServices = createDefaultCliPluginServices();
 
         assert.strictEqual(
             buildProjectIndex,
@@ -53,6 +55,14 @@ test("CLI plugin service registration", async (t) => {
             prepareIdentifierCasePlan,
             defaultPrepareIdentifierCasePlan,
             "default identifier case planner should be registered"
+        );
+        assert.deepStrictEqual(
+            defaultCliServices,
+            {
+                buildProjectIndex: defaultBuildProjectIndex,
+                prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
+            },
+            "aggregated default CLI services should match individual defaults"
         );
     });
 
