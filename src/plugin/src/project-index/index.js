@@ -26,62 +26,39 @@ import {
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
 
-function isParserFacade(candidate) {
-    return (
-        !!candidate &&
-        typeof candidate === "object" &&
-        typeof candidate.parse === "function"
-    );
-}
-
-function createFacadeParser(facade) {
-    return (sourceText, context) => facade.parse(sourceText, context);
-}
-
-function createFacadeOverride(candidate) {
-    if (!isParserFacade(candidate)) {
-        return null;
-    }
-
-    return {
-        facade: candidate,
-        parse: createFacadeParser(candidate)
-    };
-}
+const PARSER_FACADE_OPTION_KEYS = [
+    "identifierCaseProjectIndexParserFacade",
+    "gmlParserFacade",
+    "parserFacade"
+];
 
 function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
         return null;
     }
 
-    const facades = [
-        options.identifierCaseProjectIndexParserFacade,
-        options.gmlParserFacade,
-        options.parserFacade
-    ];
+    const facade = PARSER_FACADE_OPTION_KEYS.map((key) => options[key]).find(
+        (candidate) => candidate && typeof candidate.parse === "function"
+    );
 
-    for (const facade of facades) {
-        const override = createFacadeOverride(facade);
-        if (override) {
-            return override;
-        }
+    if (facade) {
+        return {
+            facade,
+            parse: facade.parse.bind(facade)
+        };
     }
 
     const { parseGml } = options;
-    if (typeof parseGml === "function") {
-        return { facade: null, parse: parseGml };
-    }
-
-    return null;
+    return typeof parseGml === "function"
+        ? { facade: null, parse: parseGml }
+        : null;
 }
 
 function resolveProjectIndexParser(options) {
-    const override = getProjectIndexParserOverride(options);
-    if (!override) {
-        return defaultProjectIndexParser;
-    }
-
-    return override.parse;
+    return (
+        getProjectIndexParserOverride(options)?.parse ??
+        defaultProjectIndexParser
+    );
 }
 
 function isManifestEntry(entry) {
