@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { cloneObjectEntries, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -2107,12 +2107,12 @@ export async function buildProjectIndex(
                 resourcePath: record.resourcePath,
                 event: record.event ? { ...record.event } : null,
                 filePaths: [...record.filePaths],
-                declarations: record.declarations.map((item) => ({ ...item })),
-                references: record.references.map((item) => ({ ...item })),
-                ignoredIdentifiers: record.ignoredIdentifiers.map((item) => ({
-                    ...item
-                })),
-                scriptCalls: record.scriptCalls.map((call) => ({ ...call }))
+                declarations: cloneObjectEntries(record.declarations),
+                references: cloneObjectEntries(record.references),
+                ignoredIdentifiers: cloneObjectEntries(
+                    record.ignoredIdentifiers
+                ),
+                scriptCalls: cloneObjectEntries(record.scriptCalls)
             }
         ])
     );
@@ -2123,12 +2123,12 @@ export async function buildProjectIndex(
             {
                 filePath: record.filePath,
                 scopeId: record.scopeId,
-                declarations: record.declarations.map((item) => ({ ...item })),
-                references: record.references.map((item) => ({ ...item })),
-                ignoredIdentifiers: record.ignoredIdentifiers.map((item) => ({
-                    ...item
-                })),
-                scriptCalls: record.scriptCalls.map((call) => ({ ...call }))
+                declarations: cloneObjectEntries(record.declarations),
+                references: cloneObjectEntries(record.references),
+                ignoredIdentifiers: cloneObjectEntries(
+                    record.ignoredIdentifiers
+                ),
+                scriptCalls: cloneObjectEntries(record.scriptCalls)
             }
         ])
     );
@@ -2145,7 +2145,7 @@ export async function buildProjectIndex(
             declarationKinds: Array.isArray(entry.declarationKinds)
                 ? [...entry.declarationKinds]
                 : [],
-            declarations: entry.declarations.map((item) => ({ ...item })),
+            declarations: cloneObjectEntries(entry.declarations),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
                 scopeId: reference.scopeId ?? null,
@@ -2165,8 +2165,8 @@ export async function buildProjectIndex(
                 entry.identifierId ??
                 buildIdentifierId("macro", entry.name ?? ""),
             name: entry.name,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((item) => ({ ...item }))
+            declarations: cloneObjectEntries(entry.declarations),
+            references: cloneObjectEntries(entry.references)
         })),
         enums: mapToObject(identifierCollections.enums, (entry) => ({
             identifierId:
@@ -2175,8 +2175,8 @@ export async function buildProjectIndex(
             key: entry.key,
             name: entry.name ?? null,
             filePath: entry.filePath ?? null,
-            declarations: entry.declarations.map((item) => ({ ...item })),
-            references: entry.references.map((item) => ({ ...item }))
+            declarations: cloneObjectEntries(entry.declarations),
+            references: cloneObjectEntries(entry.references)
         })),
         enumMembers: mapToObject(
             identifierCollections.enumMembers,
@@ -2189,8 +2189,8 @@ export async function buildProjectIndex(
                 enumKey: entry.enumKey ?? null,
                 enumName: entry.enumName ?? null,
                 filePath: entry.filePath ?? null,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
+                declarations: cloneObjectEntries(entry.declarations),
+                references: cloneObjectEntries(entry.references)
             })
         ),
         globalVariables: mapToObject(
@@ -2200,8 +2200,8 @@ export async function buildProjectIndex(
                     entry.identifierId ??
                     buildIdentifierId("global", entry.name ?? ""),
                 name: entry.name,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
+                declarations: cloneObjectEntries(entry.declarations),
+                references: cloneObjectEntries(entry.references)
             })
         ),
         instanceVariables: mapToObject(
@@ -2214,8 +2214,8 @@ export async function buildProjectIndex(
                 name: entry.name ?? null,
                 scopeId: entry.scopeId ?? null,
                 scopeKind: entry.scopeKind ?? null,
-                declarations: entry.declarations.map((item) => ({ ...item })),
-                references: entry.references.map((item) => ({ ...item }))
+                declarations: cloneObjectEntries(entry.declarations),
+                references: cloneObjectEntries(entry.references)
             })
         )
     };

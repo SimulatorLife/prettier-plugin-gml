@@ -61,6 +61,36 @@ export function isNonEmptyArray(value) {
 }
 
 /**
+ * Create shallow clones of object-like entries in an array.
+ *
+ * This helper centralizes the "map and spread" pattern used throughout the
+ * project index serialization logic so call sites stay focused on the
+ * surrounding data shaping instead of re-implementing the cloning loop.
+ * Non-object values are preserved as-is to mirror the behavior of
+ * `Array#map` paired with object spreading while gracefully handling
+ * unexpected primitives.
+ *
+ * @template T
+ * @param {Array<T> | null | undefined} entries Collection of entries to clone.
+ * @returns {Array<T>} Array containing shallow clones of object entries.
+ */
+export function cloneObjectEntries(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return [];
+    }
+
+    const clones = new Array(entries.length);
+
+    for (let index = 0; index < entries.length; index += 1) {
+        const entry = entries[index];
+        clones[index] =
+            entry && typeof entry === "object" ? { ...entry } : entry;
+    }
+
+    return clones;
+}
+
+/**
  * Create a new array containing the first occurrence of each unique value
  * encountered in the provided iterable while preserving the original order.
  *
