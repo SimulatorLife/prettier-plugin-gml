@@ -10961,9 +10961,17 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    const insertionInfo = computeStateResetInsertionIndex({
+        siblings,
+        startIndex: property + 1,
+        isResetCall: isCullModeResetCall
+    });
 
-    if (isCullModeResetCall(nextNode)) {
+    if (!insertionInfo) {
+        return null;
+    }
+
+    if (insertionInfo.alreadyReset) {
         return null;
     }
 
@@ -10985,7 +10993,24 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    let insertionIndex =
+        typeof insertionInfo.index === "number"
+            ? insertionInfo.index
+            : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
