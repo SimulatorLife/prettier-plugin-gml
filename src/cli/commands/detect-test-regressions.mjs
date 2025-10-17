@@ -7,6 +7,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../shared/string-utils.js";
+import { toArray } from "../../shared/array-utils.js";
 
 let parser;
 
@@ -58,12 +59,6 @@ function looksLikeTestCase(node) {
     }
 
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
-}
-
-function toArray(value) {
-    if (Array.isArray(value)) return value;
-    if (value === undefined || value === null) return [];
-    return [value];
 }
 
 function decodeEntities(value) {
