@@ -79,3 +79,36 @@ test("preserves guard extraction descriptions when condensing", async () => {
         "Expected guard extraction description to omit simplified equality."
     );
 });
+
+test("leaves implication descriptions with return statements unchanged", async () => {
+    const source = [
+        "/// @function condense_implication",
+        "/// @param {bool} foo",
+        "/// @param {bool} bar",
+        "/// @description Implication: if (foo) return bar; else return true.",
+        "/// @returns {bool}",
+        "function condense_implication(foo, bar) {",
+        "    if (foo) {",
+        "        return bar;",
+        "    }",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.ok(
+        formatted.includes(
+            "/// @description Implication: if (foo) return bar; else return true."
+        ),
+        "Expected implication description to remain unchanged."
+    );
+
+    assert.ok(
+        !formatted.includes("; =="),
+        "Expected implication description to omit simplified equality suffix."
+    );
+});

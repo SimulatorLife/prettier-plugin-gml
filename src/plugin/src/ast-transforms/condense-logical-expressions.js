@@ -172,6 +172,10 @@ function buildUpdatedDescription(existing, expression) {
         return `${prefix} ${normalizedExpression}`;
     }
 
+    if (/\breturn\b/i.test(trimmed)) {
+        return existing ?? "";
+    }
+
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
     const needsSemicolon = lowered.includes("return");
     const separator = needsSemicolon ? "; ==" : " ==";
