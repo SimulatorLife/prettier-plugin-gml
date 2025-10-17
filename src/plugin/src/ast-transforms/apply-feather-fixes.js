@@ -8980,13 +8980,21 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
             break;
         }
 
-        if (!isDrawFunctionCall(candidate)) {
+        const isDrawCall = isDrawFunctionCall(candidate);
+        const isActiveTargetSubmit =
+            !isDrawCall && isVertexSubmitCallUsingActiveTarget(candidate);
+
+        if (!isDrawCall && !isActiveTargetSubmit) {
             break;
         }
 
         markStatementToSuppressLeadingEmptyLine(candidate);
         lastDrawCallIndex = insertionIndex;
         insertionIndex += 1;
+
+        if (isActiveTargetSubmit) {
+            break;
+        }
     }
 
     if (lastDrawCallIndex > property) {
@@ -16835,6 +16843,24 @@ function isDrawFunctionCall(node) {
         typeof identifier.name === "string" &&
         identifier.name.startsWith("draw_")
     );
+}
+
+function isVertexSubmitCallUsingActiveTarget(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "vertex_submit")) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (args.length < 3) {
+        return false;
+    }
+
+    return isNegativeOneLiteral(args[2]);
 }
 
 function extractSurfaceTargetName(node) {

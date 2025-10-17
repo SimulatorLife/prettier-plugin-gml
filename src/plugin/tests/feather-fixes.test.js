@@ -2033,6 +2033,48 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("appends surface target resets after vertex submissions that draw to the active target", () => {
+        const source = [
+            "surface_set_target(sf);",
+            "draw_clear_alpha(c_black, 1);",
+            "draw_circle(10, 10, 20, false);",
+            "vertex_submit(vb, pr_trianglelist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const submitIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "vertex_submit"
+        );
+        const resetIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(
+            submitIndex !== -1,
+            "Expected vertex_submit call to be present in the AST."
+        );
+        assert.ok(
+            resetIndex !== -1,
+            "Expected surface_reset_target call to be inserted."
+        );
+        assert.strictEqual(
+            resetIndex,
+            submitIndex + 1,
+            "Expected reset call to be appended immediately after the vertex submission."
+        );
+    });
+
     it("captures metadata for deprecated function calls flagged by GM1017", () => {
         const source = [
             "/// @deprecated Use start_new_game instead.",
