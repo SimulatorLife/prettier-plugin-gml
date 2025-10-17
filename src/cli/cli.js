@@ -47,6 +47,7 @@ import {
     isPathInside,
     collectAncestorDirectories
 } from "../shared/path-utils.js";
+import { isObjectLike } from "../shared/object-utils.js";
 
 import {
     CliUsageError,
@@ -339,7 +340,7 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return;
     }
 
@@ -375,7 +376,7 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return "";
     }
 
