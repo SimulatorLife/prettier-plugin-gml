@@ -62,7 +62,6 @@ export function condenseLogicalExpressions(ast, helpers) {
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    applyDocCommentUpdates(context);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -85,45 +84,6 @@ function normalizeDocCommentWhitespace(ast) {
         ) {
             comment.leadingWS = "\n";
         }
-    }
-}
-
-function applyDocCommentUpdates(context) {
-    if (!context || context.docUpdates.size === 0) {
-        return;
-    }
-
-    const commentGroups = ensureCommentGroups(context);
-
-    for (const [functionNode, update] of context.docUpdates.entries()) {
-        const comments = commentGroups.get(functionNode);
-        if (!comments || comments.length === 0) {
-            continue;
-        }
-
-        const descriptionComment = comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                comment.value.includes("@description")
-        );
-
-        if (!descriptionComment) {
-            continue;
-        }
-
-        const originalContent = extractDescriptionContent(
-            descriptionComment.value
-        );
-        const updatedContent = buildUpdatedDescription(
-            update?.description ?? originalContent,
-            update?.expression ?? null
-        );
-
-        if (!updatedContent || updatedContent === originalContent) {
-            continue;
-        }
-
-        descriptionComment.value = ` / @description ${updatedContent}`;
     }
 }
 
