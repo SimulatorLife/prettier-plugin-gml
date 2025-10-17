@@ -127,11 +127,11 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
-function resolvelogicalOperatorsStyle(options) {
+function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
 
-function applylogicalOperatorsStyle(operator, style) {
+function applyLogicalOperatorsStyle(operator, style) {
     if (operator === "&&") {
         return style === LogicalOperatorsStyle.KEYWORDS ? "and" : "&&";
     }
@@ -633,7 +633,7 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
-            const logicalOperatorsStyle = resolvelogicalOperatorsStyle(options);
+            const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
@@ -671,7 +671,7 @@ export function print(path, options, print) {
                 operator = "*";
                 right = "0.5";
             } else {
-                const styledOperator = applylogicalOperatorsStyle(
+                const styledOperator = applyLogicalOperatorsStyle(
                     operator,
                     logicalOperatorsStyle
                 );
