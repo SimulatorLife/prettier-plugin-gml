@@ -13,7 +13,7 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
         typeof createErrorMessage === "function"
             ? createErrorMessage(formattedReceived)
             : (createErrorMessage ??
-              `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`);
+                `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`);
 
     throw new TypeError(message);
 }
@@ -65,7 +65,7 @@ export function resolveIntegerOption(
         typeof typeErrorMessage === "function"
             ? typeErrorMessage(type)
             : (typeErrorMessage ??
-              `Value must be provided as a number (received type '${type}').`);
+                `Value must be provided as a number (received type '${type}').`);
 
     throw new TypeError(message);
 }
