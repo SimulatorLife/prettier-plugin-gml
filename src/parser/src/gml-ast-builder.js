@@ -1,5 +1,5 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 import ScopeTracker from "./scope-tracker.js";
 
 export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {

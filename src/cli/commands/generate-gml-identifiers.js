@@ -17,7 +17,7 @@ import {
     resolveManualRepoValue,
     resolveManualCacheRoot
 } from "../lib/manual-utils.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
@@ -358,7 +358,7 @@ async function main({ argv, env, isTty } = {}) {
             return 0;
         }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const startTime = Date.now();
+        const logCompletion = createVerboseDurationLogger({ verbose });
 
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef.sha) {
@@ -603,9 +603,7 @@ async function main({ argv, env, isTty } = {}) {
         console.log(
             `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
         );
-        if (verbose.parsing) {
-            console.log(`Completed in ${formatDuration(startTime)}.`);
-        }
+        logCompletion();
         return 0;
     } finally {
         disposeProgressBars();

@@ -1629,10 +1629,15 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
 
-            const nextLineEmpty = isNextLineEmpty(
-                options.originalText,
-                nextLineProbeIndex
-            );
+            const suppressFollowingEmptyLine =
+                node?._featherSuppressFollowingEmptyLine === true;
+            const suppressLeadingEmptyLine =
+                nextNode?._featherSuppressLeadingEmptyLine === true;
+
+            const nextLineEmpty =
+                suppressFollowingEmptyLine || suppressLeadingEmptyLine
+                    ? false
+                    : isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
             const isSanitizedMacro =
                 node?.type === "MacroDeclaration" &&

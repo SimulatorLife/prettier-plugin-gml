@@ -87,6 +87,7 @@ const FUNCTION_SIGNATURE_PATTERN =
 // formatter hits these helpers while iterating over comment lists, so avoiding
 // per-call RegExp construction keeps the hot path allocation-free.
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
+const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+(\s*)@/;
 
 function getLineCommentRawText(comment) {
     if (!isObjectLike(comment)) {
@@ -173,11 +174,10 @@ function formatLineComment(
         }
     }
 
-    const regexPattern = /^\/+(\s*)@/;
-    const match = trimmedValue.match(regexPattern);
+    const match = trimmedValue.match(DOC_TAG_LINE_PREFIX_PATTERN);
     if (match) {
         let formattedCommentLine =
-            "///" + trimmedValue.replace(regexPattern, " @");
+            "///" + trimmedValue.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @");
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
