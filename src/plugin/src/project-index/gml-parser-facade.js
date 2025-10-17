@@ -1,8 +1,9 @@
 import path from "node:path";
 
-import GMLParser from "../../../parser/gml-parser.js";
+import GMLParser, {
+    isSyntaxErrorWithLocation
+} from "../../../parser/gml-parser.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { isSyntaxErrorWithLocation } from "../../../shared/utils/capability-probes.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
