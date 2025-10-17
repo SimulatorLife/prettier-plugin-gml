@@ -162,6 +162,10 @@ function buildUpdatedDescription(existing, expression) {
         return `Simplified: ${normalizedExpression}`;
     }
 
+    if (lowered.includes("guard extraction")) {
+        return existing ?? "";
+    }
+
     if (trimmed.includes("==")) {
         const equalityIndex = trimmed.indexOf("==");
         const prefix = trimmed.slice(0, equalityIndex + 2).trimEnd();
