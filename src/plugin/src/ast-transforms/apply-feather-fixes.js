@@ -394,11 +394,16 @@ function createNoOpFixer() {
     // so the plugin frequently encounters rule IDs before their fixer
     // implementations land. Returning an empty fixer keeps the pipeline
     // tolerant of that skew: downstream call sites treat "no edits" as "leave
-    // the AST untouched" while still surfacing diagnostic metadata. If we threw
-    // or mutated nodes here the formatter would either crash or apply
-    // speculative edits without the guard rails described in
-    // docs/feather-data-plan.md, so the noop is deliberate until the real fixer
-    // ships.
+    // the AST untouched" while still surfacing diagnostic metadata. That
+    // contract matters because the orchestrator in applyFeatherFixes blindly
+    // concatenates the arrays returned by every fixer; providing [] keeps the
+    // type signature intact and avoids signalling "fixer missing" as a fatal
+    // error. When we experimented with throwing here the formatter would stop
+    // mid-run or, worse, fall back to speculative edits that reorder nodes
+    // without the guard rails laid out in docs/feather-data-plan.md. Until the
+    // corresponding fixer implementation ships we deliberately fall back to this
+    // inert function so diagnostics reach the caller while the AST remains
+    // untouched.
     return () => [];
 }
 
