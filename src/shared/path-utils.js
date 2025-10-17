@@ -1,1 +1,1 @@
-export * from "./utils/path.js";
+export { fromPosixPath, isPathInside, toPosixPath } from "./utils/path.js";
