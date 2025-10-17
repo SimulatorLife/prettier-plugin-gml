@@ -54,6 +54,7 @@ import {
     handleCliError
 } from "./lib/cli-errors.js";
 import { parseCommandLine } from "./lib/command-parsing.js";
+import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
 import {
     hasRegisteredIgnorePath,
@@ -143,16 +144,14 @@ const DEFAULT_PARSE_ERROR_ACTION =
 const cliArgs = process.argv.slice(2);
 
 function parseCliArguments(args) {
-    const command = new Command()
-        .name("prettier-wrapper")
-        .usage("[options] <path>")
-        .description(
-            "Format GameMaker Language files using the prettier plugin."
-        )
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+    const command = applyStandardCommandOptions(
+        new Command()
+            .name("prettier-wrapper")
+            .usage("[options] <path>")
+            .description(
+                "Format GameMaker Language files using the prettier plugin."
+            )
+    )
         .argument("[targetPath]", "Directory or file to format.")
         .option(
             "--path <path>",
