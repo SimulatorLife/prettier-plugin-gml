@@ -396,61 +396,154 @@ function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
-async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
+function buildDirectoryEntryPaths(projectRoot, relativeDirectory, entryName) {
+    const relativePath = path.join(relativeDirectory, entryName);
+    const absolutePath = path.join(projectRoot, relativePath);
+
+    return {
+        relativePath,
+        absolutePath,
+        relativePosix: toPosixPath(relativePath)
+    };
+}
+
+async function classifyDirectoryEntry({
+    projectRoot,
+    relativeDirectory,
+    entryName,
+    fsFacade,
+    metrics
+}) {
+    const paths = buildDirectoryEntryPaths(projectRoot, relativeDirectory, entryName);
+
+    let stats;
+    try {
+        stats = await fsFacade.stat(paths.absolutePath);
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics?.incrementCounter("io.skippedMissingEntries");
+            return null;
+        }
+        throw error;
+    }
+
+    if (typeof stats?.isDirectory === "function" && stats.isDirectory()) {
+        return { type: "directory", relativePath: paths.relativePath };
+    }
+
+    const lowerPath = paths.relativePosix.toLowerCase();
+    if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
+        metrics?.incrementCounter("files.yyDiscovered");
+        return {
+            type: "yyFile",
+            record: {
+                absolutePath: paths.absolutePath,
+                relativePath: paths.relativePosix
+            }
+        };
+    }
+
+    if (lowerPath.endsWith(".gml")) {
+        metrics?.incrementCounter("files.gmlDiscovered");
+        return {
+            type: "gmlFile",
+            record: {
+                absolutePath: paths.absolutePath,
+                relativePath: paths.relativePosix
+            }
+        };
+    }
+
+    return null;
+}
+
+async function collectDirectoryScanBatch({
+    projectRoot,
+    relativeDirectory,
+    entries,
+    fsFacade,
+    metrics
+}) {
+    const discoveredDirectories = [];
     const yyFiles = [];
     const gmlFiles = [];
-    const pending = ["."];
 
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
+    for (const entryName of entries) {
+        const classification = await classifyDirectoryEntry({
+            projectRoot,
+            relativeDirectory,
+            entryName,
+            fsFacade,
+            metrics
+        });
+
+        if (!classification) {
+            continue;
+        }
+
+        if (classification.type === "directory") {
+            discoveredDirectories.push(classification.relativePath);
+            continue;
+        }
+
+        if (classification.type === "yyFile") {
+            yyFiles.push(classification.record);
+            continue;
+        }
+
+        if (classification.type === "gmlFile") {
+            gmlFiles.push(classification.record);
+        }
+    }
+
+    return { discoveredDirectories, yyFiles, gmlFiles };
+}
+
+function applyDirectoryScanResult(scanState, scanResult) {
+    if (scanResult.discoveredDirectories.length > 0) {
+        scanState.pendingDirectories.push(...scanResult.discoveredDirectories);
+    }
+
+    if (scanResult.yyFiles.length > 0) {
+        scanState.yyFiles.push(...scanResult.yyFiles);
+    }
+
+    if (scanResult.gmlFiles.length > 0) {
+        scanState.gmlFiles.push(...scanResult.gmlFiles);
+    }
+}
+
+async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
+    const scanState = {
+        pendingDirectories: ["."],
+        yyFiles: [],
+        gmlFiles: []
+    };
+
+    while (scanState.pendingDirectories.length > 0) {
+        const relativeDir = scanState.pendingDirectories.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
         const entries = await listDirectory(fsFacade, absoluteDir);
         metrics?.incrementCounter("io.directoriesScanned");
 
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
+        const scanResult = await collectDirectoryScanBatch({
+            projectRoot,
+            relativeDirectory: relativeDir,
+            entries,
+            fsFacade,
+            metrics
+        });
 
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
-                yyFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.yyDiscovered");
-            } else if (lowerPath.endsWith(".gml")) {
-                gmlFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.gmlDiscovered");
-            }
-        }
+        applyDirectoryScanResult(scanState, scanResult);
     }
 
-    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    scanState.yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    scanState.gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
-    return { yyFiles, gmlFiles };
+    return {
+        yyFiles: scanState.yyFiles,
+        gmlFiles: scanState.gmlFiles
+    };
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
