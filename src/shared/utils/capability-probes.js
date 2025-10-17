@@ -45,7 +45,7 @@ function getLengthHint(iterable) {
     }
 
     const length = getFiniteSize(iterable?.length);
-    return length !== null ? length : null;
+    return length === null ? null : length;
 }
 
 export function isErrorLike(value) {

@@ -45,7 +45,10 @@ function resolveMaxOptionStoreEntries(options) {
                 return configured;
             }
 
-            if (typeof configured !== "number" || !Number.isFinite(configured)) {
+            if (
+                typeof configured !== "number" ||
+                !Number.isFinite(configured)
+            ) {
                 return DEFAULT_MAX_OPTION_STORE_ENTRIES;
             }
 
