@@ -4,7 +4,7 @@ import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -252,4 +252,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "../../shared/line-breaks.js";
+export { getLineBreakCount } from "../../shared/utils/line-breaks.js";
