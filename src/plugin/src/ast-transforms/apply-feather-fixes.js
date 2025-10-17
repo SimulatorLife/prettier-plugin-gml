@@ -10327,6 +10327,18 @@ function ensureAlphaTestEnableResetAfterCall(
 
     let insertionIndex = insertionInfo.index;
 
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
     const previousSibling =
         siblings[insertionIndex - 1] ?? siblings[property] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
