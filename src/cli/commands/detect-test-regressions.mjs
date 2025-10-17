@@ -559,21 +559,24 @@ function formatRegression(regression) {
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
-function runCli() {
-    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const baseCandidates = [
-        path.join("base", "test-results"),
-        "base-test-results"
-    ];
-    if (process.env.BASE_RESULTS_DIR)
-        baseCandidates.push(process.env.BASE_RESULTS_DIR);
+function buildResultCandidates(defaultCandidates, envVariable) {
+    const candidates = [...defaultCandidates];
+    const override = process.env[envVariable];
+    if (override) {
+        candidates.push(override);
+    }
+    return candidates;
+}
 
-    const mergeCandidates = [
-        path.join("merge", "test-results"),
-        "merge-test-results"
-    ];
-    if (process.env.MERGE_RESULTS_DIR)
-        mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
+function loadResultSets(workspaceRoot) {
+    const baseCandidates = buildResultCandidates(
+        [path.join("base", "test-results"), "base-test-results"],
+        "BASE_RESULTS_DIR"
+    );
+    const mergeCandidates = buildResultCandidates(
+        [path.join("merge", "test-results"), "merge-test-results"],
+        "MERGE_RESULTS_DIR"
+    );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
     const head = readTestResults(["test-results"], {
@@ -583,28 +586,42 @@ function runCli() {
         workspace: workspaceRoot
     });
 
-    const target = merged.usedDir ? merged : head;
-    const targetLabel = merged.usedDir
+    return { base, head, merged };
+}
+
+function chooseTargetResultSet({ merged, head }) {
+    const usingMerged = Boolean(merged.usedDir);
+    const target = usingMerged ? merged : head;
+    const targetLabel = usingMerged
         ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
         : `PR head (${head.displayDir || "test-results"})`;
 
-    if (merged.usedDir) {
+    return { target, targetLabel, usingMerged };
+}
+
+function announceTargetSelection({ usingMerged, targetLabel }) {
+    if (usingMerged) {
         console.log(
             `Using synthetic merge test results for regression detection: ${targetLabel}.`
         );
-    } else {
-        console.log(
-            "Synthetic merge test results were not found; falling back to PR head results."
-        );
+        return;
     }
 
+    console.log(
+        "Synthetic merge test results were not found; falling back to PR head results."
+    );
+}
+
+function logResultNotes(base, target) {
     for (const note of base.notes) {
         console.log(`[base] ${note}`);
     }
     for (const note of target.notes) {
         console.log(`[target] ${note}`);
     }
+}
 
+function ensureResultsAvailability(base, target) {
     if (!base.usedDir) {
         console.log(
             "Unable to locate base test results; regression detection cannot proceed."
@@ -618,9 +635,9 @@ function runCli() {
         );
         process.exit(1);
     }
+}
 
-    const regressions = detectRegressions(base, target);
-
+function reportRegressionSummary(regressions, targetLabel) {
     if (regressions.length > 0) {
         console.log(
             `New failing tests detected (compared to base using ${targetLabel}):`
@@ -629,11 +646,26 @@ function runCli() {
             console.log(formatRegression(regression));
         }
         process.exit(1);
-    } else {
-        console.log(
-            `No new failing tests compared to base using ${targetLabel}.`
-        );
+        return;
     }
+
+    console.log(`No new failing tests compared to base using ${targetLabel}.`);
+}
+
+function runCli() {
+    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+    const { base, head, merged } = loadResultSets(workspaceRoot);
+    const { target, targetLabel, usingMerged } = chooseTargetResultSet({
+        merged,
+        head
+    });
+
+    announceTargetSelection({ usingMerged, targetLabel });
+    logResultNotes(base, target);
+    ensureResultsAvailability(base, target);
+
+    const regressions = detectRegressions(base, target);
+    reportRegressionSummary(regressions, targetLabel);
 }
 
 const isMainModule = process.argv[1]
