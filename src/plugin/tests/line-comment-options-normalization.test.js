@@ -112,4 +112,23 @@ describe("formatLineComment", () => {
 
         assert.equal(formatted, "//SQL: SELECT * FROM logs");
     });
+
+    it("keeps trailing comments on a single line without crashing", () => {
+        const comment = {
+            type: "CommentLine",
+            value: " trailing comment text  ",
+            raw: "// trailing comment text  ",
+            leadingText: "// trailing comment text  ",
+            leadingWS: "  ",
+            leadingChar: ")"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.equal(formatted, "// trailing comment text");
+        assert.equal(formatted.includes("\n"), false);
+    });
 });
