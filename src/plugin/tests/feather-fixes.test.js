@@ -4752,6 +4752,36 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines after vertex_begin calls when closing vertex batches", () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x2, y2, z2);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        assert.strictEqual(statements.length, 6);
+
+        const [firstBegin, , , secondBegin] = statements;
+        assert.strictEqual(firstBegin.object?.name, "vertex_begin");
+        assert.strictEqual(secondBegin.object?.name, "vertex_begin");
+        assert.strictEqual(firstBegin._featherSuppressFollowingEmptyLine, true);
+        assert.strictEqual(
+            secondBegin._featherSuppressFollowingEmptyLine,
+            true
+        );
+    });
+
     it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
         const source = [
             "/// Draw Event",

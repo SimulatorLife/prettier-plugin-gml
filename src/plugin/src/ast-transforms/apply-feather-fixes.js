@@ -7181,6 +7181,7 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
         const statement = statements[index];
 
         if (isVertexBeginCallNode(statement)) {
+            markStatementToSuppressFollowingEmptyLine(statement);
             if (lastBeginCall) {
                 const vertexEndCall =
                     createVertexEndCallFromBegin(lastBeginCall);
