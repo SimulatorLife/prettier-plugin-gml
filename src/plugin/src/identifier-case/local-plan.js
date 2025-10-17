@@ -36,6 +36,7 @@ import {
     getIterableSize,
     isMapLike
 } from "../../../shared/utils/capability-probes.js";
+import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (!isNonEmptyString(absoluteFilePath)) {
@@ -150,7 +151,9 @@ function applyAssetRenamesIfEligible({
     }
 
     const fsFacade =
-        options.__identifierCaseFs ?? options.identifierCaseFs ?? null;
+        options.__identifierCaseFs ??
+        options.identifierCaseFs ??
+        getDefaultIdentifierCaseFsFacade();
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
         projectIndex,

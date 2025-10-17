@@ -1,47 +1,11 @@
 import path from "node:path";
-import {
-    readFileSync as nodeReadFileSync,
-    writeFileSync as nodeWriteFileSync,
-    renameSync as nodeRenameSync,
-    accessSync as nodeAccessSync,
-    statSync as nodeStatSync,
-    mkdirSync as nodeMkdirSync,
-    existsSync as nodeExistsSync
-} from "node:fs";
 
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
-
-const defaultFsFacade = Object.freeze({
-    readFileSync(targetPath, encoding = "utf8") {
-        return nodeReadFileSync(targetPath, encoding);
-    },
-    writeFileSync(targetPath, contents) {
-        nodeWriteFileSync(targetPath, contents, "utf8");
-    },
-    renameSync(fromPath, toPath) {
-        nodeRenameSync(fromPath, toPath);
-    },
-    accessSync(targetPath, mode = DEFAULT_WRITE_ACCESS_MODE) {
-        if (mode == undefined) {
-            nodeAccessSync(targetPath);
-        } else {
-            nodeAccessSync(targetPath, mode);
-        }
-    },
-    statSync(targetPath) {
-        return nodeStatSync(targetPath);
-    },
-    mkdirSync(targetPath) {
-        nodeMkdirSync(targetPath, { recursive: true });
-    },
-    existsSync(targetPath) {
-        return nodeExistsSync(targetPath);
-    }
-});
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
