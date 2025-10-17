@@ -395,100 +395,144 @@ function collectTestCases(root) {
     return cases;
 }
 
+function normalizeResultDirectories(candidateDirs, workspaceRoot) {
+    return (Array.isArray(candidateDirs) ? candidateDirs : [candidateDirs])
+        .filter(Boolean)
+        .map((candidate) => {
+            const resolved = path.isAbsolute(candidate)
+                ? candidate
+                : path.join(workspaceRoot, candidate);
+            return {
+                resolved,
+                display: path.relative(workspaceRoot, resolved) || resolved
+            };
+        });
+}
+
+function scanResultDirectory({ resolved, display }) {
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        return { status: "missing", notes: [], cases: [] };
+    }
+
+    const xmlFiles = fs
+        .readdirSync(resolved)
+        .filter((file) => file.endsWith(".xml"));
+    if (xmlFiles.length === 0) {
+        return { status: "empty", notes: [], cases: [] };
+    }
+
+    const notes = [];
+    const cases = [];
+
+    for (const file of xmlFiles) {
+        const filePath = path.join(resolved, file);
+        let xml = "";
+        try {
+            xml = fs.readFileSync(filePath, "utf8");
+        } catch (error) {
+            notes.push(
+                `Failed to read ${path.join(display, file)}: ${error?.message}`
+            );
+            continue;
+        }
+
+        if (!xml.trim()) {
+            continue;
+        }
+
+        try {
+            const data = parser.parse(xml);
+            cases.push(...collectTestCases(data));
+        } catch (error) {
+            notes.push(
+                `Failed to parse ${path.join(display, file)}: ${error?.message}`
+            );
+        }
+    }
+
+    if (cases.length === 0) {
+        return { status: "empty", notes, cases: [] };
+    }
+
+    return { status: "found", notes, cases };
+}
+
+function recordTestCases(aggregates, testCases) {
+    const { results, stats } = aggregates;
+
+    for (const testCase of testCases) {
+        results.set(testCase.key, testCase);
+        stats.total += 1;
+
+        if (testCase.status === "failed") {
+            stats.failed += 1;
+        } else if (testCase.status === "skipped") {
+            stats.skipped += 1;
+        } else {
+            stats.passed += 1;
+        }
+    }
+}
+
 function readTestResults(candidateDirs, { workspace } = {}) {
     const workspaceRoot =
         workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const candidates = (
-        Array.isArray(candidateDirs) ? candidateDirs : [candidateDirs]
-    ).filter(Boolean);
+    const directories = normalizeResultDirectories(
+        candidateDirs,
+        workspaceRoot
+    );
+
     const notes = [];
-    const results = new Map();
-    const stats = { total: 0, passed: 0, failed: 0, skipped: 0 };
-    let usedDir = null;
-    let displayDir = "";
+    const aggregates = {
+        results: new Map(),
+        stats: { total: 0, passed: 0, failed: 0, skipped: 0 }
+    };
+
     const missingDirs = [];
     const emptyDirs = [];
 
-    for (const candidate of candidates) {
-        const resolved = path.isAbsolute(candidate)
-            ? candidate
-            : path.join(workspaceRoot, candidate);
-        const display = path.relative(workspaceRoot, resolved) || resolved;
+    for (const directory of directories) {
+        const scan = scanResultDirectory(directory);
+        notes.push(...scan.notes);
 
-        if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-            missingDirs.push(display);
+        if (scan.status === "missing") {
+            missingDirs.push(directory.display);
             continue;
         }
 
-        const files = fs
-            .readdirSync(resolved)
-            .filter((file) => file.endsWith(".xml"));
-        if (files.length === 0) {
-            emptyDirs.push(display);
+        if (scan.status === "empty") {
+            emptyDirs.push(directory.display);
             continue;
         }
 
-        let discovered = 0;
-        for (const file of files) {
-            const filePath = path.join(resolved, file);
-            let xml = "";
-            try {
-                xml = fs.readFileSync(filePath, "utf8");
-            } catch (error) {
-                notes.push(
-                    `Failed to read ${path.join(display, file)}: ${error.message}`
-                );
-                continue;
-            }
-            if (!xml.trim()) continue;
-            try {
-                const data = parser.parse(xml);
-                const cases = collectTestCases(data);
-                for (const testCase of cases) {
-                    results.set(testCase.key, testCase);
-                    stats.total += 1;
-                    if (testCase.status === "failed") {
-                        stats.failed += 1;
-                    } else if (testCase.status === "skipped") {
-                        stats.skipped += 1;
-                    } else {
-                        stats.passed += 1;
-                    }
-                }
-                discovered += cases.length;
-            } catch (error) {
-                notes.push(
-                    `Failed to parse ${path.join(display, file)}: ${error.message}`
-                );
-            }
-        }
+        recordTestCases(aggregates, scan.cases);
 
-        if (discovered > 0) {
-            usedDir = resolved;
-            displayDir = display;
-            break;
-        }
-
-        emptyDirs.push(display);
+        return {
+            ...aggregates,
+            usedDir: directory.resolved,
+            displayDir: directory.display,
+            notes
+        };
     }
 
-    if (!usedDir) {
-        if (missingDirs.length === 1) {
-            notes.push(`No directory found at ${missingDirs[0]}.`);
-        } else if (missingDirs.length > 1) {
-            notes.push(
-                `No directory found at any of: ${missingDirs.join(", ")}.`
-            );
-        }
-
-        if (emptyDirs.length === 1) {
-            notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
-        } else if (emptyDirs.length > 1) {
-            notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
-        }
+    if (missingDirs.length === 1) {
+        notes.push(`No directory found at ${missingDirs[0]}.`);
+    } else if (missingDirs.length > 1) {
+        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
     }
 
-    return { results, usedDir, displayDir, notes, stats };
+    if (emptyDirs.length === 1) {
+        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
+    } else if (emptyDirs.length > 1) {
+        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
+    }
+
+    return {
+        ...aggregates,
+        usedDir: null,
+        displayDir: "",
+        notes
+    };
 }
 
 function detectRegressions(baseResults, targetResults) {
