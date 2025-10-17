@@ -9,11 +9,12 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     }
 
     const formattedReceived = received ?? value;
+    const fallbackMessage = `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`;
+
     const message =
         typeof createErrorMessage === "function"
             ? createErrorMessage(formattedReceived)
-            : (createErrorMessage ??
-                `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`);
+            : (createErrorMessage ?? fallbackMessage);
 
     throw new TypeError(message);
 }
@@ -61,11 +62,12 @@ export function resolveIntegerOption(
     }
 
     const type = typeof rawValue;
+    const fallbackMessage = `Value must be provided as a number (received type '${type}').`;
+
     const message =
         typeof typeErrorMessage === "function"
             ? typeErrorMessage(type)
-            : (typeErrorMessage ??
-                `Value must be provided as a number (received type '${type}').`);
+            : (typeErrorMessage ?? fallbackMessage);
 
     throw new TypeError(message);
 }
