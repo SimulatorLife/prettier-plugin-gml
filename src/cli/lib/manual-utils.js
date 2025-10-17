@@ -1,5 +1,5 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 import { toTrimmedString } from "../../shared/string-utils.js";
 import { formatBytes, formatDuration } from "../../shared/number-utils.js";
 import { ensureDir } from "./file-system.js";
@@ -8,6 +8,14 @@ const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
+
+function assertPlainObject(value, message) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new TypeError(message);
+    }
+
+    return value;
+}
 
 function parseJsonOrThrow(text, description) {
     try {
@@ -20,29 +28,28 @@ function parseJsonOrThrow(text, description) {
 }
 
 function validateManualCommitPayload(payload, { ref }) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        throw new TypeError(
-            `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
-        );
-    }
+    const payloadRecord = assertPlainObject(
+        payload,
+        `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
+    );
 
-    if (typeof payload.sha !== "string" || payload.sha.length === 0) {
+    if (
+        typeof payloadRecord.sha !== "string" ||
+        payloadRecord.sha.length === 0
+    ) {
         throw new TypeError(
             `Manual ref '${ref}' response did not include a commit SHA.`
         );
     }
 
-    return payload.sha;
+    return payloadRecord.sha;
 }
 
 function normalizeManualTagEntry(entry) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        throw new TypeError(
-            "Manual tags response must contain objects with tag metadata."
-        );
-    }
-
-    const { name, commit } = entry;
+    const { name, commit } = assertPlainObject(
+        entry,
+        "Manual tags response must contain objects with tag metadata."
+    );
     if (typeof name !== "string" || name.length === 0) {
         throw new TypeError("Manual tag entry is missing a tag name.");
     }
@@ -51,23 +58,22 @@ function normalizeManualTagEntry(entry) {
         return { name, sha: null };
     }
 
-    if (typeof commit !== "object" || Array.isArray(commit)) {
-        throw new TypeError(
-            "Manual tag entry commit must be an object when provided."
-        );
-    }
+    const commitRecord = assertPlainObject(
+        commit,
+        "Manual tag entry commit must be an object when provided."
+    );
 
-    if (commit.sha === undefined || commit.sha === null) {
+    if (commitRecord.sha === undefined || commitRecord.sha === null) {
         return { name, sha: null };
     }
 
-    if (typeof commit.sha !== "string" || commit.sha.length === 0) {
+    if (typeof commitRecord.sha !== "string" || commitRecord.sha.length === 0) {
         throw new TypeError(
             "Manual tag entry commit SHA must be a non-empty string when provided."
         );
     }
 
-    return { name, sha: commit.sha };
+    return { name, sha: commitRecord.sha };
 }
 
 function resolveManualCacheRoot({

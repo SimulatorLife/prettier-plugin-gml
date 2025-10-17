@@ -25,11 +25,13 @@ function createIndexMapper(insertPositions) {
         return (index) => index;
     }
 
-    const sortedPositions = insertPositions
-        .filter((position) => typeof position === "number")
-        .sort((a, b) => a - b);
+    const normalizedPositions = Array.from(
+        new Set(
+            insertPositions.filter((position) => typeof position === "number")
+        )
+    ).sort((a, b) => a - b);
 
-    if (sortedPositions.length === 0) {
+    if (normalizedPositions.length === 0) {
         return (index) => index;
     }
 
@@ -38,16 +40,17 @@ function createIndexMapper(insertPositions) {
             return index;
         }
 
-        let offset = 0;
-        for (const position of sortedPositions) {
+        let adjustment = 0;
+
+        for (const position of normalizedPositions) {
             if (index <= position) {
                 break;
             }
 
-            offset += 1;
+            adjustment += 1;
         }
 
-        return index - offset;
+        return index - adjustment;
     };
 }
 

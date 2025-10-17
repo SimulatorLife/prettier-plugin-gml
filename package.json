@@ -37,7 +37,7 @@
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache test-results",
     "clean:generated": "rm -rf src/parser/src/generated",
-    "lint": "eslint . --cache --stats --quiet",
+    "lint": "eslint . --cache --stats",
     "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",

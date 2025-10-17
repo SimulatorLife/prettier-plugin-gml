@@ -97,6 +97,93 @@ test("adds synthetic @returns metadata for parameterless static functions", asyn
     );
 });
 
+test("updates existing @function tags to reflect static function names", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    /// @function helper_wrong",
+        "    static helper_right = function() {",
+        "        return 1;",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source, {
+        applyFeatherFixes: true
+    });
+    const lines = formatted.trim().split("\n");
+    const helperIndex = lines.findIndex(
+        (line) =>
+            line.trimStart().startsWith("/// @function") &&
+            line.includes("helper")
+    );
+
+    assert.notStrictEqual(
+        helperIndex,
+        -1,
+        "Expected the formatted output to contain a @function doc comment."
+    );
+    assert.equal(
+        lines[helperIndex].trim(),
+        "/// @function helper_right",
+        "Existing @function doc comments should be rewritten to describe the static function name."
+    );
+});
+
+test("annotates overriding static functions with @override metadata", async () => {
+    const source = [
+        "function Base() constructor {",
+        "    static print = function() {",
+        '        show_debug_message("base");',
+        "    };",
+        "}",
+        "",
+        "function Derived() : Base() constructor {",
+        "    static print = function() {",
+        '        show_debug_message("derived");',
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const derivedIndex = lines.indexOf(
+        "function Derived() : Base() constructor {"
+    );
+
+    assert.notStrictEqual(
+        derivedIndex,
+        -1,
+        "Expected the derived constructor to be present in the formatted output."
+    );
+
+    let docStartIndex = derivedIndex + 1;
+    while (docStartIndex < lines.length && lines[docStartIndex].trim() === "") {
+        docStartIndex += 1;
+    }
+
+    const overrideLine = lines[docStartIndex];
+    const functionLine = lines[docStartIndex + 1];
+    const returnsLine = lines[docStartIndex + 2];
+
+    assert.equal(
+        overrideLine,
+        "    /// @override",
+        "Overriding static functions should include an @override tag."
+    );
+    assert.equal(
+        functionLine,
+        "    /// @function print",
+        "Expected the synthetic doc comment to describe the static function name."
+    );
+    assert.equal(
+        returnsLine,
+        "    /// @returns {undefined}",
+        "Overriding static functions should still receive synthesized @returns metadata."
+    );
+});
+
 test("adds synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
     const source = [
         "function example(arg) {",
@@ -118,7 +205,7 @@ test("adds synthetic @returns metadata when defaults replace argument_count fall
     );
     assert.match(
         trimmed,
-        /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\nfunction example\(arg = "default"\) \{\}/,
+        /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\n\/\/\/ @returns \{undefined\}\nfunction example\(arg = "default"\) \{\}/,
         "Expected argument_count fallbacks to convert into default parameters and add @returns."
     );
 });

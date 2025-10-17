@@ -20,3 +20,9 @@ apple = ["granny smith", "fuji", "gala"];
 for (var index = 0; index < array_length(apple); index += 1) {
 	show_debug_message(apple[index]);
 }
+
+var arr2 = [1, 2, 3];
+var arr2_len = array_length(arr2);
+for (var i = 0; i < arr2_len; i++) {
+    show_debug_message(arr2[i]);
+}

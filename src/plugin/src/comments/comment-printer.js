@@ -1,8 +1,10 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
-import { isCommentNode } from "../../../shared/comments.js";
-import { getLineBreakCount } from "../../../shared/line-breaks.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    getLineBreakCount,
+    isCommentNode,
+    isObjectLike
+} from "./comment-boundary.js";
 import {
     applyInlinePadding,
     formatLineComment,

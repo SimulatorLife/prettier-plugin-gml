@@ -950,6 +950,57 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("preserves function-scoped vars when resolving with(other) references", () => {
+        const source = [
+            "function AttackController() constructor {",
+            "    static perform_attack = function() {",
+            "        var base_atk = 1;",
+            "",
+            "        with (other)",
+            "        {",
+            "            var total_atk = base_atk + attack_bonus;",
+            "        }",
+            "    };",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const constructor = ast.body?.[0];
+        assert.ok(constructor);
+        const staticDeclaration = constructor?.body?.body?.find(
+            (node) => node?.type === "VariableDeclaration"
+        );
+        assert.ok(staticDeclaration);
+        const staticInitializer = staticDeclaration.declarations?.[0]?.init;
+        assert.ok(staticInitializer);
+        const functionBody = staticInitializer.body?.body ?? [];
+        const [varDeclaration, withStatement] = functionBody;
+
+        assert.strictEqual(varDeclaration?.type, "VariableDeclaration");
+        assert.strictEqual(varDeclaration?.kind, "var");
+
+        const withBody = withStatement?.body?.body ?? [];
+        const totalDeclaration = withBody?.[0];
+        assert.strictEqual(totalDeclaration?.type, "VariableDeclaration");
+
+        const initializer = totalDeclaration?.declarations?.[0]?.init;
+        assert.strictEqual(initializer?.type, "BinaryExpression");
+        assert.strictEqual(initializer?.left?.type, "Identifier");
+        assert.strictEqual(initializer?.left?.name, "base_atk");
+
+        const rightHand = initializer?.right;
+        assert.strictEqual(rightHand?.type, "MemberDotExpression");
+        assert.strictEqual(rightHand?.object?.name, "other");
+        assert.strictEqual(rightHand?.property?.name, "attack_bonus");
+    });
+
     it("coerces string literal operands flagged by GM1010", () => {
         const source = 'result = 5 + "5";';
 

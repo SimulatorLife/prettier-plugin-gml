@@ -15,16 +15,17 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
     }
 
     const limit = Math.floor(maxEntries);
-    if (limit <= 0) {
+    if (limit <= 0 || optionStoreMap.size <= limit) {
         return;
     }
 
+    const oldestKeys = optionStoreMap.keys();
     while (optionStoreMap.size > limit) {
-        const oldestEntry = optionStoreMap.keys().next();
-        if (oldestEntry.done) {
+        const { value, done } = oldestKeys.next();
+        if (done) {
             break;
         }
-        optionStoreMap.delete(oldestEntry.value);
+        optionStoreMap.delete(value);
     }
 }
 
@@ -67,6 +68,19 @@ function getStoreKey(options) {
     return null;
 }
 
+function getOrCreateStoreEntry(storeKey) {
+    const existing = optionStoreMap.get(storeKey);
+    if (existing) {
+        optionStoreMap.delete(storeKey);
+        optionStoreMap.set(storeKey, existing);
+        return existing;
+    }
+
+    const entry = {};
+    optionStoreMap.set(storeKey, entry);
+    return entry;
+}
+
 function updateStore(options, key, value) {
     const store = options.__identifierCaseOptionsStore;
     if (isObjectLike(store)) {
@@ -78,14 +92,8 @@ function updateStore(options, key, value) {
         return;
     }
 
-    const entry = optionStoreMap.get(storeKey) ?? {};
+    const entry = getOrCreateStoreEntry(storeKey);
     entry[key] = value;
-
-    if (optionStoreMap.has(storeKey)) {
-        optionStoreMap.delete(storeKey);
-    }
-
-    optionStoreMap.set(storeKey, entry);
     trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }
 
