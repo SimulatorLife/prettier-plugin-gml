@@ -45,6 +45,21 @@ export function toTrimmedString(value) {
     return typeof value === "string" ? value.trim() : "";
 }
 
+export function coalesceTrimmedString(...values) {
+    for (const value of values) {
+        if (value == undefined) {
+            continue;
+        }
+
+        const trimmed = toTrimmedString(value);
+        if (trimmed.length > 0) {
+            return trimmed;
+        }
+    }
+
+    return "";
+}
+
 export function toNormalizedLowerCaseString(value) {
     if (value == undefined) {
         return "";
