@@ -473,18 +473,29 @@ function buildLogPayload(report, generatedAt) {
     };
 }
 
+function resolveSummarySeverity(conflicts) {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        return "info";
+    }
+
+    if (conflicts.some((conflict) => conflict.severity === "error")) {
+        return "error";
+    }
+
+    if (conflicts.some((conflict) => conflict.severity === "warning")) {
+        return "warning";
+    }
+
+    return "info";
+}
+
 function pushDiagnosticEntry({ diagnostics, report, text }) {
     if (!Array.isArray(diagnostics)) {
         return;
     }
 
     const { renames, conflicts } = getNormalizedReportCollections(report);
-
-    const severity = conflicts.some((conflict) => conflict.severity === "error")
-        ? "error"
-        : conflicts.some((conflict) => conflict.severity === "warning")
-          ? "warning"
-          : "info";
+    const severity = resolveSummarySeverity(conflicts);
 
     diagnostics.push({
         code: `${REPORT_NAMESPACE}-summary`,
