@@ -3150,7 +3150,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
     if (paramNode.type === "Identifier") {
         const name = getNormalizedParameterName(paramNode);
-        return name ? { name, optional: false } : null;
+        if (!name) {
+            return null;
+        }
+
+        const optional =
+            hasPrecedingOptionalParameter(paramNode, functionNode) ||
+            paramNode?._reorderedAfterOptionalParameter === true;
+        return { name, optional };
     }
 
     if (paramNode.type === "DefaultParameter") {
@@ -3192,7 +3199,58 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     const fallbackName = getNormalizedParameterName(paramNode);
-    return fallbackName ? { name: fallbackName, optional: false } : null;
+    if (!fallbackName) {
+        return null;
+    }
+
+    const optional =
+        hasPrecedingOptionalParameter(paramNode, functionNode) ||
+        paramNode?._reorderedAfterOptionalParameter === true;
+    return { name: fallbackName, optional };
+}
+
+function hasPrecedingOptionalParameter(paramNode, functionNode) {
+    if (!functionNode || !Array.isArray(functionNode.params)) {
+        return false;
+    }
+
+    const params = functionNode.params;
+    const index = params.indexOf(paramNode);
+
+    if (index <= 0) {
+        return false;
+    }
+
+    for (let i = 0; i < index; i += 1) {
+        if (parameterIntroducesOptionality(params[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function parameterIntroducesOptionality(paramNode) {
+    if (!paramNode || typeof paramNode !== "object") {
+        return false;
+    }
+
+    if (paramNode.type === "DefaultParameter") {
+        return true;
+    }
+
+    if (paramNode.type === "MissingOptionalArgument") {
+        return true;
+    }
+
+    if (
+        paramNode.type === "ConstructorParentClause" &&
+        Array.isArray(paramNode.params)
+    ) {
+        return paramNode.params.some(parameterIntroducesOptionality);
+    }
+
+    return false;
 }
 
 function shouldOmitDefaultValueForParameter(path) {

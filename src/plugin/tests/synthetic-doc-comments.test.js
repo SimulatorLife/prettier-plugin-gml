@@ -40,6 +40,30 @@ test("adds synthetic @returns doc for onymous/named functions without return val
     );
 });
 
+test("marks trailing parameters as optional when defaults appear earlier", async () => {
+    const source = [
+        "function example(a, b = 1, c, d = 2) {",
+        "    return a + b + c + d;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source, {
+        applyFeatherFixes: true
+    });
+    const lines = formatted.trim().split("\n");
+    const paramLines = new Set(lines.filter((line) => line.startsWith("/// @param")));
+
+    assert.ok(
+        paramLines.has("/// @param [c]"),
+        "Trailing parameters should be marked optional when a prior parameter uses a default value."
+    );
+    assert.ok(
+        paramLines.has("/// @param [b=1]"),
+        "Defaulted parameters should continue to advertise their defaults in doc comments."
+    );
+});
+
 test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
     const source = "function noop() {}\n";
     const formatted = await formatWithPlugin(source);
