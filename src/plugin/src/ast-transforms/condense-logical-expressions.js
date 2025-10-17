@@ -140,7 +140,7 @@ function buildUpdatedDescription(existing, expression) {
         return existing ?? "";
     }
 
-    const normalizedExpression = ensureTrailingPeriod(expression.trim());
+    const normalizedExpression = expression.trim();
 
     if (!isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
@@ -176,19 +176,6 @@ function buildUpdatedDescription(existing, expression) {
     const needsSemicolon = lowered.includes("return");
     const separator = needsSemicolon ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
-}
-
-function ensureTrailingPeriod(text) {
-    if (!text) {
-        return text;
-    }
-
-    const trimmed = text.trim();
-    if (/[,.;!?]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    return `${trimmed}.`;
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {
