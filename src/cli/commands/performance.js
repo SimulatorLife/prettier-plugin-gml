@@ -6,6 +6,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 import { parseCommandLine } from "../lib/command-parsing.js";
+import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import { buildProjectIndex } from "../../plugin/src/project-index/index.js";
 import { prepareIdentifierCasePlan } from "../../plugin/src/identifier-case/local-plan.js";
 import { getIdentifierText } from "../../shared/ast-node-helpers.js";
@@ -327,14 +328,12 @@ AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
 AVAILABLE_SUITES.set("project-index-memory", runProjectIndexMemoryMeasurement);
 
 function createPerformanceCommand() {
-    return new Command()
-        .name("performance")
-        .usage("[options]")
-        .description("Run performance and benchmarking suites for the CLI.")
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+    return applyStandardCommandOptions(
+        new Command()
+            .name("performance")
+            .usage("[options]")
+            .description("Run performance and benchmarking suites for the CLI.")
+    )
         .option(
             "-p, --project <path>",
             "Project root to index during benchmarks.",

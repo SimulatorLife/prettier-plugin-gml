@@ -30,6 +30,7 @@ import {
 } from "../lib/vm-eval-timeout.js";
 import { parseCommandLine } from "./command-parsing.js";
 import { applyManualEnvOptionOverrides } from "../lib/manual-env.js";
+import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,16 +53,14 @@ const manualClient = createManualGitHubClient({
 const { fetchManualFile, resolveManualRef } = manualClient;
 
 function createGenerateIdentifiersCommand() {
-    const command = new Command()
-        .name("generate-gml-identifiers")
-        .usage("[options]")
-        .description(
-            "Generate the gml-identifiers.json artefact from the GameMaker manual."
-        )
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+    const command = applyStandardCommandOptions(
+        new Command()
+            .name("generate-gml-identifiers")
+            .usage("[options]")
+            .description(
+                "Generate the gml-identifiers.json artefact from the GameMaker manual."
+            )
+    )
         .option(
             "-r, --ref <git-ref>",
             "Manual git ref (tag, branch, or commit)."
