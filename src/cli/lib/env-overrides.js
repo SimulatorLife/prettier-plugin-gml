@@ -1,5 +1,6 @@
 import { CliUsageError } from "./cli-errors.js";
 import { isNonEmptyString } from "../../shared/string-utils.js";
+import { isErrorLike } from "../../shared/utils/capability-probes.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -17,14 +18,14 @@ function createOverrideError({ error, envVar, getUsage }) {
         ? `Invalid value provided for ${envVar}.`
         : "Invalid environment variable value provided.";
     const message =
-        error instanceof Error &&
+        isErrorLike(error) &&
         isNonEmptyString(error.message) &&
         !/^error\b/i.test(error.message.trim())
             ? error.message
             : fallbackMessage;
 
     const cliError = new CliUsageError(message, { usage });
-    cliError.cause = error instanceof Error ? error : undefined;
+    cliError.cause = isErrorLike(error) ? error : undefined;
     return cliError;
 }
 

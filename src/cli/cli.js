@@ -38,6 +38,7 @@ import {
     mergeUniqueValues,
     uniqueArray
 } from "../shared/array-utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString,
@@ -610,7 +611,9 @@ async function resolveTargetStats(target, { usage } = {}) {
             `Unable to access ${target}: ${details}`,
             { usage }
         );
-        cliError.cause = error instanceof Error ? error : undefined;
+        if (isErrorLike(error)) {
+            cliError.cause = error;
+        }
         throw cliError;
     }
 }
