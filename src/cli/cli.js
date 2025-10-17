@@ -55,6 +55,11 @@ import {
 } from "./lib/cli-errors.js";
 import { parseCommandLine } from "./lib/command-parsing.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "./lib/ignore-path-registry.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -253,7 +258,6 @@ let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
-const registeredIgnorePaths = new Set();
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -368,6 +372,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     skippedFileCount = 0;
     encounteredFormattingError = false;
+    resetRegisteredIgnorePaths();
 }
 
 /**
@@ -483,11 +488,11 @@ async function handleFormattingError(error, filePath) {
 
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || registeredIgnorePaths.has(ignoreFilePath)) {
+        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
             continue;
         }
 
-        registeredIgnorePaths.add(ignoreFilePath);
+        registerIgnorePath(ignoreFilePath);
 
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
