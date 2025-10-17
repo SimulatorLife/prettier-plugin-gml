@@ -24,6 +24,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Identifier-case scope reference](identifier-case-reference.md) — Deep dive
   into how each rename scope is planned, validated, and surfaced in reports so
   you can audit dry-run output or diagnose skipped renames.
+- [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
+  — Scripted configuration that warms the project-index cache and captures
+  dry-run reports for review.
 
 ## Planning notes
 

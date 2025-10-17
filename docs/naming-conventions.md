@@ -106,15 +106,17 @@ Follow this playbook to introduce identifier casing on a real project:
 1. **Prerequisites** – Install the plugin locally, ensure Node.js 18.20.0+ (or
    20.18.1+/21.1.0+) is available, and commit a clean snapshot before testing
    renames.
-2. **Build the project index** – From the GameMaker project root (the directory
-   containing the `.yyp` file), run the project-index script to generate
-   `.gml-reports/project-index.json`. Regenerate the cache whenever scripts or
-   assets change and commit it when reproducibility matters.
+2. **Warm the project index cache** – From the GameMaker project root (the
+   directory containing the `.yyp` file), run the formatter once so the bootstrap
+   can create `.prettier-plugin-gml/project-index-cache.json`. When you need a
+   reproducible snapshot, reuse the scripted example in
+   [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](./examples/identifier-case/locals-first.prettierrc.mjs)
+   to persist `.gml-reports/project-index.json` for audits.
 3. **Configure a locals-first dry run** – Start with a configuration that enables
    `gmlIdentifierCase` globally but sets every scope override to `"inherit"`
-   except for locals (e.g. `gmlIdentifierCaseLocals: "camel"`). Point
-   `identifierCaseProjectIndex` at the cached index, enable
-   `identifierCaseDryRun`, and capture logs via
+   except for locals (e.g. `gmlIdentifierCaseLocals: "camel"`). Keep
+   `identifierCaseDryRun` enabled and, when using a manual snapshot, point
+   `identifierCaseProjectIndex` at the saved JSON while also capturing logs via
    `identifierCaseReportLogPath`.
 4. **Run and review** – Format the project with `--write`. Dry-run mode leaves
    sources untouched but prints a rename summary and writes a JSON report.
