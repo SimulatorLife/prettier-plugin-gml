@@ -1,31 +1,33 @@
 import { isNonEmptyString, toTrimmedString } from "./string-utils.js";
 
-function getErrorMessage(value) {
+function tryString(value) {
     if (typeof value === "string") {
         return value;
     }
 
-    if (value === undefined || value === null) {
+    if (value == null) {
         return null;
     }
 
-    if (typeof value.toString !== "function") {
+    const { toString } = value;
+    if (typeof toString !== "function") {
         return null;
     }
 
     try {
-        return value.toString();
+        const result = toString.call(value);
+        return typeof result === "string" ? result : String(result);
     } catch {
         return null;
     }
 }
 
-function toError(value) {
+function normalizeThrownValue(value) {
     if (value instanceof Error) {
         return value;
     }
 
-    const rawMessage = getErrorMessage(value);
+    const rawMessage = tryString(value);
     const message =
         rawMessage && rawMessage !== "[object Object]"
             ? rawMessage
@@ -68,11 +70,8 @@ function normalizeSource(source) {
     if (isNonEmptyString(source)) {
         return source;
     }
-    try {
-        return String(source);
-    } catch {
-        return "";
-    }
+
+    return tryString(source) ?? "";
 }
 
 function extractErrorDetails(error) {
@@ -108,7 +107,7 @@ export function parseJsonWithContext(text, options = {}) {
     try {
         return JSON.parse(text, reviver);
     } catch (error) {
-        const cause = toError(error);
+        const cause = normalizeThrownValue(error);
         const normalizedDescription = normalizeDescription(description);
         const normalizedSource = normalizeSource(source);
         const details = extractErrorDetails(cause);
