@@ -7129,10 +7129,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
                     diagnostic
                 );
 
-                if (
-                    Array.isArray(statementFixes) &&
-                    statementFixes.length > 0
-                ) {
+                if (isNonEmptyArray(statementFixes)) {
                     fixes.push(...statementFixes);
                 }
             }
@@ -7160,7 +7157,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
 }
 
 function ensureVertexBatchesClosed(statements, diagnostic) {
-    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+    if (!diagnostic || !isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -7382,7 +7379,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    if (!Array.isArray(eventMarkers) || eventMarkers.length === 0) {
+    if (!isNonEmptyArray(eventMarkers)) {
         return null;
     }
 
@@ -7540,7 +7537,7 @@ function getCommentIndex(comment) {
 }
 
 function findEventMarkerForIndex(markers, index) {
-    if (!Array.isArray(markers) || markers.length === 0) {
+    if (!isNonEmptyArray(markers)) {
         return null;
     }
 
