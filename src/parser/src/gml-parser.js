@@ -4,7 +4,7 @@ import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -209,7 +209,16 @@ export default class GMLParser {
                 continue;
             }
 
-            // significant token
+            // Any token that reaches this branch represents "real" syntax
+            // rather than trivia. Close out the bookkeeping for any comment we
+            // just saw so downstream printers can make correct decisions: once
+            // we encounter significant code we stop marking subsequent
+            // comments as file-level top comments, capture the adjacent token
+            // text so helpers like `handleCommentInEmptyParens` know whether a
+            // comment lives inside wrapping punctuation, and clear the cached
+            // whitespace buffer. Skipping this reset causes later formatting
+            // passes to mis-classify top/bottom comments and smear leftover
+            // whitespace onto unrelated nodes.
             foundFirstSignificantToken = true;
             if (prevComment !== null) {
                 prevComment.trailingChar = tokenText;
@@ -243,4 +252,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "../../shared/line-breaks.js";
+export { getLineBreakCount } from "../../shared/utils/line-breaks.js";

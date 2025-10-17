@@ -1,15 +1,15 @@
-import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { toNormalizedInteger } from "../../../shared/number-utils.js";
 
 function coercePositiveIntegerOption(
     value,
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    if (!isFiniteNumber(value)) {
+    const normalized = toNormalizedInteger(value);
+
+    if (normalized === null) {
         return defaultValue;
     }
-
-    const normalized = Math.floor(value);
 
     if (normalized > 0) {
         return normalized;

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runPerformanceCli } from "../src/cli/performance.js";
+import { runPerformanceCli } from "../lib/performance-cli.js";
 
 const exitCode = await runPerformanceCli({
     argv: ["--suite", "identifier-text"]

@@ -44,6 +44,7 @@ function Shape(color = undefined) constructor {
     self.color = color;
 
     /// @function print
+    /// @returns {undefined}
     static print = function() {
         show_debug_message("I'm a shape");
     };
@@ -68,6 +69,7 @@ function Shape(color = undefined) constructor {
             group &= ~cmGroupSolid; // Remove solid flag
         }
     };
+
 }
 
 /// @function Circle
@@ -168,6 +170,7 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
+
 }
 
 /// @function greet

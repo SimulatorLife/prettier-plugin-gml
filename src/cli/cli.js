@@ -55,6 +55,11 @@ import {
 } from "./lib/cli-errors.js";
 import { parseCommandLine } from "./lib/command-parsing.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "./lib/ignore-path-registry.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -253,7 +258,6 @@ let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
-const registeredIgnorePaths = new Set();
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -368,6 +372,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     skippedFileCount = 0;
     encounteredFormattingError = false;
+    resetRegisteredIgnorePaths();
 }
 
 /**
@@ -483,11 +488,11 @@ async function handleFormattingError(error, filePath) {
 
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || registeredIgnorePaths.has(ignoreFilePath)) {
+        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
             continue;
         }
 
-        registeredIgnorePaths.add(ignoreFilePath);
+        registerIgnorePath(ignoreFilePath);
 
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
@@ -566,26 +571,23 @@ async function resolveProjectIgnorePaths(directory) {
             : null
     );
 
-    const ignoreFiles = [];
+    const candidatePaths = directoriesToInspect.map((candidateDirectory) =>
+        path.join(candidateDirectory, ".prettierignore")
+    );
 
-    for (const candidateDirectory of directoriesToInspect) {
-        const ignoreCandidate = path.join(
-            candidateDirectory,
-            ".prettierignore"
-        );
-
-        try {
-            const candidateStats = await stat(ignoreCandidate);
-
-            if (candidateStats.isFile()) {
-                ignoreFiles.push(ignoreCandidate);
+    const discovered = await Promise.all(
+        candidatePaths.map(async (ignoreCandidate) => {
+            try {
+                const stats = await stat(ignoreCandidate);
+                return stats.isFile() ? ignoreCandidate : null;
+            } catch {
+                // Ignore missing files.
+                return null;
             }
-        } catch {
-            // Ignore missing files.
-        }
-    }
+        })
+    );
 
-    return ignoreFiles;
+    return discovered.filter(Boolean);
 }
 
 /**
@@ -599,13 +601,17 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-async function resolveTargetStats(target) {
+async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        throw new Error(`Unable to access ${target}: ${error.message}`, {
-            cause: error
-        });
+        const details = formatCliError(error) || "Unknown error";
+        const cliError = new CliUsageError(
+            `Unable to access ${target}: ${details}`,
+            { usage }
+        );
+        cliError.cause = error instanceof Error ? error : undefined;
+        throw cliError;
     }
 }
 
@@ -785,7 +791,7 @@ async function run() {
     await resetFormattingSession(onParseError);
 
     try {
-        const targetStats = await resolveTargetStats(targetPath);
+        const targetStats = await resolveTargetStats(targetPath, { usage });
         const targetIsDirectory = targetStats.isDirectory();
 
         if (!targetIsDirectory && !targetStats.isFile()) {

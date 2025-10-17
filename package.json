@@ -37,12 +37,13 @@
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache test-results",
     "clean:generated": "rm -rf src/parser/src/generated",
-    "lint": "eslint . --cache --stats --quiet",
+    "lint": "eslint . --cache --stats",
     "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "check": "npm run format:check && npm run lint:ci && npm test",
-    "test": "npm run test:shared && npm run test:parser && npm run test:plugin && npm run test:cli",
-    "test:report": "rm -rf test-results && mkdir -p test-results && bash -c 'set +e; npm run test:shared:report; s1=$?; npm run test:parser:report; s2=$?; npm run test:plugin:report; s3=$?; npm run test:cli:report; s4=$?; exit $(( s1 || s2 || s3 || s4 ))'",
+    "test": "node --test",
+    "test:report": "rm -f test-results/tests.xml && mkdir -p test-results && node --test --test-reporter=junit --test-reporter-destination=./test-results/tests.xml",
+    "test:coverage": "rm -f test-results/lcov.info && mkdir -p test-results && node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./test-results/lcov.info",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./test-results/shared.xml src/shared/tests/*.test.js",
     "test:parser": "node --test src/parser/tests/*.test.js",
@@ -60,7 +61,8 @@
     "build:gml-identifiers": "node ./scripts/generate-gml-identifiers.mjs",
     "build:feather-metadata": "node ./scripts/generate-feather-metadata.mjs",
     "example:plugin": "cd src/plugin && npm run example",
-    "prepare": "husky"
+    "prepare": "husky",
+    "cli": "cd src/cli && node ./cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

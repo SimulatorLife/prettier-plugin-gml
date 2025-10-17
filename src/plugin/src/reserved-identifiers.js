@@ -7,10 +7,7 @@ import {
 
 const require = createRequire(import.meta.url);
 
-const DEFAULT_DISALLOWED_IDENTIFIER_TYPES = Object.freeze([
-    "literal",
-    "keyword"
-]);
+const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
 
 function loadIdentifierMetadata() {
     try {
@@ -21,18 +18,12 @@ function loadIdentifierMetadata() {
     }
 }
 
-function normalizeTypeList(types) {
+function resolveExcludedTypes(types) {
     if (!Array.isArray(types)) {
-        return new Set(DEFAULT_DISALLOWED_IDENTIFIER_TYPES);
+        return new Set(DEFAULT_EXCLUDED_TYPES);
     }
 
-    const normalized = toNormalizedLowerCaseSet(types);
-
-    if (normalized.size === 0) {
-        return new Set(DEFAULT_DISALLOWED_IDENTIFIER_TYPES);
-    }
-
-    return normalized;
+    return toNormalizedLowerCaseSet(types);
 }
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
@@ -43,22 +34,19 @@ export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
         return new Set();
     }
 
-    const excludedTypes = normalizeTypeList(disallowedTypes);
-    const names = new Set();
+    const excludedTypes = resolveExcludedTypes(disallowedTypes);
 
-    for (const [name, info] of Object.entries(identifiers)) {
+    return Object.entries(identifiers).reduce((names, [name, info]) => {
         if (!isNonEmptyString(name)) {
-            continue;
+            return names;
         }
 
         const type =
             typeof info?.type === "string" ? info.type.toLowerCase() : "";
-        if (excludedTypes.has(type)) {
-            continue;
+        if (!excludedTypes.has(type)) {
+            names.add(name.toLowerCase());
         }
 
-        names.add(name.toLowerCase());
-    }
-
-    return names;
+        return names;
+    }, new Set());
 }

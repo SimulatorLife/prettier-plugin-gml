@@ -1,7 +1,9 @@
 import path from "node:path";
 
+import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
+import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
@@ -16,6 +18,28 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexConcurrency";
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
+
+function readOptionWithOverride(options, { internalKey, externalKey }) {
+    if (!isObjectLike(options)) {
+        return;
+    }
+
+    if (internalKey != null) {
+        const internalValue = options[internalKey];
+        if (internalValue !== undefined) {
+            return { value: internalValue, source: "internal" };
+        }
+    }
+
+    if (externalKey != null) {
+        const externalValue = options[externalKey];
+        if (externalValue !== undefined) {
+            return { value: externalValue, source: "external" };
+        }
+    }
+
+    return;
+}
 
 function getFsFacade(options) {
     return coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
@@ -101,11 +125,11 @@ function coerceCacheMaxSize(
     numericValue,
     { optionName, received, invalidNumberMessage }
 ) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(invalidNumberMessage);
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 0) {
         throw new Error(formatCacheMaxSizeValueError(optionName, received));
     }
@@ -114,51 +138,16 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (!Number.isFinite(numericValue)) {
+    const normalized = toNormalizedInteger(numericValue);
+    if (normalized === null) {
         throw new TypeError(formatConcurrencyValueError(optionName, received));
     }
 
-    const normalized = Math.trunc(numericValue);
     if (normalized < 1) {
         throw new Error(formatConcurrencyValueError(optionName, received));
     }
 
     return normalized;
-}
-
-function normalizeNumericOption(
-    rawValue,
-    { optionName, coerce, formatTypeError, createCoerceOptions }
-) {
-    if (rawValue == null) {
-        return;
-    }
-
-    const rawType = typeof rawValue;
-    const isString = rawType === "string";
-
-    if (rawType !== "number" && !isString) {
-        throw new Error(formatTypeError(optionName, rawType));
-    }
-
-    const normalized = isString ? rawValue.trim() : rawValue;
-    if (isString && normalized === "") {
-        return;
-    }
-
-    const received = isString ? `'${rawValue}'` : normalized;
-    const numericValue = isString ? Number(normalized) : normalized;
-
-    return coerce(
-        numericValue,
-        createCoerceOptions({
-            optionName,
-            rawType,
-            rawValue,
-            received,
-            isString
-        })
-    );
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
@@ -179,28 +168,20 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 }
 
 function resolveCacheMaxSizeBytes(options) {
-    if (!isObjectLike(options)) {
+    const entry = readOptionWithOverride(options, {
+        internalKey: PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
+        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+    });
+
+    if (!entry) {
         return;
     }
 
-    const internalValue =
-        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
-
-    if (internalValue !== undefined) {
-        return internalValue === null
-            ? null
-            : normalizeCacheMaxSizeBytes(internalValue, {
-                  optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-              });
+    if (entry.source === "internal" && entry.value === null) {
+        return null;
     }
 
-    const externalValue = options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME];
-
-    if (externalValue === undefined) {
-        return;
-    }
-
-    return normalizeCacheMaxSizeBytes(externalValue, {
+    return normalizeCacheMaxSizeBytes(entry.value, {
         optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
     });
 }
@@ -217,39 +198,38 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
 }
 
 function resolveProjectIndexConcurrency(options) {
-    if (!isObjectLike(options)) {
+    const entry = readOptionWithOverride(options, {
+        internalKey: PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
+        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+    });
+
+    if (!entry) {
         return;
     }
 
-    const internalValue =
-        options[PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME];
-    if (internalValue !== undefined) {
-        return normalizeProjectIndexConcurrency(internalValue, {
-            optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
-        });
-    }
-
-    const externalValue = options[PROJECT_INDEX_CONCURRENCY_OPTION_NAME];
-    if (externalValue === undefined) {
-        return;
-    }
-
-    return normalizeProjectIndexConcurrency(externalValue, {
+    return normalizeProjectIndexConcurrency(entry.value, {
         optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
     });
 }
 
 function resolveProjectRoot(options) {
-    if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
-        return path.resolve(options.__identifierCaseProjectRoot);
+    const entry = readOptionWithOverride(options, {
+        internalKey: "__identifierCaseProjectRoot",
+        externalKey: "gmlIdentifierCaseProjectRoot"
+    });
+
+    if (!entry) {
+        return null;
     }
 
-    if (isNonEmptyTrimmedString(options?.gmlIdentifierCaseProjectRoot)) {
-        const configuredRoot = options.gmlIdentifierCaseProjectRoot.trim();
-        return path.resolve(configuredRoot);
+    if (!isNonEmptyTrimmedString(entry.value)) {
+        return null;
     }
 
-    return null;
+    const projectRoot =
+        entry.source === "external" ? entry.value.trim() : entry.value;
+
+    return path.resolve(projectRoot);
 }
 
 export async function bootstrapProjectIndex(options = {}, storeOption) {
