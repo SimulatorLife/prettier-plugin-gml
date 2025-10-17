@@ -4,32 +4,27 @@ function hasFunction(value, property) {
     return typeof value?.[property] === "function";
 }
 
-function getIteratorFactory(value) {
-    const iteratorMethod = value?.[Symbol.iterator];
-    if (typeof iteratorMethod === "function") {
-        return () => iteratorMethod.call(value);
+function getIteratorMethod(iterable) {
+    if (!iterable) {
+        return null;
     }
 
-    const entries = value?.entries;
-    if (typeof entries === "function") {
-        return () => entries.call(value);
-    }
+    const method =
+        iterable[Symbol.iterator] ??
+        iterable.entries ??
+        iterable.values ??
+        null;
 
-    const values = value?.values;
-    if (typeof values === "function") {
-        return () => values.call(value);
-    }
-
-    return null;
+    return typeof method === "function" ? method : null;
 }
 
 function getIterator(iterable) {
-    const factory = getIteratorFactory(iterable);
-    return factory ? factory() : null;
+    const method = getIteratorMethod(iterable);
+    return method ? method.call(iterable) : null;
 }
 
 function hasIterator(iterable) {
-    return Boolean(getIteratorFactory(iterable));
+    return Boolean(getIteratorMethod(iterable));
 }
 
 function getFiniteSize(candidate) {
