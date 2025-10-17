@@ -1,1 +1,6 @@
-export { fromPosixPath, isPathInside, toPosixPath } from "./utils/path.js";
+export {
+    collectAncestorDirectories,
+    fromPosixPath,
+    isPathInside,
+    toPosixPath
+} from "./utils/path.js";
