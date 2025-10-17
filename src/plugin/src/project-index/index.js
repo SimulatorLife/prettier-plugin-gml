@@ -118,33 +118,33 @@ function createFacadeParser(facade) {
     return (sourceText, context) => facade.parse(sourceText, context);
 }
 
+function createFacadeOverride(candidate) {
+    if (!isParserFacade(candidate)) {
+        return null;
+    }
+
+    return {
+        facade: candidate,
+        parse: createFacadeParser(candidate)
+    };
+}
+
 function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
         return null;
     }
 
-    const identifierCaseParser = options.identifierCaseProjectIndexParserFacade;
-    if (isParserFacade(identifierCaseParser)) {
-        return {
-            facade: identifierCaseParser,
-            parse: createFacadeParser(identifierCaseParser)
-        };
-    }
+    const facades = [
+        options.identifierCaseProjectIndexParserFacade,
+        options.gmlParserFacade,
+        options.parserFacade
+    ];
 
-    const gmlParserFacade = options.gmlParserFacade;
-    if (isParserFacade(gmlParserFacade)) {
-        return {
-            facade: gmlParserFacade,
-            parse: createFacadeParser(gmlParserFacade)
-        };
-    }
-
-    const parserFacade = options.parserFacade;
-    if (isParserFacade(parserFacade)) {
-        return {
-            facade: parserFacade,
-            parse: createFacadeParser(parserFacade)
-        };
+    for (const facade of facades) {
+        const override = createFacadeOverride(facade);
+        if (override) {
+            return override;
+        }
     }
 
     const { parseGml } = options;
