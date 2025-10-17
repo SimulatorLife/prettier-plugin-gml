@@ -62,7 +62,7 @@
     "build:feather-metadata": "node ./scripts/generate-feather-metadata.mjs",
     "example:plugin": "cd src/plugin && npm run example",
     "prepare": "husky",
-    "cli": "cd src/cli && node ./cli.js"
+    "cli": "node ./src/cli/cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
