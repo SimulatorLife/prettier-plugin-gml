@@ -18,103 +18,13 @@ import {
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
-import { createMetricsTracker } from "../metrics/metrics-tracker.js";
+import {
+    createProjectIndexMetrics,
+    finalizeProjectIndexMetrics
+} from "./metrics.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
-
-const REQUIRED_METRIC_METHODS = [
-    "startTimer",
-    "timeAsync",
-    "timeSync",
-    "incrementCounter",
-    "setMetadata",
-    "recordCacheHit",
-    "recordCacheMiss",
-    "recordCacheStale",
-    "finalize"
-];
-
-function isMetricsTracker(candidate) {
-    return (
-        candidate &&
-        typeof candidate === "object" &&
-        REQUIRED_METRIC_METHODS.every(
-            (method) => typeof candidate[method] === "function"
-        )
-    );
-}
-
-function createNoopProjectIndexMetrics() {
-    // Project index builds always wire metrics hooks, and later stages expect
-    // every tracker method to exist so they can record timings and cache
-    // counters without re-checking capabilities. When callers pass
-    // `metrics: undefined` or an invalid shim we preserve that contract by
-    // installing a stub that mirrors the public API while doing nothing. This
-    // keeps cache coordination, concurrency throttling, and rename planning
-    // stable even when instrumentation is disabled; returning `null` here would
-    // push `TypeError` crashes into hot paths. The behaviour mirrors the
-    // fallbacks outlined in docs/project-index-cache-design.md, which rely on
-    // metrics snapshots being structurally sound even when empty.
-    const snapshot = (extra = {}) => ({
-        category: "project-index",
-        totalTimeMs: 0,
-        timings: {},
-        counters: {},
-        caches: {},
-        metadata: {},
-        ...extra
-    });
-
-    return {
-        category: "project-index",
-        startTimer() {
-            return () => {};
-        },
-        async timeAsync(_label, callback) {
-            return await callback();
-        },
-        timeSync(_label, callback) {
-            return callback();
-        },
-        incrementCounter() {},
-        setMetadata() {},
-        recordCacheHit() {},
-        recordCacheMiss() {},
-        recordCacheStale() {},
-        snapshot,
-        finalize(extra = {}) {
-            return snapshot(extra);
-        },
-        logSummary() {}
-    };
-}
-
-function createProjectIndexMetrics(options = {}) {
-    const { metrics, logger = null, logMetrics = false } = options ?? {};
-
-    if (isMetricsTracker(metrics)) {
-        return metrics;
-    }
-
-    if (metrics !== undefined) {
-        return createNoopProjectIndexMetrics();
-    }
-
-    return createMetricsTracker({
-        category: "project-index",
-        logger,
-        autoLog: logMetrics === true
-    });
-}
-
-function finalizeProjectIndexMetrics(metrics) {
-    if (!isMetricsTracker(metrics)) {
-        return null;
-    }
-
-    return metrics.finalize();
-}
 
 function isParserFacade(candidate) {
     return (
@@ -396,154 +306,61 @@ function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
-function buildDirectoryEntryPaths(projectRoot, relativeDirectory, entryName) {
-    const relativePath = path.join(relativeDirectory, entryName);
-    const absolutePath = path.join(projectRoot, relativePath);
-
-    return {
-        relativePath,
-        absolutePath,
-        relativePosix: toPosixPath(relativePath)
-    };
-}
-
-async function classifyDirectoryEntry({
-    projectRoot,
-    relativeDirectory,
-    entryName,
-    fsFacade,
-    metrics
-}) {
-    const paths = buildDirectoryEntryPaths(projectRoot, relativeDirectory, entryName);
-
-    let stats;
-    try {
-        stats = await fsFacade.stat(paths.absolutePath);
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            metrics?.incrementCounter("io.skippedMissingEntries");
-            return null;
-        }
-        throw error;
-    }
-
-    if (typeof stats?.isDirectory === "function" && stats.isDirectory()) {
-        return { type: "directory", relativePath: paths.relativePath };
-    }
-
-    const lowerPath = paths.relativePosix.toLowerCase();
-    if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
-        metrics?.incrementCounter("files.yyDiscovered");
-        return {
-            type: "yyFile",
-            record: {
-                absolutePath: paths.absolutePath,
-                relativePath: paths.relativePosix
-            }
-        };
-    }
-
-    if (lowerPath.endsWith(".gml")) {
-        metrics?.incrementCounter("files.gmlDiscovered");
-        return {
-            type: "gmlFile",
-            record: {
-                absolutePath: paths.absolutePath,
-                relativePath: paths.relativePosix
-            }
-        };
-    }
-
-    return null;
-}
-
-async function collectDirectoryScanBatch({
-    projectRoot,
-    relativeDirectory,
-    entries,
-    fsFacade,
-    metrics
-}) {
-    const discoveredDirectories = [];
+async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
+    const pending = ["."];
 
-    for (const entryName of entries) {
-        const classification = await classifyDirectoryEntry({
-            projectRoot,
-            relativeDirectory,
-            entryName,
-            fsFacade,
-            metrics
-        });
-
-        if (!classification) {
-            continue;
-        }
-
-        if (classification.type === "directory") {
-            discoveredDirectories.push(classification.relativePath);
-            continue;
-        }
-
-        if (classification.type === "yyFile") {
-            yyFiles.push(classification.record);
-            continue;
-        }
-
-        if (classification.type === "gmlFile") {
-            gmlFiles.push(classification.record);
-        }
-    }
-
-    return { discoveredDirectories, yyFiles, gmlFiles };
-}
-
-function applyDirectoryScanResult(scanState, scanResult) {
-    if (scanResult.discoveredDirectories.length > 0) {
-        scanState.pendingDirectories.push(...scanResult.discoveredDirectories);
-    }
-
-    if (scanResult.yyFiles.length > 0) {
-        scanState.yyFiles.push(...scanResult.yyFiles);
-    }
-
-    if (scanResult.gmlFiles.length > 0) {
-        scanState.gmlFiles.push(...scanResult.gmlFiles);
-    }
-}
-
-async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
-    const scanState = {
-        pendingDirectories: ["."],
-        yyFiles: [],
-        gmlFiles: []
-    };
-
-    while (scanState.pendingDirectories.length > 0) {
-        const relativeDir = scanState.pendingDirectories.pop();
+    while (pending.length > 0) {
+        const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
         const entries = await listDirectory(fsFacade, absoluteDir);
         metrics?.incrementCounter("io.directoriesScanned");
 
-        const scanResult = await collectDirectoryScanBatch({
-            projectRoot,
-            relativeDirectory: relativeDir,
-            entries,
-            fsFacade,
-            metrics
-        });
+        for (const entry of entries) {
+            const relativePath = path.join(relativeDir, entry);
+            const absolutePath = path.join(projectRoot, relativePath);
+            let stats;
+            try {
+                stats = await fsFacade.stat(absolutePath);
+            } catch (error) {
+                if (isFsErrorCode(error, "ENOENT")) {
+                    metrics?.incrementCounter("io.skippedMissingEntries");
+                    continue;
+                }
+                throw error;
+            }
 
-        applyDirectoryScanResult(scanState, scanResult);
+            if (
+                typeof stats?.isDirectory === "function" &&
+                stats.isDirectory()
+            ) {
+                pending.push(relativePath);
+                continue;
+            }
+
+            const relativePosix = toPosixPath(relativePath);
+            const lowerPath = relativePosix.toLowerCase();
+            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
+                yyFiles.push({
+                    absolutePath,
+                    relativePath: relativePosix
+                });
+                metrics?.incrementCounter("files.yyDiscovered");
+            } else if (lowerPath.endsWith(".gml")) {
+                gmlFiles.push({
+                    absolutePath,
+                    relativePath: relativePosix
+                });
+                metrics?.incrementCounter("files.gmlDiscovered");
+            }
+        }
     }
 
-    scanState.yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    scanState.gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
-    return {
-        yyFiles: scanState.yyFiles,
-        gmlFiles: scanState.gmlFiles
-    };
+    return { yyFiles, gmlFiles };
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
