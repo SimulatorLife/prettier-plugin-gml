@@ -15,17 +15,22 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
     }
 
     const limit = Math.floor(maxEntries);
-    if (limit <= 0 || optionStoreMap.size <= limit) {
+    if (limit <= 0) {
         return;
     }
 
-    const oldestKeys = optionStoreMap.keys();
-    while (optionStoreMap.size > limit) {
-        const { value, done } = oldestKeys.next();
-        if (done) {
+    let entriesToRemove = optionStoreMap.size - limit;
+    if (entriesToRemove <= 0) {
+        return;
+    }
+
+    for (const key of optionStoreMap.keys()) {
+        optionStoreMap.delete(key);
+        entriesToRemove -= 1;
+
+        if (entriesToRemove === 0) {
             break;
         }
-        optionStoreMap.delete(value);
     }
 }
 
