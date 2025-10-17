@@ -2,8 +2,63 @@ export function isNonEmptyString(value) {
     return typeof value === "string" && value.length > 0;
 }
 
+// Fast path the most common whitespace checks (`space`, `tab`, newline family)
+// before falling back to a switch covering the remaining code points trimmed
+// by `String.prototype.trim`. This keeps the branch predictability high for
+// everyday ASCII input while preserving correctness for the full ECMAScript
+// whitespace set.
+function isTrimmedWhitespaceCharCode(charCode) {
+    if (charCode <= 0x20) {
+        return (
+            charCode === 0x20 ||
+            charCode === 0x09 ||
+            charCode === 0x0a ||
+            charCode === 0x0b ||
+            charCode === 0x0c ||
+            charCode === 0x0d
+        );
+    }
+
+    switch (charCode) {
+        case 0x00_a0:
+        case 0x16_80:
+        case 0x20_00:
+        case 0x20_01:
+        case 0x20_02:
+        case 0x20_03:
+        case 0x20_04:
+        case 0x20_05:
+        case 0x20_06:
+        case 0x20_07:
+        case 0x20_08:
+        case 0x20_09:
+        case 0x20_0a:
+        case 0x20_28:
+        case 0x20_29:
+        case 0x20_2f:
+        case 0x20_5f:
+        case 0x30_00:
+        case 0xfe_ff: {
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
 export function isNonEmptyTrimmedString(value) {
-    return typeof value === "string" && value.trim().length > 0;
+    if (typeof value !== "string" || value.length === 0) {
+        return false;
+    }
+
+    for (let index = 0; index < value.length; index += 1) {
+        if (!isTrimmedWhitespaceCharCode(value.charCodeAt(index))) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function getNonEmptyString(value) {
