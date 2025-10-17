@@ -9,6 +9,7 @@ import {
 } from "../../shared/string-utils.js";
 import { toArray } from "../../shared/array-utils.js";
 import { hasOwn } from "../../shared/object-utils.js";
+import { getErrorMessage, isErrorWithCode } from "../../shared/error-utils.js";
 
 let parser;
 
@@ -73,12 +74,10 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!error || typeof error !== "object") return false;
-    if (error.code !== "ERR_MODULE_NOT_FOUND") return false;
-    if (typeof error.message === "string") {
-        return error.message.includes("'fast-xml-parser'");
-    }
-    return false;
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) return false;
+    return getErrorMessage(error, { fallback: "" }).includes(
+        "'fast-xml-parser'"
+    );
 }
 
 function createFallbackXmlParser() {
