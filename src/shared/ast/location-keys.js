@@ -4,10 +4,14 @@ const COLUMN_FIELDS = ["column", "col", "columnStart", "first_column"];
 
 const INDEX_FIELDS = ["index", "offset"];
 
+function isNullOrUndefined(value) {
+    return value === undefined || value === null;
+}
+
 function getFirstDefined(location, fields) {
     for (const field of fields) {
         const value = location[field];
-        if (value != undefined) {
+        if (!isNullOrUndefined(value)) {
             return value;
         }
     }
@@ -36,7 +40,11 @@ export function buildLocationKey(location) {
     const column = getFirstDefined(location, COLUMN_FIELDS);
     const index = getFirstDefined(location, INDEX_FIELDS);
 
-    if (line == undefined && column == undefined && index == undefined) {
+    if (
+        isNullOrUndefined(line) &&
+        isNullOrUndefined(column) &&
+        isNullOrUndefined(index)
+    ) {
         return null;
     }
 

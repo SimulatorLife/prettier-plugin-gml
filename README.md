@@ -512,6 +512,7 @@ npm run build:antlr
 npm run example:plugin      # Format a fixture with the development build
 npm run format:check        # Audit repository formatting without writes
 npm --prefix src/plugin run prettier:plugin -- --path=tests/test14.input.gml
+npm run cli -- --help       # Explore CLI utilities without switching directories
 ```
 
 ---

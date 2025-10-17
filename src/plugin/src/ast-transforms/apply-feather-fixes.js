@@ -24,6 +24,11 @@ import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
+import {
+    hasIterableItems,
+    isMapLike,
+    isSetLike
+} from "../../../shared/utils/capability-probes.js";
 import { collectCommentNodes, getCommentArray } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -385,6 +390,20 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
 }
 
 function createNoOpFixer() {
+    // Feather diagnostics are harvested independently of the formatter bundle,
+    // so the plugin frequently encounters rule IDs before their fixer
+    // implementations land. Returning an empty fixer keeps the pipeline
+    // tolerant of that skew: downstream call sites treat "no edits" as "leave
+    // the AST untouched" while still surfacing diagnostic metadata. That
+    // contract matters because the orchestrator in applyFeatherFixes blindly
+    // concatenates the arrays returned by every fixer; providing [] keeps the
+    // type signature intact and avoids signalling "fixer missing" as a fatal
+    // error. When we experimented with throwing here the formatter would stop
+    // mid-run or, worse, fall back to speculative edits that reorder nodes
+    // without the guard rails laid out in docs/feather-data-plan.md. Until the
+    // corresponding fixer implementation ships we deliberately fall back to this
+    // inert function so diagnostics reach the caller while the AST remains
+    // untouched.
     return () => [];
 }
 
@@ -3848,7 +3867,7 @@ function fixArgumentReferencesWithinFunction(
         references.map((reference) => reference.index)
     );
 
-    if (!(mapping instanceof Map) || mapping.size === 0) {
+    if (!isMapLike(mapping) || !hasIterableItems(mapping)) {
         return fixes;
     }
 
@@ -10313,6 +10332,18 @@ function ensureAlphaTestEnableResetAfterCall(
 
     let insertionIndex = insertionInfo.index;
 
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
     const previousSibling =
         siblings[insertionIndex - 1] ?? siblings[property] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
@@ -16292,7 +16323,10 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText ?? "";
     }
 
-    if (!(specifierBaseTypes instanceof Set) || specifierBaseTypes.size === 0) {
+    if (
+        !isSetLike(specifierBaseTypes) ||
+        !hasIterableItems(specifierBaseTypes)
+    ) {
         return typeText;
     }
 
@@ -16449,7 +16483,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!(baseTypesLower instanceof Set) || baseTypesLower.size === 0) {
+    if (!isSetLike(baseTypesLower) || !hasIterableItems(baseTypesLower)) {
         return typeText;
     }
 
@@ -17381,7 +17415,7 @@ function isGpuPopStateCall(node) {
 function getManualFeatherFixRegistry(ast) {
     let registry = ast[MANUAL_FIX_TRACKING_KEY];
 
-    if (registry instanceof Set) {
+    if (isSetLike(registry)) {
         return registry;
     }
 
@@ -17448,7 +17482,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
     const replacements =
         extractFunctionCallReplacementsFromExamples(diagnostic);
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return [];
     }
 
@@ -17500,7 +17534,7 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return null;
     }
 

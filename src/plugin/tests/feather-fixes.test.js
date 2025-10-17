@@ -2818,6 +2818,43 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+
+        const [enableCall, drawCall, resetCall] = statements;
+
+        assert.ok(enableCall);
+        assert.ok(drawCall);
+        assert.ok(resetCall);
+        assert.strictEqual(
+            enableCall?._featherSuppressFollowingEmptyLine,
+            true,
+            "Expected enabling call to suppress following blank lines."
+        );
+        assert.strictEqual(
+            drawCall?._featherSuppressLeadingEmptyLine,
+            true,
+            "Expected draw call to suppress leading blank lines."
+        );
+    });
+
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
             "/// Create Event",

@@ -127,11 +127,11 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
-function resolvelogicalOperatorsStyle(options) {
+function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
 
-function applylogicalOperatorsStyle(operator, style) {
+function applyLogicalOperatorsStyle(operator, style) {
     if (operator === "&&") {
         return style === LogicalOperatorsStyle.KEYWORDS ? "and" : "&&";
     }
@@ -633,7 +633,7 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
-            const logicalOperatorsStyle = resolvelogicalOperatorsStyle(options);
+            const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
@@ -671,7 +671,7 @@ export function print(path, options, print) {
                 operator = "*";
                 right = "0.5";
             } else {
-                const styledOperator = applylogicalOperatorsStyle(
+                const styledOperator = applyLogicalOperatorsStyle(
                     operator,
                     logicalOperatorsStyle
                 );
@@ -1565,18 +1565,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 (node.declarations[0]?.init?.type === "FunctionExpression" ||
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
-            if (initializerIsFunctionExpression) {
-                const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isStaticDeclaration;
-
-                if (shouldPreserveMissingSemicolon) {
-                    // Normalised legacy `#define` directives often emit function
-                    // expressions assigned to variables without a trailing
-                    // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style while static declarations always
-                    // receive a terminating semicolon for consistency.
-                    semi = "";
-                }
+            if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
+                // Normalised legacy `#define` directives used to omit trailing
+                // semicolons when rewriting to function expressions. The
+                // formatter now standardises those assignments so they always
+                // emit an explicit semicolon, matching the golden fixtures and
+                // keeping the output consistent regardless of the original
+                // source style.
+                semi = ";";
             }
         }
 

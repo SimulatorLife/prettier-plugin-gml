@@ -1,4 +1,8 @@
 import { toTrimmedString } from "../../shared/string-utils.js";
+import {
+    isAggregateErrorLike,
+    isErrorLike
+} from "../../shared/utils/capability-probes.js";
 
 const DEFAULT_INDENT = "  ";
 
@@ -34,7 +38,7 @@ function extractStackBody(stack) {
 }
 
 function formatAggregateErrors(error, seen) {
-    if (!(error instanceof AggregateError) || !Array.isArray(error.errors)) {
+    if (!isAggregateErrorLike(error)) {
         return null;
     }
 
@@ -133,7 +137,7 @@ function formatErrorValue(value, seen) {
         return String(value);
     }
 
-    if (value instanceof Error) {
+    if (isErrorLike(value)) {
         return formatErrorObject(value, seen);
     }
 

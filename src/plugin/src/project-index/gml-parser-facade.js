@@ -1,7 +1,8 @@
 import path from "node:path";
 
-import GMLParser, { GameMakerSyntaxError } from "../../../parser/gml-parser.js";
+import GMLParser from "../../../parser/gml-parser.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { isSyntaxErrorWithLocation } from "../../../shared/utils/capability-probes.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
@@ -21,7 +22,7 @@ export function getDefaultProjectIndexParser() {
 }
 
 function enrichSyntaxError(error, sourceText, context) {
-    if (!(error instanceof GameMakerSyntaxError)) {
+    if (!isSyntaxErrorWithLocation(error)) {
         return error;
     }
 

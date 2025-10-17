@@ -1,4 +1,5 @@
 export * from "./array.js";
+export * from "./capability-probes.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
 export * from "./number.js";

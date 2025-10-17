@@ -18,93 +18,13 @@ import {
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
-import { createMetricsTracker } from "../metrics/metrics-tracker.js";
+import {
+    createProjectIndexMetrics,
+    finalizeProjectIndexMetrics
+} from "./metrics.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
-
-const REQUIRED_METRIC_METHODS = [
-    "startTimer",
-    "timeAsync",
-    "timeSync",
-    "incrementCounter",
-    "setMetadata",
-    "recordCacheHit",
-    "recordCacheMiss",
-    "recordCacheStale",
-    "finalize"
-];
-
-function isMetricsTracker(candidate) {
-    return (
-        candidate &&
-        typeof candidate === "object" &&
-        REQUIRED_METRIC_METHODS.every(
-            (method) => typeof candidate[method] === "function"
-        )
-    );
-}
-
-function createNoopProjectIndexMetrics() {
-    const snapshot = (extra = {}) => ({
-        category: "project-index",
-        totalTimeMs: 0,
-        timings: {},
-        counters: {},
-        caches: {},
-        metadata: {},
-        ...extra
-    });
-
-    return {
-        category: "project-index",
-        startTimer() {
-            return () => {};
-        },
-        async timeAsync(_label, callback) {
-            return await callback();
-        },
-        timeSync(_label, callback) {
-            return callback();
-        },
-        incrementCounter() {},
-        setMetadata() {},
-        recordCacheHit() {},
-        recordCacheMiss() {},
-        recordCacheStale() {},
-        snapshot,
-        finalize(extra = {}) {
-            return snapshot(extra);
-        },
-        logSummary() {}
-    };
-}
-
-function createProjectIndexMetrics(options = {}) {
-    const { metrics, logger = null, logMetrics = false } = options ?? {};
-
-    if (isMetricsTracker(metrics)) {
-        return metrics;
-    }
-
-    if (metrics !== undefined) {
-        return createNoopProjectIndexMetrics();
-    }
-
-    return createMetricsTracker({
-        category: "project-index",
-        logger,
-        autoLog: logMetrics === true
-    });
-}
-
-function finalizeProjectIndexMetrics(metrics) {
-    if (!isMetricsTracker(metrics)) {
-        return null;
-    }
-
-    return metrics.finalize();
-}
 
 function isParserFacade(candidate) {
     return (

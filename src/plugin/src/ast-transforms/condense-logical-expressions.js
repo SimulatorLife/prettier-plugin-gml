@@ -62,7 +62,6 @@ export function condenseLogicalExpressions(ast, helpers) {
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    applyDocCommentUpdates(context);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -88,45 +87,6 @@ function normalizeDocCommentWhitespace(ast) {
     }
 }
 
-function applyDocCommentUpdates(context) {
-    if (!context || context.docUpdates.size === 0) {
-        return;
-    }
-
-    const commentGroups = ensureCommentGroups(context);
-
-    for (const [functionNode, update] of context.docUpdates.entries()) {
-        const comments = commentGroups.get(functionNode);
-        if (!comments || comments.length === 0) {
-            continue;
-        }
-
-        const descriptionComment = comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                comment.value.includes("@description")
-        );
-
-        if (!descriptionComment) {
-            continue;
-        }
-
-        const originalContent = extractDescriptionContent(
-            descriptionComment.value
-        );
-        const updatedContent = buildUpdatedDescription(
-            update?.description ?? originalContent,
-            update?.expression ?? null
-        );
-
-        if (!updatedContent || updatedContent === originalContent) {
-            continue;
-        }
-
-        descriptionComment.value = ` / @description ${updatedContent}`;
-    }
-}
-
 function extractDescriptionContent(value) {
     if (typeof value !== "string") {
         return "";
@@ -140,7 +100,7 @@ function buildUpdatedDescription(existing, expression) {
         return existing ?? "";
     }
 
-    const normalizedExpression = ensureTrailingPeriod(expression.trim());
+    const normalizedExpression = expression.trim();
 
     if (!isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
@@ -176,19 +136,6 @@ function buildUpdatedDescription(existing, expression) {
     const needsSemicolon = lowered.includes("return");
     const separator = needsSemicolon ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
-}
-
-function ensureTrailingPeriod(text) {
-    if (!text) {
-        return text;
-    }
-
-    const trimmed = text.trim();
-    if (/[,.;!?]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    return `${trimmed}.`;
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {

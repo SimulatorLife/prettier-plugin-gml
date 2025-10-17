@@ -1,4 +1,5 @@
 import { isNonEmptyString, toTrimmedString } from "./string.js";
+import { isErrorLike } from "./capability-probes.js";
 
 function getErrorMessage(value) {
     if (typeof value === "string") {
@@ -21,7 +22,7 @@ function getErrorMessage(value) {
 }
 
 function toError(value) {
-    if (value instanceof Error) {
+    if (isErrorLike(value)) {
         return value;
     }
 

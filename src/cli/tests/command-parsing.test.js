@@ -51,4 +51,27 @@ describe("parseCommandLine", () => {
                 typeof error.usage === "string"
         );
     });
+
+    it("supports Commander-style errors without Error prototypes", () => {
+        const command = {
+            parse() {
+                throw {
+                    name: "CommanderError",
+                    code: "commander.invalidOption",
+                    message: "bad option"
+                };
+            },
+            helpInformation() {
+                return "usage info";
+            }
+        };
+
+        assert.throws(
+            () => parseCommandLine(command, []),
+            (error) =>
+                error instanceof CliUsageError &&
+                error.message === "bad option" &&
+                error.usage === "usage info"
+        );
+    });
 });
