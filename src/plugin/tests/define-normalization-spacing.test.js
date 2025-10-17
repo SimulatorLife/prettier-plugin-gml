@@ -40,7 +40,7 @@ describe("define normalization spacing", () => {
             "",
             "var util = function(val) {",
             "    return val;",
-            "}",
+            "};",
             "",
             "#endregion Utility Scripts",
             ""
@@ -49,7 +49,7 @@ describe("define normalization spacing", () => {
         assert.strictEqual(formatted, expected);
     });
 
-    it("omits trailing semicolons when normalizing legacy function assignments", async () => {
+    it("adds trailing semicolons when normalizing legacy function assignments", async () => {
         const source = [
             "#define region Utility Scripts",
             "#define  end region Utility Scripts",
@@ -72,8 +72,8 @@ describe("define normalization spacing", () => {
 
         assert.strictEqual(
             lines[utilLineIndex + 2],
-            "}",
-            "Expected the formatter to preserve the missing semicolon after the function assignment."
+            "};",
+            "Expected the formatter to add a trailing semicolon after the normalized function assignment."
         );
     });
 });

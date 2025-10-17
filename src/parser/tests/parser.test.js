@@ -211,6 +211,37 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("does not mutate inherited nodes when stripping location metadata", () => {
+        const prototypeNode = {
+            inherited: {
+                start: { index: 1 },
+                end: { index: 2 }
+            }
+        };
+
+        const ast = Object.create(prototypeNode);
+        ast.own = {
+            start: { index: 3 },
+            end: { index: 4 }
+        };
+
+        const parser = new GMLParser("", {});
+        const prototypeSnapshot = JSON.parse(JSON.stringify(prototypeNode));
+
+        parser.removeLocationInfo(ast);
+
+        assert.deepStrictEqual(
+            prototypeNode,
+            prototypeSnapshot,
+            "Expected prototype nodes to remain untouched when stripping locations."
+        );
+        assert.deepStrictEqual(
+            ast.own,
+            {},
+            "Expected own nodes to have location metadata removed."
+        );
+    });
+
     it("counts CRLF sequences as a single line break", () => {
         assert.strictEqual(
             getLineBreakCount("\r\n"),

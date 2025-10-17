@@ -230,7 +230,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Allow trailing commas in function call argument lists when the original source includes them."
+                    "Reserved for future use; enabling this option currently has no effect because trailing call commas are normalized into missing optional argument placeholders (see 'missingOptionalArgumentPlaceholder')."
             },
             preserveLineBreaks: {
                 since: "0.0.0",

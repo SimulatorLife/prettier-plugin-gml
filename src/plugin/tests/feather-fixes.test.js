@@ -2818,6 +2818,43 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+
+        const [enableCall, drawCall, resetCall] = statements;
+
+        assert.ok(enableCall);
+        assert.ok(drawCall);
+        assert.ok(resetCall);
+        assert.strictEqual(
+            enableCall?._featherSuppressFollowingEmptyLine,
+            true,
+            "Expected enabling call to suppress following blank lines."
+        );
+        assert.strictEqual(
+            drawCall?._featherSuppressLeadingEmptyLine,
+            true,
+            "Expected draw call to suppress leading blank lines."
+        );
+    });
+
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
             "/// Create Event",
@@ -4803,21 +4840,35 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
+        const callExpressions = statements.filter(
+            (statement) => statement?.type === "CallExpression"
+        );
         assert.strictEqual(
-            statements.length >= 3,
+            callExpressions.length >= 3,
             true,
-            "Expected blend mode reset to be inserted."
+            "Expected blend mode reset to be inserted after draw calls."
         );
 
-        const originalCall = statements[0];
+        const originalCall = callExpressions[0];
         assert.ok(originalCall);
-        assert.strictEqual(originalCall.type, "CallExpression");
         assert.strictEqual(originalCall.object?.name, "gpu_set_blendmode");
 
-        const resetCall = statements[1];
+        const resetCall = callExpressions.at(-1);
         assert.ok(resetCall);
-        assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendmode");
+
+        const drawCalls = callExpressions.slice(1, -1);
+        assert.strictEqual(
+            drawCalls.length > 0,
+            true,
+            "Expected at least one draw call between blend mode changes."
+        );
+        for (const drawCall of drawCalls) {
+            assert.strictEqual(
+                drawCall.object?.name?.startsWith("draw_"),
+                true
+            );
+        }
 
         const [resetArgument] = Array.isArray(resetCall.arguments)
             ? resetCall.arguments

@@ -4,6 +4,7 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -403,11 +404,14 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
         : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
-        if (!(pattern instanceof RegExp)) {
+        if (!isRegExpLike(pattern)) {
             continue;
         }
 
-        pattern.lastIndex = 0;
+        if (typeof pattern.lastIndex === "number") {
+            pattern.lastIndex = 0;
+        }
+
         if (pattern.test(trimmed)) {
             return true;
         }
