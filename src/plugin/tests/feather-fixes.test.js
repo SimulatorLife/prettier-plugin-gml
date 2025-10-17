@@ -3193,7 +3193,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
@@ -4069,7 +4074,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
