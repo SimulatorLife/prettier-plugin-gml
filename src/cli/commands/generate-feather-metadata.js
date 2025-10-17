@@ -9,8 +9,7 @@ import { escapeRegExp } from "../../shared/regexp.js";
 import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { formatDuration } from "../../shared/number-utils.js";
-import { timeSync } from "../lib/time-utils.js";
+import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
@@ -1024,7 +1023,7 @@ async function main({ argv, env, isTty } = {}) {
             return 0;
         }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const startTime = Date.now();
+        const logCompletion = createVerboseDurationLogger({ verbose });
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef?.sha) {
             throw new Error("Could not resolve manual commit SHA.");
@@ -1112,9 +1111,7 @@ async function main({ argv, env, isTty } = {}) {
         );
 
         console.log(`Wrote Feather metadata to ${outputPath}`);
-        if (verbose.parsing) {
-            console.log(`Completed in ${formatDuration(startTime)}.`);
-        }
+        logCompletion();
         return 0;
     } finally {
         disposeProgressBars();
