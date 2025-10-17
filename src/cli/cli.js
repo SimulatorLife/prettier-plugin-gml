@@ -571,26 +571,23 @@ async function resolveProjectIgnorePaths(directory) {
             : null
     );
 
-    const ignoreFiles = [];
+    const candidatePaths = directoriesToInspect.map((candidateDirectory) =>
+        path.join(candidateDirectory, ".prettierignore")
+    );
 
-    for (const candidateDirectory of directoriesToInspect) {
-        const ignoreCandidate = path.join(
-            candidateDirectory,
-            ".prettierignore"
-        );
-
-        try {
-            const candidateStats = await stat(ignoreCandidate);
-
-            if (candidateStats.isFile()) {
-                ignoreFiles.push(ignoreCandidate);
+    const discovered = await Promise.all(
+        candidatePaths.map(async (ignoreCandidate) => {
+            try {
+                const stats = await stat(ignoreCandidate);
+                return stats.isFile() ? ignoreCandidate : null;
+            } catch {
+                // Ignore missing files.
+                return null;
             }
-        } catch {
-            // Ignore missing files.
-        }
-    }
+        })
+    );
 
-    return ignoreFiles;
+    return discovered.filter(Boolean);
 }
 
 /**
