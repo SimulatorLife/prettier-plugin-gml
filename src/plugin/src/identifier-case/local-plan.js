@@ -281,13 +281,7 @@ function getReferenceLocation(reference) {
     if (!isObjectLike(reference)) {
         return null;
     }
-    if (reference.start) {
-        return reference.start;
-    }
-    if (reference.location?.start) {
-        return reference.location.start;
-    }
-    return null;
+    return reference.start ?? reference.location?.start ?? null;
 }
 
 function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
