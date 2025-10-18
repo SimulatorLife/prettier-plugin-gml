@@ -14310,12 +14310,24 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
         const closingCount = countVertexFormatEndCalls(statement);
 
-        for (
-            let consumed = 0;
-            consumed < closingCount && openBegins.length > 0;
-            consumed += 1
-        ) {
+        let unmatchedClosers = closingCount;
+
+        while (unmatchedClosers > 0 && openBegins.length > 0) {
             openBegins.pop();
+            unmatchedClosers -= 1;
+        }
+
+        if (unmatchedClosers > 0) {
+            const removed = removeDanglingVertexFormatEndCall({
+                statements,
+                index,
+                diagnostic,
+                fixes
+            });
+
+            if (removed) {
+                continue;
+            }
         }
 
         index += 1;
@@ -14370,6 +14382,43 @@ function removeDanglingVertexFormatDefinition({
     }
 
     return removalCount;
+}
+
+function removeDanglingVertexFormatEndCall({
+    statements,
+    index,
+    diagnostic,
+    fixes
+}) {
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return false;
+    }
+
+    const statement = statements[index];
+
+    if (!isCallExpressionStatementWithName(statement, "vertex_format_end")) {
+        return false;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getCallExpressionCalleeName(statement),
+        range: {
+            start: getNodeStartIndex(statement),
+            end: getNodeEndIndex(statement)
+        }
+    });
+
+    if (!fixDetail) {
+        return false;
+    }
+
+    statements.splice(index, 1);
+
+    if (Array.isArray(fixes)) {
+        fixes.push(fixDetail);
+    }
+
+    return true;
 }
 
 function createRangeFromNodes(startNode, endNode) {
