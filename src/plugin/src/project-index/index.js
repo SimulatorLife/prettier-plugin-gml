@@ -13,7 +13,10 @@ import {
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
@@ -119,13 +122,6 @@ function resolveProjectIndexParser(options) {
     );
 }
 
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
-    );
-}
-
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
     const signal = options?.signal ?? null;
@@ -141,7 +137,7 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
         visited.add(current);
         throwIfAborted(signal, "Project root discovery was aborted.");
         const entries = await listDirectory(fsFacade, current, { signal });
-        const hasManifest = entries.some(isManifestEntry);
+        const hasManifest = entries.some(isProjectManifestPath);
         if (hasManifest) {
             return current;
         }
@@ -282,7 +278,7 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+export { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
     PROJECT_INDEX_CACHE_DIRECTORY,
@@ -432,7 +428,7 @@ async function scanProjectTree(
 
             const relativePosix = toPosixPath(relativePath);
             const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
+            if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -471,8 +467,11 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
         let defaultName = path.posix.basename(resourcePath);
         if (lowerPath.endsWith(".yy")) {
             defaultName = path.posix.basename(resourcePath, ".yy");
-        } else if (lowerPath.endsWith(".yyp")) {
-            defaultName = path.posix.basename(resourcePath, ".yyp");
+        } else if (isProjectManifestPath(resourcePath)) {
+            defaultName = path.posix.basename(
+                resourcePath,
+                PROJECT_MANIFEST_EXTENSION
+            );
         }
         record = {
             path: resourcePath,
