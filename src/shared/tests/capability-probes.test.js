@@ -94,5 +94,4 @@ describe("capability probes", () => {
 
         assert.equal(getIterableSize(iterable), 2);
     });
-
 });

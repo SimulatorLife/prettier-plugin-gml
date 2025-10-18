@@ -1,11 +1,9 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isErrorLike } from "../../shared/utils/capability-probes.js";
+import { isCommanderErrorLike } from "./commander-error-utils.js";
 
 function isCommanderError(error) {
     return (
-        isErrorLike(error) &&
-        error.name === "CommanderError" &&
-        typeof error.code === "string"
+        isCommanderErrorLike(error) && error.code !== "commander.helpDisplayed"
     );
 }
 

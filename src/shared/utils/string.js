@@ -172,15 +172,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    const normalizedSet = new Set();
-
-    // Populate the set via a manual loop to avoid allocating a temporary array
-    // for `Array#map` on each invocation. The helper runs in hot formatter and
-    // option-parsing paths, so keeping it allocation-free shaves measurable
-    // time off tight micro-benchmarks.
-    for (const normalizedValue of normalizedValues) {
-        normalizedSet.add(normalizedValue.toLowerCase());
-    }
-
-    return normalizedSet;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }

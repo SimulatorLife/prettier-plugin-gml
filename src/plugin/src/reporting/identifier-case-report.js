@@ -14,7 +14,11 @@ import {
     coalesceOption,
     withObjectLike
 } from "../../../shared/object-utils.js";
-import { asArray, toArray } from "../../../shared/array-utils.js";
+import {
+    asArray,
+    isNonEmptyArray,
+    toArray
+} from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../identifier-case/fs-facade.js";
@@ -473,7 +477,7 @@ function buildLogPayload(report, generatedAt) {
 }
 
 function resolveSummarySeverity(conflicts) {
-    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    if (!isNonEmptyArray(conflicts)) {
         return "info";
     }
 
