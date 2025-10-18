@@ -4,6 +4,7 @@ import GMLParser, {
     isSyntaxErrorWithLocation
 } from "../../../parser/gml-parser.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { resolveContainedRelativePath } from "../../../shared/path-utils.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
@@ -76,15 +77,11 @@ function resolveDisplayPath(filePath, projectRoot) {
 
     const normalizedProjectRoot = getNonEmptyString(projectRoot);
     if (normalizedProjectRoot) {
-        const relative = path.relative(
-            normalizedProjectRoot,
-            normalizedFilePath
+        const relative = resolveContainedRelativePath(
+            normalizedFilePath,
+            normalizedProjectRoot
         );
-        if (
-            relative &&
-            !relative.startsWith("..") &&
-            !path.isAbsolute(relative)
-        ) {
+        if (relative) {
             return relative;
         }
     }
