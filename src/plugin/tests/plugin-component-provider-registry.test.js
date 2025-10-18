@@ -2,89 +2,69 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    registerGmlPluginComponents,
-    resetRegisteredGmlPluginComponents,
+    gmlPluginComponents,
     resolveGmlPluginComponents
 } from "../src/plugin-components.js";
 
-test("GML plugin component registration", async (t) => {
-    t.after(() => {
-        resetRegisteredGmlPluginComponents();
-        resolveGmlPluginComponents();
-    });
+test("GML plugin components expose validated defaults", () => {
+    const resolved = resolveGmlPluginComponents();
 
-    const components = resolveGmlPluginComponents();
+    assert.strictEqual(
+        resolved,
+        gmlPluginComponents,
+        "resolver should return the shared component registry"
+    );
+
+    assert.ok(Object.isFrozen(resolved), "component registry should be frozen");
+    assert.ok(
+        Object.isFrozen(resolved.parsers),
+        "parsers map should be frozen"
+    );
+    assert.ok(
+        Object.isFrozen(resolved.printers),
+        "printers map should be frozen"
+    );
+    assert.ok(
+        Object.isFrozen(resolved.options),
+        "options map should be frozen"
+    );
 
     assert.ok(
-        components.parsers["gml-parse"],
+        resolved.parsers["gml-parse"],
         "default parser should be registered"
     );
     assert.ok(
-        components.printers["gml-ast"],
+        resolved.printers["gml-ast"],
         "default printer should be registered"
     );
     assert.ok(
-        Object.hasOwn(components.options, "optimizeLoopLengthHoisting"),
+        Object.hasOwn(resolved.options, "optimizeLoopLengthHoisting"),
         "default options should be registered"
     );
 
-    await t.test("allows overriding the registered components", () => {
-        const customComponents = {
-            parsers: {
-                custom: { parse: () => ({ type: "Program", body: [] }) }
-            },
-            printers: {
-                custom: { print: () => "formatted" }
-            },
-            options: {
-                exampleToggle: {
-                    since: "test",
-                    type: "boolean",
-                    category: "gml",
-                    default: false,
-                    description: "Example toggle for testing"
-                }
-            }
-        };
+    assert.strictEqual(
+        resolveGmlPluginComponents(),
+        resolved,
+        "resolver should reuse the same object reference"
+    );
+});
 
-        registerGmlPluginComponents(() => customComponents);
+test("GML plugin components cannot be mutated", () => {
+    const resolved = resolveGmlPluginComponents();
 
-        const resolved = resolveGmlPluginComponents();
+    assert.throws(
+        () => {
+            resolved.parsers.custom = { parse: () => ({}) };
+        },
+        TypeError,
+        "frozen parser map should reject new entries"
+    );
 
-        assert.deepEqual(resolved.parsers, {
-            custom: customComponents.parsers.custom
-        });
-        assert.deepEqual(resolved.printers, {
-            custom: customComponents.printers.custom
-        });
-        assert.deepEqual(resolved.options, customComponents.options);
-
-        resetRegisteredGmlPluginComponents();
-    });
-
-    await t.test("reset restores the default components", () => {
-        registerGmlPluginComponents(() => ({
-            parsers: { override: { parse: () => ({}) } },
-            printers: { override: { print: () => "override" } },
-            options: {
-                flag: {
-                    since: "test",
-                    type: "boolean",
-                    category: "gml",
-                    default: false,
-                    description: "override"
-                }
-            }
-        }));
-
-        assert.ok(resolveGmlPluginComponents().parsers.override);
-
-        resetRegisteredGmlPluginComponents();
-
-        const restored = resolveGmlPluginComponents();
-        assert.ok(
-            restored.parsers["gml-parse"],
-            "default parser should be restored"
-        );
-    });
+    assert.throws(
+        () => {
+            resolved.options.extra = { default: true };
+        },
+        TypeError,
+        "frozen option map should reject new entries"
+    );
 });
