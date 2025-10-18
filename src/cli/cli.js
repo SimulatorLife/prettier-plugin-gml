@@ -32,8 +32,8 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
-    asArray,
     mergeUniqueValues,
+    toArray,
     uniqueArray
 } from "../shared/array-utils.js";
 import { getErrorMessage, isErrorWithCode } from "../shared/error-utils.js";
@@ -760,8 +760,8 @@ async function resolveFormattingOptions(filePath) {
         filepath: filePath
     };
 
-    const basePlugins = asArray(options.plugins);
-    const resolvedPlugins = asArray(resolvedConfig?.plugins);
+    const basePlugins = toArray(options.plugins);
+    const resolvedPlugins = toArray(resolvedConfig?.plugins);
     const combinedPlugins = uniqueArray([...basePlugins, ...resolvedPlugins]);
 
     if (combinedPlugins.length > 0) {
