@@ -2757,10 +2757,10 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(setFogCall);
         assert.ok(drawCall);
         assert.ok(fogResetCall);
-        assert.strictEqual(drawCall.type, "CallExpression");
-        assert.strictEqual(drawCall.object?.name, "draw_self");
         assert.strictEqual(fogResetCall.type, "CallExpression");
         assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         const args = Array.isArray(fogResetCall.arguments)
             ? fogResetCall.arguments

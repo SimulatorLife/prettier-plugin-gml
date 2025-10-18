@@ -8879,6 +8879,11 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
     while (insertionIndex < siblings.length) {
         const candidate = siblings[insertionIndex];
 
+        if (candidate?.type === "EmptyStatement") {
+            insertionIndex += 1;
+            continue;
+        }
+
         if (isFogResetCall(candidate)) {
             return null;
         }
