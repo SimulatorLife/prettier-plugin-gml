@@ -11,10 +11,8 @@ import {
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
 import { getIdentifierText } from "../../shared/ast.js";
-import {
-    formatByteSize,
-    toNormalizedLowerCaseString
-} from "../../shared/utils.js";
+import { toNormalizedLowerCaseString } from "../../shared/utils.js";
+import { formatByteSize } from "./byte-format.js";
 
 const AVAILABLE_SUITES = new Map();
 
