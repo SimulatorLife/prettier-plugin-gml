@@ -79,16 +79,9 @@ export function cloneObjectEntries(entries) {
         return [];
     }
 
-    const clones = new Array(entries.length);
-
-    let index = 0;
-    for (const entry of entries) {
-        clones[index] =
-            entry && typeof entry === "object" ? { ...entry } : entry;
-        index += 1;
-    }
-
-    return clones;
+    return entries.map((entry) =>
+        entry && typeof entry === "object" ? { ...entry } : entry
+    );
 }
 
 /**
