@@ -28,7 +28,61 @@ import {
 import { throwIfAborted } from "./abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
+
+const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
+const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
+
+let configuredDefaultProjectIndexGmlConcurrency =
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
+
+function getDefaultProjectIndexGmlConcurrency() {
+    return configuredDefaultProjectIndexGmlConcurrency;
+}
+
+function normalizeDefaultProjectIndexConcurrencyInput(value) {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const trimmed =
+        typeof value === "string" ? value.trim() : value;
+    if (trimmed === "") {
+        return null;
+    }
+
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
+function setDefaultProjectIndexGmlConcurrency(concurrency) {
+    const normalized = normalizeDefaultProjectIndexConcurrencyInput(concurrency);
+
+    if (normalized === null) {
+        configuredDefaultProjectIndexGmlConcurrency =
+            PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
+        return configuredDefaultProjectIndexGmlConcurrency;
+    }
+
+    configuredDefaultProjectIndexGmlConcurrency = clampConcurrency(normalized, {
+        fallback: PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+    });
+
+    return configuredDefaultProjectIndexGmlConcurrency;
+}
+
+function applyProjectIndexConcurrencyEnvOverride(env = process?.env) {
+    const rawValue = env?.[PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultProjectIndexGmlConcurrency(rawValue);
+}
+
+applyProjectIndexConcurrencyEnvOverride();
+
+const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY =
+    getDefaultProjectIndexGmlConcurrency();
 
 const PARSER_FACADE_OPTION_KEYS = [
     "identifierCaseProjectIndexParserFacade",
@@ -240,7 +294,13 @@ export {
     deriveCacheKey
 } from "./cache.js";
 
-export { DEFAULT_PROJECT_INDEX_GML_CONCURRENCY };
+export {
+    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    getDefaultProjectIndexGmlConcurrency,
+    setDefaultProjectIndexGmlConcurrency,
+    PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+};
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
@@ -2100,9 +2160,10 @@ function cloneAssetReference(reference) {
 
 function clampConcurrency(
     value,
-    { min = 1, max = 16, fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY } = {}
+    { min = 1, max = 16, fallback = getDefaultProjectIndexGmlConcurrency() } = {}
 ) {
-    const numeric = Number(value ?? fallback);
+    const candidate = value ?? fallback;
+    const numeric = Number(candidate);
     if (!Number.isFinite(numeric) || numeric < min) {
         return min;
     }
@@ -2216,9 +2277,7 @@ export async function buildProjectIndex(
 
     const concurrencySettings = options?.concurrency ?? {};
     const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ??
-            concurrencySettings.gmlParsing ??
-            DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
     const parseProjectSource = resolveProjectIndexParser(options);
