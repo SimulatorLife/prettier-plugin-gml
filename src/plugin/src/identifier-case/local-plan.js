@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { asArray } from "../../../shared/array-utils.js";
+import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     toPosixPath,
     resolveContainedRelativePath
@@ -462,7 +462,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+    if (!isNonEmptyArray(entries)) {
         return;
     }
 
