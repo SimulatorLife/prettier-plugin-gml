@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { resolveContainedRelativePath } from "../../shared/path-utils.js";
+
 /**
  * Checks whether `child` resides within `parent` when both paths are resolved
  * to absolute locations. Empty strings short-circuit to `false` so callers can
@@ -14,16 +16,8 @@ import path from "node:path";
  * @returns {boolean} `true` when `child` resolves to `parent` or a descendant.
  */
 export function isPathInside(child, parent) {
-    if (!child || !parent) {
-        return false;
-    }
-
-    const relative = path.relative(parent, child);
-    if (!relative) {
-        return true;
-    }
-
-    return !relative.startsWith("..") && !path.isAbsolute(relative);
+    const relative = resolveContainedRelativePath(child, parent);
+    return relative !== null;
 }
 
 /**

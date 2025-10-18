@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { cloneObjectEntries, isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    cloneObjectEntries,
+    isNonEmptyArray
+} from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
