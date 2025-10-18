@@ -328,7 +328,12 @@ export async function saveProjectIndexCache(
         try {
             await fsFacade.unlink(tempFilePath);
         } catch {
-            // Ignore cleanup failures.
+            // The rename failure above is the actionable error for callers; a
+            // secondary failure while deleting the uniquely named temp file is
+            // best-effort hygiene. Dropping that error preserves the original
+            // stack trace while still leaving a breadcrumb that the write was
+            // attempted—the random suffix prevents future writes from
+            // colliding even if the orphaned file lingers.
         }
         throw error;
     }

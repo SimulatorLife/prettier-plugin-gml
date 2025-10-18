@@ -23,7 +23,11 @@ function defineCachedProperty(target, cacheKey, value) {
             value
         });
     } catch {
-        // Ignore define failures and fall back to the cache store.
+        // Some callers supply frozen option objects or exotic proxies whose
+        // property descriptors cannot be redefined. Treat those failures as a
+        // signal to fall back to the shared WeakMap cache so we still memoize
+        // results without mutating the original object or leaking the
+        // underlying TypeError to callers that cannot action it.
     }
 }
 
