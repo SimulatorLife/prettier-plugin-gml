@@ -2764,6 +2764,39 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when inserting GM2048 resets", () => {
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            'draw_text(0, 0, "Hello!");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = ast.body ?? [];
+
+        assert.deepStrictEqual(
+            statements.map((node) => node?.type),
+            ["CallExpression", "CallExpression", "CallExpression"]
+        );
+
+        const [disableCall, drawCall, resetCall] = statements;
+
+        assert.strictEqual(disableCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(drawCall.object?.name, "draw_text");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(
+            disableCall._featherSuppressFollowingEmptyLine,
+            true
+        );
+        assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
+    });
+
     it("resets fog flagged by GM2050 and records metadata", () => {
         const source = [
             "gpu_set_fog(true, c_aqua, 0, 1000);",
