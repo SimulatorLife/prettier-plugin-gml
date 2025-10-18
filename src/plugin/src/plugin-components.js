@@ -1,4 +1,4 @@
-import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
+import { createDefaultGmlPluginComponents } from "./plugin-default-component-factory.js";
 
 function assertIsObjectLike(value, message) {
     if (!value || typeof value !== "object") {
