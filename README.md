@@ -269,8 +269,8 @@ If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale f
 ## Architecture overview
 
 The repository is organised as a multi-package workspace so the parser, plugin,
-and CLI can evolve together. Each package ships its own tests and scripts while
-sharing utilities via the `src/shared/` module.
+and CLI can evolve together. Each package ships its own tests and CLI entry
+points while sharing utilities via the `src/shared/` module.
 
 | Package / folder | Location | Purpose |
 | --- | --- | --- |
@@ -287,6 +287,10 @@ plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
 `npm run build:feather-metadata` refresh the datasets under `resources/` when the
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
+
+> **Note:** All developer-facing utilities live under `src/cli/commands/`.
+> When adding new helpers, expose them through the CLI instead of creating
+> stand-alone scripts so contributors have a single, discoverable entry point.
 
 ---
 
@@ -463,6 +467,10 @@ prettier-plugin-gml/
 └─ package.json       # Workspace manifest with scripts and shared tooling
 ```
 
+All developer automation should be exposed through the CLI entry points in
+`src/cli/commands/`. Avoid adding stand-alone scripts elsewhere in the
+repository so new tooling remains easy to discover and maintain.
+
 ### Set up the workspace
 
 ```bash
@@ -516,6 +524,7 @@ npm run example:plugin      # Format a fixture with the development build
 npm run format:check        # Audit repository formatting without writes
 npm --prefix src/plugin run prettier:plugin -- --path=tests/test14.input.gml
 npm run cli -- --help       # Explore CLI utilities without switching directories
+npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
 ```
 
 ---
