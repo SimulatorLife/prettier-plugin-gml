@@ -28,7 +28,7 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "./abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 

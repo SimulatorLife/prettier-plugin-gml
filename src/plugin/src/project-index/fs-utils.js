@@ -1,6 +1,6 @@
 import { toArrayFromIterable } from "../../../shared/array-utils.js";
 import { isErrorWithCode } from "../../../shared/error-utils.js";
-import { throwIfAborted } from "./abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 
 export function isFsErrorCode(error, ...codes) {
     return isErrorWithCode(error, ...codes);
