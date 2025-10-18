@@ -2,7 +2,7 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import { throwIfAborted } from "./abort-utils.js";
@@ -39,13 +39,6 @@ function hasEntries(record) {
         record != null &&
         typeof record === "object" &&
         Object.keys(record).length > 0
-    );
-}
-
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
     );
 }
 
@@ -377,7 +370,7 @@ export async function deriveCacheKey(
     if (resolvedRoot) {
         const entries = await listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
-            .filter(isManifestEntry)
+            .filter(isProjectManifestPath)
             .sort((a, b) => a.localeCompare(b));
 
         for (const manifestName of manifestNames) {
