@@ -8874,10 +8874,30 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
 
-    if (isFogResetCall(nextNode)) {
-        return null;
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (candidate?.type === "EmptyStatement") {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (isFogResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate || candidate.type !== "CallExpression") {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        insertionIndex += 1;
     }
 
     const resetCall = createFogResetCall(node);
@@ -8898,7 +8918,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;

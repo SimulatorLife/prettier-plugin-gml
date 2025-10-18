@@ -251,7 +251,12 @@ async function loadBuiltInIdentifiers(
 
         names = new Set(Object.keys(identifiers));
     } catch {
-        // Ignore read/parse failures and fall back to an empty identifier set.
+        // Built-in identifier metadata ships with the formatter bundle; if the
+        // file is missing or unreadable we intentionally degrade to an empty
+        // set rather than aborting project indexing. That keeps the CLI usable
+        // when installations are partially upgraded or when read permissions
+        // are restricted, and the metrics recorder above still notes the cache
+        // miss for observability.
     }
 
     cachedBuiltInIdentifiers = {
@@ -559,112 +564,186 @@ function collectAssetReferences(root, callback) {
     }
 }
 
-async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
-    const resourcesMap = new Map();
-    const gmlScopeMap = new Map();
-    const assetReferences = [];
-    const scriptNameToScopeId = new Map();
-    const scriptNameToResourcePath = new Map();
+function createResourceAnalysisContext() {
+    return {
+        resourcesMap: new Map(),
+        gmlScopeMap: new Map(),
+        assetReferences: [],
+        scriptNameToScopeId: new Map(),
+        scriptNameToResourcePath: new Map()
+    };
+}
 
-    for (const file of yyFiles) {
-        let rawContents;
-        try {
-            rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
-        } catch (error) {
-            if (isFsErrorCode(error, "ENOENT")) {
-                continue;
-            }
-            throw error;
+async function loadResourceDocument(file, fsFacade) {
+    let rawContents;
+    try {
+        rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
         }
+        throw error;
+    }
 
-        let parsed;
-        try {
-            parsed = JSON.parse(rawContents);
-        } catch {
-            // Skip invalid JSON entries but continue scanning.
+    try {
+        return JSON.parse(rawContents);
+    } catch {
+        return null;
+    }
+}
+
+function ensureResourceRecordForDocument(context, file, parsed) {
+    return ensureResourceRecord(context.resourcesMap, file.relativePath, {
+        name: parsed?.name,
+        resourceType: parsed?.resourceType
+    });
+}
+
+function attachScopeDescriptor({
+    context,
+    resourceRecord,
+    gmlRelativePath,
+    descriptor
+}) {
+    pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
+    context.gmlScopeMap.set(gmlRelativePath, descriptor);
+    pushUnique(resourceRecord.scopes, descriptor.id);
+}
+
+function registerScriptResourceIfNeeded({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
+    if (parsed?.resourceType !== "GMScript") {
+        return;
+    }
+
+    const gmlRelativePath = path.posix.join(
+        resourceDir,
+        `${resourceRecord.name}.gml`
+    );
+    const descriptor = createScriptScopeDescriptor(
+        resourceRecord,
+        gmlRelativePath
+    );
+
+    attachScopeDescriptor({
+        context,
+        resourceRecord,
+        gmlRelativePath,
+        descriptor
+    });
+
+    context.scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
+    context.scriptNameToResourcePath.set(
+        resourceRecord.name,
+        resourceRecord.path
+    );
+}
+
+function registerResourceEvents({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
+    const eventList = parsed?.eventList;
+    if (!isNonEmptyArray(eventList)) {
+        return;
+    }
+
+    for (const event of eventList) {
+        const eventGmlPath = extractEventGmlPath(
+            event,
+            resourceRecord,
+            resourceDir
+        );
+        if (!eventGmlPath) {
             continue;
         }
 
-        const resourceRecord = ensureResourceRecord(
-            resourcesMap,
-            file.relativePath,
-            {
-                name: parsed?.name,
-                resourceType: parsed?.resourceType
-            }
+        const descriptor = createObjectEventScopeDescriptor(
+            resourceRecord,
+            event,
+            eventGmlPath
         );
 
-        const resourceDir = path.posix.dirname(file.relativePath);
-
-        if (parsed?.resourceType === "GMScript") {
-            const gmlRelativePath = path.posix.join(
-                resourceDir,
-                `${resourceRecord.name}.gml`
-            );
-            pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
-
-            const descriptor = createScriptScopeDescriptor(
-                resourceRecord,
-                gmlRelativePath
-            );
-            gmlScopeMap.set(gmlRelativePath, descriptor);
-            pushUnique(resourceRecord.scopes, descriptor.id);
-
-            scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-            scriptNameToResourcePath.set(
-                resourceRecord.name,
-                resourceRecord.path
-            );
-        }
-
-        const eventList = parsed?.eventList;
-        if (isNonEmptyArray(eventList)) {
-            for (const event of eventList) {
-                const eventGmlPath = extractEventGmlPath(
-                    event,
-                    resourceRecord,
-                    resourceDir
-                );
-                if (!eventGmlPath) {
-                    continue;
-                }
-
-                pushUnique(resourceRecord.gmlFiles, eventGmlPath);
-                const descriptor = createObjectEventScopeDescriptor(
-                    resourceRecord,
-                    event,
-                    eventGmlPath
-                );
-
-                gmlScopeMap.set(eventGmlPath, descriptor);
-                pushUnique(resourceRecord.scopes, descriptor.id);
-            }
-        }
-
-        collectAssetReferences(
-            parsed,
-            ({ propertyPath, targetPath, targetName }) => {
-                const normalizedTarget = normalizeResourcePath(targetPath, {
-                    projectRoot
-                });
-                if (!normalizedTarget) {
-                    return;
-                }
-
-                const referenceRecord = {
-                    fromResourcePath: file.relativePath,
-                    fromResourceName: resourceRecord.name,
-                    propertyPath,
-                    targetPath: normalizedTarget,
-                    targetName: targetName ?? null,
-                    targetResourceType: null
-                };
-                assetReferences.push(referenceRecord);
-                resourceRecord.assetReferences.push(referenceRecord);
-            }
-        );
+        attachScopeDescriptor({
+            context,
+            resourceRecord,
+            gmlRelativePath: eventGmlPath,
+            descriptor
+        });
     }
+}
 
+function collectResourceAssetReferences({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
+    collectAssetReferences(
+        parsed,
+        ({ propertyPath, targetPath, targetName }) => {
+            const normalizedTarget = normalizeResourcePath(targetPath, {
+                projectRoot
+            });
+            if (!normalizedTarget) {
+                return;
+            }
+
+            const referenceRecord = {
+                fromResourcePath: resourcePath,
+                fromResourceName: resourceRecord.name,
+                propertyPath,
+                targetPath: normalizedTarget,
+                targetName: targetName ?? null,
+                targetResourceType: null
+            };
+
+            context.assetReferences.push(referenceRecord);
+            resourceRecord.assetReferences.push(referenceRecord);
+        }
+    );
+}
+
+function processResourceDocument({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
+    const resourceDir = path.posix.dirname(resourcePath);
+
+    registerScriptResourceIfNeeded({
+        context,
+        parsed,
+        resourceRecord,
+        resourceDir
+    });
+
+    registerResourceEvents({
+        context,
+        parsed,
+        resourceRecord,
+        resourceDir
+    });
+
+    collectResourceAssetReferences({
+        context,
+        parsed,
+        resourceRecord,
+        resourcePath,
+        projectRoot
+    });
+}
+
+function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
     for (const reference of assetReferences) {
         const targetResource = resourcesMap.get(reference.targetPath);
         if (targetResource) {
@@ -674,14 +753,38 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
             }
         }
     }
+}
 
-    return {
-        resourcesMap,
-        gmlScopeMap,
-        assetReferences,
-        scriptNameToScopeId,
-        scriptNameToResourcePath
-    };
+async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
+    const context = createResourceAnalysisContext();
+
+    for (const file of yyFiles) {
+        const parsed = await loadResourceDocument(file, fsFacade);
+        if (!parsed) {
+            continue;
+        }
+
+        const resourceRecord = ensureResourceRecordForDocument(
+            context,
+            file,
+            parsed
+        );
+
+        processResourceDocument({
+            context,
+            parsed,
+            resourceRecord,
+            resourcePath: file.relativePath,
+            projectRoot
+        });
+    }
+
+    annotateAssetReferenceTargets(
+        context.assetReferences,
+        context.resourcesMap
+    );
+
+    return context;
 }
 
 function cloneIdentifierDeclaration(declaration) {

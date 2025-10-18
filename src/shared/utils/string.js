@@ -6,6 +6,19 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+export function getNonEmptyTrimmedString(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    return trimmed;
+}
+
 export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
@@ -50,15 +63,6 @@ export function capitalize(value) {
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
-
-// Reuse a single Set instance for duplicate detection to avoid allocating a new
-// Set on every call. The helper runs in hot option-normalisation paths where
-// inputs are processed repeatedly, so avoiding per-call allocations reduces
-// memory churn when the function is invoked many times in a row. A simple
-// borrowing flag ensures nested calls fall back to a fresh Set without
-// interfering with the shared instance.
-const REUSABLE_SEEN_SET = new Set();
-let reusableSeenSetBorrowed = false;
 
 function getCandidateEntries(value, splitPattern) {
     if (Array.isArray(value)) {
@@ -119,37 +123,23 @@ export function normalizeStringList(
     }
 
     const normalized = [];
-    let seen;
-    let releaseReusableSet = false;
+    // Track unique, trimmed entries without the global borrowing logic that
+    // previously complicated this helper. Each invocation gets its own Set,
+    // keeping the flow easy to follow while preserving the same behaviour.
+    const seen = new Set();
 
-    if (reusableSeenSetBorrowed) {
-        seen = new Set();
-    } else {
-        seen = REUSABLE_SEEN_SET;
-        reusableSeenSetBorrowed = true;
-        releaseReusableSet = true;
-        seen.clear();
-    }
-
-    try {
-        for (const entry of entries) {
-            if (typeof entry !== "string") {
-                continue;
-            }
-
-            const trimmed = entry.trim();
-            if (trimmed.length === 0 || seen.has(trimmed)) {
-                continue;
-            }
-
-            seen.add(trimmed);
-            normalized.push(trimmed);
+    for (const entry of entries) {
+        if (typeof entry !== "string") {
+            continue;
         }
-    } finally {
-        if (releaseReusableSet) {
-            seen.clear();
-            reusableSeenSetBorrowed = false;
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0 || seen.has(trimmed)) {
+            continue;
         }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
     return normalized;
@@ -188,8 +178,8 @@ export function toNormalizedLowerCaseSet(
     // for `Array#map` on each invocation. The helper runs in hot formatter and
     // option-parsing paths, so keeping it allocation-free shaves measurable
     // time off tight micro-benchmarks.
-    for (let index = 0; index < normalizedValues.length; index += 1) {
-        normalizedSet.add(normalizedValues[index].toLowerCase());
+    for (const normalizedValue of normalizedValues) {
+        normalizedSet.add(normalizedValue.toLowerCase());
     }
 
     return normalizedSet;

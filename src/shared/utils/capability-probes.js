@@ -68,6 +68,25 @@ export function isAggregateErrorLike(value) {
     return isErrorLike(value) && Array.isArray(value.errors);
 }
 
+const COMMANDER_ERROR_CODE_PREFIX = "commander.";
+
+export function isCommanderErrorLike(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    const code = typeof value.code === "string" ? value.code : null;
+    if (!code || !code.startsWith(COMMANDER_ERROR_CODE_PREFIX)) {
+        return false;
+    }
+
+    if ("exitCode" in value && typeof value.exitCode !== "number") {
+        return false;
+    }
+
+    return true;
+}
+
 export function isRegExpLike(value) {
     if (!isObjectLike(value)) {
         return false;
@@ -104,6 +123,18 @@ export function isSetLike(value) {
     return hasIterator(value);
 }
 
+/**
+ * Lightweight truthiness probe for collection-like objects. Prefers numeric
+ * `length`/`size` hints before walking an iterator so that expensive or
+ * side-effectful iterables (generators) are only consumed when strictly
+ * necessary. Non-iterable values immediately return `false` so callers can pass
+ * optional inputs without pre-validating them.
+ *
+ * @param {Iterable<unknown> | { length?: number, size?: number } | null | undefined} iterable
+ *        Candidate collection to inspect.
+ * @returns {boolean} `true` when at least one item is detected, otherwise
+ *                    `false`.
+ */
 export function hasIterableItems(iterable) {
     if (!iterable) {
         return false;
@@ -126,6 +157,16 @@ export function hasIterableItems(iterable) {
     return false;
 }
 
+/**
+ * Determine how many items an iterable-like object exposes. Numeric hints are
+ * trusted when finite, mirroring the fast-path in {@link hasIterableItems};
+ * otherwise the iterator is consumed eagerly to obtain an exact count.
+ * Non-iterable values fall back to `0` so callers can safely chain arithmetic.
+ *
+ * @param {Iterable<unknown> | { length?: number, size?: number } | null | undefined} iterable
+ *        Candidate collection to size.
+ * @returns {number} Number of elements yielded by the iterable.
+ */
 export function getIterableSize(iterable) {
     const lengthHint = getLengthHint(iterable);
     if (lengthHint !== null) {
@@ -144,4 +185,3 @@ export function getIterableSize(iterable) {
 
     return count;
 }
-
