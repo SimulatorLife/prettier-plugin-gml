@@ -297,56 +297,6 @@ function removeDuplicateCondensedFunctions(context) {
     context.ast.body = context.ast.body.filter((node) => !toRemove.has(node));
 }
 
-function applyDocCommentUpdates(context) {
-    if (!context || context.docUpdates.size === 0) {
-        return;
-    }
-
-    const commentGroups = ensureCommentGroups(context);
-
-    for (const [fn, update] of context.docUpdates.entries()) {
-        if (!update || typeof update.expression !== "string") {
-            continue;
-        }
-
-        const expression = update.expression.trim();
-        if (!expression) {
-            continue;
-        }
-
-        const comments = commentGroups.get(fn);
-        if (!Array.isArray(comments) || comments.length === 0) {
-            continue;
-        }
-
-        const descriptionComment = comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                comment.value.includes("@description")
-        );
-
-        if (!descriptionComment) {
-            continue;
-        }
-
-        const updatedDescription = buildUpdatedDescription(
-            update.description,
-            expression
-        );
-
-        if (!updatedDescription) {
-            continue;
-        }
-
-        const prefixMatch = descriptionComment.value.match(
-            /^(\s*\/\s*@description\s*)/i
-        );
-        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
-
-        descriptionComment.value = `${prefix}${updatedDescription}`;
-    }
-}
-
 function mapDocCommentsToFunctions(ast) {
     const functions = collectFunctionNodes(ast).sort((a, b) => {
         const aStart = getNodeStartIndex(a) ?? 0;
@@ -396,6 +346,71 @@ function mapDocCommentsToFunctions(ast) {
     }
 
     return groups;
+}
+
+function applyDocCommentUpdates(context) {
+    if (!context || context.docUpdates.size === 0) {
+        return;
+    }
+
+    const commentGroups = ensureCommentGroups(context);
+
+    for (const [fn, update] of context.docUpdates.entries()) {
+        if (!update || !isNonEmptyTrimmedString(update.expression)) {
+            continue;
+        }
+
+        const comments = commentGroups.get(fn);
+        if (!comments || comments.length === 0) {
+            continue;
+        }
+
+        const descriptionComment = comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                /@description\b/i.test(comment.value)
+        );
+
+        if (!descriptionComment) {
+            continue;
+        }
+
+        let updatedDescription = buildUpdatedDescription(
+            update.description,
+            update.expression
+        );
+
+        if (!isNonEmptyTrimmedString(updatedDescription)) {
+            continue;
+        }
+
+        const originalDescription =
+            typeof update.description === "string"
+                ? update.description.trim()
+                : "";
+
+        if (
+            originalDescription.endsWith(".") &&
+            !/[.!?]$/.test(updatedDescription)
+        ) {
+            updatedDescription = `${updatedDescription}.`;
+        }
+
+        const existingDescription = extractDescriptionContent(
+            descriptionComment.value
+        );
+
+        if (existingDescription === updatedDescription) {
+            continue;
+        }
+
+        const prefixMatch = descriptionComment.value.match(
+            /^(\s*\/\s*@description\s*)/i
+        );
+        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
+
+        descriptionComment.value = `${prefix}${updatedDescription}`;
+    }
 }
 
 function collectFunctionNodes(ast) {

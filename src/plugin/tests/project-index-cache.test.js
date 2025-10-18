@@ -341,6 +341,40 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
     });
 });
 
+test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestMtimes = {
+            "project.yyp": 1_700_000_000_000.1234
+        };
+        const sourceMtimes = {
+            "scripts/main.gml": 1_700_000_000_500.5678
+        };
+
+        await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes,
+            sourceMtimes,
+            projectIndex: createProjectIndex(projectRoot)
+        });
+
+        const loadResult = await loadProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {
+                "project.yyp": manifestMtimes["project.yyp"] + 0.0004
+            },
+            sourceMtimes: {
+                "scripts/main.gml": sourceMtimes["scripts/main.gml"] - 0.0003
+            }
+        });
+
+        assert.equal(loadResult.status, "hit");
+    });
+});
+
 test("loadProjectIndexCache treats differently ordered mtime maps as equal", async () => {
     await withTempDir(async (projectRoot) => {
         await saveProjectIndexCache({
@@ -499,6 +533,65 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
     }
 
     await assert.rejects(coordinator.ensureReady(descriptor), /disposed/i);
+});
+
+test("createProjectIndexCoordinator aborts in-flight builds on dispose", async () => {
+    const cacheFilePath = path.join(os.tmpdir(), "virtual-cache.json");
+    const buildStarted = createDeferred();
+    let saveCalls = 0;
+
+    const coordinator = createProjectIndexCoordinator({
+        loadCache: async () => ({
+            status: "miss",
+            cacheFilePath,
+            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+        }),
+        saveCache: async () => {
+            saveCalls += 1;
+            return { status: "written", cacheFilePath, size: 1 };
+        },
+        buildIndex: async (root, fsFacade, options = {}) => {
+            buildStarted.resolve(options.signal ?? null);
+
+            await new Promise((_resolve, reject) => {
+                const { signal } = options;
+                if (!signal) {
+                    reject(new Error("Expected abort signal"));
+                    return;
+                }
+
+                if (signal.aborted) {
+                    reject(signal.reason ?? new Error("aborted"));
+                    return;
+                }
+
+                const onAbort = () => {
+                    signal.removeEventListener("abort", onAbort);
+                    reject(signal.reason ?? new Error("aborted"));
+                };
+                signal.addEventListener("abort", onAbort, { once: true });
+            });
+
+            return createProjectIndex(root);
+        }
+    });
+
+    const descriptor = {
+        projectRoot: path.join(os.tmpdir(), "dispose-project"),
+        formatterVersion: "1.0.0",
+        pluginVersion: "0.1.0",
+        manifestMtimes: { "project.yyp": 100 },
+        sourceMtimes: { "scripts/main.gml": 200 }
+    };
+
+    const ensurePromise = coordinator.ensureReady(descriptor);
+    const signal = await buildStarted.promise;
+    assert.ok(signal, "Expected buildIndex to receive an abort signal");
+
+    coordinator.dispose();
+
+    await assert.rejects(ensurePromise, /disposed/i);
+    assert.equal(saveCalls, 0, "Cache writes should not occur after dispose");
 });
 
 test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {

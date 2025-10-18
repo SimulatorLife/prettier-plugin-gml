@@ -10,8 +10,15 @@ import path from "node:path";
 
 import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
 import { coalesceTrimmedString } from "../../../shared/string-utils.js";
-import { coalesceOption } from "../../../shared/object-utils.js";
-import { asArray, toArray } from "../../../shared/array-utils.js";
+import {
+    coalesceOption,
+    withObjectLike
+} from "../../../shared/object-utils.js";
+import {
+    asArray,
+    isNonEmptyArray,
+    toArray
+} from "../../../shared/array-utils.js";
 
 import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../identifier-case/fs-facade.js";
@@ -62,147 +69,155 @@ function extractOperations(plan) {
 }
 
 function normalizeReference(reference) {
-    if (!reference || typeof reference !== "object") {
-        return null;
-    }
+    return withObjectLike(
+        reference,
+        (object) => {
+            const filePath = coalesceTrimmedString(
+                object.filePath,
+                object.path,
+                object.file
+            );
 
-    const filePath = coalesceTrimmedString(
-        reference.filePath,
-        reference.path,
-        reference.file
+            if (!filePath) {
+                return null;
+            }
+
+            const occurrenceCandidate =
+                object.occurrences ?? object.count ?? object.references ?? 0;
+            const occurrences = Number.isFinite(occurrenceCandidate)
+                ? Number(occurrenceCandidate)
+                : 0;
+
+            return {
+                filePath,
+                occurrences: Math.max(occurrences, 0)
+            };
+        },
+        null
     );
-
-    if (!filePath) {
-        return null;
-    }
-
-    const occurrenceCandidate =
-        reference.occurrences ?? reference.count ?? reference.references ?? 0;
-    const occurrences = Number.isFinite(occurrenceCandidate)
-        ? Number(occurrenceCandidate)
-        : 0;
-
-    return {
-        filePath,
-        occurrences: Math.max(occurrences, 0)
-    };
 }
 
 function normalizeScope(scope) {
-    if (!scope || typeof scope !== "object") {
-        return { id: null, displayName: null, name: null };
-    }
+    return withObjectLike(
+        scope,
+        (object) => {
+            const displayName = coalesceTrimmedString(
+                object.displayName,
+                object.name,
+                object.scope,
+                object.path
+            );
+            const id = coalesceTrimmedString(object.id, object.scopeId);
 
-    const displayName = coalesceTrimmedString(
-        scope.displayName,
-        scope.name,
-        scope.scope,
-        scope.path
+            return {
+                id: id || null,
+                displayName: displayName || null,
+                name: coalesceTrimmedString(object.name) || null
+            };
+        },
+        { id: null, displayName: null, name: null }
     );
-    const id = coalesceTrimmedString(scope.id, scope.scopeId);
-
-    return {
-        id: id || null,
-        displayName: displayName || null,
-        name: coalesceTrimmedString(scope.name) || null
-    };
 }
 
 function normalizeOperation(rawOperation) {
-    if (!rawOperation || typeof rawOperation !== "object") {
-        return null;
-    }
+    return withObjectLike(
+        rawOperation,
+        (operation) => {
+            const scope = normalizeScope(operation.scope ?? {});
 
-    const scope = normalizeScope(rawOperation.scope ?? {});
+            const fromName = coalesceTrimmedString(
+                operation.from?.name,
+                operation.source?.name,
+                operation.originalName,
+                operation.from,
+                operation.source
+            );
+            const toName = coalesceTrimmedString(
+                operation.to?.name,
+                operation.target?.name,
+                operation.updatedName,
+                operation.to,
+                operation.target
+            );
 
-    const fromName = coalesceTrimmedString(
-        rawOperation.from?.name,
-        rawOperation.source?.name,
-        rawOperation.originalName,
-        rawOperation.from,
-        rawOperation.source
+            const references = toArray(operation.references)
+                .map(normalizeReference)
+                .filter(Boolean)
+                .toSorted((a, b) => a.filePath.localeCompare(b.filePath));
+
+            const occurrenceCount = references.reduce(
+                (total, reference) => total + (reference.occurrences ?? 0),
+                0
+            );
+
+            const referenceFileCount = new Set(
+                references.map((reference) => reference.filePath)
+            ).size;
+
+            return {
+                id:
+                    coalesceTrimmedString(operation.id, operation.identifier) ||
+                    null,
+                kind:
+                    coalesceTrimmedString(operation.kind, operation.type) ||
+                    "identifier",
+                scopeId: scope.id,
+                scopeName: scope.displayName ?? scope.name ?? null,
+                fromName: fromName || null,
+                toName: toName || null,
+                references,
+                occurrenceCount,
+                referenceFileCount
+            };
+        },
+        null
     );
-    const toName = coalesceTrimmedString(
-        rawOperation.to?.name,
-        rawOperation.target?.name,
-        rawOperation.updatedName,
-        rawOperation.to,
-        rawOperation.target
-    );
-
-    const references = toArray(rawOperation.references)
-        .map(normalizeReference)
-        .filter(Boolean)
-        .toSorted((a, b) => a.filePath.localeCompare(b.filePath));
-
-    const occurrenceCount = references.reduce(
-        (total, reference) => total + (reference.occurrences ?? 0),
-        0
-    );
-
-    const referenceFileCount = new Set(
-        references.map((reference) => reference.filePath)
-    ).size;
-
-    return {
-        id:
-            coalesceTrimmedString(rawOperation.id, rawOperation.identifier) ||
-            null,
-        kind:
-            coalesceTrimmedString(rawOperation.kind, rawOperation.type) ||
-            "identifier",
-        scopeId: scope.id,
-        scopeName: scope.displayName ?? scope.name ?? null,
-        fromName: fromName || null,
-        toName: toName || null,
-        references,
-        occurrenceCount,
-        referenceFileCount
-    };
 }
 
 function normalizeConflict(rawConflict) {
-    if (!rawConflict || typeof rawConflict !== "object") {
-        return null;
-    }
+    return withObjectLike(
+        rawConflict,
+        (conflict) => {
+            const scope = normalizeScope(conflict.scope ?? {});
+            const severityCandidate = coalesceTrimmedString(conflict.severity);
+            const severity = severityCandidate
+                ? severityCandidate.toLowerCase()
+                : "error";
 
-    const scope = normalizeScope(rawConflict.scope ?? {});
-    const severityCandidate = coalesceTrimmedString(rawConflict.severity);
-    const severity = severityCandidate
-        ? severityCandidate.toLowerCase()
-        : "error";
+            const suggestions = toArray(conflict.suggestions ?? conflict.hints)
+                .map((entry) => coalesceTrimmedString(entry))
+                .filter(Boolean);
 
-    const suggestions = toArray(rawConflict.suggestions ?? rawConflict.hints)
-        .map((entry) => coalesceTrimmedString(entry))
-        .filter(Boolean);
-
-    return {
-        code:
-            coalesceTrimmedString(
-                rawConflict.code,
-                rawConflict.identifier,
-                rawConflict.type
-            ) || null,
-        message:
-            coalesceTrimmedString(rawConflict.message, rawConflict.reason) ||
-            "",
-        severity,
-        scope: {
-            id: scope.id,
-            displayName: scope.displayName ?? scope.name ?? null
+            return {
+                code:
+                    coalesceTrimmedString(
+                        conflict.code,
+                        conflict.identifier,
+                        conflict.type
+                    ) || null,
+                message:
+                    coalesceTrimmedString(conflict.message, conflict.reason) ||
+                    "",
+                severity,
+                scope: {
+                    id: scope.id,
+                    displayName: scope.displayName ?? scope.name ?? null
+                },
+                identifier:
+                    coalesceTrimmedString(
+                        conflict.identifier,
+                        conflict.name,
+                        conflict.originalName
+                    ) || null,
+                suggestions,
+                details:
+                    conflict.details && typeof conflict.details === "object"
+                        ? { ...conflict.details }
+                        : null
+            };
         },
-        identifier:
-            coalesceTrimmedString(
-                rawConflict.identifier,
-                rawConflict.name,
-                rawConflict.originalName
-            ) || null,
-        suggestions,
-        details:
-            rawConflict.details && typeof rawConflict.details === "object"
-                ? { ...rawConflict.details }
-                : null
-    };
+        null
+    );
 }
 
 function sortOperations(operations) {
@@ -462,7 +477,7 @@ function buildLogPayload(report, generatedAt) {
 }
 
 function resolveSummarySeverity(conflicts) {
-    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    if (!isNonEmptyArray(conflicts)) {
         return "info";
     }
 

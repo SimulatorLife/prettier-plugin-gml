@@ -2,9 +2,10 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
+import { throwIfAborted } from "./abort-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -41,13 +42,6 @@ function hasEntries(record) {
     );
 }
 
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
-    );
-}
-
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
         return path.resolve(cacheFilePath);
@@ -70,6 +64,20 @@ function cloneMtimeMap(source) {
     );
 }
 
+function areNumbersApproximatelyEqual(a, b) {
+    if (a === b) {
+        return true;
+    }
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return false;
+    }
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance = Number.EPSILON * scale * 4;
+    return Math.abs(a - b) <= tolerance;
+}
+
 function areMtimeMapsEqual(expected = {}, actual = {}) {
     if (expected === actual) {
         return true;
@@ -90,7 +98,15 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return false;
     }
 
-    return expectedEntries.every(([key, value]) => actual[key] === value);
+    return expectedEntries.every(([key, value]) => {
+        const actualValue = actual[key];
+
+        if (typeof value === "number" && typeof actualValue === "number") {
+            return areNumbersApproximatelyEqual(value, actualValue);
+        }
+
+        return actualValue === value;
+    });
 }
 
 function validateCachePayload(payload) {
@@ -141,7 +157,8 @@ function validateCachePayload(payload) {
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -157,6 +174,9 @@ export async function loadProjectIndexCache(
             "projectRoot must be provided to loadProjectIndexCache"
         );
     }
+
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
@@ -174,6 +194,8 @@ export async function loadProjectIndexCache(
         throw error;
     }
 
+    throwIfAborted(signal, "Project index cache load was aborted.");
+
     let parsed;
     try {
         parsed = parseJsonWithContext(rawContents, {
@@ -187,6 +209,8 @@ export async function loadProjectIndexCache(
             { error }
         );
     }
+
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     if (!validateCachePayload(parsed)) {
         return createCacheMiss(
@@ -258,7 +282,8 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -283,11 +308,15 @@ export async function saveProjectIndexCache(
         );
     }
 
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache save was aborted.");
+
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
     await fsFacade.mkdir(cacheDir, { recursive: true });
+    throwIfAborted(signal, "Project index cache save was aborted.");
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -323,12 +352,20 @@ export async function saveProjectIndexCache(
 
     try {
         await fsFacade.writeFile(tempFilePath, serialized, "utf8");
+        throwIfAborted(signal, "Project index cache save was aborted.");
+
         await fsFacade.rename(tempFilePath, cacheFilePath);
+        throwIfAborted(signal, "Project index cache save was aborted.");
     } catch (error) {
         try {
             await fsFacade.unlink(tempFilePath);
         } catch {
-            // Ignore cleanup failures.
+            // The rename failure above is the actionable error for callers; a
+            // secondary failure while deleting the uniquely named temp file is
+            // best-effort hygiene. Dropping that error preserves the original
+            // stack trace while still leaving a breadcrumb that the write was
+            // attempted—the random suffix prevents future writes from
+            // colliding even if the orphaned file lingers.
         }
         throw error;
     }
@@ -355,7 +392,7 @@ export async function deriveCacheKey(
     if (resolvedRoot) {
         const entries = await listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
-            .filter(isManifestEntry)
+            .filter(isProjectManifestPath)
             .sort((a, b) => a.localeCompare(b));
 
         for (const manifestName of manifestNames) {

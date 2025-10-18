@@ -29,12 +29,30 @@ import {
     isMapLike,
     isSetLike
 } from "../../../shared/utils/capability-probes.js";
-import { collectCommentNodes, getCommentArray } from "../comments/index.js";
+import {
+    collectCommentNodes,
+    getCommentArray,
+    hasComment
+} from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../feather/metadata.js";
+
+function forEachNodeChild(node, callback) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        callback(value, key);
+    }
+}
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
@@ -479,11 +497,9 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -573,18 +589,14 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         const nextBreakableDepth =
             breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        for (const [key, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
+        forEachNodeChild(node, (value, key) => {
             if (Array.isArray(value)) {
                 visitArray(value, node, key, nextBreakableDepth);
-                continue;
+                return;
             }
 
             visit(value, node, key, nextBreakableDepth, node);
-        }
+        });
 
         return false;
     };
@@ -1838,11 +1850,9 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -2019,11 +2029,9 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -8870,10 +8878,30 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
 
-    if (isFogResetCall(nextNode)) {
-        return null;
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (candidate?.type === "EmptyStatement") {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (isFogResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate || candidate.type !== "CallExpression") {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        insertionIndex += 1;
     }
 
     const resetCall = createFogResetCall(node);
@@ -8894,7 +8922,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -9644,7 +9672,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                const originalHasComments = hasComment(originalDeclaration);
+
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
 
                 // Suppress synthetic @returns metadata when a Feather fix removes
@@ -9652,7 +9681,11 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 // existing documentation intact without introducing additional
                 // lines so the output remains stable for the surviving
                 // declaration.
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                if (originalHasComments) {
+                    originalDeclaration._suppressSyntheticReturnsDoc = true;
+                } else {
+                    delete originalDeclaration._suppressSyntheticReturnsDoc;
+                }
             }
         }
 
@@ -10348,7 +10381,8 @@ function ensureAlphaTestEnableResetAfterCall(
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        (!nextSibling || !isTriviallyIgnorableStatement(nextSibling)) &&
+        nextSibling &&
+        !isTriviallyIgnorableStatement(nextSibling) &&
         !isAlphaTestDisableCall(nextSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
@@ -12345,10 +12379,13 @@ function ensureColourWriteEnableResetAfterCall(
 
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
+    const hasOriginalSeparator = nextSibling
+        ? hasOriginalBlankLineBetween(previousSibling, nextSibling)
+        : hasOriginalBlankLineBetween(node, previousSibling);
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+        !hasOriginalSeparator;
 
     if (shouldInsertSeparator) {
         siblings.splice(
@@ -12358,6 +12395,9 @@ function ensureColourWriteEnableResetAfterCall(
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);

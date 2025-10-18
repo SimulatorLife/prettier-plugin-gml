@@ -1,5 +1,6 @@
 import { constants as fsConstants } from "node:fs";
 
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 
@@ -49,7 +50,7 @@ export function buildPatternMatchers(patterns) {
 }
 
 export function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Array.isArray(matchers) || matchers.length === 0) {
+    if (!isNonEmptyArray(matchers)) {
         return null;
     }
 
