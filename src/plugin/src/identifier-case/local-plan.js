@@ -223,19 +223,14 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = getEntryDeclarations(entry);
+    const classificationSources = [
+        ...getEntryDeclarations(entry).flatMap((declaration) =>
+            getEntityClassifications(declaration)
+        ),
+        ...getEntryDeclarationKinds(entry)
+    ];
 
-    for (const declaration of declarations) {
-        const classifications = getEntityClassifications(declaration);
-        for (const tag of classifications) {
-            if (tag) {
-                tags.add(tag);
-            }
-        }
-    }
-
-    const declarationKinds = getEntryDeclarationKinds(entry);
-    for (const tag of declarationKinds) {
+    for (const tag of classificationSources) {
         if (tag) {
             tags.add(tag);
         }
