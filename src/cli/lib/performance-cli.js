@@ -67,45 +67,6 @@ function createBenchmarkContext(resolvedProjectRoot) {
     };
 }
 
-/**
- * Track the result of a single project index benchmark run.
- *
- * @param {{ results: { index: Array<object> } }} context
- * @param {object} runRecord
- */
-function appendProjectIndexRun(context, runRecord) {
-    context.results.index.push(runRecord);
-}
-
-/**
- * Store a project index error on the shared benchmark context.
- *
- * @param {{ results: { error?: object } }} context
- * @param {object} error
- */
-function recordProjectIndexError(context, error) {
-    context.results.error = error;
-}
-
-/**
- * Apply the outcome of an indexing attempt and return control metadata for the
- * orchestrator.
- *
- * @param {{ results: { index: Array<object>, error?: object } }} context
- * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
- * @returns {{ shouldAbort: boolean, latestIndex: object | null }}
- */
-function applyProjectIndexAttemptResult(context, attemptResult) {
-    appendProjectIndexRun(context, attemptResult.runRecord);
-
-    if (attemptResult.error) {
-        recordProjectIndexError(context, attemptResult.error);
-        return { shouldAbort: true, latestIndex: null };
-    }
-
-    return { shouldAbort: false, latestIndex: attemptResult.index };
-}
-
 async function executeProjectIndexAttempt({
     resolvedProjectRoot,
     logger,
@@ -148,6 +109,7 @@ async function collectProjectIndexRuns({
     logger,
     verbose
 }) {
+    const { results } = context;
     let latestIndex = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
         const attemptResult = await executeProjectIndexAttempt({
@@ -156,15 +118,14 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
+        results.index.push(attemptResult.runRecord);
 
-        const { shouldAbort, latestIndex: attemptIndex } =
-            applyProjectIndexAttemptResult(context, attemptResult);
-
-        if (shouldAbort) {
+        if (attemptResult.error) {
+            results.error = attemptResult.error;
             return { latestIndex: null };
         }
 
-        latestIndex = attemptIndex;
+        latestIndex = attemptResult.index;
     }
 
     return { latestIndex };
