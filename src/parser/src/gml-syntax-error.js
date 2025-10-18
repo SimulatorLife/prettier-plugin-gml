@@ -92,7 +92,10 @@ function getSpecificSyntaxErrorMessage({
             if (stack[1] !== "block") {
                 return null;
             }
-            const openBraceToken = parser._ctx.parentCtx.openBlock().start;
+            const openBraceToken = resolveOpenBlockStartToken(parser);
+            if (!openBraceToken) {
+                return null;
+            }
             return (
                 `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
                 "missing associated closing brace for this block"
@@ -130,4 +133,26 @@ function getSpecificSyntaxErrorMessage({
             return null;
         }
     }
+}
+
+/**
+ * Safely resolve the start token for the open block that encloses the parser's
+ * current context.
+ *
+ * @param {object} parser
+ * @returns {object | null}
+ */
+function resolveOpenBlockStartToken(parser) {
+    const currentContext = parser?._ctx;
+    if (!currentContext) {
+        return null;
+    }
+
+    const parentContext = currentContext.parentCtx;
+    if (!parentContext || typeof parentContext.openBlock !== "function") {
+        return null;
+    }
+
+    const openBlockContext = parentContext.openBlock();
+    return openBlockContext?.start ?? null;
 }
