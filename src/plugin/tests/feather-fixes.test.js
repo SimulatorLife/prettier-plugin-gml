@@ -2752,11 +2752,13 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [setFogCall, fogResetCall, drawCall] = statements;
+        const [setFogCall, drawCall, fogResetCall] = statements;
 
         assert.ok(setFogCall);
-        assert.ok(fogResetCall);
         assert.ok(drawCall);
+        assert.ok(fogResetCall);
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
         assert.strictEqual(fogResetCall.type, "CallExpression");
         assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
 
