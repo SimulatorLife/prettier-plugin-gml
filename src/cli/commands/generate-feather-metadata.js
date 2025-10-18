@@ -988,6 +988,118 @@ function parseTypeSystem(html) {
     };
 }
 
+function createFeatherManualMetadataPayload({
+    manualRef,
+    manualRepo,
+    sections
+}) {
+    return {
+        meta: {
+            manualRef: manualRef.ref,
+            commitSha: manualRef.sha,
+            generatedAt: new Date().toISOString(),
+            source: manualRepo,
+            manualPaths: { ...FEATHER_PAGES }
+        },
+        ...sections
+    };
+}
+
+async function fetchFeatherManualPayloads({
+    manualRef,
+    fetchManualFile: fetchManualFileFn,
+    forceRefresh,
+    verbose,
+    cacheRoot,
+    rawRoot,
+    progressBarWidth
+}) {
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
+
+    if (verbose.downloads) {
+        console.log(
+            `Fetching ${totalManualPages} manual page${
+                totalManualPages === 1 ? "" : "s"
+            }…`
+        );
+    }
+
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        });
+        fetchedCount += 1;
+        reportManualFetchProgress({
+            manualPath,
+            fetchedCount,
+            totalManualPages,
+            verbose,
+            progressBarWidth
+        });
+    }
+
+    return htmlPayloads;
+}
+
+function reportManualFetchProgress({
+    manualPath,
+    fetchedCount,
+    totalManualPages,
+    verbose,
+    progressBarWidth
+}) {
+    if (!verbose.downloads) {
+        return;
+    }
+
+    if (verbose.progressBar) {
+        renderProgressBar(
+            "Downloading manual pages",
+            fetchedCount,
+            totalManualPages,
+            progressBarWidth
+        );
+        return;
+    }
+
+    console.log(`✓ ${manualPath}`);
+}
+
+function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
+    if (verbose.parsing) {
+        console.log("Parsing manual sections…");
+    }
+
+    return {
+        diagnostics: timeSync(
+            "Diagnostics",
+            () => parseDiagnostics(htmlPayloads.diagnostics),
+            { verbose }
+        ),
+        directives: timeSync(
+            "Directives",
+            () => parseDirectiveSections(htmlPayloads.directives),
+            { verbose }
+        ),
+        namingRules: timeSync(
+            "Naming rules",
+            () => parseNamingRules(htmlPayloads.naming),
+            { verbose }
+        ),
+        typeSystem: timeSync(
+            "Type system",
+            () => parseTypeSystem(htmlPayloads.typeSystem),
+            { verbose }
+        )
+    };
+}
+
 export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();
@@ -1013,78 +1125,22 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
         }
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-        const htmlPayloads = {};
-        const manualEntries = Object.entries(FEATHER_PAGES);
-        const totalManualPages = manualEntries.length;
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${totalManualPages} manual page${
-                    totalManualPages === 1 ? "" : "s"
-                }…`
-            );
-        }
+        const htmlPayloads = await fetchFeatherManualPayloads({
+            manualRef,
+            fetchManualFile,
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot,
+            progressBarWidth
+        });
 
-        let fetchedCount = 0;
-        for (const [key, manualPath] of manualEntries) {
-            htmlPayloads[key] = await fetchManualFile(
-                manualRef.sha,
-                manualPath,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-            fetchedCount += 1;
-            if (verbose.progressBar && verbose.downloads) {
-                renderProgressBar(
-                    "Downloading manual pages",
-                    fetchedCount,
-                    totalManualPages,
-                    progressBarWidth
-                );
-            } else if (verbose.downloads) {
-                console.log(`✓ ${manualPath}`);
-            }
-        }
-        if (verbose.parsing) {
-            console.log("Parsing manual sections…");
-        }
-        const diagnostics = timeSync(
-            "Diagnostics",
-            () => parseDiagnostics(htmlPayloads.diagnostics),
-            { verbose }
-        );
-        const directives = timeSync(
-            "Directives",
-            () => parseDirectiveSections(htmlPayloads.directives),
-            { verbose }
-        );
-        const namingRules = timeSync(
-            "Naming rules",
-            () => parseNamingRules(htmlPayloads.naming),
-            { verbose }
-        );
-        const typeSystem = timeSync(
-            "Type system",
-            () => parseTypeSystem(htmlPayloads.typeSystem),
-            { verbose }
-        );
-
-        const payload = {
-            meta: {
-                manualRef: manualRef.ref,
-                commitSha: manualRef.sha,
-                generatedAt: new Date().toISOString(),
-                source: manualRepo,
-                manualPaths: { ...FEATHER_PAGES }
-            },
-            diagnostics,
-            directives,
-            namingRules,
-            typeSystem
-        };
+        const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
+        const payload = createFeatherManualMetadataPayload({
+            manualRef,
+            manualRepo,
+            sections
+        });
 
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
