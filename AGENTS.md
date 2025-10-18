@@ -4,6 +4,7 @@
 - Do **NOT** modify the Github Actions workflows in `.github/workflows` unless explicitly instructed to do so. When updating these files, ensure the changes are limited to the specific instructions or guidelines provided, without altering other sections.
 - Do **NOT** modify the `eslint.config.js` or `.prettierrc` files unless explicitly instructed to do so. When updating this file, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
 - Do **NOT** modify the `AGENTS.md` file unless explicitly instructed to do so. When updating this file, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
+- Do **NOT** add standalone Node scripts outside of `src/cli/commands/`. Expose new tooling through the CLI so helpers remain discoverable and consistent.
 - Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 
 ## Repository & Commit Conflict Resolution Strategy

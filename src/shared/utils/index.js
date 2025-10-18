@@ -1,3 +1,4 @@
+export * from "./abort.js";
 export * from "./array.js";
 export * from "./capability-probes.js";
 export * from "./error.js";

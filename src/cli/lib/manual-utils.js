@@ -1,15 +1,49 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext } from "../../shared/json-utils.js";
-import { toTrimmedString } from "../../shared/string-utils.js";
-import { formatBytes } from "../../shared/number-utils.js";
+import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
+import { formatBytes } from "./byte-format.js";
+import { isNonEmptyArray } from "../../shared/array-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
+
+function createManualVerboseState({
+    quiet = false,
+    isTerminal = false,
+    overrides
+} = {}) {
+    const baseState = quiet
+        ? {
+              resolveRef: false,
+              downloads: false,
+              parsing: false,
+              progressBar: false
+          }
+        : {
+              resolveRef: true,
+              downloads: true,
+              parsing: true,
+              progressBar: isTerminal
+          };
+
+    if (!overrides || typeof overrides !== "object") {
+        return baseState;
+    }
+
+    const definedOverrides = Object.fromEntries(
+        Object.entries(overrides).filter(([, value]) => value !== undefined)
+    );
+
+    if (Object.keys(definedOverrides).length === 0) {
+        return baseState;
+    }
+
+    return { ...baseState, ...definedOverrides };
+}
 
 function assertPlainObject(value, message) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -222,7 +256,7 @@ function createManualGitHubClient({
             source: latestTagUrl
         });
 
-        if (!Array.isArray(tags) || tags.length === 0) {
+        if (!isNonEmptyArray(tags)) {
             console.warn(
                 "No manual tags found; defaulting to 'develop' branch."
             );
@@ -298,6 +332,7 @@ export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
+    createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
     resolveManualRepoValue,

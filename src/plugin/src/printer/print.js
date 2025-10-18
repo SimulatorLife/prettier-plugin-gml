@@ -29,7 +29,7 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
@@ -44,6 +44,7 @@ import {
 import {
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifierName,
     getIdentifierText,
     getSingleVariableDeclarator,
     isBooleanLiteral,
@@ -3520,16 +3521,8 @@ function applyOuterTrigConversion(node, conversionMap) {
 }
 
 function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const identifierName = getIdentifierText(node.object);
-    if (!identifierName) {
-        return false;
-    }
-
-    return identifierName.toLowerCase() === name;
+    const identifierName = getCallExpressionIdentifierName(node);
+    return identifierName ? identifierName.toLowerCase() === name : false;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {

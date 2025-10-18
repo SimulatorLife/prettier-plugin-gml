@@ -1,7 +1,5 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isNonEmptyString } from "../../shared/string-utils.js";
-import { isErrorLike } from "../../shared/utils/capability-probes.js";
-import { isObjectLike } from "../../shared/object-utils.js";
+import { isNonEmptyString, isObjectLike, isErrorLike } from "./shared-deps.js";
 
 const DEFAULT_SOURCE = "env";
 

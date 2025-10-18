@@ -11,7 +11,7 @@
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
 
-function toArrayFromIterable(values) {
+export function toArrayFromIterable(values) {
     if (values == null) {
         return [];
     }

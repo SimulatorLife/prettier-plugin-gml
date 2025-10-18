@@ -1,16 +1,27 @@
 import { performance } from "node:perf_hooks";
 
+import { getBodyStatements } from "../../shared/ast-node-helpers.js";
+
+function isEmptyProgram(node) {
+    if (!node || node.type !== "Program") {
+        return false;
+    }
+
+    const statements = getBodyStatements(node);
+    if (statements.length > 0) {
+        return false;
+    }
+
+    return true;
+}
+
 function baseline(ast, enclosingNode, followingNode) {
-    if (Array.isArray(ast?.body) && ast.body.length === 0) {
+    if (isEmptyProgram(ast)) {
         return ast;
     }
 
     for (const node of [enclosingNode, followingNode]) {
-        if (
-            node?.type === "Program" &&
-            Array.isArray(node.body) &&
-            node.body.length === 0
-        ) {
+        if (isEmptyProgram(node)) {
             return node;
         }
     }
@@ -19,22 +30,16 @@ function baseline(ast, enclosingNode, followingNode) {
 }
 
 function optimized(ast, enclosingNode, followingNode) {
-    if (Array.isArray(ast?.body) && ast.body.length === 0) {
+    if (isEmptyProgram(ast)) {
         return ast;
     }
 
-    const enclosingIsEmptyProgram =
-        enclosingNode?.type === "Program" &&
-        Array.isArray(enclosingNode.body) &&
-        enclosingNode.body.length === 0;
+    const enclosingIsEmptyProgram = isEmptyProgram(enclosingNode);
     if (enclosingIsEmptyProgram) {
         return enclosingNode;
     }
 
-    const followingIsEmptyProgram =
-        followingNode?.type === "Program" &&
-        Array.isArray(followingNode.body) &&
-        followingNode.body.length === 0;
+    const followingIsEmptyProgram = isEmptyProgram(followingNode);
     if (followingIsEmptyProgram) {
         return followingNode;
     }

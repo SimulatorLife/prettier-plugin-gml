@@ -4,12 +4,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+    getErrorMessage,
+    hasOwn,
+    isErrorWithCode,
     isNonEmptyTrimmedString,
+    isObjectLike,
+    toArray,
     toTrimmedString
-} from "../../shared/string-utils.js";
-import { toArray } from "../../shared/array-utils.js";
-import { hasOwn, isObjectLike } from "../../shared/object-utils.js";
-import { getErrorMessage, isErrorWithCode } from "../../shared/error-utils.js";
+} from "../../shared/utils.js";
 
 let parser;
 
@@ -86,10 +88,9 @@ function createFallbackXmlParser() {
             try {
                 return parseXmlDocument(xml);
             } catch (innerError) {
-                const message =
-                    innerError && typeof innerError.message === "string"
-                        ? innerError.message
-                        : String(innerError);
+                const message = getErrorMessage(innerError, {
+                    fallback: "Unknown error"
+                });
                 throw new Error(`Fallback XML parser failed: ${message}`);
             }
         }
@@ -457,46 +458,59 @@ function recordTestCases(aggregates, testCases) {
     }
 }
 
-function readTestResults(candidateDirs, { workspace } = {}) {
-    const workspaceRoot =
-        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const directories = normalizeResultDirectories(
-        candidateDirs,
-        workspaceRoot
-    );
-
-    const notes = [];
-    const aggregates = {
+function createResultAggregates() {
+    return {
         results: new Map(),
         stats: { total: 0, passed: 0, failed: 0, skipped: 0 }
     };
+}
 
-    const missingDirs = [];
-    const emptyDirs = [];
+/**
+ * Builds the shared state used while scanning candidate result directories.
+ * @param {string[]|string} candidateDirs
+ * @param {string} workspaceRoot
+ */
+function buildReadContext(candidateDirs, workspaceRoot) {
+    return {
+        directories: normalizeResultDirectories(candidateDirs, workspaceRoot),
+        notes: [],
+        aggregates: createResultAggregates(),
+        missingDirs: [],
+        emptyDirs: []
+    };
+}
 
-    for (const directory of directories) {
-        const scan = scanResultDirectory(directory);
-        notes.push(...scan.notes);
+function appendScanNotes(context, scan) {
+    if (scan.notes.length === 0) return;
+    context.notes.push(...scan.notes);
+}
 
-        if (scan.status === "missing") {
-            missingDirs.push(directory.display);
-            continue;
-        }
+function handleMissingOrEmptyDirectory(context, directory, status) {
+    const bucket = status === "missing" ? context.missingDirs : context.emptyDirs;
+    bucket.push(directory.display);
+}
 
-        if (scan.status === "empty") {
-            emptyDirs.push(directory.display);
-            continue;
-        }
+function buildSuccessfulReadResult(context, directory) {
+    return {
+        ...context.aggregates,
+        usedDir: directory.resolved,
+        displayDir: directory.display,
+        notes: context.notes
+    };
+}
 
-        recordTestCases(aggregates, scan.cases);
-
-        return {
-            ...aggregates,
-            usedDir: directory.resolved,
-            displayDir: directory.display,
-            notes
-        };
+function applyScanOutcome(context, directory, scan) {
+    if (scan.status === "missing" || scan.status === "empty") {
+        handleMissingOrEmptyDirectory(context, directory, scan.status);
+        return null;
     }
+
+    recordTestCases(context.aggregates, scan.cases);
+    return buildSuccessfulReadResult(context, directory);
+}
+
+function appendAvailabilityNotes(context) {
+    const { missingDirs, emptyDirs, notes } = context;
 
     if (missingDirs.length === 1) {
         notes.push(`No directory found at ${missingDirs[0]}.`);
@@ -509,13 +523,33 @@ function readTestResults(candidateDirs, { workspace } = {}) {
     } else if (emptyDirs.length > 1) {
         notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
     }
+}
 
+function buildUnavailableResult(context) {
     return {
-        ...aggregates,
+        ...context.aggregates,
         usedDir: null,
         displayDir: "",
-        notes
+        notes: context.notes
     };
+}
+
+function readTestResults(candidateDirs, { workspace } = {}) {
+    const workspaceRoot =
+        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
+    const context = buildReadContext(candidateDirs, workspaceRoot);
+
+    for (const directory of context.directories) {
+        const scan = scanResultDirectory(directory);
+        appendScanNotes(context, scan);
+        const result = applyScanOutcome(context, directory, scan);
+        if (result) {
+            return result;
+        }
+    }
+
+    appendAvailabilityNotes(context);
+    return buildUnavailableResult(context);
 }
 
 function detectRegressions(baseResults, targetResults) {

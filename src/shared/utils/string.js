@@ -6,6 +6,19 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+export function getNonEmptyTrimmedString(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    return trimmed;
+}
+
 export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
@@ -51,28 +64,6 @@ export function capitalize(value) {
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
-// Reuse a single Set instance for duplicate detection to avoid allocating a new
-// Set on every call. The helper runs in hot option-normalisation paths where
-// inputs are processed repeatedly, so avoiding per-call allocations reduces
-// memory churn when the function is invoked many times in a row. A simple
-// borrowing flag ensures nested calls fall back to a fresh Set without
-// interfering with the shared instance.
-const REUSABLE_SEEN_SET = new Set();
-let reusableSeenSetBorrowed = false;
-
-function getCandidateEntries(value, splitPattern) {
-    if (Array.isArray(value)) {
-        return value;
-    }
-
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-    return pattern ? value.split(pattern) : [value];
-}
-
 /**
  * Normalize a string-or-string-array option into a deduplicated list of
  * trimmed strings.
@@ -86,8 +77,9 @@ function getCandidateEntries(value, splitPattern) {
  *   consumer. Arrays are flattened as-is; strings are split using
  *   `splitPattern`.
  * @param {Object} [options]
- * @param {RegExp|null} [options.splitPattern=/[\n,]/] Pattern used to split
- *   string input. A `null` pattern keeps the entire string as a single entry.
+ * @param {RegExp|null|false} [options.splitPattern=/[\n,]/] Pattern used to split
+ *   string input. Provide a falsy value (for example `false`) to keep the entire
+ *   string as a single entry.
  * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
  *   are treated as "no value" instead of throwing.
  * @param {string} [options.errorMessage] Message used when raising a
@@ -108,9 +100,14 @@ export function normalizeStringList(
         return [];
     }
 
-    const entries = getCandidateEntries(value, splitPattern);
+    let entries;
 
-    if (!entries) {
+    if (Array.isArray(value)) {
+        entries = value;
+    } else if (typeof value === "string") {
+        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        entries = pattern ? value.split(pattern) : [value];
+    } else {
         if (allowInvalidType) {
             return [];
         }
@@ -119,37 +116,20 @@ export function normalizeStringList(
     }
 
     const normalized = [];
-    let seen;
-    let releaseReusableSet = false;
+    const seen = new Set();
 
-    if (reusableSeenSetBorrowed) {
-        seen = new Set();
-    } else {
-        seen = REUSABLE_SEEN_SET;
-        reusableSeenSetBorrowed = true;
-        releaseReusableSet = true;
-        seen.clear();
-    }
-
-    try {
-        for (const entry of entries) {
-            if (typeof entry !== "string") {
-                continue;
-            }
-
-            const trimmed = entry.trim();
-            if (trimmed.length === 0 || seen.has(trimmed)) {
-                continue;
-            }
-
-            seen.add(trimmed);
-            normalized.push(trimmed);
+    for (const entry of entries) {
+        if (typeof entry !== "string") {
+            continue;
         }
-    } finally {
-        if (releaseReusableSet) {
-            seen.clear();
-            reusableSeenSetBorrowed = false;
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0 || seen.has(trimmed)) {
+            continue;
         }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
     return normalized;
@@ -164,8 +144,9 @@ export function normalizeStringList(
  *
  * @param {string|string[]|null|undefined} value Raw option value.
  * @param {Object} [options]
- * @param {RegExp|null} [options.splitPattern=null] Pattern passed through to
- *   `normalizeStringList` for string input.
+ * @param {RegExp|null|false} [options.splitPattern=null] Pattern passed through
+ *   to `normalizeStringList` for string input. Provide a falsy value to keep
+ *   entire strings intact.
  * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid
  *   types as empty input.
  * @param {string} [options.errorMessage] Message forwarded to
@@ -182,15 +163,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    const normalizedSet = new Set();
-
-    // Populate the set via a manual loop to avoid allocating a temporary array
-    // for `Array#map` on each invocation. The helper runs in hot formatter and
-    // option-parsing paths, so keeping it allocation-free shaves measurable
-    // time off tight micro-benchmarks.
-    for (let index = 0; index < normalizedValues.length; index += 1) {
-        normalizedSet.add(normalizedValues[index].toLowerCase());
-    }
-
-    return normalizedSet;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }

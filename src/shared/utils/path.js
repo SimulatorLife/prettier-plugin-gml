@@ -45,67 +45,110 @@ export function fromPosixPath(inputPath) {
 }
 
 /**
- * Checks whether `child` resides within `parent` when both paths are resolved
- * to absolute locations. Empty strings short-circuit to `false` so callers can
- * safely pass optional metadata without normalizing first.
+ * Resolve the relative path from {@link parentPath} to {@link childPath} when
+ * the child resides within the parent directory tree.
  *
- * A relative result of `""` indicates that `child` and `parent` point to the
- * same directory, which is considered "inside" for consumers that treat the
- * parent as an allowed root.
+ * Empty strings and non-string inputs short-circuit to `null` so callers can
+ * guard against optional metadata without additional checks. The helper mirrors
+ * the guard logic previously inlined across the CLI and project index to keep
+ * containment checks consistent and allocation-free on the hot path.
  *
- * @param {string | undefined | null} child Path that may sit beneath `parent`.
- * @param {string | undefined | null} parent Candidate ancestor directory.
- * @returns {boolean} `true` when `child` resolves to `parent` or a descendant.
+ * @param {string | null | undefined} childPath Candidate descendant path.
+ * @param {string | null | undefined} parentPath Candidate ancestor directory.
+ * @returns {string | null} Relative path when the child is contained within the
+ *                          parent, otherwise `null`.
  */
-export function isPathInside(child, parent) {
-    if (!child || !parent) {
-        return false;
+export function resolveContainedRelativePath(childPath, parentPath) {
+    if (!isNonEmptyString(childPath) || !isNonEmptyString(parentPath)) {
+        return null;
     }
 
-    const relative = path.relative(parent, child);
-    if (!relative) {
-        return true;
+    const relative = path.relative(parentPath, childPath);
+
+    if (relative === "") {
+        return "";
     }
 
-    return !relative.startsWith("..") && !path.isAbsolute(relative);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        return null;
+    }
+
+    return relative;
 }
 
 /**
- * Resolves every directory from the provided start paths up to the file system
- * root, preserving discovery order. Duplicate directories are returned only
- * once even when multiple starting points share ancestors. Empty inputs are
- * ignored, mirroring the truthiness guard in {@link isPathInside}.
+ * Yield each ancestor directory for the provided start path, beginning with
+ * the resolved start directory and walking toward the file system root.
  *
- * @param {...(string | undefined | null)} startingDirectories Path(s) whose
- *                                                             ancestor chains
- *                                                             should be
- *                                                             collected.
- * @returns {Array<string>} Flat list of absolute directories, ordered from
- *                          each start path toward the root.
+ * Guards against duplicate directories (for example when symbolic links point
+ * back to an already-visited parent) to prevent infinite loops. Non-string and
+ * empty inputs exit early so callers can forward optional metadata without
+ * normalising it first.
+ *
+ * @param {string | null | undefined} startPath Directory whose ancestors should
+ *        be visited.
+ * @param {{ includeSelf?: boolean }} [options]
+ * @param {boolean} [options.includeSelf=true] When `false`, the first yielded
+ *        directory will be the parent of `startPath` instead of the directory
+ *        itself.
+ * @returns {Generator<string, void, void>} Iterator over ancestor directories.
  */
-export function collectAncestorDirectories(...startingDirectories) {
-    const seen = new Set();
-    const result = [];
+export function* walkAncestorDirectories(
+    startPath,
+    { includeSelf = true } = {}
+) {
+    if (!isNonEmptyString(startPath)) {
+        return;
+    }
 
-    for (const start of startingDirectories) {
-        if (!start) {
+    const visited = new Set();
+    let current = path.resolve(startPath);
+
+    if (!includeSelf) {
+        current = path.dirname(current);
+    }
+
+    while (!visited.has(current)) {
+        visited.add(current);
+        yield current;
+
+        const parent = path.dirname(current);
+        if (parent === current) {
+            break;
+        }
+
+        current = parent;
+    }
+}
+
+/**
+ * Collect the unique ancestor directories for the provided starting
+ * directories. Ancestors are returned in the order they were discovered so
+ * callers can maintain deterministic search paths when probing for
+ * configuration files.
+ *
+ * @param {Iterable<string | null | undefined>} startingDirectories Starting
+ *        directories whose ancestors should be collected.
+ * @param {{ includeSelf?: boolean }} [options]
+ * @returns {Array<string>} Ordered list of unique ancestor directories.
+ */
+export function collectUniqueAncestorDirectories(
+    startingDirectories,
+    { includeSelf = true } = {}
+) {
+    const directories = new Set();
+
+    for (const start of startingDirectories ?? []) {
+        if (!isNonEmptyString(start)) {
             continue;
         }
 
-        let current = path.resolve(start);
-
-        while (!seen.has(current)) {
-            seen.add(current);
-            result.push(current);
-
-            const parent = path.dirname(current);
-            if (parent === current) {
-                break;
-            }
-
-            current = parent;
+        for (const directory of walkAncestorDirectories(start, {
+            includeSelf
+        })) {
+            directories.add(directory);
         }
     }
 
-    return result;
+    return Array.from(directories);
 }
