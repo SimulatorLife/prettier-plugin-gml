@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
-import { getNodeStartIndex } from "../../shared/ast-locations.js";
+import { getNodeStartIndex } from "../../shared/ast.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");

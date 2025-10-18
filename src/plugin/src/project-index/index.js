@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { toPosixPath } from "../../../shared/path-utils.js";
-import { cloneObjectEntries, isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    cloneObjectEntries,
+    isNonEmptyArray
+} from "../../../shared/array-utils.js";
 import { hasOwn } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -22,6 +25,7 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
+import { throwIfAborted } from "./abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
@@ -70,6 +74,8 @@ function isManifestEntry(entry) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
+    const signal = options?.signal ?? null;
+
     if (!filepath) {
         return null;
     }
@@ -79,7 +85,8 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
 
     while (!visited.has(current)) {
         visited.add(current);
-        const entries = await listDirectory(fsFacade, current);
+        throwIfAborted(signal, "Project root discovery was aborted.");
+        const entries = await listDirectory(fsFacade, current, { signal });
         const hasManifest = entries.some(isManifestEntry);
         if (hasManifest) {
             return current;
@@ -111,11 +118,18 @@ export function createProjectIndexCoordinator(options = {}) {
 
     const inFlight = new Map();
     let disposed = false;
+    const abortController = new AbortController();
+    const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
+
+    function createDisposedError() {
+        return new Error(DISPOSED_MESSAGE);
+    }
 
     function ensureNotDisposed() {
         if (disposed) {
-            throw new Error("ProjectIndexCoordinator has been disposed");
+            throw createDisposedError();
         }
+        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
     async function ensureReady(descriptor) {
@@ -126,6 +140,8 @@ export function createProjectIndexCoordinator(options = {}) {
         }
         const resolvedRoot = path.resolve(projectRoot);
         const key = resolvedRoot;
+        const signal = abortController.signal;
+        throwIfAborted(signal, DISPOSED_MESSAGE);
 
         if (inFlight.has(key)) {
             return inFlight.get(key);
@@ -134,10 +150,13 @@ export function createProjectIndexCoordinator(options = {}) {
         const operation = (async () => {
             const loadResult = await loadCache(
                 { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade
+                fsFacade,
+                { signal }
             );
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             if (loadResult.status === "hit") {
+                throwIfAborted(signal, DISPOSED_MESSAGE);
                 return {
                     source: "cache",
                     projectIndex: loadResult.projectIndex,
@@ -145,11 +164,11 @@ export function createProjectIndexCoordinator(options = {}) {
                 };
             }
 
-            const projectIndex = await buildIndex(
-                resolvedRoot,
-                fsFacade,
-                descriptor?.buildOptions ?? {}
-            );
+            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
+                ...descriptor?.buildOptions,
+                signal
+            });
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             const descriptorMaxSizeBytes =
                 descriptor?.maxSizeBytes === undefined
@@ -164,7 +183,8 @@ export function createProjectIndexCoordinator(options = {}) {
                     metricsSummary: projectIndex.metrics,
                     maxSizeBytes: descriptorMaxSizeBytes
                 },
-                fsFacade
+                fsFacade,
+                { signal }
             ).catch((error) => {
                 return {
                     status: "failed",
@@ -172,6 +192,7 @@ export function createProjectIndexCoordinator(options = {}) {
                     cacheFilePath: loadResult.cacheFilePath
                 };
             });
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             return {
                 source: "build",
@@ -190,7 +211,14 @@ export function createProjectIndexCoordinator(options = {}) {
     }
 
     function dispose() {
+        if (disposed) {
+            return;
+        }
+
         disposed = true;
+        if (!abortController.signal.aborted) {
+            abortController.abort(createDisposedError());
+        }
         inFlight.clear();
     }
 
@@ -222,9 +250,18 @@ let cachedBuiltInIdentifiers = null;
 
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
-    metrics = null
+    metrics = null,
+    options = {}
 ) {
-    const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index build was aborted.");
+
+    const currentMtime = await getFileMtime(
+        fsFacade,
+        GML_IDENTIFIER_FILE_PATH,
+        { signal }
+    );
+    throwIfAborted(signal, "Project index build was aborted.");
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -246,12 +283,18 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
+        throwIfAborted(signal, "Project index build was aborted.");
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
         names = new Set(Object.keys(identifiers));
     } catch {
-        // Ignore read/parse failures and fall back to an empty identifier set.
+        // Built-in identifier metadata ships with the formatter bundle; if the
+        // file is missing or unreadable we intentionally degrade to an empty
+        // set rather than aborting project indexing. That keeps the CLI usable
+        // when installations are partially upgraded or when read permissions
+        // are restricted, and the metrics recorder above still notes the cache
+        // miss for observability.
     }
 
     cachedBuiltInIdentifiers = {
@@ -283,7 +326,13 @@ function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     return toProjectRelativePath(projectRoot, absoluteCandidate);
 }
 
-async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
+async function scanProjectTree(
+    projectRoot,
+    fsFacade,
+    metrics = null,
+    options = {}
+) {
+    const signal = options?.signal ?? null;
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -291,7 +340,11 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        const entries = await listDirectory(fsFacade, absoluteDir);
+        throwIfAborted(signal, "Project index build was aborted.");
+        const entries = await listDirectory(fsFacade, absoluteDir, {
+            signal
+        });
+        throwIfAborted(signal, "Project index build was aborted.");
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -300,6 +353,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
+                throwIfAborted(signal, "Project index build was aborted.");
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -559,112 +613,189 @@ function collectAssetReferences(root, callback) {
     }
 }
 
-async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
-    const resourcesMap = new Map();
-    const gmlScopeMap = new Map();
-    const assetReferences = [];
-    const scriptNameToScopeId = new Map();
-    const scriptNameToResourcePath = new Map();
+function createResourceAnalysisContext() {
+    return {
+        resourcesMap: new Map(),
+        gmlScopeMap: new Map(),
+        assetReferences: [],
+        scriptNameToScopeId: new Map(),
+        scriptNameToResourcePath: new Map()
+    };
+}
 
-    for (const file of yyFiles) {
-        let rawContents;
-        try {
-            rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
-        } catch (error) {
-            if (isFsErrorCode(error, "ENOENT")) {
-                continue;
-            }
-            throw error;
+async function loadResourceDocument(file, fsFacade, options = {}) {
+    const signal = options?.signal ?? null;
+    let rawContents;
+    try {
+        rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
         }
+        throw error;
+    }
 
-        let parsed;
-        try {
-            parsed = JSON.parse(rawContents);
-        } catch {
-            // Skip invalid JSON entries but continue scanning.
+    throwIfAborted(signal, "Project index build was aborted.");
+
+    try {
+        return JSON.parse(rawContents);
+    } catch {
+        return null;
+    }
+}
+
+function ensureResourceRecordForDocument(context, file, parsed) {
+    return ensureResourceRecord(context.resourcesMap, file.relativePath, {
+        name: parsed?.name,
+        resourceType: parsed?.resourceType
+    });
+}
+
+function attachScopeDescriptor({
+    context,
+    resourceRecord,
+    gmlRelativePath,
+    descriptor
+}) {
+    pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
+    context.gmlScopeMap.set(gmlRelativePath, descriptor);
+    pushUnique(resourceRecord.scopes, descriptor.id);
+}
+
+function registerScriptResourceIfNeeded({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
+    if (parsed?.resourceType !== "GMScript") {
+        return;
+    }
+
+    const gmlRelativePath = path.posix.join(
+        resourceDir,
+        `${resourceRecord.name}.gml`
+    );
+    const descriptor = createScriptScopeDescriptor(
+        resourceRecord,
+        gmlRelativePath
+    );
+
+    attachScopeDescriptor({
+        context,
+        resourceRecord,
+        gmlRelativePath,
+        descriptor
+    });
+
+    context.scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
+    context.scriptNameToResourcePath.set(
+        resourceRecord.name,
+        resourceRecord.path
+    );
+}
+
+function registerResourceEvents({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
+    const eventList = parsed?.eventList;
+    if (!isNonEmptyArray(eventList)) {
+        return;
+    }
+
+    for (const event of eventList) {
+        const eventGmlPath = extractEventGmlPath(
+            event,
+            resourceRecord,
+            resourceDir
+        );
+        if (!eventGmlPath) {
             continue;
         }
 
-        const resourceRecord = ensureResourceRecord(
-            resourcesMap,
-            file.relativePath,
-            {
-                name: parsed?.name,
-                resourceType: parsed?.resourceType
-            }
+        const descriptor = createObjectEventScopeDescriptor(
+            resourceRecord,
+            event,
+            eventGmlPath
         );
 
-        const resourceDir = path.posix.dirname(file.relativePath);
-
-        if (parsed?.resourceType === "GMScript") {
-            const gmlRelativePath = path.posix.join(
-                resourceDir,
-                `${resourceRecord.name}.gml`
-            );
-            pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
-
-            const descriptor = createScriptScopeDescriptor(
-                resourceRecord,
-                gmlRelativePath
-            );
-            gmlScopeMap.set(gmlRelativePath, descriptor);
-            pushUnique(resourceRecord.scopes, descriptor.id);
-
-            scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-            scriptNameToResourcePath.set(
-                resourceRecord.name,
-                resourceRecord.path
-            );
-        }
-
-        const eventList = parsed?.eventList;
-        if (isNonEmptyArray(eventList)) {
-            for (const event of eventList) {
-                const eventGmlPath = extractEventGmlPath(
-                    event,
-                    resourceRecord,
-                    resourceDir
-                );
-                if (!eventGmlPath) {
-                    continue;
-                }
-
-                pushUnique(resourceRecord.gmlFiles, eventGmlPath);
-                const descriptor = createObjectEventScopeDescriptor(
-                    resourceRecord,
-                    event,
-                    eventGmlPath
-                );
-
-                gmlScopeMap.set(eventGmlPath, descriptor);
-                pushUnique(resourceRecord.scopes, descriptor.id);
-            }
-        }
-
-        collectAssetReferences(
-            parsed,
-            ({ propertyPath, targetPath, targetName }) => {
-                const normalizedTarget = normalizeResourcePath(targetPath, {
-                    projectRoot
-                });
-                if (!normalizedTarget) {
-                    return;
-                }
-
-                const referenceRecord = {
-                    fromResourcePath: file.relativePath,
-                    fromResourceName: resourceRecord.name,
-                    propertyPath,
-                    targetPath: normalizedTarget,
-                    targetName: targetName ?? null,
-                    targetResourceType: null
-                };
-                assetReferences.push(referenceRecord);
-                resourceRecord.assetReferences.push(referenceRecord);
-            }
-        );
+        attachScopeDescriptor({
+            context,
+            resourceRecord,
+            gmlRelativePath: eventGmlPath,
+            descriptor
+        });
     }
+}
 
+function collectResourceAssetReferences({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
+    collectAssetReferences(
+        parsed,
+        ({ propertyPath, targetPath, targetName }) => {
+            const normalizedTarget = normalizeResourcePath(targetPath, {
+                projectRoot
+            });
+            if (!normalizedTarget) {
+                return;
+            }
+
+            const referenceRecord = {
+                fromResourcePath: resourcePath,
+                fromResourceName: resourceRecord.name,
+                propertyPath,
+                targetPath: normalizedTarget,
+                targetName: targetName ?? null,
+                targetResourceType: null
+            };
+
+            context.assetReferences.push(referenceRecord);
+            resourceRecord.assetReferences.push(referenceRecord);
+        }
+    );
+}
+
+function processResourceDocument({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
+    const resourceDir = path.posix.dirname(resourcePath);
+
+    registerScriptResourceIfNeeded({
+        context,
+        parsed,
+        resourceRecord,
+        resourceDir
+    });
+
+    registerResourceEvents({
+        context,
+        parsed,
+        resourceRecord,
+        resourceDir
+    });
+
+    collectResourceAssetReferences({
+        context,
+        parsed,
+        resourceRecord,
+        resourcePath,
+        projectRoot
+    });
+}
+
+function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
     for (const reference of assetReferences) {
         const targetResource = resourcesMap.get(reference.targetPath);
         if (targetResource) {
@@ -674,14 +805,44 @@ async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
             }
         }
     }
+}
 
-    return {
-        resourcesMap,
-        gmlScopeMap,
-        assetReferences,
-        scriptNameToScopeId,
-        scriptNameToResourcePath
-    };
+async function analyseResourceFiles({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    signal = null
+}) {
+    const context = createResourceAnalysisContext();
+
+    for (const file of yyFiles) {
+        throwIfAborted(signal, "Project index build was aborted.");
+        const parsed = await loadResourceDocument(file, fsFacade, { signal });
+        if (!parsed) {
+            continue;
+        }
+
+        const resourceRecord = ensureResourceRecordForDocument(
+            context,
+            file,
+            parsed
+        );
+
+        processResourceDocument({
+            context,
+            parsed,
+            resourceRecord,
+            resourcePath: file.relativePath,
+            projectRoot
+        });
+    }
+
+    annotateAssetReferenceTargets(
+        context.assetReferences,
+        context.resourcesMap
+    );
+
+    return context;
 }
 
 function cloneIdentifierDeclaration(declaration) {
@@ -1103,6 +1264,49 @@ function registerScriptDeclaration({
     }
 }
 
+/**
+ * Ensures script scopes have a declaration even when the backing GML file
+ * omits an explicit declaration. Keeps the project index builder focused on
+ * orchestration by handling the bookkeeping here.
+ */
+function ensureSyntheticScriptDeclaration({
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    filePath
+}) {
+    if (
+        !scopeDescriptor ||
+        scopeDescriptor.kind !== "script" ||
+        !fileRecord ||
+        fileRecord.hasSyntheticDeclaration
+    ) {
+        return;
+    }
+
+    const syntheticDeclaration = {
+        name: scopeDescriptor.name,
+        start: null,
+        end: null,
+        scopeId: scopeRecord.id,
+        classifications: ["identifier", "declaration", "script"],
+        isBuiltIn: false,
+        isSynthetic: true
+    };
+
+    fileRecord.declarations.push({ ...syntheticDeclaration });
+    scopeRecord.declarations.push({ ...syntheticDeclaration });
+    fileRecord.hasSyntheticDeclaration = true;
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord: syntheticDeclaration,
+        filePath
+    });
+}
+
 function cloneScriptReference(callRecord) {
     if (!callRecord) {
         return null;
@@ -1159,6 +1363,27 @@ function registerScriptReference({ identifierCollections, callRecord }) {
     const reference = cloneScriptReference(callRecord);
     if (reference) {
         entry.references.push(reference);
+    }
+}
+
+function recordScriptCallMetricsAndReferences({
+    relationships,
+    metrics,
+    identifierCollections
+}) {
+    const scriptCalls = relationships?.scriptCalls ?? [];
+    for (const callRecord of scriptCalls) {
+        metrics.incrementCounter("scriptCalls.total");
+        if (callRecord.isResolved) {
+            metrics.incrementCounter("scriptCalls.resolved");
+        } else {
+            metrics.incrementCounter("scriptCalls.unresolved");
+        }
+
+        registerScriptReference({
+            identifierCollections,
+            callRecord
+        });
     }
 }
 
@@ -1887,7 +2112,7 @@ function clampConcurrency(
     return numeric;
 }
 
-async function processWithConcurrency(items, limit, worker) {
+async function processWithConcurrency(items, limit, worker, options = {}) {
     if (!Array.isArray(items) || items.length === 0) {
         return;
     }
@@ -1895,6 +2120,10 @@ async function processWithConcurrency(items, limit, worker) {
     if (typeof worker !== "function") {
         throw new TypeError("worker must be a function");
     }
+
+    const signal = options?.signal ?? null;
+    const ensureNotAborted = () =>
+        throwIfAborted(signal, "Project index build was aborted.");
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -1908,9 +2137,12 @@ async function processWithConcurrency(items, limit, worker) {
 
     let nextIndex = 0;
     const runWorker = async () => {
+        ensureNotAborted();
         let currentIndex;
         while ((currentIndex = nextIndex++) < items.length) {
+            ensureNotAborted();
             await worker(items[currentIndex], currentIndex);
+            ensureNotAborted();
         }
     };
 
@@ -1936,15 +2168,22 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
+    const signal = options?.signal ?? null;
+    const ensureNotAborted = () =>
+        throwIfAborted(signal, "Project index build was aborted.");
+    ensureNotAborted();
+
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics)
+        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
     );
+    ensureNotAborted();
     const builtInNames = builtInIdentifiers.names ?? new Set();
 
     const { yyFiles, gmlFiles } = await metrics.timeAsync(
         "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics)
+        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
     );
+    ensureNotAborted();
     metrics.setMetadata("yyFileCount", yyFiles.length);
     metrics.setMetadata("gmlFileCount", gmlFiles.length);
 
@@ -1954,9 +2193,11 @@ export async function buildProjectIndex(
             analyseResourceFiles({
                 projectRoot: resolvedRoot,
                 yyFiles,
-                fsFacade
+                fsFacade,
+                signal
             })
     );
+    ensureNotAborted();
 
     metrics.incrementCounter(
         "resources.total",
@@ -1982,101 +2223,88 @@ export async function buildProjectIndex(
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
     const parseProjectSource = resolveProjectIndexParser(options);
 
-    await processWithConcurrency(gmlFiles, gmlConcurrency, async (file) => {
-        metrics.incrementCounter("files.gmlProcessed");
-        let contents;
-        try {
-            contents = await metrics.timeAsync("fs.readGml", () =>
-                fsFacade.readFile(file.absolutePath, "utf8")
-            );
-        } catch (error) {
-            if (isFsErrorCode(error, "ENOENT")) {
-                metrics.incrementCounter("files.missingDuringRead");
-                return;
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) => {
+            ensureNotAborted();
+            metrics.incrementCounter("files.gmlProcessed");
+            let contents;
+            try {
+                contents = await metrics.timeAsync("fs.readGml", () =>
+                    fsFacade.readFile(file.absolutePath, "utf8")
+                );
+            } catch (error) {
+                if (isFsErrorCode(error, "ENOENT")) {
+                    metrics.incrementCounter("files.missingDuringRead");
+                    return;
+                }
+                throw error;
             }
-            throw error;
-        }
 
-        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
-        const lineOffsets = computeLineOffsets(contents);
+            ensureNotAborted();
 
-        const scopeDescriptor =
-            resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-            createFileScopeDescriptor(file.relativePath);
+            metrics.incrementCounter(
+                "io.gmlBytes",
+                Buffer.byteLength(contents)
+            );
+            const lineOffsets = computeLineOffsets(contents);
 
-        const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-        pushUnique(scopeRecord.filePaths, file.relativePath);
-        ensureScriptEntry(identifierCollections, scopeDescriptor);
+            const scopeDescriptor =
+                resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+                createFileScopeDescriptor(file.relativePath);
 
-        const fileRecord = ensureFileRecord(
-            filesMap,
-            file.relativePath,
-            scopeRecord.id
-        );
+            const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
+            pushUnique(scopeRecord.filePaths, file.relativePath);
+            ensureScriptEntry(identifierCollections, scopeDescriptor);
 
-        if (
-            scopeDescriptor.kind === "script" &&
-            !fileRecord.hasSyntheticDeclaration
-        ) {
-            const syntheticDeclaration = {
-                name: scopeDescriptor.name,
-                start: null,
-                end: null,
-                scopeId: scopeRecord.id,
-                classifications: ["identifier", "declaration", "script"],
-                isBuiltIn: false,
-                isSynthetic: true
-            };
-            fileRecord.declarations.push({ ...syntheticDeclaration });
-            scopeRecord.declarations.push({ ...syntheticDeclaration });
-            fileRecord.hasSyntheticDeclaration = true;
+            const fileRecord = ensureFileRecord(
+                filesMap,
+                file.relativePath,
+                scopeRecord.id
+            );
 
-            registerScriptDeclaration({
-                identifierCollections,
-                descriptor: scopeDescriptor,
-                declarationRecord: syntheticDeclaration,
-                filePath: file.relativePath
-            });
-        }
-
-        const ast = metrics.timeSync("gml.parse", () =>
-            parseProjectSource(contents, {
-                filePath: file.relativePath,
-                projectRoot: resolvedRoot
-            })
-        );
-
-        metrics.timeSync("gml.analyse", () =>
-            analyseGmlAst({
-                ast,
-                builtInNames,
+            ensureSyntheticScriptDeclaration({
+                scopeDescriptor,
                 scopeRecord,
                 fileRecord,
-                relationships,
-                scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-                scriptNameToResourcePath:
-                    resourceAnalysis.scriptNameToResourcePath,
                 identifierCollections,
-                scopeDescriptor,
-                metrics,
-                sourceContents: contents,
-                lineOffsets
-            })
-        );
-    });
+                filePath: file.relativePath
+            });
+            const ast = metrics.timeSync("gml.parse", () =>
+                parseProjectSource(contents, {
+                    filePath: file.relativePath,
+                    projectRoot: resolvedRoot
+                })
+            );
 
-    for (const callRecord of relationships.scriptCalls) {
-        metrics.incrementCounter("scriptCalls.total");
-        if (callRecord.isResolved) {
-            metrics.incrementCounter("scriptCalls.resolved");
-        } else {
-            metrics.incrementCounter("scriptCalls.unresolved");
-        }
-        registerScriptReference({
-            identifierCollections,
-            callRecord
-        });
-    }
+            metrics.timeSync("gml.analyse", () =>
+                analyseGmlAst({
+                    ast,
+                    builtInNames,
+                    scopeRecord,
+                    fileRecord,
+                    relationships,
+                    scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+                    scriptNameToResourcePath:
+                        resourceAnalysis.scriptNameToResourcePath,
+                    identifierCollections,
+                    scopeDescriptor,
+                    metrics,
+                    sourceContents: contents,
+                    lineOffsets
+                })
+            );
+        },
+        { signal }
+    );
+    ensureNotAborted();
+
+    recordScriptCallMetricsAndReferences({
+        relationships,
+        metrics,
+        identifierCollections
+    });
 
     const resources = Object.fromEntries(
         [...resourceAnalysis.resourcesMap.entries()].map(

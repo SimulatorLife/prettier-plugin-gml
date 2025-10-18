@@ -1,9 +1,12 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { asArray } from "../../../shared/array-utils.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../metrics/metrics-tracker.js";
+import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    toPosixPath,
+    resolveContainedRelativePath
+} from "../../../shared/path-utils.js";
+import { createMetricsTracker } from "../../../shared/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import {
     isNonEmptyString,
@@ -47,6 +50,14 @@ function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
 
     if (isNonEmptyString(projectRoot)) {
         const resolvedRoot = path.resolve(projectRoot);
+        const relative = resolveContainedRelativePath(
+            resolvedFile,
+            resolvedRoot
+        );
+        if (relative !== null) {
+            return toPosixPath(relative);
+        }
+
         return toPosixPath(path.relative(resolvedRoot, resolvedFile));
     }
 
@@ -212,19 +223,14 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = getEntryDeclarations(entry);
+    const classificationSources = [
+        ...getEntryDeclarations(entry).flatMap((declaration) =>
+            getEntityClassifications(declaration)
+        ),
+        ...getEntryDeclarationKinds(entry)
+    ];
 
-    for (const declaration of declarations) {
-        const classifications = getEntityClassifications(declaration);
-        for (const tag of classifications) {
-            if (tag) {
-                tags.add(tag);
-            }
-        }
-    }
-
-    const declarationKinds = getEntryDeclarationKinds(entry);
-    for (const tag of declarationKinds) {
+    for (const tag of classificationSources) {
         if (tag) {
             tags.add(tag);
         }
@@ -451,7 +457,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+    if (!isNonEmptyArray(entries)) {
         return;
     }
 

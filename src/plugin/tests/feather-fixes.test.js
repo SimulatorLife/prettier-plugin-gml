@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, it } from "node:test";
 
 import GMLParser from "gamemaker-language-parser";
+import prettier from "prettier";
 
 import {
     getNodeEndIndex,
@@ -18,6 +22,9 @@ import {
     getFeatherDiagnosticFixers,
     preprocessSourceForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
+
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
@@ -2757,10 +2764,10 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(setFogCall);
         assert.ok(drawCall);
         assert.ok(fogResetCall);
-        assert.strictEqual(drawCall.type, "CallExpression");
-        assert.strictEqual(drawCall.object?.name, "draw_self");
         assert.strictEqual(fogResetCall.type, "CallExpression");
         assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         const args = Array.isArray(fogResetCall.arguments)
             ? fogResetCall.arguments
@@ -2898,6 +2905,35 @@ describe("applyFeatherFixes transform", () => {
             "Expected draw call to suppress leading blank lines."
         );
     });
+
+    it(
+        "formats alpha test resets without inserting extra blank lines",
+        async () => {
+            const source = [
+                "/// Draw Event",
+                "",
+                "gpu_set_alphatestenable(true);",
+                "",
+                "draw_self();"
+            ].join("\n");
+
+            const formatted = await prettier.format(source, {
+                parser: "gml-parse",
+                plugins: [pluginPath],
+                applyFeatherFixes: true
+            });
+
+            const expected = [
+                "/// Draw Event",
+                "",
+                "gpu_set_alphatestenable(true);",
+                "draw_self();",
+                "gpu_set_alphatestenable(false);"
+            ].join("\n");
+
+            assert.strictEqual(formatted.trimEnd(), expected);
+        }
+    );
 
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [

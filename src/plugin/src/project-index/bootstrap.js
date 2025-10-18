@@ -19,26 +19,35 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
-function readOptionWithOverride(options, { internalKey, externalKey }) {
+function resolveOptionWithOverride(options, config) {
+    const { onValue, onMissing, internalKey, externalKey } = config ?? {};
+
+    if (typeof onValue !== "function") {
+        throw new TypeError("onValue must be a function");
+    }
+
+    const resolveMissing = () =>
+        typeof onMissing === "function" ? onMissing() : onMissing;
+
     if (!isObjectLike(options)) {
-        return;
+        return resolveMissing();
     }
 
-    if (internalKey != null) {
-        const internalValue = options[internalKey];
-        if (internalValue !== undefined) {
-            return { value: internalValue, source: "internal" };
+    for (const [key, source] of [
+        [internalKey, "internal"],
+        [externalKey, "external"]
+    ]) {
+        if (key == null) {
+            continue;
+        }
+
+        const value = options[key];
+        if (value !== undefined) {
+            return onValue({ value, source });
         }
     }
 
-    if (externalKey != null) {
-        const externalValue = options[externalKey];
-        if (externalValue !== undefined) {
-            return { value: externalValue, source: "external" };
-        }
-    }
-
-    return;
+    return resolveMissing();
 }
 
 function getFsFacade(options) {
@@ -168,21 +177,18 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 }
 
 function resolveCacheMaxSizeBytes(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-    });
+        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME,
+        onValue(entry) {
+            if (entry.source === "internal" && entry.value === null) {
+                return null;
+            }
 
-    if (!entry) {
-        return;
-    }
-
-    if (entry.source === "internal" && entry.value === null) {
-        return null;
-    }
-
-    return normalizeCacheMaxSizeBytes(entry.value, {
-        optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            return normalizeCacheMaxSizeBytes(entry.value, {
+                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            });
+        }
     });
 }
 
@@ -198,38 +204,33 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
 }
 
 function resolveProjectIndexConcurrency(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
-        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
-    });
-
-    if (!entry) {
-        return;
-    }
-
-    return normalizeProjectIndexConcurrency(entry.value, {
-        optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME,
+        onValue(entry) {
+            return normalizeProjectIndexConcurrency(entry.value, {
+                optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+            });
+        }
     });
 }
 
 function resolveProjectRoot(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: "__identifierCaseProjectRoot",
-        externalKey: "gmlIdentifierCaseProjectRoot"
+        externalKey: "gmlIdentifierCaseProjectRoot",
+        onMissing: null,
+        onValue(entry) {
+            if (!isNonEmptyTrimmedString(entry.value)) {
+                return null;
+            }
+
+            const projectRoot =
+                entry.source === "external" ? entry.value.trim() : entry.value;
+
+            return path.resolve(projectRoot);
+        }
     });
-
-    if (!entry) {
-        return null;
-    }
-
-    if (!isNonEmptyTrimmedString(entry.value)) {
-        return null;
-    }
-
-    const projectRoot =
-        entry.source === "external" ? entry.value.trim() : entry.value;
-
-    return path.resolve(projectRoot);
 }
 
 export async function bootstrapProjectIndex(options = {}, storeOption) {
