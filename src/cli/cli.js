@@ -296,27 +296,37 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         );
 }
 
+/**
+ * Normalize CLI target path input into a trimmed value plus a flag indicating
+ * whether the user explicitly supplied a path argument.
+ *
+ * @param {unknown} rawInput
+ * @returns {{ targetPathInput: unknown, targetPathProvided: boolean }}
+ */
+function normalizeTargetPathInput(rawInput) {
+    if (typeof rawInput === "string") {
+        const trimmed = rawInput.trim();
+        return {
+            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathProvided: true
+        };
+    }
+
+    const normalized = rawInput ?? null;
+    return {
+        targetPathInput: normalized,
+        targetPathProvided: normalized !== null
+    };
+}
+
 function collectFormatCommandOptions(command) {
     const options = command.opts();
     const [positionalTarget] = command.args ?? [];
     const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
-    let targetPathInput = options.path ?? positionalTarget ?? null;
-    let targetPathProvided = false;
-
-    if (typeof targetPathInput === "string") {
-        const trimmedTargetPath = targetPathInput.trim();
-
-        if (trimmedTargetPath.length > 0) {
-            targetPathProvided = true;
-            targetPathInput = trimmedTargetPath;
-        } else {
-            targetPathProvided = true;
-            targetPathInput = null;
-        }
-    } else if (targetPathInput != null) {
-        targetPathProvided = true;
-    }
+    const { targetPathInput, targetPathProvided } = normalizeTargetPathInput(
+        options.path ?? positionalTarget ?? null
+    );
 
     return {
         targetPathInput,
