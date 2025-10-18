@@ -218,12 +218,12 @@ nvm use
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
    project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory.
 
-5. Run the formatter:
+5. Run the formatter (it defaults to the current working directory when no path is provided):
 
    ```bash
-   npm run format:gml -- --path .
+   npm run format:gml
    # or
-   node ./node_modules/root/src/cli/cli.js --path .
+   node ./node_modules/root/src/cli/cli.js
    ```
 
 6. Validate your setup whenever you pull new revisions:
@@ -231,7 +231,7 @@ nvm use
    ```bash
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
-   npm run format:gml -- --path . --extensions=.gml,.yy
+   npm run format:gml -- --extensions=.gml,.yy
    ```
 
    The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
@@ -319,7 +319,7 @@ for the full suite of contributor commands.
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
   ```
 
 - Discover supported flags or double-check defaults:
