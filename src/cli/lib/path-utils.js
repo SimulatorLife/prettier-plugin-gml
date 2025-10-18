@@ -1,7 +1,7 @@
 import {
     resolveContainedRelativePath,
     collectUniqueAncestorDirectories
-} from "../../shared/path-utils.js";
+} from "./shared-deps.js";
 
 /**
  * Checks whether `child` resides within `parent` when both paths are resolved

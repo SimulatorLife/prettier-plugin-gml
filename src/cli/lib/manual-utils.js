@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext, toTrimmedString } from "../../shared/utils.js";
+import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";

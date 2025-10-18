@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { normalizeStringList } from "../../shared/utils/string.js";
+import { normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import { coercePositiveInteger } from "./command-parsing.js";
 import { CliUsageError } from "./cli-errors.js";

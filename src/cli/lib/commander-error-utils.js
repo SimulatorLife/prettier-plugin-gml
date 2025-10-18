@@ -1,4 +1,4 @@
-import { isErrorLike } from "../../shared/utils/capability-probes.js";
+import { isErrorLike } from "./shared-deps.js";
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";
 
