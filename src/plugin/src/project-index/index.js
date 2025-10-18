@@ -7,6 +7,7 @@ import {
     walkAncestorDirectories
 } from "../../../shared/path-utils.js";
 import {
+    asArray,
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
@@ -868,9 +869,7 @@ function createIdentifierRecord(node) {
         start: cloneLocation(node?.start),
         end: cloneLocation(node?.end),
         scopeId: node?.scopeId ?? null,
-        classifications: Array.isArray(node?.classifications)
-            ? [...node.classifications]
-            : [],
+        classifications: [...asArray(node?.classifications)],
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
@@ -883,9 +882,7 @@ function cloneIdentifierForCollections(record, filePath) {
         scopeId: record?.scopeId ?? null,
         start: cloneLocation(record?.start),
         end: cloneLocation(record?.end),
-        classifications: Array.isArray(record?.classifications)
-            ? [...record.classifications]
-            : [],
+        classifications: [...asArray(record?.classifications)],
         declaration: record?.declaration ? { ...record.declaration } : null,
         isBuiltIn: record?.isBuiltIn ?? false,
         reason: record?.reason ?? null,
@@ -1143,8 +1140,7 @@ function createEnumLookup(ast, filePath) {
                     filePath: filePath ?? null
                 });
 
-                const members = Array.isArray(node.members) ? node.members : [];
-                for (const member of members) {
+                for (const member of asArray(node.members)) {
                     const memberIdentifier = member?.name ?? null;
                     if (!memberIdentifier) {
                         continue;
@@ -1254,9 +1250,7 @@ function registerScriptDeclaration({
         entry.declarations.push(clone);
     }
 
-    const declarationTags = Array.isArray(clone.classifications)
-        ? clone.classifications
-        : [];
+    const declarationTags = asArray(clone?.classifications);
     for (const tag of declarationTags) {
         if (
             tag &&
@@ -1625,9 +1619,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
         return false;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (classifications.includes("global")) {
         return false;
@@ -1660,9 +1652,7 @@ function registerIdentifierOccurrence({
         return;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (role === "declaration" && classifications.includes("script")) {
         registerScriptDeclaration({
@@ -2062,9 +2052,7 @@ function analyseGmlAst({
             scopeDescriptor?.kind === "objectEvent"
         ) {
             const leftRecord = createIdentifierRecord(node.left);
-            const classifications = Array.isArray(leftRecord.classifications)
-                ? leftRecord.classifications
-                : [];
+            const classifications = asArray(leftRecord?.classifications);
 
             const isGlobalAssignment =
                 classifications.includes("global") ||
@@ -2359,9 +2347,7 @@ export async function buildProjectIndex(
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
-            declarationKinds: Array.isArray(entry.declarationKinds)
-                ? [...entry.declarationKinds]
-                : [],
+            declarationKinds: [...asArray(entry.declarationKinds)],
             declarations: cloneObjectEntries(entry.declarations),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
