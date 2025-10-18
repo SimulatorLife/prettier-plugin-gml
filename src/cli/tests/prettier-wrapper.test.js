@@ -700,7 +700,7 @@ describe("Prettier wrapper CLI", () => {
                     "Expected stderr to mention the inaccessible target"
                 );
                 assert.ok(
-                    /Usage: prettier-wrapper/.test(error.stderr),
+                    /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"
                 );
             }
