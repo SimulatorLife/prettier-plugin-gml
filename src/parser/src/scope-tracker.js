@@ -1,5 +1,10 @@
 import { cloneLocation } from "../../shared/ast.js";
 import { isObjectLike, toArray } from "../../shared/utils.js";
+import {
+    ScopeOverrideKeyword,
+    formatKnownScopeOverrideKeywords,
+    isScopeOverrideKeyword
+} from "./scope-override-keywords.js";
 
 class Scope {
     constructor(id, kind) {
@@ -68,10 +73,6 @@ export default class ScopeTracker {
             return currentScope;
         }
 
-        if (scopeOverride === "global") {
-            return this.rootScope ?? currentScope;
-        }
-
         if (
             isObjectLike(scopeOverride) &&
             typeof scopeOverride.id === "string"
@@ -80,12 +81,24 @@ export default class ScopeTracker {
         }
 
         if (typeof scopeOverride === "string") {
+            if (isScopeOverrideKeyword(scopeOverride)) {
+                if (scopeOverride === ScopeOverrideKeyword.GLOBAL) {
+                    return this.rootScope ?? currentScope;
+                }
+                return currentScope;
+            }
+
             const found = this.scopeStack.find(
                 (scope) => scope.id === scopeOverride
             );
             if (found) {
                 return found;
             }
+
+            const keywords = formatKnownScopeOverrideKeywords();
+            throw new RangeError(
+                `Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`
+            );
         }
 
         return currentScope;
