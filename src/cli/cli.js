@@ -896,7 +896,7 @@ async function executeFormatCommand(command) {
     if (!targetPathInput) {
         throw new CliUsageError(
             [
-                "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project.",
+                "No target path provided. Pass a directory or file to format as the first argument (relative or absolute) or use --path <path>.",
                 "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
             ].join(" "),
             { usage }
