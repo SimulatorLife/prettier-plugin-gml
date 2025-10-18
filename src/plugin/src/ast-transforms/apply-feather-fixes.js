@@ -16105,11 +16105,16 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
     const requiredParams = [];
     const optionalParams = [];
+    let hasSeenOptional = false;
 
     for (const param of params) {
         if (isOptionalParameter(param)) {
             optionalParams.push(param);
+            hasSeenOptional = true;
         } else {
+            if (hasSeenOptional) {
+                param._reorderedAfterOptionalParameter = true;
+            }
             requiredParams.push(param);
         }
     }
