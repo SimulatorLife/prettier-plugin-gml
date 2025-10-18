@@ -1550,6 +1550,9 @@ function printStatements(path, options, print, childrenAttribute) {
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
 
+        const suppressFollowingEmptyLine =
+            node?._featherSuppressFollowingEmptyLine === true;
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
@@ -1626,8 +1629,6 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
 
-            const suppressFollowingEmptyLine =
-                node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
 
@@ -1670,6 +1671,21 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else if (
+            !suppressFollowingEmptyLine &&
+            typeof options.originalText === "string"
+        ) {
+            const trailingProbeIndex =
+                node?.type === "DefineStatement" ||
+                node?.type === "MacroDeclaration"
+                    ? nodeEndIndex
+                    : nodeEndIndex + 1;
+
+            if (
+                isNextLineEmpty(options.originalText, trailingProbeIndex)
+            ) {
+                parts.push(hardline);
+            }
         }
 
         return parts;
