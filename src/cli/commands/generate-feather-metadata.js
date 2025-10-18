@@ -5,8 +5,8 @@ import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp, toNormalizedLowerCaseSet } from "../../shared/utils.js";
-import { handleCliError } from "../lib/cli-errors.js";
+import { escapeRegExp, toNormalizedLowerCaseSet } from "../lib/shared-deps.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -23,13 +23,13 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    createManualVerboseState
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
-import { parseCommandLine } from "../lib/command-parsing.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +62,7 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function createFeatherMetadataCommand() {
+export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-feather-metadata")
@@ -129,44 +129,22 @@ function createFeatherMetadataCommand() {
         ].join("\n")
     );
 
-    return command;
-}
-
-function parseArgs({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    const command = createFeatherMetadataCommand();
     applyManualEnvOptionOverrides({
         command,
         env,
         getUsage: () => command.helpInformation()
     });
 
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    const { helpRequested, usage } = parseCommandLine(command, argv);
-    if (helpRequested) {
-        return {
-            helpRequested: true,
-            usage
-        };
-    }
-
+    return command;
+}
+function resolveFeatherMetadataOptions(command) {
     const options = command.opts();
+    const isTty = process.stdout.isTTY === true;
 
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
+    const verbose = createManualVerboseState({
+        quiet: Boolean(options.quiet),
+        isTerminal: isTty
+    });
 
     return {
         ref: options.ref ?? null,
@@ -177,8 +155,7 @@ function parseArgs({
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        helpRequested: false,
-        usage
+        usage: command.helpInformation()
     };
 }
 
@@ -1003,7 +980,119 @@ function parseTypeSystem(html) {
     };
 }
 
-async function main({ argv, env, isTty } = {}) {
+function createFeatherManualMetadataPayload({
+    manualRef,
+    manualRepo,
+    sections
+}) {
+    return {
+        meta: {
+            manualRef: manualRef.ref,
+            commitSha: manualRef.sha,
+            generatedAt: new Date().toISOString(),
+            source: manualRepo,
+            manualPaths: { ...FEATHER_PAGES }
+        },
+        ...sections
+    };
+}
+
+async function fetchFeatherManualPayloads({
+    manualRef,
+    fetchManualFile: fetchManualFileFn,
+    forceRefresh,
+    verbose,
+    cacheRoot,
+    rawRoot,
+    progressBarWidth
+}) {
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
+
+    if (verbose.downloads) {
+        console.log(
+            `Fetching ${totalManualPages} manual page${
+                totalManualPages === 1 ? "" : "s"
+            }…`
+        );
+    }
+
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        });
+        fetchedCount += 1;
+        reportManualFetchProgress({
+            manualPath,
+            fetchedCount,
+            totalManualPages,
+            verbose,
+            progressBarWidth
+        });
+    }
+
+    return htmlPayloads;
+}
+
+function reportManualFetchProgress({
+    manualPath,
+    fetchedCount,
+    totalManualPages,
+    verbose,
+    progressBarWidth
+}) {
+    if (!verbose.downloads) {
+        return;
+    }
+
+    if (verbose.progressBar) {
+        renderProgressBar(
+            "Downloading manual pages",
+            fetchedCount,
+            totalManualPages,
+            progressBarWidth
+        );
+        return;
+    }
+
+    console.log(`✓ ${manualPath}`);
+}
+
+function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
+    if (verbose.parsing) {
+        console.log("Parsing manual sections…");
+    }
+
+    return {
+        diagnostics: timeSync(
+            "Diagnostics",
+            () => parseDiagnostics(htmlPayloads.diagnostics),
+            { verbose }
+        ),
+        directives: timeSync(
+            "Directives",
+            () => parseDirectiveSections(htmlPayloads.directives),
+            { verbose }
+        ),
+        namingRules: timeSync(
+            "Naming rules",
+            () => parseNamingRules(htmlPayloads.naming),
+            { verbose }
+        ),
+        typeSystem: timeSync(
+            "Type system",
+            () => parseTypeSystem(htmlPayloads.typeSystem),
+            { verbose }
+        )
+    };
+}
+
+export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -1015,92 +1104,35 @@ async function main({ argv, env, isTty } = {}) {
             progressBarWidth,
             cacheRoot,
             manualRepo,
-            helpRequested
-        } = parseArgs({ argv, env, isTty });
+            usage
+        } = resolveFeatherMetadataOptions(command);
 
-        if (helpRequested) {
-            return 0;
-        }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef?.sha) {
-            throw new Error("Could not resolve manual commit SHA.");
+            throw new CliUsageError("Could not resolve manual commit SHA.", {
+                usage
+            });
         }
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-        const htmlPayloads = {};
-        const manualEntries = Object.entries(FEATHER_PAGES);
-        const totalManualPages = manualEntries.length;
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${totalManualPages} manual page${
-                    totalManualPages === 1 ? "" : "s"
-                }…`
-            );
-        }
+        const htmlPayloads = await fetchFeatherManualPayloads({
+            manualRef,
+            fetchManualFile,
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot,
+            progressBarWidth
+        });
 
-        let fetchedCount = 0;
-        for (const [key, manualPath] of manualEntries) {
-            htmlPayloads[key] = await fetchManualFile(
-                manualRef.sha,
-                manualPath,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-            fetchedCount += 1;
-            if (verbose.progressBar && verbose.downloads) {
-                renderProgressBar(
-                    "Downloading manual pages",
-                    fetchedCount,
-                    totalManualPages,
-                    progressBarWidth
-                );
-            } else if (verbose.downloads) {
-                console.log(`✓ ${manualPath}`);
-            }
-        }
-        if (verbose.parsing) {
-            console.log("Parsing manual sections…");
-        }
-        const diagnostics = timeSync(
-            "Diagnostics",
-            () => parseDiagnostics(htmlPayloads.diagnostics),
-            { verbose }
-        );
-        const directives = timeSync(
-            "Directives",
-            () => parseDirectiveSections(htmlPayloads.directives),
-            { verbose }
-        );
-        const namingRules = timeSync(
-            "Naming rules",
-            () => parseNamingRules(htmlPayloads.naming),
-            { verbose }
-        );
-        const typeSystem = timeSync(
-            "Type system",
-            () => parseTypeSystem(htmlPayloads.typeSystem),
-            { verbose }
-        );
-
-        const payload = {
-            meta: {
-                manualRef: manualRef.ref,
-                commitSha: manualRef.sha,
-                generatedAt: new Date().toISOString(),
-                source: manualRepo,
-                manualPaths: { ...FEATHER_PAGES }
-            },
-            diagnostics,
-            directives,
-            namingRules,
-            typeSystem
-        };
+        const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
+        const payload = createFeatherManualMetadataPayload({
+            manualRef,
+            manualRepo,
+            sections
+        });
 
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
@@ -1114,20 +1146,5 @@ async function main({ argv, env, isTty } = {}) {
         return 0;
     } finally {
         disposeProgressBars();
-    }
-}
-
-export async function runGenerateFeatherMetadataCli({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    try {
-        return await main({ argv, env, isTty });
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to generate Feather metadata."
-        });
-        return 1;
     }
 }

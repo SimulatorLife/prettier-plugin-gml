@@ -1,5 +1,15 @@
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
+/**
+ * Check whether the provided value is an object-like reference. This mirrors
+ * Lodash's definition, treating arrays and boxed primitives as object-like
+ * while excluding `null` and primitive scalars. Functions are intentionally
+ * omitted because the formatter exclusively passes structural metadata
+ * objects through this guard.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is object} `true` when `value` can safely accept property access.
+ */
 export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
@@ -63,31 +73,28 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const lookupKeys = Array.isArray(keys) ? keys : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of lookupKeys) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Fast-path the singular key case to avoid allocating a temporary array on
-    // every call. Option lookups hit this branch the vast majority of the time,
-    // so skipping the extra allocation trims a few nanoseconds off tight
-    // formatter hot paths.
-    const value = object[keys];
-
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;
 }
 
+/**
+ * Determine whether `object` defines `key` as an own property. Defers to the
+ * intrinsic `Object.prototype.hasOwnProperty` to avoid accidental shadowing by
+ * user data, which regularly happens when processing user-authored AST nodes.
+ *
+ * @param {object} object Object to inspect for the property.
+ * @param {string | number | symbol} key Property name or symbol.
+ * @returns {boolean} `true` when the property exists directly on `object`.
+ */
 export function hasOwn(object, key) {
     return hasOwnProperty.call(object, key);
 }

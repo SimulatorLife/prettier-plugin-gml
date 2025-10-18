@@ -75,3 +75,80 @@ export function resolveContainedRelativePath(childPath, parentPath) {
 
     return relative;
 }
+
+/**
+ * Yield each ancestor directory for the provided start path, beginning with
+ * the resolved start directory and walking toward the file system root.
+ *
+ * Guards against duplicate directories (for example when symbolic links point
+ * back to an already-visited parent) to prevent infinite loops. Non-string and
+ * empty inputs exit early so callers can forward optional metadata without
+ * normalising it first.
+ *
+ * @param {string | null | undefined} startPath Directory whose ancestors should
+ *        be visited.
+ * @param {{ includeSelf?: boolean }} [options]
+ * @param {boolean} [options.includeSelf=true] When `false`, the first yielded
+ *        directory will be the parent of `startPath` instead of the directory
+ *        itself.
+ * @returns {Generator<string, void, void>} Iterator over ancestor directories.
+ */
+export function* walkAncestorDirectories(
+    startPath,
+    { includeSelf = true } = {}
+) {
+    if (!isNonEmptyString(startPath)) {
+        return;
+    }
+
+    const visited = new Set();
+    let current = path.resolve(startPath);
+
+    if (!includeSelf) {
+        current = path.dirname(current);
+    }
+
+    while (!visited.has(current)) {
+        visited.add(current);
+        yield current;
+
+        const parent = path.dirname(current);
+        if (parent === current) {
+            break;
+        }
+
+        current = parent;
+    }
+}
+
+/**
+ * Collect the unique ancestor directories for the provided starting
+ * directories. Ancestors are returned in the order they were discovered so
+ * callers can maintain deterministic search paths when probing for
+ * configuration files.
+ *
+ * @param {Iterable<string | null | undefined>} startingDirectories Starting
+ *        directories whose ancestors should be collected.
+ * @param {{ includeSelf?: boolean }} [options]
+ * @returns {Array<string>} Ordered list of unique ancestor directories.
+ */
+export function collectUniqueAncestorDirectories(
+    startingDirectories,
+    { includeSelf = true } = {}
+) {
+    const directories = new Set();
+
+    for (const start of startingDirectories ?? []) {
+        if (!isNonEmptyString(start)) {
+            continue;
+        }
+
+        for (const directory of walkAncestorDirectories(start, {
+            includeSelf
+        })) {
+            directories.add(directory);
+        }
+    }
+
+    return Array.from(directories);
+}

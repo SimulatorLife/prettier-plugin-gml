@@ -700,10 +700,44 @@ describe("Prettier wrapper CLI", () => {
                     "Expected stderr to mention the inaccessible target"
                 );
                 assert.ok(
-                    /Usage: prettier-wrapper/.test(error.stderr),
+                    /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"
                 );
             }
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("formats the current working directory when no target path is provided", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
+            );
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /Formatted .*script\.gml/,
+                "Expected stdout to mention the formatted file"
+            );
+            assert.match(
+                stdout,
+                /Skipped \d+ files/,
+                "Expected stdout to summarize skipped files"
+            );
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }

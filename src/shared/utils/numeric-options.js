@@ -14,7 +14,7 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     const message =
         typeof createErrorMessage === "function"
             ? createErrorMessage(formattedReceived)
-            : (createErrorMessage ?? fallbackMessage);
+            : createErrorMessage ?? fallbackMessage;
 
     throw new TypeError(message);
 }
@@ -31,6 +31,28 @@ export function coerceNonNegativeInteger(value, options = {}) {
         min: 0,
         ...options
     });
+}
+
+export function coercePositiveIntegerOption(
+    value,
+    defaultValue,
+    { zeroReplacement } = {}
+) {
+    const normalized = toNormalizedInteger(value);
+
+    if (normalized === null) {
+        return defaultValue;
+    }
+
+    if (normalized > 0) {
+        return normalized;
+    }
+
+    if (zeroReplacement !== undefined) {
+        return zeroReplacement;
+    }
+
+    return defaultValue;
 }
 
 export function resolveIntegerOption(
@@ -67,7 +89,7 @@ export function resolveIntegerOption(
     const message =
         typeof typeErrorMessage === "function"
             ? typeErrorMessage(type)
-            : (typeErrorMessage ?? fallbackMessage);
+            : typeErrorMessage ?? fallbackMessage;
 
     throw new TypeError(message);
 }

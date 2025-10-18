@@ -6,7 +6,7 @@ import {
     setDefaultProjectIndexGmlConcurrency,
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-} from "../src/project-index/index.js";
+} from "../src/project-index/concurrency.js";
 
 test("project index concurrency default can be tuned programmatically", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();

@@ -9,6 +9,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifier,
+    getCallExpressionIdentifierName,
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
@@ -1949,22 +1951,21 @@ function isStringReturningExpression(node) {
     }
 
     if (node.type === "CallExpression") {
-        const callee = node.object;
+        const calleeName = getCallExpressionIdentifierName(node);
+        if (!calleeName) {
+            return false;
+        }
 
-        if (isIdentifierWithName(callee, "string")) {
+        if (calleeName === "string") {
             return true;
         }
 
-        if (callee?.type === "Identifier") {
-            const name = callee.name;
+        if (STRING_LENGTH_CALL_BLACKLIST.has(calleeName)) {
+            return false;
+        }
 
-            if (STRING_LENGTH_CALL_BLACKLIST.has(name)) {
-                return false;
-            }
-
-            if (name.startsWith("string_")) {
-                return true;
-            }
+        if (calleeName.startsWith("string_")) {
+            return true;
         }
     }
 
@@ -1995,11 +1996,10 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const calleeName =
-                node.object?.type === "Identifier" ? node.object.name : null;
+            const calleeName = getCallExpressionIdentifierName(node);
 
             if (
-                typeof calleeName === "string" &&
+                calleeName &&
                 GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)
             ) {
                 const argumentIndexes =
@@ -6237,19 +6237,13 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
 }
 
 function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
-    if (!node || node.type !== "CallExpression") {
+    if (!node) {
         return null;
     }
 
-    const callee = node.object;
+    const functionName = getCallExpressionIdentifierName(node);
 
-    if (!callee || callee.type !== "Identifier") {
-        return null;
-    }
-
-    const functionName = callee.name;
-
-    if (!deprecatedFunctions.has(functionName)) {
+    if (!functionName || !deprecatedFunctions.has(functionName)) {
         return null;
     }
 
@@ -9161,11 +9155,27 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
+    for (
+        let cleanupIndex = property + 1;
+        cleanupIndex < insertionIndex;
+        cleanupIndex += 1
+    ) {
+        const candidate = siblings[cleanupIndex];
+
+        if (!isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        siblings.splice(cleanupIndex, 1);
+        insertionIndex -= 1;
+        cleanupIndex -= 1;
+    }
+
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
         !isAlphaTestDisableCall(nextSibling) &&
-        !nextSibling &&
+        nextSibling &&
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
@@ -9178,6 +9188,9 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -11353,6 +11366,13 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     siblings.splice(insertionIndex, 0, vertexEndCall);
     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
+    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
+
+    const previousSibling = siblings[property - 1] ?? null;
+
+    if (previousSibling) {
+        markStatementToSuppressFollowingEmptyLine(previousSibling);
+    }
 
     return fixDetail;
 }
@@ -14303,12 +14323,24 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
         const closingCount = countVertexFormatEndCalls(statement);
 
-        for (
-            let consumed = 0;
-            consumed < closingCount && openBegins.length > 0;
-            consumed += 1
-        ) {
+        let unmatchedClosers = closingCount;
+
+        while (unmatchedClosers > 0 && openBegins.length > 0) {
             openBegins.pop();
+            unmatchedClosers -= 1;
+        }
+
+        if (unmatchedClosers > 0) {
+            const removed = removeDanglingVertexFormatEndCall({
+                statements,
+                index,
+                diagnostic,
+                fixes
+            });
+
+            if (removed) {
+                continue;
+            }
         }
 
         index += 1;
@@ -14363,6 +14395,43 @@ function removeDanglingVertexFormatDefinition({
     }
 
     return removalCount;
+}
+
+function removeDanglingVertexFormatEndCall({
+    statements,
+    index,
+    diagnostic,
+    fixes
+}) {
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return false;
+    }
+
+    const statement = statements[index];
+
+    if (!isCallExpressionStatementWithName(statement, "vertex_format_end")) {
+        return false;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getCallExpressionCalleeName(statement),
+        range: {
+            start: getNodeStartIndex(statement),
+            end: getNodeEndIndex(statement)
+        }
+    });
+
+    if (!fixDetail) {
+        return false;
+    }
+
+    statements.splice(index, 1);
+
+    if (Array.isArray(fixes)) {
+        fixes.push(fixDetail);
+    }
+
+    return true;
 }
 
 function createRangeFromNodes(startNode, endNode) {
@@ -14893,7 +14962,7 @@ function getUserEventReference(node) {
         return null;
     }
 
-    const callee = node.object;
+    const callee = getCallExpressionIdentifier(node);
     const args = getCallExpressionArguments(node);
 
     if (isIdentifierWithName(callee, "event_user")) {
@@ -17617,9 +17686,9 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    const callee = node.object;
+    const callee = getCallExpressionIdentifier(node);
 
-    if (!callee || callee.type !== "Identifier") {
+    if (!callee) {
         return null;
     }
 

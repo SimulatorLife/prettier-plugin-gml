@@ -19,51 +19,34 @@ function withMockedConsole(callback) {
 describe("time-utils", () => {
     describe("formatDuration", () => {
         it("returns millisecond precision for sub-second durations", () => {
-            const originalNow = Date.now;
-            Date.now = () => 200;
-            try {
-                assert.equal(formatDuration(0), "200ms");
-            } finally {
-                Date.now = originalNow;
-            }
+            const now = () => 200;
+            assert.equal(formatDuration(0, now), "200ms");
         });
 
         it("returns seconds with a decimal when duration exceeds a second", () => {
-            const originalNow = Date.now;
-            Date.now = () => 1500;
-            try {
-                assert.equal(formatDuration(0), "1.5s");
-            } finally {
-                Date.now = originalNow;
-            }
+            const now = () => 1500;
+            assert.equal(formatDuration(0, now), "1.5s");
         });
     });
 
     it("logs progress when verbose parsing is enabled", () => {
-        const originalNow = Date.now;
-        let invocation = 0;
-        Date.now = () => {
-            invocation += 1;
-            return invocation === 1 ? 1000 : 1300;
-        };
+        const timeline = [1000, 1300];
+        const now = () => timeline.shift() ?? 1300;
 
-        try {
-            const { value, calls } = withMockedConsole((capturedCalls) => {
-                const callbackResult = timeSync("sample task", () => 42, {
-                    verbose: { parsing: true }
-                });
-
-                return { value: callbackResult, calls: capturedCalls };
+        const { value, calls } = withMockedConsole((capturedCalls) => {
+            const callbackResult = timeSync("sample task", () => 42, {
+                verbose: { parsing: true },
+                now
             });
 
-            assert.equal(value, 42);
-            assert.deepEqual(
-                calls.map(([message]) => message),
-                ["→ sample task", "  sample task completed in 300ms."]
-            );
-        } finally {
-            Date.now = originalNow;
-        }
+            return { value: callbackResult, calls: capturedCalls };
+        });
+
+        assert.equal(value, 42);
+        assert.deepEqual(
+            calls.map(([message]) => message),
+            ["→ sample task", "  sample task completed in 300ms."]
+        );
     });
 
     it("skips logging when verbose parsing is disabled", () => {

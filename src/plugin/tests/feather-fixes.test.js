@@ -36,6 +36,28 @@ function isEventInheritedCall(node) {
     return callee?.type === "Identifier" && callee.name === "event_inherited";
 }
 
+function getCallExpressionName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node.object?.name ?? null;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = node.expression;
+
+        if (expression && expression.type === "CallExpression") {
+            return expression.object?.name ?? null;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
@@ -2742,6 +2764,39 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when inserting GM2048 resets", () => {
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            'draw_text(0, 0, "Hello!");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = ast.body ?? [];
+
+        assert.deepStrictEqual(
+            statements.map((node) => node?.type),
+            ["CallExpression", "CallExpression", "CallExpression"]
+        );
+
+        const [disableCall, drawCall, resetCall] = statements;
+
+        assert.strictEqual(disableCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(drawCall.object?.name, "draw_text");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(
+            disableCall._featherSuppressFollowingEmptyLine,
+            true
+        );
+        assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
+    });
+
     it("resets fog flagged by GM2050 and records metadata", () => {
         const source = [
             "gpu_set_fog(true, c_aqua, 0, 1000);",
@@ -3027,6 +3082,37 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
+    });
+
+    it("removes dangling vertex_format_end statements before beginning a new definition", () => {
+        const source = [
+            "vertex_format_end();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+
+        assert.strictEqual(
+            callNames.at(0),
+            "vertex_format_begin",
+            "Expected the stray vertex_format_end statement to be removed before formatting begins."
+        );
+
+        assert.strictEqual(
+            callNames.filter((name) => name === "vertex_format_end").length,
+            0,
+            "Top-level vertex_format_end calls should be removed when no preceding begin exists."
+        );
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {
