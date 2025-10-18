@@ -2086,7 +2086,7 @@ function cloneAssetReference(reference) {
 }
 
 async function processWithConcurrency(items, limit, worker, options = {}) {
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!isNonEmptyArray(items)) {
         return;
     }
 
