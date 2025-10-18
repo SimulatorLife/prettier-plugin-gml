@@ -29,3 +29,19 @@ To re-validate the earlier conclusion, I reran a broader set of surveys:
 
 No new interface or type definition surfaced that violates the Interface Segregation Principle, so
 no code changes were required.
+
+## Follow-up audit (2025-10-18)
+
+While surveying the CLI workspace, I found `CliCommandManager` in
+`src/cli/lib/cli-command-manager.js`, which returned a multifunctional contract that handled
+command registration and execution behind a single "manager" object. That broad surface made the
+CLI depend on methods it did not always require when adding commands versus running them.
+
+To narrow the contract, `createCliCommandManager` now returns two focused collaborators:
+
+- `CliCommandRegistry` exposes only the registration helpers (`registerDefaultCommand` and
+  `registerCommand`).
+- `CliCommandRunner` exposes the `run` method that executes the Commander program.
+
+The CLI now imports the registry to wire up commands and the runner to launch the program, so each
+call site depends on the capability it uses.

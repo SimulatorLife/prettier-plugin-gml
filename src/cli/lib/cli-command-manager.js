@@ -1,6 +1,26 @@
 import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 
+/**
+ * @typedef {{
+ *   command: import("commander").Command,
+ *   run?: (context: { command: import("commander").Command }) =>
+ *       Promise<number | void> | number | void,
+ *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
+ * }} CliCommandRegistrationOptions
+ */
+
+/**
+ * @typedef {object} CliCommandRegistry
+ * @property {(options: CliCommandRegistrationOptions) => object} registerDefaultCommand
+ * @property {(options: CliCommandRegistrationOptions) => object} registerCommand
+ */
+
+/**
+ * @typedef {object} CliCommandRunner
+ * @property {(argv: Array<string>) => Promise<void>} run
+ */
+
 class CliCommandManager {
     /**
      * @param {{
@@ -35,12 +55,7 @@ class CliCommandManager {
     /**
      * Register the default command used when no subcommand is provided.
      *
-     * @param {{
-     *   command: import("commander").Command,
-     *   run: (context: { command: import("commander").Command }) =>
-     *       Promise<number | void> | number | void,
-     *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
-     * }} options
+     * @param {CliCommandRegistrationOptions} options
      */
     registerDefaultCommand({ command, run, onError } = {}) {
         const entry = this._registerEntry(command, {
@@ -54,12 +69,7 @@ class CliCommandManager {
     /**
      * Register an additional subcommand with the CLI.
      *
-     * @param {{
-     *   command: import("commander").Command,
-     *   run: (context: { command: import("commander").Command }) =>
-     *       Promise<number | void> | number | void,
-     *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
-     * }} options
+     * @param {CliCommandRegistrationOptions} options
      */
     registerCommand({ command, run, onError } = {}) {
         const entry = this._registerEntry(command, {
@@ -158,6 +168,23 @@ class CliCommandManager {
 
 export { CliCommandManager };
 
+/**
+ * @param {{
+ *   program: import("commander").Command,
+ *   onUnhandledError?: (error: unknown, context: { command: import("commander").Command }) => void
+ * }} options
+ * @returns {{ registry: CliCommandRegistry, runner: CliCommandRunner }}
+ */
 export function createCliCommandManager(options) {
-    return new CliCommandManager(options);
+    const manager = new CliCommandManager(options);
+    return Object.freeze({
+        registry: Object.freeze({
+            registerDefaultCommand:
+                manager.registerDefaultCommand.bind(manager),
+            registerCommand: manager.registerCommand.bind(manager)
+        }),
+        runner: Object.freeze({
+            run: manager.run.bind(manager)
+        })
+    });
 }
