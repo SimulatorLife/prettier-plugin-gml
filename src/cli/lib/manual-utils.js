@@ -10,6 +10,36 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+function createManualVerboseState({
+    quiet = false,
+    isTerminal = false,
+    overrides
+} = {}) {
+    const verbose = {
+        resolveRef: true,
+        downloads: true,
+        parsing: true,
+        progressBar: isTerminal
+    };
+
+    if (quiet) {
+        verbose.resolveRef = false;
+        verbose.downloads = false;
+        verbose.parsing = false;
+        verbose.progressBar = false;
+    }
+
+    if (overrides && typeof overrides === "object") {
+        for (const [key, value] of Object.entries(overrides)) {
+            if (value !== undefined) {
+                verbose[key] = value;
+            }
+        }
+    }
+
+    return verbose;
+}
+
 function assertPlainObject(value, message) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         throw new TypeError(message);
@@ -297,6 +327,7 @@ export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
+    createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
     resolveManualRepoValue,

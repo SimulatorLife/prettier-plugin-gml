@@ -23,7 +23,8 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    createManualVerboseState
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
@@ -140,19 +141,10 @@ function resolveFeatherMetadataOptions(command) {
     const options = command.opts();
     const isTty = process.stdout.isTTY === true;
 
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
+    const verbose = createManualVerboseState({
+        quiet: Boolean(options.quiet),
+        isTerminal: isTty
+    });
 
     return {
         ref: options.ref ?? null,
