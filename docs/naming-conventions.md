@@ -161,23 +161,24 @@ of GameMaker keywords, constants, variables, and enums.
 
 - **Goals** – Stay aligned with the current GameMaker release without manually
   curating lists, keep the formatter fast, and prefer first-party sources.
-- **Sources** – The harvesting script at
-  [`scripts/generate-gml-identifiers.mjs`](../scripts/generate-gml-identifiers.mjs)
+- **Sources** – The harvesting command at
+  [`src/cli/commands/generate-gml-identifiers.js`](../src/cli/commands/generate-gml-identifiers.js)
   downloads assets from the YoYo Games manual repository: `ZeusDocs_keywords.json`
   (identifier → topic map), `ZeusDocs_tags.json` (topic metadata), and
   `Manual/contents/assets/scripts/gml.js` (keyword/constant arrays). Manual tags
   (e.g. `release-2024.11`) map to public GameMaker builds.
 - **Extraction flow** – Choose a manual revision, cache the assets, parse the
   JavaScript arrays for keywords/literals/symbols, and merge them with the JSON
-  datasets. When heuristics disagree, the script can fetch topic HTML for
+  datasets. When heuristics disagree, the command can fetch topic HTML for
   clarification. Normalisation deduplicates identifiers, records classification
   (function, variable, keyword, etc.), and flags deprecated entries.
-- **Consumption** – The script emits a consolidated
+- **Consumption** – The command emits a consolidated
   `resources/gml-identifiers.json` file consumed by the formatter at runtime. Run
   `npm run build:gml-identifiers` to refresh the snapshot and use the provided
   CLI flags (`--ref`, `--force-refresh`, `--cache-root`) or environment variables
   (`GML_MANUAL_REF`, `GML_MANUAL_CACHE_ROOT`, `GML_PROGRESS_BAR_WIDTH`,
-  `GML_IDENTIFIER_VM_TIMEOUT_MS`) to control regeneration.
+  `GML_IDENTIFIER_VM_TIMEOUT_MS`, `GML_PROJECT_INDEX_CONCURRENCY`) to control
+  regeneration and the identifier-case project index bootstrap defaults.
 - **Operational notes** – Respect GitHub rate limits via caching and tokens, and
   host cached artefacts for offline or air-gapped environments. Monitor YoYo
   Games repositories for new data sources or metadata that can enrich the

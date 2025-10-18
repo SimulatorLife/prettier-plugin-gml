@@ -100,6 +100,80 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("accepts custom Prettier log levels via CLI option", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            await execFileAsync("node", [
+                wrapperPath,
+                "--log-level=debug",
+                tempDirectory
+            ]);
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("honours PRETTIER_PLUGIN_GML_LOG_LEVEL environment overrides", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const env = {
+                ...process.env,
+                PRETTIER_PLUGIN_GML_LOG_LEVEL: "silent"
+            };
+
+            await execFileAsync("node", [wrapperPath, tempDirectory], { env });
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("reports invalid log level values with guidance", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            try {
+                await execFileAsync("node", [
+                    wrapperPath,
+                    "--log-level=verbose",
+                    tempDirectory
+                ]);
+                assert.fail(
+                    "Expected the wrapper to exit with a non-zero status code"
+                );
+            } catch (error) {
+                assert.ok(error, "Expected an error to be thrown");
+                assert.strictEqual(error.code, 1);
+                assert.match(
+                    error.stderr,
+                    /option '--log-level <level>' argument 'verbose' is invalid/i
+                );
+                assert.ok(
+                    error.stderr.includes("Must be one of:"),
+                    "Expected the error to include valid log level guidance"
+                );
+            }
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("formats files when a custom extension is provided", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
@@ -626,12 +700,38 @@ describe("Prettier wrapper CLI", () => {
                     "Expected stderr to mention the inaccessible target"
                 );
                 assert.ok(
-                    /Usage: prettier-wrapper/.test(error.stderr),
+                    /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"
                 );
             }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("instructs users to supply a target path when none is provided", async () => {
+        try {
+            await execFileAsync("node", [wrapperPath]);
+            assert.fail(
+                "Expected the wrapper to exit with a non-zero status code"
+            );
+        } catch (error) {
+            assert.ok(error, "Expected an error to be thrown");
+            assert.strictEqual(
+                error.code,
+                1,
+                "Expected a non-zero exit code when no target path is provided"
+            );
+            assert.match(
+                error.stderr,
+                /No target path provided\./,
+                "Expected stderr to mention the missing target path"
+            );
+            assert.match(
+                error.stderr,
+                /--path <path>/,
+                "Expected stderr to point users to the --path option"
+            );
         }
     });
 });

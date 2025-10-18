@@ -5,10 +5,8 @@
 // single source of truth.
 
 import { capitalize } from "../../../shared/string-utils.js";
-import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
-    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
-} from "../project-index/index.js";
+import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/cache.js";
+import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 import { normalizeStringList } from "./option-utils.js";
 
 export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
@@ -236,7 +234,7 @@ identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
     since: BASE_IDENTIFIER_CASE_SINCE,
     type: "int",
     category: "gml",
-    default: DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    default: getDefaultProjectIndexGmlConcurrency(),
     range: { start: 1, end: Infinity },
     description:
         "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."

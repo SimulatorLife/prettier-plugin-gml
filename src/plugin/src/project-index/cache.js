@@ -2,10 +2,10 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
-import { throwIfAborted } from "./abort-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -42,13 +42,6 @@ function hasEntries(record) {
     );
 }
 
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
-    );
-}
-
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
         return path.resolve(cacheFilePath);
@@ -71,6 +64,20 @@ function cloneMtimeMap(source) {
     );
 }
 
+function areNumbersApproximatelyEqual(a, b) {
+    if (a === b) {
+        return true;
+    }
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return false;
+    }
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance = Number.EPSILON * scale * 4;
+    return Math.abs(a - b) <= tolerance;
+}
+
 function areMtimeMapsEqual(expected = {}, actual = {}) {
     if (expected === actual) {
         return true;
@@ -91,7 +98,15 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return false;
     }
 
-    return expectedEntries.every(([key, value]) => actual[key] === value);
+    return expectedEntries.every(([key, value]) => {
+        const actualValue = actual[key];
+
+        if (typeof value === "number" && typeof actualValue === "number") {
+            return areNumbersApproximatelyEqual(value, actualValue);
+        }
+
+        return actualValue === value;
+    });
 }
 
 function validateCachePayload(payload) {
@@ -377,7 +392,7 @@ export async function deriveCacheKey(
     if (resolvedRoot) {
         const entries = await listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
-            .filter(isManifestEntry)
+            .filter(isProjectManifestPath)
             .sort((a, b) => a.localeCompare(b));
 
         for (const manifestName of manifestNames) {

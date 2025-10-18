@@ -252,7 +252,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`.
+  The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -269,8 +269,8 @@ If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale f
 ## Architecture overview
 
 The repository is organised as a multi-package workspace so the parser, plugin,
-and CLI can evolve together. Each package ships its own tests and scripts while
-sharing utilities via the `src/shared/` module.
+and CLI can evolve together. Each package ships its own tests and CLI entry
+points while sharing utilities via the `src/shared/` module.
 
 | Package / folder | Location | Purpose |
 | --- | --- | --- |
@@ -287,6 +287,10 @@ plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
 `npm run build:feather-metadata` refresh the datasets under `resources/` when the
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
+
+> **Note:** All developer-facing utilities live under `src/cli/commands/`.
+> When adding new helpers, expose them through the CLI instead of creating
+> stand-alone scripts so contributors have a single, discoverable entry point.
 
 ---
 
@@ -331,6 +335,9 @@ without editing project scripts:
 
 - `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
   extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
+- `PRETTIER_PLUGIN_GML_LOG_LEVEL` &mdash; Sets the default Prettier log level
+  when the wrapper runs without `--log-level`. Accepted values mirror Prettier:
+  `debug`, `info`, `warn`, `error`, or `silent`.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
 - `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
@@ -393,7 +400,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `lineCommentBannerMinimumSlashes` | `5` | Preserves banner-style comments with at least this many `/` characters. |
 | `lineCommentBannerAutofillThreshold` | `4` | Pads banner comments up to the minimum slash count when they already start with several `/`. |
-| `lineCommentBoilerplateFragments` | `""` | Removes boilerplate line comments that contain any of the provided comma-separated substrings. |
+| `lineCommentBoilerplateFragments` | `["Script assets have changed for v2.3.0", "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"]` | Removes boilerplate line comments that contain any of the provided comma-separated substrings, extending this built-in removal list. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
@@ -416,7 +423,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
 | `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
 | `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set to `0` to disable the size guard when coordinating cache writes manually. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
@@ -459,6 +466,10 @@ prettier-plugin-gml/
 ├─ docs/              # Design notes and rollout guides
 └─ package.json       # Workspace manifest with scripts and shared tooling
 ```
+
+All developer automation should be exposed through the CLI entry points in
+`src/cli/commands/`. Avoid adding stand-alone scripts elsewhere in the
+repository so new tooling remains easy to discover and maintain.
 
 ### Set up the workspace
 
@@ -513,6 +524,7 @@ npm run example:plugin      # Format a fixture with the development build
 npm run format:check        # Audit repository formatting without writes
 npm --prefix src/plugin run prettier:plugin -- --path=tests/test14.input.gml
 npm run cli -- --help       # Explore CLI utilities without switching directories
+npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
 ```
 
 ---

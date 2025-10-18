@@ -2,7 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import {
+    toPosixPath,
+    walkAncestorDirectories
+} from "../../../shared/path-utils.js";
 import {
     cloneObjectEntries,
     isNonEmptyArray
@@ -13,7 +16,11 @@ import {
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { clampConcurrency } from "./concurrency.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
@@ -25,10 +32,9 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "./abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
 
 const PARSER_FACADE_OPTION_KEYS = [
     "identifierCaseProjectIndexParserFacade",
@@ -41,34 +47,24 @@ function getProjectIndexParserOverride(options) {
         return null;
     }
 
-    const facade = PARSER_FACADE_OPTION_KEYS.map((key) => options[key]).find(
-        (candidate) => candidate && typeof candidate.parse === "function"
-    );
-
-    if (facade) {
-        return {
-            facade,
-            parse: facade.parse.bind(facade)
-        };
+    for (const key of PARSER_FACADE_OPTION_KEYS) {
+        const facade = options[key];
+        if (typeof facade?.parse === "function") {
+            return {
+                facade,
+                parse: facade.parse.bind(facade)
+            };
+        }
     }
 
-    const { parseGml } = options;
-    return typeof parseGml === "function"
-        ? { facade: null, parse: parseGml }
-        : null;
+    const parse = options.parseGml;
+    return typeof parse === "function" ? { facade: null, parse } : null;
 }
 
 function resolveProjectIndexParser(options) {
     return (
         getProjectIndexParserOverride(options)?.parse ??
         defaultProjectIndexParser
-    );
-}
-
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
     );
 }
 
@@ -80,23 +76,17 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
         return null;
     }
 
-    let current = path.dirname(path.resolve(filepath));
-    const visited = new Set();
+    const startDirectory = path.dirname(path.resolve(filepath));
 
-    while (!visited.has(current)) {
-        visited.add(current);
+    for (const directory of walkAncestorDirectories(startDirectory)) {
         throwIfAborted(signal, "Project root discovery was aborted.");
-        const entries = await listDirectory(fsFacade, current, { signal });
-        const hasManifest = entries.some(isManifestEntry);
-        if (hasManifest) {
-            return current;
-        }
 
-        const parent = path.dirname(current);
-        if (parent === current) {
-            break;
+        const entries = await listDirectory(fsFacade, directory, { signal });
+        throwIfAborted(signal, "Project root discovery was aborted.");
+
+        if (entries.some(isProjectManifestPath)) {
+            return directory;
         }
-        current = parent;
     }
 
     return null;
@@ -228,7 +218,10 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+export {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
     PROJECT_INDEX_CACHE_DIRECTORY,
@@ -240,7 +233,13 @@ export {
     deriveCacheKey
 } from "./cache.js";
 
-export { DEFAULT_PROJECT_INDEX_GML_CONCURRENCY };
+export {
+    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    getDefaultProjectIndexGmlConcurrency,
+    setDefaultProjectIndexGmlConcurrency,
+    PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+} from "./concurrency.js";
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
@@ -372,7 +371,10 @@ async function scanProjectTree(
 
             const relativePosix = toPosixPath(relativePath);
             const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
+            if (
+                lowerPath.endsWith(".yy") ||
+                isProjectManifestPath(relativePosix)
+            ) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -411,8 +413,11 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
         let defaultName = path.posix.basename(resourcePath);
         if (lowerPath.endsWith(".yy")) {
             defaultName = path.posix.basename(resourcePath, ".yy");
-        } else if (lowerPath.endsWith(".yyp")) {
-            defaultName = path.posix.basename(resourcePath, ".yyp");
+        } else if (isProjectManifestPath(resourcePath)) {
+            defaultName = path.posix.basename(
+                resourcePath,
+                PROJECT_MANIFEST_EXTENSION
+            );
         }
         record = {
             path: resourcePath,
@@ -2098,20 +2103,6 @@ function cloneAssetReference(reference) {
     };
 }
 
-function clampConcurrency(
-    value,
-    { min = 1, max = 16, fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY } = {}
-) {
-    const numeric = Number(value ?? fallback);
-    if (!Number.isFinite(numeric) || numeric < min) {
-        return min;
-    }
-    if (numeric > max) {
-        return max;
-    }
-    return numeric;
-}
-
 async function processWithConcurrency(items, limit, worker, options = {}) {
     if (!Array.isArray(items) || items.length === 0) {
         return;
@@ -2216,9 +2207,7 @@ export async function buildProjectIndex(
 
     const concurrencySettings = options?.concurrency ?? {};
     const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ??
-            concurrencySettings.gmlParsing ??
-            DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
     const parseProjectSource = resolveProjectIndexParser(options);

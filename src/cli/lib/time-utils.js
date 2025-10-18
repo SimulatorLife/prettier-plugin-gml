@@ -4,10 +4,11 @@
  * are rounded to a single decimal place in seconds.
  *
  * @param {number} startTime Timestamp captured before the work began.
+ * @param {() => number} [now] Function that returns the current timestamp.
  * @returns {string} Formatted duration label for logs and status messages.
  */
-export function formatDuration(startTime) {
-    const deltaMs = Date.now() - startTime;
+export function formatDuration(startTime, now = Date.now) {
+    const deltaMs = now() - startTime;
     if (deltaMs < 1000) {
         return `${deltaMs}ms`;
     }
@@ -22,19 +23,24 @@ export function formatDuration(startTime) {
  *
  * @param {{
  *   verbose?: { parsing?: boolean },
- *   formatMessage?: string | ((duration: string) => string)
+ *   formatMessage?: string | ((duration: string) => string),
+ *   now?: () => number
  * }} [options]
  * @returns {() => void} A function that logs the elapsed duration when invoked.
  */
-export function createVerboseDurationLogger({ verbose, formatMessage } = {}) {
-    const startTime = Date.now();
+export function createVerboseDurationLogger({
+    verbose,
+    formatMessage,
+    now = Date.now
+} = {}) {
+    const startTime = now();
 
     return () => {
         if (!verbose?.parsing) {
             return;
         }
 
-        const duration = formatDuration(startTime);
+        const duration = formatDuration(startTime, now);
         const message =
             typeof formatMessage === "function"
                 ? formatMessage(duration)
@@ -51,17 +57,19 @@ export function createVerboseDurationLogger({ verbose, formatMessage } = {}) {
  * @template T
  * @param {string} label Human-readable description of the work being timed.
  * @param {() => T} callback Operation to execute.
- * @param {{ verbose?: { parsing?: boolean } }} [options] Optional CLI verbose flags.
+ * @param {{ verbose?: { parsing?: boolean }, now?: () => number }} [options]
+ *   Optional CLI verbose flags and clock override.
  * @returns {T} Whatever the callback returns.
  */
-export function timeSync(label, callback, { verbose } = {}) {
+export function timeSync(label, callback, { verbose, now } = {}) {
     if (verbose?.parsing) {
         console.log(`→ ${label}`);
     }
 
     const logCompletion = createVerboseDurationLogger({
         verbose,
-        formatMessage: (duration) => `  ${label} completed in ${duration}.`
+        formatMessage: (duration) => `  ${label} completed in ${duration}.`,
+        now
     });
     const result = callback();
 

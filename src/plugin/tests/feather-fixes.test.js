@@ -36,6 +36,28 @@ function isEventInheritedCall(node) {
     return callee?.type === "Identifier" && callee.name === "event_inherited";
 }
 
+function getCallExpressionName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node.object?.name ?? null;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = node.expression;
+
+        if (expression && expression.type === "CallExpression") {
+            return expression.object?.name ?? null;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
@@ -3029,6 +3051,37 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2012.automatic, true);
     });
 
+    it("removes dangling vertex_format_end statements before beginning a new definition", () => {
+        const source = [
+            "vertex_format_end();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+
+        assert.strictEqual(
+            callNames.at(0),
+            "vertex_format_begin",
+            "Expected the stray vertex_format_end statement to be removed before formatting begins."
+        );
+
+        assert.strictEqual(
+            callNames.filter((name) => name === "vertex_format_end").length,
+            0,
+            "Top-level vertex_format_end calls should be removed when no preceding begin exists."
+        );
+    });
+
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {
         const source = [
             "vertex_begin(vb, format);",
@@ -5020,6 +5073,11 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(remainingFunction);
         assert.strictEqual(remainingFunction.type, "FunctionDeclaration");
         assert.strictEqual(remainingFunction.id, "make_game");
+        assert.strictEqual(
+            remainingFunction._suppressSyntheticReturnsDoc,
+            undefined,
+            "Expected surviving declaration to continue receiving synthetic returns docs when no comments exist."
+        );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm1064 = appliedDiagnostics.find(

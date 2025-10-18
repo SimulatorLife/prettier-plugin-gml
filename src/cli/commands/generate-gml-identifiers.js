@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { handleCliError } from "../lib/cli-errors.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { toNormalizedLowerCaseSet, toPosixPath } from "../../shared/utils.js";
 import { ensureDir } from "../lib/file-system.js";
@@ -27,7 +27,6 @@ import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
 } from "../lib/vm-eval-timeout.js";
-import { parseCommandLine } from "./command-parsing.js";
 import {
     applyManualEnvOptionOverrides,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
@@ -54,7 +53,7 @@ const manualClient = createManualGitHubClient({
 
 const { fetchManualFile, resolveManualRef } = manualClient;
 
-function createGenerateIdentifiersCommand() {
+export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-gml-identifiers")
@@ -121,16 +120,6 @@ function createGenerateIdentifiersCommand() {
             DEFAULT_CACHE_ROOT
         );
 
-    return command;
-}
-
-function parseArgs({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    const command = createGenerateIdentifiersCommand();
-
     applyManualEnvOptionOverrides({
         command,
         env,
@@ -143,22 +132,19 @@ function parseArgs({
         ]
     });
 
+    return command;
+}
+
+function resolveGenerateIdentifierOptions(command) {
+    const options = command.opts();
+    const isTty = process.stdout.isTTY === true;
+
     const verbose = {
         resolveRef: true,
         downloads: true,
         parsing: true,
         progressBar: isTty
     };
-
-    const { helpRequested, usage } = parseCommandLine(command, argv);
-    if (helpRequested) {
-        return {
-            helpRequested: true,
-            usage
-        };
-    }
-
-    const options = command.opts();
 
     if (options.quiet) {
         verbose.resolveRef = false;
@@ -180,8 +166,7 @@ function parseArgs({
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        helpRequested: false,
-        usage
+        usage: command.helpInformation()
     };
 }
 
@@ -243,53 +228,76 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     }
 }
 
+const CLASSIFICATION_RULES = [
+    {
+        type: "function",
+        segments: ["functions"],
+        tags: ["function", "functions"]
+    },
+    { type: "method", segments: ["methods"], tags: ["method", "methods"] },
+    { type: "event", segments: ["events"], tags: ["event", "events"] },
+    {
+        type: "variable",
+        segments: ["variables"],
+        tags: ["variable", "variables"]
+    },
+    {
+        type: "accessor",
+        segments: ["accessors"],
+        tags: ["accessor", "accessors"]
+    },
+    {
+        type: "property",
+        segments: ["properties"],
+        tags: ["property", "properties"]
+    },
+    { type: "macro", segments: ["macros"], tags: ["macro", "macros"] },
+    {
+        type: "constant",
+        segments: ["constants"],
+        tags: ["constant", "constants"]
+    },
+    { type: "enum", segments: ["enums"], tags: ["enum", "enums"] },
+    { type: "struct", segments: ["structs"], tags: ["struct", "structs"] }
+];
+
+const CO_OCCURRENCE_RULES = [
+    { type: "function", requiredSegments: [["layers"], ["functions"]] },
+    { type: "constant", requiredSegments: [["shaders"], ["constants"]] }
+];
+
 function classifyFromPath(manualPath, tagList) {
     const normalizedTags = toNormalizedLowerCaseSet(tagList);
     const segments = manualPath.split("/").map((part) => part.toLowerCase());
-    const hasSegment = (needles) =>
-        segments.some((segment) =>
-            needles.some((needle) => segment.includes(needle))
-        );
 
-    const tagHas = (needles) =>
-        needles.some((needle) => normalizedTags.has(needle));
+    const segmentMatches = (needle) =>
+        segments.some((segment) => segment.includes(needle));
+    const tagMatches = (needle) => normalizedTags.has(needle);
 
-    if (hasSegment(["functions"]) || tagHas(["function", "functions"])) {
-        return "function";
+    const matchesAny = (needles = [], matcher) => needles.some(matcher);
+    const matchesAllGroups = (groups = []) =>
+        groups.length > 0 &&
+        groups.every((needles) => matchesAny(needles, segmentMatches));
+
+    for (const {
+        type,
+        segments: segmentNeedles = [],
+        tags: tagNeedles = []
+    } of CLASSIFICATION_RULES) {
+        if (
+            matchesAny(segmentNeedles, segmentMatches) ||
+            matchesAny(tagNeedles, tagMatches)
+        ) {
+            return type;
+        }
     }
-    if (hasSegment(["methods"]) || tagHas(["method", "methods"])) {
-        return "method";
+
+    for (const { type, requiredSegments = [] } of CO_OCCURRENCE_RULES) {
+        if (matchesAllGroups(requiredSegments)) {
+            return type;
+        }
     }
-    if (hasSegment(["events"]) || tagHas(["event", "events"])) {
-        return "event";
-    }
-    if (hasSegment(["variables"]) || tagHas(["variable", "variables"])) {
-        return "variable";
-    }
-    if (hasSegment(["accessors"]) || tagHas(["accessor", "accessors"])) {
-        return "accessor";
-    }
-    if (hasSegment(["properties"]) || tagHas(["property", "properties"])) {
-        return "property";
-    }
-    if (hasSegment(["macros"]) || tagHas(["macro", "macros"])) {
-        return "macro";
-    }
-    if (hasSegment(["constants"]) || tagHas(["constant", "constants"])) {
-        return "constant";
-    }
-    if (hasSegment(["enums"]) || tagHas(["enum", "enums"])) {
-        return "enum";
-    }
-    if (hasSegment(["structs"]) || tagHas(["struct", "structs"])) {
-        return "struct";
-    }
-    if (hasSegment(["layers"]) && hasSegment(["functions"])) {
-        return "function";
-    }
-    if (hasSegment(["shaders"]) && hasSegment(["constants"])) {
-        return "constant";
-    }
+
     return "unknown";
 }
 
@@ -350,7 +358,7 @@ function normaliseIdentifier(name) {
     return name.trim();
 }
 
-async function main({ argv, env, isTty } = {}) {
+export async function runGenerateGmlIdentifiers({ command } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -363,19 +371,17 @@ async function main({ argv, env, isTty } = {}) {
             progressBarWidth,
             cacheRoot,
             manualRepo,
-            helpRequested
-        } = parseArgs({ argv, env, isTty });
+            usage
+        } = resolveGenerateIdentifierOptions(command);
 
-        if (helpRequested) {
-            return 0;
-        }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
 
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef.sha) {
-            throw new Error(
-                `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`
+            throw new CliUsageError(
+                `Unable to resolve manual commit SHA for ref '${manualRef.ref}'.`,
+                { usage }
             );
         }
 
@@ -619,20 +625,5 @@ async function main({ argv, env, isTty } = {}) {
         return 0;
     } finally {
         disposeProgressBars();
-    }
-}
-
-export async function runGenerateGmlIdentifiersCli({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    try {
-        return await main({ argv, env, isTty });
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to generate GML identifiers."
-        });
-        return 1;
     }
 }

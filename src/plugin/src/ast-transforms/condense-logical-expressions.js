@@ -62,6 +62,7 @@ export function condenseLogicalExpressions(ast, helpers) {
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
+    applyDocCommentUpdates(context);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -132,8 +133,16 @@ function buildUpdatedDescription(existing, expression) {
         return `${prefix} ${normalizedExpression}`;
     }
 
+    const mentionsReturn = /\breturn\b/.test(lowered);
+    const mentionsBranching =
+        /\bif\b/.test(lowered) || /\belse\b/.test(lowered);
+
+    if (mentionsReturn && mentionsBranching) {
+        return existing ?? "";
+    }
+
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
-    const needsSemicolon = lowered.includes("return");
+    const needsSemicolon = mentionsReturn;
     const separator = needsSemicolon ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
 }
@@ -335,6 +344,71 @@ function mapDocCommentsToFunctions(ast) {
     }
 
     return groups;
+}
+
+function applyDocCommentUpdates(context) {
+    if (!context || context.docUpdates.size === 0) {
+        return;
+    }
+
+    const commentGroups = ensureCommentGroups(context);
+
+    for (const [fn, update] of context.docUpdates.entries()) {
+        if (!update || !isNonEmptyTrimmedString(update.expression)) {
+            continue;
+        }
+
+        const comments = commentGroups.get(fn);
+        if (!comments || comments.length === 0) {
+            continue;
+        }
+
+        const descriptionComment = comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                /@description\b/i.test(comment.value)
+        );
+
+        if (!descriptionComment) {
+            continue;
+        }
+
+        let updatedDescription = buildUpdatedDescription(
+            update.description,
+            update.expression
+        );
+
+        if (!isNonEmptyTrimmedString(updatedDescription)) {
+            continue;
+        }
+
+        const originalDescription =
+            typeof update.description === "string"
+                ? update.description.trim()
+                : "";
+
+        if (
+            originalDescription.endsWith(".") &&
+            !/[.!?]$/.test(updatedDescription)
+        ) {
+            updatedDescription = `${updatedDescription}.`;
+        }
+
+        const existingDescription = extractDescriptionContent(
+            descriptionComment.value
+        );
+
+        if (existingDescription === updatedDescription) {
+            continue;
+        }
+
+        const prefixMatch = descriptionComment.value.match(
+            /^(\s*\/\s*@description\s*)/i
+        );
+        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
+
+        descriptionComment.value = `${prefix}${updatedDescription}`;
+    }
 }
 
 function collectFunctionNodes(ast) {

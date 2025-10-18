@@ -146,6 +146,28 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
     return true;
 }
 
+export function summarizeReferenceFileOccurrences(
+    references,
+    { fallbackPath = null, includeFilePaths = [] } = {}
+) {
+    const counts = new Map();
+
+    for (const extraPath of includeFilePaths ?? []) {
+        if (typeof extraPath !== "string" || extraPath.length === 0) {
+            continue;
+        }
+
+        incrementFileOccurrence(counts, extraPath);
+    }
+
+    for (const reference of references ?? []) {
+        const filePath = reference?.filePath;
+        incrementFileOccurrence(counts, filePath, fallbackPath);
+    }
+
+    return summarizeFileOccurrences(counts);
+}
+
 export function summarizeFileOccurrences(counts) {
     return [...counts.entries()].map(([filePath, occurrences]) => ({
         filePath,

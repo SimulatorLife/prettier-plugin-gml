@@ -1,9 +1,13 @@
 #!/usr/bin/env node
-import { runPerformanceCli } from "../lib/performance-cli.js";
+import {
+    createPerformanceCommand,
+    runPerformanceCommand
+} from "../lib/performance-cli.js";
 
-const exitCode = await runPerformanceCli({
-    argv: ["--suite", "identifier-text"]
-});
+const command = createPerformanceCommand();
+command.parse(["--suite", "identifier-text"], { from: "user" });
+
+const exitCode = await runPerformanceCommand({ command });
 if (typeof exitCode === "number") {
     process.exitCode = exitCode;
 }

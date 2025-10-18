@@ -341,6 +341,40 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
     });
 });
 
+test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestMtimes = {
+            "project.yyp": 1_700_000_000_000.1234
+        };
+        const sourceMtimes = {
+            "scripts/main.gml": 1_700_000_000_500.5678
+        };
+
+        await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes,
+            sourceMtimes,
+            projectIndex: createProjectIndex(projectRoot)
+        });
+
+        const loadResult = await loadProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {
+                "project.yyp": manifestMtimes["project.yyp"] + 0.0004
+            },
+            sourceMtimes: {
+                "scripts/main.gml": sourceMtimes["scripts/main.gml"] - 0.0003
+            }
+        });
+
+        assert.equal(loadResult.status, "hit");
+    });
+});
+
 test("loadProjectIndexCache treats differently ordered mtime maps as equal", async () => {
     await withTempDir(async (projectRoot) => {
         await saveProjectIndexCache({
