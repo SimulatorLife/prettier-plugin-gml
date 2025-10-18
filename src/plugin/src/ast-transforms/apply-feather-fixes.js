@@ -36,6 +36,20 @@ import {
     getFeatherMetadata
 } from "../feather/metadata.js";
 
+function forEachNodeChild(node, callback) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        callback(value, key);
+    }
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -479,11 +493,9 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -573,18 +585,14 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         const nextBreakableDepth =
             breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        for (const [key, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
+        forEachNodeChild(node, (value, key) => {
             if (Array.isArray(value)) {
                 visitArray(value, node, key, nextBreakableDepth);
-                continue;
+                return;
             }
 
             visit(value, node, key, nextBreakableDepth, node);
-        }
+        });
 
         return false;
     };
@@ -1838,11 +1846,9 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -2019,11 +2025,9 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -7129,10 +7133,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
                     diagnostic
                 );
 
-                if (
-                    Array.isArray(statementFixes) &&
-                    statementFixes.length > 0
-                ) {
+                if (isNonEmptyArray(statementFixes)) {
                     fixes.push(...statementFixes);
                 }
             }
@@ -7160,7 +7161,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
 }
 
 function ensureVertexBatchesClosed(statements, diagnostic) {
-    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+    if (!diagnostic || !isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -7382,7 +7383,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    if (!Array.isArray(eventMarkers) || eventMarkers.length === 0) {
+    if (!isNonEmptyArray(eventMarkers)) {
         return null;
     }
 
@@ -7540,7 +7541,7 @@ function getCommentIndex(comment) {
 }
 
 function findEventMarkerForIndex(markers, index) {
-    if (!Array.isArray(markers) || markers.length === 0) {
+    if (!isNonEmptyArray(markers)) {
         return null;
     }
 

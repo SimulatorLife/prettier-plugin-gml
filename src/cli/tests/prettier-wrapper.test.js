@@ -150,6 +150,50 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("loads plugins declared as strings in project configuration", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const pluginPath = path.join(
+                tempDirectory,
+                "side-effect-plugin.cjs"
+            );
+            await fs.writeFile(
+                pluginPath,
+                [
+                    'const fs = require("fs");',
+                    'const path = require("path");',
+                    'const outputPath = path.join(__dirname, "plugin-loaded.txt");',
+                    'fs.writeFileSync(outputPath, "loaded", "utf8");',
+                    "module.exports = {};",
+                    ""
+                ].join("\n"),
+                "utf8"
+            );
+
+            const configPath = path.join(tempDirectory, ".prettierrc");
+            await fs.writeFile(
+                configPath,
+                JSON.stringify({ plugins: pluginPath }),
+                "utf8"
+            );
+
+            await execFileAsync("node", [wrapperPath, tempDirectory]);
+
+            const pluginOutputPath = path.join(
+                tempDirectory,
+                "plugin-loaded.txt"
+            );
+            const pluginOutput = await fs.readFile(pluginOutputPath, "utf8");
+            assert.strictEqual(pluginOutput, "loaded");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("overrides conflicting parser configuration from .prettierrc", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

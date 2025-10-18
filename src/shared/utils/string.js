@@ -10,35 +10,8 @@ export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
-// Hoist frequently accessed character code constants so `isWordChar` can avoid
-// constructing a `RegExp` for every call while still remaining easy to read.
-const CHAR_CODE_UPPER_A = "A".charCodeAt(0);
-const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0);
-const CHAR_CODE_LOWER_A = "a".charCodeAt(0);
-const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
-const CHAR_CODE_DIGIT_0 = "0".charCodeAt(0);
-const CHAR_CODE_DIGIT_9 = "9".charCodeAt(0);
-const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
-
 export function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
-        return false;
-    }
-
-    for (let index = 0; index < character.length; index += 1) {
-        const charCode = character.charCodeAt(index);
-
-        if (
-            (charCode >= CHAR_CODE_UPPER_A && charCode <= CHAR_CODE_UPPER_Z) ||
-            (charCode >= CHAR_CODE_LOWER_A && charCode <= CHAR_CODE_LOWER_Z) ||
-            (charCode >= CHAR_CODE_DIGIT_0 && charCode <= CHAR_CODE_DIGIT_9) ||
-            charCode === CHAR_CODE_UNDERSCORE
-        ) {
-            return true;
-        }
-    }
-
-    return false;
+    return typeof character === "string" && /[\w]/.test(character);
 }
 
 export function toTrimmedString(value) {
@@ -77,6 +50,15 @@ export function capitalize(value) {
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
+
+// Reuse a single Set instance for duplicate detection to avoid allocating a new
+// Set on every call. The helper runs in hot option-normalisation paths where
+// inputs are processed repeatedly, so avoiding per-call allocations reduces
+// memory churn when the function is invoked many times in a row. A simple
+// borrowing flag ensures nested calls fall back to a fresh Set without
+// interfering with the shared instance.
+const REUSABLE_SEEN_SET = new Set();
+let reusableSeenSetBorrowed = false;
 
 function getCandidateEntries(value, splitPattern) {
     if (Array.isArray(value)) {
@@ -137,20 +119,37 @@ export function normalizeStringList(
     }
 
     const normalized = [];
-    const seen = new Set();
+    let seen;
+    let releaseReusableSet = false;
 
-    for (const entry of entries) {
-        if (typeof entry !== "string") {
-            continue;
+    if (reusableSeenSetBorrowed) {
+        seen = new Set();
+    } else {
+        seen = REUSABLE_SEEN_SET;
+        reusableSeenSetBorrowed = true;
+        releaseReusableSet = true;
+        seen.clear();
+    }
+
+    try {
+        for (const entry of entries) {
+            if (typeof entry !== "string") {
+                continue;
+            }
+
+            const trimmed = entry.trim();
+            if (trimmed.length === 0 || seen.has(trimmed)) {
+                continue;
+            }
+
+            seen.add(trimmed);
+            normalized.push(trimmed);
         }
-
-        const trimmed = entry.trim();
-        if (trimmed.length === 0 || seen.has(trimmed)) {
-            continue;
+    } finally {
+        if (releaseReusableSet) {
+            seen.clear();
+            reusableSeenSetBorrowed = false;
         }
-
-        seen.add(trimmed);
-        normalized.push(trimmed);
     }
 
     return normalized;

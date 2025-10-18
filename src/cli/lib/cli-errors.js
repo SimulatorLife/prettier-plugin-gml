@@ -15,6 +15,10 @@ function indentBlock(text, indent = DEFAULT_INDENT) {
         .join("\n");
 }
 
+function isCliUsageError(error) {
+    return isErrorLike(error) && error.name === "CliUsageError";
+}
+
 function formatSection(label, content) {
     if (!content) {
         return null;
@@ -67,6 +71,10 @@ function formatErrorHeader(error) {
     const name = toTrimmedString(error.name);
     const message = toTrimmedString(error.message);
 
+    if (isCliUsageError(error)) {
+        return message;
+    }
+
     if (name && message) {
         return message.toLowerCase().startsWith(name.toLowerCase())
             ? message
@@ -95,7 +103,10 @@ function formatErrorObject(error, seen) {
 
     seen.add(error);
 
-    const stack = typeof error.stack === "string" ? error.stack : null;
+    const stack =
+        !isCliUsageError(error) && typeof error.stack === "string"
+            ? error.stack
+            : null;
     const sections = [
         formatErrorHeader(error),
         extractStackBody(stack),
