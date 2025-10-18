@@ -289,6 +289,7 @@ let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
+const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -525,14 +526,14 @@ async function registerIgnorePaths(ignoreFiles) {
 
         registerIgnorePath(ignoreFilePath);
 
+        if (ignoreRulesContainNegations) {
+            continue;
+        }
+
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
-            const hasNegation = contents
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .some((line) => line.startsWith("!") && line.length > 1);
 
-            if (hasNegation) {
+            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
                 ignoreRulesContainNegations = true;
             }
         } catch {
