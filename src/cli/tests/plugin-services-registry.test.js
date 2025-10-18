@@ -9,10 +9,10 @@ import {
     resolveCliIdentifierCasePlanPreparer
 } from "../lib/plugin-services.js";
 import {
-    createDefaultProjectIndexBuilder,
-    createDefaultIdentifierCasePlanPreparer
+    defaultProjectIndexBuilder,
+    defaultIdentifierCasePlanPreparer
 } from "../lib/plugin-service-providers/default-plugin-services.js";
-import { createDefaultCliPluginServices } from "../lib/plugin-service-providers/default-cli-plugin-services.js";
+import { defaultCliPluginServices } from "../lib/plugin-service-providers/default-cli-plugin-services.js";
 
 async function metricsOnlyProjectIndexBuilder() {
     return { metrics: {} };
@@ -41,10 +41,9 @@ test("CLI plugin service registration", async (t) => {
         const buildProjectIndex = resolveCliProjectIndexBuilder();
         const prepareIdentifierCasePlan =
             resolveCliIdentifierCasePlanPreparer();
-        const defaultBuildProjectIndex = createDefaultProjectIndexBuilder();
+        const defaultBuildProjectIndex = defaultProjectIndexBuilder;
         const defaultPrepareIdentifierCasePlan =
-            createDefaultIdentifierCasePlanPreparer();
-        const defaultCliServices = createDefaultCliPluginServices();
+            defaultIdentifierCasePlanPreparer;
 
         assert.strictEqual(
             buildProjectIndex,
@@ -57,7 +56,7 @@ test("CLI plugin service registration", async (t) => {
             "default identifier case planner should be registered"
         );
         assert.deepStrictEqual(
-            defaultCliServices,
+            defaultCliPluginServices,
             {
                 buildProjectIndex: defaultBuildProjectIndex,
                 prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
@@ -108,9 +107,9 @@ test("CLI plugin service registration", async (t) => {
         const buildProjectIndex = resolveCliProjectIndexBuilder();
         const prepareIdentifierCasePlan =
             resolveCliIdentifierCasePlanPreparer();
-        const defaultBuildProjectIndex = createDefaultProjectIndexBuilder();
+        const defaultBuildProjectIndex = defaultProjectIndexBuilder;
         const defaultPrepareIdentifierCasePlan =
-            createDefaultIdentifierCasePlanPreparer();
+            defaultIdentifierCasePlanPreparer;
 
         assert.strictEqual(
             buildProjectIndex,
