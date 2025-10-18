@@ -133,8 +133,16 @@ function buildUpdatedDescription(existing, expression) {
         return `${prefix} ${normalizedExpression}`;
     }
 
+    const mentionsReturn = /\breturn\b/.test(lowered);
+    const mentionsBranching =
+        /\bif\b/.test(lowered) || /\belse\b/.test(lowered);
+
+    if (mentionsReturn && mentionsBranching) {
+        return existing ?? "";
+    }
+
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
-    const needsSemicolon = lowered.includes("return");
+    const needsSemicolon = mentionsReturn;
     const separator = needsSemicolon ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
 }
