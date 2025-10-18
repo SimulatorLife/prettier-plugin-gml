@@ -1,5 +1,8 @@
 import { mergeUniqueValues } from "../../../shared/array-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    getNonEmptyTrimmedString,
+    isNonEmptyTrimmedString
+} from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createCachedOptionResolver } from "./options-cache.js";
 import {
@@ -250,12 +253,8 @@ function coerceRegExp(value) {
         return value;
     }
 
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
+    const trimmed = getNonEmptyTrimmedString(value);
+    if (!trimmed) {
         return null;
     }
 

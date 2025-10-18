@@ -6,6 +6,19 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+export function getNonEmptyTrimmedString(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    return trimmed;
+}
+
 export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
@@ -159,15 +172,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    const normalizedSet = new Set();
-
-    // Populate the set via a manual loop to avoid allocating a temporary array
-    // for `Array#map` on each invocation. The helper runs in hot formatter and
-    // option-parsing paths, so keeping it allocation-free shaves measurable
-    // time off tight micro-benchmarks.
-    for (let index = 0; index < normalizedValues.length; index += 1) {
-        normalizedSet.add(normalizedValues[index].toLowerCase());
-    }
-
-    return normalizedSet;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }

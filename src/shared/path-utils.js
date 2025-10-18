@@ -1,1 +1,5 @@
-export { fromPosixPath, toPosixPath } from "./utils/path.js";
+export {
+    fromPosixPath,
+    toPosixPath,
+    resolveContainedRelativePath
+} from "./utils/path.js";

@@ -11,9 +11,11 @@ import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "../../shared/ast-node-helpers.js";
-import { formatByteSize } from "../../shared/number-utils.js";
-import { toNormalizedLowerCaseString } from "../../shared/string-utils.js";
+import { getIdentifierText } from "../../shared/ast.js";
+import {
+    formatByteSize,
+    toNormalizedLowerCaseString
+} from "../../shared/utils.js";
 
 const AVAILABLE_SUITES = new Map();
 

@@ -166,4 +166,3 @@ export function getIterableSize(iterable) {
 
     return count;
 }
-

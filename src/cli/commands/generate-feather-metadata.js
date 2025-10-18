@@ -5,8 +5,7 @@ import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp } from "../../shared/regexp.js";
-import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
+import { escapeRegExp, toNormalizedLowerCaseSet } from "../../shared/utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
@@ -185,7 +184,7 @@ function parseArgs({
 
 // Manual fetching helpers are provided by manual-cli-helpers.js
 
-function normaliseMultilineText(text) {
+function normalizeMultilineText(text) {
     if (typeof text !== "string" || text.length === 0) {
         return null;
     }
@@ -198,12 +197,12 @@ function normaliseMultilineText(text) {
     return collapsedLines.join("\n").trim();
 }
 
-function sanitiseManualString(value) {
+function sanitizeManualString(value) {
     if (typeof value !== "string") {
         return null;
     }
 
-    return normaliseMultilineText(value);
+    return normalizeMultilineText(value);
 }
 
 function parseDocument(html) {
@@ -278,13 +277,13 @@ function extractTable(table) {
         if (rowIndex === 0 && hasHeaderCells) {
             headers.push(
                 ...values
-                    .map((value) => normaliseMultilineText(value))
+                    .map((value) => normalizeMultilineText(value))
                     .filter(Boolean)
             );
             return;
         }
 
-        rows.push(values.map((value) => normaliseMultilineText(value) ?? null));
+        rows.push(values.map((value) => normalizeMultilineText(value) ?? null));
     });
 
     return { headers, rows };
@@ -388,9 +387,9 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     return text.replaceAll(/\s+/g, " ").trim();
 }
 
-function extractSanitisedText(element, { preserveLineBreaks = false } = {}) {
+function extractSanitizedText(element, { preserveLineBreaks = false } = {}) {
     const text = extractText(element, { preserveLineBreaks });
-    return sanitiseManualString(text) ?? null;
+    return sanitizeManualString(text) ?? null;
 }
 
 function collectBlocksAfter(element, { stopTags = [] } = {}) {
@@ -416,7 +415,7 @@ function collectBlocksAfter(element, { stopTags = [] } = {}) {
     return blocks;
 }
 
-function normaliseTextBlock(block) {
+function normalizeTextBlock(block) {
     if (!block) {
         return null;
     }
@@ -430,7 +429,7 @@ function normaliseTextBlock(block) {
     return block.text?.trim() || null;
 }
 
-function normaliseContent(blocks) {
+function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
         notes: [],
@@ -440,7 +439,7 @@ function normaliseContent(blocks) {
         tables: []
     };
     const appendNormalizedText = (target, text) => {
-        const normalized = normaliseMultilineText(text ?? "");
+        const normalized = normalizeMultilineText(text ?? "");
         if (normalized) {
             target.push(normalized);
         }
@@ -458,7 +457,7 @@ function normaliseContent(blocks) {
         list(block) {
             const items = Array.isArray(block.items)
                 ? block.items
-                      .map((item) => normaliseMultilineText(item))
+                      .map((item) => normalizeMultilineText(item))
                       .filter(Boolean)
                 : [];
             if (items.length > 0) {
@@ -535,7 +534,7 @@ function collectDiagnosticDescriptionParts(blocks) {
         if (block.type === "heading") {
             continue;
         }
-        const text = normaliseTextBlock(block);
+        const text = normalizeTextBlock(block);
         if (text) {
             descriptionParts.push(text);
         }
@@ -555,16 +554,16 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        const text = normaliseTextBlock(block);
+        const text = normalizeTextBlock(block);
         if (!text) {
             continue;
         }
 
         if (block.type === "code") {
-            if (!badExample) {
-                badExample = text;
-            } else {
+            if (badExample) {
                 goodExampleParts.push(text);
+            } else {
+                badExample = text;
             }
             continue;
         }
@@ -670,7 +669,7 @@ function parseNamingRules(html) {
     }
 
     const blocks = collectBlocksAfter(heading, { stopTags: ["h2"] });
-    const content = normaliseContent(blocks);
+    const content = normalizeContent(blocks);
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
     const requiresMessage =
@@ -716,17 +715,17 @@ function parseNamingRules(html) {
                     listItem.querySelectorAll("ul li")
                 )
                     .map((styleEl) =>
-                        extractSanitisedText(styleEl, {
+                        extractSanitizedText(styleEl, {
                             preserveLineBreaks: false
                         })
                     )
                     .filter(Boolean);
             } else if (strongText === "Identifier Blocklist") {
-                identifierBlocklist = extractSanitisedText(listItem, {
+                identifierBlocklist = extractSanitizedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText.endsWith("Naming Rule")) {
-                identifierRuleSummary = extractSanitisedText(listItem, {
+                identifierRuleSummary = extractSanitizedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText === "Prefix") {
@@ -747,19 +746,19 @@ function parseNamingRules(html) {
             const description = extractText(item, {
                 preserveLineBreaks: true
             });
-            let normalisedDescription = normaliseMultilineText(
+            let normalizedDescription = normalizeMultilineText(
                 description ?? ""
             );
-            if (title && normalisedDescription) {
+            if (title && normalizedDescription) {
                 const prefixPattern = new RegExp(
                     `^${escapeRegExp(title)}\s*:?\s*`,
                     "i"
                 );
-                normalisedDescription = normalisedDescription.replace(
+                normalizedDescription = normalizedDescription.replace(
                     prefixPattern,
                     ""
                 );
-                normalisedDescription = normalisedDescription.trim();
+                normalizedDescription = normalizedDescription.trim();
             }
 
             const nestedList = item.querySelector("ul");
@@ -767,7 +766,7 @@ function parseNamingRules(html) {
             if (nestedList) {
                 options = getDirectChildren(nestedList, "li")
                     .map((option) =>
-                        normaliseMultilineText(
+                        normalizeMultilineText(
                             extractText(option, { preserveLineBreaks: false })
                         )
                     )
@@ -776,7 +775,7 @@ function parseNamingRules(html) {
 
             ruleSections.push({
                 title,
-                description: normalisedDescription,
+                description: normalizedDescription,
                 options
             });
         }
@@ -808,7 +807,7 @@ function parseDirectiveSections(html) {
 
         const blocks = collectBlocksAfter(element, { stopTags: ["h2"] });
         const id = element.getAttribute("id") || slugify(title);
-        const content = normaliseContent(blocks);
+        const content = normalizeContent(blocks);
         sections.push({
             id,
             title,
@@ -916,7 +915,7 @@ function parseTypeSystem(html) {
             node = node.nextSibling;
         }
     }
-    const introContent = normaliseContent(introBlocks);
+    const introContent = normalizeContent(introBlocks);
 
     const tables = Array.from(document.querySelectorAll("table"));
     const baseTypeTable = tables[0] ?? null;
@@ -926,7 +925,7 @@ function parseTypeSystem(html) {
         .map((element) => createBlock(element))
         .filter(Boolean);
     const notes = noteBlocks
-        .map((block) => normaliseMultilineText(block.text ?? ""))
+        .map((block) => normalizeMultilineText(block.text ?? ""))
         .filter(Boolean);
 
     const specifierSections = [];
@@ -938,7 +937,7 @@ function parseTypeSystem(html) {
         const blocks = collectBlocksAfter(element, {
             stopTags: ["h3", "h2"]
         });
-        const content = normaliseContent(blocks);
+        const content = normalizeContent(blocks);
         specifierSections.push({
             id: element.getAttribute("id") || slugify(title),
             title,
@@ -976,7 +975,7 @@ function parseTypeSystem(html) {
             : null;
     }
 
-    const typeValidationContent = normaliseContent(typeValidationBlocks);
+    const typeValidationContent = normalizeContent(typeValidationBlocks);
 
     return {
         overview: joinSections(introContent.paragraphs) || undefined,
@@ -984,9 +983,9 @@ function parseTypeSystem(html) {
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
             specifierExamples: type.specifierExamples
-                .map((example) => normaliseMultilineText(example))
+                .map((example) => normalizeMultilineText(example))
                 .filter(Boolean),
-            description: normaliseMultilineText(type.description)
+            description: normalizeMultilineText(type.description)
         })),
         notes,
         specifierSections,

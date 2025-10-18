@@ -4,12 +4,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+    getErrorMessage,
+    hasOwn,
+    isErrorWithCode,
     isNonEmptyTrimmedString,
+    isObjectLike,
+    toArray,
     toTrimmedString
-} from "../../shared/string-utils.js";
-import { toArray } from "../../shared/array-utils.js";
-import { hasOwn, isObjectLike } from "../../shared/object-utils.js";
-import { getErrorMessage, isErrorWithCode } from "../../shared/error-utils.js";
+} from "../../shared/utils.js";
 
 let parser;
 
