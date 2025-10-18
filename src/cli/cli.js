@@ -474,10 +474,7 @@ async function revertFormattedFiles() {
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
         } catch (revertError) {
-            const message =
-                revertError && typeof revertError.message === "string"
-                    ? revertError.message
-                    : String(revertError ?? "");
+            const message = getErrorMessage(revertError);
             console.error(
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
@@ -746,8 +743,9 @@ async function resolveFormattingOptions(filePath) {
             editorconfig: true
         });
     } catch (error) {
+        const message = getErrorMessage(error, { fallback: "Unknown error" });
         console.warn(
-            `Unable to resolve Prettier config for ${filePath}: ${error.message}`
+            `Unable to resolve Prettier config for ${filePath}: ${message}`
         );
     }
 
