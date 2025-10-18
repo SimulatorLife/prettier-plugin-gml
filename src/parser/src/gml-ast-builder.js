@@ -1,5 +1,6 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { getNonEmptyTrimmedString } from "../../shared/string-utils.js";
 import ScopeTracker from "./scope-tracker.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import IdentifierMetadataManager from "./identifier-metadata-manager.js";
@@ -1267,9 +1268,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitDefineStatement(ctx) {
         const regionCharacters = ctx.RegionCharacters();
         const rawText = regionCharacters ? regionCharacters.getText() : "";
-        const trimmed = rawText.trim();
+        const trimmed = getNonEmptyTrimmedString(rawText);
 
-        if (trimmed.length === 0) {
+        if (!trimmed) {
             return null;
         }
 
