@@ -1,6 +1,5 @@
-import { toArray } from "../../shared/array-utils.js";
-import { cloneLocation } from "../../shared/ast-locations.js";
-import { isObjectLike } from "../../shared/object-utils.js";
+import { cloneLocation } from "../../shared/ast.js";
+import { isObjectLike, toArray } from "../../shared/utils.js";
 
 class Scope {
     constructor(id, kind) {

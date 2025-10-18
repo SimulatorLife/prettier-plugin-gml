@@ -8,8 +8,7 @@ import {
     isErrorLike,
     isMapLike,
     isRegExpLike,
-    isSetLike,
-    isSyntaxErrorWithLocation
+    isSetLike
 } from "../utils/capability-probes.js";
 
 describe("capability probes", () => {
@@ -94,27 +93,5 @@ describe("capability probes", () => {
         };
 
         assert.equal(getIterableSize(iterable), 2);
-    });
-
-    it("identifies syntax errors with location metadata", () => {
-        const syntaxErrorLike = {
-            message: "boom",
-            line: 4,
-            column: 2,
-            rule: "expression",
-            wrongSymbol: "token",
-            offendingText: "x"
-        };
-
-        assert.equal(isSyntaxErrorWithLocation(syntaxErrorLike), true);
-        assert.equal(
-            isSyntaxErrorWithLocation({ message: "boom", line: "3" }),
-            true
-        );
-        assert.equal(
-            isSyntaxErrorWithLocation({ message: "boom", line: 4, rule: 5 }),
-            false
-        );
-        assert.equal(isSyntaxErrorWithLocation({ message: "boom" }), false);
     });
 });

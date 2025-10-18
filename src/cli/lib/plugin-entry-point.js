@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { escapeRegExp } from "../../shared/regexp.js";
+import { escapeRegExp, getNonEmptyTrimmedString } from "../../shared/utils.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
@@ -45,12 +45,8 @@ function getEnvironmentCandidates(env) {
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ??
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATH;
 
-    if (typeof rawValue !== "string") {
-        return [];
-    }
-
-    const trimmed = rawValue.trim();
-    if (trimmed.length === 0) {
+    const trimmed = getNonEmptyTrimmedString(rawValue);
+    if (!trimmed) {
         return [];
     }
 
@@ -66,20 +62,20 @@ function resolveCandidatePath(candidate) {
         return path.resolve(REPO_ROOT, ...candidate);
     }
 
-    if (typeof candidate !== "string") {
-        return null;
+    if (typeof candidate === "string") {
+        const trimmed = getNonEmptyTrimmedString(candidate);
+        if (!trimmed) {
+            return null;
+        }
+
+        if (path.isAbsolute(trimmed)) {
+            return trimmed;
+        }
+
+        return path.resolve(REPO_ROOT, trimmed);
     }
 
-    const trimmed = candidate.trim();
-    if (trimmed.length === 0) {
-        return null;
-    }
-
-    if (path.isAbsolute(trimmed)) {
-        return trimmed;
-    }
-
-    return path.resolve(REPO_ROOT, trimmed);
+    return null;
 }
 
 function collectCandidatePaths({ env, candidates } = {}) {

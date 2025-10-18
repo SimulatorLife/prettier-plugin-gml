@@ -2033,6 +2033,48 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("appends surface target resets after vertex submissions that draw to the active target", () => {
+        const source = [
+            "surface_set_target(sf);",
+            "draw_clear_alpha(c_black, 1);",
+            "draw_circle(10, 10, 20, false);",
+            "vertex_submit(vb, pr_trianglelist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const submitIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "vertex_submit"
+        );
+        const resetIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(
+            submitIndex !== -1,
+            "Expected vertex_submit call to be present in the AST."
+        );
+        assert.ok(
+            resetIndex !== -1,
+            "Expected surface_reset_target call to be inserted."
+        );
+        assert.strictEqual(
+            resetIndex,
+            submitIndex + 1,
+            "Expected reset call to be appended immediately after the vertex submission."
+        );
+    });
+
     it("captures metadata for deprecated function calls flagged by GM1017", () => {
         const source = [
             "/// @deprecated Use start_new_game instead.",
@@ -2710,13 +2752,15 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [setFogCall, fogResetCall, drawCall] = statements;
+        const [setFogCall, drawCall, fogResetCall] = statements;
 
         assert.ok(setFogCall);
-        assert.ok(fogResetCall);
         assert.ok(drawCall);
+        assert.ok(fogResetCall);
         assert.strictEqual(fogResetCall.type, "CallExpression");
         assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         const args = Array.isArray(fogResetCall.arguments)
             ? fogResetCall.arguments
@@ -3193,7 +3237,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
@@ -4069,7 +4118,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");

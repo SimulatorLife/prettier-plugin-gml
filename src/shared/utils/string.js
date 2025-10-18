@@ -6,39 +6,25 @@ export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+export function getNonEmptyTrimmedString(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    return trimmed;
+}
+
 export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
-// Hoist frequently accessed character code constants so `isWordChar` can avoid
-// constructing a `RegExp` for every call while still remaining easy to read.
-const CHAR_CODE_UPPER_A = "A".charCodeAt(0);
-const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0);
-const CHAR_CODE_LOWER_A = "a".charCodeAt(0);
-const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
-const CHAR_CODE_DIGIT_0 = "0".charCodeAt(0);
-const CHAR_CODE_DIGIT_9 = "9".charCodeAt(0);
-const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
-
 export function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
-        return false;
-    }
-
-    for (let index = 0; index < character.length; index += 1) {
-        const charCode = character.charCodeAt(index);
-
-        if (
-            (charCode >= CHAR_CODE_UPPER_A && charCode <= CHAR_CODE_UPPER_Z) ||
-            (charCode >= CHAR_CODE_LOWER_A && charCode <= CHAR_CODE_LOWER_Z) ||
-            (charCode >= CHAR_CODE_DIGIT_0 && charCode <= CHAR_CODE_DIGIT_9) ||
-            charCode === CHAR_CODE_UNDERSCORE
-        ) {
-            return true;
-        }
-    }
-
-    return false;
+    return typeof character === "string" && /[\w]/.test(character);
 }
 
 export function toTrimmedString(value) {
@@ -137,6 +123,9 @@ export function normalizeStringList(
     }
 
     const normalized = [];
+    // Track unique, trimmed entries without the global borrowing logic that
+    // previously complicated this helper. Each invocation gets its own Set,
+    // keeping the flow easy to follow while preserving the same behaviour.
     const seen = new Set();
 
     for (const entry of entries) {
@@ -183,5 +172,15 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
+    const normalizedSet = new Set();
+
+    // Populate the set via a manual loop to avoid allocating a temporary array
+    // for `Array#map` on each invocation. The helper runs in hot formatter and
+    // option-parsing paths, so keeping it allocation-free shaves measurable
+    // time off tight micro-benchmarks.
+    for (const normalizedValue of normalizedValues) {
+        normalizedSet.add(normalizedValue.toLowerCase());
+    }
+
+    return normalizedSet;
 }

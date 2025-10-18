@@ -1,8 +1,10 @@
 import path from "node:path";
 
-import GMLParser from "../../../parser/gml-parser.js";
+import GMLParser, {
+    isSyntaxErrorWithLocation
+} from "../../../parser/gml-parser.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { isSyntaxErrorWithLocation } from "../../../shared/utils/capability-probes.js";
+import { resolveContainedRelativePath } from "../../../shared/path-utils.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
@@ -75,15 +77,11 @@ function resolveDisplayPath(filePath, projectRoot) {
 
     const normalizedProjectRoot = getNonEmptyString(projectRoot);
     if (normalizedProjectRoot) {
-        const relative = path.relative(
-            normalizedProjectRoot,
-            normalizedFilePath
+        const relative = resolveContainedRelativePath(
+            normalizedFilePath,
+            normalizedProjectRoot
         );
-        if (
-            relative &&
-            !relative.startsWith("..") &&
-            !path.isAbsolute(relative)
-        ) {
+        if (relative) {
             return relative;
         }
     }
@@ -171,35 +169,38 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
         return { lineText: "", pointerOffset: 0 };
     }
 
+    const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
+
     if (!lineText.includes("\t")) {
-        const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
         return { lineText, pointerOffset: clampedIndex };
     }
 
-    const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
-    let expanded = "";
+    const expandedSegments = [];
     let pointerOffset = 0;
+    let expandedLength = 0;
 
-    for (const [index, char] of lineText.entries()) {
-        // TODO: Get this error when parsing a GameMaker project: TypeError: lineText.entries is not a function
+    for (let index = 0; index < lineText.length; index += 1) {
         if (index === clampedIndex) {
-            pointerOffset = expanded.length;
+            pointerOffset = expandedLength;
         }
 
+        const char = lineText[index];
         if (char === "\t") {
             const spacesToAdd =
-                tabSize - (expanded.length % tabSize) || tabSize;
-            expanded += " ".repeat(spacesToAdd);
+                tabSize - (expandedLength % tabSize) || tabSize;
+            expandedSegments.push(" ".repeat(spacesToAdd));
+            expandedLength += spacesToAdd;
         } else {
-            expanded += char;
+            expandedSegments.push(char);
+            expandedLength += 1;
         }
     }
 
     if (clampedIndex >= lineText.length) {
-        pointerOffset = expanded.length;
+        pointerOffset = expandedLength;
     }
 
-    return { lineText: expanded, pointerOffset };
+    return { lineText: expandedSegments.join(""), pointerOffset };
 }
 
 function clampColumnIndex(length, columnNumber) {

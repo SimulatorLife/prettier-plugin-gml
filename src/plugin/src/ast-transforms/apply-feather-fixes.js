@@ -36,6 +36,20 @@ import {
     getFeatherMetadata
 } from "../feather/metadata.js";
 
+function forEachNodeChild(node, callback) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        callback(value, key);
+    }
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -479,11 +493,9 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -573,18 +585,14 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         const nextBreakableDepth =
             breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        for (const [key, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
+        forEachNodeChild(node, (value, key) => {
             if (Array.isArray(value)) {
                 visitArray(value, node, key, nextBreakableDepth);
-                continue;
+                return;
             }
 
             visit(value, node, key, nextBreakableDepth, node);
-        }
+        });
 
         return false;
     };
@@ -1838,11 +1846,9 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -2019,11 +2025,9 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -7129,10 +7133,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
                     diagnostic
                 );
 
-                if (
-                    Array.isArray(statementFixes) &&
-                    statementFixes.length > 0
-                ) {
+                if (isNonEmptyArray(statementFixes)) {
                     fixes.push(...statementFixes);
                 }
             }
@@ -7160,7 +7161,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
 }
 
 function ensureVertexBatchesClosed(statements, diagnostic) {
-    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+    if (!diagnostic || !isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -7382,7 +7383,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    if (!Array.isArray(eventMarkers) || eventMarkers.length === 0) {
+    if (!isNonEmptyArray(eventMarkers)) {
         return null;
     }
 
@@ -7540,7 +7541,7 @@ function getCommentIndex(comment) {
 }
 
 function findEventMarkerForIndex(markers, index) {
-    if (!Array.isArray(markers) || markers.length === 0) {
+    if (!isNonEmptyArray(markers)) {
         return null;
     }
 
@@ -8873,10 +8874,30 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
 
-    if (isFogResetCall(nextNode)) {
-        return null;
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (candidate?.type === "EmptyStatement") {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (isFogResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate || candidate.type !== "CallExpression") {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        insertionIndex += 1;
     }
 
     const resetCall = createFogResetCall(node);
@@ -8897,7 +8918,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -8980,13 +9001,21 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
             break;
         }
 
-        if (!isDrawFunctionCall(candidate)) {
+        const isDrawCall = isDrawFunctionCall(candidate);
+        const isActiveTargetSubmit =
+            !isDrawCall && isVertexSubmitCallUsingActiveTarget(candidate);
+
+        if (!isDrawCall && !isActiveTargetSubmit) {
             break;
         }
 
         markStatementToSuppressLeadingEmptyLine(candidate);
         lastDrawCallIndex = insertionIndex;
         insertionIndex += 1;
+
+        if (isActiveTargetSubmit) {
+            break;
+        }
     }
 
     if (lastDrawCallIndex > property) {
@@ -10961,9 +10990,17 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    const insertionInfo = computeStateResetInsertionIndex({
+        siblings,
+        startIndex: property + 1,
+        isResetCall: isCullModeResetCall
+    });
 
-    if (isCullModeResetCall(nextNode)) {
+    if (!insertionInfo) {
+        return null;
+    }
+
+    if (insertionInfo.alreadyReset) {
         return null;
     }
 
@@ -10985,7 +11022,24 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    let insertionIndex =
+        typeof insertionInfo.index === "number"
+            ? insertionInfo.index
+            : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -12315,10 +12369,13 @@ function ensureColourWriteEnableResetAfterCall(
 
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
+    const hasOriginalSeparator = nextSibling
+        ? hasOriginalBlankLineBetween(previousSibling, nextSibling)
+        : hasOriginalBlankLineBetween(node, previousSibling);
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+        !hasOriginalSeparator;
 
     if (shouldInsertSeparator) {
         siblings.splice(
@@ -12328,6 +12385,9 @@ function ensureColourWriteEnableResetAfterCall(
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -16810,6 +16870,24 @@ function isDrawFunctionCall(node) {
         typeof identifier.name === "string" &&
         identifier.name.startsWith("draw_")
     );
+}
+
+function isVertexSubmitCallUsingActiveTarget(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "vertex_submit")) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (args.length < 3) {
+        return false;
+    }
+
+    return isNegativeOneLiteral(args[2]);
 }
 
 function extractSurfaceTargetName(node) {

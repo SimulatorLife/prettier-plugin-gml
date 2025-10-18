@@ -1,15 +1,14 @@
-import {
-    createDefaultProjectIndexBuilder,
-    createDefaultIdentifierCasePlanPreparer
-} from "./plugin-service-providers/default-plugin-services.js";
+import { defaultCliPluginServices } from "./plugin-service-providers/default-cli-plugin-services.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
  * @typedef {(options: object) => Promise<void>} CliIdentifierCasePlanPreparer
  */
 
-let projectIndexBuilder = createDefaultProjectIndexBuilder();
-let identifierCasePlanPreparer = createDefaultIdentifierCasePlanPreparer();
+let projectIndexBuilder;
+let identifierCasePlanPreparer;
+
+resetRegisteredCliPluginServices();
 
 function assertService(candidate, description) {
     if (typeof candidate !== "function") {
@@ -40,6 +39,8 @@ export function registerCliIdentifierCasePlanPreparer(preparer) {
 }
 
 export function resetRegisteredCliPluginServices() {
-    projectIndexBuilder = createDefaultProjectIndexBuilder();
-    identifierCasePlanPreparer = createDefaultIdentifierCasePlanPreparer();
+    ({
+        buildProjectIndex: projectIndexBuilder,
+        prepareIdentifierCasePlan: identifierCasePlanPreparer
+    } = defaultCliPluginServices);
 }

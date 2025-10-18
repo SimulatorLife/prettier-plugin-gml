@@ -4,6 +4,7 @@ import {
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../../shared/string-utils.js";
+import { isObjectLike } from "../../shared/object-utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -30,7 +31,7 @@ export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
     const identifiers = metadata?.identifiers;
 
-    if (!identifiers || typeof identifiers !== "object") {
+    if (!isObjectLike(identifiers)) {
         return new Set();
     }
 

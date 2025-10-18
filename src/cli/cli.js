@@ -32,21 +32,18 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
-    asArray,
+    getErrorMessage,
+    isErrorWithCode,
+    isObjectLike,
     mergeUniqueValues,
-    uniqueArray
-} from "../shared/array-utils.js";
-import { getErrorMessage, isErrorWithCode } from "../shared/error-utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
-import {
     normalizeStringList,
+    toArray,
+    toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    toNormalizedLowerCaseSet
-} from "../shared/string-utils.js";
-import {
-    isPathInside,
-    collectAncestorDirectories
-} from "../shared/path-utils.js";
+    uniqueArray
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
+import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
 
 import {
     CliUsageError,
@@ -292,6 +289,7 @@ let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
+const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -339,7 +337,7 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return;
     }
 
@@ -375,7 +373,7 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") {
+    if (!isObjectLike(snapshot)) {
         return "";
     }
 
@@ -528,14 +526,14 @@ async function registerIgnorePaths(ignoreFiles) {
 
         registerIgnorePath(ignoreFilePath);
 
+        if (ignoreRulesContainNegations) {
+            continue;
+        }
+
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
-            const hasNegation = contents
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .some((line) => line.startsWith("!") && line.length > 1);
 
-            if (hasNegation) {
+            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
                 ignoreRulesContainNegations = true;
             }
         } catch {
@@ -759,8 +757,8 @@ async function resolveFormattingOptions(filePath) {
         filepath: filePath
     };
 
-    const basePlugins = asArray(options.plugins);
-    const resolvedPlugins = asArray(resolvedConfig?.plugins);
+    const basePlugins = toArray(options.plugins);
+    const resolvedPlugins = toArray(resolvedConfig?.plugins);
     const combinedPlugins = uniqueArray([...basePlugins, ...resolvedPlugins]);
 
     if (combinedPlugins.length > 0) {
