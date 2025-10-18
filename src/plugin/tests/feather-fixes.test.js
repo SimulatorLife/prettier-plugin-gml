@@ -4099,6 +4099,40 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when resetting colour write enable flagged by GM2052", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_colourwriteenable(true, true, true, false);",
+            "",
+            "draw_sprite(sprite_index, 0, x, y);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+
+        const [disableCall, drawCall] = statements;
+
+        assert.strictEqual(
+            disableCall?._featherSuppressFollowingEmptyLine,
+            true,
+            "Expected disabling call to suppress following blank lines."
+        );
+        assert.strictEqual(
+            drawCall?._featherSuppressLeadingEmptyLine,
+            true,
+            "Expected draw call to suppress leading blank lines."
+        );
+    });
+
     it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
         const source = [
             "/// Draw Event",

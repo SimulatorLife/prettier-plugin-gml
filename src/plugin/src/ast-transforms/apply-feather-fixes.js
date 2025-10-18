@@ -12367,11 +12367,34 @@ function ensureColourWriteEnableResetAfterCall(
 
     let insertionIndex = insertionInfo.index;
 
+    if (typeof insertionIndex !== "number") {
+        return null;
+    }
+
+    const cleanupStartIndex = property + 1;
+
+    for (let index = cleanupStartIndex; index < insertionIndex; ) {
+        const candidate = siblings[index];
+
+        if (isTriviallyIgnorableStatement(candidate)) {
+            siblings.splice(index, 1);
+            insertionIndex -= 1;
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        index += 1;
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
+        nextSibling &&
+        !isTriviallyIgnorableStatement(nextSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (shouldInsertSeparator) {
