@@ -1670,6 +1670,26 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const suppressFollowingEmptyLine =
+                node?._featherSuppressFollowingEmptyLine === true;
+
+            if (!suppressFollowingEmptyLine) {
+                const trailingEmptyLineProbeIndex =
+                    node?.type === "DefineStatement" ||
+                    node?.type === "MacroDeclaration"
+                        ? nodeEndIndex
+                        : nodeEndIndex + 1;
+
+                if (
+                    isNextLineEmpty(
+                        options.originalText,
+                        trailingEmptyLineProbeIndex
+                    )
+                ) {
+                    parts.push(hardline);
+                }
+            }
         }
 
         return parts;
