@@ -29,7 +29,11 @@ import {
     isMapLike,
     isSetLike
 } from "../../../shared/utils/capability-probes.js";
-import { collectCommentNodes, getCommentArray } from "../comments/index.js";
+import {
+    collectCommentNodes,
+    getCommentArray,
+    hasComment
+} from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
@@ -9668,7 +9672,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                const originalHasComments = hasComment(originalDeclaration);
+
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
 
                 // Suppress synthetic @returns metadata when a Feather fix removes
@@ -9676,7 +9681,11 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 // existing documentation intact without introducing additional
                 // lines so the output remains stable for the surviving
                 // declaration.
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                if (originalHasComments) {
+                    originalDeclaration._suppressSyntheticReturnsDoc = true;
+                } else {
+                    delete originalDeclaration._suppressSyntheticReturnsDoc;
+                }
             }
         }
 
