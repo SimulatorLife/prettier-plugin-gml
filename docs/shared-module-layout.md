@@ -25,7 +25,10 @@
 - The re-exported barrels make it straightforward to adopt the grouped layout on
   a file-by-file basis. Future patches can update imports to point at
   `src/shared/ast` or `src/shared/utils` without juggling individual module
-  names.
+  names. The `2024-05-15` audit introduced top-level convenience barrels
+  (`src/shared/ast.js` and `src/shared/utils.js`) so consumers no longer need to
+  navigate the transitional shim files while still preserving the legacy entry
+  points.
 
 ## Follow-up ideas
 

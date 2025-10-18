@@ -3,8 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { escapeRegExp } from "../../shared/regexp.js";
-import { getNonEmptyTrimmedString } from "../../shared/string-utils.js";
+import { escapeRegExp, getNonEmptyTrimmedString } from "../../shared/utils.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");

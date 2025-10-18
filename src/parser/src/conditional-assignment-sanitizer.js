@@ -1,8 +1,8 @@
-import { hasOwn } from "../../shared/object-utils.js";
 import {
+    hasOwn,
     isNonEmptyTrimmedString,
     isWordChar
-} from "../../shared/string-utils.js";
+} from "../../shared/utils.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",

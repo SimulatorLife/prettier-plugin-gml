@@ -32,22 +32,18 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
+    getErrorMessage,
+    isErrorWithCode,
+    isObjectLike,
     mergeUniqueValues,
-    toArray,
-    uniqueArray
-} from "../shared/array-utils.js";
-import { getErrorMessage, isErrorWithCode } from "../shared/error-utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
-import {
     normalizeStringList,
+    toArray,
+    toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    toNormalizedLowerCaseSet
-} from "../shared/string-utils.js";
-import {
-    collectAncestorDirectories,
-    isPathInside
-} from "./lib/path-utils.js";
-import { isObjectLike } from "../shared/object-utils.js";
+    uniqueArray
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
+import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
 
 import {
     CliUsageError,
