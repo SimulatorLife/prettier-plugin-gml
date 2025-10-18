@@ -227,14 +227,15 @@ const program = applyStandardCommandOptions(new Command())
         ].join(" \n")
     );
 
-const cliCommandManager = createCliCommandManager({
-    program,
-    onUnhandledError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to run prettier-plugin-gml CLI.",
-            exitCode: 1
-        })
-});
+const { registry: cliCommandRegistry, runner: cliCommandRunner } =
+    createCliCommandManager({
+        program,
+        onUnhandledError: (error) =>
+            handleCliError(error, {
+                prefix: "Failed to run prettier-plugin-gml CLI.",
+                exitCode: 1
+            })
+    });
 
 function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
@@ -990,7 +991,7 @@ async function executeFormatCommand(command) {
 
 const formatCommand = createFormatCommand({ name: "format" });
 
-cliCommandManager.registerDefaultCommand({
+cliCommandRegistry.registerDefaultCommand({
     command: formatCommand,
     run: ({ command }) => executeFormatCommand(command),
     onError: (error) =>
@@ -1000,7 +1001,7 @@ cliCommandManager.registerDefaultCommand({
         })
 });
 
-cliCommandManager.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createPerformanceCommand(),
     run: ({ command }) => runPerformanceCommand({ command }),
     onError: (error) =>
@@ -1010,7 +1011,7 @@ cliCommandManager.registerCommand({
         })
 });
 
-cliCommandManager.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createMemoryCommand(),
     run: ({ command }) => runMemoryCommand({ command }),
     onError: (error) =>
@@ -1020,7 +1021,7 @@ cliCommandManager.registerCommand({
         })
 });
 
-cliCommandManager.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createGenerateIdentifiersCommand({ env: process.env }),
     run: ({ command }) => runGenerateGmlIdentifiers({ command }),
     onError: (error) =>
@@ -1030,7 +1031,7 @@ cliCommandManager.registerCommand({
         })
 });
 
-cliCommandManager.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createFeatherMetadataCommand({ env: process.env }),
     run: ({ command }) => runGenerateFeatherMetadata({ command }),
     onError: (error) =>
@@ -1040,7 +1041,7 @@ cliCommandManager.registerCommand({
         })
 });
 
-cliCommandManager.run(process.argv.slice(2)).catch((error) => {
+cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
     handleCliError(error, {
         prefix: "Failed to run prettier-plugin-gml CLI.",
         exitCode: 1
