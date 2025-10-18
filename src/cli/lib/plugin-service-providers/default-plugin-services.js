@@ -1,6 +1,5 @@
 export {
-    buildProjectIndex as defaultProjectIndexBuilder
-} from "../../../plugin/src/project-index/index.js";
-export {
-    prepareIdentifierCasePlan as defaultIdentifierCasePlanPreparer
-} from "../../../plugin/src/identifier-case/local-plan.js";
+    createDefaultCliPluginServices,
+    defaultProjectIndexBuilder,
+    defaultIdentifierCasePlanPreparer
+} from "prettier-plugin-gamemaker/cli-services";
