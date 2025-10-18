@@ -6,7 +6,19 @@ export function isFsErrorCode(error, ...codes) {
 
 export async function listDirectory(fsFacade, directoryPath) {
     try {
-        return await fsFacade.readDir(directoryPath);
+        const entries = await fsFacade.readDir(directoryPath);
+
+        if (Array.isArray(entries)) {
+            return entries;
+        }
+
+        if (entries == null) {
+            return [];
+        }
+
+        return typeof entries[Symbol.iterator] === "function"
+            ? Array.from(entries)
+            : [];
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
