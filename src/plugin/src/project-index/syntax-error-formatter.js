@@ -148,21 +148,21 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
         return { lineText: "", pointerOffset: 0 };
     }
 
+    const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
+
     if (!lineText.includes("\t")) {
-        const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
         return { lineText, pointerOffset: clampedIndex };
     }
 
-    const clampedIndex = clampColumnIndex(lineText.length, columnNumber);
     let expanded = "";
     let pointerOffset = 0;
 
-    for (const [index, char] of lineText.entries()) {
-        // TODO: Get this error when parsing a GameMaker project: TypeError: lineText.entries is not a function
+    for (let index = 0; index < lineText.length; index += 1) {
         if (index === clampedIndex) {
             pointerOffset = expanded.length;
         }
 
+        const char = lineText[index];
         if (char === "\t") {
             const spacesToAdd =
                 tabSize - (expanded.length % tabSize) || tabSize;
