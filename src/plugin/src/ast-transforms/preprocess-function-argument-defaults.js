@@ -319,11 +319,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         (statement) => !statementsToRemove.has(statement)
     );
 
-    if (filteredStatements.length > 0) {
-        node._suppressSyntheticReturnsDoc = true;
-    } else {
-        delete node._suppressSyntheticReturnsDoc;
-    }
+    delete node._suppressSyntheticReturnsDoc;
 
     node._flattenSyntheticNumericParens = true;
     body.body = filteredStatements;
