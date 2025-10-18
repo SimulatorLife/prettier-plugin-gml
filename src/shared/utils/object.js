@@ -1,5 +1,15 @@
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
+/**
+ * Check whether the provided value is an object-like reference. This mirrors
+ * Lodash's definition, treating arrays and boxed primitives as object-like
+ * while excluding `null` and primitive scalars. Functions are intentionally
+ * omitted because the formatter exclusively passes structural metadata
+ * objects through this guard.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is object} `true` when `value` can safely accept property access.
+ */
 export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
@@ -88,6 +98,15 @@ export function coalesceOption(
     return fallback;
 }
 
+/**
+ * Determine whether `object` defines `key` as an own property. Defers to the
+ * intrinsic `Object.prototype.hasOwnProperty` to avoid accidental shadowing by
+ * user data, which regularly happens when processing user-authored AST nodes.
+ *
+ * @param {object} object Object to inspect for the property.
+ * @param {string | number | symbol} key Property name or symbol.
+ * @returns {boolean} `true` when the property exists directly on `object`.
+ */
 export function hasOwn(object, key) {
     return hasOwnProperty.call(object, key);
 }
