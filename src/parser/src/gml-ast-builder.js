@@ -2,6 +2,7 @@ import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserV
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 import { getNonEmptyTrimmedString } from "../../shared/utils.js";
 import ScopeTracker from "./scope-tracker.js";
+import { ScopeOverrideKeyword } from "./scope-override-keywords.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import {
     IdentifierRoleTracker,
@@ -568,7 +569,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                         type: "declaration",
                         kind: "variable",
                         tags: ["global"],
-                        scopeOverride: "global"
+                        scopeOverride: ScopeOverrideKeyword.GLOBAL
                     },
                     () => this.visit(identifierCtx)
                 );
@@ -1283,7 +1284,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                 type: "declaration",
                 kind: "macro",
                 tags: ["global"],
-                scopeOverride: "global"
+                scopeOverride: ScopeOverrideKeyword.GLOBAL
             },
             () => this.visit(ctx.identifier())
         );
