@@ -1,5 +1,5 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
@@ -15,64 +15,62 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
     }
 
     const limit = Math.floor(maxEntries);
-    if (limit <= 0 || optionStoreMap.size <= limit) {
+    if (limit <= 0) {
         return;
     }
 
-    while (optionStoreMap.size > limit) {
-        const oldestEntry = optionStoreMap.keys().next();
-        if (oldestEntry.done) {
+    let excessEntries = optionStoreMap.size - limit;
+    if (excessEntries <= 0) {
+        return;
+    }
+
+    for (const key of optionStoreMap.keys()) {
+        if (excessEntries <= 0) {
             break;
         }
 
-        optionStoreMap.delete(oldestEntry.value);
+        optionStoreMap.delete(key);
+        excessEntries -= 1;
     }
 }
 
 function resolveMaxOptionStoreEntries(options) {
-    return withObjectLike(
-        options,
-        (object) => {
-            const configured =
-                object[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
+    if (!isObjectLike(options)) {
+        return DEFAULT_MAX_OPTION_STORE_ENTRIES;
+    }
 
-            if (configured === Infinity) {
-                return configured;
-            }
+    const configured =
+        options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
 
-            if (
-                typeof configured !== "number" ||
-                !Number.isFinite(configured)
-            ) {
-                return DEFAULT_MAX_OPTION_STORE_ENTRIES;
-            }
+    if (configured === Infinity) {
+        return configured;
+    }
 
-            if (configured <= 0) {
-                return 0;
-            }
+    if (typeof configured !== "number" || !Number.isFinite(configured)) {
+        return DEFAULT_MAX_OPTION_STORE_ENTRIES;
+    }
 
-            return Math.floor(configured);
-        },
-        DEFAULT_MAX_OPTION_STORE_ENTRIES
-    );
+    if (configured <= 0) {
+        return 0;
+    }
+
+    return Math.floor(configured);
 }
 
 function getStoreKey(options) {
-    return withObjectLike(
-        options,
-        (object) => {
-            if (object.__identifierCaseOptionsStoreKey != undefined) {
-                return object.__identifierCaseOptionsStoreKey;
-            }
+    if (!isObjectLike(options)) {
+        return null;
+    }
 
-            if (isNonEmptyString(object.filepath)) {
-                return object.filepath;
-            }
+    if (options.__identifierCaseOptionsStoreKey != undefined) {
+        return options.__identifierCaseOptionsStoreKey;
+    }
 
-            return null;
-        },
-        null
-    );
+    if (isNonEmptyString(options.filepath)) {
+        return options.filepath;
+    }
+
+    return null;
 }
 
 function getOrCreateStoreEntry(storeKey) {
@@ -89,28 +87,32 @@ function getOrCreateStoreEntry(storeKey) {
 }
 
 function updateStore(options, key, value) {
-    withObjectLike(options, (object) => {
-        const store = object.__identifierCaseOptionsStore;
-        if (isObjectLike(store)) {
-            store[key] = value;
-        }
+    if (!isObjectLike(options)) {
+        return;
+    }
 
-        const storeKey = getStoreKey(object);
-        if (storeKey == undefined) {
-            return;
-        }
+    const store = options.__identifierCaseOptionsStore;
+    if (isObjectLike(store)) {
+        store[key] = value;
+    }
 
-        const entry = getOrCreateStoreEntry(storeKey);
-        entry[key] = value;
-        trimOptionStoreMap(resolveMaxOptionStoreEntries(object));
-    });
+    const storeKey = getStoreKey(options);
+    if (storeKey == undefined) {
+        return;
+    }
+
+    const entry = getOrCreateStoreEntry(storeKey);
+    entry[key] = value;
+    trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    withObjectLike(options, (object) => {
-        object[key] = value;
-        updateStore(object, key, value);
-    });
+    if (!isObjectLike(options)) {
+        return;
+    }
+
+    options[key] = value;
+    updateStore(options, key, value);
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
