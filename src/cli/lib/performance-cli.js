@@ -255,8 +255,14 @@ async function runIdentifierPipelineBenchmark({ projectRoot, file, verbose }) {
     return context.results;
 }
 
-function runIdentifierTextBenchmark() {
-    const dataset = [
+/**
+ * Provide sample nodes used by the identifier text benchmark to mimic common
+ * AST structures.
+ *
+ * @returns {Array<unknown>}
+ */
+function createIdentifierTextDataset() {
+    return [
         "simple",
         { name: "identifier" },
         { type: "Identifier", name: "player" },
@@ -287,8 +293,25 @@ function runIdentifierTextBenchmark() {
             ]
         }
     ];
+}
 
-    const iterations = 5_000_000;
+/**
+ * Resolve the number of iterations the identifier text benchmark should run.
+ *
+ * @returns {number}
+ */
+function resolveIdentifierTextIterations() {
+    return 5_000_000;
+}
+
+/**
+ * Execute the identifier text benchmark and capture timing plus checksum data.
+ *
+ * @param {Array<unknown>} dataset
+ * @param {number} iterations
+ * @returns {{ iterations: number, checksum: number, duration: number }}
+ */
+function benchmarkIdentifierTextDataset(dataset, iterations) {
     let checksum = 0;
 
     const start = performance.now();
@@ -302,6 +325,12 @@ function runIdentifierTextBenchmark() {
     const duration = performance.now() - start;
 
     return { iterations, checksum, duration };
+}
+
+function runIdentifierTextBenchmark() {
+    const dataset = createIdentifierTextDataset();
+    const iterations = resolveIdentifierTextIterations();
+    return benchmarkIdentifierTextDataset(dataset, iterations);
 }
 
 async function runProjectIndexMemoryMeasurement({ projectRoot }) {
