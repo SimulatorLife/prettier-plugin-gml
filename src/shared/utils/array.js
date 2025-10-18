@@ -75,13 +75,20 @@ export function isNonEmptyArray(value) {
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
 export function cloneObjectEntries(entries) {
-    if (!Array.isArray(entries)) {
+    if (!Array.isArray(entries) || entries.length === 0) {
         return [];
     }
 
-    return entries.map((entry) =>
-        entry && typeof entry === "object" ? { ...entry } : entry
-    );
+    const clones = new Array(entries.length);
+
+    let index = 0;
+    for (const entry of entries) {
+        clones[index] =
+            entry && typeof entry === "object" ? { ...entry } : entry;
+        index += 1;
+    }
+
+    return clones;
 }
 
 /**
