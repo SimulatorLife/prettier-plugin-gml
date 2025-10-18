@@ -189,7 +189,7 @@ nvm use
    - Pin to a tag or commit (`#vX.Y.Z` or `#<sha>`) when you need a reproducible build for CI or audits.
    - Swap the Git URL for a registry tag once an official package is published; adjust the plugin path below to match the package name exposed in `node_modules`.
 
-3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`):
+3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`). The dependency installs under `node_modules/root` because this repository’s top-level package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build. Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
 
    ```json
    {
@@ -205,10 +205,7 @@ nvm use
    }
    ```
 
-   The Git dependency installs under `node_modules/root` because the workspace root package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build.
-   Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
-
-4. Wire a script or wrapper so team members can format consistently:
+4. Wire a script or wrapper so team members can format consistently. The workspace exposes a CLI that resolves the plugin entry point automatically, even when you relocate build artifacts or provide custom paths through the environment:
 
    ```jsonc
    {
@@ -219,7 +216,7 @@ nvm use
    ```
 
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
-   project reuses the same wrapper entry point and inherits future wrapper updates automatically.
+   project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory.
 
 5. Run the formatter:
 
@@ -255,7 +252,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata.
+   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -275,14 +272,14 @@ The repository is organised as a multi-package workspace so the parser, plugin,
 and CLI can evolve together. Each package ships its own tests and scripts while
 sharing utilities via the `src/shared/` module.
 
-| Directory | Purpose |
-| --- | --- |
-| `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, and regression fixtures. |
-| `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `src/cli/` | Command-line interface (`cli.js`) for metadata generating, formatting-wrapper, integration tests, performance testing, etc. |
-| `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
-| `resources/` | Generated metadata snapshots consumed by the formatter (identifier datasets, Feather metadata). |
-| `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
+| Package / folder | Location | Purpose |
+| --- | --- | --- |
+| `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
+| `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
+| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
+| Shared modules | `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
+| Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
+| Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
 The `npm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same
@@ -441,6 +438,7 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 ## Troubleshooting
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
+- Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
 - `npm install` reports `EBADENGINE` → upgrade Node.js to 18.20.0+, 20.18.1+, or 21.1.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
