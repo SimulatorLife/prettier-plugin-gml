@@ -80,6 +80,17 @@ const VALID_PRETTIER_LOG_LEVELS = new Set([
     "silent"
 ]);
 
+function formatValidChoiceList(values) {
+    return [...values].sort().join(", ");
+}
+
+const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
+    VALID_PARSE_ERROR_ACTIONS
+);
+const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
+    VALID_PRETTIER_LOG_LEVELS
+);
+
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
@@ -115,36 +126,23 @@ async function resolvePrettier() {
     return prettierModulePromise;
 }
 
-function normalizeParseErrorAction(value, fallbackValue) {
+function normalizeEnumeratedOption(
+    value,
+    fallbackValue,
+    validValues,
+    { coerce = toNormalizedLowerCaseString } = {}
+) {
     if (value == undefined) {
         return fallbackValue;
     }
 
-    const normalized = toNormalizedLowerCaseString(value);
+    const normalized = coerce(value);
 
-    if (normalized.length === 0) {
+    if (typeof normalized !== "string" || normalized.length === 0) {
         return fallbackValue;
     }
 
-    if (VALID_PARSE_ERROR_ACTIONS.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
-}
-
-function normalizePrettierLogLevel(value, fallbackValue) {
-    if (value == undefined) {
-        return fallbackValue;
-    }
-
-    const normalized = toNormalizedLowerCaseString(value);
-
-    if (normalized.length === 0) {
-        return fallbackValue;
-    }
-
-    if (VALID_PRETTIER_LOG_LEVELS.has(normalized)) {
+    if (validValues.has(normalized)) {
         return normalized;
     }
 
@@ -193,15 +191,17 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
 );
 
 const DEFAULT_PARSE_ERROR_ACTION =
-    normalizeParseErrorAction(
+    normalizeEnumeratedOption(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        ParseErrorAction.SKIP
+        ParseErrorAction.SKIP,
+        VALID_PARSE_ERROR_ACTIONS
     ) ?? ParseErrorAction.SKIP;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
-    normalizePrettierLogLevel(
+    normalizeEnumeratedOption(
         process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
-        "warn"
+        "warn",
+        VALID_PRETTIER_LOG_LEVELS
     ) ?? "warn";
 
 const cliArgs = process.argv.slice(2);
@@ -229,15 +229,14 @@ function parseCliArguments(args) {
             "--log-level <level>",
             "Prettier log level to use (debug, info, warn, error, or silent).",
             (value) => {
-                const normalized = normalizePrettierLogLevel(
+                const normalized = normalizeEnumeratedOption(
                     value,
-                    DEFAULT_PRETTIER_LOG_LEVEL
+                    DEFAULT_PRETTIER_LOG_LEVEL,
+                    VALID_PRETTIER_LOG_LEVELS
                 );
                 if (!normalized) {
                     throw new InvalidArgumentError(
-                        `Must be one of: ${[...VALID_PRETTIER_LOG_LEVELS]
-                            .sort()
-                            .join(", ")}`
+                        `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
                     );
                 }
                 return normalized;
@@ -248,15 +247,14 @@ function parseCliArguments(args) {
             "--on-parse-error <mode>",
             "How to handle parser failures: revert, skip, or abort.",
             (value) => {
-                const normalized = normalizeParseErrorAction(
+                const normalized = normalizeEnumeratedOption(
                     value,
-                    DEFAULT_PARSE_ERROR_ACTION
+                    DEFAULT_PARSE_ERROR_ACTION,
+                    VALID_PARSE_ERROR_ACTIONS
                 );
                 if (!normalized) {
                     throw new InvalidArgumentError(
-                        `Must be one of: ${[...VALID_PARSE_ERROR_ACTIONS]
-                            .sort()
-                            .join(", ")}`
+                        `Must be one of: ${VALID_PARSE_ERROR_ACTION_CHOICES}`
                     );
                 }
                 return normalized;
@@ -337,8 +335,11 @@ const options = {
 
 function configurePrettierOptions({ logLevel } = {}) {
     const normalized =
-        normalizePrettierLogLevel(logLevel, DEFAULT_PRETTIER_LOG_LEVEL) ??
-        DEFAULT_PRETTIER_LOG_LEVEL;
+        normalizeEnumeratedOption(
+            logLevel,
+            DEFAULT_PRETTIER_LOG_LEVEL,
+            VALID_PRETTIER_LOG_LEVELS
+        ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
     options.loglevel = normalized;
 }
 
