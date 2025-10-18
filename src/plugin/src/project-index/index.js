@@ -1264,6 +1264,49 @@ function registerScriptDeclaration({
     }
 }
 
+/**
+ * Ensures script scopes have a declaration even when the backing GML file
+ * omits an explicit declaration. Keeps the project index builder focused on
+ * orchestration by handling the bookkeeping here.
+ */
+function ensureSyntheticScriptDeclaration({
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    filePath
+}) {
+    if (
+        !scopeDescriptor ||
+        scopeDescriptor.kind !== "script" ||
+        !fileRecord ||
+        fileRecord.hasSyntheticDeclaration
+    ) {
+        return;
+    }
+
+    const syntheticDeclaration = {
+        name: scopeDescriptor.name,
+        start: null,
+        end: null,
+        scopeId: scopeRecord.id,
+        classifications: ["identifier", "declaration", "script"],
+        isBuiltIn: false,
+        isSynthetic: true
+    };
+
+    fileRecord.declarations.push({ ...syntheticDeclaration });
+    scopeRecord.declarations.push({ ...syntheticDeclaration });
+    fileRecord.hasSyntheticDeclaration = true;
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord: syntheticDeclaration,
+        filePath
+    });
+}
+
 function cloneScriptReference(callRecord) {
     if (!callRecord) {
         return null;
@@ -1320,6 +1363,27 @@ function registerScriptReference({ identifierCollections, callRecord }) {
     const reference = cloneScriptReference(callRecord);
     if (reference) {
         entry.references.push(reference);
+    }
+}
+
+function recordScriptCallMetricsAndReferences({
+    relationships,
+    metrics,
+    identifierCollections
+}) {
+    const scriptCalls = relationships?.scriptCalls ?? [];
+    for (const callRecord of scriptCalls) {
+        metrics.incrementCounter("scriptCalls.total");
+        if (callRecord.isResolved) {
+            metrics.incrementCounter("scriptCalls.resolved");
+        } else {
+            metrics.incrementCounter("scriptCalls.unresolved");
+        }
+
+        registerScriptReference({
+            identifierCollections,
+            callRecord
+        });
     }
 }
 
@@ -2200,31 +2264,13 @@ export async function buildProjectIndex(
                 scopeRecord.id
             );
 
-            if (
-                scopeDescriptor.kind === "script" &&
-                !fileRecord.hasSyntheticDeclaration
-            ) {
-                const syntheticDeclaration = {
-                    name: scopeDescriptor.name,
-                    start: null,
-                    end: null,
-                    scopeId: scopeRecord.id,
-                    classifications: ["identifier", "declaration", "script"],
-                    isBuiltIn: false,
-                    isSynthetic: true
-                };
-                fileRecord.declarations.push({ ...syntheticDeclaration });
-                scopeRecord.declarations.push({ ...syntheticDeclaration });
-                fileRecord.hasSyntheticDeclaration = true;
-
-                registerScriptDeclaration({
-                    identifierCollections,
-                    descriptor: scopeDescriptor,
-                    declarationRecord: syntheticDeclaration,
-                    filePath: file.relativePath
-                });
-            }
-
+            ensureSyntheticScriptDeclaration({
+                scopeDescriptor,
+                scopeRecord,
+                fileRecord,
+                identifierCollections,
+                filePath: file.relativePath
+            });
             const ast = metrics.timeSync("gml.parse", () =>
                 parseProjectSource(contents, {
                     filePath: file.relativePath,
@@ -2254,18 +2300,11 @@ export async function buildProjectIndex(
     );
     ensureNotAborted();
 
-    for (const callRecord of relationships.scriptCalls) {
-        metrics.incrementCounter("scriptCalls.total");
-        if (callRecord.isResolved) {
-            metrics.incrementCounter("scriptCalls.resolved");
-        } else {
-            metrics.incrementCounter("scriptCalls.unresolved");
-        }
-        registerScriptReference({
-            identifierCollections,
-            callRecord
-        });
-    }
+    recordScriptCallMetricsAndReferences({
+        relationships,
+        metrics,
+        identifierCollections
+    });
 
     const resources = Object.fromEntries(
         [...resourceAnalysis.resourcesMap.entries()].map(
