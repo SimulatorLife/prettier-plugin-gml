@@ -107,3 +107,36 @@ test("extends doc descriptions with condensed equivalence expressions", async ()
         "Expected condensed doc description to include the simplified equivalence."
     );
 });
+
+test("preserves branching return descriptions without equivalence suffixes", async () => {
+    const source = [
+        "/// @function condense_implication",
+        "/// @description Implication: if (foo) return bar; else return true.",
+        "function condense_implication(foo, bar) {",
+        "    if (foo) {",
+        "        return bar;",
+        "    }",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function condense_implication",
+            "/// @param foo",
+            "/// @param bar",
+            "/// @description Implication: if (foo) return bar; else return true.",
+            "function condense_implication(foo, bar) {",
+            "    return !foo or bar;",
+            "}",
+            ""
+        ].join("\n"),
+        "Expected doc description to remain unchanged when condensing branching returns."
+    );
+});
