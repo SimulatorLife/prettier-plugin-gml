@@ -11146,12 +11146,6 @@ function ensureVertexBeginBeforeVertexEndCall(
         }
     }
 
-    const vertexBeginCall = createVertexBeginCall(node, bufferArgument);
-
-    if (!vertexBeginCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
         range: {
@@ -11164,8 +11158,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 0, vertexBeginCall);
-    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
+    parent.splice(property, 1);
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
@@ -11193,53 +11186,6 @@ function isVertexBeginCallForBuffer(node, bufferName) {
     }
 
     return firstArgument.name === bufferName;
-}
-
-function createVertexBeginCall(templateCall, bufferArgument) {
-    if (!templateCall || templateCall.type !== "CallExpression") {
-        return null;
-    }
-
-    if (!isIdentifier(bufferArgument)) {
-        return null;
-    }
-
-    const callIdentifier = createIdentifier(
-        "vertex_begin",
-        templateCall.object
-    );
-
-    if (!callIdentifier) {
-        return null;
-    }
-
-    const clonedBuffer = createIdentifier(bufferArgument.name, bufferArgument);
-
-    if (!clonedBuffer) {
-        return null;
-    }
-
-    const formatIdentifier = createIdentifier("format", bufferArgument);
-
-    const callExpression = {
-        type: "CallExpression",
-        object: callIdentifier,
-        arguments: [clonedBuffer]
-    };
-
-    if (formatIdentifier) {
-        callExpression.arguments.push(formatIdentifier);
-    }
-
-    if (hasOwn(templateCall, "start")) {
-        callExpression.start = cloneLocation(templateCall.start);
-    }
-
-    if (hasOwn(templateCall, "end")) {
-        callExpression.end = cloneLocation(templateCall.end);
-    }
-
-    return callExpression;
 }
 
 function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
