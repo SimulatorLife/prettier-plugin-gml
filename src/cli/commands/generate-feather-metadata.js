@@ -6,7 +6,7 @@ import { parseHTML } from "linkedom";
 import { Command, InvalidArgumentError } from "commander";
 
 import { escapeRegExp, toNormalizedLowerCaseSet } from "../../shared/utils.js";
-import { handleCliError } from "../lib/cli-errors.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -29,7 +29,6 @@ import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
-import { parseCommandLine } from "../lib/command-parsing.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +61,7 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function createFeatherMetadataCommand() {
+export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-feather-metadata")
@@ -129,20 +128,17 @@ function createFeatherMetadataCommand() {
         ].join("\n")
     );
 
-    return command;
-}
-
-function parseArgs({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    const command = createFeatherMetadataCommand();
     applyManualEnvOptionOverrides({
         command,
         env,
         getUsage: () => command.helpInformation()
     });
+
+    return command;
+}
+function resolveFeatherMetadataOptions(command) {
+    const options = command.opts();
+    const isTty = process.stdout.isTTY === true;
 
     const verbose = {
         resolveRef: true,
@@ -150,16 +146,6 @@ function parseArgs({
         parsing: true,
         progressBar: isTty
     };
-
-    const { helpRequested, usage } = parseCommandLine(command, argv);
-    if (helpRequested) {
-        return {
-            helpRequested: true,
-            usage
-        };
-    }
-
-    const options = command.opts();
 
     if (options.quiet) {
         verbose.resolveRef = false;
@@ -177,8 +163,7 @@ function parseArgs({
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
         manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        helpRequested: false,
-        usage
+        usage: command.helpInformation()
     };
 }
 
@@ -1003,7 +988,7 @@ function parseTypeSystem(html) {
     };
 }
 
-async function main({ argv, env, isTty } = {}) {
+export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -1015,17 +1000,16 @@ async function main({ argv, env, isTty } = {}) {
             progressBarWidth,
             cacheRoot,
             manualRepo,
-            helpRequested
-        } = parseArgs({ argv, env, isTty });
+            usage
+        } = resolveFeatherMetadataOptions(command);
 
-        if (helpRequested) {
-            return 0;
-        }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef?.sha) {
-            throw new Error("Could not resolve manual commit SHA.");
+            throw new CliUsageError("Could not resolve manual commit SHA.", {
+                usage
+            });
         }
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
@@ -1114,20 +1098,5 @@ async function main({ argv, env, isTty } = {}) {
         return 0;
     } finally {
         disposeProgressBars();
-    }
-}
-
-export async function runGenerateFeatherMetadataCli({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    try {
-        return await main({ argv, env, isTty });
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to generate Feather metadata."
-        });
-        return 1;
     }
 }

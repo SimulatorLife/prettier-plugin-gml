@@ -4,8 +4,7 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "./cli-errors.js";
-import { parseCommandLine } from "./command-parsing.js";
+import { CliUsageError } from "./cli-errors.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     resolveCliProjectIndexBuilder,
@@ -336,7 +335,7 @@ AVAILABLE_SUITES.set("identifier-pipeline", runIdentifierPipelineBenchmark);
 AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
 AVAILABLE_SUITES.set("project-index-memory", runProjectIndexMemoryMeasurement);
 
-function createPerformanceCommand() {
+export function createPerformanceCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
@@ -411,11 +410,6 @@ function printHumanReadable(results) {
  * @param {Array<string>} argv
  * @returns {boolean}
  */
-function helpWasRequested(command, argv) {
-    const { helpRequested } = parseCommandLine(command, argv);
-    return helpRequested;
-}
-
 /**
  * Normalize the requested benchmark suite names.
  *
@@ -468,14 +462,8 @@ function emitSuiteResults(results, options) {
     printHumanReadable(results);
 }
 
-async function main(argv = process.argv.slice(2)) {
-    const command = createPerformanceCommand();
-
-    if (helpWasRequested(command, argv)) {
-        return 0;
-    }
-
-    const options = command.opts();
+export async function runPerformanceCommand({ command } = {}) {
+    const options = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options);
     ensureSuitesAreKnown(requestedSuites, command);
@@ -488,15 +476,4 @@ async function main(argv = process.argv.slice(2)) {
     emitSuiteResults(suiteResults, options);
 
     return 0;
-}
-
-export async function runPerformanceCli({ argv = process.argv.slice(2) } = {}) {
-    try {
-        return await main(argv);
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to run performance benchmarks."
-        });
-        return 1;
-    }
 }
