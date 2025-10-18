@@ -441,47 +441,88 @@ function printHumanReadable(results) {
     console.log(lines.join("\n"));
 }
 
+/**
+ * Determine whether the current invocation only requested CLI help output.
+ *
+ * @param {import("commander").Command} command
+ * @param {Array<string>} argv
+ * @returns {boolean}
+ */
+function helpWasRequested(command, argv) {
+    const { helpRequested } = parseCommandLine(command, argv);
+    return helpRequested;
+}
+
+/**
+ * Normalize the requested benchmark suite names.
+ *
+ * @param {{ suite: Array<string> }} options
+ * @returns {Array<string>}
+ */
+function resolveRequestedSuites(options) {
+    const hasExplicitSuites = options.suite.length > 0;
+    const requested = hasExplicitSuites
+        ? options.suite
+        : [...AVAILABLE_SUITES.keys()];
+
+    return requested.map((name) => name.toLowerCase());
+}
+
+function ensureSuitesAreKnown(suiteNames, command) {
+    const unknownSuites = suiteNames.filter(
+        (suite) => !AVAILABLE_SUITES.has(suite)
+    );
+
+    if (unknownSuites.length === 0) {
+        return;
+    }
+
+    throw new CliUsageError(
+        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
+        { usage: command.helpInformation() }
+    );
+}
+
+function createSuiteExecutionOptions(options) {
+    return {
+        projectRoot: options.project,
+        file: options.file,
+        verbose: Boolean(options.verbose)
+    };
+}
+
+function emitSuiteResults(results, options) {
+    if (options.format === "json") {
+        const payload = {
+            generatedAt: new Date().toISOString(),
+            suites: results
+        };
+        const spacing = options.pretty ? 2 : 0;
+        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
+        return;
+    }
+
+    printHumanReadable(results);
+}
+
 async function main(argv = process.argv.slice(2)) {
     const command = createPerformanceCommand();
 
-    const { helpRequested } = parseCommandLine(command, argv);
-    if (helpRequested) {
+    if (helpWasRequested(command, argv)) {
         return 0;
     }
 
     const options = command.opts();
 
-    const requestedSuites =
-        options.suite.length > 0
-            ? options.suite.map((name) => name.toLowerCase())
-            : [...AVAILABLE_SUITES.keys()];
+    const requestedSuites = resolveRequestedSuites(options);
+    ensureSuitesAreKnown(requestedSuites, command);
 
-    const unknownSuites = requestedSuites.filter(
-        (suite) => !AVAILABLE_SUITES.has(suite)
+    const suiteResults = await executeSuites(
+        requestedSuites,
+        createSuiteExecutionOptions(options)
     );
-    if (unknownSuites.length > 0) {
-        throw new CliUsageError(
-            `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-            { usage: command.helpInformation() }
-        );
-    }
 
-    const suiteResults = await executeSuites(requestedSuites, {
-        projectRoot: options.project,
-        file: options.file,
-        verbose: Boolean(options.verbose)
-    });
-
-    if (options.format === "json") {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            suites: suiteResults
-        };
-        const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
-    } else {
-        printHumanReadable(suiteResults);
-    }
+    emitSuiteResults(suiteResults, options);
 
     return 0;
 }
