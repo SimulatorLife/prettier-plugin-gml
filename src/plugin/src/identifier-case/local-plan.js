@@ -6,7 +6,7 @@ import {
     toPosixPath,
     resolveContainedRelativePath
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/metrics-tracker.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import {
     isNonEmptyString,
@@ -31,8 +31,7 @@ import {
     buildPatternMatchers,
     resolveIdentifierConfigurationConflict,
     createConflict,
-    incrementFileOccurrence,
-    summarizeFileOccurrences
+    summarizeReferenceFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import {
@@ -113,13 +112,9 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
 }
 
 function summarizeReferencesByFile(relativeFilePath, references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath, relativeFilePath);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, {
+        fallbackPath: relativeFilePath
+    });
 }
 
 function getEntryDeclarations(entry) {
@@ -259,13 +254,7 @@ function isFunctionScriptEntry(entry) {
 }
 
 function summarizeReferencesAcrossFiles(references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath ?? null, null);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, { fallbackPath: null });
 }
 
 function getDeclarationFilePath(entry) {

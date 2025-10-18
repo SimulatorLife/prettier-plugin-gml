@@ -50,7 +50,6 @@ import {
     formatCliError,
     handleCliError
 } from "./lib/cli-errors.js";
-import { parseCommandLine } from "./lib/command-parsing.js";
 import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
 import {
@@ -58,6 +57,20 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "./lib/ignore-path-registry.js";
+import { createCliCommandManager } from "./lib/cli-command-manager.js";
+import {
+    createPerformanceCommand,
+    runPerformanceCommand
+} from "./lib/performance-cli.js";
+import { createMemoryCommand, runMemoryCommand } from "./lib/memory-cli.js";
+import {
+    createGenerateIdentifiersCommand,
+    runGenerateGmlIdentifiers
+} from "./commands/generate-gml-identifiers.js";
+import {
+    createFeatherMetadataCommand,
+    runGenerateFeatherMetadata
+} from "./commands/generate-feather-metadata.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -72,6 +85,24 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
+const VALID_PRETTIER_LOG_LEVELS = new Set([
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "silent"
+]);
+
+function formatValidChoiceList(values) {
+    return [...values].sort().join(", ");
+}
+
+const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
+    VALID_PARSE_ERROR_ACTIONS
+);
+const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
+    VALID_PRETTIER_LOG_LEVELS
+);
 
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
@@ -108,18 +139,23 @@ async function resolvePrettier() {
     return prettierModulePromise;
 }
 
-function normalizeParseErrorAction(value, fallbackValue) {
+function normalizeEnumeratedOption(
+    value,
+    fallbackValue,
+    validValues,
+    { coerce = toNormalizedLowerCaseString } = {}
+) {
     if (value == undefined) {
         return fallbackValue;
     }
 
-    const normalized = toNormalizedLowerCaseString(value);
+    const normalized = coerce(value);
 
-    if (normalized.length === 0) {
+    if (typeof normalized !== "string" || normalized.length === 0) {
         return fallbackValue;
     }
 
-    if (VALID_PARSE_ERROR_ACTIONS.has(normalized)) {
+    if (validValues.has(normalized)) {
         return normalized;
     }
 
@@ -168,17 +204,42 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
 );
 
 const DEFAULT_PARSE_ERROR_ACTION =
-    normalizeParseErrorAction(
+    normalizeEnumeratedOption(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        ParseErrorAction.SKIP
+        ParseErrorAction.SKIP,
+        VALID_PARSE_ERROR_ACTIONS
     ) ?? ParseErrorAction.SKIP;
 
-const cliArgs = process.argv.slice(2);
+const DEFAULT_PRETTIER_LOG_LEVEL =
+    normalizeEnumeratedOption(
+        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
+        "warn",
+        VALID_PRETTIER_LOG_LEVELS
+    ) ?? "warn";
 
-function parseCliArguments(args) {
-    const command = applyStandardCommandOptions(
+const program = applyStandardCommandOptions(new Command())
+    .name("prettier-plugin-gml")
+    .usage("[command] [options]")
+    .description(
+        [
+            "Utilities for working with the prettier-plugin-gml project.",
+            "Provides formatting, benchmarking, and manual data generation commands."
+        ].join(" \n")
+    );
+
+const cliCommandManager = createCliCommandManager({
+    program,
+    onUnhandledError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run prettier-plugin-gml CLI.",
+            exitCode: 1
+        })
+});
+
+function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
+    return applyStandardCommandOptions(
         new Command()
-            .name("prettier-wrapper")
+            .name(name)
             .usage("[options] <path>")
             .description(
                 "Format GameMaker Language files using the prettier plugin."
@@ -195,45 +256,56 @@ function parseCliArguments(args) {
             (value) => normalizeExtensions(value, DEFAULT_EXTENSIONS)
         )
         .option(
-            "--on-parse-error <mode>",
-            "How to handle parser failures: revert, skip, or abort.",
+            "--log-level <level>",
+            "Prettier log level to use (debug, info, warn, error, or silent).",
             (value) => {
-                const normalized = normalizeParseErrorAction(
+                const normalized = normalizeEnumeratedOption(
                     value,
-                    DEFAULT_PARSE_ERROR_ACTION
+                    DEFAULT_PRETTIER_LOG_LEVEL,
+                    VALID_PRETTIER_LOG_LEVELS
                 );
                 if (!normalized) {
                     throw new InvalidArgumentError(
-                        `Must be one of: ${[...VALID_PARSE_ERROR_ACTIONS]
-                            .sort()
-                            .join(", ")}`
+                        `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
+                    );
+                }
+                return normalized;
+            },
+            DEFAULT_PRETTIER_LOG_LEVEL
+        )
+        .option(
+            "--on-parse-error <mode>",
+            "How to handle parser failures: revert, skip, or abort.",
+            (value) => {
+                const normalized = normalizeEnumeratedOption(
+                    value,
+                    DEFAULT_PARSE_ERROR_ACTION,
+                    VALID_PARSE_ERROR_ACTIONS
+                );
+                if (!normalized) {
+                    throw new InvalidArgumentError(
+                        `Must be one of: ${VALID_PARSE_ERROR_ACTION_CHOICES}`
                     );
                 }
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
         );
+}
 
-    const { helpRequested, usage } = parseCommandLine(command, args);
-    if (helpRequested) {
-        return {
-            helpRequested: true,
-            usage
-        };
-    }
-
+function collectFormatCommandOptions(command) {
     const options = command.opts();
-    const [positionalTarget] = command.processedArgs;
+    const [positionalTarget] = command.args ?? [];
     const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
     return {
-        helpRequested: false,
         targetPathInput: options.path ?? positionalTarget ?? null,
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
+        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        usage
+        usage: command.helpInformation()
     };
 }
 
@@ -279,10 +351,20 @@ function shouldFormatFile(filePath) {
 const options = {
     parser: "gml-parse",
     plugins: [PLUGIN_PATH],
-    loglevel: "warn",
+    loglevel: DEFAULT_PRETTIER_LOG_LEVEL,
     ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
 };
+
+function configurePrettierOptions({ logLevel } = {}) {
+    const normalized =
+        normalizeEnumeratedOption(
+            logLevel,
+            DEFAULT_PRETTIER_LOG_LEVEL,
+            VALID_PRETTIER_LOG_LEVELS
+        ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
+    options.loglevel = normalized;
+}
 
 let skippedFileCount = 0;
 let baseProjectIgnorePaths = [];
@@ -802,27 +884,27 @@ async function processFile(filePath, activeIgnorePaths = []) {
     }
 }
 
-async function run() {
+async function executeFormatCommand(command) {
     const {
         targetPathInput,
         extensions: configuredExtensions,
+        prettierLogLevel,
         onParseError,
-        helpRequested,
         usage
-    } = parseCliArguments(cliArgs);
-
-    if (helpRequested) {
-        return;
-    }
+    } = collectFormatCommandOptions(command);
 
     if (!targetPathInput) {
         throw new CliUsageError(
-            "No target path provided. Pass a directory or file to format as the first argument (relative or absolute) or use --path <path>.",
+            [
+                "No target path provided. Pass a directory or file to format as the first argument (relative or absolute) or use --path <path>.",
+                "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
+            ].join(" "),
             { usage }
         );
     }
 
     const targetPath = path.resolve(process.cwd(), targetPathInput);
+    configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);
 
@@ -858,9 +940,61 @@ async function run() {
     }
 }
 
-run().catch((error) => {
+const formatCommand = createFormatCommand({ name: "format" });
+
+cliCommandManager.registerDefaultCommand({
+    command: formatCommand,
+    run: ({ command }) => executeFormatCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to format project.",
+            exitCode: 1
+        })
+});
+
+cliCommandManager.registerCommand({
+    command: createPerformanceCommand(),
+    run: ({ command }) => runPerformanceCommand({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run performance benchmarks.",
+            exitCode: 1
+        })
+});
+
+cliCommandManager.registerCommand({
+    command: createMemoryCommand(),
+    run: ({ command }) => runMemoryCommand({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run memory diagnostics.",
+            exitCode: 1
+        })
+});
+
+cliCommandManager.registerCommand({
+    command: createGenerateIdentifiersCommand({ env: process.env }),
+    run: ({ command }) => runGenerateGmlIdentifiers({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate GML identifiers.",
+            exitCode: 1
+        })
+});
+
+cliCommandManager.registerCommand({
+    command: createFeatherMetadataCommand({ env: process.env }),
+    run: ({ command }) => runGenerateFeatherMetadata({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliCommandManager.run(process.argv.slice(2)).catch((error) => {
     handleCliError(error, {
-        prefix: "Failed to format project.",
+        prefix: "Failed to run prettier-plugin-gml CLI.",
         exitCode: 1
     });
 });

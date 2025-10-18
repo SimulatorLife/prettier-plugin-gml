@@ -6,13 +6,13 @@ import {
     registerCliIdentifierCasePlanPreparer,
     resetRegisteredCliPluginServices,
     resolveCliProjectIndexBuilder,
-    resolveCliIdentifierCasePlanPreparer
+    resolveCliIdentifierCasePlanPreparer,
+    defaultCliPluginServices
 } from "../lib/plugin-services.js";
 import {
     defaultProjectIndexBuilder,
     defaultIdentifierCasePlanPreparer
 } from "../lib/plugin-service-providers/default-plugin-services.js";
-import { defaultCliPluginServices } from "../lib/plugin-service-providers/default-cli-plugin-services.js";
 
 async function metricsOnlyProjectIndexBuilder() {
     return { metrics: {} };

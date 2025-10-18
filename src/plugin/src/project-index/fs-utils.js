@@ -1,5 +1,6 @@
+import { toArrayFromIterable } from "../../../shared/array-utils.js";
 import { isErrorWithCode } from "../../../shared/error-utils.js";
-import { throwIfAborted } from "./abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 
 export function isFsErrorCode(error, ...codes) {
     return isErrorWithCode(error, ...codes);
@@ -13,17 +14,7 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
         const entries = await fsFacade.readDir(directoryPath);
         throwIfAborted(signal, "Directory listing was aborted.");
 
-        if (Array.isArray(entries)) {
-            return entries;
-        }
-
-        if (entries == null) {
-            return [];
-        }
-
-        return typeof entries[Symbol.iterator] === "function"
-            ? Array.from(entries)
-            : [];
+        return toArrayFromIterable(entries);
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
