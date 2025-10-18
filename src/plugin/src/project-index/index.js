@@ -44,21 +44,18 @@ function getProjectIndexParserOverride(options) {
         return null;
     }
 
-    const facade = PARSER_FACADE_OPTION_KEYS.map((key) => options[key]).find(
-        (candidate) => candidate && typeof candidate.parse === "function"
-    );
-
-    if (facade) {
-        return {
-            facade,
-            parse: facade.parse.bind(facade)
-        };
+    for (const key of PARSER_FACADE_OPTION_KEYS) {
+        const facade = options[key];
+        if (typeof facade?.parse === "function") {
+            return {
+                facade,
+                parse: facade.parse.bind(facade)
+            };
+        }
     }
 
-    const { parseGml } = options;
-    return typeof parseGml === "function"
-        ? { facade: null, parse: parseGml }
-        : null;
+    const parse = options.parseGml;
+    return typeof parse === "function" ? { facade: null, parse } : null;
 }
 
 function resolveProjectIndexParser(options) {
