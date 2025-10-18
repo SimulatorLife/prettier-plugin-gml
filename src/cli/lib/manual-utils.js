@@ -15,29 +15,33 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTerminal
-    };
+    const baseState = quiet
+        ? {
+              resolveRef: false,
+              downloads: false,
+              parsing: false,
+              progressBar: false
+          }
+        : {
+              resolveRef: true,
+              downloads: true,
+              parsing: true,
+              progressBar: isTerminal
+          };
 
-    if (quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
+    if (!overrides || typeof overrides !== "object") {
+        return baseState;
     }
 
-    if (overrides && typeof overrides === "object") {
-        for (const [key, value] of Object.entries(overrides)) {
-            if (value !== undefined) {
-                verbose[key] = value;
-            }
-        }
+    const definedOverrides = Object.fromEntries(
+        Object.entries(overrides).filter(([, value]) => value !== undefined)
+    );
+
+    if (Object.keys(definedOverrides).length === 0) {
+        return baseState;
     }
 
-    return verbose;
+    return { ...baseState, ...definedOverrides };
 }
 
 function assertPlainObject(value, message) {
