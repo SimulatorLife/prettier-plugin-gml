@@ -296,3 +296,28 @@ test("wraps long description doc comments using the formatter cap", async () => 
         "Long description doc comments should wrap to the formatter cap rather than producing additional continuation lines."
     );
 });
+
+test("marks parameters following defaults as optional in synthetic docs", async () => {
+    const source = "function example(a, b = 1, c, d = 2) {}\n";
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.deepEqual(
+        lines.slice(0, 6),
+        [
+            "/// @function example",
+            "/// @param a",
+            "/// @param [b=1]",
+            "/// @param [c]",
+            "/// @param [d=2]",
+            "/// @returns {undefined}"
+        ],
+        "Parameters that appear after defaults should be documented as optional."
+    );
+
+    assert.equal(
+        lines[6],
+        "function example(a, b = 1, c, d = 2) {}",
+        "The function signature should remain unchanged aside from synthesized docs."
+    );
+});

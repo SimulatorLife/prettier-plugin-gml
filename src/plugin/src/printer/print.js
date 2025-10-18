@@ -2717,6 +2717,8 @@ function computeSyntheticFunctionDocLines(
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
     }
 
+    let encounteredOptionalParameter = false;
+
     for (const param of node.params) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
@@ -2731,10 +2733,15 @@ function computeSyntheticFunctionDocLines(
                 ? paramMetadataByCanonical.get(canonicalParamName)
                 : null;
         const existingDocName = existingMetadata?.name;
-        const shouldMarkOptional =
+        let shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
-                isOptionalParamDocName(existingDocName));
+                isOptionalParamDocName(existingDocName)) ||
+            param?._documentAsOptional === true;
+
+        if (!shouldMarkOptional && encounteredOptionalParameter) {
+            shouldMarkOptional = true;
+        }
         if (
             shouldMarkOptional &&
             param?.type === "DefaultParameter" &&
@@ -2751,6 +2758,10 @@ function computeSyntheticFunctionDocLines(
         }
         documentedParamNames.add(docName);
         lines.push(`/// @param ${docName}`);
+
+        if (shouldMarkOptional) {
+            encounteredOptionalParameter = true;
+        }
     }
 
     for (const { name: docName } of implicitArgumentDocNames) {
