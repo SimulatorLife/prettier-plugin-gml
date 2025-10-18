@@ -64,6 +64,20 @@ function cloneMtimeMap(source) {
     );
 }
 
+function areNumbersApproximatelyEqual(a, b) {
+    if (a === b) {
+        return true;
+    }
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return false;
+    }
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance = Number.EPSILON * scale * 4;
+    return Math.abs(a - b) <= tolerance;
+}
+
 function areMtimeMapsEqual(expected = {}, actual = {}) {
     if (expected === actual) {
         return true;
@@ -84,7 +98,15 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return false;
     }
 
-    return expectedEntries.every(([key, value]) => actual[key] === value);
+    return expectedEntries.every(([key, value]) => {
+        const actualValue = actual[key];
+
+        if (typeof value === "number" && typeof actualValue === "number") {
+            return areNumbersApproximatelyEqual(value, actualValue);
+        }
+
+        return actualValue === value;
+    });
 }
 
 function validateCachePayload(payload) {
