@@ -2,7 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import {
+    toPosixPath,
+    walkAncestorDirectories
+} from "../../../shared/path-utils.js";
 import {
     cloneObjectEntries,
     isNonEmptyArray
@@ -73,23 +76,17 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
         return null;
     }
 
-    let current = path.dirname(path.resolve(filepath));
-    const visited = new Set();
+    const startDirectory = path.dirname(path.resolve(filepath));
 
-    while (!visited.has(current)) {
-        visited.add(current);
+    for (const directory of walkAncestorDirectories(startDirectory)) {
         throwIfAborted(signal, "Project root discovery was aborted.");
-        const entries = await listDirectory(fsFacade, current, { signal });
-        const hasManifest = entries.some(isProjectManifestPath);
-        if (hasManifest) {
-            return current;
-        }
 
-        const parent = path.dirname(current);
-        if (parent === current) {
-            break;
+        const entries = await listDirectory(fsFacade, directory, { signal });
+        throwIfAborted(signal, "Project root discovery was aborted.");
+
+        if (entries.some(isProjectManifestPath)) {
+            return directory;
         }
-        current = parent;
     }
 
     return null;
@@ -221,7 +218,10 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
+export {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
     PROJECT_INDEX_CACHE_DIRECTORY,
@@ -371,7 +371,10 @@ async function scanProjectTree(
 
             const relativePosix = toPosixPath(relativePath);
             const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+            if (
+                lowerPath.endsWith(".yy") ||
+                isProjectManifestPath(relativePosix)
+            ) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
