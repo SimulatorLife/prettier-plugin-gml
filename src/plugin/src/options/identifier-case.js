@@ -4,10 +4,12 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import { capitalize } from "../../../shared/string-utils.js";
+import {
+    capitalize,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
 import { DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
-import { normalizeStringList } from "./option-utils.js";
 
 export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
 
