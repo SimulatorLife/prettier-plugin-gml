@@ -5020,6 +5020,11 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(remainingFunction);
         assert.strictEqual(remainingFunction.type, "FunctionDeclaration");
         assert.strictEqual(remainingFunction.id, "make_game");
+        assert.strictEqual(
+            remainingFunction._suppressSyntheticReturnsDoc,
+            undefined,
+            "Expected surviving declaration to continue receiving synthetic returns docs when no comments exist."
+        );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm1064 = appliedDiagnostics.find(
