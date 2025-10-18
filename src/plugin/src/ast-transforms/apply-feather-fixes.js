@@ -421,8 +421,24 @@ function createNoOpFixer() {
     return () => [];
 }
 
+function hasFeatherDiagnosticContext(ast, diagnostic) {
+    if (!diagnostic) {
+        return false;
+    }
+
+    if (!ast) {
+        return false;
+    }
+
+    if (typeof ast !== "object") {
+        return false;
+    }
+
+    return true;
+}
+
 function removeDuplicateEnumMembers({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -504,7 +520,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
 }
 
 function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -1075,7 +1091,7 @@ function resolveAutomaticFixes(fixes, context) {
 }
 
 function resolveWithOtherVariableReferences({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -1815,7 +1831,7 @@ function createAutomaticFeatherFixHandlers() {
 }
 
 function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -1968,7 +1984,7 @@ function isStringReturningExpression(node) {
 }
 
 function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -2153,7 +2169,7 @@ function registerFeatherFixer(registry, diagnosticId, factory) {
 }
 
 function sanitizeEnumAssignments({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -2299,7 +2315,7 @@ function isIntegerLiteralString(candidate) {
 }
 
 function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -2491,7 +2507,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
 const NODE_REMOVED = Symbol("flaggedInvalidAssignmentRemovedNode");
 
 function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -2741,7 +2757,7 @@ function getSourceTextSlice({ sourceText, startIndex, endIndex }) {
 }
 
 function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -3071,7 +3087,7 @@ function collectAllIdentifierNames(root) {
 }
 
 function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -3198,7 +3214,7 @@ function isFileAttributeIdentifier(node) {
 }
 
 function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -3497,7 +3513,7 @@ function isEligibleRoomBinaryParent(parent, property) {
 }
 
 function preventDivisionOrModuloByZero({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -3722,7 +3738,7 @@ function isZeroLiteral(node) {
 }
 
 function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -4255,7 +4271,7 @@ function getArgumentIdentifierIndex(node) {
 }
 
 function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -4603,7 +4619,7 @@ function getDeprecatedBuiltinReplacementEntry(name) {
 }
 
 function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -4762,7 +4778,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
 }
 
 function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -5239,7 +5255,7 @@ function getMemberExpressionRootIdentifier(node) {
 }
 
 function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -5347,7 +5363,7 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
 }
 
 function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -5479,7 +5495,7 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
 }
 
 function replaceDeprecatedConstantReferences({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -6385,7 +6401,7 @@ function isWhitespaceOnly(text) {
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -6494,7 +6510,7 @@ function extractLiteral(node) {
 }
 
 function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -6626,7 +6642,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 }
 
 function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -6833,7 +6849,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 }
 
 function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -6960,7 +6976,7 @@ function getFunctionParameterIdentifier(param) {
 }
 
 function replaceInvalidDeleteStatements({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -7115,7 +7131,7 @@ function replaceNodeInParent(parent, property, replacement) {
 }
 
 function closeOpenVertexBatches({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -7279,7 +7295,7 @@ function createVertexEndCallFromBegin(template) {
 }
 
 function localizeInstanceVariableAssignments({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -7652,7 +7668,7 @@ function getOriginalIdentifierName(identifier, sourceText) {
 }
 
 function convertUnusedIndexForLoops({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -7948,7 +7964,7 @@ function doesNodeUseIdentifier(node, name) {
 }
 
 function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -7996,7 +8012,7 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
 }
 
 function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -8404,7 +8420,7 @@ function convertAllAssignment(node, parent, property, diagnostic) {
 }
 
 function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -8669,7 +8685,7 @@ function extractConsequentAssignment(consequent) {
 }
 
 function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -8798,7 +8814,7 @@ function ensureShaderResetAfterSet(
 }
 
 function ensureFogIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -8925,7 +8941,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9052,7 +9068,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureBlendEnableIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9182,7 +9198,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureBlendModeIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9320,7 +9336,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9517,7 +9533,7 @@ function createFileFindFirstCall(template) {
 }
 
 function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9566,7 +9582,7 @@ function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
 }
 
 function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9615,7 +9631,7 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
 }
 
 function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9687,7 +9703,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
 }
 
 function ensureHalignIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9736,7 +9752,7 @@ function ensureHalignIsReset({ ast, diagnostic }) {
 }
 
 function ensureConstructorParentsExist({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -9867,7 +9883,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
 }
 
 function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -10082,7 +10098,7 @@ function hasUnmatchedBeginBeforeIndex(statements, stopIndex) {
 }
 
 function ensureDrawPrimitiveEndCallsAreBalanced({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -10541,7 +10557,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureSurfaceTargetResetForGM2005({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -10715,7 +10731,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
 }
 
 function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -10912,7 +10928,7 @@ function getDrawCallName(node) {
 }
 
 function ensureCullModeIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -11046,7 +11062,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -11233,7 +11249,7 @@ function createVertexBeginCall(templateCall, bufferArgument) {
 }
 
 function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -11501,7 +11517,7 @@ function createVertexEndCall(template, bufferIdentifier) {
 }
 
 function ensureLocalVariablesAreDeclaredBeforeUse({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -12151,7 +12167,7 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
 }
 
 function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -12259,7 +12275,7 @@ function removeEventInheritedCall(
 }
 
 function ensureColourWriteEnableIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -12581,7 +12597,7 @@ function cloneNodeWithoutLocations(node) {
 }
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -12731,7 +12747,7 @@ function createRealCoercionCall(literal) {
 }
 
 function addMissingEnumMembers({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -12949,7 +12965,7 @@ function isSizeofEnumMember(member) {
 }
 
 function ensureTextureRepeatIsReset({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -13178,7 +13194,7 @@ function hasOriginalBlankLineBetween(beforeNode, afterNode) {
 }
 
 function correctDataStructureAccessorTokens({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -13312,7 +13328,7 @@ function extractAccessorFromExample(example) {
 }
 
 function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -13722,7 +13738,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
 }
 
 function ensureGpuStateIsPopped({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -13977,7 +13993,7 @@ function getCallExpression(node) {
 }
 
 function removeDanglingFileFindCalls({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -14136,7 +14152,7 @@ function getCallExpressionCalleeName(node) {
 }
 
 function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -14185,7 +14201,7 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
 }
 
 function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -14597,7 +14613,7 @@ function createVertexFormatEndCall(template) {
 }
 
 function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -14656,7 +14672,7 @@ const INSTANCE_CREATE_FUNCTION_NAMES = new Set([
 ]);
 
 function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -14804,7 +14820,7 @@ function annotateVariableStructProperty(property, diagnostic) {
 }
 
 function annotateMissingUserEvents({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -15949,7 +15965,7 @@ function createLiteral(value, template) {
 }
 
 function reorderOptionalParameters({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -16092,7 +16108,7 @@ function getFunctionIdentifierName(node) {
 }
 
 function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -17257,7 +17273,7 @@ function registerManualFeatherFix({ ast, diagnostic }) {
 }
 
 function balanceGpuStateStack({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -17538,7 +17554,7 @@ function attachFeatherFixMetadata(target, fixes) {
 }
 
 function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
@@ -17705,7 +17721,7 @@ const ARGUMENT_BUILTINS = new Set([
 ]);
 
 function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
-    if (!diagnostic || !ast || typeof ast !== "object") {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
