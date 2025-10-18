@@ -33,6 +33,28 @@ export function coerceNonNegativeInteger(value, options = {}) {
     });
 }
 
+export function coercePositiveIntegerOption(
+    value,
+    defaultValue,
+    { zeroReplacement } = {}
+) {
+    const normalized = toNormalizedInteger(value);
+
+    if (normalized === null) {
+        return defaultValue;
+    }
+
+    if (normalized > 0) {
+        return normalized;
+    }
+
+    if (zeroReplacement !== undefined) {
+        return zeroReplacement;
+    }
+
+    return defaultValue;
+}
+
 export function resolveIntegerOption(
     rawValue,
     {
