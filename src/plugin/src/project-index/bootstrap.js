@@ -19,42 +19,35 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
-function readOptionWithOverride(options, { internalKey, externalKey }) {
-    if (!isObjectLike(options)) {
-        return;
-    }
-
-    if (internalKey != null) {
-        const internalValue = options[internalKey];
-        if (internalValue !== undefined) {
-            return { value: internalValue, source: "internal" };
-        }
-    }
-
-    if (externalKey != null) {
-        const externalValue = options[externalKey];
-        if (externalValue !== undefined) {
-            return { value: externalValue, source: "external" };
-        }
-    }
-
-    return;
-}
-
 function resolveOptionWithOverride(options, config) {
-    const { onValue, onMissing, ...overrideKeys } = config ?? {};
+    const { onValue, onMissing, internalKey, externalKey } = config ?? {};
 
     if (typeof onValue !== "function") {
         throw new TypeError("onValue must be a function");
     }
 
-    const entry = readOptionWithOverride(options, overrideKeys);
+    const resolveMissing = () =>
+        typeof onMissing === "function" ? onMissing() : onMissing;
 
-    if (!entry) {
-        return typeof onMissing === "function" ? onMissing() : onMissing;
+    if (!isObjectLike(options)) {
+        return resolveMissing();
     }
 
-    return onValue(entry);
+    for (const [key, source] of [
+        [internalKey, "internal"],
+        [externalKey, "external"]
+    ]) {
+        if (key == null) {
+            continue;
+        }
+
+        const value = options[key];
+        if (value !== undefined) {
+            return onValue({ value, source });
+        }
+    }
+
+    return resolveMissing();
 }
 
 function getFsFacade(options) {
