@@ -5,6 +5,7 @@ import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
+import { throwIfAborted } from "./abort-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -141,7 +142,8 @@ function validateCachePayload(payload) {
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -157,6 +159,9 @@ export async function loadProjectIndexCache(
             "projectRoot must be provided to loadProjectIndexCache"
         );
     }
+
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
@@ -174,6 +179,8 @@ export async function loadProjectIndexCache(
         throw error;
     }
 
+    throwIfAborted(signal, "Project index cache load was aborted.");
+
     let parsed;
     try {
         parsed = parseJsonWithContext(rawContents, {
@@ -187,6 +194,8 @@ export async function loadProjectIndexCache(
             { error }
         );
     }
+
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     if (!validateCachePayload(parsed)) {
         return createCacheMiss(
@@ -258,7 +267,8 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -283,11 +293,15 @@ export async function saveProjectIndexCache(
         );
     }
 
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache save was aborted.");
+
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
     await fsFacade.mkdir(cacheDir, { recursive: true });
+    throwIfAborted(signal, "Project index cache save was aborted.");
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -323,7 +337,10 @@ export async function saveProjectIndexCache(
 
     try {
         await fsFacade.writeFile(tempFilePath, serialized, "utf8");
+        throwIfAborted(signal, "Project index cache save was aborted.");
+
         await fsFacade.rename(tempFilePath, cacheFilePath);
+        throwIfAborted(signal, "Project index cache save was aborted.");
     } catch (error) {
         try {
             await fsFacade.unlink(tempFilePath);
