@@ -81,8 +81,7 @@ export function cloneObjectEntries(entries) {
 
     const clones = new Array(entries.length);
 
-    for (let index = 0; index < entries.length; index += 1) {
-        const entry = entries[index];
+    for (const [index, entry] of entries.entries()) {
         clones[index] =
             entry && typeof entry === "object" ? { ...entry } : entry;
     }
