@@ -4,12 +4,30 @@ import { describe, it, mock } from "node:test";
 import {
     CliUsageError,
     formatCliError,
-    handleCliError
+    handleCliError,
+    markAsCliUsageError
 } from "../lib/cli-errors.js";
 
 describe("cli error formatting", () => {
     it("omits stack traces and prefixes for usage errors", () => {
         const error = new CliUsageError("Missing project path");
+
+        const output = formatCliError(error);
+
+        assert.equal(output, "Missing project path");
+    });
+
+    it("recognizes branded usage errors even if renamed", () => {
+        const error = new CliUsageError("Missing project path");
+        error.name = "OtherCliError";
+
+        const output = formatCliError(error);
+
+        assert.equal(output, "Missing project path");
+    });
+
+    it("brands external error-like values", () => {
+        const error = markAsCliUsageError({ message: "Missing project path" });
 
         const output = formatCliError(error);
 
