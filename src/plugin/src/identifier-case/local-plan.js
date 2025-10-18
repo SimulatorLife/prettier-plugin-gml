@@ -1,9 +1,12 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { asArray } from "../../../shared/array-utils.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../metrics/metrics-tracker.js";
+import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    toPosixPath,
+    resolveContainedRelativePath
+} from "../../../shared/path-utils.js";
+import { createMetricsTracker } from "../reporting/metrics-tracker.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import {
     isNonEmptyString,
@@ -28,8 +31,7 @@ import {
     buildPatternMatchers,
     resolveIdentifierConfigurationConflict,
     createConflict,
-    incrementFileOccurrence,
-    summarizeFileOccurrences
+    summarizeReferenceFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import {
@@ -47,6 +49,14 @@ function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
 
     if (isNonEmptyString(projectRoot)) {
         const resolvedRoot = path.resolve(projectRoot);
+        const relative = resolveContainedRelativePath(
+            resolvedFile,
+            resolvedRoot
+        );
+        if (relative !== null) {
+            return toPosixPath(relative);
+        }
+
         return toPosixPath(path.relative(resolvedRoot, resolvedFile));
     }
 
@@ -102,13 +112,9 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
 }
 
 function summarizeReferencesByFile(relativeFilePath, references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath, relativeFilePath);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, {
+        fallbackPath: relativeFilePath
+    });
 }
 
 function getEntryDeclarations(entry) {
@@ -212,19 +218,14 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = getEntryDeclarations(entry);
+    const classificationSources = [
+        ...getEntryDeclarations(entry).flatMap((declaration) =>
+            getEntityClassifications(declaration)
+        ),
+        ...getEntryDeclarationKinds(entry)
+    ];
 
-    for (const declaration of declarations) {
-        const classifications = getEntityClassifications(declaration);
-        for (const tag of classifications) {
-            if (tag) {
-                tags.add(tag);
-            }
-        }
-    }
-
-    const declarationKinds = getEntryDeclarationKinds(entry);
-    for (const tag of declarationKinds) {
+    for (const tag of classificationSources) {
         if (tag) {
             tags.add(tag);
         }
@@ -253,13 +254,7 @@ function isFunctionScriptEntry(entry) {
 }
 
 function summarizeReferencesAcrossFiles(references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath ?? null, null);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, { fallbackPath: null });
 }
 
 function getDeclarationFilePath(entry) {
@@ -451,7 +446,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+    if (!isNonEmptyArray(entries)) {
         return;
     }
 

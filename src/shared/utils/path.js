@@ -43,3 +43,35 @@ export function fromPosixPath(inputPath) {
 
     return inputPath.replaceAll(POSIX_SEPARATOR_PATTERN, path.sep);
 }
+
+/**
+ * Resolve the relative path from {@link parentPath} to {@link childPath} when
+ * the child resides within the parent directory tree.
+ *
+ * Empty strings and non-string inputs short-circuit to `null` so callers can
+ * guard against optional metadata without additional checks. The helper mirrors
+ * the guard logic previously inlined across the CLI and project index to keep
+ * containment checks consistent and allocation-free on the hot path.
+ *
+ * @param {string | null | undefined} childPath Candidate descendant path.
+ * @param {string | null | undefined} parentPath Candidate ancestor directory.
+ * @returns {string | null} Relative path when the child is contained within the
+ *                          parent, otherwise `null`.
+ */
+export function resolveContainedRelativePath(childPath, parentPath) {
+    if (!isNonEmptyString(childPath) || !isNonEmptyString(parentPath)) {
+        return null;
+    }
+
+    const relative = path.relative(parentPath, childPath);
+
+    if (relative === "") {
+        return "";
+    }
+
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        return null;
+    }
+
+    return relative;
+}

@@ -88,10 +88,9 @@ function createFallbackXmlParser() {
             try {
                 return parseXmlDocument(xml);
             } catch (innerError) {
-                const message =
-                    innerError && typeof innerError.message === "string"
-                        ? innerError.message
-                        : String(innerError);
+                const message = getErrorMessage(innerError, {
+                    fallback: "Unknown error"
+                });
                 throw new Error(`Fallback XML parser failed: ${message}`);
             }
         }

@@ -11,8 +11,7 @@ import {
     RESERVED_CONFLICT_CODE,
     createConflict,
     resolveIdentifierConfigurationConflict,
-    incrementFileOccurrence,
-    summarizeFileOccurrences
+    summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 
@@ -229,19 +228,15 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {
-    const counts = new Map();
-    if (resourcePath) {
-        incrementFileOccurrence(counts, resourcePath);
-    }
+    const includeFilePaths =
+        typeof resourcePath === "string" && resourcePath.length > 0
+            ? [resourcePath]
+            : [];
 
-    for (const mutation of referenceMutations ?? []) {
-        if (!mutation?.filePath) {
-            continue;
-        }
-        incrementFileOccurrence(counts, mutation.filePath);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(referenceMutations, {
+        includeFilePaths,
+        fallbackPath: null
+    });
 }
 
 export function planAssetRenames({

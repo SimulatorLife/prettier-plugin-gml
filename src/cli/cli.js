@@ -72,6 +72,13 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
+const VALID_PRETTIER_LOG_LEVELS = new Set([
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "silent"
+]);
 
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
@@ -126,6 +133,24 @@ function normalizeParseErrorAction(value, fallbackValue) {
     return null;
 }
 
+function normalizePrettierLogLevel(value, fallbackValue) {
+    if (value == undefined) {
+        return fallbackValue;
+    }
+
+    const normalized = toNormalizedLowerCaseString(value);
+
+    if (normalized.length === 0) {
+        return fallbackValue;
+    }
+
+    if (VALID_PRETTIER_LOG_LEVELS.has(normalized)) {
+        return normalized;
+    }
+
+    return null;
+}
+
 function coerceExtensionValue(value) {
     if (typeof value !== "string") {
         return null;
@@ -173,6 +198,12 @@ const DEFAULT_PARSE_ERROR_ACTION =
         ParseErrorAction.SKIP
     ) ?? ParseErrorAction.SKIP;
 
+const DEFAULT_PRETTIER_LOG_LEVEL =
+    normalizePrettierLogLevel(
+        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
+        "warn"
+    ) ?? "warn";
+
 const cliArgs = process.argv.slice(2);
 
 function parseCliArguments(args) {
@@ -193,6 +224,25 @@ function parseCliArguments(args) {
             "--extensions <list>",
             "Comma-separated list of file extensions to format.",
             (value) => normalizeExtensions(value, DEFAULT_EXTENSIONS)
+        )
+        .option(
+            "--log-level <level>",
+            "Prettier log level to use (debug, info, warn, error, or silent).",
+            (value) => {
+                const normalized = normalizePrettierLogLevel(
+                    value,
+                    DEFAULT_PRETTIER_LOG_LEVEL
+                );
+                if (!normalized) {
+                    throw new InvalidArgumentError(
+                        `Must be one of: ${[...VALID_PRETTIER_LOG_LEVELS]
+                            .sort()
+                            .join(", ")}`
+                    );
+                }
+                return normalized;
+            },
+            DEFAULT_PRETTIER_LOG_LEVEL
         )
         .option(
             "--on-parse-error <mode>",
@@ -232,6 +282,7 @@ function parseCliArguments(args) {
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
+        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
         usage
     };
@@ -279,16 +330,24 @@ function shouldFormatFile(filePath) {
 const options = {
     parser: "gml-parse",
     plugins: [PLUGIN_PATH],
-    loglevel: "warn",
+    loglevel: DEFAULT_PRETTIER_LOG_LEVEL,
     ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
 };
+
+function configurePrettierOptions({ logLevel } = {}) {
+    const normalized =
+        normalizePrettierLogLevel(logLevel, DEFAULT_PRETTIER_LOG_LEVEL) ??
+        DEFAULT_PRETTIER_LOG_LEVEL;
+    options.loglevel = normalized;
+}
 
 let skippedFileCount = 0;
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let ignoreRulesContainNegations = false;
+const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
@@ -473,10 +532,7 @@ async function revertFormattedFiles() {
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
         } catch (revertError) {
-            const message =
-                revertError && typeof revertError.message === "string"
-                    ? revertError.message
-                    : String(revertError ?? "");
+            const message = getErrorMessage(revertError);
             console.error(
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
@@ -525,14 +581,14 @@ async function registerIgnorePaths(ignoreFiles) {
 
         registerIgnorePath(ignoreFilePath);
 
+        if (ignoreRulesContainNegations) {
+            continue;
+        }
+
         try {
             const contents = await readFile(ignoreFilePath, "utf8");
-            const hasNegation = contents
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .some((line) => line.startsWith("!") && line.length > 1);
 
-            if (hasNegation) {
+            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
                 ignoreRulesContainNegations = true;
             }
         } catch {
@@ -745,8 +801,9 @@ async function resolveFormattingOptions(filePath) {
             editorconfig: true
         });
     } catch (error) {
+        const message = getErrorMessage(error, { fallback: "Unknown error" });
         console.warn(
-            `Unable to resolve Prettier config for ${filePath}: ${error.message}`
+            `Unable to resolve Prettier config for ${filePath}: ${message}`
         );
     }
 
@@ -807,6 +864,7 @@ async function run() {
     const {
         targetPathInput,
         extensions: configuredExtensions,
+        prettierLogLevel,
         onParseError,
         helpRequested,
         usage
@@ -824,6 +882,7 @@ async function run() {
     }
 
     const targetPath = path.resolve(process.cwd(), targetPathInput);
+    configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);
 

@@ -27,6 +27,9 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
+- [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
+  file tuned for common GameMaker metadata folders when rolling the formatter
+  into an existing repository.
 
 ## Planning notes
 
@@ -44,6 +47,12 @@ quick-start flow, formatter configuration, and day-to-day development commands.
 - [Shared module layout refresh](shared-module-layout.md) — Summarises the
   repository-wide audit that reorganised the `src/shared` helpers into
   `ast/` and `utils/` entry points.
+- [Architecture audit (May 2024)](architecture-audit-2024-05-15.md) — Captures
+  the state of the formatter, parser, and CLI packages after the workspace
+  split, including upgrade risks and sequencing notes for future refactors.
+- [Interface segregation investigation](interface-segregation-investigation.md)
+  — Research notes that detail why the CLI and plugin expose separate entry
+  points and how shared utilities are packaged.
 
 ## Metadata tooling
 
