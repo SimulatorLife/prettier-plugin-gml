@@ -1,4 +1,5 @@
 export {
+    toArray,
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption,
