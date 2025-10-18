@@ -26,6 +26,8 @@ describe("resolveLineCommentOptions", () => {
             lineCommentBoilerplateFragments: "Alpha, Beta"
         };
 
+        Object.freeze(pluginOptions);
+
         const first = resolveLineCommentOptions(pluginOptions);
         const second = resolveLineCommentOptions(pluginOptions);
 
