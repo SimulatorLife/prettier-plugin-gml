@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
+import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
 import {
     toPosixPath,
     walkAncestorDirectories
@@ -1965,17 +1966,10 @@ function analyseGmlAst({
             }
         }
 
-        if (
-            node?.type === "CallExpression" &&
-            node.object?.type === "Identifier"
-        ) {
-            const callee = node.object;
-            const calleeName = callee.name;
-            if (typeof calleeName !== "string") {
-                return;
-            }
-
-            if (builtInNames.has(calleeName)) {
+        if (node?.type === "CallExpression") {
+            const callee = getCallExpressionIdentifier(node);
+            const calleeName = callee?.name ?? null;
+            if (!calleeName || builtInNames.has(calleeName)) {
                 return;
             }
 
@@ -1997,8 +1991,8 @@ function analyseGmlAst({
                 },
                 isResolved: Boolean(targetScopeId),
                 location: {
-                    start: cloneLocation(callee.start),
-                    end: cloneLocation(callee.end)
+                    start: cloneLocation(callee?.start),
+                    end: cloneLocation(callee?.end)
                 }
             };
 

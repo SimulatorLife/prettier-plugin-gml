@@ -9,6 +9,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifier,
+    getCallExpressionIdentifierName,
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
@@ -1949,22 +1951,21 @@ function isStringReturningExpression(node) {
     }
 
     if (node.type === "CallExpression") {
-        const callee = node.object;
+        const calleeName = getCallExpressionIdentifierName(node);
+        if (!calleeName) {
+            return false;
+        }
 
-        if (isIdentifierWithName(callee, "string")) {
+        if (calleeName === "string") {
             return true;
         }
 
-        if (callee?.type === "Identifier") {
-            const name = callee.name;
+        if (STRING_LENGTH_CALL_BLACKLIST.has(calleeName)) {
+            return false;
+        }
 
-            if (STRING_LENGTH_CALL_BLACKLIST.has(name)) {
-                return false;
-            }
-
-            if (name.startsWith("string_")) {
-                return true;
-            }
+        if (calleeName.startsWith("string_")) {
+            return true;
         }
     }
 
@@ -1995,11 +1996,10 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const calleeName =
-                node.object?.type === "Identifier" ? node.object.name : null;
+            const calleeName = getCallExpressionIdentifierName(node);
 
             if (
-                typeof calleeName === "string" &&
+                calleeName &&
                 GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)
             ) {
                 const argumentIndexes =
@@ -6237,19 +6237,13 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
 }
 
 function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
-    if (!node || node.type !== "CallExpression") {
+    if (!node) {
         return null;
     }
 
-    const callee = node.object;
+    const functionName = getCallExpressionIdentifierName(node);
 
-    if (!callee || callee.type !== "Identifier") {
-        return null;
-    }
-
-    const functionName = callee.name;
-
-    if (!deprecatedFunctions.has(functionName)) {
+    if (!functionName || !deprecatedFunctions.has(functionName)) {
         return null;
     }
 
@@ -14949,7 +14943,7 @@ function getUserEventReference(node) {
         return null;
     }
 
-    const callee = node.object;
+    const callee = getCallExpressionIdentifier(node);
     const args = getCallExpressionArguments(node);
 
     if (isIdentifierWithName(callee, "event_user")) {
@@ -17673,9 +17667,9 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    const callee = node.object;
+    const callee = getCallExpressionIdentifier(node);
 
-    if (!callee || callee.type !== "Identifier") {
+    if (!callee) {
         return null;
     }
 

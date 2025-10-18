@@ -44,6 +44,7 @@ import {
 import {
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifierName,
     getIdentifierText,
     getSingleVariableDeclarator,
     isBooleanLiteral,
@@ -3520,16 +3521,8 @@ function applyOuterTrigConversion(node, conversionMap) {
 }
 
 function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const identifierName = getIdentifierText(node.object);
-    if (!identifierName) {
-        return false;
-    }
-
-    return identifierName.toLowerCase() === name;
+    const identifierName = getCallExpressionIdentifierName(node);
+    return identifierName ? identifierName.toLowerCase() === name : false;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {
