@@ -243,53 +243,77 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     }
 }
 
+const CLASSIFICATION_RULES = [
+    {
+        type: "function",
+        segments: ["functions"],
+        tags: ["function", "functions"]
+    },
+    { type: "method", segments: ["methods"], tags: ["method", "methods"] },
+    { type: "event", segments: ["events"], tags: ["event", "events"] },
+    {
+        type: "variable",
+        segments: ["variables"],
+        tags: ["variable", "variables"]
+    },
+    {
+        type: "accessor",
+        segments: ["accessors"],
+        tags: ["accessor", "accessors"]
+    },
+    {
+        type: "property",
+        segments: ["properties"],
+        tags: ["property", "properties"]
+    },
+    { type: "macro", segments: ["macros"], tags: ["macro", "macros"] },
+    {
+        type: "constant",
+        segments: ["constants"],
+        tags: ["constant", "constants"]
+    },
+    { type: "enum", segments: ["enums"], tags: ["enum", "enums"] },
+    { type: "struct", segments: ["structs"], tags: ["struct", "structs"] }
+];
+
+const CO_OCCURRENCE_RULES = [
+    { type: "function", requiredSegments: [["layers"], ["functions"]] },
+    { type: "constant", requiredSegments: [["shaders"], ["constants"]] }
+];
+
 function classifyFromPath(manualPath, tagList) {
     const normalizedTags = toNormalizedLowerCaseSet(tagList);
     const segments = manualPath.split("/").map((part) => part.toLowerCase());
-    const hasSegment = (needles) =>
-        segments.some((segment) =>
-            needles.some((needle) => segment.includes(needle))
-        );
 
-    const tagHas = (needles) =>
-        needles.some((needle) => normalizedTags.has(needle));
+    const segmentMatches = (needle) =>
+        segments.some((segment) => segment.includes(needle));
+    const tagMatches = (needle) => normalizedTags.has(needle);
 
-    if (hasSegment(["functions"]) || tagHas(["function", "functions"])) {
-        return "function";
+    const matchesAny = (needles = [], matcher) =>
+        needles.length > 0 && needles.some(matcher);
+    const matchesAllGroups = (groups = []) =>
+        groups.length > 0 &&
+        groups.every((needles) => matchesAny(needles, segmentMatches));
+
+    for (const {
+        type,
+        segments: segmentNeedles = [],
+        tags: tagNeedles = []
+    } of CLASSIFICATION_RULES) {
+        if (
+            matchesAny(segmentNeedles, segmentMatches) ||
+            matchesAny(tagNeedles, tagMatches)
+        ) {
+            return type;
+        }
     }
-    if (hasSegment(["methods"]) || tagHas(["method", "methods"])) {
-        return "method";
+
+    for (const { type, requiredSegments = [] } of CO_OCCURRENCE_RULES) {
+        if (matchesAllGroups(requiredSegments)) {
+            return type;
+        }
     }
-    if (hasSegment(["events"]) || tagHas(["event", "events"])) {
-        return "event";
-    }
-    if (hasSegment(["variables"]) || tagHas(["variable", "variables"])) {
-        return "variable";
-    }
-    if (hasSegment(["accessors"]) || tagHas(["accessor", "accessors"])) {
-        return "accessor";
-    }
-    if (hasSegment(["properties"]) || tagHas(["property", "properties"])) {
-        return "property";
-    }
-    if (hasSegment(["macros"]) || tagHas(["macro", "macros"])) {
-        return "macro";
-    }
-    if (hasSegment(["constants"]) || tagHas(["constant", "constants"])) {
-        return "constant";
-    }
-    if (hasSegment(["enums"]) || tagHas(["enum", "enums"])) {
-        return "enum";
-    }
-    if (hasSegment(["structs"]) || tagHas(["struct", "structs"])) {
-        return "struct";
-    }
-    if (hasSegment(["layers"]) && hasSegment(["functions"])) {
-        return "function";
-    }
-    if (hasSegment(["shaders"]) && hasSegment(["constants"])) {
-        return "constant";
-    }
+
     return "unknown";
 }
 
