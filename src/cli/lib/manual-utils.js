@@ -4,6 +4,7 @@ import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
+import { isNonEmptyArray } from "../../shared/array-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -255,7 +256,7 @@ function createManualGitHubClient({
             source: latestTagUrl
         });
 
-        if (!Array.isArray(tags) || tags.length === 0) {
+        if (!isNonEmptyArray(tags)) {
             console.warn(
                 "No manual tags found; defaulting to 'develop' branch."
             );
