@@ -44,9 +44,9 @@ import {
     toNormalizedLowerCaseSet
 } from "../shared/string-utils.js";
 import {
-    isPathInside,
-    collectAncestorDirectories
-} from "../shared/path-utils.js";
+    collectAncestorDirectories,
+    isPathInside
+} from "./lib/path-utils.js";
 import { isObjectLike } from "../shared/object-utils.js";
 
 import {
