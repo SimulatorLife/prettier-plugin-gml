@@ -1,8 +1,14 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { getNonEmptyTrimmedString } from "../../shared/utils.js";
 import ScopeTracker from "./scope-tracker.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
-import IdentifierMetadataManager from "./identifier-metadata-manager.js";
+import {
+    IdentifierRoleTracker,
+    IdentifierScopeCoordinator,
+    GlobalIdentifierRegistry,
+    createIdentifierLocation as buildIdentifierLocation
+} from "./identifier-metadata/index.js";
 
 const BINARY_OPERATORS = {
     // Highest Precedence
@@ -56,33 +62,63 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         this.options = options || {};
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
-        this.globalIdentifiers = new Set();
         this.scopeTracker = new ScopeTracker({
             enabled: Boolean(this.options.getIdentifierMetadata)
         });
-        this.identifierMetadata = new IdentifierMetadataManager({
+        this.identifierRoleTracker = new IdentifierRoleTracker();
+        this.identifierScopeCoordinator = new IdentifierScopeCoordinator({
             scopeTracker: this.scopeTracker,
+            roleTracker: this.identifierRoleTracker
+        });
+        this.globalIdentifiers = new Set();
+        this.globalIdentifierRegistry = new GlobalIdentifierRegistry({
             globalIdentifiers: this.globalIdentifiers
         });
+        this.identifierScope = {
+            isEnabled: () => this.identifierScopeCoordinator.isEnabled(),
+            withScope: (kind, callback) =>
+                this.identifierScopeCoordinator.withScope(kind, callback)
+        };
+        this.identifierRoles = {
+            withIdentifierRole: (role, callback) =>
+                this.identifierRoleTracker.withRole(role, callback),
+            cloneRole: (role) => this.identifierRoleTracker.cloneRole(role)
+        };
+        this.identifierClassifier = {
+            applyRoleToIdentifier: (name, node) =>
+                this.identifierScopeCoordinator.applyCurrentRoleToIdentifier(
+                    name,
+                    node
+                )
+        };
+        this.identifierGlobals = {
+            markGlobalIdentifier: (node) =>
+                this.globalIdentifierRegistry.markIdentifier(node),
+            applyGlobalFlag: (node) =>
+                this.globalIdentifierRegistry.applyToNode(node)
+        };
+        this.identifierLocations = {
+            createIdentifierLocation: (token) => buildIdentifierLocation(token)
+        };
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
         });
     }
 
     isIdentifierMetadataEnabled() {
-        return this.identifierMetadata.isEnabled();
+        return this.identifierScope.isEnabled();
     }
 
     withScope(kind, callback) {
-        return this.identifierMetadata.withScope(kind, callback);
+        return this.identifierScope.withScope(kind, callback);
     }
 
     withIdentifierRole(role, callback) {
-        return this.identifierMetadata.withIdentifierRole(role, callback);
+        return this.identifierRoles.withIdentifierRole(role, callback);
     }
 
     cloneRole(role) {
-        return this.identifierMetadata.cloneRole(role);
+        return this.identifierRoles.cloneRole(role);
     }
 
     // Utility helper that replaces long chains of null checks when visiting
@@ -126,7 +162,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     }
 
     createIdentifierLocation(token) {
-        return this.identifierMetadata.createIdentifierLocation(token);
+        return this.identifierLocations.createIdentifierLocation(token);
     }
 
     visitBinaryExpression(ctx) {
@@ -541,7 +577,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                     return null;
                 }
 
-                this.identifierMetadata.markGlobalIdentifier(identifier);
+                this.identifierGlobals.markGlobalIdentifier(identifier);
 
                 return this.astNode(identifierCtx, {
                     type: "VariableDeclarator",
@@ -1194,8 +1230,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "Identifier",
             name: name
         });
-        this.identifierMetadata.applyGlobalFlag(node);
-        this.identifierMetadata.applyCurrentRoleToIdentifier(name, node);
+        this.identifierGlobals.applyGlobalFlag(node);
+        this.identifierClassifier.applyRoleToIdentifier(name, node);
         return node;
     }
 
@@ -1267,9 +1303,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitDefineStatement(ctx) {
         const regionCharacters = ctx.RegionCharacters();
         const rawText = regionCharacters ? regionCharacters.getText() : "";
-        const trimmed = rawText.trim();
+        const trimmed = getNonEmptyTrimmedString(rawText);
 
-        if (trimmed.length === 0) {
+        if (!trimmed) {
             return null;
         }
 

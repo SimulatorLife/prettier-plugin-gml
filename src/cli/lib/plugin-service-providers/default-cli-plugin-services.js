@@ -1,11 +1,7 @@
 import {
-    createDefaultProjectIndexBuilder,
-    createDefaultIdentifierCasePlanPreparer
+    createDefaultCliPluginServices,
+    defaultProjectIndexBuilder,
+    defaultIdentifierCasePlanPreparer
 } from "./default-plugin-services.js";
 
-export function createDefaultCliPluginServices() {
-    return {
-        buildProjectIndex: createDefaultProjectIndexBuilder(),
-        prepareIdentifierCasePlan: createDefaultIdentifierCasePlanPreparer()
-    };
-}
+export const defaultCliPluginServices = createDefaultCliPluginServices();
