@@ -33,3 +33,30 @@ test("preserves blank line between constructor header and first statement", asyn
         "Expected constructors to retain a blank line when the input separates the header from the first statement."
     );
 });
+
+test("preserves blank line between trailing static function and constructor closing brace", async () => {
+    const source = [
+        "function Example() constructor {",
+        "    static helper = function() {",
+        "        return 1;",
+        "    };",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const closingBraceIndex = lines.lastIndexOf("}");
+
+    assert.notStrictEqual(
+        closingBraceIndex,
+        -1,
+        "Expected the formatted constructor to include a closing brace."
+    );
+    assert.equal(
+        lines[closingBraceIndex - 1],
+        "",
+        "Expected the formatter to retain the blank line before the closing brace when the source included one."
+    );
+});
