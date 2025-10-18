@@ -210,15 +210,18 @@ function parseCliArguments(args) {
     const command = applyStandardCommandOptions(
         new Command()
             .name("prettier-wrapper")
-            .usage("[options] <path>")
+            .usage("[options] [path]")
             .description(
                 "Format GameMaker Language files using the prettier plugin."
             )
     )
-        .argument("[targetPath]", "Directory or file to format.")
+        .argument(
+            "[targetPath]",
+            "Directory or file to format (defaults to the current working directory)."
+        )
         .option(
             "--path <path>",
-            "Directory or file to format (alias for positional argument)."
+            "Directory or file to format (alias for the positional argument; defaults to the current working directory)."
         )
         .option(
             "--extensions <list>",
@@ -875,14 +878,12 @@ async function run() {
         return;
     }
 
-    if (!targetPathInput) {
-        throw new CliUsageError(
-            "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project.",
-            { usage }
-        );
-    }
+    const targetPathCandidate =
+        typeof targetPathInput === "string" && targetPathInput.length > 0
+            ? targetPathInput
+            : ".";
 
-    const targetPath = path.resolve(process.cwd(), targetPathInput);
+    const targetPath = path.resolve(process.cwd(), targetPathCandidate);
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);

@@ -38,6 +38,22 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("defaults to the current working directory when no path is provided", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            await execFileAsync("node", [wrapperPath], { cwd: tempDirectory });
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("formats a single file when the target path points to a file", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
