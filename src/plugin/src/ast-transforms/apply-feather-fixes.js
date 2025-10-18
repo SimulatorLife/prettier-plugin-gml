@@ -10372,7 +10372,8 @@ function ensureAlphaTestEnableResetAfterCall(
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        (!nextSibling || !isTriviallyIgnorableStatement(nextSibling)) &&
+        nextSibling &&
+        !isTriviallyIgnorableStatement(nextSibling) &&
         !isAlphaTestDisableCall(nextSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
