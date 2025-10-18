@@ -79,3 +79,30 @@ test("preserves guard extraction descriptions when condensing", async () => {
         "Expected guard extraction description to omit simplified equality."
     );
 });
+
+test("updates XOR descriptions with simplified equality", async () => {
+    const source = [
+        "/// @function condense_xor",
+        "/// @param {bool} foo",
+        "/// @param {bool} bar",
+        "/// @description XOR equivalence: (foo and !bar) or (!foo and bar).",
+        "/// @returns {bool}",
+        "function condense_xor(foo, bar) {",
+        "    if ((foo and !bar) or (!foo and bar)) {",
+        "        return true;",
+        "    }",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.match(
+        formatted,
+        /XOR equivalence: \(foo and !bar\) or \(!foo and bar\) == \(foo or bar\) and !\(foo and bar\)\./,
+        "Expected XOR description to include the simplified equivalence expression."
+    );
+});

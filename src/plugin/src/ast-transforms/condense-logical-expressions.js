@@ -63,6 +63,7 @@ export function condenseLogicalExpressions(ast, helpers) {
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
     removeDuplicateCondensedFunctions(context);
+    applyDocCommentUpdates(context);
     activeTransformationContext = null;
     return ast;
 }
@@ -129,13 +130,23 @@ function buildUpdatedDescription(existing, expression) {
     if (trimmed.includes("==")) {
         const equalityIndex = trimmed.indexOf("==");
         const prefix = trimmed.slice(0, equalityIndex + 2).trimEnd();
-        return `${prefix} ${normalizedExpression}`;
+        const trailingPunctuationMatch = trimmed.match(/[.;!?]$/);
+        const trailingPunctuation = trailingPunctuationMatch
+            ? trailingPunctuationMatch[0]
+            : "";
+        return `${prefix} ${normalizedExpression}${trailingPunctuation}`;
     }
 
-    const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
     const needsSemicolon = lowered.includes("return");
+    const trailingPunctuationMatch = trimmed.match(/[.;!?]$/);
+    const trailingPunctuation = trailingPunctuationMatch
+        ? trailingPunctuationMatch[0]
+        : needsSemicolon
+          ? ";"
+          : ".";
+    const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
     const separator = needsSemicolon ? "; ==" : " ==";
-    return `${withoutPeriod}${separator} ${normalizedExpression}`;
+    return `${withoutPeriod}${separator} ${normalizedExpression}${trailingPunctuation}`;
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {
@@ -284,6 +295,56 @@ function removeDuplicateCondensedFunctions(context) {
     }
 
     context.ast.body = context.ast.body.filter((node) => !toRemove.has(node));
+}
+
+function applyDocCommentUpdates(context) {
+    if (!context || context.docUpdates.size === 0) {
+        return;
+    }
+
+    const commentGroups = ensureCommentGroups(context);
+
+    for (const [fn, update] of context.docUpdates.entries()) {
+        if (!update || typeof update.expression !== "string") {
+            continue;
+        }
+
+        const expression = update.expression.trim();
+        if (!expression) {
+            continue;
+        }
+
+        const comments = commentGroups.get(fn);
+        if (!Array.isArray(comments) || comments.length === 0) {
+            continue;
+        }
+
+        const descriptionComment = comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                comment.value.includes("@description")
+        );
+
+        if (!descriptionComment) {
+            continue;
+        }
+
+        const updatedDescription = buildUpdatedDescription(
+            update.description,
+            expression
+        );
+
+        if (!updatedDescription) {
+            continue;
+        }
+
+        const prefixMatch = descriptionComment.value.match(
+            /^(\s*\/\s*@description\s*)/i
+        );
+        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
+
+        descriptionComment.value = `${prefix}${updatedDescription}`;
+    }
 }
 
 function mapDocCommentsToFunctions(ast) {
