@@ -11353,6 +11353,13 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     siblings.splice(insertionIndex, 0, vertexEndCall);
     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
+    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
+
+    const previousSibling = siblings[property - 1] ?? null;
+
+    if (previousSibling) {
+        markStatementToSuppressFollowingEmptyLine(previousSibling);
+    }
 
     return fixDetail;
 }
