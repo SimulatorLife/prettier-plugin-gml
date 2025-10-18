@@ -113,8 +113,13 @@ function buildWordCase(normalized, transformToken) {
     }
 
     let base = "";
-    for (const [index, token] of tokens.entries()) {
-        base += transformToken(token, index);
+    // Avoid using `tokens.entries()` to keep the hot path allocation-free. The
+    // iterator approach materializes a two-element array for every token, which
+    // shows up in identifier formatting micro-benchmarks. A simple index-based
+    // loop lets V8 reuse the existing array slots without synthesizing
+    // temporary tuples on each iteration.
+    for (let index = 0; index < tokens.length; index += 1) {
+        base += transformToken(tokens[index], index);
     }
 
     return finalizeIdentifier(normalized, base);
