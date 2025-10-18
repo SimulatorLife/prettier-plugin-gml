@@ -62,8 +62,8 @@ export function condenseLogicalExpressions(ast, helpers) {
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    applyDocCommentUpdates(context);
     removeDuplicateCondensedFunctions(context);
+    applyDocCommentUpdates(context);
     activeTransformationContext = null;
     return ast;
 }
@@ -130,13 +130,23 @@ function buildUpdatedDescription(existing, expression) {
     if (trimmed.includes("==")) {
         const equalityIndex = trimmed.indexOf("==");
         const prefix = trimmed.slice(0, equalityIndex + 2).trimEnd();
-        return `${prefix} ${normalizedExpression}`;
+        const trailingPunctuationMatch = trimmed.match(/[.;!?]$/);
+        const trailingPunctuation = trailingPunctuationMatch
+            ? trailingPunctuationMatch[0]
+            : "";
+        return `${prefix} ${normalizedExpression}${trailingPunctuation}`;
     }
 
-    const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
     const needsSemicolon = lowered.includes("return");
+    const trailingPunctuationMatch = trimmed.match(/[.;!?]$/);
+    const trailingPunctuation = trailingPunctuationMatch
+        ? trailingPunctuationMatch[0]
+        : needsSemicolon
+          ? ";"
+          : ".";
+    const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
     const separator = needsSemicolon ? "; ==" : " ==";
-    return `${withoutPeriod}${separator} ${normalizedExpression}`;
+    return `${withoutPeriod}${separator} ${normalizedExpression}${trailingPunctuation}`;
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {
