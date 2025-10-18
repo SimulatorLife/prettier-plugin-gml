@@ -1,5 +1,5 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isCommanderErrorLike } from "../../shared/utils/capability-probes.js";
+import { isCommanderErrorLike } from "./commander-error-utils.js";
 
 function isCommanderError(error) {
     return (
