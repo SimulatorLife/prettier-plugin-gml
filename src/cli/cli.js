@@ -240,15 +240,18 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
         new Command()
             .name(name)
-            .usage("[options] <path>")
+            .usage("[options] [path]")
             .description(
                 "Format GameMaker Language files using the prettier plugin."
             )
     )
-        .argument("[targetPath]", "Directory or file to format.")
+        .argument(
+            "[targetPath]",
+            "Directory or file to format (defaults to the current working directory)."
+        )
         .option(
             "--path <path>",
-            "Directory or file to format (alias for positional argument)."
+            "Directory or file to format (alias for the positional argument; defaults to the current working directory)."
         )
         .option(
             "--extensions <list>",
@@ -909,17 +912,12 @@ async function executeFormatCommand(command) {
         usage
     } = collectFormatCommandOptions(command);
 
-    if (!targetPathInput) {
-        throw new CliUsageError(
-            [
-                "No target path provided. Pass a directory or file to format as the first argument (relative or absolute) or use --path <path>.",
-                "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
-            ].join(" "),
-            { usage }
-        );
-    }
+    const targetPathCandidate =
+        typeof targetPathInput === "string" && targetPathInput.length > 0
+            ? targetPathInput
+            : ".";
 
-    const targetPath = path.resolve(process.cwd(), targetPathInput);
+    const targetPath = path.resolve(process.cwd(), targetPathCandidate);
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);

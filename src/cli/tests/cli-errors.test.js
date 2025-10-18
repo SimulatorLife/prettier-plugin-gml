@@ -36,7 +36,7 @@ describe("cli error formatting", () => {
 
     it("logs usage guidance without stack traces", () => {
         const error = new CliUsageError("Missing project path", {
-            usage: "Usage: prettier-wrapper [options] <path>"
+            usage: "Usage: prettier-wrapper [options] [path]"
         });
         const logged = [];
         const exitCodes = [];
@@ -55,7 +55,7 @@ describe("cli error formatting", () => {
         }
 
         assert.deepEqual(logged, [
-            "Failed.\nMissing project path\n\nUsage: prettier-wrapper [options] <path>"
+            "Failed.\nMissing project path\n\nUsage: prettier-wrapper [options] [path]"
         ]);
         assert.deepEqual(exitCodes, [1]);
     });

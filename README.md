@@ -221,17 +221,21 @@ nvm use
 5. Run the formatter:
 
    ```bash
-   npm run format:gml -- --path .
+   npm run format:gml
    # or
-   node ./node_modules/root/src/cli/cli.js --path .
+   node ./node_modules/root/src/cli/cli.js
    ```
+
+   The wrapper targets the current working directory when no path is supplied.
+   Pass `--path` when you need to format a different project without changing
+   directories.
 
 6. Validate your setup whenever you pull new revisions:
 
    ```bash
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
-   npm run format:gml -- --path . --extensions=.gml,.yy
+   npm run format:gml -- --extensions=.gml,.yy
    ```
 
    The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
@@ -249,6 +253,9 @@ nvm use
 2. Target any GameMaker project without adding dependencies to that project:
 
    ```bash
+   cd /absolute/path/to/MyGame
+   npm run format:gml -- --extensions=.gml,.yy
+   # or run from the repository without changing directories
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
@@ -319,7 +326,7 @@ for the full suite of contributor commands.
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
   ```
 
 - Discover supported flags or double-check defaults:
