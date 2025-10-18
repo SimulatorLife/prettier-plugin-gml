@@ -15,7 +15,7 @@
  */
 
 import { asArray } from "../utils/array.js";
-import { isObjectLike } from "../utils/object.js";
+import { hasOwn, isObjectLike } from "../utils/object.js";
 
 export function isCommentNode(node) {
     return (
@@ -125,11 +125,22 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        const children = Array.isArray(current)
-            ? current
-            : Object.values(current);
+        if (Array.isArray(current)) {
+            for (let index = 0; index < current.length; index += 1) {
+                const child = current[index];
+                if (isObjectLike(child)) {
+                    stack.push(child);
+                }
+            }
+            continue;
+        }
 
-        for (const child of children) {
+        for (const key in current) {
+            if (!hasOwn(current, key)) {
+                continue;
+            }
+
+            const child = current[key];
             if (isObjectLike(child)) {
                 stack.push(child);
             }
