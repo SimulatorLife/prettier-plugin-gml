@@ -240,12 +240,15 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
         new Command()
             .name(name)
-            .usage("[options] <path>")
+            .usage("[options] [path]")
             .description(
                 "Format GameMaker Language files using the prettier plugin."
             )
     )
-        .argument("[targetPath]", "Directory or file to format.")
+        .argument(
+            "[targetPath]",
+            "Directory or file to format. Defaults to the current working directory."
+        )
         .option(
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
@@ -298,8 +301,26 @@ function collectFormatCommandOptions(command) {
     const [positionalTarget] = command.args ?? [];
     const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
+    let targetPathInput = options.path ?? positionalTarget ?? null;
+    let targetPathProvided = false;
+
+    if (typeof targetPathInput === "string") {
+        const trimmedTargetPath = targetPathInput.trim();
+
+        if (trimmedTargetPath.length > 0) {
+            targetPathProvided = true;
+            targetPathInput = trimmedTargetPath;
+        } else {
+            targetPathProvided = true;
+            targetPathInput = null;
+        }
+    } else if (targetPathInput != null) {
+        targetPathProvided = true;
+    }
+
     return {
-        targetPathInput: options.path ?? positionalTarget ?? null,
+        targetPathInput,
+        targetPathProvided,
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
@@ -903,23 +924,24 @@ async function processFile(filePath, activeIgnorePaths = []) {
 async function executeFormatCommand(command) {
     const {
         targetPathInput,
+        targetPathProvided,
         extensions: configuredExtensions,
         prettierLogLevel,
         onParseError,
         usage
     } = collectFormatCommandOptions(command);
 
-    if (!targetPathInput) {
+    if (targetPathProvided && !targetPathInput) {
         throw new CliUsageError(
             [
-                "No target path provided. Pass a directory or file to format as the first argument (relative or absolute) or use --path <path>.",
+                "Target path cannot be empty. Pass a directory or file to format (relative or absolute) or omit --path to format the current working directory.",
                 "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
             ].join(" "),
             { usage }
         );
     }
 
-    const targetPath = path.resolve(process.cwd(), targetPathInput);
+    const targetPath = path.resolve(process.cwd(), targetPathInput ?? ".");
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);
