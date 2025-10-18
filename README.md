@@ -400,7 +400,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `lineCommentBannerMinimumSlashes` | `5` | Preserves banner-style comments with at least this many `/` characters. |
 | `lineCommentBannerAutofillThreshold` | `4` | Pads banner comments up to the minimum slash count when they already start with several `/`. |
-| `lineCommentBoilerplateFragments` | `""` | Removes boilerplate line comments that contain any of the provided comma-separated substrings. |
+| `lineCommentBoilerplateFragments` | `["Script assets have changed for v2.3.0", "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"]` | Removes boilerplate line comments that contain any of the provided comma-separated substrings, extending this built-in removal list. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
