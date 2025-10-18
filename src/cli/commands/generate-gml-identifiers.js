@@ -14,7 +14,8 @@ import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints,
     resolveManualRepoValue,
-    resolveManualCacheRoot
+    resolveManualCacheRoot,
+    createManualVerboseState
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -139,19 +140,10 @@ function resolveGenerateIdentifierOptions(command) {
     const options = command.opts();
     const isTty = process.stdout.isTTY === true;
 
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
+    const verbose = createManualVerboseState({
+        quiet: Boolean(options.quiet),
+        isTerminal: isTty
+    });
 
     return {
         ref: options.ref,
