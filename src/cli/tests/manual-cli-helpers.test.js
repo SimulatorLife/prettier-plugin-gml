@@ -4,7 +4,8 @@ import { describe, it } from "node:test";
 import {
     disposeProgressBars,
     renderProgressBar,
-    setProgressBarFactoryForTesting
+    setProgressBarFactoryForTesting,
+    setProgressBarStdoutForTesting
 } from "../lib/progress-bar.js";
 
 class FakeProgressBar {
@@ -43,8 +44,7 @@ describe("manual CLI helpers", () => {
             return bar;
         });
 
-        const originalIsTTY = process.stdout.isTTY;
-        process.stdout.isTTY = true;
+        setProgressBarStdoutForTesting({ isTTY: true });
 
         try {
             disposeProgressBars();
@@ -63,7 +63,7 @@ describe("manual CLI helpers", () => {
             renderProgressBar("Task", 3, 4, 10);
             assert.equal(createdBars.length, 2);
         } finally {
-            process.stdout.isTTY = originalIsTTY;
+            setProgressBarStdoutForTesting(null);
             setProgressBarFactoryForTesting(null);
             disposeProgressBars();
         }
