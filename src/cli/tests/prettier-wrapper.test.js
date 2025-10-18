@@ -716,12 +716,38 @@ describe("Prettier wrapper CLI", () => {
                     "Expected stderr to mention the inaccessible target"
                 );
                 assert.ok(
-                    /Usage: prettier-wrapper/.test(error.stderr),
+                    /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"
                 );
             }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("instructs users to supply a target path when none is provided", async () => {
+        try {
+            await execFileAsync("node", [wrapperPath]);
+            assert.fail(
+                "Expected the wrapper to exit with a non-zero status code"
+            );
+        } catch (error) {
+            assert.ok(error, "Expected an error to be thrown");
+            assert.strictEqual(
+                error.code,
+                1,
+                "Expected a non-zero exit code when no target path is provided"
+            );
+            assert.match(
+                error.stderr,
+                /No target path provided\./,
+                "Expected stderr to mention the missing target path"
+            );
+            assert.match(
+                error.stderr,
+                /--path <path>/,
+                "Expected stderr to point users to the --path option"
+            );
         }
     });
 });

@@ -1,7 +1,4 @@
-import {
-    coercePositiveInteger,
-    resolveIntegerOption
-} from "../../shared/utils.js";
+import { coercePositiveInteger, resolveIntegerOption } from "./shared-deps.js";
 import { SingleBar, Presets } from "cli-progress";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;

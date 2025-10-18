@@ -2,10 +2,10 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { normalizeStringList } from "../../shared/utils/string.js";
+import { normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
-import { parseCommandLine, coercePositiveInteger } from "./command-parsing.js";
-import { CliUsageError, handleCliError } from "./cli-errors.js";
+import { coercePositiveInteger } from "./command-parsing.js";
+import { CliUsageError } from "./cli-errors.js";
 
 const DEFAULT_ITERATIONS = 500_000;
 
@@ -56,7 +56,7 @@ function resolveRequestedSuites(options) {
     return requested.map((name) => name.toLowerCase());
 }
 
-function createMemoryCommand() {
+export function createMemoryCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("memory")
@@ -82,11 +82,6 @@ function createMemoryCommand() {
             "json"
         )
         .option("--pretty", "Pretty-print JSON output.");
-}
-
-function helpWasRequested(command, argv) {
-    const { helpRequested } = parseCommandLine(command, argv);
-    return helpRequested;
 }
 
 function collectSuiteOptions(options) {
@@ -216,14 +211,8 @@ function emitSuiteResults(results, options) {
     printHumanReadable(results);
 }
 
-async function main(argv = process.argv.slice(2)) {
-    const command = createMemoryCommand();
-
-    if (helpWasRequested(command, argv)) {
-        return 0;
-    }
-
-    const options = command.opts();
+export async function runMemoryCommand({ command } = {}) {
+    const options = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options);
     ensureSuitesAreKnown(requestedSuites, command);
@@ -236,17 +225,6 @@ async function main(argv = process.argv.slice(2)) {
     emitSuiteResults(suiteResults, options);
 
     return 0;
-}
-
-export async function runMemoryCli({ argv = process.argv.slice(2) } = {}) {
-    try {
-        return await main(argv);
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to run memory diagnostics."
-        });
-        return 1;
-    }
 }
 
 export { DEFAULT_ITERATIONS };

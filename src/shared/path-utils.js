@@ -1,5 +1,7 @@
 export {
     fromPosixPath,
     toPosixPath,
-    resolveContainedRelativePath
+    resolveContainedRelativePath,
+    walkAncestorDirectories,
+    collectUniqueAncestorDirectories
 } from "./utils/path.js";
