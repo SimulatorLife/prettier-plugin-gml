@@ -41,6 +41,22 @@ function readOptionWithOverride(options, { internalKey, externalKey }) {
     return;
 }
 
+function resolveOptionWithOverride(options, config) {
+    const { onValue, onMissing, ...overrideKeys } = config ?? {};
+
+    if (typeof onValue !== "function") {
+        throw new TypeError("onValue must be a function");
+    }
+
+    const entry = readOptionWithOverride(options, overrideKeys);
+
+    if (!entry) {
+        return typeof onMissing === "function" ? onMissing() : onMissing;
+    }
+
+    return onValue(entry);
+}
+
 function getFsFacade(options) {
     return coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
         fallback: null
@@ -168,21 +184,18 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 }
 
 function resolveCacheMaxSizeBytes(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-    });
+        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME,
+        onValue(entry) {
+            if (entry.source === "internal" && entry.value === null) {
+                return null;
+            }
 
-    if (!entry) {
-        return;
-    }
-
-    if (entry.source === "internal" && entry.value === null) {
-        return null;
-    }
-
-    return normalizeCacheMaxSizeBytes(entry.value, {
-        optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            return normalizeCacheMaxSizeBytes(entry.value, {
+                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            });
+        }
     });
 }
 
@@ -198,38 +211,33 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
 }
 
 function resolveProjectIndexConcurrency(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
-        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
-    });
-
-    if (!entry) {
-        return;
-    }
-
-    return normalizeProjectIndexConcurrency(entry.value, {
-        optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME,
+        onValue(entry) {
+            return normalizeProjectIndexConcurrency(entry.value, {
+                optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+            });
+        }
     });
 }
 
 function resolveProjectRoot(options) {
-    const entry = readOptionWithOverride(options, {
+    return resolveOptionWithOverride(options, {
         internalKey: "__identifierCaseProjectRoot",
-        externalKey: "gmlIdentifierCaseProjectRoot"
+        externalKey: "gmlIdentifierCaseProjectRoot",
+        onMissing: null,
+        onValue(entry) {
+            if (!isNonEmptyTrimmedString(entry.value)) {
+                return null;
+            }
+
+            const projectRoot =
+                entry.source === "external" ? entry.value.trim() : entry.value;
+
+            return path.resolve(projectRoot);
+        }
     });
-
-    if (!entry) {
-        return null;
-    }
-
-    if (!isNonEmptyTrimmedString(entry.value)) {
-        return null;
-    }
-
-    const projectRoot =
-        entry.source === "external" ? entry.value.trim() : entry.value;
-
-    return path.resolve(projectRoot);
 }
 
 export async function bootstrapProjectIndex(options = {}, storeOption) {
