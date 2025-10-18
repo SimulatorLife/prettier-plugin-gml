@@ -14,7 +14,7 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     const message =
         typeof createErrorMessage === "function"
             ? createErrorMessage(formattedReceived)
-            : (createErrorMessage ?? fallbackMessage);
+            : createErrorMessage ?? fallbackMessage;
 
     throw new TypeError(message);
 }
@@ -89,7 +89,7 @@ export function resolveIntegerOption(
     const message =
         typeof typeErrorMessage === "function"
             ? typeErrorMessage(type)
-            : (typeErrorMessage ?? fallbackMessage);
+            : typeErrorMessage ?? fallbackMessage;
 
     throw new TypeError(message);
 }
