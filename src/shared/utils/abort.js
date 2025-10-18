@@ -24,7 +24,7 @@ export function createAbortError(signal, fallbackMessage) {
     }
 
     const message =
-        reason == undefined
+        reason === undefined || reason === null
             ? fallbackMessage || "Operation aborted."
             : String(reason);
     const error = new Error(message || "Operation aborted.");
