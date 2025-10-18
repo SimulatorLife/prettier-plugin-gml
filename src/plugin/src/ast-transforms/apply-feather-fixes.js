@@ -12369,10 +12369,13 @@ function ensureColourWriteEnableResetAfterCall(
 
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
+    const hasOriginalSeparator = nextSibling
+        ? hasOriginalBlankLineBetween(previousSibling, nextSibling)
+        : hasOriginalBlankLineBetween(node, previousSibling);
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+        !hasOriginalSeparator;
 
     if (shouldInsertSeparator) {
         siblings.splice(
@@ -12382,6 +12385,9 @@ function ensureColourWriteEnableResetAfterCall(
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
