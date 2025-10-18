@@ -13,7 +13,9 @@
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-export function createAbortError(signal, fallbackMessage) {
+const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
+
+export function createAbortError(signal, fallbackMessage = DEFAULT_ABORT_MESSAGE) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
@@ -23,11 +25,10 @@ export function createAbortError(signal, fallbackMessage) {
         return reason;
     }
 
-    const message =
-        reason == undefined
-            ? fallbackMessage || "Operation aborted."
-            : String(reason);
-    const error = new Error(message || "Operation aborted.");
+    const isReasonMissing = reason === undefined || reason === null;
+    const fallback = fallbackMessage || DEFAULT_ABORT_MESSAGE;
+    const message = isReasonMissing ? fallback : String(reason);
+    const error = new Error(message || DEFAULT_ABORT_MESSAGE);
     if (!error.name) {
         error.name = "AbortError";
     }
