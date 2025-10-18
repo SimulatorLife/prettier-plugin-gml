@@ -414,7 +414,14 @@ async function cleanupRevertSnapshotDirectory() {
     try {
         await rm(directory, { recursive: true, force: true });
     } catch {
-        // Ignore cleanup failures; the OS will eventually purge the temp dir.
+        // Treat teardown of the revert workspace as best-effort. The directory
+        // lives under `os.tmpdir()` and only exists when callers opt into the
+        // `--on-parse-error=revert` safety net described in
+        // README.md#format-from-a-local-clone. Surfacing an ENOENT/EACCES
+        // failure here would mask the original parser crash and leave users
+        // questioning whether their edits were restored. Leaving the directory
+        // behind is harmless because the OS eventually sweeps the temp folder,
+        // whereas interrupting the CLI would undermine the recovery guarantee.
     }
 }
 
@@ -445,7 +452,12 @@ async function discardFormattedFileOriginalContents() {
     formattedFileOriginalContents.clear();
 
     for (const snapshot of snapshots) {
-        // shared snapshot counter accurate and the directory removal deterministic.
+        // Release each snapshot in sequence so the shared
+        // `revertSnapshotFileCount` accounting stays in sync with the
+        // filesystem. `releaseSnapshot` also decides whether the directory can
+        // be torn down or has to stick around for inline fallbacks, so keeping
+        // this loop serial avoids racy cleanups that might drop still-needed
+        // backups when the process is under heavy I/O pressure.
         await releaseSnapshot(snapshot);
     }
 
@@ -561,7 +573,11 @@ async function revertFormattedFiles() {
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
         } finally {
-            // the counter and directory lifecycle deterministic.
+            // Always release the snapshot so the shared revert bookkeeping can
+            // decide whether the temporary directory is still needed. Skipping
+            // this step after a failed write would leak backups, block future
+            // revert attempts from creating fresh snapshots, and leave the
+            // `revertSnapshotFileCount` counter desynchronised from reality.
             await releaseSnapshot(snapshot);
         }
     }
