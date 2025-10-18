@@ -24,7 +24,7 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     const expectedLines = [
         "/// @function example",
         "/// @param a",
-        "/// @param c",
+        "/// @param [c]",
         "/// @param [b=1]",
         "/// @param [d=2]",
         "function example(a, c, b = 1, d = 2) {",
