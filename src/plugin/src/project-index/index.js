@@ -251,7 +251,12 @@ async function loadBuiltInIdentifiers(
 
         names = new Set(Object.keys(identifiers));
     } catch {
-        // Ignore read/parse failures and fall back to an empty identifier set.
+        // Built-in identifier metadata ships with the formatter bundle; if the
+        // file is missing or unreadable we intentionally degrade to an empty
+        // set rather than aborting project indexing. That keeps the CLI usable
+        // when installations are partially upgraded or when read permissions
+        // are restricted, and the metrics recorder above still notes the cache
+        // miss for observability.
     }
 
     cachedBuiltInIdentifiers = {
