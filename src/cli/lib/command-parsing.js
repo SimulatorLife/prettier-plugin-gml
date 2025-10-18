@@ -13,7 +13,7 @@ export {
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/numeric-option-utils.js";
+} from "../../shared/utils.js";
 
 /**
  * Parse CLI arguments for a Commander.js command while normalizing help and

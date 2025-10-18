@@ -5,8 +5,7 @@ import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp } from "../../shared/regexp.js";
-import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
+import { escapeRegExp, toNormalizedLowerCaseSet } from "../../shared/utils.js";
 import { handleCliError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
@@ -561,10 +560,10 @@ function collectDiagnosticTrailingContent(blocks) {
         }
 
         if (block.type === "code") {
-            if (!badExample) {
-                badExample = text;
-            } else {
+            if (badExample) {
                 goodExampleParts.push(text);
+            } else {
+                badExample = text;
             }
             continue;
         }

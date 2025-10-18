@@ -1,6 +1,6 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
-import { getNonEmptyTrimmedString } from "../../shared/string-utils.js";
+import { getNonEmptyTrimmedString } from "../../shared/utils.js";
 import ScopeTracker from "./scope-tracker.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import IdentifierMetadataManager from "./identifier-metadata-manager.js";

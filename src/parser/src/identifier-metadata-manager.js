@@ -1,4 +1,4 @@
-import { isObjectLike } from "../../shared/object-utils.js";
+import { isObjectLike } from "../../shared/utils.js";
 
 function isIdentifierNode(node) {
     return node && typeof node === "object" && node.type === "Identifier";

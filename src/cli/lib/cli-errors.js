@@ -1,4 +1,4 @@
-import { toTrimmedString } from "../../shared/string-utils.js";
+import { toTrimmedString } from "../../shared/utils.js";
 import {
     isAggregateErrorLike,
     isErrorLike
