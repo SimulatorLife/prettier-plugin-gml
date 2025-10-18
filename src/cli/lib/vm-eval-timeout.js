@@ -1,7 +1,7 @@
 import {
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/utils.js";
+} from "./shared-deps.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 

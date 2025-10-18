@@ -11,7 +11,7 @@ export {
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/utils.js";
+} from "./shared-deps.js";
 
 /**
  * Parse CLI arguments for a Commander.js command while normalizing help and

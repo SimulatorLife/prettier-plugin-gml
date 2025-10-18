@@ -5,7 +5,7 @@ import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp, toNormalizedLowerCaseSet } from "../../shared/utils.js";
+import { escapeRegExp, toNormalizedLowerCaseSet } from "../lib/shared-deps.js";
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";

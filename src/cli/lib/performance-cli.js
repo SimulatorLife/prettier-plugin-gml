@@ -10,8 +10,10 @@ import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "../../shared/ast.js";
-import { toNormalizedLowerCaseString } from "../../shared/utils.js";
+import {
+    getIdentifierText,
+    toNormalizedLowerCaseString
+} from "./shared-deps.js";
 import { formatByteSize } from "./byte-format.js";
 
 const AVAILABLE_SUITES = new Map();
