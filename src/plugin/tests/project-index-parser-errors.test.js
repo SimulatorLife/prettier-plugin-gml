@@ -53,3 +53,42 @@ test("syntax error excerpts expand tabs before pointing at the column", () => {
         "1 |     var value = 1;\n  |      ^"
     );
 });
+
+test("display path remains absolute when file matches the project root", () => {
+    const error = {
+        message: "Syntax Error: unexpected token",
+        line: 1,
+        column: 1
+    };
+
+    const projectRoot = "/project/root";
+    const formatted = formatProjectIndexSyntaxError(
+        { ...error },
+        "",
+        {
+            filePath: projectRoot,
+            projectRoot
+        }
+    );
+
+    assert.strictEqual(formatted.filePath, projectRoot);
+});
+
+test("display path stays absolute when file lies outside the project root", () => {
+    const error = {
+        message: "Syntax Error: unexpected token",
+        line: 1,
+        column: 1
+    };
+
+    const formatted = formatProjectIndexSyntaxError(
+        { ...error },
+        "",
+        {
+            filePath: "/external/project/file.gml",
+            projectRoot: "/project/root"
+        }
+    );
+
+    assert.strictEqual(formatted.filePath, "/external/project/file.gml");
+});

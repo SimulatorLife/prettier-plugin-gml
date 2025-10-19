@@ -28,7 +28,7 @@ export function toArrayFromIterable(values) {
 }
 
 export function toArray(value) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 

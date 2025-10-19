@@ -11,6 +11,51 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+/**
+ * @typedef {object} ManualGitHubRequestOptions
+ * @property {Record<string, string>} [headers]
+ * @property {boolean} [acceptJson]
+ */
+
+/**
+ * @typedef {object} ManualGitHubRequestDispatcher
+ * @property {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} execute
+ */
+
+/**
+ * @typedef {object} ManualGitHubResolveOptions
+ * @property {object} verbose
+ * @property {string} apiRoot
+ */
+
+/**
+ * @typedef {object} ManualGitHubRefResolver
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
+ *   resolveManualRef
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubFetchOptions
+ * @property {boolean} [forceRefresh]
+ * @property {object} [verbose]
+ * @property {string} [cacheRoot]
+ * @property {string} [rawRoot]
+ */
+
+/**
+ * @typedef {object} ManualGitHubFileFetcher
+ * @property {(sha: string, filePath: string, options?: ManualGitHubFetchOptions) => Promise<string>} fetchManualFile
+ */
+
+/**
+ * @typedef {object} ManualGitHubClientViews
+ * @property {ManualGitHubRequestDispatcher} requestDispatcher
+ * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubFileFetcher} fileFetcher
+ */
+
 function normalizeVerboseOverrides(overrides) {
     if (!overrides || typeof overrides !== "object") {
         return null;
@@ -28,12 +73,19 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
-        resolveRef: !quiet,
-        downloads: !quiet,
-        parsing: !quiet,
-        progressBar: !quiet && isTerminal
-    };
+    const baseState = quiet
+        ? {
+              resolveRef: false,
+              downloads: false,
+              parsing: false,
+              progressBar: false
+          }
+        : {
+              resolveRef: true,
+              downloads: true,
+              parsing: true,
+              progressBar: isTerminal
+          };
 
     const normalizedOverrides = normalizeVerboseOverrides(overrides);
     return normalizedOverrides
@@ -72,30 +124,31 @@ function normalizeManualTagEntry(entry) {
         entry,
         "Manual tags response must contain objects with tag metadata."
     );
+
     if (typeof name !== "string" || name.length === 0) {
         throw new TypeError("Manual tag entry is missing a tag name.");
     }
 
-    if (commit === undefined || commit === null) {
+    if (commit == null) {
         return { name, sha: null };
     }
 
-    const commitRecord = assertPlainObject(
+    const { sha } = assertPlainObject(
         commit,
         "Manual tag entry commit must be an object when provided."
     );
 
-    if (commitRecord.sha === undefined || commitRecord.sha === null) {
+    if (sha == null) {
         return { name, sha: null };
     }
 
-    if (typeof commitRecord.sha !== "string" || commitRecord.sha.length === 0) {
+    if (typeof sha !== "string" || sha.length === 0) {
         throw new TypeError(
             "Manual tag entry commit SHA must be a non-empty string when provided."
         );
     }
 
-    return { name, sha: commitRecord.sha };
+    return { name, sha };
 }
 
 function resolveManualCacheRoot({
@@ -180,6 +233,12 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
     throw new TypeError(`${requirement} (received ${received}).`);
 }
 
+/**
+ * Provide specialised GitHub helpers for manual fetching without forcing
+ * consumers to depend on unrelated operations.
+ *
+ * @returns {ManualGitHubClientViews}
+ */
 function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
@@ -317,10 +376,19 @@ function createManualGitHubClient({
     }
 
     return {
-        curlRequest,
-        resolveManualRef,
-        resolveCommitFromRef,
-        fetchManualFile
+        /** @type {ManualGitHubRequestDispatcher} */
+        requestDispatcher: {
+            execute: curlRequest
+        },
+        /** @type {ManualGitHubRefResolver} */
+        refResolver: {
+            resolveManualRef,
+            resolveCommitFromRef
+        },
+        /** @type {ManualGitHubFileFetcher} */
+        fileFetcher: {
+            fetchManualFile
+        }
     };
 }
 
