@@ -35,8 +35,8 @@ var util = function(val) {
 #region Utility Scripts
 
 var util = function(val) {
-        return val * LEGACY_MACRO;
-}
+    return val * LEGACY_MACRO;
+};
 
 #endregion Utility Scripts
 ```
