@@ -17670,7 +17670,19 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     if (unmatchedPushes.length > 0) {
+        const searchLength = statements.length;
+
         for (const entry of unmatchedPushes) {
+            if (
+                hasPotentialGpuStatePopCallAfter(
+                    statements,
+                    entry.index,
+                    searchLength
+                )
+            ) {
+                continue;
+            }
+
             const popCall = createGpuStateCall("gpu_pop_state", entry.node);
 
             if (!popCall) {
@@ -17700,6 +17712,54 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     return fixes;
+}
+
+function hasPotentialGpuStatePopCallAfter(
+    statements,
+    startIndex,
+    searchLength
+) {
+    if (!Array.isArray(statements) || statements.length === 0) {
+        return false;
+    }
+
+    const limit =
+        typeof searchLength === "number" && Number.isFinite(searchLength)
+            ? Math.max(0, Math.min(searchLength, statements.length))
+            : statements.length;
+
+    const beginIndex =
+        typeof startIndex === "number" && Number.isFinite(startIndex)
+            ? startIndex + 1
+            : 0;
+
+    for (let index = beginIndex; index < limit; index += 1) {
+        const candidate = statements[index];
+
+        if (isPotentialGpuStatePopCall(candidate)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isPotentialGpuStatePopCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const calleeName = toNormalizedLowerCaseString(node.object?.name);
+
+    if (!calleeName) {
+        return false;
+    }
+
+    if (calleeName === "gpu_pop_state") {
+        return true;
+    }
+
+    return calleeName.includes("pop_state");
 }
 
 function createGpuStateCall(name, template) {

@@ -4347,6 +4347,43 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2042.automatic, true);
     });
 
+    it(
+        "avoids inserting gpu_pop_state when later calls likely restore the GPU stack",
+        () => {
+            const source = [
+                "gpu_push_state();",
+                "draw_circle(x, y, 10, true);",
+                "scr_custom_function_which_may_pop_state();"
+            ].join("\n");
+
+            const ast = GMLParser.parse(source, {
+                getLocations: true,
+                simplifyLocations: false
+            });
+
+            applyFeatherFixes(ast, { sourceText: source });
+
+            const statements = Array.isArray(ast.body) ? ast.body : [];
+
+            assert.strictEqual(
+                statements.filter(
+                    (node) =>
+                        node?.type === "CallExpression" &&
+                        node.object?.name === "gpu_pop_state"
+                ).length,
+                0,
+                "Expected custom cleanup helpers to prevent synthetic gpu_pop_state insertions."
+            );
+
+            const lastStatement = statements.at(-1);
+            assert.ok(lastStatement?.type === "CallExpression");
+            assert.strictEqual(
+                lastStatement.object?.name,
+                "scr_custom_function_which_may_pop_state"
+            );
+        }
+    );
+
     it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
         const source = [
             "/// Room Start Event",
