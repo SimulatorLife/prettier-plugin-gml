@@ -46,7 +46,10 @@ function ensureAbortErrorMetadata(error, fallbackMessage) {
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-export function createAbortError(signal, fallbackMessage) {
+export function createAbortError(
+    signal,
+    fallbackMessage = DEFAULT_ABORT_MESSAGE,
+) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
