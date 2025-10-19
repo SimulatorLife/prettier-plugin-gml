@@ -234,7 +234,7 @@ const program = applyStandardCommandOptions(new Command())
         "Show CLI version information."
     );
 
-const { registrar: cliCommandRegistrar, runner: cliProgramRunner } =
+const { registry: cliCommandRegistry, runner: cliCommandRunner } =
     createCliCommandManager({
         program,
         onUnhandledError: (error) =>
@@ -1158,7 +1158,7 @@ function logSkippedFileSummary() {
 
 const formatCommand = createFormatCommand({ name: "format" });
 
-cliCommandRegistrar.registerDefaultCommand({
+cliCommandRegistry.registerDefaultCommand({
     command: formatCommand,
     run: ({ command }) => executeFormatCommand(command),
     onError: (error) =>
@@ -1168,7 +1168,7 @@ cliCommandRegistrar.registerDefaultCommand({
         })
 });
 
-cliCommandRegistrar.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createPerformanceCommand(),
     run: ({ command }) => runPerformanceCommand({ command }),
     onError: (error) =>
@@ -1178,7 +1178,7 @@ cliCommandRegistrar.registerCommand({
         })
 });
 
-cliCommandRegistrar.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createMemoryCommand(),
     run: ({ command }) => runMemoryCommand({ command }),
     onError: (error) =>
@@ -1188,7 +1188,7 @@ cliCommandRegistrar.registerCommand({
         })
 });
 
-cliCommandRegistrar.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createGenerateIdentifiersCommand({ env: process.env }),
     run: ({ command }) => runGenerateGmlIdentifiers({ command }),
     onError: (error) =>
@@ -1198,7 +1198,7 @@ cliCommandRegistrar.registerCommand({
         })
 });
 
-cliCommandRegistrar.registerCommand({
+cliCommandRegistry.registerCommand({
     command: createFeatherMetadataCommand({ env: process.env }),
     run: ({ command }) => runGenerateFeatherMetadata({ command }),
     onError: (error) =>
@@ -1208,7 +1208,7 @@ cliCommandRegistrar.registerCommand({
         })
 });
 
-cliProgramRunner.run(process.argv.slice(2)).catch((error) => {
+cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
     handleCliError(error, {
         prefix: "Failed to run prettier-plugin-gml CLI.",
         exitCode: 1

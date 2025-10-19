@@ -5,35 +5,29 @@ import { isCommanderErrorLike } from "./commander-error-utils.js";
  * The earlier CLI command "manager" mixed registration APIs with the runner
  * surface. That broad contract forced consumers to depend on both concerns at
  * once even if they only needed to register commands. To honour the Interface
- * Segregation Principle we now expose narrower registrar and runner views that
+ * Segregation Principle we now expose narrower registry and runner views that
  * sit on top of a shared coordinator.
  */
 
 /**
- * @typedef {object} CliCommandRegistrationOptions
- * @property {import("commander").Command} command
- * @property {(context: { command: import("commander").Command }) =>
- *   Promise<number | void> | number | void} run
- * @property {(error: unknown, context: { command: import("commander").Command }) => void} [onError]
+ * @typedef {{
+ *   command: import("commander").Command,
+ *   run?: (context: { command: import("commander").Command }) =>
+ *       Promise<number | void> | number | void,
+ *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
+ * }} CliCommandRegistrationOptions
  */
 
 /**
- * @typedef {object} CliCommandRegistrar
+ * @typedef {object} CliCommandRegistry
  * @property {(options: CliCommandRegistrationOptions) => object} registerDefaultCommand
  * @property {(options: CliCommandRegistrationOptions) => object} registerCommand
  */
 
 /**
- * @typedef {object} CliProgramRunner
+ * @typedef {object} CliCommandRunner
  * @property {(argv: Array<string>) => Promise<void>} run
  */
-
-/**
- * @typedef {object} CliCommandCoordinatorViews
- * @property {CliCommandRegistrar} registrar
- * @property {CliProgramRunner} runner
- */
-
 class CliCommandManager {
     /**
      * @param {{
@@ -68,12 +62,7 @@ class CliCommandManager {
     /**
      * Register the default command used when no subcommand is provided.
      *
-     * @param {{
-     *   command: import("commander").Command,
-     *   run: (context: { command: import("commander").Command }) =>
-     *       Promise<number | void> | number | void,
-     *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
-     * }} options
+     * @param {CliCommandRegistrationOptions} options
      */
     registerDefaultCommand({ command, run, onError } = {}) {
         const entry = this._registerEntry(command, {
@@ -87,12 +76,7 @@ class CliCommandManager {
     /**
      * Register an additional subcommand with the CLI.
      *
-     * @param {{
-     *   command: import("commander").Command,
-     *   run: (context: { command: import("commander").Command }) =>
-     *       Promise<number | void> | number | void,
-     *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
-     * }} options
+     * @param {CliCommandRegistrationOptions} options
      */
     registerCommand({ command, run, onError } = {}) {
         const entry = this._registerEntry(command, {
@@ -192,30 +176,25 @@ class CliCommandManager {
     }
 }
 
-function createRegistrarView(manager) {
-    return {
-        registerDefaultCommand: manager.registerDefaultCommand.bind(manager),
-        registerCommand: manager.registerCommand.bind(manager)
-    };
-}
-
-function createRunnerView(manager) {
-    return {
-        run: manager.run.bind(manager)
-    };
-}
+export { CliCommandManager };
 
 /**
  * @param {{
  *   program: import("commander").Command,
  *   onUnhandledError?: (error: unknown, context: { command: import("commander").Command }) => void
  * }} options
- * @returns {CliCommandCoordinatorViews}
+ * @returns {{ registry: CliCommandRegistry, runner: CliCommandRunner }}
  */
 export function createCliCommandManager(options) {
     const manager = new CliCommandManager(options);
-    return {
-        registrar: createRegistrarView(manager),
-        runner: createRunnerView(manager)
-    };
+    return Object.freeze({
+        registry: Object.freeze({
+            registerDefaultCommand:
+                manager.registerDefaultCommand.bind(manager),
+            registerCommand: manager.registerCommand.bind(manager)
+        }),
+        runner: Object.freeze({
+            run: manager.run.bind(manager)
+        })
+    });
 }
