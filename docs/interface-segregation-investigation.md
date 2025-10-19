@@ -29,3 +29,26 @@ To re-validate the earlier conclusion, I reran a broader set of surveys:
 
 No new interface or type definition surfaced that violates the Interface Segregation Principle, so
 no code changes were required.
+
+## Follow-up audit (2025-02-17)
+
+- Surveyed CLI infrastructure for broad contracts and found `CliCommandManager`
+  coupled registration helpers with the command runner behind a single
+  "manager" API. That forced the CLI entry point to depend on both
+  responsibilities simultaneously.
+- Split the contract into `CliCommandRegistrar` and `CliProgramRunner`
+  interfaces that expose only the registration or execution concerns used by
+  each call site, then updated `cli.js` to rely on the specialized views.
+
+## Follow-up audit (2025-03-02)
+
+- The CLI plugin service registry still exposed a catch-all
+  `defaultCliPluginServices` object with `buildProjectIndex` and
+  `prepareIdentifierCasePlan` methods hanging off a single surface. That broad
+  contract required consumers to depend on both services even when they only
+  needed one of them.
+- Introduced narrow `CliProjectIndexService` and
+  `CliIdentifierCasePlanService` views that each expose a single method, then
+  updated the registry, default providers, and CLI consumers to rely on the
+  focused interfaces. The aggregated registry now simply nests the two
+  specialized services instead of re-exporting both methods directly.

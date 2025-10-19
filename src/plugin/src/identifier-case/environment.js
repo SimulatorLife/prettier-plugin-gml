@@ -1,9 +1,8 @@
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import {
-    prepareIdentifierCasePlan,
-    captureIdentifierCasePlanSnapshot
-} from "./local-plan.js";
+import { prepareIdentifierCasePlan } from "./local-plan.js";
+import { captureIdentifierCasePlanSnapshot } from "./plan-state.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
@@ -46,6 +45,28 @@ export async function prepareIdentifierCaseEnvironment(options) {
         const bootstrapResult =
             await bootstrapIdentifierCaseProjectIndex(object);
         registerBootstrapCleanup(bootstrapResult);
+
+        if (bootstrapResult?.status === "failed") {
+            if (object.__identifierCaseProjectIndexFailureLogged !== true) {
+                const logger = object?.logger ?? null;
+                if (typeof logger?.warn === "function") {
+                    const reason =
+                        bootstrapResult.error?.message ??
+                        bootstrapResult.error ??
+                        bootstrapResult.reason ??
+                        "Unknown error";
+                    logger.warn(
+                        `[${IDENTIFIER_CASE_LOGGER_NAMESPACE}] Project index bootstrap failed. Identifier case renames will be skipped: ${reason}`
+                    );
+                }
+                setIdentifierCaseOption(
+                    object,
+                    "__identifierCaseProjectIndexFailureLogged",
+                    true
+                );
+            }
+            return;
+        }
 
         try {
             await prepareIdentifierCasePlan(object);

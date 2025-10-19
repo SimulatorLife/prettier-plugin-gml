@@ -15,6 +15,25 @@ describe("createAbortError", () => {
         assert.strictEqual(createAbortError(signal, "ignored"), reason);
     });
 
+    it("reuses error-like reasons that are not native Error instances", () => {
+        const reason = {
+            name: "AbortError",
+            message: "custom",
+            stack: "trace"
+        };
+        const signal = { aborted: true, reason };
+        assert.strictEqual(createAbortError(signal, "ignored"), reason);
+    });
+
+    it("fills missing metadata on error-like reasons", () => {
+        const reason = { message: "" };
+        const signal = { aborted: true, reason };
+        const error = createAbortError(signal, "fallback message");
+        assert.strictEqual(error, reason);
+        assert.equal(error.name, "AbortError");
+        assert.equal(error.message, "fallback message");
+    });
+
     it("wraps non-error reasons using the fallback message", () => {
         const signal = { aborted: true, reason: "boom" };
         const error = createAbortError(signal, "fallback");

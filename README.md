@@ -35,8 +35,8 @@ var util = function(val) {
 #region Utility Scripts
 
 var util = function(val) {
-        return val * LEGACY_MACRO;
-}
+    return val * LEGACY_MACRO;
+};
 
 #endregion Utility Scripts
 ```
@@ -181,19 +181,21 @@ nvm use
 2. Install Prettier v3, the plugin, and the ANTLR runtime next to the project:
 
    ```bash
-   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
+   npm install --save-dev prettier@^3 antlr4@^4.13.2 github:SimulatorLife/prettier-plugin-gml#main
    ```
 
-   - Quote dependency specifiers so shells such as `zsh` do not expand `^` as a glob.
+   - Quote the dependency specs when working in shells such as `zsh` so `^` is not treated as a glob (`npm install --save-dev "prettier@^3" ...`).
    - Resolve any `EBADENGINE` errors by upgrading Node.js to a supported release.
    - Pin to a tag or commit (`#vX.Y.Z` or `#<sha>`) when you need a reproducible build for CI or audits.
-   - Swap the Git URL for a registry tag once an official package is published; adjust the plugin path below to match the package name exposed in `node_modules`.
+   - Swap the Git URL for a published package when releases land on npm. Packaged builds expose the plugin under `node_modules/prettier-plugin-gamemaker/`.
 
-3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`). The dependency installs under `node_modules/root` because this repository’s top-level package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build. Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
+3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`). Git installs surface the formatter at `node_modules/root/src/plugin/src/gml.js`; published packages will resolve from `prettier-plugin-gamemaker`. Use whichever path matches the layout you see in `node_modules` so both the CLI wrapper and direct Prettier invocations resolve the same build.
 
    ```json
    {
-     "plugins": ["./node_modules/root/src/plugin/src/gml.js"],
+     "plugins": [
+       "./node_modules/root/src/plugin/src/gml.js"
+     ],
      "overrides": [
        {
          "files": "*.gml",
@@ -205,7 +207,7 @@ nvm use
    }
    ```
 
-4. Wire a script or wrapper so team members can format consistently. The workspace exposes a CLI that resolves the plugin entry point automatically, even when you relocate build artifacts or provide custom paths through the environment:
+4. Wire a script or wrapper so team members can format consistently. The workspace exposes a CLI that resolves the plugin entry point automatically, even when you relocate build artifacts or provide custom paths through the environment. Replace the script value with `prettier-plugin-gamemaker` once the package is distributed through npm:
 
    ```jsonc
    {
@@ -216,14 +218,14 @@ nvm use
    ```
 
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
-   project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory.
+   project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory, or when you install from a packaged release that exposes a different folder name.
 
-5. Run the formatter:
+5. Run the formatter (it defaults to the current working directory when no path is provided):
 
    ```bash
-   npm run format:gml -- --path .
+   npm run format:gml
    # or
-   node ./node_modules/root/src/cli/cli.js --path .
+   node ./node_modules/root/src/cli/cli.js
    ```
 
 6. Validate your setup whenever you pull new revisions:
@@ -231,10 +233,10 @@ nvm use
    ```bash
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
-   npm run format:gml -- --path . --extensions=.gml,.yy
+   npm run format:gml -- --extensions=.gml,.yy
    ```
 
-   The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
+   Swap the `--plugin` path for `prettier-plugin-gamemaker` when you consume a packaged release. The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
 
 ### Format from a local clone
 
@@ -252,7 +254,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-  The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`.
+  The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`, or `npm run cli -- format --help` for formatter-specific switches.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -319,13 +321,19 @@ for the full suite of contributor commands.
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
   ```
 
 - Discover supported flags or double-check defaults:
 
   ```bash
   node ./node_modules/root/src/cli/cli.js --help
+  ```
+
+- Check the wrapper version label surfaced by `--version` or `-V`:
+
+  ```bash
+  node ./node_modules/root/src/cli/cli.js --version
   ```
 
 ### CLI wrapper environment knobs
@@ -344,6 +352,9 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
+  `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
+  release tags or packaging nightly builds.
 
 ### Visual Studio Code
 
@@ -407,17 +418,15 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `missingOptionalArgumentPlaceholder` | `"undefined"` | Choose `"empty"` to leave missing optional arguments blank instead of inserting `undefined`. |
-| `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
 | `condenseUnaryBooleanReturns` | `false` | Converts unary boolean returns (such as `return !condition;`) into ternaries so condensed output preserves intent. |
 | `condenseReturnStatements` | `false` | Merges complementary `if` branches that return literal booleans into a single simplified return statement. |
 | `allowTrailingCallArguments` | `false` | Reserved for future use; currently has no effect because trailing arguments are normalised via `missingOptionalArgumentPlaceholder`. |
-| `preserveLineBreaks` | `false` | Keeps user-authored line breaks in supported constructs like chained calls instead of reflowing them. |
-| `maintainArrayIndentation` | `false` | Preserves the original indentation depth for array literals rather than applying Prettier's defaults. |
-| `maintainStructIndentation` | `false` | Preserves the original indentation depth for struct literals rather than applying Prettier's defaults. |
-| `maintainWithIndentation` | `false` | Retains the body indentation within `with` statements instead of reindenting relative to the `with` keyword. |
-| `maintainSwitchIndentation` | `false` | Retains existing indentation inside `switch` statements instead of reindenting each case body. |
+
+> **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
+
+Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
 #### Identifier-case rollout
 
@@ -496,6 +505,7 @@ npm run check
 npm run test:plugin
 npm run test:parser
 npm run test:shared
+npm run test:cli
 npm run lint
 npm run lint:ci
 npm run format:check

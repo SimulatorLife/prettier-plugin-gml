@@ -42,22 +42,11 @@ test("pads bare decimal literals by default", async () => {
     );
 });
 
-test("respects fixMissingDecimalZeroes=false", async () => {
-    const formatted = await format(SOURCE_LINES.join("\n"), {
-        fixMissingDecimalZeroes: false
-    });
+test("does not expose a fixMissingDecimalZeroes plugin option", async () => {
+    const pluginModule = await import(pluginPath);
 
-    assert.strictEqual(
-        formatted,
-        [
-            "",
-            "/// @function coefficients",
-            "function coefficients() {",
-            "    var a = .5;",
-            "    var b = 5.;",
-            "    return a + b;",
-            "}",
-            ""
-        ].join("\n")
+    assert.ok(
+        !Object.hasOwn(pluginModule.options, "fixMissingDecimalZeroes"),
+        "The fixMissingDecimalZeroes option should not be exported by the plugin."
     );
 });

@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp, toNormalizedLowerCaseSet } from "../lib/shared-deps.js";
+import {
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    toNormalizedLowerCaseSet
+} from "../lib/shared-deps.js";
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
@@ -18,38 +21,30 @@ import {
 import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot,
-    createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import { createManualCommandContext } from "../lib/manual-command-context.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
-const OUTPUT_DEFAULT = path.join(
-    REPO_ROOT,
-    "resources",
-    "feather-metadata.json"
-);
-
-const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
-
-const manualClient = createManualGitHubClient({
-    userAgent: "prettier-plugin-gml feather metadata generator",
+const {
+    repoRoot: REPO_ROOT,
     defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
+    defaultOutputPath: OUTPUT_DEFAULT,
+    fetchManualFile,
+    resolveManualRef
+} = createManualCommandContext({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml feather metadata generator",
+    outputFileName: "feather-metadata.json"
 });
-
-const { fetchManualFile, resolveManualRef } = manualClient;
 
 const FEATHER_PAGES = {
     diagnostics:
@@ -137,34 +132,14 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
     return command;
 }
 function resolveFeatherMetadataOptions(command) {
-    const options = command.opts();
-    const isTty = process.stdout.isTTY === true;
-
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
-
-    return {
-        ref: options.ref ?? null,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        usage: command.helpInformation()
-    };
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            ref: null,
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        }
+    });
 }
 
 // Manual fetching helpers are provided by manual-cli-helpers.js
@@ -188,6 +163,24 @@ function sanitizeManualString(value) {
     }
 
     return normalizeMultilineText(value);
+}
+
+function getNormalizedTextContent(element, { trim = false } = {}) {
+    if (!element) {
+        return trim ? null : "";
+    }
+
+    const { textContent } = element;
+    if (typeof textContent !== "string" || textContent.length === 0) {
+        return trim ? null : "";
+    }
+
+    const normalized = textContent.replaceAll("\u00A0", " ");
+    if (!trim) {
+        return normalized;
+    }
+
+    return getNonEmptyTrimmedString(normalized);
 }
 
 function parseDocument(html) {
@@ -360,7 +353,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    let text = clone.textContent?.replaceAll("\u00A0", " ") ?? "";
+    let text = getNormalizedTextContent(clone);
     if (preserveLineBreaks) {
         return text
             .split("\n")
@@ -409,9 +402,9 @@ function normalizeTextBlock(block) {
         Array.isArray(block.items) &&
         block.items.length > 0
     ) {
-        return block.items.join("\n").trim() || null;
+        return getNonEmptyTrimmedString(block.items.join("\n"));
     }
-    return block.text?.trim() || null;
+    return getNonEmptyTrimmedString(block.text);
 }
 
 function normalizeContent(blocks) {
@@ -424,38 +417,9 @@ function normalizeContent(blocks) {
         tables: []
     };
     const appendNormalizedText = (target, text) => {
-        const normalized = normalizeMultilineText(text ?? "");
+        const normalized = normalizeMultilineText(text);
         if (normalized) {
             target.push(normalized);
-        }
-    };
-
-    const handlers = {
-        code(block) {
-            if (block.text) {
-                content.codeExamples.push(block.text);
-            }
-        },
-        note(block) {
-            appendNormalizedText(content.notes, block.text);
-        },
-        list(block) {
-            const items = Array.isArray(block.items)
-                ? block.items
-                      .map((item) => normalizeMultilineText(item))
-                      .filter(Boolean)
-                : [];
-            if (items.length > 0) {
-                content.lists.push(items);
-            }
-        },
-        table(block) {
-            if (block.table) {
-                content.tables.push(block.table);
-            }
-        },
-        heading(block) {
-            appendNormalizedText(content.headings, block.text);
         }
     };
 
@@ -464,24 +428,60 @@ function normalizeContent(blocks) {
             continue;
         }
 
-        const handler = handlers[block.type];
-        if (handler) {
-            handler(block);
-            continue;
+        switch (block.type) {
+            case "code": {
+                if (block.text) {
+                    content.codeExamples.push(block.text);
+                }
+                break;
+            }
+            case "note": {
+                appendNormalizedText(content.notes, block.text);
+                break;
+            }
+            case "list": {
+                const items = Array.isArray(block.items)
+                    ? block.items
+                          .map((item) => normalizeMultilineText(item))
+                          .filter(Boolean)
+                    : [];
+                if (items.length > 0) {
+                    content.lists.push(items);
+                }
+                break;
+            }
+            case "table": {
+                if (block.table) {
+                    content.tables.push(block.table);
+                }
+                break;
+            }
+            case "heading": {
+                appendNormalizedText(content.headings, block.text);
+                break;
+            }
+            default: {
+                appendNormalizedText(content.paragraphs, block.text);
+            }
         }
-
-        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }
 
 function joinSections(parts) {
-    return (
-        parts
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join("\n\n") || null
-    );
+    if (!Array.isArray(parts) || parts.length === 0) {
+        return null;
+    }
+
+    const normalizedParts = parts
+        .map((part) => getNonEmptyTrimmedString(part))
+        .filter(Boolean);
+
+    if (normalizedParts.length === 0) {
+        return null;
+    }
+
+    return normalizedParts.join("\n\n");
 }
 
 function slugify(text) {
@@ -724,16 +724,13 @@ function parseNamingRules(html) {
 
         for (const item of getDirectChildren(mainList, "li")) {
             const strongChildren = getDirectChildren(item, "strong");
-            const title =
-                strongChildren[0]?.textContent
-                    ?.replaceAll("\u00A0", " ")
-                    .trim() || null;
+            const title = getNormalizedTextContent(strongChildren[0], {
+                trim: true
+            });
             const description = extractText(item, {
                 preserveLineBreaks: true
             });
-            let normalizedDescription = normalizeMultilineText(
-                description ?? ""
-            );
+            let normalizedDescription = normalizeMultilineText(description);
             if (title && normalizedDescription) {
                 const prefixPattern = new RegExp(
                     `^${escapeRegExp(title)}\s*:?\s*`,
@@ -785,7 +782,7 @@ function parseDirectiveSections(html) {
     const sections = [];
 
     for (const element of document.querySelectorAll("h2")) {
-        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
+        const title = getNormalizedTextContent(element, { trim: true });
         if (!title) {
             continue;
         }
@@ -849,7 +846,11 @@ function parseTypeValidationTable(table) {
     const headerCells = getDirectChildren(headerRow, "th, td");
     const columns = headerCells
         .slice(1)
-        .map((cell) => extractText(cell, { preserveLineBreaks: false }))
+        .map((cell) =>
+            getNonEmptyTrimmedString(
+                extractText(cell, { preserveLineBreaks: false })
+            )
+        )
         .filter(Boolean);
 
     const rows = [];
@@ -859,7 +860,9 @@ function parseTypeValidationTable(table) {
         if (cells.length === 0) {
             continue;
         }
-        const from = extractText(cells[0], { preserveLineBreaks: false });
+        const from = getNonEmptyTrimmedString(
+            extractText(cells[0], { preserveLineBreaks: false })
+        );
         if (!from) {
             continue;
         }
@@ -867,12 +870,17 @@ function parseTypeValidationTable(table) {
         columns.forEach((column, columnIndex) => {
             const cell = cells[columnIndex + 1];
             const outcome = cell
-                ? extractText(cell, { preserveLineBreaks: false }) || null
+                ? getNonEmptyTrimmedString(
+                      extractText(cell, { preserveLineBreaks: false })
+                  )
                 : null;
-            const style = cell?.getAttribute?.("style") ?? null;
+            const rawStyle = cell?.getAttribute?.("style");
+            const style = getNonEmptyTrimmedString(
+                rawStyle?.replaceAll(/\s+/g, " ")
+            );
             results[column] = {
                 outcome,
-                style: style?.replaceAll(/\s+/g, " ").trim() || null
+                style
             };
         });
         rows.push({ from, results });
@@ -910,12 +918,12 @@ function parseTypeSystem(html) {
         .map((element) => createBlock(element))
         .filter(Boolean);
     const notes = noteBlocks
-        .map((block) => normalizeMultilineText(block.text ?? ""))
+        .map((block) => normalizeMultilineText(block.text))
         .filter(Boolean);
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
-        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
+        const title = getNormalizedTextContent(element, { trim: true });
         if (!title) {
             continue;
         }

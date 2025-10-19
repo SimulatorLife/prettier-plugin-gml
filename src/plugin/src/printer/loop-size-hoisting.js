@@ -4,7 +4,8 @@
 
 import {
     getIdentifierText,
-    getCallExpressionArguments
+    getCallExpressionArguments,
+    getCallExpressionIdentifierName
 } from "../../../shared/ast-node-helpers.js";
 import { createCachedOptionResolver } from "../options/options-cache.js";
 import {
@@ -98,13 +99,12 @@ function getLoopLengthHoistInfo(
         return null;
     }
 
-    const callee = callExpression.object;
-    if (!callee || callee.type !== "Identifier") {
+    const functionName = getCallExpressionIdentifierName(callExpression);
+    if (!functionName) {
         return null;
     }
 
-    const functionName = (callee.name || "").toLowerCase();
-    const cachedSuffix = sizeFunctionSuffixes.get(functionName);
+    const cachedSuffix = sizeFunctionSuffixes.get(functionName.toLowerCase());
     if (!cachedSuffix) {
         return null;
     }

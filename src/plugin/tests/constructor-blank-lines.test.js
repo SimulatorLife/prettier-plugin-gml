@@ -34,7 +34,7 @@ test("preserves blank line between constructor header and first statement", asyn
     );
 });
 
-test("retains trailing blank line before constructor closing brace", async () => {
+test("preserves blank line before constructor closing brace", async () => {
     const source = [
         "function Demo() constructor {",
         "    static helper = function() {",
@@ -46,11 +46,11 @@ test("retains trailing blank line before constructor closing brace", async () =>
     ].join("\n");
 
     const formatted = await formatWithPlugin(source);
-    const lines = formatted.trimEnd().split("\n");
+    const lines = formatted.trim().split("\n");
 
     assert.equal(
         lines.at(-2),
         "",
-        "Expected trailing blank lines inside constructors to be preserved before the closing brace."
+        "Expected constructors to retain blank lines between the final statement and closing brace."
     );
 });

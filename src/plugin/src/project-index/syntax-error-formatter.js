@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { resolveContainedRelativePath } from "../../../shared/path-utils.js";
 
 export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const { filePath, projectRoot } = context ?? {};
@@ -52,15 +53,11 @@ function resolveDisplayPath(filePath, projectRoot) {
 
     const normalizedProjectRoot = getNonEmptyString(projectRoot);
     if (normalizedProjectRoot) {
-        const relative = path.relative(
-            normalizedProjectRoot,
-            normalizedFilePath
+        const relative = resolveContainedRelativePath(
+            normalizedFilePath,
+            normalizedProjectRoot
         );
-        if (
-            relative &&
-            !relative.startsWith("..") &&
-            !path.isAbsolute(relative)
-        ) {
+        if (relative) {
             return relative;
         }
     }
@@ -157,12 +154,11 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
     let expanded = "";
     let pointerOffset = 0;
 
-    for (let index = 0; index < lineText.length; index += 1) {
+    for (const [index, char] of Array.from(lineText).entries()) {
         if (index === clampedIndex) {
             pointerOffset = expanded.length;
         }
 
-        const char = lineText[index];
         if (char === "\t") {
             const spacesToAdd =
                 tabSize - (expanded.length % tabSize) || tabSize;

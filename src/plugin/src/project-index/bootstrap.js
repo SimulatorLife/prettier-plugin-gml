@@ -2,7 +2,11 @@ import path from "node:path";
 
 import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    coalesceOption,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
@@ -22,9 +26,7 @@ const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
 function resolveOptionWithOverride(options, config) {
     const { onValue, onMissing, internalKey, externalKey } = config ?? {};
 
-    if (typeof onValue !== "function") {
-        throw new TypeError("onValue must be a function");
-    }
+    assertFunction(onValue, "onValue");
 
     const resolveMissing = () =>
         typeof onMissing === "function" ? onMissing() : onMissing;
@@ -93,6 +95,31 @@ function createSkipResult(reason) {
     };
 }
 
+function createFailureResult({
+    reason,
+    projectRoot,
+    coordinator = null,
+    dispose = () => {},
+    error = null
+}) {
+    const result = {
+        status: "failed",
+        reason,
+        projectRoot,
+        projectIndex: null,
+        source: "error",
+        cache: null,
+        coordinator,
+        dispose
+    };
+
+    if (error !== null) {
+        result.error = error;
+    }
+
+    return result;
+}
+
 const DEFAULT_OPTION_WRITER = (options, key, value) => {
     if (isObjectLike(options)) {
         options[key] = value;
@@ -132,11 +159,14 @@ function formatConcurrencyValueError(optionName, received) {
 
 function coerceCacheMaxSize(
     numericValue,
-    { optionName, received, invalidNumberMessage }
+    { optionName, received, isString, rawType }
 ) {
     const normalized = toNormalizedInteger(numericValue);
     if (normalized === null) {
-        throw new TypeError(invalidNumberMessage);
+        const message = isString
+            ? formatCacheMaxSizeValueError(optionName, received)
+            : formatCacheMaxSizeTypeError(optionName, rawType);
+        throw new TypeError(message);
     }
 
     if (normalized < 0) {
@@ -163,16 +193,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
     return normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceCacheMaxSize,
-        formatTypeError: formatCacheMaxSizeTypeError,
-        createCoerceOptions({ optionName, rawType, received, isString }) {
-            return {
-                optionName,
-                received,
-                invalidNumberMessage: isString
-                    ? formatCacheMaxSizeValueError(optionName, received)
-                    : formatCacheMaxSizeTypeError(optionName, rawType)
-            };
-        }
+        formatTypeError: formatCacheMaxSizeTypeError
     });
 }
 
@@ -196,10 +217,7 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
     return normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceProjectIndexConcurrency,
-        formatTypeError: formatConcurrencyTypeError,
-        createCoerceOptions({ optionName, received }) {
-            return { optionName, received };
-        }
+        formatTypeError: formatConcurrencyTypeError
     });
 }
 
@@ -330,6 +348,12 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         coordinatorOverride ??
         createProjectIndexCoordinator(coordinatorOptions);
 
+    const disposeCoordinator = coordinatorOverride
+        ? () => {}
+        : () => {
+              coordinator.dispose();
+          };
+
     const buildOptions = {
         logger: options?.logger ?? null,
         logMetrics: options?.logIdentifierCaseMetrics === true
@@ -362,13 +386,19 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         descriptor.maxSizeBytes = cacheMaxSizeBytes;
     }
 
-    const ready = await coordinator.ensureReady(descriptor);
-
-    const dispose = coordinatorOverride
-        ? () => {}
-        : () => {
-              coordinator.dispose();
-          };
+    let ready;
+    try {
+        ready = await coordinator.ensureReady(descriptor);
+    } catch (error) {
+        const failureResult = createFailureResult({
+            reason: "build-error",
+            projectRoot,
+            coordinator,
+            dispose: disposeCoordinator,
+            error
+        });
+        return storeBootstrapResult(options, failureResult, writeOption);
+    }
 
     const result = storeBootstrapResult(
         options,
@@ -380,7 +410,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             source: ready?.source ?? rootResolution,
             cache: ready?.cache ?? null,
             coordinator,
-            dispose
+            dispose: disposeCoordinator
         },
         writeOption
     );

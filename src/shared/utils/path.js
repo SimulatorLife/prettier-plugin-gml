@@ -83,7 +83,7 @@ export function resolveContainedRelativePath(childPath, parentPath) {
  * Guards against duplicate directories (for example when symbolic links point
  * back to an already-visited parent) to prevent infinite loops. Non-string and
  * empty inputs exit early so callers can forward optional metadata without
- * normalising it first.
+ * normalizing it first.
  *
  * @param {string | null | undefined} startPath Directory whose ancestors should
  *        be visited.
@@ -136,8 +136,7 @@ export function collectUniqueAncestorDirectories(
     startingDirectories,
     { includeSelf = true } = {}
 ) {
-    const result = [];
-    const seen = new Set();
+    const directories = new Set();
 
     for (const start of startingDirectories ?? []) {
         if (!isNonEmptyString(start)) {
@@ -147,14 +146,47 @@ export function collectUniqueAncestorDirectories(
         for (const directory of walkAncestorDirectories(start, {
             includeSelf
         })) {
-            if (seen.has(directory)) {
-                continue;
-            }
-
-            seen.add(directory);
-            result.push(directory);
+            directories.add(directory);
         }
     }
 
-    return result;
+    return Array.from(directories);
+}
+
+/**
+ * Checks whether {@link childPath} resides within {@link parentPath} when both
+ * paths are resolved to absolute locations. Empty strings short-circuit to
+ * `false` so callers can safely pass optional metadata without normalizing
+ * first.
+ *
+ * A relative result of `""` indicates that the paths point to the same
+ * directory, which is considered "inside" for consumers that treat the parent
+ * as an allowed root.
+ *
+ * @param {string | undefined | null} childPath Path that may sit beneath
+ *                                              {@link parentPath}.
+ * @param {string | undefined | null} parentPath Candidate ancestor directory.
+ * @returns {boolean} `true` when {@link childPath} resolves to {@link parentPath}
+ *                    or a descendant.
+ */
+export function isPathInside(childPath, parentPath) {
+    const relative = resolveContainedRelativePath(childPath, parentPath);
+    return relative !== null;
+}
+
+/**
+ * Resolves every directory from the provided start paths up to the file system
+ * root, preserving discovery order. Duplicate directories are returned only
+ * once even when multiple starting points share ancestors. Empty inputs are
+ * ignored, mirroring the truthiness guard in {@link isPathInside}.
+ *
+ * @param {...(string | undefined | null)} startingDirectories Path(s) whose
+ *                                                             ancestor chains
+ *                                                             should be
+ *                                                             collected.
+ * @returns {Array<string>} Flat list of absolute directories, ordered from
+ *                          each start path toward the root.
+ */
+export function collectAncestorDirectories(...startingDirectories) {
+    return collectUniqueAncestorDirectories(startingDirectories);
 }

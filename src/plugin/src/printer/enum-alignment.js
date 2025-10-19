@@ -97,7 +97,11 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
             continue;
         }
 
-        for (let commentIndex = 0; commentIndex < trailingCount; commentIndex += 1) {
+        for (
+            let commentIndex = 0;
+            commentIndex < trailingCount;
+            commentIndex += 1
+        ) {
             const comment = trailingComments[commentIndex];
             const previous = comment._enumTrailingPadding;
 
