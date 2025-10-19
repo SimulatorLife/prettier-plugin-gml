@@ -1,5 +1,7 @@
 export {
+    collectAncestorDirectories,
     collectUniqueAncestorDirectories,
+    isPathInside,
     fromPosixPath,
     resolveContainedRelativePath,
     toPosixPath,

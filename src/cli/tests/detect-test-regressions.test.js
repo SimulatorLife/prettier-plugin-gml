@@ -5,8 +5,11 @@ import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import {
     detectRegressions,
-    readTestResults
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
 } from "../commands/detect-test-regressions.mjs";
+import { CliUsageError } from "../lib/cli-errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -170,4 +173,50 @@ test("normalizes whitespace when describing regression candidates", () => {
         record.displayName,
         "outer :: inner :: spaced name [/tmp/example]"
     );
+});
+
+test("ensureResultsAvailability throws when base results are unavailable", () => {
+    const base = { usedDir: null };
+    const target = { usedDir: "./test-results" };
+
+    assert.throws(
+        () => ensureResultsAvailability(base, target),
+        (error) => {
+            assert.equal(error instanceof CliUsageError, true);
+            assert.match(
+                error.message,
+                /Unable to locate base test results/i
+            );
+            return true;
+        }
+    );
+});
+
+test("reportRegressionSummary returns failure details when regressions exist", () => {
+    const summary = reportRegressionSummary(
+        [
+            {
+                key: "suite :: test",
+                from: "passed",
+                to: "failed",
+                detail: { displayName: "suite :: test" }
+            }
+        ],
+        "PR head"
+    );
+
+    assert.strictEqual(summary.exitCode, 1);
+    assert.deepEqual(summary.lines, [
+        "New failing tests detected (compared to base using PR head):",
+        "- suite :: test (passed -> failed)"
+    ]);
+});
+
+test("reportRegressionSummary returns success details when no regressions exist", () => {
+    const summary = reportRegressionSummary([], "PR head");
+
+    assert.strictEqual(summary.exitCode, 0);
+    assert.deepEqual(summary.lines, [
+        "No new failing tests compared to base using PR head."
+    ]);
 });

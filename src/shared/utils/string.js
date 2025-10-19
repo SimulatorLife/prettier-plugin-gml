@@ -23,6 +23,41 @@ export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
+/**
+ * Assert that the provided value is a non-empty string. Optionally trims the
+ * value before evaluating emptiness so call sites can accept padded input
+ * without repeating `String#trim` checks.
+ *
+ * @param {unknown} value Candidate value to validate.
+ * @param {Object} [options]
+ * @param {string} [options.name="value"] Descriptive name used when
+ *        constructing the default error message.
+ * @param {boolean} [options.trim=false] When `true`, trim the value before
+ *        verifying it is non-empty.
+ * @param {string} [options.errorMessage] Optional error message that overrides
+ *        the default string when validation fails.
+ * @returns {string} The validated string value (trimmed when requested).
+ * @throws {TypeError} When `value` is not a string or is empty after trimming.
+ */
+export function assertNonEmptyString(
+    value,
+    { name = "value", trim = false, errorMessage } = {}
+) {
+    const message =
+        errorMessage ?? `${name} must be provided as a non-empty string.`;
+
+    if (typeof value !== "string") {
+        throw new TypeError(message);
+    }
+
+    const normalized = trim ? value.trim() : value;
+    if (normalized.length === 0) {
+        throw new TypeError(message);
+    }
+
+    return normalized;
+}
+
 export function isWordChar(character) {
     return typeof character === "string" && /[\w]/.test(character);
 }
@@ -33,7 +68,7 @@ export function toTrimmedString(value) {
 
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == undefined) {
+        if (value == null) {
             continue;
         }
 
@@ -47,7 +82,7 @@ export function coalesceTrimmedString(...values) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == undefined) {
+    if (value == null) {
         return "";
     }
 
@@ -73,11 +108,11 @@ const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
  * `TypeError` semantics for invalid types so option parsing can surface clear
  * feedback to callers.
  *
- * @param {string|string[]|null|undefined} value Raw option value provided by a
+ * @param {string | string[] | null | undefined} value Raw option value provided by a
  *   consumer. Arrays are flattened as-is; strings are split using
  *   `splitPattern`.
  * @param {Object} [options]
- * @param {RegExp|null|false} [options.splitPattern=/[\n,]/] Pattern used to split
+ * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
  *   string input. Provide a falsy value (for example `false`) to keep the entire
  *   string as a single entry.
  * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
@@ -96,7 +131,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
@@ -119,7 +154,7 @@ export function normalizeStringList(
 
 function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    const seen = Object.create(null);
+    const seen = new Set();
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -127,11 +162,11 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
+        if (!trimmed || seen.has(trimmed)) {
             continue;
         }
 
-        seen[trimmed] = true;
+        seen.add(trimmed);
         normalized.push(trimmed);
     }
 
@@ -145,9 +180,9 @@ function collectUniqueTrimmedStrings(entries) {
  * entry so callers can compare configuration values without worrying about
  * minor formatting differences.
  *
- * @param {string|string[]|null|undefined} value Raw option value.
+ * @param {string | string[] | null | undefined} value Raw option value.
  * @param {Object} [options]
- * @param {RegExp|null|false} [options.splitPattern=null] Pattern passed through
+ * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
  *   to `normalizeStringList` for string input. Provide a falsy value to keep
  *   entire strings intact.
  * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid

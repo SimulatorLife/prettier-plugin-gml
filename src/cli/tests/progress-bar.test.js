@@ -2,51 +2,27 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
     getDefaultProgressBarWidth,
-    resolveProgressBarWidth,
-    setDefaultProgressBarWidth
+    resolveProgressBarWidth
 } from "../lib/progress-bar.js";
 
 describe("progress bar utilities", () => {
-    it("allows the default width to be updated", () => {
-        const originalDefault = getDefaultProgressBarWidth();
-
-        try {
-            setDefaultProgressBarWidth(32);
-            assert.equal(getDefaultProgressBarWidth(), 32);
-            assert.equal(resolveProgressBarWidth(), 32);
-        } finally {
-            setDefaultProgressBarWidth(originalDefault);
-        }
+    it("exposes the canonical default width", () => {
+        assert.equal(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
     });
 
-    it("supports overriding the default width per resolution", () => {
-        const originalDefault = getDefaultProgressBarWidth();
-
-        try {
-            setDefaultProgressBarWidth(40);
-            assert.equal(
-                resolveProgressBarWidth(undefined, { defaultWidth: 12 }),
-                12
-            );
-            assert.equal(resolveProgressBarWidth(), 40);
-        } finally {
-            setDefaultProgressBarWidth(originalDefault);
-        }
+    it("returns the default width when no value is provided", () => {
+        assert.equal(resolveProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
     });
 
-    it("rejects invalid defaults", () => {
-        const originalDefault = getDefaultProgressBarWidth();
+    it("normalizes numeric inputs", () => {
+        assert.equal(resolveProgressBarWidth("  32 "), 32);
+        assert.equal(resolveProgressBarWidth(16.75), 16);
+    });
 
-        try {
-            assert.throws(
-                () => setDefaultProgressBarWidth(0),
-                /positive integer/
-            );
-            assert.equal(getDefaultProgressBarWidth(), originalDefault);
-            assert.equal(resolveProgressBarWidth(), originalDefault);
-        } finally {
-            setDefaultProgressBarWidth(originalDefault);
-        }
+    it("rejects non-positive widths", () => {
+        assert.throws(() => resolveProgressBarWidth(0), /positive integer/i);
+        assert.throws(() => resolveProgressBarWidth(-5), /positive integer/i);
     });
 });

@@ -140,3 +140,30 @@ test("preserves branching return descriptions without equivalence suffixes", asy
         "Expected doc description to remain unchanged when condensing branching returns."
     );
 });
+
+test("retains original multi-branch descriptions when condensing", async () => {
+    const source = [
+        "/// @function condense_multi_branch",
+        "/// @param {bool} foo",
+        "/// @param {bool} bar",
+        "/// @param {bool} baz",
+        "/// @description Original multi-branch: if (foo and bar or baz) return (foo and bar); else return (foo or baz).",
+        "function condense_multi_branch(foo, bar, baz) {",
+        "    if ((foo and bar) or baz) {",
+        "        return foo and bar;",
+        "    }",
+        "    return foo or baz;",
+        "}",
+        "",
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.match(
+        formatted,
+        /@description Original multi-branch: if \(foo and bar or baz\) return \(foo and bar\); else return \(foo or baz\)\./,
+        "Expected multi-branch doc descriptions to remain unchanged after condensing."
+    );
+});

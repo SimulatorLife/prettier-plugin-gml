@@ -1,7 +1,60 @@
+import { getNonEmptyString } from "./string.js";
+
+const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
+const ERROR_METADATA_KEYS = ["message", "name", "stack"];
+
+function shouldReuseAbortReason(value) {
+    if (value == null) {
+        return false;
+    }
+
+    const valueType = typeof value;
+    if (valueType !== "object" && valueType !== "function") {
+        return false;
+    }
+
+    return (
+        ERROR_METADATA_KEYS.some((key) => value[key] != null) || "cause" in value
+    );
+}
+
+function toAbortMessage(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value == null) {
+        return null;
+    }
+
+    try {
+        return String(value);
+    } catch {
+        return null;
+    }
+}
+
+function normalizeAbortError(reason, fallbackMessage) {
+    const fallback = getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    const error = shouldReuseAbortReason(reason)
+        ? reason
+        : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
+
+    if (!getNonEmptyString(error.name)) {
+        error.name = "AbortError";
+    }
+
+    if (!getNonEmptyString(error.message)) {
+        error.message = fallback;
+    }
+
+    return error;
+}
+
 /**
  * Convert an `AbortSignal` that has been triggered into an `Error` instance.
  *
- * Centralises the guard logic shared by the parser and CLI so call sites can
+ * Centralizes the guard logic shared by the parser and CLI so call sites can
  * consistently surface `AbortError` instances while preserving any user-
  * supplied reason text. Non-aborted signals yield `null`, allowing callers to
  * short-circuit without additional branching.
@@ -13,62 +66,15 @@
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-function isErrorLike(value) {
-    if (value == null) {
-        return false;
-    }
-
-    const valueType = typeof value;
-    if (valueType !== "object" && valueType !== "function") {
-        return false;
-    }
-
-    if ("message" in value && value.message != null) {
-        return true;
-    }
-
-    if ("name" in value && value.name != null) {
-        return true;
-    }
-
-    if ("stack" in value && value.stack != null) {
-        return true;
-    }
-
-    return "cause" in value;
-}
-
-function ensureAbortErrorMetadata(error, fallbackMessage) {
-    if (typeof error.name !== "string" || error.name.length === 0) {
-        error.name = "AbortError";
-    }
-
-    if (typeof error.message !== "string" || error.message.length === 0) {
-        const message = fallbackMessage || "Operation aborted.";
-        if (message) {
-            error.message = message;
-        }
-    }
-
-    return error;
-}
-
-export function createAbortError(signal, fallbackMessage) {
+export function createAbortError(
+    signal,
+    fallbackMessage = DEFAULT_ABORT_MESSAGE
+) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
 
-    const { reason } = signal;
-    if (isErrorLike(reason)) {
-        return ensureAbortErrorMetadata(reason, fallbackMessage);
-    }
-
-    const message =
-        reason == undefined
-            ? fallbackMessage || "Operation aborted."
-            : String(reason);
-    const error = new Error(message || "Operation aborted.");
-    return ensureAbortErrorMetadata(error, fallbackMessage);
+    return normalizeAbortError(signal.reason, fallbackMessage);
 }
 
 /**
@@ -87,4 +93,56 @@ export function throwIfAborted(signal, fallbackMessage) {
     if (error) {
         throw error;
     }
+}
+
+function isAbortSignalLike(value) {
+    return (
+        value != null &&
+        (typeof value === "object" || typeof value === "function") &&
+        typeof value.aborted === "boolean"
+    );
+}
+
+/**
+ * Extract an `AbortSignal` from an options bag while ensuring it has not
+ * already been cancelled. This consolidates the repetitive guard logic spread
+ * throughout the project index helpers where every entry point previously
+ * reimplemented the same `options?.signal ?? null` pattern.
+ *
+ * Callers receive either the validated signal instance or `null` when the
+ * options bag does not expose a usable signal. Any pre-aborted signals raise an
+ * `AbortError` using the same fallback semantics as {@link throwIfAborted} to
+ * keep error reporting consistent.
+ *
+ * @param {unknown} options Candidate options object that may carry a signal.
+ * @param {{
+ *     key?: string | number | symbol,
+ *     fallbackMessage?: string | null | undefined
+ * }} [config]
+ * @param {string | number | symbol} [config.key="signal"] Property name used
+ *        to retrieve the signal from {@link options}.
+ * @param {string | null | undefined} [config.fallbackMessage] Optional message
+ *        forwarded when surfacing an `AbortError` for an already-cancelled
+ *        signal.
+ * @returns {AbortSignal | null} Normalized signal instance or `null` when the
+ *          options object does not supply one.
+ */
+export function resolveAbortSignalFromOptions(
+    options,
+    { key = "signal", fallbackMessage } = {}
+) {
+    if (
+        options == null ||
+        (typeof options !== "object" && typeof options !== "function")
+    ) {
+        return null;
+    }
+
+    const candidate = options[key] ?? null;
+    if (!isAbortSignalLike(candidate)) {
+        return null;
+    }
+
+    throwIfAborted(candidate, fallbackMessage);
+    return candidate;
 }

@@ -5,6 +5,7 @@ import test from "node:test";
 // loose equality variants like assert.equal/assert.deepEqual.
 
 import {
+    assertNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
@@ -95,4 +96,19 @@ test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar(""), false);
     assert.strictEqual(isWordChar("-"), false);
     assert.strictEqual(isWordChar(null), false);
+});
+
+test("assertNonEmptyString returns the validated value", () => {
+    assert.strictEqual(assertNonEmptyString("value"), "value");
+    assert.strictEqual(
+        assertNonEmptyString("  padded  ", { trim: true }),
+        "padded"
+    );
+});
+
+test("assertNonEmptyString throws when value is not a non-empty string", () => {
+    assert.throws(() => assertNonEmptyString(""), TypeError);
+    assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
+    assert.throws(() => assertNonEmptyString(null), TypeError);
+    assert.throws(() => assertNonEmptyString(42), TypeError);
 });

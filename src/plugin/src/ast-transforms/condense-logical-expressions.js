@@ -15,6 +15,7 @@ import {
     isNonEmptyTrimmedString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -109,6 +110,10 @@ function buildUpdatedDescription(existing, expression) {
 
     const trimmed = existing.trim();
     const lowered = trimmed.toLowerCase();
+
+    if (lowered.includes("original multi-branch")) {
+        return existing ?? "";
+    }
 
     if (lowered.includes("original") || lowered.includes("multi-clause")) {
         return `Simplified: ${normalizedExpression}`;
@@ -1671,10 +1676,12 @@ function factorOrExpression(expression) {
             andTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({
                     termIndex: index,
                     factor
                 });
@@ -1769,10 +1776,12 @@ function factorAndExpression(expression) {
             orTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({ termIndex: index, factor });
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({ termIndex: index, factor });
             }
         }
     }

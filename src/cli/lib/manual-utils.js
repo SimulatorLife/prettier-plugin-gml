@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
+import {
+    assertNonEmptyString,
+    parseJsonWithContext,
+    toTrimmedString
+} from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
@@ -11,32 +15,93 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
-function normalizeVerboseOverrides(overrides) {
-    if (!overrides || typeof overrides !== "object") {
-        return null;
-    }
+/**
+ * @typedef {object} ManualGitHubRequestOptions
+ * @property {Record<string, string>} [headers]
+ * @property {boolean} [acceptJson]
+ */
 
-    const entries = Object.entries(overrides).filter(([, value]) => value !== undefined);
+/**
+ * @typedef {object} ManualGitHubRequestDispatcher
+ * @property {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} execute
+ */
 
-    return entries.length > 0 ? Object.fromEntries(entries) : null;
-}
+/**
+ * @typedef {object} ManualGitHubResolveOptions
+ * @property {object} verbose
+ * @property {string} apiRoot
+ */
+
+/**
+ * Coordinating both ref resolution and commit lookups under a single
+ * "resolver" contract forced consumers to depend on commit-level helpers even
+ * when they only needed the higher-level manual tag flow. Splitting the
+ * responsibilities keeps the individual surfaces focused.
+ */
+
+/**
+ * @typedef {object} ManualGitHubCommitResolver
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubRefResolver
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
+ *   resolveManualRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubFetchOptions
+ * @property {boolean} [forceRefresh]
+ * @property {object} [verbose]
+ * @property {string} [cacheRoot]
+ * @property {string} [rawRoot]
+ */
+
+/**
+ * @typedef {object} ManualGitHubFileFetcher
+ * @property {(sha: string, filePath: string, options?: ManualGitHubFetchOptions) => Promise<string>} fetchManualFile
+ */
+
+/**
+ * @typedef {object} ManualGitHubClientViews
+ * @property {ManualGitHubRequestDispatcher} requestDispatcher
+ * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubCommitResolver} commitResolver
+ * @property {ManualGitHubFileFetcher} fileFetcher
+ */
 
 function createManualVerboseState({
     quiet = false,
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
-        resolveRef: !quiet,
-        downloads: !quiet,
-        parsing: !quiet,
-        progressBar: !quiet && isTerminal
-    };
+    const state = quiet
+        ? {
+              resolveRef: false,
+              downloads: false,
+              parsing: false,
+              progressBar: false
+          }
+        : {
+              resolveRef: true,
+              downloads: true,
+              parsing: true,
+              progressBar: isTerminal
+          };
 
-    const normalizedOverrides = normalizeVerboseOverrides(overrides);
-    return normalizedOverrides
-        ? { ...baseState, ...normalizedOverrides }
-        : baseState;
+    if (!overrides || typeof overrides !== "object") {
+        return state;
+    }
+
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
+    }
+
+    return state;
 }
 
 function assertPlainObject(value, message) {
@@ -53,47 +118,45 @@ function validateManualCommitPayload(payload, { ref }) {
         `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
     );
 
-    if (
-        typeof payloadRecord.sha !== "string" ||
-        payloadRecord.sha.length === 0
-    ) {
-        throw new TypeError(
-            `Manual ref '${ref}' response did not include a commit SHA.`
-        );
-    }
+    const sha = assertNonEmptyString(payloadRecord.sha, {
+        name: "Manual ref commit SHA",
+        errorMessage: `Manual ref '${ref}' response did not include a commit SHA.`
+    });
 
-    return payloadRecord.sha;
+    return sha;
 }
 
 function normalizeManualTagEntry(entry) {
-    const { name, commit } = assertPlainObject(
+    const { name: rawName, commit } = assertPlainObject(
         entry,
         "Manual tags response must contain objects with tag metadata."
     );
-    if (typeof name !== "string" || name.length === 0) {
-        throw new TypeError("Manual tag entry is missing a tag name.");
-    }
 
-    if (commit === undefined || commit === null) {
+    const name = assertNonEmptyString(rawName, {
+        name: "Manual tag entry name",
+        errorMessage: "Manual tag entry is missing a tag name."
+    });
+
+    if (commit == null) {
         return { name, sha: null };
     }
 
-    const commitRecord = assertPlainObject(
+    const { sha } = assertPlainObject(
         commit,
         "Manual tag entry commit must be an object when provided."
     );
 
-    if (commitRecord.sha === undefined || commitRecord.sha === null) {
+    if (sha == null) {
         return { name, sha: null };
     }
 
-    if (typeof commitRecord.sha !== "string" || commitRecord.sha.length === 0) {
-        throw new TypeError(
+    const normalizedSha = assertNonEmptyString(sha, {
+        name: "Manual tag entry commit SHA",
+        errorMessage:
             "Manual tag entry commit SHA must be a non-empty string when provided."
-        );
-    }
+    });
 
-    return { name, sha: commitRecord.sha };
+    return { name, sha: normalizedSha };
 }
 
 function resolveManualCacheRoot({
@@ -178,6 +241,12 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
     throw new TypeError(`${requirement} (received ${received}).`);
 }
 
+/**
+ * Provide specialised GitHub helpers for manual fetching without forcing
+ * consumers to depend on unrelated operations.
+ *
+ * @returns {ManualGitHubClientViews}
+ */
 function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
@@ -315,10 +384,22 @@ function createManualGitHubClient({
     }
 
     return {
-        curlRequest,
-        resolveManualRef,
-        resolveCommitFromRef,
-        fetchManualFile
+        /** @type {ManualGitHubRequestDispatcher} */
+        requestDispatcher: {
+            execute: curlRequest
+        },
+        /** @type {ManualGitHubRefResolver} */
+        refResolver: {
+            resolveManualRef
+        },
+        /** @type {ManualGitHubCommitResolver} */
+        commitResolver: {
+            resolveCommitFromRef
+        },
+        /** @type {ManualGitHubFileFetcher} */
+        fileFetcher: {
+            fetchManualFile
+        }
     };
 }
 
