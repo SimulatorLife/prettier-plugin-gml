@@ -4069,6 +4069,26 @@ function isSyntheticParenFlatteningEnabled(path) {
     }
 }
 
+// Synthetic parenthesis flattening only treats select call expressions as
+// numeric so we avoid unwrapping macro invocations that expand to complex
+// expressions. The list is intentionally small and can be extended as other
+// numeric helpers require the same treatment.
+const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+
+function isNumericCallExpression(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const calleeName = getIdentifierText(node.object);
+
+    if (typeof calleeName !== "string") {
+        return false;
+    }
+
+    return NUMERIC_CALL_IDENTIFIERS.has(calleeName.toLowerCase());
+}
+
 function isNumericComputationNode(node) {
     if (!node || typeof node !== "object") {
         return false;
@@ -4118,7 +4138,7 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return true;
+            return isNumericCallExpression(node);
         }
         default: {
             return false;
