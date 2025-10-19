@@ -593,6 +593,30 @@ function detectRegressions(baseResults, targetResults) {
     return regressions;
 }
 
+function detectResolvedFailures(baseResults, targetResults) {
+    const resolved = [];
+    for (const [key, baseRecord] of baseResults.results.entries()) {
+        if (!baseRecord || baseRecord.status !== "failed") {
+            continue;
+        }
+
+        const targetRecord = targetResults.results.get(key);
+        const targetStatus = targetRecord?.status;
+        if (targetStatus === "failed") {
+            continue;
+        }
+
+        resolved.push({
+            key,
+            from: baseRecord.status,
+            to: targetStatus ?? "missing",
+            detail: baseRecord
+        });
+    }
+
+    return resolved;
+}
+
 function formatRegression(regression) {
     const descriptor = regression.detail?.displayName || regression.key;
     const fromLabel =
@@ -676,14 +700,33 @@ function ensureResultsAvailability(base, target) {
     }
 }
 
-function reportRegressionSummary(regressions, targetLabel) {
+function appendRegressionContext(lines, resolvedFailures) {
+    if (resolvedFailures.length === 0) {
+        return lines;
+    }
+
+    const noun = resolvedFailures.length === 1 ? "test" : "tests";
+    const verb = resolvedFailures.length === 1 ? "is" : "are";
+    const hint =
+        `${resolvedFailures.length} previously failing ${noun} ${verb} now ` +
+        "passing or missing, so totals may appear unchanged.";
+    return [...lines, `Note: ${hint}`];
+}
+
+function reportRegressionSummary(
+    regressions,
+    targetLabel,
+    { resolvedFailures = [] } = {}
+) {
     if (regressions.length > 0) {
+        const lines = [
+            `New failing tests detected (compared to base using ${targetLabel}):`,
+            ...regressions.map((regression) => formatRegression(regression))
+        ];
+
         return {
             exitCode: 1,
-            lines: [
-                `New failing tests detected (compared to base using ${targetLabel}):`,
-                ...regressions.map((regression) => formatRegression(regression))
-            ]
+            lines: appendRegressionContext(lines, resolvedFailures)
         };
     }
 
@@ -706,7 +749,10 @@ function runCli() {
     ensureResultsAvailability(base, target);
 
     const regressions = detectRegressions(base, target);
-    const summary = reportRegressionSummary(regressions, targetLabel);
+    const resolvedFailures = detectResolvedFailures(base, target);
+    const summary = reportRegressionSummary(regressions, targetLabel, {
+        resolvedFailures
+    });
     for (const line of summary.lines) {
         console.log(line);
     }
@@ -735,6 +781,7 @@ if (isMainModule) {
 export {
     collectTestCases,
     detectRegressions,
+    detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
     reportRegressionSummary
