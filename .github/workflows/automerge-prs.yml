@@ -128,20 +128,32 @@ jobs:
         id: regress
         run: |
           set +e
+          set -o pipefail
+          log_file="$(mktemp)"
           export BASE_RESULTS_DIR="$(pwd)/junit-base"
           export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
           # Falls back to head when merge isn't available (handled by your script)
-          node src/cli/commands/detect-test-regressions.mjs
-          code=$?
+          node src/cli/commands/detect-test-regressions.mjs 2>&1 | tee "$log_file"
+          code=${PIPESTATUS[0]}
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
+            echo "status=clean" >> "$GITHUB_OUTPUT"
           else
             echo "all_green=false" >> "$GITHUB_OUTPUT"
+            if grep -q "New failing tests detected" "$log_file"; then
+              echo "status=regressions" >> "$GITHUB_OUTPUT"
+            else
+              echo "status=error" >> "$GITHUB_OUTPUT"
+            fi
           fi
+          rm -f "$log_file"
           exit 0
 
       - name: Summarize and comment
         uses: actions/github-script@v7
+        env:
+          REGRESSION_ALL_GREEN: ${{ steps.regress.outputs.all_green }}
+          REGRESSION_STATUS: ${{ steps.regress.outputs.status }}
         with:
           script: |
             const fs = require('node:fs');
@@ -206,7 +218,21 @@ jobs:
               ...notes.map(n => `> ⚠️ ${n}`)
             ].join('\n');
 
-            const body = [ '<!-- automerge-pr-test-summary -->', '### Node.js regression test summary', '', table ].join('\n');
+            const statusFlag = (process.env.REGRESSION_STATUS || '').toLowerCase();
+            const allGreenFlag = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+
+            let statusLine;
+            if (statusFlag === 'clean' || allGreenFlag) {
+              statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
+            } else if (statusFlag === 'regressions') {
+              statusLine = '❌ Test regressions detected — auto-merge is disabled.';
+            } else if (statusFlag === 'error') {
+              statusLine = '⚠️ Regression checks did not complete — auto-merge is blocked.';
+            } else {
+              statusLine = '⚠️ Regression status unknown — auto-merge is blocked.';
+            }
+
+            const body = [ '<!-- automerge-pr-test-summary -->', '### Node.js regression test summary', '', table, '', statusLine ].join('\n');
 
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request?.number;
