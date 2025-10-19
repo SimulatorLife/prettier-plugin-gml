@@ -23,6 +23,41 @@ export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
+/**
+ * Assert that the provided value is a non-empty string. Optionally trims the
+ * value before evaluating emptiness so call sites can accept padded input
+ * without repeating `String#trim` checks.
+ *
+ * @param {unknown} value Candidate value to validate.
+ * @param {Object} [options]
+ * @param {string} [options.name="value"] Descriptive name used when
+ *        constructing the default error message.
+ * @param {boolean} [options.trim=false] When `true`, trim the value before
+ *        verifying it is non-empty.
+ * @param {string} [options.errorMessage] Optional error message that overrides
+ *        the default string when validation fails.
+ * @returns {string} The validated string value (trimmed when requested).
+ * @throws {TypeError} When `value` is not a string or is empty after trimming.
+ */
+export function assertNonEmptyString(
+    value,
+    { name = "value", trim = false, errorMessage } = {}
+) {
+    const message =
+        errorMessage ?? `${name} must be provided as a non-empty string.`;
+
+    if (typeof value !== "string") {
+        throw new TypeError(message);
+    }
+
+    const normalized = trim ? value.trim() : value;
+    if (normalized.length === 0) {
+        throw new TypeError(message);
+    }
+
+    return normalized;
+}
+
 export function isWordChar(character) {
     return typeof character === "string" && /[\w]/.test(character);
 }

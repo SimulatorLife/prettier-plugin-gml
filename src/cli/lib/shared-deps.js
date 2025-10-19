@@ -1,4 +1,5 @@
 export {
+    assertNonEmptyString,
     toArray,
     coercePositiveInteger,
     coerceNonNegativeInteger,
