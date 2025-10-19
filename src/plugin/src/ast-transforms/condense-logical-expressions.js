@@ -1,8 +1,8 @@
 import {
     hasComment as sharedHasComment,
-    normalizeHasCommentHelpers
+    normalizeHasCommentHelpers,
+    getDocCommentManager
 } from "../comments/index.js";
-import { createDocCommentManager } from "../comments/doc-comment-manager.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
@@ -47,7 +47,7 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = createDocCommentManager(ast);
+    const docCommentManager = getDocCommentManager(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,

@@ -12,7 +12,44 @@ const DOC_COMMENT_TARGET_TYPES = new Set([
     "StructFunctionDeclaration",
     "StructDeclaration"
 ]);
-export function createDocCommentManager(ast) {
+
+const DOC_COMMENT_MANAGERS = new WeakMap();
+
+const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
+    applyUpdates() {},
+    forEach() {},
+    getComments() {
+        return [];
+    },
+    extractDescription() {
+        return null;
+    },
+    hasDocComment() {
+        return false;
+    }
+});
+
+export function prepareDocCommentEnvironment(ast) {
+    if (!isNode(ast)) {
+        return NOOP_DOC_COMMENT_MANAGER;
+    }
+
+    let manager = DOC_COMMENT_MANAGERS.get(ast);
+
+    if (manager) {
+        return manager;
+    }
+
+    manager = createDocCommentManager(ast);
+    DOC_COMMENT_MANAGERS.set(ast, manager);
+    return manager;
+}
+
+export function getDocCommentManager(ast) {
+    return prepareDocCommentEnvironment(ast);
+}
+
+function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
 
     const commentGroups = mapDocCommentsToFunctions(ast);

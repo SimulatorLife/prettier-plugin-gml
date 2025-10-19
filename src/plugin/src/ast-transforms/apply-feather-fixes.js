@@ -40,9 +40,9 @@ import {
 import {
     collectCommentNodes,
     getCommentArray,
-    hasComment
+    hasComment,
+    getDocCommentManager
 } from "../comments/index.js";
-import { createDocCommentManager } from "../comments/doc-comment-manager.js";
 import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
@@ -3735,7 +3735,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentManager = createDocCommentManager(ast);
+    const docCommentManager = getDocCommentManager(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
@@ -4001,7 +4001,7 @@ function buildDocumentedParamNameLookup(ast, sourceText, docCommentManager) {
         return lookup;
     }
 
-    const manager = docCommentManager ?? createDocCommentManager(ast);
+    const manager = docCommentManager ?? getDocCommentManager(ast);
 
     manager.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
@@ -6176,7 +6176,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentManager = createDocCommentManager(ast);
+    const docCommentManager = getDocCommentManager(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
@@ -6294,7 +6294,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
         return names;
     }
 
-    const manager = docCommentManager ?? createDocCommentManager(ast);
+    const manager = docCommentManager ?? getDocCommentManager(ast);
 
     manager.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
