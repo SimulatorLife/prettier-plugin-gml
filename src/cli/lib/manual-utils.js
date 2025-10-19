@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
+import {
+    parseJsonWithContext,
+    toTrimmedString,
+    isNonEmptyString
+} from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
@@ -59,32 +63,47 @@ function assertPlainObject(value, message) {
     return value;
 }
 
+function assertNonEmptyString(
+    value,
+    message,
+    { ErrorClass = TypeError, trim = false } = {}
+) {
+    if (typeof ErrorClass !== "function") {
+        throw new TypeError(
+            "ErrorClass must be provided as a constructor function."
+        );
+    }
+
+    const candidate = trim ? toTrimmedString(value) : value;
+
+    if (!isNonEmptyString(candidate)) {
+        throw new ErrorClass(message);
+    }
+
+    return candidate;
+}
+
 function validateManualCommitPayload(payload, { ref }) {
     const payloadRecord = assertPlainObject(
         payload,
         `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
     );
 
-    if (
-        typeof payloadRecord.sha !== "string" ||
-        payloadRecord.sha.length === 0
-    ) {
-        throw new TypeError(
-            `Manual ref '${ref}' response did not include a commit SHA.`
-        );
-    }
-
-    return payloadRecord.sha;
+    return assertNonEmptyString(
+        payloadRecord.sha,
+        `Manual ref '${ref}' response did not include a commit SHA.`
+    );
 }
 
 function normalizeManualTagEntry(entry) {
-    const { name, commit } = assertPlainObject(
+    const { name: rawName, commit } = assertPlainObject(
         entry,
         "Manual tags response must contain objects with tag metadata."
     );
-    if (typeof name !== "string" || name.length === 0) {
-        throw new TypeError("Manual tag entry is missing a tag name.");
-    }
+    const name = assertNonEmptyString(
+        rawName,
+        "Manual tag entry is missing a tag name."
+    );
 
     if (commit === undefined || commit === null) {
         return { name, sha: null };
@@ -99,13 +118,12 @@ function normalizeManualTagEntry(entry) {
         return { name, sha: null };
     }
 
-    if (typeof commitRecord.sha !== "string" || commitRecord.sha.length === 0) {
-        throw new TypeError(
-            "Manual tag entry commit SHA must be a non-empty string when provided."
-        );
-    }
+    const sha = assertNonEmptyString(
+        commitRecord.sha,
+        "Manual tag entry commit SHA must be a non-empty string when provided."
+    );
 
-    return { name, sha: commitRecord.sha };
+    return { name, sha };
 }
 
 function resolveManualCacheRoot({
@@ -195,15 +213,15 @@ function createManualGitHubClient({
     defaultCacheRoot,
     defaultRawRoot
 } = {}) {
-    if (typeof userAgent !== "string" || userAgent.length === 0) {
-        throw new Error("A userAgent string is required.");
-    }
+    assertNonEmptyString(userAgent, "A userAgent string is required.", {
+        ErrorClass: Error
+    });
 
-    if (typeof defaultRawRoot !== "string" || defaultRawRoot.length === 0) {
-        throw new Error(
-            "A defaultRawRoot string is required to create the manual client."
-        );
-    }
+    assertNonEmptyString(
+        defaultRawRoot,
+        "A defaultRawRoot string is required to create the manual client.",
+        { ErrorClass: Error }
+    );
 
     const baseHeaders = { "User-Agent": userAgent };
     if (process.env.GITHUB_TOKEN) {
