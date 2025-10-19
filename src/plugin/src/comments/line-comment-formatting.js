@@ -1,6 +1,7 @@
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
@@ -116,7 +117,7 @@ function formatLineComment(
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { bannerMinimum, boilerplateFragments } = normalizedOptions;
+    const { boilerplateFragments } = normalizedOptions;
     const codeDetectionPatterns =
         normalizedOptions.codeDetectionPatterns ??
         (lineCommentOptions && typeof lineCommentOptions === "object"
@@ -142,14 +143,17 @@ function formatLineComment(
     }
 
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
-    if (slashesMatch && slashesMatch[1].length >= bannerMinimum) {
+    if (
+        slashesMatch &&
+        slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+    ) {
         return applyInlinePadding(comment, original.trim());
     }
 
     if (
         trimmedOriginal.startsWith("///") &&
         !trimmedOriginal.includes("@") &&
-        leadingSlashCount >= bannerMinimum
+        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
