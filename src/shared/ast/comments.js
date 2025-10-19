@@ -126,8 +126,7 @@ export function collectCommentNodes(root) {
         }
 
         if (Array.isArray(current)) {
-            for (let index = 0; index < current.length; index += 1) {
-                const child = current[index];
+            for (const child of current) {
                 if (isObjectLike(child)) {
                     stack.push(child);
                 }
