@@ -2958,34 +2958,31 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it(
-        "formats alpha test resets without inserting extra blank lines",
-        async () => {
-            const source = [
-                "/// Draw Event",
-                "",
-                "gpu_set_alphatestenable(true);",
-                "",
-                "draw_self();"
-            ].join("\n");
+    it("formats alpha test resets without inserting extra blank lines", async () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
 
-            const formatted = await prettier.format(source, {
-                parser: "gml-parse",
-                plugins: [pluginPath],
-                applyFeatherFixes: true
-            });
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
 
-            const expected = [
-                "/// Draw Event",
-                "",
-                "gpu_set_alphatestenable(true);",
-                "draw_self();",
-                "gpu_set_alphatestenable(false);"
-            ].join("\n");
+        const expected = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "draw_self();",
+            "gpu_set_alphatestenable(false);"
+        ].join("\n");
 
-            assert.strictEqual(formatted.trimEnd(), expected);
-        }
-    );
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
 
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
@@ -3097,7 +3094,9 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+        const callNames = programBody
+            .map(getCallExpressionName)
+            .filter(Boolean);
 
         assert.strictEqual(
             callNames.at(0),

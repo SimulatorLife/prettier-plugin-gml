@@ -36,6 +36,7 @@ import {
     isErrorWithCode,
     isObjectLike,
     mergeUniqueValues,
+    normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
@@ -43,7 +44,10 @@ import {
     uniqueArray
 } from "../shared/utils.js";
 import { isErrorLike } from "../shared/utils/capability-probes.js";
-import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
+import {
+    collectAncestorDirectories,
+    isPathInside
+} from "../shared/path-utils.js";
 
 import {
     CliUsageError,
@@ -157,29 +161,6 @@ async function resolvePrettier() {
     }
 
     return prettierModulePromise;
-}
-
-function normalizeEnumeratedOption(
-    value,
-    fallbackValue,
-    validValues,
-    { coerce = toNormalizedLowerCaseString } = {}
-) {
-    if (value == undefined) {
-        return fallbackValue;
-    }
-
-    const normalized = coerce(value);
-
-    if (typeof normalized !== "string" || normalized.length === 0) {
-        return fallbackValue;
-    }
-
-    if (validValues.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
 }
 
 function coerceExtensionValue(value) {
@@ -1072,15 +1053,15 @@ async function processResolvedTarget({
  * @param {{ targetPath: string, targetIsDirectory: boolean }} params
  */
 function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
-    if (!encounteredFormattableFile) {
+    if (encounteredFormattableFile) {
+        logSkippedFileSummary();
+    } else {
         logNoMatchingFiles({
             targetPath,
             targetIsDirectory,
             extensions: targetExtensions
         });
     }
-
-    console.debug(`Skipped ${skippedFileCount} files`);
     if (encounteredFormattingError) {
         process.exitCode = 1;
     }
@@ -1153,12 +1134,20 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
         );
     }
 
-    if (skippedFileCount > 0) {
-        const skipLabel = skippedFileCount === 1 ? "file" : "files";
-        console.log(
-            `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
-        );
+    logSkippedFileSummary();
+}
+
+function logSkippedFileSummary() {
+    const skipLabel = skippedFileCount === 1 ? "file" : "files";
+
+    if (skippedFileCount === 0) {
+        console.log(`Skipped 0 ${skipLabel}.`);
+        return;
     }
+
+    console.log(
+        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
+    );
 }
 
 const formatCommand = createFormatCommand({ name: "format" });

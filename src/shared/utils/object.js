@@ -1,6 +1,21 @@
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 /**
+ * Ensure the provided value is callable. Centralizing this guard keeps
+ * defensive checks consistent across modules that accept callbacks while
+ * preserving the specific error messages historically raised by each call
+ * site.
+ *
+ * @param {unknown} value Candidate function to validate.
+ * @param {string} name Descriptive name used when constructing the error.
+ */
+export function assertFunction(value, name) {
+    if (typeof value !== "function") {
+        throw new TypeError(`${name} must be a function`);
+    }
+}
+
+/**
  * Check whether the provided value is an object-like reference. This mirrors
  * Lodash's definition, treating arrays and boxed primitives as object-like
  * while excluding `null` and primitive scalars. Functions are intentionally
@@ -34,9 +49,7 @@ export function isObjectLike(value) {
  *                                or `undefined` when no fallback is supplied.
  */
 export function withObjectLike(value, onObjectLike, onNotObjectLike) {
-    if (typeof onObjectLike !== "function") {
-        throw new TypeError("onObjectLike must be a function");
-    }
+    assertFunction(onObjectLike, "onObjectLike");
 
     if (!isObjectLike(value)) {
         return typeof onNotObjectLike === "function"
@@ -73,9 +86,9 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = Array.isArray(keys) ? keys : [keys];
+    const keyList = Array.isArray(keys) ? keys : [keys];
 
-    for (const key of lookupKeys) {
+    for (const key of keyList) {
         const value = object[key];
 
         if (value !== undefined && (acceptNull || value !== null)) {
@@ -125,7 +138,11 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (!store || typeof store.get !== "function" || typeof store.set !== "function") {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
         throw new TypeError("store must provide get and set functions");
     }
 
@@ -133,9 +150,7 @@ export function getOrCreateMapEntry(store, key, initializer) {
         throw new TypeError("store must provide a has function");
     }
 
-    if (typeof initializer !== "function") {
-        throw new TypeError("initializer must be a function");
-    }
+    assertFunction(initializer, "initializer");
 
     if (store.has(key)) {
         return store.get(key);

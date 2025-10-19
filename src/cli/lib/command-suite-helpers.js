@@ -1,7 +1,7 @@
 import process from "node:process";
 
 import { CliUsageError } from "./cli-errors.js";
-import { toNormalizedLowerCaseString } from "./shared-deps.js";
+import { normalizeEnumeratedOption } from "./shared-deps.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -19,17 +19,11 @@ export function formatSuiteOutputFormatList() {
 }
 
 export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
-    const normalized = toNormalizedLowerCaseString(value);
-
-    if (!normalized) {
-        return fallback ?? null;
-    }
-
-    if (VALID_SUITE_OUTPUT_FORMATS.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
+    return normalizeEnumeratedOption(
+        value,
+        fallback ?? null,
+        VALID_SUITE_OUTPUT_FORMATS
+    );
 }
 
 export function resolveSuiteOutputFormatOrThrow(

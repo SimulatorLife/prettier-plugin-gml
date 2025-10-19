@@ -61,7 +61,9 @@ function looksLikeTestCase(node) {
 }
 
 function decodeEntities(value) {
-    if (typeof value !== "string" || value.length === 0) return value ?? "";
+    if (typeof value !== "string" || value.length === 0) {
+        return value ?? "";
+    }
     return value
         .replaceAll(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
             String.fromCodePoint(Number.parseInt(hex, 16))
@@ -77,7 +79,9 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) return false;
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
+        return false;
+    }
     return getErrorMessage(error, { fallback: "" }).includes(
         "'fast-xml-parser'"
     );
@@ -111,7 +115,9 @@ function attachChildNode(parent, name, value) {
 
 function parseAttributes(source) {
     const attributes = {};
-    if (!source) return attributes;
+    if (!source) {
+        return attributes;
+    }
     const attributePattern = /([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
     let match;
     while ((match = attributePattern.exec(source))) {
@@ -136,12 +142,16 @@ function parseXmlDocument(xml) {
     }
 
     function appendText(text, { preserveWhitespace = false } = {}) {
-        if (stack.length === 0) return;
+        if (stack.length === 0) {
+            return;
+        }
         const target = stack.at(-1).value;
         const normalized = preserveWhitespace
             ? text
             : text.replaceAll(/\s+/g, " ").trim();
-        if (!normalized) return;
+        if (!normalized) {
+            return;
+        }
         const decoded = decodeEntities(normalized);
         if (hasOwn(target, "#text")) {
             target["#text"] = preserveWhitespace
@@ -210,10 +220,14 @@ function parseXmlDocument(xml) {
         const rawContent = xml.slice(nextTag + 1, closingBracket);
         index = closingBracket + 1;
         const trimmed = rawContent.trim();
-        if (!trimmed) continue;
+        if (!trimmed) {
+            continue;
+        }
 
         if (trimmed.startsWith("/")) {
-            if (stack.length === 0) continue;
+            if (stack.length === 0) {
+                continue;
+            }
             const closingName = trimmed.slice(1).trim();
             const last = stack.pop();
             if (closingName && last && last.name && closingName !== last.name) {
@@ -228,7 +242,9 @@ function parseXmlDocument(xml) {
         const content = selfClosing
             ? trimmed.replace(/\/\s*$/, "").trim()
             : trimmed;
-        if (!content) continue;
+        if (!content) {
+            continue;
+        }
 
         const nameMatch = content.match(/^([\w:.-]+)/);
         if (!nameMatch) {
@@ -482,12 +498,15 @@ function buildReadContext(candidateDirs, workspaceRoot) {
 }
 
 function appendScanNotes(context, scan) {
-    if (scan.notes.length === 0) return;
+    if (scan.notes.length === 0) {
+        return;
+    }
     context.notes.push(...scan.notes);
 }
 
 function handleMissingOrEmptyDirectory(context, directory, status) {
-    const bucket = status === "missing" ? context.missingDirs : context.emptyDirs;
+    const bucket =
+        status === "missing" ? context.missingDirs : context.emptyDirs;
     bucket.push(directory.display);
 }
 
@@ -556,10 +575,14 @@ function readTestResults(candidateDirs, { workspace } = {}) {
 function detectRegressions(baseResults, targetResults) {
     const regressions = [];
     for (const [key, targetRecord] of targetResults.results.entries()) {
-        if (!targetRecord || targetRecord.status !== "failed") continue;
+        if (!targetRecord || targetRecord.status !== "failed") {
+            continue;
+        }
         const baseRecord = baseResults.results.get(key);
         const baseStatus = baseRecord?.status;
-        if (baseStatus === "failed") continue;
+        if (baseStatus === "failed") {
+            continue;
+        }
         regressions.push({
             key,
             from: baseStatus ?? "missing",
@@ -666,9 +689,7 @@ function reportRegressionSummary(regressions, targetLabel) {
 
     return {
         exitCode: 0,
-        lines: [
-            `No new failing tests compared to base using ${targetLabel}.`
-        ]
+        lines: [`No new failing tests compared to base using ${targetLabel}.`]
     };
 }
 

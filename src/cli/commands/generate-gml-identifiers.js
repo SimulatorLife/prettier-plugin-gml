@@ -10,7 +10,8 @@ import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     DEFAULT_MANUAL_REPO,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -329,6 +330,54 @@ function normaliseIdentifier(name) {
     return name.trim();
 }
 
+function collectManualArrayIdentifiers(
+    identifierMap,
+    values,
+    { type, source }
+) {
+    const entry = { type, sources: [source] };
+
+    for (const value of values) {
+        const identifier = normaliseIdentifier(value);
+        mergeEntry(identifierMap, identifier, entry);
+    }
+}
+
+const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
+
+async function fetchManualAssets(
+    manualRefSha,
+    manualAssets,
+    { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
+) {
+    const payloads = {};
+    let fetchedCount = 0;
+    const downloadsTotal = manualAssets.length;
+
+    for (const asset of manualAssets) {
+        payloads[asset.key] = await fetchManualFile(manualRefSha, asset.path, {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        });
+
+        fetchedCount += 1;
+        if (verbose.progressBar && verbose.downloads) {
+            renderProgressBar(
+                DOWNLOAD_PROGRESS_LABEL,
+                fetchedCount,
+                downloadsTotal,
+                progressBarWidth
+            );
+        } else if (verbose.downloads) {
+            console.log(`✓ ${asset.path}`);
+        }
+    }
+
+    return payloads;
+}
+
 export async function runGenerateGmlIdentifiers({ command } = {}) {
     try {
         assertSupportedNodeVersion();
@@ -380,26 +429,11 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             );
         }
 
-        const fetchedPayloads = {};
-        let fetchedCount = 0;
-        for (const asset of manualAssets) {
-            fetchedPayloads[asset.key] = await fetchManualFile(
-                manualRef.sha,
-                asset.path,
-                { forceRefresh, verbose, cacheRoot, rawRoot }
-            );
-            fetchedCount += 1;
-            if (verbose.progressBar && verbose.downloads) {
-                renderProgressBar(
-                    "Downloading manual assets",
-                    fetchedCount,
-                    downloadsTotal,
-                    progressBarWidth
-                );
-            } else if (verbose.downloads) {
-                console.log(`✓ ${asset.path}`);
-            }
-        }
+        const fetchedPayloads = await fetchManualAssets(
+            manualRef.sha,
+            manualAssets,
+            { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
+        );
 
         const gmlSource = fetchedPayloads.gmlSource;
         const keywordsArray = timeSync(
@@ -432,13 +466,10 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         timeSync(
             "Collecting keywords",
             () => {
-                for (const keyword of keywordsArray) {
-                    const identifier = normaliseIdentifier(keyword);
-                    mergeEntry(identifierMap, identifier, {
-                        type: "keyword",
-                        sources: ["manual:gml.js:KEYWORDS"]
-                    });
-                }
+                collectManualArrayIdentifiers(identifierMap, keywordsArray, {
+                    type: "keyword",
+                    source: "manual:gml.js:KEYWORDS"
+                });
             },
             { verbose }
         );
@@ -446,13 +477,10 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         timeSync(
             "Collecting literals",
             () => {
-                for (const literal of literalsArray) {
-                    const identifier = normaliseIdentifier(literal);
-                    mergeEntry(identifierMap, identifier, {
-                        type: "literal",
-                        sources: ["manual:gml.js:LITERALS"]
-                    });
-                }
+                collectManualArrayIdentifiers(identifierMap, literalsArray, {
+                    type: "literal",
+                    source: "manual:gml.js:LITERALS"
+                });
             },
             { verbose }
         );
@@ -460,13 +488,10 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         timeSync(
             "Collecting symbols",
             () => {
-                for (const symbol of symbolsArray) {
-                    const identifier = normaliseIdentifier(symbol);
-                    mergeEntry(identifierMap, identifier, {
-                        type: "symbol",
-                        sources: ["manual:gml.js:SYMBOLS"]
-                    });
-                }
+                collectManualArrayIdentifiers(identifierMap, symbolsArray, {
+                    type: "symbol",
+                    source: "manual:gml.js:SYMBOLS"
+                });
             },
             { verbose }
         );
