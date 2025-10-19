@@ -1,16 +1,16 @@
-import { buildProjectIndex } from "./project-index/index.js";
-import { prepareIdentifierCasePlan } from "./identifier-case/local-plan.js";
+import { createDefaultCliPluginServiceImplementations } from "./cli-services/providers/default-cli-plugin-services.js";
 
-/**
- * Provides the services that the CLI consumes from the plugin without exposing
- * the plugin's internal module graph.
- */
+const defaultCliPluginServices = Object.freeze(
+    createDefaultCliPluginServiceImplementations()
+);
+
+const {
+    buildProjectIndex: defaultProjectIndexBuilder,
+    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+} = defaultCliPluginServices;
+
 export function createDefaultCliPluginServices() {
-    return Object.freeze({
-        buildProjectIndex,
-        prepareIdentifierCasePlan
-    });
+    return defaultCliPluginServices;
 }
 
-export const defaultProjectIndexBuilder = buildProjectIndex;
-export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
+export { defaultProjectIndexBuilder, defaultIdentifierCasePlanPreparer };

@@ -27,14 +27,14 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    resolveManualRepoValue,
-    createManualVerboseState
+    resolveManualRepoValue
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,25 +142,14 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
     return command;
 }
 function resolveFeatherMetadataOptions(command) {
-    const options = command.opts();
-    const isTty = process.stdout.isTTY === true;
-
-    const verbose = createManualVerboseState({
-        quiet: Boolean(options.quiet),
-        isTerminal: isTty
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            ref: null,
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        }
     });
-
-    return {
-        ref: options.ref ?? null,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        usage: command.helpInformation()
-    };
 }
 
 // Manual fetching helpers are provided by manual-cli-helpers.js
@@ -444,47 +433,46 @@ function normalizeContent(blocks) {
         }
     };
 
-    const handlers = {
-        code(block) {
-            if (block.text) {
-                content.codeExamples.push(block.text);
-            }
-        },
-        note(block) {
-            appendNormalizedText(content.notes, block.text);
-        },
-        list(block) {
-            const items = Array.isArray(block.items)
-                ? block.items
-                      .map((item) => normalizeMultilineText(item))
-                      .filter(Boolean)
-                : [];
-            if (items.length > 0) {
-                content.lists.push(items);
-            }
-        },
-        table(block) {
-            if (block.table) {
-                content.tables.push(block.table);
-            }
-        },
-        heading(block) {
-            appendNormalizedText(content.headings, block.text);
-        }
-    };
-
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        const handler = handlers[block.type];
-        if (handler) {
-            handler(block);
-            continue;
+        switch (block.type) {
+            case "code": {
+                if (block.text) {
+                    content.codeExamples.push(block.text);
+                }
+                break;
+            }
+            case "note": {
+                appendNormalizedText(content.notes, block.text);
+                break;
+            }
+            case "list": {
+                const items = Array.isArray(block.items)
+                    ? block.items
+                          .map((item) => normalizeMultilineText(item))
+                          .filter(Boolean)
+                    : [];
+                if (items.length > 0) {
+                    content.lists.push(items);
+                }
+                break;
+            }
+            case "table": {
+                if (block.table) {
+                    content.tables.push(block.table);
+                }
+                break;
+            }
+            case "heading": {
+                appendNormalizedText(content.headings, block.text);
+                break;
+            }
+            default:
+                appendNormalizedText(content.paragraphs, block.text);
         }
-
-        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }

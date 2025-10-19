@@ -1,6 +1,39 @@
 import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 
+/**
+ * The earlier CLI command "manager" mixed registration APIs with the runner
+ * surface. That broad contract forced consumers to depend on both concerns at
+ * once even if they only needed to register commands. To honour the Interface
+ * Segregation Principle we now expose narrower registrar and runner views that
+ * sit on top of a shared coordinator.
+ */
+
+/**
+ * @typedef {object} CliCommandRegistrationOptions
+ * @property {import("commander").Command} command
+ * @property {(context: { command: import("commander").Command }) =>
+ *   Promise<number | void> | number | void} run
+ * @property {(error: unknown, context: { command: import("commander").Command }) => void} [onError]
+ */
+
+/**
+ * @typedef {object} CliCommandRegistrar
+ * @property {(options: CliCommandRegistrationOptions) => object} registerDefaultCommand
+ * @property {(options: CliCommandRegistrationOptions) => object} registerCommand
+ */
+
+/**
+ * @typedef {object} CliProgramRunner
+ * @property {(argv: Array<string>) => Promise<void>} run
+ */
+
+/**
+ * @typedef {object} CliCommandCoordinatorViews
+ * @property {CliCommandRegistrar} registrar
+ * @property {CliProgramRunner} runner
+ */
+
 class CliCommandManager {
     /**
      * @param {{
@@ -156,8 +189,30 @@ class CliCommandManager {
     }
 }
 
-export { CliCommandManager };
+function createRegistrarView(manager) {
+    return {
+        registerDefaultCommand: manager.registerDefaultCommand.bind(manager),
+        registerCommand: manager.registerCommand.bind(manager)
+    };
+}
 
+function createRunnerView(manager) {
+    return {
+        run: manager.run.bind(manager)
+    };
+}
+
+/**
+ * @param {{
+ *   program: import("commander").Command,
+ *   onUnhandledError?: (error: unknown, context: { command: import("commander").Command }) => void
+ * }} options
+ * @returns {CliCommandCoordinatorViews}
+ */
 export function createCliCommandManager(options) {
-    return new CliCommandManager(options);
+    const manager = new CliCommandManager(options);
+    return {
+        registrar: createRegistrarView(manager),
+        runner: createRunnerView(manager)
+    };
 }

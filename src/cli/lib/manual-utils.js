@@ -11,6 +11,16 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+function normalizeVerboseOverrides(overrides) {
+    if (!overrides || typeof overrides !== "object") {
+        return null;
+    }
+
+    const entries = Object.entries(overrides).filter(([, value]) => value !== undefined);
+
+    return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 function createManualVerboseState({
     quiet = false,
     isTerminal = false,
@@ -30,25 +40,10 @@ function createManualVerboseState({
               progressBar: isTerminal
           };
 
-    if (!overrides || typeof overrides !== "object") {
-        return baseState;
-    }
-
-    let mergedState = baseState;
-
-    for (const [key, value] of Object.entries(overrides)) {
-        if (value === undefined) {
-            continue;
-        }
-
-        if (mergedState === baseState) {
-            mergedState = { ...baseState };
-        }
-
-        mergedState[key] = value;
-    }
-
-    return mergedState;
+    const normalizedOverrides = normalizeVerboseOverrides(overrides);
+    return normalizedOverrides
+        ? { ...baseState, ...normalizedOverrides }
+        : baseState;
 }
 
 function assertPlainObject(value, message) {

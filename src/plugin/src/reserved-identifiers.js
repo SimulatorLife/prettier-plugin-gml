@@ -37,17 +37,27 @@ export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
 
     const excludedTypes = resolveExcludedTypes(disallowedTypes);
 
-    return Object.entries(identifiers).reduce((names, [name, info]) => {
-        if (!isNonEmptyString(name)) {
-            return names;
-        }
+    return Object.entries(identifiers).reduce(
+        (names, [name, info]) =>
+            addIdentifierWhenAllowed(names, name, info, excludedTypes),
+        new Set()
+    );
+}
 
-        const type =
-            typeof info?.type === "string" ? info.type.toLowerCase() : "";
-        if (!excludedTypes.has(type)) {
-            names.add(name.toLowerCase());
-        }
-
+function addIdentifierWhenAllowed(names, rawName, info, excludedTypes) {
+    if (!isNonEmptyString(rawName)) {
         return names;
-    }, new Set());
+    }
+
+    const normalizedType = normalizeIdentifierType(info);
+    if (excludedTypes.has(normalizedType)) {
+        return names;
+    }
+
+    names.add(rawName.toLowerCase());
+    return names;
+}
+
+function normalizeIdentifierType(info) {
+    return typeof info?.type === "string" ? info.type.toLowerCase() : "";
 }
