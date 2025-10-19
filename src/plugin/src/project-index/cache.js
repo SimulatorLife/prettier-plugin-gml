@@ -53,6 +53,19 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
     );
 }
 
+function normalizeMaxSizeBytes(maxSizeBytes) {
+    if (maxSizeBytes == null) {
+        return null;
+    }
+
+    const numericLimit = Number(maxSizeBytes);
+    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+        return null;
+    }
+
+    return numericLimit;
+}
+
 function cloneMtimeMap(source) {
     if (!source || typeof source !== "object") {
         return {};
@@ -338,7 +351,8 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    if (maxSizeBytes != undefined && byteLength > maxSizeBytes) {
+    const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
+    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
         return {
             status: "skipped",
             cacheFilePath,
