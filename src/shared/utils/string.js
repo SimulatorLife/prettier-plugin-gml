@@ -100,21 +100,24 @@ export function normalizeStringList(
         return [];
     }
 
-    let entries;
-
     if (Array.isArray(value)) {
-        entries = value;
-    } else if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-        entries = pattern ? value.split(pattern) : [value];
-    } else {
-        if (allowInvalidType) {
-            return [];
-        }
-
-        throw new TypeError(errorMessage);
+        return collectUniqueTrimmedStrings(value);
     }
 
+    if (typeof value === "string") {
+        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const entries = pattern ? value.split(pattern) : [value];
+        return collectUniqueTrimmedStrings(entries);
+    }
+
+    if (allowInvalidType) {
+        return [];
+    }
+
+    throw new TypeError(errorMessage);
+}
+
+function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
     const seen = Object.create(null);
 
