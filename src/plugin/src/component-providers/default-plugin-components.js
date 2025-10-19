@@ -238,7 +238,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Preserve user-authored line breaks in select syntactic constructs such as chained function calls."
+                    "Reserved for future use; enabling this option currently has no effect while line-break preservation heuristics are evaluated."
             },
             maintainArrayIndentation: {
                 since: "0.0.0",
