@@ -281,17 +281,15 @@ async function loadBuiltInIdentifiers(
     );
     throwIfAborted(signal, "Project index build was aborted.");
     const cached = cachedBuiltInIdentifiers;
+    const cachedMtime = cached?.metadata?.mtimeMs ?? null;
 
-    if (cached) {
-        const cachedMtime = cached.metadata?.mtimeMs ?? null;
-        if (cachedMtime === currentMtime) {
-            metrics?.recordCacheHit("builtInIdentifiers");
-            return cached;
-        }
-
-        metrics?.recordCacheStale("builtInIdentifiers");
-    } else {
+    if (!cached) {
         metrics?.recordCacheMiss("builtInIdentifiers");
+    } else if (cachedMtime === currentMtime) {
+        metrics?.recordCacheHit("builtInIdentifiers");
+        return cached;
+    } else {
+        metrics?.recordCacheStale("builtInIdentifiers");
     }
 
     let names = new Set();
