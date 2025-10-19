@@ -433,47 +433,46 @@ function normalizeContent(blocks) {
         }
     };
 
-    const handlers = {
-        code(block) {
-            if (block.text) {
-                content.codeExamples.push(block.text);
-            }
-        },
-        note(block) {
-            appendNormalizedText(content.notes, block.text);
-        },
-        list(block) {
-            const items = Array.isArray(block.items)
-                ? block.items
-                      .map((item) => normalizeMultilineText(item))
-                      .filter(Boolean)
-                : [];
-            if (items.length > 0) {
-                content.lists.push(items);
-            }
-        },
-        table(block) {
-            if (block.table) {
-                content.tables.push(block.table);
-            }
-        },
-        heading(block) {
-            appendNormalizedText(content.headings, block.text);
-        }
-    };
-
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        const handler = handlers[block.type];
-        if (handler) {
-            handler(block);
-            continue;
+        switch (block.type) {
+            case "code": {
+                if (block.text) {
+                    content.codeExamples.push(block.text);
+                }
+                break;
+            }
+            case "note": {
+                appendNormalizedText(content.notes, block.text);
+                break;
+            }
+            case "list": {
+                const items = Array.isArray(block.items)
+                    ? block.items
+                          .map((item) => normalizeMultilineText(item))
+                          .filter(Boolean)
+                    : [];
+                if (items.length > 0) {
+                    content.lists.push(items);
+                }
+                break;
+            }
+            case "table": {
+                if (block.table) {
+                    content.tables.push(block.table);
+                }
+                break;
+            }
+            case "heading": {
+                appendNormalizedText(content.headings, block.text);
+                break;
+            }
+            default:
+                appendNormalizedText(content.paragraphs, block.text);
         }
-
-        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }
