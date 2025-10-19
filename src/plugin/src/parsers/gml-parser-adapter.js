@@ -3,7 +3,10 @@
 // knowledge of the parser's option shape and location metadata across the
 // rest of the plugin configuration.
 import { util } from "prettier";
-import GMLParser from "gamemaker-language-parser";
+import GMLParser, {
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments
+} from "gamemaker-language-parser";
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
 import {
     applyFeatherFixes,
@@ -17,10 +20,6 @@ import {
     getNodeStartIndex,
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
-import {
-    sanitizeConditionalAssignments,
-    applySanitizedIndexAdjustments
-} from "../../../parser/gml-parser.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
