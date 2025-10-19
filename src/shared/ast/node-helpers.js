@@ -250,6 +250,28 @@ function getCallExpressionIdentifierName(callExpression) {
     return identifier ? identifier.name : null;
 }
 
+function isCallExpressionIdentifierMatch(
+    callExpression,
+    expectedName,
+    { caseInsensitive = false } = {}
+) {
+    if (!isNonEmptyString(expectedName)) {
+        return false;
+    }
+
+    const identifierName = getCallExpressionIdentifierName(callExpression);
+    if (!identifierName) {
+        return false;
+    }
+
+    if (caseInsensitive) {
+        const normalizedExpectedName = expectedName.toLowerCase();
+        return identifierName.toLowerCase() === normalizedExpectedName;
+    }
+
+    return identifierName === expectedName;
+}
+
 function getArrayProperty(node, propertyName) {
     if (!isNode(node)) {
         return [];
@@ -351,6 +373,7 @@ export {
     getCallExpressionArguments,
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     getArrayProperty,
     hasArrayPropertyEntries,
     getBodyStatements,

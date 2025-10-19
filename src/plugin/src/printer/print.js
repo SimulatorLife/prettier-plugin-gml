@@ -44,9 +44,9 @@ import {
 import {
     getBodyStatements,
     getCallExpressionArguments,
-    getCallExpressionIdentifierName,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
@@ -3476,7 +3476,11 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     }
 
     const [firstArg] = args;
-    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+    if (
+        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+            caseInsensitive: true
+        })
+    ) {
         return false;
     }
 
@@ -3528,11 +3532,6 @@ function applyOuterTrigConversion(node, conversionMap) {
 
     updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
     return true;
-}
-
-function isCallExpressionWithName(node, name) {
-    const identifierName = getCallExpressionIdentifierName(node);
-    return identifierName ? identifierName.toLowerCase() === name : false;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {
