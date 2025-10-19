@@ -7,7 +7,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { toNormalizedLowerCaseSet, toPosixPath } from "../../shared/utils.js";
+import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     createManualGitHubClient,
@@ -32,6 +32,7 @@ import {
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -136,38 +137,19 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
 }
 
 function resolveGenerateIdentifierOptions(command) {
-    const options = command.opts();
-    const isTty = process.stdout.isTTY === true;
-
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
-
-    return {
-        ref: options.ref,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        vmEvalTimeoutMs:
-            options.vmEvalTimeoutMs === undefined
-                ? getDefaultVmEvalTimeoutMs()
-                : options.vmEvalTimeoutMs,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        usage: command.helpInformation()
-    };
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        },
+        mapExtras: ({ options }) => ({
+            vmEvalTimeoutMs:
+                options.vmEvalTimeoutMs === undefined
+                    ? getDefaultVmEvalTimeoutMs()
+                    : options.vmEvalTimeoutMs
+        })
+    });
 }
 
 function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {

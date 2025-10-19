@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { withObjectLike } from "../../../shared/object-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
@@ -35,10 +37,10 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return (
-        record != null &&
-        typeof record === "object" &&
-        Object.keys(record).length > 0
+    return withObjectLike(
+        record,
+        (object) => Object.keys(object).length > 0,
+        () => false
     );
 }
 
@@ -53,14 +55,36 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
     );
 }
 
-function cloneMtimeMap(source) {
-    if (!source || typeof source !== "object") {
-        return {};
+function normalizeMaxSizeBytes(maxSizeBytes) {
+    if (maxSizeBytes == null) {
+        return null;
     }
-    return Object.fromEntries(
-        Object.entries(source)
-            .map(([key, value]) => [key, Number(value)])
-            .filter(([, numeric]) => Number.isFinite(numeric))
+
+    const numericLimit = Number(maxSizeBytes);
+    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+        return null;
+    }
+
+    return numericLimit;
+}
+
+function cloneMtimeMap(source) {
+    return withObjectLike(
+        source,
+        (record) => {
+            const normalized = {};
+
+            for (const [key, value] of Object.entries(record)) {
+                const numericValue = Number(value);
+
+                if (isFiniteNumber(numericValue)) {
+                    normalized[key] = numericValue;
+                }
+            }
+
+            return normalized;
+        },
+        () => ({})
     );
 }
 
@@ -338,7 +362,8 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    if (maxSizeBytes != undefined && byteLength > maxSizeBytes) {
+    const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
+    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
         return {
             status: "skipped",
             cacheFilePath,

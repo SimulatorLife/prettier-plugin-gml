@@ -2,12 +2,95 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { normalizeStringList } from "../../shared/utils/string.js";
+import { normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
-import { coercePositiveInteger } from "./command-parsing.js";
-import { CliUsageError } from "./cli-errors.js";
+import {
+    coercePositiveInteger,
+    resolveIntegerOption
+} from "./command-parsing.js";
+import { applyEnvOptionOverrides } from "./env-overrides.js";
+import {
+    emitSuiteResults as emitSuiteResultsJson,
+    ensureSuitesAreKnown,
+    resolveRequestedSuites
+} from "./command-suite-helpers.js";
 
-const DEFAULT_ITERATIONS = 500_000;
+export const DEFAULT_ITERATIONS = 500_000;
+export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
+
+let configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
+
+const createIterationErrorMessage = (received) =>
+    `Iteration count must be a positive integer (received ${received}).`;
+
+const createIterationTypeErrorMessage = (type) =>
+    `Iteration count must be provided as a number (received type '${type}').`;
+
+function coerceMemoryIterations(value, { received }) {
+    return coercePositiveInteger(value, {
+        received,
+        createErrorMessage: createIterationErrorMessage
+    });
+}
+
+export function getDefaultMemoryIterations() {
+    return configuredDefaultMemoryIterations;
+}
+
+export function setDefaultMemoryIterations(iterations) {
+    if (iterations === undefined) {
+        configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
+        return configuredDefaultMemoryIterations;
+    }
+
+    configuredDefaultMemoryIterations = resolveMemoryIterations(iterations, {
+        defaultIterations: DEFAULT_ITERATIONS
+    });
+
+    return configuredDefaultMemoryIterations;
+}
+
+export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
+    const fallback =
+        defaultIterations === undefined
+            ? getDefaultMemoryIterations()
+            : defaultIterations;
+
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce: coerceMemoryIterations,
+        typeErrorMessage: createIterationTypeErrorMessage
+    });
+}
+
+export function applyMemoryIterationsEnvOverride(env = process?.env) {
+    const rawValue = env?.[MEMORY_ITERATIONS_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultMemoryIterations(rawValue);
+}
+
+export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
+    if (!command || typeof command.setOptionValueWithSource !== "function") {
+        return;
+    }
+
+    applyEnvOptionOverrides({
+        command,
+        env,
+        overrides: [
+            {
+                envVar: MEMORY_ITERATIONS_ENV_VAR,
+                optionName: "iterations",
+                resolveValue: resolveMemoryIterations
+            }
+        ]
+    });
+}
+
+applyMemoryIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -25,39 +108,10 @@ function validateFormat(value) {
     throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
 }
 
-function parseIterationsOption(value) {
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iteration count must be a positive integer (received ${received}).`
-    });
-}
+export function createMemoryCommand({ env = process.env } = {}) {
+    const defaultIterations = getDefaultMemoryIterations();
 
-function ensureSuitesAreKnown(suiteNames, command) {
-    const unknownSuites = suiteNames.filter(
-        (suite) => !AVAILABLE_SUITES.has(suite)
-    );
-
-    if (unknownSuites.length === 0) {
-        return;
-    }
-
-    throw new CliUsageError(
-        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-        { usage: command.helpInformation() }
-    );
-}
-
-function resolveRequestedSuites(options) {
-    const hasExplicitSuites = options.suite.length > 0;
-    const requested = hasExplicitSuites
-        ? options.suite
-        : [...AVAILABLE_SUITES.keys()];
-
-    return requested.map((name) => name.toLowerCase());
-}
-
-export function createMemoryCommand() {
-    return applyStandardCommandOptions(
+    const command = applyStandardCommandOptions(
         new Command()
             .name("memory")
             .usage("[options]")
@@ -71,9 +125,15 @@ export function createMemoryCommand() {
         )
         .option(
             "-i, --iterations <count>",
-            `Iteration count for suites that support it (default: ${DEFAULT_ITERATIONS}).`,
-            parseIterationsOption,
-            DEFAULT_ITERATIONS
+            `Iteration count for suites that support it (default: ${defaultIterations}).`,
+            (value) => {
+                try {
+                    return resolveMemoryIterations(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            defaultIterations
         )
         .option(
             "--format <format>",
@@ -82,6 +142,9 @@ export function createMemoryCommand() {
             "json"
         )
         .option("--pretty", "Pretty-print JSON output.");
+    applyMemoryEnvOptionOverrides({ command, env });
+
+    return command;
 }
 
 function collectSuiteOptions(options) {
@@ -197,34 +260,21 @@ function printHumanReadable(results) {
     console.log(lines.join("\n"));
 }
 
-function emitSuiteResults(results, options) {
-    if (options.format === "json") {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            suites: results
-        };
-        const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
-        return;
-    }
-
-    printHumanReadable(results);
-}
-
 export async function runMemoryCommand({ command } = {}) {
     const options = command?.opts?.() ?? {};
 
-    const requestedSuites = resolveRequestedSuites(options);
-    ensureSuitesAreKnown(requestedSuites, command);
+    const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
+    ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
     const suiteResults = await executeSuites(
         requestedSuites,
         collectSuiteOptions(options)
     );
 
-    emitSuiteResults(suiteResults, options);
+    const emittedJson = emitSuiteResultsJson(suiteResults, options);
+    if (!emittedJson) {
+        printHumanReadable(suiteResults);
+    }
 
     return 0;
 }
-
-export { DEFAULT_ITERATIONS };

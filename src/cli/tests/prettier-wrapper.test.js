@@ -709,29 +709,65 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("instructs users to supply a target path when none is provided", async () => {
+    it("formats the current working directory when no target path is provided", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
         try {
-            await execFileAsync("node", [wrapperPath]);
-            assert.fail(
-                "Expected the wrapper to exit with a non-zero status code"
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
             );
-        } catch (error) {
-            assert.ok(error, "Expected an error to be thrown");
-            assert.strictEqual(
-                error.code,
-                1,
-                "Expected a non-zero exit code when no target path is provided"
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /Formatted .*script\.gml/,
+                "Expected stdout to mention the formatted file"
             );
             assert.match(
-                error.stderr,
-                /No target path provided\./,
-                "Expected stderr to mention the missing target path"
+                stdout,
+                /Skipped \d+ files/,
+                "Expected stdout to summarize skipped files"
+            );
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("informs the user when no files match the configured extensions", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const ignoredFile = path.join(tempDirectory, "notes.txt");
+            await fs.writeFile(ignoredFile, "hello", "utf8");
+
+            const { stdout, stderr } = await execFileAsync("node", [
+                wrapperPath,
+                tempDirectory
+            ]);
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /No files matching "\.gml" were found/,
+                "Expected stdout to explain why nothing was formatted"
             );
             assert.match(
-                error.stderr,
-                /--path <path>/,
-                "Expected stderr to point users to the --path option"
+                stdout,
+                /Skipped \d+ file(?:s)? because they were ignored or used different extensions\./,
+                "Expected stdout to summarize the skipped files"
             );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
 });

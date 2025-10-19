@@ -4,15 +4,21 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError } from "./cli-errors.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "../../shared/ast.js";
-import { toNormalizedLowerCaseString } from "../../shared/utils.js";
+import {
+    getIdentifierText,
+    toNormalizedLowerCaseString
+} from "./shared-deps.js";
 import { formatByteSize } from "./byte-format.js";
+import {
+    emitSuiteResults as emitSuiteResultsJson,
+    ensureSuitesAreKnown,
+    resolveRequestedSuites
+} from "./command-suite-helpers.js";
 
 const AVAILABLE_SUITES = new Map();
 
@@ -414,30 +420,6 @@ function printHumanReadable(results) {
  * @param {{ suite: Array<string> }} options
  * @returns {Array<string>}
  */
-function resolveRequestedSuites(options) {
-    const hasExplicitSuites = options.suite.length > 0;
-    const requested = hasExplicitSuites
-        ? options.suite
-        : [...AVAILABLE_SUITES.keys()];
-
-    return requested.map((name) => name.toLowerCase());
-}
-
-function ensureSuitesAreKnown(suiteNames, command) {
-    const unknownSuites = suiteNames.filter(
-        (suite) => !AVAILABLE_SUITES.has(suite)
-    );
-
-    if (unknownSuites.length === 0) {
-        return;
-    }
-
-    throw new CliUsageError(
-        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-        { usage: command.helpInformation() }
-    );
-}
-
 function createSuiteExecutionOptions(options) {
     return {
         projectRoot: options.project,
@@ -446,32 +428,21 @@ function createSuiteExecutionOptions(options) {
     };
 }
 
-function emitSuiteResults(results, options) {
-    if (options.format === "json") {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            suites: results
-        };
-        const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
-        return;
-    }
-
-    printHumanReadable(results);
-}
-
 export async function runPerformanceCommand({ command } = {}) {
     const options = command?.opts?.() ?? {};
 
-    const requestedSuites = resolveRequestedSuites(options);
-    ensureSuitesAreKnown(requestedSuites, command);
+    const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
+    ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
     const suiteResults = await executeSuites(
         requestedSuites,
         createSuiteExecutionOptions(options)
     );
 
-    emitSuiteResults(suiteResults, options);
+    const emittedJson = emitSuiteResultsJson(suiteResults, options);
+    if (!emittedJson) {
+        printHumanReadable(suiteResults);
+    }
 
     return 0;
 }

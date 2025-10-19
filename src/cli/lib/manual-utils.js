@@ -1,14 +1,43 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext, toTrimmedString } from "../../shared/utils.js";
+import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
+import { isNonEmptyArray } from "../../shared/array-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
+
+function normalizeVerboseOverrides(overrides) {
+    if (!overrides || typeof overrides !== "object") {
+        return null;
+    }
+
+    const entries = Object.entries(overrides).filter(([, value]) => value !== undefined);
+
+    return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
+function createManualVerboseState({
+    quiet = false,
+    isTerminal = false,
+    overrides
+} = {}) {
+    const baseState = {
+        resolveRef: !quiet,
+        downloads: !quiet,
+        parsing: !quiet,
+        progressBar: !quiet && isTerminal
+    };
+
+    const normalizedOverrides = normalizeVerboseOverrides(overrides);
+    return normalizedOverrides
+        ? { ...baseState, ...normalizedOverrides }
+        : baseState;
+}
 
 function assertPlainObject(value, message) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -221,7 +250,7 @@ function createManualGitHubClient({
             source: latestTagUrl
         });
 
-        if (!Array.isArray(tags) || tags.length === 0) {
+        if (!isNonEmptyArray(tags)) {
             console.warn(
                 "No manual tags found; defaulting to 'develop' branch."
             );
@@ -297,6 +326,7 @@ export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
+    createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
     resolveManualRepoValue,
