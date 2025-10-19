@@ -4,6 +4,7 @@ import {
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../../shared/string-utils.js";
+import { isObjectLike } from "../../shared/object-utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -30,23 +31,33 @@ export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
     const identifiers = metadata?.identifiers;
 
-    if (!identifiers || typeof identifiers !== "object") {
+    if (!isObjectLike(identifiers)) {
         return new Set();
     }
 
     const excludedTypes = resolveExcludedTypes(disallowedTypes);
 
-    return Object.entries(identifiers).reduce((names, [name, info]) => {
-        if (!isNonEmptyString(name)) {
-            return names;
-        }
+    return Object.entries(identifiers).reduce(
+        (names, [name, info]) =>
+            addIdentifierWhenAllowed(names, name, info, excludedTypes),
+        new Set()
+    );
+}
 
-        const type =
-            typeof info?.type === "string" ? info.type.toLowerCase() : "";
-        if (!excludedTypes.has(type)) {
-            names.add(name.toLowerCase());
-        }
-
+function addIdentifierWhenAllowed(names, rawName, info, excludedTypes) {
+    if (!isNonEmptyString(rawName)) {
         return names;
-    }, new Set());
+    }
+
+    const normalizedType = normalizeIdentifierType(info);
+    if (excludedTypes.has(normalizedType)) {
+        return names;
+    }
+
+    names.add(rawName.toLowerCase());
+    return names;
+}
+
+function normalizeIdentifierType(info) {
+    return typeof info?.type === "string" ? info.type.toLowerCase() : "";
 }

@@ -24,10 +24,10 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     const expectedLines = [
         "/// @function example",
         "/// @param a",
-        "/// @param c",
         "/// @param [b=1]",
+        "/// @param [c]",
         "/// @param [d=2]",
-        "function example(a, c, b = 1, d = 2) {",
+        "function example(a, b = 1, c = undefined, d = 2) {",
         "    return a + b + c + d;",
         "}"
     ].join("\n");
@@ -35,7 +35,7 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     assert.strictEqual(
         formatted.trim(),
         expectedLines,
-        "Expected flattened addition without extra parentheses."
+        "Expected optional parameters to be normalized without duplicating parentheses."
     );
 });
 

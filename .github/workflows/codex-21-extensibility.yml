@@ -15,12 +15,29 @@ jobs:
     secrets: inherit
     with:
       pr_title: "Codex: Add Extensibility Hook"
-      pr_body: "Seed PR for Codex to implement a targeted extensibility improvement."
+      pr_body: |
+        Seed PR for Codex to implement a targeted extensibility improvement while
+        keeping the defaults opinionated.
+
+        ## Requirements
+        - Document the rigid decision point that makes extension difficult today.
+        - Explain the minimal seam or hook you will add before touching code.
+        - Avoid exposing new end-user configuration unless it is indispensable;
+          prefer sensible defaults and internal extension points.
+        - When a new hook or option is warranted, clearly state who should use
+          it, the default value, and the guardrails that keep the behavior
+          predictable for everyone else.
+        - Update any impacted docs or inline comments, and keep behavior
+          unchanged by default.
       prompt: >
-        Identify a single hard-coded decision point that limits flexibility. Refactor it
-        into a configurable, parameterized, or hookable mechanism that preserves
-        existing behavior by default while allowing for straightforward extension. Avoid
-        overgeneralization: the change should solve one concrete extensibility gap
-        without introducing unnecessary abstraction or complexity. Keep the
-        implementation minimal, update any directly affected docs or inline comments,
-        and ensure tests and linters still pass.
+        Identify a single hard-coded decision point that limits flexibility.
+        Perform a short pre-change analysis describing the current behavior, the
+        extension seam you'll introduce, and how it preserves today's default.
+        Refactor it into a configurable, parameterized, or hookable mechanism
+        that remains opinionated and straightforward to extend. Avoid
+        overgeneralization: the change should solve one concrete extensibility
+        gap without introducing unnecessary abstraction or complexity. When you
+        add a hook or configuration point, document the default behavior, the
+        intended consumers, and how it should evolve over time. Keep the
+        implementation minimal, update any directly affected docs or inline
+        comments, and ensure tests and linters still pass.

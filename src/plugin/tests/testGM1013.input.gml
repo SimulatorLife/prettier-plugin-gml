@@ -1,9 +1,11 @@
 function AttackController (attack_bonus = 10) constructor {
 
+
     self.attack_bonus = attack_bonus;
 
-    static perform_attack = function() {
-        var base_atk = 1;  // Local variable for base attack value. Can be passed into 'with' block as-is.
+    /// @function attack_perform
+    static perform_attack = function () {
+        var base_atk = 1;      // Local variable for base attack value. Can be passed into 'with' block as-is.
 
         // Inside a with block, 'other' will be the instance or struct that called the with() function
         with (other)

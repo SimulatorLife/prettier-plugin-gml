@@ -5,7 +5,8 @@ import {
     getArrayProperty,
     getBodyStatements,
     hasArrayPropertyEntries,
-    hasBodyStatements
+    hasBodyStatements,
+    isProgramOrBlockStatement
 } from "../ast-node-helpers.js";
 
 describe("array property helpers", () => {
@@ -36,5 +37,16 @@ describe("array property helpers", () => {
             hasBodyStatements({ body: [{ type: "ExpressionStatement" }] }),
             true
         );
+    });
+
+    it("identifies program and block statement nodes", () => {
+        assert.equal(isProgramOrBlockStatement({ type: "Program" }), true);
+        assert.equal(
+            isProgramOrBlockStatement({ type: "BlockStatement" }),
+            true
+        );
+        assert.equal(isProgramOrBlockStatement({ type: "SwitchCase" }), false);
+        assert.equal(isProgramOrBlockStatement(null), false);
+        assert.equal(isProgramOrBlockStatement({}), false);
     });
 });

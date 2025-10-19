@@ -89,6 +89,32 @@ test("findProjectRoot returns null when no manifest is discovered", async () => 
     assert.equal(result, null);
 });
 
+test("findProjectRoot treats nullish directory listings as empty", async () => {
+    const projectRoot = path.resolve("/workspace/project");
+    const filePath = path.join(projectRoot, "scripts", "enemy", "attack.gml");
+
+    const directoryResponses = new Map([
+        [path.join(projectRoot, "scripts"), null],
+        [path.join(projectRoot, "scripts", "enemy"), undefined],
+        [projectRoot, null]
+    ]);
+
+    const mockFs = {
+        async readDir(targetPath) {
+            const normalizedPath = path.resolve(targetPath);
+            if (directoryResponses.has(normalizedPath)) {
+                return directoryResponses.get(normalizedPath);
+            }
+            return [];
+        }
+    };
+
+    await assert.doesNotReject(async () => {
+        const result = await findProjectRoot({ filepath: filePath }, mockFs);
+        assert.equal(result, null);
+    });
+});
+
 test("deriveCacheKey changes when manifest mtime changes", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const manifestName = `project${PROJECT_MANIFEST_EXTENSION}`;

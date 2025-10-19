@@ -1,73 +1,152 @@
 import fs from "node:fs";
 import path from "node:path";
-import { toTrimmedString } from "../../shared/string-utils.js";
-import { formatBytes, formatDuration } from "../../shared/number-utils.js";
+import {
+    assertNonEmptyString,
+    parseJsonWithContext,
+    toTrimmedString
+} from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
+import { formatDuration } from "./time-utils.js";
+import { formatBytes } from "./byte-format.js";
+import { isNonEmptyArray } from "../../shared/array-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
-function parseJsonOrThrow(text, description) {
-    try {
-        return JSON.parse(text);
-    } catch (error) {
-        throw new SyntaxError(
-            `Failed to parse ${description} as JSON: ${error.message}`
-        );
+/**
+ * @typedef {object} ManualGitHubRequestOptions
+ * @property {Record<string, string>} [headers]
+ * @property {boolean} [acceptJson]
+ */
+
+/**
+ * @typedef {object} ManualGitHubRequestDispatcher
+ * @property {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} execute
+ */
+
+/**
+ * @typedef {object} ManualGitHubResolveOptions
+ * @property {object} verbose
+ * @property {string} apiRoot
+ */
+
+/**
+ * The original `ManualGitHubClientSurfaces` interface forced manual commands to
+ * depend on request dispatching, reference resolution, and file fetching in one
+ * bundle. By splitting the contract we let call sites wire up only the
+ * collaborators they actually use, preserving interface segregation.
+ */
+
+/**
+ * @typedef {object} ManualGitHubReferencesClient
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
+ *   resolveManualRef
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubFetchOptions
+ * @property {boolean} [forceRefresh]
+ * @property {object} [verbose]
+ * @property {string} [cacheRoot]
+ * @property {string} [rawRoot]
+ */
+
+/**
+ * @typedef {object} ManualGitHubFileClient
+ * @property {(sha: string, filePath: string, options?: ManualGitHubFetchOptions) => Promise<string>} fetchManualFile
+ */
+
+/**
+ * @typedef {object} ManualGitHubClient
+ * @property {ManualGitHubRequestDispatcher} requestDispatcher
+ * @property {ManualGitHubReferencesClient} references
+ * @property {ManualGitHubFileClient} fileFetcher
+ */
+
+function createManualVerboseState({
+    quiet = false,
+    isTerminal = false,
+    overrides
+} = {}) {
+    const baseState = {
+        resolveRef: !quiet,
+        downloads: !quiet,
+        parsing: !quiet,
+        progressBar: !quiet && isTerminal
+    };
+
+    if (!overrides || typeof overrides !== "object") {
+        return baseState;
     }
+
+    return Object.entries(overrides).reduce(
+        (state, [key, value]) => {
+            if (value !== undefined) {
+                state[key] = value;
+            }
+            return state;
+        },
+        { ...baseState }
+    );
+}
+
+function assertPlainObject(value, message) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new TypeError(message);
+    }
+
+    return value;
 }
 
 function validateManualCommitPayload(payload, { ref }) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        throw new TypeError(
-            `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
-        );
-    }
+    const payloadRecord = assertPlainObject(
+        payload,
+        `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
+    );
 
-    if (typeof payload.sha !== "string" || payload.sha.length === 0) {
-        throw new TypeError(
-            `Manual ref '${ref}' response did not include a commit SHA.`
-        );
-    }
+    const sha = assertNonEmptyString(payloadRecord.sha, {
+        name: "Manual ref commit SHA",
+        errorMessage: `Manual ref '${ref}' response did not include a commit SHA.`
+    });
 
-    return payload.sha;
+    return sha;
 }
 
 function normalizeManualTagEntry(entry) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        throw new TypeError(
-            "Manual tags response must contain objects with tag metadata."
-        );
-    }
+    const { name: rawName, commit } = assertPlainObject(
+        entry,
+        "Manual tags response must contain objects with tag metadata."
+    );
 
-    const { name, commit } = entry;
-    if (typeof name !== "string" || name.length === 0) {
-        throw new TypeError("Manual tag entry is missing a tag name.");
-    }
+    const name = assertNonEmptyString(rawName, {
+        name: "Manual tag entry name",
+        errorMessage: "Manual tag entry is missing a tag name."
+    });
 
-    if (commit === undefined || commit === null) {
+    if (commit == null) {
         return { name, sha: null };
     }
 
-    if (typeof commit !== "object" || Array.isArray(commit)) {
-        throw new TypeError(
-            "Manual tag entry commit must be an object when provided."
-        );
-    }
+    const { sha } = assertPlainObject(
+        commit,
+        "Manual tag entry commit must be an object when provided."
+    );
 
-    if (commit.sha === undefined || commit.sha === null) {
+    if (sha == null) {
         return { name, sha: null };
     }
 
-    if (typeof commit.sha !== "string" || commit.sha.length === 0) {
-        throw new TypeError(
+    const normalizedSha = assertNonEmptyString(sha, {
+        name: "Manual tag entry commit SHA",
+        errorMessage:
             "Manual tag entry commit SHA must be a non-empty string when provided."
-        );
-    }
+    });
 
-    return { name, sha: commit.sha };
+    return { name, sha: normalizedSha };
 }
 
 function resolveManualCacheRoot({
@@ -152,6 +231,12 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
     throw new TypeError(`${requirement} (received ${received}).`);
 }
 
+/**
+ * Provide specialised GitHub helpers for manual fetching without forcing
+ * consumers to depend on unrelated operations.
+ *
+ * @returns {ManualGitHubClient}
+ */
 function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
@@ -192,10 +277,40 @@ function createManualGitHubClient({
         return bodyText;
     }
 
+    const requestDispatcher = {
+        /** @type {ManualGitHubRequestDispatcher} */
+        execute: curlRequest
+    };
+
+    const references = createManualGitHubReferencesClient({
+        request: requestDispatcher.execute
+    });
+
+    const fileFetcher = createManualGitHubFileClient({
+        request: requestDispatcher.execute,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
+
+    return {
+        requestDispatcher,
+        references,
+        fileFetcher
+    };
+}
+
+/**
+ * @param {{ request: ManualGitHubRequestDispatcher["execute"] }} options
+ * @returns {ManualGitHubReferencesClient}
+ */
+function createManualGitHubReferencesClient({ request }) {
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
-        const body = await curlRequest(url, { acceptJson: true });
-        const payload = parseJsonOrThrow(body, "manual commit response");
+        const body = await request(url, { acceptJson: true });
+        const payload = parseJsonWithContext(body, {
+            description: "manual commit response",
+            source: url
+        });
         const sha = validateManualCommitPayload(payload, { ref });
 
         return { ref, sha };
@@ -215,10 +330,13 @@ function createManualGitHubClient({
         }
 
         const latestTagUrl = `${apiRoot}/tags?per_page=1`;
-        const body = await curlRequest(latestTagUrl, { acceptJson: true });
-        const tags = parseJsonOrThrow(body, "manual tags response");
+        const body = await request(latestTagUrl, { acceptJson: true });
+        const tags = parseJsonWithContext(body, {
+            description: "manual tags response",
+            source: latestTagUrl
+        });
 
-        if (!Array.isArray(tags) || tags.length === 0) {
+        if (!isNonEmptyArray(tags)) {
             console.warn(
                 "No manual tags found; defaulting to 'develop' branch."
             );
@@ -232,6 +350,25 @@ function createManualGitHubClient({
         };
     }
 
+    return {
+        resolveManualRef,
+        resolveCommitFromRef
+    };
+}
+
+/**
+ * @param {{
+ *   request: ManualGitHubRequestDispatcher["execute"],
+ *   defaultCacheRoot?: string,
+ *   defaultRawRoot: string
+ * }} options
+ * @returns {ManualGitHubFileClient}
+ */
+function createManualGitHubFileClient({
+    request,
+    defaultCacheRoot,
+    defaultRawRoot
+}) {
     async function fetchManualFile(
         sha,
         filePath,
@@ -266,7 +403,7 @@ function createManualGitHubClient({
         }
 
         const url = `${rawRoot}/${sha}/${filePath}`;
-        const content = await curlRequest(url);
+        const content = await request(url);
 
         await ensureDir(path.dirname(cachePath));
         await fs.writeFile(cachePath, content, "utf8");
@@ -283,9 +420,6 @@ function createManualGitHubClient({
     }
 
     return {
-        curlRequest,
-        resolveManualRef,
-        resolveCommitFromRef,
         fetchManualFile
     };
 }
@@ -294,6 +428,7 @@ export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
+    createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
     resolveManualRepoValue,

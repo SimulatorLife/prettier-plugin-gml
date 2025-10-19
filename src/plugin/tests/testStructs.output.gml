@@ -35,6 +35,11 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
     };
 }
 
+// Print function with different scope 
+var print = function() {
+    show_debug_message("This is a different print function");
+};
+
 /// @function keep_separate
 function keep_separate() {
     var foo = {};

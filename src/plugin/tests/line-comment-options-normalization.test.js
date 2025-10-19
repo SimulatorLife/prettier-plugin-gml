@@ -7,6 +7,7 @@ import {
     formatLineComment,
     resolveLineCommentOptions
 } from "../src/comments/index.js";
+import { isRegExpLike } from "../../shared/utils/capability-probes.js";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -20,19 +21,24 @@ function createLineComment(value, raw = `//${value}`) {
 describe("resolveLineCommentOptions", () => {
     it("caches resolved objects for repeated plugin option lookups", () => {
         const pluginOptions = {
-            lineCommentBannerMinimumSlashes: 7,
-            lineCommentBannerAutofillThreshold: 3,
-            lineCommentBoilerplateFragments: "Alpha, Beta"
+            lineCommentBoilerplateFragments: "Alpha, Beta",
+            lineCommentCodeDetectionPatterns: "/^SQL:/i"
         };
+
+        Object.freeze(pluginOptions);
 
         const first = resolveLineCommentOptions(pluginOptions);
         const second = resolveLineCommentOptions(pluginOptions);
 
         assert.strictEqual(first, second);
-        assert.equal(first.bannerMinimum, 7);
-        assert.equal(first.bannerAutofillThreshold, 3);
         assert.ok(first.boilerplateFragments.includes("Alpha"));
         assert.ok(first.boilerplateFragments.includes("Beta"));
+        assert.ok(
+            first.codeDetectionPatterns.some(
+                (pattern) =>
+                    pattern instanceof RegExp && pattern.source === "^SQL:"
+            )
+        );
     });
 
     it("falls back to defaults when no overrides are provided", () => {
@@ -53,11 +59,14 @@ describe("resolveLineCommentOptions", () => {
         );
 
         const sqlPattern = resolved.codeDetectionPatterns.find((pattern) => {
-            if (!(pattern instanceof RegExp)) {
+            if (!isRegExpLike(pattern)) {
                 return false;
             }
 
-            pattern.lastIndex = 0;
+            if (typeof pattern.lastIndex === "number") {
+                pattern.lastIndex = 0;
+            }
+
             return pattern.test("SQL: SELECT * FROM logs");
         });
 
@@ -66,23 +75,32 @@ describe("resolveLineCommentOptions", () => {
             "Expected merged patterns to include SQL detector"
         );
     });
+
+    it("retains RegExp-like detectors provided through options", () => {
+        const probe = {
+            lastIndex: 0,
+            test(text) {
+                this.lastIndex = 0;
+                return text.startsWith("Alpha");
+            },
+            exec() {
+                return null;
+            }
+        };
+
+        const resolved = resolveLineCommentOptions({
+            lineCommentCodeDetectionPatterns: probe
+        });
+
+        const match = resolved.codeDetectionPatterns.find((pattern) => {
+            return pattern === probe;
+        });
+
+        assert.ok(match, "Expected to preserve RegExp-like detectors");
+    });
 });
 
 describe("formatLineComment", () => {
-    it("applies banner overrides passed directly to the formatter", () => {
-        const comment = createLineComment(" Banner", "/// Banner");
-
-        const formatted = formatLineComment(comment, { bannerMinimum: 3 });
-        assert.equal(formatted, "/// Banner");
-    });
-
-    it("accepts numeric banner overrides", () => {
-        const comment = createLineComment(" Banner", "/// Banner");
-
-        const formatted = formatLineComment(comment, 3);
-        assert.equal(formatted, "/// Banner");
-    });
-
     it("dedupes custom boilerplate fragments while normalizing options", () => {
         const comment = createLineComment(
             " Auto-generated file. Do not edit.",
@@ -111,5 +129,25 @@ describe("formatLineComment", () => {
         });
 
         assert.equal(formatted, "//SQL: SELECT * FROM logs");
+    });
+
+    it("respects RegExp-like detection patterns when formatting", () => {
+        const comment = createLineComment("AlphaBeta", "//AlphaBeta");
+        const regExpLike = {
+            lastIndex: 0,
+            test(text) {
+                this.lastIndex = 0;
+                return text.startsWith("Alpha");
+            },
+            exec() {
+                return null;
+            }
+        };
+
+        const formatted = formatLineComment(comment, {
+            codeDetectionPatterns: [regExpLike]
+        });
+
+        assert.equal(formatted, "//AlphaBeta");
     });
 });

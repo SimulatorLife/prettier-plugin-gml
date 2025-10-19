@@ -97,6 +97,38 @@ describe("applyEnvOptionOverride", () => {
             }
         );
     });
+
+    it("preserves resolver failures that mimic Error objects", () => {
+        const command = {
+            setOptionValueWithSource() {
+                throw new Error("should not be called");
+            }
+        };
+
+        const failure = {
+            name: "ResolverFailure",
+            message: "custom failure"
+        };
+
+        assert.throws(
+            () =>
+                applyEnvOptionOverride({
+                    command,
+                    env: { TEST_VALUE: "value" },
+                    envVar: "TEST_VALUE",
+                    optionName: "testOption",
+                    resolveValue() {
+                        throw failure;
+                    }
+                }),
+            (error) => {
+                assert.ok(error instanceof CliUsageError);
+                assert.equal(error.message, "custom failure");
+                assert.equal(error.cause, failure);
+                return true;
+            }
+        );
+    });
 });
 
 describe("applyEnvOptionOverrides", () => {

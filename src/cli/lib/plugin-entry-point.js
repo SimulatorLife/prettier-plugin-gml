@@ -3,6 +3,13 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import {
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    normalizeStringList,
+    toArray
+} from "./shared-deps.js";
+
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
@@ -15,44 +22,28 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["plugin", "index.js"]
 ]);
 
-function normalizeCandidateDescriptors(candidates) {
-    if (!candidates) {
-        return [];
-    }
+const LIST_SEPARATORS = Array.from(
+    new Set([",", path.delimiter].filter(Boolean))
+);
 
-    return Array.isArray(candidates) ? candidates : [candidates];
-}
-
-function splitCandidateList(rawValue) {
-    const entries = [];
-
-    for (const delimiterChunk of rawValue.split(path.delimiter)) {
-        for (const entry of delimiterChunk.split(",")) {
-            const trimmed = entry.trim();
-            if (trimmed) {
-                entries.push(trimmed);
-            }
-        }
-    }
-
-    return entries;
-}
+const LIST_SPLIT_PATTERN = new RegExp(
+    `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
+);
 
 function getEnvironmentCandidates(env) {
     const rawValue =
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ??
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATH;
 
-    if (typeof rawValue !== "string") {
+    const trimmed = getNonEmptyTrimmedString(rawValue);
+    if (!trimmed) {
         return [];
     }
 
-    const trimmed = rawValue.trim();
-    if (trimmed.length === 0) {
-        return [];
-    }
-
-    return splitCandidateList(trimmed);
+    return normalizeStringList(trimmed, {
+        splitPattern: LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    });
 }
 
 function resolveCandidatePath(candidate) {
@@ -64,54 +55,72 @@ function resolveCandidatePath(candidate) {
         return path.resolve(REPO_ROOT, ...candidate);
     }
 
-    if (typeof candidate !== "string") {
-        return null;
+    if (typeof candidate === "string") {
+        const trimmed = getNonEmptyTrimmedString(candidate);
+        if (!trimmed) {
+            return null;
+        }
+
+        if (path.isAbsolute(trimmed)) {
+            return trimmed;
+        }
+
+        return path.resolve(REPO_ROOT, trimmed);
     }
 
-    const trimmed = candidate.trim();
-    if (trimmed.length === 0) {
-        return null;
-    }
-
-    if (path.isAbsolute(trimmed)) {
-        return trimmed;
-    }
-
-    return path.resolve(REPO_ROOT, trimmed);
+    return null;
 }
 
-function collectCandidatePaths({ env, candidates } = {}) {
-    const explicitCandidates = normalizeCandidateDescriptors(candidates);
-    const envCandidates = getEnvironmentCandidates(env);
-
-    return [
-        ...explicitCandidates,
-        ...envCandidates,
+function resolveCandidatePaths({ env, candidates } = {}) {
+    const orderedCandidates = [
+        ...toArray(candidates),
+        ...getEnvironmentCandidates(env),
         ...DEFAULT_CANDIDATE_PLUGIN_PATHS
     ];
-}
 
-export function resolvePluginEntryPoint({ env, candidates } = {}) {
-    const orderedCandidates = collectCandidatePaths({
-        env: env ?? process.env,
-        candidates
-    });
     const resolvedCandidates = [];
+    const seen = new Set();
 
     for (const candidate of orderedCandidates) {
-        const resolved = resolveCandidatePath(candidate);
-        if (!resolved || resolvedCandidates.includes(resolved)) {
+        const resolvedPath = resolveCandidatePath(candidate);
+        if (!resolvedPath || seen.has(resolvedPath)) {
             continue;
         }
 
-        resolvedCandidates.push(resolved);
-        if (fs.existsSync(resolved)) {
-            return resolved;
+        seen.add(resolvedPath);
+        resolvedCandidates.push(resolvedPath);
+    }
+
+    return resolvedCandidates;
+}
+
+function findFirstExistingPath(candidates) {
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
         }
     }
 
-    throw new Error(
+    return null;
+}
+
+function createMissingEntryPointError(resolvedCandidates) {
+    return new Error(
         "Unable to locate the Prettier plugin entry point. Expected one of: " +
             resolvedCandidates.join(", ")
     );
+}
+
+export function resolvePluginEntryPoint({ env, candidates } = {}) {
+    const resolvedCandidates = resolveCandidatePaths({
+        env: env ?? process.env,
+        candidates
+    });
+    const existingPath = findFirstExistingPath(resolvedCandidates);
+
+    if (existingPath) {
+        return existingPath;
+    }
+
+    throw createMissingEntryPointError(resolvedCandidates);
 }

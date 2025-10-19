@@ -1,8 +1,8 @@
 /// @function example
 /// @param a
-/// @param c
 /// @param [b=1]
+/// @param [c]
 /// @param [d=2]
-function example(a, c, b = 1, d = 2) {
-    return a + b + c + d;
+function example(a, b = 1 c = undefined, d = 2) {
+    return $"{a}, {b}, {c}, {d}";
 }

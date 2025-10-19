@@ -9,13 +9,13 @@ why a rename did or did not occur or when configuring dry-run checks in CI.
 Identifier-case planning now evaluates the following scopes in addition to
 locals and assets:
 
-| Scope | Source | Coverage |
-| --- | --- | --- |
-| Functions | Script resources | Declarations and call expressions resolved through the project index. |
-| Struct constructors | Script resources marked as constructors | Declarations and `new` expressions resolved to struct scripts. |
-| Macros | `#macro` statements | Declarations and macro references in expressions. |
-| Globals | `globalvar` declarations and global assignments | Declarations plus reads/writes to `global` identifiers. |
-| Instance | Assignments inside object events | Instance assignments inferred from object event scopes. |
+| Scope               | Source                                          | Coverage                                                              |
+| ------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| Functions           | Script resources                                | Declarations and call expressions resolved through the project index. |
+| Struct constructors | Script resources marked as constructors         | Declarations and `new` expressions resolved to struct scripts.        |
+| Macros              | `#macro` statements                             | Declarations and macro references in expressions.                     |
+| Globals             | `globalvar` declarations and global assignments | Declarations plus reads/writes to `global` identifiers.               |
+| Instance            | Assignments inside object events                | Instance assignments inferred from object event scopes.               |
 
 All scopes respect the base `gmlIdentifierCase` style unless overridden by the
 scope-specific toggle (for example `gmlIdentifierCaseFunctions`). When a scope is

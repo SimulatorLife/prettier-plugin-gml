@@ -4,7 +4,7 @@
 
 var util = function(val) {
 	return val * LEGACY_MACRO;
-}
+};
 
 #endregion Utility Scripts
 

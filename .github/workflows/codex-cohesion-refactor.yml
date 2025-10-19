@@ -22,8 +22,12 @@ jobs:
       prompt: >
         Hunt for fragmented helpers or duplicated utilities that should live together.
         Extract or merge them into a shared module with clear ownership so related code
-        sits side-by-side. Update imports/exports accordingly and keep changes targeted to
-        one cohesive slice of the project.
+        sits side-by-side. When minting a brand-new helper, strongly prefer situations
+        where the function will be called at least three times and contain five or more
+        lines of executable logic (excluding comments and blank lines) so the addition
+        carries its weight, unless you have a well-supported reason to do otherwise.
+        Update imports/exports accordingly and keep changes targeted to one cohesive
+        slice of the project.
 
         Requirements:
           • Accept optional allow/deny path lists from workflow inputs. Honor them to avoid

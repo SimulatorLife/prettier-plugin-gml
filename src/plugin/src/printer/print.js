@@ -29,8 +29,9 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
@@ -46,20 +47,20 @@ import {
     getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/local-plan.js";
+} from "../identifier-case/plan-state.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
-import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 const {
     breakParent,
@@ -71,7 +72,8 @@ const {
     ifBreak,
     hardline,
     softline,
-    concat
+    concat,
+    lineSuffixBoundary
 } = builders;
 const { willBreak } = utils;
 
@@ -126,11 +128,11 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
-function resolvelogicalOperatorsStyle(options) {
+function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
 
-function applylogicalOperatorsStyle(operator, style) {
+function applyLogicalOperatorsStyle(operator, style) {
     if (operator === "&&") {
         return style === LogicalOperatorsStyle.KEYWORDS ? "and" : "&&";
     }
@@ -177,12 +179,52 @@ export function print(path, options, print) {
                 return concat(printEmptyBlock(path, options, print));
             }
 
-            const leadingLines = [hardline];
-            const blockParent = path.getParentNode();
+            let leadingDocs = [hardline];
+
+            const parentNode =
+                typeof path.getParentNode === "function"
+                    ? path.getParentNode()
+                    : null;
+
+            let shouldInsertLeadingBlankLine = false;
+
+            if (
+                parentNode?.type === "ConstructorDeclaration" &&
+                typeof options.originalText === "string"
+            ) {
+                const firstStatement = node.body[0];
+                const startProp = firstStatement?.start;
+                const fallbackStart =
+                    typeof startProp === "number"
+                        ? startProp
+                        : typeof startProp?.index === "number"
+                          ? startProp.index
+                          : 0;
+                const locStart =
+                    typeof options.locStart === "function"
+                        ? options.locStart
+                        : null;
+                const firstStatementStartIndex = locStart
+                    ? locStart(firstStatement)
+                    : fallbackStart;
+
+                if (
+                    isPreviousLineEmpty(
+                        options.originalText,
+                        firstStatementStartIndex
+                    )
+                ) {
+                    shouldInsertLeadingBlankLine = true;
+                }
+            }
+
             const parentAllowsLeadingBlankLine =
-                blockParent?.type === "ConstructorDeclaration" ||
-                (blockParent?.type === "FunctionDeclaration" &&
+                parentNode?.type === "ConstructorDeclaration" ||
+                (parentNode?.type === "FunctionDeclaration" &&
                     (() => {
+                        if (typeof path.getParentNode !== "function") {
+                            return false;
+                        }
                         const declaratorParent = path.getParentNode(1);
                         const declarationAncestor = path.getParentNode(2);
                         return (
@@ -197,7 +239,11 @@ export function print(path, options, print) {
                 parentAllowsLeadingBlankLine &&
                 shouldPreserveLeadingBlankLine(node, options)
             ) {
-                leadingLines.push(hardline);
+                shouldInsertLeadingBlankLine = true;
+            }
+
+            if (shouldInsertLeadingBlankLine) {
+                leadingDocs.push(lineSuffixBoundary, hardline);
             }
 
             return concat([
@@ -208,7 +254,7 @@ export function print(path, options, print) {
                     (comment) => comment.attachToBrace
                 ),
                 indent([
-                    ...leadingLines,
+                    ...leadingDocs,
                     printStatements(path, options, print, "body")
                 ]),
                 hardline,
@@ -404,6 +450,22 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
+            const locStart =
+                typeof options.locStart === "function"
+                    ? options.locStart
+                    : null;
+            const fallbackStart =
+                typeof node?.start === "number"
+                    ? node.start
+                    : typeof node?.start?.index === "number"
+                      ? node.start.index
+                      : 0;
+            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const originalText =
+                typeof options.originalText === "string"
+                    ? options.originalText
+                    : null;
+
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -448,7 +510,22 @@ export function print(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
-                if (needsLeadingBlankLine && !suppressLeadingBlank) {
+                const hasLeadingNonDocComment =
+                    !isNonEmptyArray(node.docComments) &&
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+                const hasExistingBlankLine =
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    isPreviousLineEmpty(originalText, nodeStartIndex);
+
+                if (
+                    !suppressLeadingBlank &&
+                    (needsLeadingBlankLine ||
+                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                ) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
@@ -466,7 +543,7 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc = isNonEmptyString(renamed) ? renamed : node.id;
+                functionNameDoc = getNonEmptyString(renamed) ?? node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
@@ -618,7 +695,7 @@ export function print(path, options, print) {
             let left = print("left");
             let operator = node.operator;
             let right = print("right");
-            const logicalOperatorsStyle = resolvelogicalOperatorsStyle(options);
+            const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
             const rightIsUndefined = isUndefinedLiteral(node.right);
@@ -656,7 +733,7 @@ export function print(path, options, print) {
                 operator = "*";
                 right = "0.5";
             } else {
-                const styledOperator = applylogicalOperatorsStyle(
+                const styledOperator = applyLogicalOperatorsStyle(
                     operator,
                     logicalOperatorsStyle
                 );
@@ -980,21 +1057,11 @@ export function print(path, options, print) {
         }
         case "Literal": {
             let value = node.value;
-            const shouldPadDecimalZeroes =
-                options.fixMissingDecimalZeroes !== false;
 
-            if (
-                shouldPadDecimalZeroes &&
-                value.startsWith(".") &&
-                !value.startsWith('"')
-            ) {
+            if (value.startsWith(".") && !value.startsWith('"')) {
                 value = "0" + value; // Fix decimals without a leading 0.
             }
-            if (
-                shouldPadDecimalZeroes &&
-                value.endsWith(".") &&
-                !value.endsWith('"')
-            ) {
+            if (value.endsWith(".") && !value.endsWith('"')) {
                 value = value + "0"; // Fix decimals without a trailing 0.
             }
             return concat(value);
@@ -1011,14 +1078,6 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            const placeholder =
-                options.missingOptionalArgumentPlaceholder ??
-                MissingOptionalArgumentPlaceholder.UNDEFINED;
-
-            if (placeholder === MissingOptionalArgumentPlaceholder.EMPTY) {
-                return concat("");
-            }
-
             return concat("undefined");
         }
         case "NewExpression": {
@@ -1576,6 +1635,10 @@ function printStatements(path, options, print, childrenAttribute) {
 
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
+
+        const suppressFollowingEmptyLine =
+            node?._featherSuppressFollowingEmptyLine === true;
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
@@ -1592,18 +1655,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 (node.declarations[0]?.init?.type === "FunctionExpression" ||
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
-            if (initializerIsFunctionExpression) {
-                const shouldPreserveMissingSemicolon =
-                    !hasTerminatingSemicolon && !isStaticDeclaration;
-
-                if (shouldPreserveMissingSemicolon) {
-                    // Normalised legacy `#define` directives often emit function
-                    // expressions assigned to variables without a trailing
-                    // semicolon. Preserve that omission so the formatter mirrors
-                    // the original code style while static declarations always
-                    // receive a terminating semicolon for consistency.
-                    semi = "";
-                }
+            if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
+                // Normalised legacy `#define` directives used to omit trailing
+                // semicolons when rewriting to function expressions. The
+                // formatter now standardises those assignments so they always
+                // emit an explicit semicolon, matching the golden fixtures and
+                // keeping the output consistent regardless of the original
+                // source style.
+                semi = ";";
             }
         }
 
@@ -1656,10 +1715,15 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
 
-            const nextLineEmpty = isNextLineEmpty(
-                options.originalText,
-                nextLineProbeIndex
-            );
+            const suppressLeadingEmptyLine =
+                nextNode?._featherSuppressLeadingEmptyLine === true;
+            const forceFollowingEmptyLine =
+                node?._featherForceFollowingEmptyLine === true;
+
+            const nextLineEmpty =
+                suppressFollowingEmptyLine || suppressLeadingEmptyLine
+                    ? false
+                    : isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
             const isSanitizedMacro =
                 node?.type === "MacroDeclaration" &&
@@ -1682,6 +1746,14 @@ function printStatements(path, options, print, childrenAttribute) {
             if (shouldForceMacroPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
@@ -1695,6 +1767,23 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const parentNode = childPath.parent;
+            const trailingProbeIndex =
+                node?.type === "DefineStatement" ||
+                node?.type === "MacroDeclaration"
+                    ? nodeEndIndex
+                    : nodeEndIndex + 1;
+            const shouldPreserveTrailingBlankLine =
+                parentNode?.type === "BlockStatement" &&
+                typeof options.originalText === "string" &&
+                isNextLineEmpty(options.originalText, trailingProbeIndex) &&
+                !suppressFollowingEmptyLine;
+
+            if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            }
         }
 
         return parts;
@@ -1839,6 +1928,9 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     if (functionNode._suppressSyntheticReturnsDoc) {
         syntheticOverrides.suppressReturns = true;
     }
+    if (node._overridesStaticFunction === true) {
+        syntheticOverrides.includeOverrideTag = true;
+    }
     const hasExistingDocLines = existingDocLines.length > 0;
 
     const syntheticLines = hasExistingDocLines
@@ -1875,10 +1967,16 @@ function isSkippableSemicolonWhitespace(charCode) {
         case 12: // form feed
         case 13: // carriage return
         case 32: // space
-        case 160: // non-breaking space
-        case 0x20_28: // line separator
+        case 160:
+        case 0x20_28:
         case 0x20_29: {
-            // paragraph separator
+            // GameMaker occasionally serializes or copy/pastes scripts with the
+            // U+00A0 non-breaking space and the U+2028/U+2029 line and
+            // paragraph separators—for example when creators paste snippets
+            // from the IDE or import JSON exports. Treat them as
+            // semicolon-trimmable whitespace so the cleanup logic keeps
+            // matching GameMaker's parser expectations instead of leaving stray
+            // semicolons behind.
             return true;
         }
         default: {
@@ -1991,6 +2089,8 @@ function mergeSyntheticDocComments(
 
     const isFunctionLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+    const isOverrideLine = (line) =>
+        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
     const isParamLine = (line) =>
         typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
 
@@ -2000,6 +2100,8 @@ function mergeSyntheticDocComments(
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    const overrideLines = otherLines.filter(isOverrideLine);
+    otherLines = otherLines.filter((line) => !isOverrideLine(line));
     let returnsLines = [];
 
     // Cache canonical names so we only parse each doc comment line at most once.
@@ -2072,6 +2174,37 @@ function mergeSyntheticDocComments(
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
+            ];
+            removedAnyLine = true;
+        }
+    }
+
+    if (overrideLines.length > 0) {
+        const existingOverrideIndices = mergedLines
+            .map((line, index) => (isOverrideLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingOverrideIndices.length > 0) {
+            const [firstOverrideIndex, ...duplicateOverrideIndices] =
+                existingOverrideIndices;
+            mergedLines = [...mergedLines];
+
+            for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
+                mergedLines.splice(duplicateOverrideIndices[i], 1);
+                removedAnyLine = true;
+            }
+
+            mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
+            removedAnyLine = true;
+        } else {
+            const firstFunctionIndex = mergedLines.findIndex(isFunctionLine);
+            const insertionIndex =
+                firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertionIndex),
+                ...overrideLines,
+                ...mergedLines.slice(insertionIndex)
             ];
             removedAnyLine = true;
         }
@@ -2636,14 +2769,25 @@ function computeSyntheticFunctionDocLines(
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
 
-    const hasFunctionTag = metadata.some(
-        (meta) => meta.tag === "function" && isNonEmptyTrimmedString(meta.name)
-    );
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
+    const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
+    const existingFunctionMetadata = metadata.find(
+        (meta) => meta.tag === "function"
+    );
+    const normalizedFunctionName =
+        typeof functionName === "string" &&
+        isNonEmptyTrimmedString(functionName)
+            ? normalizeDocMetadataName(functionName)
+            : null;
+    const normalizedExistingFunctionName =
+        typeof existingFunctionMetadata?.name === "string" &&
+        isNonEmptyTrimmedString(existingFunctionMetadata.name)
+            ? normalizeDocMetadataName(existingFunctionMetadata.name)
+            : null;
 
     for (const meta of metadata) {
         if (meta.tag !== "param") {
@@ -2663,6 +2807,9 @@ function computeSyntheticFunctionDocLines(
         }
     }
 
+    const shouldInsertOverrideTag =
+        overrides?.includeOverrideTag === true && !hasOverrideTag;
+
     const lines = [];
 
     const shouldPrependOverride =
@@ -2670,11 +2817,16 @@ function computeSyntheticFunctionDocLines(
             node?._docCommentOverride === true) &&
         !metadata.some((meta) => meta.tag === "override");
 
-    if (shouldPrependOverride) {
+    if (shouldInsertOverrideTag || shouldPrependOverride) {
         lines.push("/// @override");
     }
 
-    if (functionName && !hasFunctionTag) {
+    const shouldInsertFunctionTag =
+        normalizedFunctionName &&
+        (normalizedExistingFunctionName === null ||
+            normalizedExistingFunctionName !== normalizedFunctionName);
+
+    if (shouldInsertFunctionTag) {
         lines.push(`/// @function ${functionName}`);
     }
 
@@ -3121,7 +3273,7 @@ function getNormalizedParameterName(paramNode) {
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return isNonEmptyString(normalizedName) ? normalizedName : null;
+    return getNonEmptyString(normalizedName);
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
@@ -3158,8 +3310,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
+        const optionalOverride = paramNode?._featherOptionalParameter === true;
         const optional = defaultIsUndefined
-            ? !signatureOmitsUndefinedDefault
+            ? optionalOverride || !signatureOmitsUndefinedDefault
             : true;
 
         return {
@@ -3445,7 +3598,11 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     }
 
     const [firstArg] = args;
-    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+    if (
+        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+            caseInsensitive: true
+        })
+    ) {
         return false;
     }
 
@@ -3497,19 +3654,6 @@ function applyOuterTrigConversion(node, conversionMap) {
 
     updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
     return true;
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const identifierName = getIdentifierText(node.object);
-    if (!identifierName) {
-        return false;
-    }
-
-    return identifierName.toLowerCase() === name;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {

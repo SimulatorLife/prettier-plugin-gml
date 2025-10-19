@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     coercePositiveInteger,
     coerceNonNegativeInteger,
+    coercePositiveIntegerOption,
     resolveIntegerOption,
     normalizeNumericOption
 } from "../numeric-option-utils.js";
@@ -31,6 +32,24 @@ test("coerceNonNegativeInteger enforces a minimum of 0", () => {
                 createErrorMessage: (received) => `bad: ${received}`
             }),
         new TypeError("bad: -1")
+    );
+});
+
+test("coercePositiveIntegerOption falls back to defaults", () => {
+    assert.strictEqual(coercePositiveIntegerOption(7, 3), 7);
+    assert.strictEqual(coercePositiveIntegerOption(undefined, 3), 3);
+    assert.strictEqual(coercePositiveIntegerOption(null, 3), 3);
+    assert.strictEqual(coercePositiveIntegerOption(0, 3), 3);
+});
+
+test("coercePositiveIntegerOption respects zero replacement", () => {
+    assert.strictEqual(
+        coercePositiveIntegerOption(0, 3, { zeroReplacement: 10 }),
+        10
+    );
+    assert.strictEqual(
+        coercePositiveIntegerOption("bad", 4, { zeroReplacement: 8 }),
+        4
     );
 });
 
@@ -94,9 +113,6 @@ test("normalizeNumericOption trims strings and forwards context", () => {
         },
         formatTypeError(optionName, type) {
             return `${optionName}:${type}`;
-        },
-        createCoerceOptions(context) {
-            return { ...context };
         }
     });
 
@@ -110,11 +126,17 @@ test("normalizeNumericOption trims strings and forwards context", () => {
     });
 });
 
-test("normalizeNumericOption uses fallback option factory", () => {
+test("normalizeNumericOption forwards context for numeric inputs", () => {
     const result = normalizeNumericOption(7, {
         optionName: "example",
         coerce(value, options) {
-            assert.deepStrictEqual(options, { optionName: "example" });
+            assert.deepStrictEqual(options, {
+                optionName: "example",
+                rawType: "number",
+                rawValue: 7,
+                received: 7,
+                isString: false
+            });
             return value;
         },
         formatTypeError(optionName, type) {

@@ -1,5 +1,6 @@
 import { constants as fsConstants } from "node:fs";
 
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 
@@ -7,6 +8,36 @@ export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
 export const RESERVED_CONFLICT_CODE = "reserved";
+
+export function formatConfigurationConflictMessage({
+    configConflict,
+    identifierName,
+    noun = "Identifier"
+}) {
+    if (!configConflict) {
+        return null;
+    }
+
+    const labelNoun = isNonEmptyString(noun) ? noun : "Identifier";
+    const labelName =
+        typeof identifierName === "string"
+            ? identifierName
+            : String(identifierName ?? "");
+    const subject = `${labelNoun} '${labelName}'`;
+
+    if (configConflict.code === PRESERVE_CONFLICT_CODE) {
+        return `${subject} is preserved by configuration.`;
+    }
+
+    if (configConflict.code === IGNORE_CONFLICT_CODE) {
+        const ignoreMatch = isNonEmptyString(configConflict.ignoreMatch)
+            ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
+            : " is ignored by configuration.";
+        return `${subject}${ignoreMatch}`;
+    }
+
+    return `${subject} cannot be renamed due to configuration.`;
+}
 
 export function escapeForRegExp(value) {
     if (typeof value !== "string") {
@@ -49,7 +80,7 @@ export function buildPatternMatchers(patterns) {
 }
 
 export function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Array.isArray(matchers) || matchers.length === 0) {
+    if (!isNonEmptyArray(matchers)) {
         return null;
     }
 
@@ -143,6 +174,28 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
 
     counts.set(key, (counts.get(key) ?? 0) + 1);
     return true;
+}
+
+export function summarizeReferenceFileOccurrences(
+    references,
+    { fallbackPath = null, includeFilePaths = [] } = {}
+) {
+    const counts = new Map();
+
+    for (const extraPath of includeFilePaths ?? []) {
+        if (typeof extraPath !== "string" || extraPath.length === 0) {
+            continue;
+        }
+
+        incrementFileOccurrence(counts, extraPath);
+    }
+
+    for (const reference of references ?? []) {
+        const filePath = reference?.filePath;
+        incrementFileOccurrence(counts, filePath, fallbackPath);
+    }
+
+    return summarizeFileOccurrences(counts);
 }
 
 export function summarizeFileOccurrences(counts) {

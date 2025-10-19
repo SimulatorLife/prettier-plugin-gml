@@ -7,8 +7,8 @@ import { describe, it } from "node:test";
 
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
-import { getNodeStartIndex } from "../../shared/ast-locations.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { getNodeStartIndex } from "../../shared/ast.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
@@ -112,6 +112,44 @@ function collectIdentifiers(node) {
     return identifiers;
 }
 
+function collectNodesByType(node, type) {
+    const nodes = [];
+    const visited = new Set();
+
+    function visit(value) {
+        if (value === null || typeof value !== "object") {
+            return;
+        }
+
+        if (visited.has(value)) {
+            return;
+        }
+
+        visited.add(value);
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (value.type === type) {
+            nodes.push(value);
+        }
+
+        for (const [key, child] of Object.entries(value)) {
+            if (key === "start" || key === "end" || key === "declaration") {
+                continue;
+            }
+            visit(child);
+        }
+    }
+
+    visit(node);
+    return nodes;
+}
+
 function groupIdentifiersByName(identifiers) {
     const map = new Map();
 
@@ -187,6 +225,21 @@ describe("GameMaker parser fixtures", () => {
         assert.doesNotThrow(() => parseFixture(source));
     });
 
+    it("parses string literals with uppercase escape sequences", () => {
+        const source = `function example() {\n    var message = "\\N sounds";\n}`;
+
+        const ast = parseFixture(source);
+        const literals = collectNodesByType(ast, "Literal");
+        const stringLiteral = literals.find(
+            (literal) =>
+                typeof literal.value === "string" &&
+                literal.value.startsWith('"')
+        );
+
+        assert.ok(stringLiteral, "Expected to find a string literal");
+        assert.strictEqual(stringLiteral.value, String.raw`"\N sounds"`);
+    });
+
     it("omits location metadata when disabled", async () => {
         const fixtureName = successfulFixture;
 
@@ -208,6 +261,37 @@ describe("GameMaker parser fixtures", () => {
             hasLocationInformation(astWithoutLocations),
             false,
             "AST unexpectedly contains location metadata when getLocations is false."
+        );
+    });
+
+    it("does not mutate inherited nodes when stripping location metadata", () => {
+        const prototypeNode = {
+            inherited: {
+                start: { index: 1 },
+                end: { index: 2 }
+            }
+        };
+
+        const ast = Object.create(prototypeNode);
+        ast.own = {
+            start: { index: 3 },
+            end: { index: 4 }
+        };
+
+        const parser = new GMLParser("", {});
+        const prototypeSnapshot = structuredClone(prototypeNode);
+
+        parser.removeLocationInfo(ast);
+
+        assert.deepStrictEqual(
+            prototypeNode,
+            prototypeSnapshot,
+            "Expected prototype nodes to remain untouched when stripping locations."
+        );
+        assert.deepStrictEqual(
+            ast.own,
+            {},
+            "Expected own nodes to have location metadata removed."
         );
     });
 
@@ -246,6 +330,29 @@ describe("GameMaker parser fixtures", () => {
             start: { line: 2, index: 5 },
             end: { line: 2, index: 10 }
         });
+    });
+
+    it("promotes lexer token recognition errors to syntax errors with context", () => {
+        const source = "\\";
+
+        assert.throws(
+            () => GMLParser.parse(source),
+            (error) => {
+                assert.ok(
+                    error instanceof Error,
+                    "Expected a syntax error to be thrown for invalid lexer input."
+                );
+                assert.match(
+                    error.message,
+                    /Syntax Error \(line 1, column 0\): unexpected symbol '\\'/
+                );
+                assert.strictEqual(error.line, 1);
+                assert.strictEqual(error.column, 0);
+                assert.strictEqual(error.wrongSymbol, String.raw`symbol '\'`);
+                assert.strictEqual(error.offendingText, "\\");
+                return true;
+            }
+        );
     });
 
     it("tracks comment locations correctly when using CRLF", () => {

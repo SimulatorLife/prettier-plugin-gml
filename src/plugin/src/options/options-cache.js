@@ -1,4 +1,8 @@
-import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    hasOwn,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 
 const SHARED_CACHE = new WeakMap();
 
@@ -23,7 +27,11 @@ function defineCachedProperty(target, cacheKey, value) {
             value
         });
     } catch {
-        // Ignore define failures and fall back to the cache store.
+        // Some callers supply frozen option objects or exotic proxies whose
+        // property descriptors cannot be redefined. Treat those failures as a
+        // signal to fall back to the shared WeakMap cache so we still memoize
+        // results without mutating the original object or leaking the
+        // underlying TypeError to callers that cannot action it.
     }
 }
 
@@ -40,7 +48,10 @@ function defineCachedProperty(target, cacheKey, value) {
  * @param {PropertyKey | null | undefined} cacheKey Property name used to stash
  *   the computed value directly on {@link options}. When omitted the
  *   computation is memoized exclusively via the fallback cache.
- * @param {{ get(key: unknown): TValue | undefined, set(key: unknown, value: TValue): unknown } | null | undefined} fallbackCache
+ * @param {{
+ *   get(key: unknown): TValue | undefined,
+ *   set(key: unknown, value: TValue): unknown
+ * } | null | undefined} fallbackCache
  *   Map-like cache used when the options object cannot hold the computed value
  *   (for example when the object is frozen or the caller opts out of
  *   `cacheKey`). Any value with synchronous `get`/`set` methods is accepted.
@@ -49,9 +60,7 @@ function defineCachedProperty(target, cacheKey, value) {
  * @returns {TValue} The cached or freshly computed value.
  */
 function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
-    if (typeof computeValue !== "function") {
-        throw new TypeError("computeValue must be a function");
-    }
+    assertFunction(computeValue, "computeValue");
 
     if (!isObjectLike(options)) {
         return computeValue();
@@ -85,7 +94,10 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
  * @param {PropertyKey | null} [options.cacheKey=null] Optional property name to
  *   store the computed value on the options object. When omitted, results are
  *   memoized solely via the fallback cache.
- * @param {{ get(key: unknown): TValue | undefined, set(key: unknown, value: TValue): unknown } | undefined} [options.cache]
+ * @param {{
+ *   get(key: unknown): TValue | undefined,
+ *   set(key: unknown, value: TValue): unknown
+ * } | undefined} [options.cache]
  *   Pre-existing cache store to use instead of creating a new WeakMap.
  * @param {(options: unknown) => TValue} options.compute Function invoked to
  *   compute the memoized value the first time each options object is
@@ -94,9 +106,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
  *   for the provided options bag.
  */
 function createCachedOptionResolver({ cacheKey = null, cache, compute } = {}) {
-    if (typeof compute !== "function") {
-        throw new TypeError("compute must be a function");
-    }
+    assertFunction(compute, "compute");
 
     const fallbackCache = cache ?? new WeakMap();
 

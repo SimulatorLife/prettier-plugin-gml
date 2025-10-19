@@ -30,3 +30,7 @@ export {
     getHasCommentHelper,
     normalizeHasCommentHelpers
 } from "./has-comment-helpers.js";
+export {
+    getDocCommentManager,
+    prepareDocCommentEnvironment
+} from "./doc-comment-manager.js";

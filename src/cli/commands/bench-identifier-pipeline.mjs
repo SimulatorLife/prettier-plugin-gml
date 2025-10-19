@@ -1,45 +1,65 @@
 #!/usr/bin/env node
 import process from "node:process";
 
-import { runPerformanceCli } from "../src/cli/performance.js";
+import { runPerformanceCli } from "../lib/performance-cli.js";
 
 const argv = process.argv.slice(2);
 
-const forwardedArgs = ["--suite", "identifier-pipeline"];
-const passthrough = [];
-let projectInjected = false;
-let fileInjected = false;
+/**
+ * Build the argument list forwarded to the performance CLI by injecting the
+ * project and file parameters before preserving any remaining passthrough
+ * arguments.
+ * @param {readonly string[]} argv
+ * @returns {string[]}
+ */
+function buildForwardedArguments(argv) {
+    const forwardedArgs = ["--suite", "identifier-pipeline"];
+    const passthrough = [];
+    let project;
+    let file;
 
-for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (!arg.startsWith("-")) {
-        if (!projectInjected) {
-            forwardedArgs.push("--project", arg);
-            projectInjected = true;
-        } else if (fileInjected) {
+    for (let index = 0; index < argv.length; index += 1) {
+        const arg = argv[index];
+
+        if (arg.startsWith("-")) {
             passthrough.push(arg);
-        } else {
-            forwardedArgs.push("--file", arg);
-            fileInjected = true;
+            const nextArg = argv[index + 1];
+            if (
+                nextArg !== undefined &&
+                !arg.includes("=") &&
+                typeof nextArg === "string" &&
+                !nextArg.startsWith("-")
+            ) {
+                passthrough.push(nextArg);
+                index += 1;
+            }
+            continue;
         }
-        continue;
+
+        if (project === undefined) {
+            project = arg;
+            forwardedArgs.push("--project", arg);
+            continue;
+        }
+
+        if (file === undefined) {
+            file = arg;
+            forwardedArgs.push("--file", arg);
+            continue;
+        }
+
+        passthrough.push(arg);
     }
 
-    passthrough.push(arg);
+    return [...forwardedArgs, ...passthrough];
+}
 
-    if (
-        !arg.includes("=") &&
-        index + 1 < argv.length &&
-        !argv[index + 1].startsWith("-")
-    ) {
-        index += 1;
-        passthrough.push(argv[index]);
+function applyExitCode(exitCode) {
+    if (typeof exitCode === "number") {
+        process.exitCode = exitCode;
     }
 }
 
-forwardedArgs.push(...passthrough);
-
+const forwardedArgs = buildForwardedArguments(argv);
 const exitCode = await runPerformanceCli({ argv: forwardedArgs });
-if (typeof exitCode === "number") {
-    process.exitCode = exitCode;
-}
+applyExitCode(exitCode);

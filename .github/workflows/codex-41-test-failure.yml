@@ -1,7 +1,7 @@
 name: Codex 41 – Failing Test Recovery
 on:
   schedule:
-    - cron: "0 */2 * * *" # every 2 hours
+    - cron: "0 * * * *" # every hour
   workflow_dispatch:
 
 permissions:

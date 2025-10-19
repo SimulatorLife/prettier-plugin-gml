@@ -9,13 +9,22 @@ import {
     normalizeManualRepository,
     resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot
+    resolveManualCacheRoot,
+    createManualVerboseState
 } from "../lib/manual-utils.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
-    PROGRESS_BAR_WIDTH_ENV_VAR
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../lib/manual-env.js";
+import {
+    DEFAULT_PROGRESS_BAR_WIDTH,
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
+} from "../lib/progress-bar.js";
+import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -104,6 +113,110 @@ describe("manual option helpers", () => {
         });
     });
 
+    describe("resolveManualCommandOptions", () => {
+        it("normalizes shared manual options with command defaults", () => {
+            const command = {
+                opts() {
+                    return {};
+                },
+                helpInformation() {
+                    return "usage details";
+                }
+            };
+
+            const result = resolveManualCommandOptions(command, {
+                defaults: {
+                    ref: null,
+                    outputPath: "/tmp/output.json",
+                    cacheRoot: "/tmp/cache",
+                    manualRepo: "Example/Manual"
+                }
+            });
+
+            assert.deepStrictEqual(result, {
+                ref: null,
+                outputPath: "/tmp/output.json",
+                forceRefresh: false,
+                verbose: createManualVerboseState({
+                    quiet: false,
+                    isTerminal: process.stdout.isTTY === true
+                }),
+                progressBarWidth: getDefaultProgressBarWidth(),
+                cacheRoot: "/tmp/cache",
+                manualRepo: "Example/Manual",
+                usage: "usage details"
+            });
+        });
+
+        it("merges extras returned by the mapper and preserves explicit values", () => {
+            const command = {
+                opts() {
+                    return {
+                        ref: "release",
+                        output: "/custom.json",
+                        forceRefresh: true,
+                        quiet: true,
+                        progressBarWidth: 77,
+                        cacheRoot: "/custom/cache",
+                        manualRepo: "Example/Manual",
+                        vmEvalTimeoutMs: 6500
+                    };
+                },
+                helpInformation() {
+                    return "usage details";
+                }
+            };
+
+            const result = resolveManualCommandOptions(command, {
+                defaults: {
+                    outputPath: "/tmp/fallback.json",
+                    cacheRoot: "/tmp/cache",
+                    manualRepo: "Fallback/Manual"
+                },
+                mapExtras: ({ options }) => ({
+                    vmEvalTimeoutMs:
+                        options.vmEvalTimeoutMs === undefined
+                            ? 1234
+                            : options.vmEvalTimeoutMs,
+                    extra: true
+                })
+            });
+
+            assert.deepStrictEqual(result, {
+                ref: "release",
+                outputPath: "/custom.json",
+                forceRefresh: true,
+                verbose: createManualVerboseState({
+                    quiet: true,
+                    isTerminal: process.stdout.isTTY === true
+                }),
+                progressBarWidth: 77,
+                cacheRoot: "/custom/cache",
+                manualRepo: "Example/Manual",
+                usage: "usage details",
+                vmEvalTimeoutMs: 6500,
+                extra: true
+            });
+        });
+    });
+
+    describe("resolveProgressBarWidth", () => {
+        it("defaults to the configured width when no value is provided", () => {
+            assert.equal(resolveProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+        });
+
+        it("normalizes numeric string inputs", () => {
+            assert.equal(resolveProgressBarWidth("  37  "), 37);
+        });
+
+        it("throws when provided with non-positive values", () => {
+            assert.throws(() => resolveProgressBarWidth("0"), {
+                name: "TypeError",
+                message: /positive integer/i
+            });
+        });
+    });
+
     describe("applyManualEnvOptionOverrides", () => {
         it("applies the standard manual overrides", () => {
             const calls = [];
@@ -146,6 +259,29 @@ describe("manual option helpers", () => {
             });
 
             assert.deepEqual(calls, [["extraOption", "value", "env"]]);
+        });
+
+        it("supports overriding the VM evaluation timeout via the env helper", () => {
+            const calls = [];
+            const command = {
+                setOptionValueWithSource(...args) {
+                    calls.push(args);
+                }
+            };
+
+            applyManualEnvOptionOverrides({
+                command,
+                env: { [IDENTIFIER_VM_TIMEOUT_ENV_VAR]: "6500" },
+                additionalOverrides: [
+                    {
+                        envVar: IDENTIFIER_VM_TIMEOUT_ENV_VAR,
+                        optionName: "vmEvalTimeoutMs",
+                        resolveValue: resolveVmEvalTimeout
+                    }
+                ]
+            });
+
+            assert.deepEqual(calls, [["vmEvalTimeoutMs", 6500, "env"]]);
         });
     });
 });

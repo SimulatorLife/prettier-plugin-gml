@@ -1,12 +1,13 @@
+import { SingleBar, Presets } from "cli-progress";
+
 import {
     coercePositiveInteger,
+    getOrCreateMapEntry,
     resolveIntegerOption
-} from "../../shared/numeric-option-utils.js";
-import { SingleBar, Presets } from "cli-progress";
+} from "./shared-deps.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const activeProgressBars = new Map();
-let progressBarFactory = createDefaultProgressBar;
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -21,9 +22,15 @@ function coerceProgressBarWidth(value, { received }) {
     });
 }
 
+function getDefaultProgressBarWidth() {
+    return DEFAULT_PROGRESS_BAR_WIDTH;
+}
+
 function resolveProgressBarWidth(rawValue) {
+    const fallback = getDefaultProgressBarWidth();
+
     return resolveIntegerOption(rawValue, {
-        defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+        defaultValue: fallback,
         coerce: coerceProgressBarWidth,
         typeErrorMessage: createTypeErrorMessage
     });
@@ -40,11 +47,6 @@ function createDefaultProgressBar(label, width) {
         },
         Presets.shades_classic
     );
-}
-
-function setProgressBarFactoryForTesting(factory) {
-    progressBarFactory =
-        typeof factory === "function" ? factory : createDefaultProgressBar;
 }
 
 function disposeProgressBars() {
@@ -64,15 +66,17 @@ function renderProgressBar(label, current, total, width) {
     }
 
     const normalizedTotal = total > 0 ? total : 1;
-    let bar = activeProgressBars.get(label);
+    const normalizedCurrent = Math.min(current, normalizedTotal);
+    const hadBar = activeProgressBars.has(label);
+    const bar = getOrCreateMapEntry(activeProgressBars, label, () =>
+        createDefaultProgressBar(label, width)
+    );
 
-    if (bar) {
+    if (hadBar) {
         bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
+        bar.update(normalizedCurrent);
     } else {
-        bar = progressBarFactory(label, width);
-        bar.start(normalizedTotal, Math.min(current, normalizedTotal));
-        activeProgressBars.set(label, bar);
+        bar.start(normalizedTotal, normalizedCurrent);
     }
 
     if (current >= normalizedTotal) {
@@ -83,8 +87,8 @@ function renderProgressBar(label, current, total, width) {
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
-    renderProgressBar,
     disposeProgressBars,
-    setProgressBarFactoryForTesting,
+    getDefaultProgressBarWidth,
+    renderProgressBar,
     resolveProgressBarWidth
 };

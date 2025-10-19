@@ -1,6 +1,10 @@
-import { toArray } from "../../shared/array-utils.js";
-import { cloneLocation } from "../../shared/ast-locations.js";
-import { isObjectLike } from "../../shared/object-utils.js";
+import { assignClonedLocation, cloneLocation } from "../../shared/ast.js";
+import { isObjectLike, toArray } from "../../shared/utils.js";
+import {
+    ScopeOverrideKeyword,
+    formatKnownScopeOverrideKeywords,
+    isScopeOverrideKeyword
+} from "./scope-override-keywords.js";
 
 class Scope {
     constructor(id, kind) {
@@ -69,10 +73,6 @@ export default class ScopeTracker {
             return currentScope;
         }
 
-        if (scopeOverride === "global") {
-            return this.rootScope ?? currentScope;
-        }
-
         if (
             isObjectLike(scopeOverride) &&
             typeof scopeOverride.id === "string"
@@ -81,12 +81,24 @@ export default class ScopeTracker {
         }
 
         if (typeof scopeOverride === "string") {
+            if (isScopeOverrideKeyword(scopeOverride)) {
+                if (scopeOverride === ScopeOverrideKeyword.GLOBAL) {
+                    return this.rootScope ?? currentScope;
+                }
+                return currentScope;
+            }
+
             const found = this.scopeStack.find(
                 (scope) => scope.id === scopeOverride
             );
             if (found) {
                 return found;
             }
+
+            const keywords = formatKnownScopeOverrideKeywords();
+            throw new RangeError(
+                `Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`
+            );
         }
 
         return currentScope;
@@ -143,26 +155,20 @@ export default class ScopeTracker {
 
         const scope = this.resolveScopeOverride(role.scopeOverride);
         const scopeId = scope?.id ?? null;
-        const start = cloneLocation(node.start);
-        const end = cloneLocation(node.end);
         const classifications = this.buildClassifications(role, true);
 
         const metadata = {
             name,
             scopeId,
-            start,
-            end,
             classifications
         };
+
+        assignClonedLocation(metadata, node);
 
         this.storeDeclaration(scope, name, metadata);
 
         node.scopeId = scopeId;
-        node.declaration = {
-            start: cloneLocation(start),
-            end: cloneLocation(end),
-            scopeId
-        };
+        node.declaration = assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
     }
 
@@ -193,11 +199,10 @@ export default class ScopeTracker {
         node.classifications = classifications;
 
         node.declaration = declaration
-            ? {
-                  start: cloneLocation(declaration.start),
-                  end: cloneLocation(declaration.end),
-                  scopeId: declaration.scopeId
-              }
+            ? assignClonedLocation(
+                  { scopeId: declaration.scopeId },
+                  declaration
+              )
             : null;
     }
 }

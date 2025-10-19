@@ -4,12 +4,12 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import { capitalize } from "../../../shared/string-utils.js";
 import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
-    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
-} from "../project-index/index.js";
-import { normalizeStringList } from "./option-utils.js";
+    capitalize,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
+import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
+import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 
 export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
 
@@ -215,7 +215,7 @@ export const identifierCaseOptions = {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "int",
         category: "gml",
-        default: DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+        default: getDefaultProjectIndexCacheMaxSize(),
         range: { start: 0, end: Infinity },
         description:
             "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
@@ -236,7 +236,7 @@ identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
     since: BASE_IDENTIFIER_CASE_SINCE,
     type: "int",
     category: "gml",
-    default: DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    default: getDefaultProjectIndexGmlConcurrency(),
     range: { start: 1, end: Infinity },
     description:
         "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."

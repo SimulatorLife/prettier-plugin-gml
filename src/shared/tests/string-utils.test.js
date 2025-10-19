@@ -1,14 +1,16 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 // Prefer strict assertion helpers to avoid relying on Node.js' deprecated
 // loose equality variants like assert.equal/assert.deepEqual.
 
 import {
+    assertNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
     toTrimmedString,
+    coalesceTrimmedString,
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet,
     capitalize,
@@ -26,6 +28,13 @@ test("toTrimmedString normalizes non-string values to empty strings", () => {
     assert.strictEqual(toTrimmedString(), "");
     assert.strictEqual(toTrimmedString(123), "");
     assert.strictEqual(toTrimmedString({}), "");
+});
+
+test("coalesceTrimmedString returns the first non-empty trimmed candidate", () => {
+    assert.strictEqual(coalesceTrimmedString(null, "   ", "value"), "value");
+    assert.strictEqual(coalesceTrimmedString("  first  ", "second"), "first");
+    assert.strictEqual(coalesceTrimmedString(), "");
+    assert.strictEqual(coalesceTrimmedString(null, "   "), "");
 });
 
 test("toNormalizedLowerCaseString trims and lowercases input values", () => {
@@ -87,4 +96,19 @@ test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar(""), false);
     assert.strictEqual(isWordChar("-"), false);
     assert.strictEqual(isWordChar(null), false);
+});
+
+test("assertNonEmptyString returns the validated value", () => {
+    assert.strictEqual(assertNonEmptyString("value"), "value");
+    assert.strictEqual(
+        assertNonEmptyString("  padded  ", { trim: true }),
+        "padded"
+    );
+});
+
+test("assertNonEmptyString throws when value is not a non-empty string", () => {
+    assert.throws(() => assertNonEmptyString(""), TypeError);
+    assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
+    assert.throws(() => assertNonEmptyString(null), TypeError);
+    assert.throws(() => assertNonEmptyString(42), TypeError);
 });

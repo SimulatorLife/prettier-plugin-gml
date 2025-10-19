@@ -1,10 +1,17 @@
 import { CliUsageError } from "./cli-errors.js";
+import { isCommanderErrorLike } from "./commander-error-utils.js";
+
+function isCommanderError(error) {
+    return (
+        isCommanderErrorLike(error) && error.code !== "commander.helpDisplayed"
+    );
+}
 
 export {
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/numeric-option-utils.js";
+} from "./shared-deps.js";
 
 /**
  * Parse CLI arguments for a Commander.js command while normalizing help and
@@ -29,7 +36,7 @@ export function parseCommandLine(command, args) {
             };
         }
 
-        if (error instanceof Error && error.name === "CommanderError") {
+        if (isCommanderError(error)) {
             throw new CliUsageError(error.message.trim(), {
                 usage: command.helpInformation()
             });

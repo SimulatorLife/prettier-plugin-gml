@@ -1,20 +1,16 @@
 import {
-    getCommentArray,
     hasComment as sharedHasComment,
-    isDocCommentLine,
-    normalizeHasCommentHelpers
+    normalizeHasCommentHelpers,
+    getDocCommentManager
 } from "../comments/index.js";
-import {
-    cloneLocation,
-    getNodeStartIndex
-} from "../../../shared/ast-locations.js";
+import { cloneLocation } from "../../../shared/ast-locations.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
-    isNonEmptyTrimmedString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -51,140 +47,21 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    normalizeDocCommentWhitespace(ast);
+    const docCommentManager = getDocCommentManager(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
-        commentGroups: null,
+        docCommentManager,
         expressionSignatures: new Map()
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    applyDocCommentUpdates(context);
+    docCommentManager.applyUpdates(context.docUpdates);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
-}
-
-function normalizeDocCommentWhitespace(ast) {
-    const comments = getCommentArray(ast);
-
-    if (comments.length === 0) {
-        return;
-    }
-
-    for (const comment of comments) {
-        if (
-            comment?.type === "CommentLine" &&
-            typeof comment.leadingWS === "string" &&
-            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
-                comment.leadingWS
-            )
-        ) {
-            comment.leadingWS = "\n";
-        }
-    }
-}
-
-function applyDocCommentUpdates(context) {
-    if (!context || context.docUpdates.size === 0) {
-        return;
-    }
-
-    const commentGroups = ensureCommentGroups(context);
-
-    for (const [functionNode, update] of context.docUpdates.entries()) {
-        const comments = commentGroups.get(functionNode);
-        if (!comments || comments.length === 0) {
-            continue;
-        }
-
-        const descriptionComment = comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                comment.value.includes("@description")
-        );
-
-        if (!descriptionComment) {
-            continue;
-        }
-
-        const originalContent = extractDescriptionContent(
-            descriptionComment.value
-        );
-        const updatedContent = buildUpdatedDescription(
-            update?.description ?? originalContent,
-            update?.expression ?? null
-        );
-
-        if (!updatedContent || updatedContent === originalContent) {
-            continue;
-        }
-
-        descriptionComment.value = ` / @description ${updatedContent}`;
-    }
-}
-
-function extractDescriptionContent(value) {
-    if (typeof value !== "string") {
-        return "";
-    }
-
-    return value.replace(/^\s*\/\s*@description\s*/i, "").trim();
-}
-
-function buildUpdatedDescription(existing, expression) {
-    if (!expression) {
-        return existing ?? "";
-    }
-
-    const normalizedExpression = ensureTrailingPeriod(expression.trim());
-
-    if (!isNonEmptyTrimmedString(existing)) {
-        return `Simplified: ${normalizedExpression}`;
-    }
-
-    const trimmed = existing.trim();
-    const lowered = trimmed.toLowerCase();
-
-    if (lowered.includes("original") || lowered.includes("multi-clause")) {
-        return `Simplified: ${normalizedExpression}`;
-    }
-
-    if (lowered.includes("simplified")) {
-        const colonIndex = trimmed.indexOf(":");
-        if (colonIndex !== -1) {
-            const prefix = trimmed.slice(0, colonIndex + 1);
-            return `${prefix} ${normalizedExpression}`;
-        }
-        return `Simplified: ${normalizedExpression}`;
-    }
-
-    if (trimmed.includes("==")) {
-        const equalityIndex = trimmed.indexOf("==");
-        const prefix = trimmed.slice(0, equalityIndex + 2).trimEnd();
-        return `${prefix} ${normalizedExpression}`;
-    }
-
-    const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
-    const needsSemicolon = lowered.includes("return");
-    const separator = needsSemicolon ? "; ==" : " ==";
-    return `${withoutPeriod}${separator} ${normalizedExpression}`;
-}
-
-function ensureTrailingPeriod(text) {
-    if (!text) {
-        return text;
-    }
-
-    const trimmed = text.trim();
-    if (/[,.;!?]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    return `${trimmed}.`;
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {
@@ -265,18 +142,12 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
     }
 }
 
-function ensureCommentGroups(context) {
-    if (!context.commentGroups) {
-        context.commentGroups = mapDocCommentsToFunctions(context.ast);
-    }
-    return context.commentGroups;
-}
-
 function removeDuplicateCondensedFunctions(context) {
     if (!context || !Array.isArray(context.ast?.body)) {
         return;
     }
 
+    const docCommentManager = context.docCommentManager;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
         if (!signature) {
@@ -292,7 +163,6 @@ function removeDuplicateCondensedFunctions(context) {
         return;
     }
 
-    const commentGroups = ensureCommentGroups(context);
     const toRemove = new Set();
 
     for (const functions of signatureToFunctions.values()) {
@@ -305,7 +175,7 @@ function removeDuplicateCondensedFunctions(context) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
                 update?.hasDocComment ||
-                (commentGroups.get(fn)?.length ?? 0) > 0;
+                (docCommentManager?.hasDocComment(fn) ?? false);
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -320,7 +190,7 @@ function removeDuplicateCondensedFunctions(context) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
                     update?.hasDocComment ||
-                    (commentGroups.get(fn)?.length ?? 0) > 0;
+                    (docCommentManager?.hasDocComment(fn) ?? false);
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -333,111 +203,6 @@ function removeDuplicateCondensedFunctions(context) {
     }
 
     context.ast.body = context.ast.body.filter((node) => !toRemove.has(node));
-}
-
-function mapDocCommentsToFunctions(ast) {
-    const functions = collectFunctionNodes(ast).sort((a, b) => {
-        const aStart = getNodeStartIndex(a) ?? 0;
-        const bStart = getNodeStartIndex(b) ?? 0;
-        return aStart - bStart;
-    });
-
-    const groups = new Map();
-    for (const fn of functions) {
-        groups.set(fn, []);
-    }
-
-    const astComments = getCommentArray(ast);
-
-    if (astComments.length === 0 || functions.length === 0) {
-        return groups;
-    }
-
-    let functionIndex = 0;
-    for (const comment of astComments) {
-        if (!isDocCommentLine(comment)) {
-            continue;
-        }
-
-        const commentIndex = comment?.start?.index;
-        if (typeof commentIndex !== "number") {
-            continue;
-        }
-
-        while (functionIndex < functions.length) {
-            const targetStart = getNodeStartIndex(functions[functionIndex]);
-            if (typeof targetStart !== "number" || targetStart > commentIndex) {
-                break;
-            }
-            functionIndex += 1;
-        }
-
-        if (functionIndex >= functions.length) {
-            break;
-        }
-
-        const targetFunction = functions[functionIndex];
-        const bucket = groups.get(targetFunction);
-        if (bucket) {
-            bucket.push(comment);
-        }
-    }
-
-    return groups;
-}
-
-function collectFunctionNodes(ast) {
-    const functions = [];
-
-    function traverse(node) {
-        if (!isNode(node)) {
-            return;
-        }
-
-        if (node.type === "FunctionDeclaration") {
-            functions.push(node);
-        }
-
-        for (const [key, value] of Object.entries(node)) {
-            if (key === "start" || key === "end" || key === "comments") {
-                continue;
-            }
-
-            if (Array.isArray(value)) {
-                for (const child of value) {
-                    traverse(child);
-                }
-            } else if (isNode(value)) {
-                traverse(value);
-            }
-        }
-    }
-
-    traverse(ast);
-    return functions;
-}
-
-function extractFunctionDescription(ast, functionNode) {
-    if (!activeTransformationContext) {
-        return null;
-    }
-
-    const groups = ensureCommentGroups(activeTransformationContext);
-    const comments = groups.get(functionNode);
-    if (!comments) {
-        return null;
-    }
-
-    for (const comment of comments) {
-        if (
-            typeof comment.value === "string" &&
-            comment.value.includes("@description")
-        ) {
-            return extractDescriptionContent(comment.value);
-        }
-    }
-
-    return null;
 }
 
 function renderExpressionForDocComment(expressionAst) {
@@ -744,10 +509,10 @@ function tryCondenseIfStatement(
         activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
-        const description = extractFunctionDescription(
-            activeTransformationContext.ast,
-            parentNode
-        );
+        const docCommentManager = activeTransformationContext.docCommentManager;
+        const description = docCommentManager
+            ? docCommentManager.extractDescription(parentNode)
+            : null;
 
         if (docString) {
             activeTransformationContext.docUpdates.set(parentNode, {
@@ -1646,10 +1411,12 @@ function factorOrExpression(expression) {
             andTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({
                     termIndex: index,
                     factor
                 });
@@ -1744,10 +1511,12 @@ function factorAndExpression(expression) {
             orTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({ termIndex: index, factor });
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({ termIndex: index, factor });
             }
         }
     }

@@ -1,6 +1,6 @@
-import { isObjectLike } from "../../../shared/object-utils.js";
-import { createMetricsTracker } from "../reporting/metrics-tracker.js";
+import { createMetricsTracker } from "../../../shared/reporting.js";
 
+const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_METHODS = [
     "startTimer",
     "timeAsync",
@@ -15,45 +15,48 @@ const REQUIRED_METRIC_METHODS = [
 
 function isMetricsTracker(candidate) {
     return (
-        isObjectLike(candidate) &&
+        candidate &&
+        typeof candidate === "object" &&
         REQUIRED_METRIC_METHODS.every(
             (method) => typeof candidate[method] === "function"
         )
     );
 }
 
-function createNoopMetricsTracker() {
+function createMetricsSnapshot(extra = {}) {
     return {
-        category: "project-index",
-        startTimer() {
-            return () => {};
-        },
-        async timeAsync(_label, callback) {
-            return await callback();
-        },
-        timeSync(_label, callback) {
-            return callback();
-        },
-        incrementCounter() {},
-        setMetadata() {},
-        recordCacheHit() {},
-        recordCacheMiss() {},
-        recordCacheStale() {},
-        snapshot(extra = {}) {
-            return {
-                category: "project-index",
-                totalTimeMs: 0,
-                timings: {},
-                counters: {},
-                caches: {},
-                metadata: {},
-                ...extra
-            };
-        },
-        finalize(extra = {}) {
-            return this.snapshot(extra);
-        },
-        logSummary() {}
+        category: PROJECT_INDEX_METRICS_CATEGORY,
+        totalTimeMs: 0,
+        timings: {},
+        counters: {},
+        caches: {},
+        metadata: {},
+        ...extra
+    };
+}
+
+const noop = () => {};
+
+const NOOP_METRIC_HANDLERS = Object.freeze({
+    incrementCounter: noop,
+    setMetadata: noop,
+    recordCacheHit: noop,
+    recordCacheMiss: noop,
+    recordCacheStale: noop,
+    logSummary: noop
+});
+
+const finalizeSnapshot = (extra = {}) => createMetricsSnapshot(extra);
+
+function createNoopProjectIndexMetrics() {
+    return {
+        category: PROJECT_INDEX_METRICS_CATEGORY,
+        startTimer: () => () => {},
+        timeAsync: async (_label, callback) => await callback(),
+        timeSync: (_label, callback) => callback(),
+        snapshot: createMetricsSnapshot,
+        finalize: finalizeSnapshot,
+        ...NOOP_METRIC_HANDLERS
     };
 }
 
@@ -65,11 +68,11 @@ export function createProjectIndexMetrics(options = {}) {
     }
 
     if (metrics !== undefined) {
-        return createNoopMetricsTracker();
+        return createNoopProjectIndexMetrics();
     }
 
     return createMetricsTracker({
-        category: "project-index",
+        category: PROJECT_INDEX_METRICS_CATEGORY,
         logger,
         autoLog: logMetrics === true
     });
@@ -81,8 +84,4 @@ export function finalizeProjectIndexMetrics(metrics) {
     }
 
     return metrics.finalize();
-}
-
-export function isProjectIndexMetrics(candidate) {
-    return isMetricsTracker(candidate);
 }

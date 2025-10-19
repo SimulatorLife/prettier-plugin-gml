@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { createManualGitHubClient } from "../lib/manual-utils.js";
+import {
+    createManualGitHubClient,
+    createManualVerboseState
+} from "../lib/manual-utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
 
@@ -32,6 +35,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { references } = client;
 
         const responses = [
             {
@@ -49,8 +53,8 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                client.resolveManualRef("feature", {
-                    verbose: {},
+                references.resolveManualRef("feature", {
+                    verbose: createManualVerboseState({ quiet: true }),
                     apiRoot: API_ROOT
                 }),
             /did not include a commit SHA/
@@ -64,6 +68,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { references } = client;
 
         const responses = [
             {
@@ -83,8 +88,10 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                client.resolveManualRef(undefined, {
-                    verbose: { resolveRef: false },
+                references.resolveManualRef(undefined, {
+                    verbose: createManualVerboseState({
+                        overrides: { resolveRef: false }
+                    }),
                     apiRoot: API_ROOT
                 }),
             /missing a tag name/
@@ -98,6 +105,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { references } = client;
 
         const responses = [
             {
@@ -117,12 +125,45 @@ describe("manual GitHub client validation", () => {
             return next.response;
         };
 
-        const result = await client.resolveManualRef(undefined, {
-            verbose: { resolveRef: false },
+        const result = await references.resolveManualRef(undefined, {
+            verbose: createManualVerboseState({
+                overrides: { resolveRef: false }
+            }),
             apiRoot: API_ROOT
         });
 
         assert.deepEqual(result, { ref: "v1.2.3", sha: "def456" });
+        assert.equal(responses.length, 0);
+    });
+
+    it("exposes a focused commit resolver for direct commit lookups", async () => {
+        const client = createManualGitHubClient({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: "https://raw.github.com/example/manual"
+        });
+
+        const responses = [
+            {
+                url: `${API_ROOT}/commits/feature`,
+                response: makeResponse({
+                    body: JSON.stringify({ sha: "sha-feature" })
+                })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const result = await client.references.resolveCommitFromRef("feature", {
+            apiRoot: API_ROOT
+        });
+
+        assert.deepEqual(result, { ref: "feature", sha: "sha-feature" });
         assert.equal(responses.length, 0);
     });
 });
