@@ -4,7 +4,8 @@ Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
 can pick the right level of detail for your task. Looking for installation or
 contributor setup steps? The [repository README](../README.md) captures the
-quick-start flow, formatter configuration, and day-to-day development commands.
+quick-start flow, formatter configuration, CLI wrapper options, and day-to-day
+development commands.
 
 ## Reference guides
 
@@ -44,15 +45,20 @@ quick-start flow, formatter configuration, and day-to-day development commands.
   predictable.
 - [Project Index next steps](project-index-next-steps.md) — Tracks remaining
   follow-up work now that cache persistence and discovery ship in the plugin.
+
+## Formatter & CLI deep dives
+
 - [Shared module layout refresh](shared-module-layout.md) — Summarises the
   repository-wide audit that reorganised the `src/shared` helpers into
-  `ast/` and `utils/` entry points.
+  `ast/` and `utils/` entry points so downstream packages share a consistent
+  import surface.
 - [Architecture audit (May 2024)](architecture-audit-2024-05-15.md) — Captures
   the state of the formatter, parser, and CLI packages after the workspace
   split, including upgrade risks and sequencing notes for future refactors.
 - [Interface segregation investigation](interface-segregation-investigation.md)
   — Research notes that detail why the CLI and plugin expose separate entry
-  points and how shared utilities are packaged.
+  points, how shared utilities are packaged, and where the CLI wrapper inserts
+  additional behaviour such as `.prettierignore` discovery.
 
 ## Metadata tooling
 

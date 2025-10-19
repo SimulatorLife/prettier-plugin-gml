@@ -1,3 +1,5 @@
+import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
+
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const MIN_CONCURRENCY = 1;
@@ -54,12 +56,11 @@ function setDefaultProjectIndexGmlConcurrency(concurrency) {
 }
 
 function applyProjectIndexConcurrencyEnvOverride(env = process?.env) {
-    const rawValue = env?.[PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR];
-    if (rawValue === undefined) {
-        return;
-    }
-
-    setDefaultProjectIndexGmlConcurrency(rawValue);
+    applyEnvironmentOverride({
+        env,
+        envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+        applyValue: setDefaultProjectIndexGmlConcurrency
+    });
 }
 
 applyProjectIndexConcurrencyEnvOverride();

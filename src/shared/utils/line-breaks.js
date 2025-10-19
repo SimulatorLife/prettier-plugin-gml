@@ -22,7 +22,11 @@ export function getLineBreakCount(text) {
 
     let count = 0;
     let index = 0;
-    const length = text.length; // Hoist for repeated loop checks.
+    // Hoist the length so the tight loop below only pays the property lookup
+    // once. The parser feeds this helper entire script bodies, so avoiding
+    // per-iteration property reads keeps large exports (tens of thousands of
+    // characters) from regressing due to needless engine work.
+    const length = text.length;
 
     // Manual scanning avoids creating RegExp match arrays for every call. The
     // parser frequently invokes this helper while iterating over tokens, so we
