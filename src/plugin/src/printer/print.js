@@ -421,7 +421,9 @@ export function print(path, options, print) {
             const parts = [];
 
             const locStart =
-                typeof options.locStart === "function" ? options.locStart : null;
+                typeof options.locStart === "function"
+                    ? options.locStart
+                    : null;
             const fallbackStart =
                 typeof node?.start === "number"
                     ? node.start
@@ -1708,6 +1710,18 @@ function printStatements(path, options, print, childrenAttribute) {
                 parts.push(hardline);
             }
         } else if (isTopLevel) {
+            parts.push(hardline);
+        } else if (
+            typeof originalTextCache === "string" &&
+            childPath.parent?.type === "BlockStatement" &&
+            isNextLineEmpty(originalTextCache, nodeEndIndex + 1)
+        ) {
+            // Preserve trailing blank lines that appear immediately before a
+            // closing brace when the original source separated the final
+            // statement from the block terminator with an empty line. This
+            // mirrors GameMaker authors' intent and keeps constructor bodies
+            // that intentionally include trailing padding stable across
+            // formatting runs.
             parts.push(hardline);
         }
 
