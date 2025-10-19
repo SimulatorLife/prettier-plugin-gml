@@ -793,4 +793,17 @@ describe("Prettier wrapper CLI", () => {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
+
+    it("prints CLI version information without triggering error handling", async () => {
+        const { stdout, stderr } = await execFileAsync("node", [
+            wrapperPath,
+            "--version"
+        ]);
+
+        assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.ok(
+            stdout.trim().length > 0,
+            "Expected stdout to include a version label"
+        );
+    });
 });

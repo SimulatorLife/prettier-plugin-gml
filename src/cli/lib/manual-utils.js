@@ -33,15 +33,14 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  */
 
 /**
- * A combined reference coordinator keeps the contract focused on reference
- * resolution concerns while still exposing direct commit lookups for the few
- * call sites that need them. Downstream consumers no longer depend on an
- * additional "commit resolver" surface when they only care about resolving the
- * latest manual tag.
+ * The original `ManualGitHubClientSurfaces` interface forced manual commands to
+ * depend on request dispatching, reference resolution, and file fetching in one
+ * bundle. By splitting the contract we let call sites wire up only the
+ * collaborators they actually use, preserving interface segregation.
  */
 
 /**
- * @typedef {object} ManualGitHubReferenceCoordinator
+ * @typedef {object} ManualGitHubReferencesClient
  * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
  *   resolveManualRef
  * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
@@ -57,15 +56,15 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  */
 
 /**
- * @typedef {object} ManualGitHubFileFetcher
+ * @typedef {object} ManualGitHubFileClient
  * @property {(sha: string, filePath: string, options?: ManualGitHubFetchOptions) => Promise<string>} fetchManualFile
  */
 
 /**
- * @typedef {object} ManualGitHubClientSurfaces
+ * @typedef {object} ManualGitHubClient
  * @property {ManualGitHubRequestDispatcher} requestDispatcher
- * @property {ManualGitHubReferenceCoordinator} references
- * @property {ManualGitHubFileFetcher} fileFetcher
+ * @property {ManualGitHubReferencesClient} references
+ * @property {ManualGitHubFileClient} fileFetcher
  */
 
 function createManualVerboseState({
@@ -234,7 +233,7 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
  * Provide specialised GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
  *
- * @returns {ManualGitHubClientSurfaces}
+ * @returns {ManualGitHubClient}
  */
 function createManualGitHubClient({
     userAgent,
@@ -276,9 +275,36 @@ function createManualGitHubClient({
         return bodyText;
     }
 
+    const requestDispatcher = {
+        /** @type {ManualGitHubRequestDispatcher} */
+        execute: curlRequest
+    };
+
+    const references = createManualGitHubReferencesClient({
+        request: requestDispatcher.execute
+    });
+
+    const fileFetcher = createManualGitHubFileClient({
+        request: requestDispatcher.execute,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
+
+    return {
+        requestDispatcher,
+        references,
+        fileFetcher
+    };
+}
+
+/**
+ * @param {{ request: ManualGitHubRequestDispatcher["execute"] }} options
+ * @returns {ManualGitHubReferencesClient}
+ */
+function createManualGitHubReferencesClient({ request }) {
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
-        const body = await curlRequest(url, { acceptJson: true });
+        const body = await request(url, { acceptJson: true });
         const payload = parseJsonWithContext(body, {
             description: "manual commit response",
             source: url
@@ -302,7 +328,7 @@ function createManualGitHubClient({
         }
 
         const latestTagUrl = `${apiRoot}/tags?per_page=1`;
-        const body = await curlRequest(latestTagUrl, { acceptJson: true });
+        const body = await request(latestTagUrl, { acceptJson: true });
         const tags = parseJsonWithContext(body, {
             description: "manual tags response",
             source: latestTagUrl
@@ -322,6 +348,25 @@ function createManualGitHubClient({
         };
     }
 
+    return {
+        resolveManualRef,
+        resolveCommitFromRef
+    };
+}
+
+/**
+ * @param {{
+ *   request: ManualGitHubRequestDispatcher["execute"],
+ *   defaultCacheRoot?: string,
+ *   defaultRawRoot: string
+ * }} options
+ * @returns {ManualGitHubFileClient}
+ */
+function createManualGitHubFileClient({
+    request,
+    defaultCacheRoot,
+    defaultRawRoot
+}) {
     async function fetchManualFile(
         sha,
         filePath,
@@ -356,7 +401,7 @@ function createManualGitHubClient({
         }
 
         const url = `${rawRoot}/${sha}/${filePath}`;
-        const content = await curlRequest(url);
+        const content = await request(url);
 
         await ensureDir(path.dirname(cachePath));
         await fs.writeFile(cachePath, content, "utf8");
@@ -373,19 +418,7 @@ function createManualGitHubClient({
     }
 
     return {
-        /** @type {ManualGitHubRequestDispatcher} */
-        requestDispatcher: {
-            execute: curlRequest
-        },
-        /** @type {ManualGitHubReferenceCoordinator} */
-        references: {
-            resolveManualRef,
-            resolveCommitFromRef
-        },
-        /** @type {ManualGitHubFileFetcher} */
-        fileFetcher: {
-            fetchManualFile
-        }
+        fetchManualFile
     };
 }
 

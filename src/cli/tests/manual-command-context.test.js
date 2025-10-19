@@ -27,6 +27,9 @@ test("createManualCommandContext centralizes manual command defaults", () => {
         context.defaultOutputPath,
         path.join(expectedRepoRoot, "resources", "example.json")
     );
+    assert.equal(typeof context.manualRequests.execute, "function");
+    assert.equal(typeof context.manualReferences.resolveManualRef, "function");
+    assert.equal(typeof context.manualFileFetcher.fetchManualFile, "function");
     assert.equal(typeof context.fetchManualFile, "function");
     assert.equal(typeof context.resolveManualRef, "function");
 });

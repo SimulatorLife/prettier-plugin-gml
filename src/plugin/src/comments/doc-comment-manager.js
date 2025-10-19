@@ -3,7 +3,53 @@ import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 
-export function createDocCommentManager(ast) {
+const DOC_COMMENT_TARGET_TYPES = new Set([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration",
+    "StructDeclaration"
+]);
+
+const DOC_COMMENT_MANAGERS = new WeakMap();
+
+const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
+    applyUpdates() {},
+    forEach() {},
+    getComments() {
+        return [];
+    },
+    extractDescription() {
+        return null;
+    },
+    hasDocComment() {
+        return false;
+    }
+});
+
+export function prepareDocCommentEnvironment(ast) {
+    if (!isNode(ast)) {
+        return NOOP_DOC_COMMENT_MANAGER;
+    }
+
+    let manager = DOC_COMMENT_MANAGERS.get(ast);
+
+    if (manager) {
+        return manager;
+    }
+
+    manager = createDocCommentManager(ast);
+    DOC_COMMENT_MANAGERS.set(ast, manager);
+    return manager;
+}
+
+export function getDocCommentManager(ast) {
+    return prepareDocCommentEnvironment(ast);
+}
+
+function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
 
     const commentGroups = mapDocCommentsToFunctions(ast);
@@ -11,6 +57,19 @@ export function createDocCommentManager(ast) {
     return {
         applyUpdates(docUpdates) {
             applyDocCommentUpdates(commentGroups, docUpdates);
+        },
+        forEach(callback) {
+            if (typeof callback !== "function") {
+                return;
+            }
+
+            for (const [fn, comments] of commentGroups.entries()) {
+                callback(fn, comments ?? []);
+            }
+        },
+        getComments(functionNode) {
+            const comments = commentGroups.get(functionNode);
+            return Array.isArray(comments) ? comments : [];
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
@@ -101,7 +160,7 @@ function collectFunctionNodes(ast) {
             return;
         }
 
-        if (node.type === "FunctionDeclaration") {
+        if (DOC_COMMENT_TARGET_TYPES.has(node.type)) {
             functions.push(node);
         }
 

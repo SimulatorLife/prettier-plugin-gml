@@ -26,6 +26,7 @@ import {
     attachIdentifierCasePlanSnapshot,
     teardownIdentifierCaseEnvironment
 } from "../identifier-case/environment.js";
+import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;
 
@@ -107,6 +108,8 @@ async function parse(text, options) {
                 "GameMaker parser returned no AST for the provided source."
             );
         }
+
+        prepareDocCommentEnvironment(ast);
 
         if (options?.condenseStructAssignments ?? true) {
             consolidateStructAssignments(ast, { addTrailingComment });

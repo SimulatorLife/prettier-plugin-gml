@@ -62,6 +62,7 @@ import {
     resetRegisteredIgnorePaths
 } from "./lib/ignore-path-registry.js";
 import { createCliCommandManager } from "./lib/cli-command-manager.js";
+import { resolveCliVersion } from "./lib/cli-version.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -245,6 +246,11 @@ const program = applyStandardCommandOptions(new Command())
             "Utilities for working with the prettier-plugin-gml project.",
             "Provides formatting, benchmarking, and manual data generation commands."
         ].join(" \n")
+    )
+    .version(
+        resolveCliVersion(),
+        "-V, --version",
+        "Show CLI version information."
     );
 
 const { registrar: cliCommandRegistrar, runner: cliProgramRunner } =
