@@ -61,11 +61,11 @@ function normalizeVerboseOverrides(overrides) {
         return null;
     }
 
-    const entries = Object.entries(overrides).filter(
+    const definedEntries = Object.entries(overrides).filter(
         ([, value]) => value !== undefined
     );
 
-    return entries.length > 0 ? Object.fromEntries(entries) : null;
+    return definedEntries.length > 0 ? Object.fromEntries(definedEntries) : null;
 }
 
 function createManualVerboseState({
