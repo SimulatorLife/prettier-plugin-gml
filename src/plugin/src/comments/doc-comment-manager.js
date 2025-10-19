@@ -3,6 +3,15 @@ import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 
+const DOC_COMMENT_TARGET_TYPES = new Set([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration",
+    "StructDeclaration"
+]);
 export function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
 
@@ -11,6 +20,19 @@ export function createDocCommentManager(ast) {
     return {
         applyUpdates(docUpdates) {
             applyDocCommentUpdates(commentGroups, docUpdates);
+        },
+        forEach(callback) {
+            if (typeof callback !== "function") {
+                return;
+            }
+
+            for (const [fn, comments] of commentGroups.entries()) {
+                callback(fn, comments ?? []);
+            }
+        },
+        getComments(functionNode) {
+            const comments = commentGroups.get(functionNode);
+            return Array.isArray(comments) ? comments : [];
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
@@ -101,7 +123,7 @@ function collectFunctionNodes(ast) {
             return;
         }
 
-        if (node.type === "FunctionDeclaration") {
+        if (DOC_COMMENT_TARGET_TYPES.has(node.type)) {
             functions.push(node);
         }
 
