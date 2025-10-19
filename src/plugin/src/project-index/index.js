@@ -12,7 +12,11 @@ import {
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
-import { hasOwn } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    getOrCreateMapEntry,
+    hasOwn
+} from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
@@ -26,7 +30,7 @@ import {
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
@@ -35,6 +39,12 @@ import {
     finalizeProjectIndexMetrics
 } from "./metrics.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import {
+    analyseResourceFiles,
+    createFileScopeDescriptor
+} from "./resource-analysis.js";
+import { createAbortGuard } from "./abort-guard.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -43,6 +53,11 @@ const PARSER_FACADE_OPTION_KEYS = [
     "gmlParserFacade",
     "parserFacade"
 ];
+
+const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
+    "Project root discovery was aborted.";
+const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
+    "Project index build was aborted.";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -89,7 +104,9 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const signal = options?.signal ?? null;
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    });
 
     if (!filepath) {
         return null;
@@ -98,10 +115,10 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const startDirectory = path.dirname(path.resolve(filepath));
 
     for (const directory of walkAncestorDirectories(startDirectory)) {
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        ensureNotAborted();
 
         const entries = await listDirectory(fsFacade, directory, { signal });
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        ensureNotAborted();
 
         if (entries.some(isProjectManifestPath)) {
             return directory;
@@ -122,7 +139,7 @@ export function createProjectIndexCoordinator(options = {}) {
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
-            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            ? getDefaultProjectIndexCacheMaxSize()
             : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
@@ -246,6 +263,11 @@ export {
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
     loadProjectIndexCache,
     saveProjectIndexCache,
@@ -266,20 +288,70 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 
 let cachedBuiltInIdentifiers = null;
 
+function isPlainObject(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractBuiltInIdentifierNames(payload) {
+    if (!isPlainObject(payload)) {
+        throw new TypeError(
+            "Built-in identifier metadata must be an object payload."
+        );
+    }
+
+    const { identifiers } = payload;
+    if (!isPlainObject(identifiers)) {
+        throw new TypeError(
+            "Built-in identifier metadata must expose an identifiers object."
+        );
+    }
+
+    const names = new Set();
+
+    for (const [name, descriptor] of Object.entries(identifiers)) {
+        if (typeof name !== "string" || name.length === 0) {
+            continue;
+        }
+
+        if (!isPlainObject(descriptor)) {
+            continue;
+        }
+
+        const type = descriptor.type;
+        if (typeof type !== "string" || type.length === 0) {
+            continue;
+        }
+
+        names.add(name);
+    }
+
+    return names;
+}
+
+function parseBuiltInIdentifierNames(rawContents) {
+    const payload = parseJsonWithContext(rawContents, {
+        source: GML_IDENTIFIER_FILE_PATH,
+        description: "built-in identifier metadata"
+    });
+
+    return extractBuiltInIdentifierNames(payload);
+}
+
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index build was aborted.");
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
 
     const currentMtime = await getFileMtime(
         fsFacade,
         GML_IDENTIFIER_FILE_PATH,
         { signal }
     );
-    throwIfAborted(signal, "Project index build was aborted.");
+    ensureNotAborted();
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -301,11 +373,8 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
-        throwIfAborted(signal, "Project index build was aborted.");
-        const parsed = JSON.parse(rawContents);
-        const identifiers = parsed?.identifiers ?? {};
-
-        names = new Set(Object.keys(identifiers));
+        ensureNotAborted();
+        names = parseBuiltInIdentifierNames(rawContents);
     } catch {
         // Built-in identifier metadata ships with the formatter bundle; if the
         // file is missing or unreadable we intentionally degrade to an empty
@@ -323,34 +392,15 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
-function toProjectRelativePath(projectRoot, absolutePath) {
-    const relative = path.relative(projectRoot, absolutePath);
-    return toPosixPath(relative);
-}
-
-function normalizeResourcePath(rawPath, { projectRoot } = {}) {
-    if (typeof rawPath !== "string" || rawPath.length === 0) {
-        return null;
-    }
-
-    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
-    if (!projectRoot) {
-        return normalized;
-    }
-
-    const absoluteCandidate = path.isAbsolute(normalized)
-        ? normalized
-        : path.join(projectRoot, normalized);
-    return toProjectRelativePath(projectRoot, absoluteCandidate);
-}
-
 async function scanProjectTree(
     projectRoot,
     fsFacade,
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -358,11 +408,11 @@ async function scanProjectTree(
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        throwIfAborted(signal, "Project index build was aborted.");
+        ensureNotAborted();
         const entries = await listDirectory(fsFacade, absoluteDir, {
             signal
         });
-        throwIfAborted(signal, "Project index build was aborted.");
+        ensureNotAborted();
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -371,7 +421,7 @@ async function scanProjectTree(
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
-                throwIfAborted(signal, "Project index build was aborted.");
+                ensureNotAborted();
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -415,459 +465,11 @@ async function scanProjectTree(
     return { yyFiles, gmlFiles };
 }
 
-function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
-    let record = resourcesMap.get(resourcePath);
-    if (record) {
-        if (resourceData.name && record.name !== resourceData.name) {
-            record.name = resourceData.name;
-        }
-        if (
-            resourceData.resourceType &&
-            record.resourceType !== resourceData.resourceType
-        ) {
-            record.resourceType = resourceData.resourceType;
-        }
-    } else {
-        const lowerPath = resourcePath.toLowerCase();
-        let defaultName = path.posix.basename(resourcePath);
-        if (lowerPath.endsWith(".yy")) {
-            defaultName = path.posix.basename(resourcePath, ".yy");
-        } else if (isProjectManifestPath(resourcePath)) {
-            defaultName = path.posix.basename(
-                resourcePath,
-                PROJECT_MANIFEST_EXTENSION
-            );
-        }
-        record = {
-            path: resourcePath,
-            name: resourceData.name ?? defaultName,
-            resourceType: resourceData.resourceType ?? "unknown",
-            scopes: [],
-            gmlFiles: [],
-            assetReferences: []
-        };
-        resourcesMap.set(resourcePath, record);
-    }
 
-    return record;
-}
 
-function pushUnique(array, value) {
-    if (!array.includes(value)) {
-        array.push(value);
-    }
-}
 
-function deriveScopeId(kind, parts) {
-    const suffix = Array.isArray(parts)
-        ? parts.join("::")
-        : String(parts ?? "");
-    return `scope:${kind}:${suffix}`;
-}
 
-function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
-    const scopeId = deriveScopeId("script", [resourceRecord.name]);
-    return {
-        id: scopeId,
-        kind: "script",
-        name: resourceRecord.name,
-        displayName: `script.${resourceRecord.name}`,
-        resourcePath: resourceRecord.path,
-        gmlFile: gmlRelativePath
-    };
-}
 
-function resolveEventMetadata(event) {
-    const eventType =
-        typeof event?.eventType === "number"
-            ? event.eventType
-            : typeof event?.eventtype === "number"
-              ? event.eventtype
-              : null;
-    const eventNum =
-        typeof event?.eventNum === "number"
-            ? event.eventNum
-            : typeof event?.enumb === "number"
-              ? event.enumb
-              : null;
-
-    if (event && typeof event.name === "string" && event.name.trim()) {
-        return { eventType, eventNum, displayName: event.name };
-    }
-
-    if (eventType == undefined && eventNum == undefined) {
-        return { eventType, eventNum, displayName: "event" };
-    }
-
-    if (eventNum == undefined) {
-        return { eventType, eventNum, displayName: String(eventType) };
-    }
-
-    return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
-}
-
-function deriveEventDisplayName(event) {
-    return resolveEventMetadata(event).displayName;
-}
-
-function createObjectEventScopeDescriptor(
-    resourceRecord,
-    event,
-    gmlRelativePath
-) {
-    const { displayName, eventType, eventNum } = resolveEventMetadata(event);
-    const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
-    return {
-        id: scopeId,
-        kind: "objectEvent",
-        name: `${resourceRecord.name}.${displayName}`,
-        displayName: `object.${resourceRecord.name}.${displayName}`,
-        resourcePath: resourceRecord.path,
-        gmlFile: gmlRelativePath,
-        event: {
-            name: displayName,
-            eventType,
-            eventNum
-        }
-    };
-}
-
-function createFileScopeDescriptor(relativePath) {
-    const fileBaseName = path.posix.basename(
-        relativePath,
-        path.extname(relativePath)
-    );
-    const scopeId = deriveScopeId("file", [relativePath]);
-    return {
-        id: scopeId,
-        kind: "file",
-        name: fileBaseName,
-        displayName: `file.${relativePath}`,
-        resourcePath: null,
-        gmlFile: relativePath
-    };
-}
-
-function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
-    if (!event) {
-        return null;
-    }
-
-    const { displayName } = resolveEventMetadata(event);
-    const candidatePaths = [];
-    if (typeof event.eventContents === "string") {
-        candidatePaths.push(event.eventContents);
-    }
-    if (typeof event.event === "string") {
-        candidatePaths.push(event.event);
-    }
-    if (event.event && typeof event.event.path === "string") {
-        candidatePaths.push(event.event.path);
-    }
-    if (event.eventId && typeof event.eventId.path === "string") {
-        candidatePaths.push(event.eventId.path);
-    }
-    if (event.code && typeof event.code === "string") {
-        candidatePaths.push(event.code);
-    }
-
-    for (const candidate of candidatePaths) {
-        const normalized = normalizeResourcePath(candidate);
-        if (normalized) {
-            return normalized;
-        }
-    }
-
-    if (!resourceRecord?.name) {
-        return null;
-    }
-
-    const guessed = path.posix.join(
-        resourceRelativeDir,
-        `${resourceRecord.name}_${displayName}.gml`
-    );
-    return guessed;
-}
-
-function collectAssetReferences(root, callback) {
-    if (!root || typeof root !== "object") {
-        return;
-    }
-
-    const stack = [{ value: root, path: "" }];
-
-    while (stack.length > 0) {
-        const { value, path } = stack.pop();
-
-        if (Array.isArray(value)) {
-            for (let index = value.length - 1; index >= 0; index -= 1) {
-                const entry = value[index];
-                if (!entry || typeof entry !== "object") {
-                    continue;
-                }
-
-                stack.push({
-                    value: entry,
-                    path: path ? `${path}.${index}` : String(index)
-                });
-            }
-            continue;
-        }
-
-        if (typeof value.path === "string") {
-            callback({
-                propertyPath: path,
-                targetPath: value.path,
-                targetName: typeof value.name === "string" ? value.name : null
-            });
-        }
-
-        const entries = Object.entries(value);
-        for (let i = entries.length - 1; i >= 0; i -= 1) {
-            const [key, child] = entries[i];
-            if (!child || typeof child !== "object") {
-                continue;
-            }
-
-            stack.push({
-                value: child,
-                path: path ? `${path}.${key}` : key
-            });
-        }
-    }
-}
-
-function createResourceAnalysisContext() {
-    return {
-        resourcesMap: new Map(),
-        gmlScopeMap: new Map(),
-        assetReferences: [],
-        scriptNameToScopeId: new Map(),
-        scriptNameToResourcePath: new Map()
-    };
-}
-
-async function loadResourceDocument(file, fsFacade, options = {}) {
-    const signal = options?.signal ?? null;
-    let rawContents;
-    try {
-        rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            return null;
-        }
-        throw error;
-    }
-
-    throwIfAborted(signal, "Project index build was aborted.");
-
-    try {
-        return JSON.parse(rawContents);
-    } catch {
-        return null;
-    }
-}
-
-function ensureResourceRecordForDocument(context, file, parsed) {
-    return ensureResourceRecord(context.resourcesMap, file.relativePath, {
-        name: parsed?.name,
-        resourceType: parsed?.resourceType
-    });
-}
-
-function attachScopeDescriptor({
-    context,
-    resourceRecord,
-    gmlRelativePath,
-    descriptor
-}) {
-    pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
-    context.gmlScopeMap.set(gmlRelativePath, descriptor);
-    pushUnique(resourceRecord.scopes, descriptor.id);
-}
-
-function registerScriptResourceIfNeeded({
-    context,
-    parsed,
-    resourceRecord,
-    resourceDir
-}) {
-    if (parsed?.resourceType !== "GMScript") {
-        return;
-    }
-
-    const gmlRelativePath = path.posix.join(
-        resourceDir,
-        `${resourceRecord.name}.gml`
-    );
-    const descriptor = createScriptScopeDescriptor(
-        resourceRecord,
-        gmlRelativePath
-    );
-
-    attachScopeDescriptor({
-        context,
-        resourceRecord,
-        gmlRelativePath,
-        descriptor
-    });
-
-    context.scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-    context.scriptNameToResourcePath.set(
-        resourceRecord.name,
-        resourceRecord.path
-    );
-}
-
-function registerResourceEvents({
-    context,
-    parsed,
-    resourceRecord,
-    resourceDir
-}) {
-    const eventList = parsed?.eventList;
-    if (!isNonEmptyArray(eventList)) {
-        return;
-    }
-
-    for (const event of eventList) {
-        const eventGmlPath = extractEventGmlPath(
-            event,
-            resourceRecord,
-            resourceDir
-        );
-        if (!eventGmlPath) {
-            continue;
-        }
-
-        const descriptor = createObjectEventScopeDescriptor(
-            resourceRecord,
-            event,
-            eventGmlPath
-        );
-
-        attachScopeDescriptor({
-            context,
-            resourceRecord,
-            gmlRelativePath: eventGmlPath,
-            descriptor
-        });
-    }
-}
-
-function collectResourceAssetReferences({
-    context,
-    parsed,
-    resourceRecord,
-    resourcePath,
-    projectRoot
-}) {
-    collectAssetReferences(
-        parsed,
-        ({ propertyPath, targetPath, targetName }) => {
-            const normalizedTarget = normalizeResourcePath(targetPath, {
-                projectRoot
-            });
-            if (!normalizedTarget) {
-                return;
-            }
-
-            const referenceRecord = {
-                fromResourcePath: resourcePath,
-                fromResourceName: resourceRecord.name,
-                propertyPath,
-                targetPath: normalizedTarget,
-                targetName: targetName ?? null,
-                targetResourceType: null
-            };
-
-            context.assetReferences.push(referenceRecord);
-            resourceRecord.assetReferences.push(referenceRecord);
-        }
-    );
-}
-
-function processResourceDocument({
-    context,
-    parsed,
-    resourceRecord,
-    resourcePath,
-    projectRoot
-}) {
-    const resourceDir = path.posix.dirname(resourcePath);
-
-    registerScriptResourceIfNeeded({
-        context,
-        parsed,
-        resourceRecord,
-        resourceDir
-    });
-
-    registerResourceEvents({
-        context,
-        parsed,
-        resourceRecord,
-        resourceDir
-    });
-
-    collectResourceAssetReferences({
-        context,
-        parsed,
-        resourceRecord,
-        resourcePath,
-        projectRoot
-    });
-}
-
-function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
-    for (const reference of assetReferences) {
-        const targetResource = resourcesMap.get(reference.targetPath);
-        if (targetResource) {
-            reference.targetResourceType = targetResource.resourceType;
-            if (!reference.targetName && targetResource.name) {
-                reference.targetName = targetResource.name;
-            }
-        }
-    }
-}
-
-async function analyseResourceFiles({
-    projectRoot,
-    yyFiles,
-    fsFacade,
-    signal = null
-}) {
-    const context = createResourceAnalysisContext();
-
-    for (const file of yyFiles) {
-        throwIfAborted(signal, "Project index build was aborted.");
-        const parsed = await loadResourceDocument(file, fsFacade, { signal });
-        if (!parsed) {
-            continue;
-        }
-
-        const resourceRecord = ensureResourceRecordForDocument(
-            context,
-            file,
-            parsed
-        );
-
-        processResourceDocument({
-            context,
-            parsed,
-            resourceRecord,
-            resourcePath: file.relativePath,
-            projectRoot
-        });
-    }
-
-    annotateAssetReferenceTargets(
-        context.assetReferences,
-        context.resourcesMap
-    );
-
-    return context;
-}
 
 function cloneIdentifierDeclaration(declaration) {
     if (!declaration || typeof declaration !== "object") {
@@ -910,10 +512,7 @@ function cloneIdentifierForCollections(record, filePath) {
 }
 
 function ensureCollectionEntry(map, key, initializer) {
-    if (!map.has(key)) {
-        map.set(key, initializer());
-    }
-    return map.get(key);
+    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function createIdentifierCollections() {
@@ -1404,12 +1003,19 @@ function recordScriptCallMetricsAndReferences({
     }
 }
 
-function mapToObject(map, transform) {
-    const entries = [...map.entries()].sort(([a], [b]) =>
-        typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0
-    );
+function mapToObject(map, transform, { sortEntries = true } = {}) {
+    const entries = [...map.entries()];
+
+    if (sortEntries) {
+        entries.sort(([a], [b]) =>
+            typeof a === "string" && typeof b === "string"
+                ? a.localeCompare(b)
+                : 0
+        );
+    }
+
     return Object.fromEntries(
-        entries.map(([key, value]) => [key, transform(value)])
+        entries.map(([key, value]) => [key, transform(value, key)])
     );
 }
 
@@ -1779,40 +1385,30 @@ function registerInstanceAssignment({
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
-    let scopeRecord = scopeMap.get(descriptor.id);
-    if (!scopeRecord) {
-        scopeRecord = {
-            id: descriptor.id,
-            kind: descriptor.kind,
-            name: descriptor.name,
-            displayName: descriptor.displayName,
-            resourcePath: descriptor.resourcePath,
-            event: descriptor.event ?? null,
-            filePaths: [],
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        scopeMap.set(descriptor.id, scopeRecord);
-    }
-    return scopeRecord;
+    return getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        name: descriptor.name,
+        displayName: descriptor.displayName,
+        resourcePath: descriptor.resourcePath,
+        event: descriptor.event ?? null,
+        filePaths: [],
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function ensureFileRecord(filesMap, relativePath, scopeId) {
-    let fileRecord = filesMap.get(relativePath);
-    if (!fileRecord) {
-        fileRecord = {
-            filePath: relativePath,
-            scopeId,
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        filesMap.set(relativePath, fileRecord);
-    }
-    return fileRecord;
+    return getOrCreateMapEntry(filesMap, relativePath, () => ({
+        filePath: relativePath,
+        scopeId,
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function traverseAst(root, visitor) {
@@ -1856,6 +1452,286 @@ function traverseAst(root, visitor) {
     }
 }
 
+function handleScriptScopeFunctionDeclarationNode({
+    node,
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    sourceContents,
+    lineOffsets
+}) {
+    if (
+        scopeDescriptor?.kind !== "script" ||
+        (node?.type !== "FunctionDeclaration" &&
+            node?.type !== "ConstructorDeclaration")
+    ) {
+        return;
+    }
+
+    const classificationTags =
+        node.type === "ConstructorDeclaration"
+            ? ["constructor", "struct", "script"]
+            : ["script"];
+    const declarationRecord = createFunctionLikeIdentifierRecord({
+        node,
+        scopeRecord,
+        fileRecord,
+        classification: classificationTags,
+        source: sourceContents,
+        lineOffsets
+    });
+
+    if (!declarationRecord) {
+        return;
+    }
+
+    const removalDescriptor = {
+        name: declarationRecord.name,
+        scopeId: scopeRecord.id
+    };
+    removeSyntheticScriptDeclarations(
+        fileRecord.declarations,
+        removalDescriptor
+    );
+    removeSyntheticScriptDeclarations(
+        scopeRecord.declarations,
+        removalDescriptor
+    );
+
+    const declarationKey = buildLocationKey(declarationRecord.start);
+    const fileHasExisting = fileRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!fileHasExisting) {
+        fileRecord.declarations.push({ ...declarationRecord });
+    }
+
+    const scopeHasExisting = scopeRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!scopeHasExisting) {
+        scopeRecord.declarations.push({ ...declarationRecord });
+    }
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord,
+        filePath: fileRecord?.filePath ?? null
+    });
+}
+
+function handleIdentifierNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    identifierCollections,
+    enumLookup,
+    scopeDescriptor,
+    metrics
+}) {
+    if (node?.type !== "Identifier" || !Array.isArray(node.classifications)) {
+        return false;
+    }
+
+    const identifierRecord = createIdentifierRecord(node);
+    const isBuiltIn = builtInNames.has(identifierRecord.name);
+    identifierRecord.isBuiltIn = isBuiltIn;
+
+    metrics?.incrementCounter("identifiers.encountered");
+
+    if (isBuiltIn) {
+        metrics?.incrementCounter("identifiers.builtInSkipped");
+        identifierRecord.reason = "built-in";
+        fileRecord.ignoredIdentifiers.push(identifierRecord);
+        scopeRecord.ignoredIdentifiers.push(identifierRecord);
+        return true;
+    }
+
+    const isDeclaration = identifierRecord.classifications.includes(
+        "declaration"
+    );
+    const isReference = identifierRecord.classifications.includes("reference");
+
+    if (isDeclaration) {
+        metrics?.incrementCounter("identifiers.declarations");
+        fileRecord.declarations.push(identifierRecord);
+        scopeRecord.declarations.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "declaration",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    if (isReference) {
+        metrics?.incrementCounter("identifiers.references");
+        fileRecord.references.push(identifierRecord);
+        scopeRecord.references.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "reference",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    return false;
+}
+
+function handleCallExpressionNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "CallExpression") {
+        return;
+    }
+
+    const callee = getCallExpressionIdentifier(node);
+    const calleeName = callee?.name ?? null;
+    if (!calleeName || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? scriptNameToResourcePath.get(calleeName) ?? null
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee?.start),
+            end: cloneLocation(callee?.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleNewExpressionScriptCall({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "NewExpression" || node.expression?.type !== "Identifier") {
+        return;
+    }
+
+    const callee = node.expression;
+    const calleeName = callee.name;
+    if (typeof calleeName !== "string" || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? scriptNameToResourcePath.get(calleeName) ?? null
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee.start),
+            end: cloneLocation(callee.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleObjectEventAssignmentNode({
+    node,
+    scopeDescriptor,
+    identifierCollections,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    metrics
+}) {
+    if (
+        node?.type !== "AssignmentExpression" ||
+        node.left?.type !== "Identifier" ||
+        scopeDescriptor?.kind !== "objectEvent"
+    ) {
+        return;
+    }
+
+    const leftRecord = createIdentifierRecord(node.left);
+    const classifications = asArray(leftRecord?.classifications);
+
+    const isGlobalAssignment =
+        classifications.includes("global") || leftRecord.isGlobalIdentifier;
+    const hasDeclaration = Boolean(
+        leftRecord.declaration && leftRecord.declaration.scopeId
+    );
+
+    if (
+        identifierCollections &&
+        !isGlobalAssignment &&
+        !hasDeclaration &&
+        leftRecord.name &&
+        !builtInNames.has(leftRecord.name)
+    ) {
+        registerInstanceAssignment({
+            identifierCollections,
+            identifierRecord: leftRecord,
+            filePath: fileRecord?.filePath ?? null,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+        metrics?.incrementCounter("identifiers.instanceAssignments");
+    }
+}
+
+
+
+
 function analyseGmlAst({
     ast,
     builtInNames,
@@ -1873,221 +1749,61 @@ function analyseGmlAst({
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
     traverseAst(ast, (node) => {
-        if (
-            scopeDescriptor?.kind === "script" &&
-            (node?.type === "FunctionDeclaration" ||
-                node?.type === "ConstructorDeclaration")
-        ) {
-            const classificationTags =
-                node.type === "ConstructorDeclaration"
-                    ? ["constructor", "struct", "script"]
-                    : ["script"];
-            const declarationRecord = createFunctionLikeIdentifierRecord({
-                node,
-                scopeRecord,
-                fileRecord,
-                classification: classificationTags,
-                source: sourceContents,
-                lineOffsets
-            });
+        handleScriptScopeFunctionDeclarationNode({
+            node,
+            scopeDescriptor,
+            scopeRecord,
+            fileRecord,
+            identifierCollections,
+            sourceContents,
+            lineOffsets
+        });
 
-            if (declarationRecord) {
-                removeSyntheticScriptDeclarations(fileRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-                removeSyntheticScriptDeclarations(scopeRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-
-                const declarationKey = buildLocationKey(
-                    declarationRecord.start
-                );
-                const fileHasExisting = fileRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!fileHasExisting) {
-                    fileRecord.declarations.push({ ...declarationRecord });
-                }
-
-                const scopeHasExisting = scopeRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!scopeHasExisting) {
-                    scopeRecord.declarations.push({ ...declarationRecord });
-                }
-
-                registerScriptDeclaration({
-                    identifierCollections,
-                    descriptor: scopeDescriptor,
-                    declarationRecord,
-                    filePath: fileRecord?.filePath ?? null
-                });
-            }
+        const identifierHandled = handleIdentifierNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            identifierCollections,
+            enumLookup,
+            scopeDescriptor,
+            metrics
+        });
+        if (identifierHandled) {
+            return;
         }
 
-        if (
-            node?.type === "Identifier" &&
-            Array.isArray(node.classifications)
-        ) {
-            const identifierRecord = createIdentifierRecord(node);
-            const isBuiltIn = builtInNames.has(identifierRecord.name);
-            identifierRecord.isBuiltIn = isBuiltIn;
+        handleCallExpressionNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            metrics?.incrementCounter("identifiers.encountered");
+        handleNewExpressionScriptCall({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            if (isBuiltIn) {
-                metrics?.incrementCounter("identifiers.builtInSkipped");
-                identifierRecord.reason = "built-in";
-                fileRecord.ignoredIdentifiers.push(identifierRecord);
-                scopeRecord.ignoredIdentifiers.push(identifierRecord);
-                return;
-            }
-
-            const isDeclaration =
-                identifierRecord.classifications.includes("declaration");
-            const isReference =
-                identifierRecord.classifications.includes("reference");
-
-            if (isDeclaration) {
-                metrics?.incrementCounter("identifiers.declarations");
-                fileRecord.declarations.push(identifierRecord);
-                scopeRecord.declarations.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "declaration",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-
-            if (isReference) {
-                metrics?.incrementCounter("identifiers.references");
-                fileRecord.references.push(identifierRecord);
-                scopeRecord.references.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "reference",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-        }
-
-        if (node?.type === "CallExpression") {
-            const callee = getCallExpressionIdentifier(node);
-            const calleeName = callee?.name ?? null;
-            if (!calleeName || builtInNames.has(calleeName)) {
-                return;
-            }
-
-            const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
-            const targetResourcePath = targetScopeId
-                ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                : null;
-
-            const callRecord = {
-                kind: "script",
-                from: {
-                    filePath: fileRecord.filePath,
-                    scopeId: scopeRecord.id
-                },
-                target: {
-                    name: calleeName,
-                    scopeId: targetScopeId,
-                    resourcePath: targetResourcePath
-                },
-                isResolved: Boolean(targetScopeId),
-                location: {
-                    start: cloneLocation(callee?.start),
-                    end: cloneLocation(callee?.end)
-                }
-            };
-
-            fileRecord.scriptCalls.push(callRecord);
-            scopeRecord.scriptCalls.push(callRecord);
-            relationships.scriptCalls.push(callRecord);
-            metrics?.incrementCounter("scriptCalls.discovered");
-        }
-
-        if (
-            node?.type === "NewExpression" &&
-            node.expression?.type === "Identifier"
-        ) {
-            const callee = node.expression;
-            const calleeName = callee.name;
-            if (typeof calleeName === "string") {
-                const targetScopeId =
-                    scriptNameToScopeId.get(calleeName) ?? null;
-                const targetResourcePath = targetScopeId
-                    ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                    : null;
-
-                const callRecord = {
-                    kind: "script",
-                    from: {
-                        filePath: fileRecord.filePath,
-                        scopeId: scopeRecord.id
-                    },
-                    target: {
-                        name: calleeName,
-                        scopeId: targetScopeId,
-                        resourcePath: targetResourcePath
-                    },
-                    isResolved: Boolean(targetScopeId),
-                    location: {
-                        start: cloneLocation(callee.start),
-                        end: cloneLocation(callee.end)
-                    }
-                };
-
-                fileRecord.scriptCalls.push(callRecord);
-                scopeRecord.scriptCalls.push(callRecord);
-                relationships.scriptCalls.push(callRecord);
-                metrics?.incrementCounter("scriptCalls.discovered");
-            }
-        }
-
-        if (
-            node?.type === "AssignmentExpression" &&
-            node.left?.type === "Identifier" &&
-            scopeDescriptor?.kind === "objectEvent"
-        ) {
-            const leftRecord = createIdentifierRecord(node.left);
-            const classifications = asArray(leftRecord?.classifications);
-
-            const isGlobalAssignment =
-                classifications.includes("global") ||
-                leftRecord.isGlobalIdentifier;
-            const hasDeclaration = Boolean(
-                leftRecord.declaration && leftRecord.declaration.scopeId
-            );
-
-            if (
-                identifierCollections &&
-                !isGlobalAssignment &&
-                !hasDeclaration &&
-                leftRecord.name &&
-                !builtInNames.has(leftRecord.name)
-            ) {
-                registerInstanceAssignment({
-                    identifierCollections,
-                    identifierRecord: leftRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-                metrics?.incrementCounter("identifiers.instanceAssignments");
-            }
-        }
+        handleObjectEventAssignmentNode({
+            node,
+            scopeDescriptor,
+            identifierCollections,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            metrics
+        });
     });
 }
 
@@ -2107,13 +1823,11 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
         return;
     }
 
-    if (typeof worker !== "function") {
-        throw new TypeError("worker must be a function");
-    }
+    assertFunction(worker, "worker");
 
-    const signal = options?.signal ?? null;
-    const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
+    const { ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2158,10 +1872,9 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const signal = options?.signal ?? null;
-    const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
-    ensureNotAborted();
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
 
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
         loadBuiltInIdentifiers(fsFacade, metrics, { signal })
@@ -2243,7 +1956,9 @@ export async function buildProjectIndex(
                 createFileScopeDescriptor(file.relativePath);
 
             const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-            pushUnique(scopeRecord.filePaths, file.relativePath);
+            if (!scopeRecord.filePaths.includes(file.relativePath)) {
+                scopeRecord.filePaths.push(file.relativePath);
+            }
             ensureScriptEntry(identifierCollections, scopeDescriptor);
 
             const fileRecord = ensureFileRecord(
@@ -2294,61 +2009,56 @@ export async function buildProjectIndex(
         identifierCollections
     });
 
-    const resources = Object.fromEntries(
-        [...resourceAnalysis.resourcesMap.entries()].map(
-            ([resourcePath, record]) => [
-                resourcePath,
-                {
-                    path: record.path,
-                    name: record.name,
-                    resourceType: record.resourceType,
-                    scopes: [...record.scopes],
-                    gmlFiles: [...record.gmlFiles],
-                    assetReferences: record.assetReferences.map((reference) =>
-                        cloneAssetReference(reference)
-                    )
-                }
-            ]
-        )
+    const resources = mapToObject(
+        resourceAnalysis.resourcesMap,
+        (record) => ({
+            path: record.path,
+            name: record.name,
+            resourceType: record.resourceType,
+            scopes: [...record.scopes],
+            gmlFiles: [...record.gmlFiles],
+            assetReferences: record.assetReferences.map((reference) =>
+                cloneAssetReference(reference)
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const scopes = Object.fromEntries(
-        [...scopeMap.entries()].map(([scopeId, record]) => [
-            scopeId,
-            {
-                id: record.id,
-                kind: record.kind,
-                name: record.name,
-                displayName: record.displayName,
-                resourcePath: record.resourcePath,
-                event: record.event ? { ...record.event } : null,
-                filePaths: [...record.filePaths],
-                ...cloneEntryCollections(
-                    record,
-                    "declarations",
-                    "references",
-                    "ignoredIdentifiers",
-                    "scriptCalls"
-                )
-            }
-        ])
+    const scopes = mapToObject(
+        scopeMap,
+        (record) => ({
+            id: record.id,
+            kind: record.kind,
+            name: record.name,
+            displayName: record.displayName,
+            resourcePath: record.resourcePath,
+            event: record.event ? { ...record.event } : null,
+            filePaths: [...record.filePaths],
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const files = Object.fromEntries(
-        [...filesMap.entries()].map(([filePath, record]) => [
-            filePath,
-            {
-                filePath: record.filePath,
-                scopeId: record.scopeId,
-                ...cloneEntryCollections(
-                    record,
-                    "declarations",
-                    "references",
-                    "ignoredIdentifiers",
-                    "scriptCalls"
-                )
-            }
-        ])
+    const files = mapToObject(
+        filesMap,
+        (record) => ({
+            filePath: record.filePath,
+            scopeId: record.scopeId,
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
     const identifiers = {
@@ -2451,3 +2161,4 @@ export async function buildProjectIndex(
 }
 export { getDefaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
+export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };

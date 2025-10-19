@@ -44,13 +44,13 @@ import {
 import {
     getBodyStatements,
     getCallExpressionArguments,
-    getCallExpressionIdentifierName,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
@@ -420,6 +420,20 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
+            const locStart =
+                typeof options.locStart === "function" ? options.locStart : null;
+            const fallbackStart =
+                typeof node?.start === "number"
+                    ? node.start
+                    : typeof node?.start?.index === "number"
+                      ? node.start.index
+                      : 0;
+            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const originalText =
+                typeof options.originalText === "string"
+                    ? options.originalText
+                    : null;
+
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -464,7 +478,22 @@ export function print(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
-                if (needsLeadingBlankLine && !suppressLeadingBlank) {
+                const hasLeadingNonDocComment =
+                    !isNonEmptyArray(node.docComments) &&
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+                const hasExistingBlankLine =
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    isPreviousLineEmpty(originalText, nodeStartIndex);
+
+                if (
+                    !suppressLeadingBlank &&
+                    (needsLeadingBlankLine ||
+                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                ) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
@@ -1857,10 +1886,16 @@ function isSkippableSemicolonWhitespace(charCode) {
         case 12: // form feed
         case 13: // carriage return
         case 32: // space
-        case 160: // non-breaking space
-        case 0x20_28: // line separator
+        case 160:
+        case 0x20_28:
         case 0x20_29: {
-            // paragraph separator
+            // GameMaker occasionally serializes or copy/pastes scripts with the
+            // U+00A0 non-breaking space and the U+2028/U+2029 line and
+            // paragraph separators—for example when creators paste snippets
+            // from the IDE or import JSON exports. Treat them as
+            // semicolon-trimmable whitespace so the cleanup logic keeps
+            // matching GameMaker's parser expectations instead of leaving stray
+            // semicolons behind.
             return true;
         }
         default: {
@@ -3476,7 +3511,11 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     }
 
     const [firstArg] = args;
-    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+    if (
+        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+            caseInsensitive: true
+        })
+    ) {
         return false;
     }
 
@@ -3528,11 +3567,6 @@ function applyOuterTrigConversion(node, conversionMap) {
 
     updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
     return true;
-}
-
-function isCallExpressionWithName(node, name) {
-    const identifierName = getCallExpressionIdentifierName(node);
-    return identifierName ? identifierName.toLowerCase() === name : false;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {

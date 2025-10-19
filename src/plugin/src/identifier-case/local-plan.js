@@ -13,7 +13,10 @@ import {
     getNonEmptyString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    isObjectLike,
+    getOrCreateMapEntry
+} from "../../../shared/object-utils.js";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
@@ -37,6 +40,19 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getIterableSize } from "../../../shared/utils/capability-probes.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+
+function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
+    if (!scopeRecord || typeof scopeRecord !== "object") {
+        return fallback;
+    }
+
+    return (
+        scopeRecord.displayName ??
+        scopeRecord.name ??
+        scopeRecord.id ??
+        fallback
+    );
+}
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (!isNonEmptyString(absoluteFilePath)) {
@@ -77,19 +93,22 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         const scopeRecord = scopeMap[scopeId];
         return {
             id: scopeRecord.id,
-            displayName:
-                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+            displayName: getScopeDisplayName(scopeRecord)
         };
     }
 
     if (fileScopeId && scopeMap[fileScopeId]) {
         const parentScope = scopeMap[fileScopeId];
+        const parentDisplayName = getScopeDisplayName(
+            parentScope,
+            fileRecord?.filePath ?? "<locals>"
+        );
         return {
             id:
                 scopeId ??
                 parentScope.id ??
                 `locals:${fileRecord?.filePath ?? "<unknown>"}`,
-            displayName: `${parentScope.displayName ?? parentScope.name ?? fileRecord?.filePath ?? "<locals>"} (locals)`
+            displayName: `${parentDisplayName} (locals)`
         };
     }
 
@@ -278,10 +297,7 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
             const scopeRecord = scopeMap[scopeId];
             return {
                 id: scopeRecord.id,
-                displayName:
-                    scopeRecord.displayName ??
-                    scopeRecord.name ??
-                    scopeRecord.id
+                displayName: getScopeDisplayName(scopeRecord)
             };
         }
     }
@@ -291,8 +307,7 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
         const scopeRecord = scopeMap[scopeId];
         return {
             id: scopeRecord.id,
-            displayName:
-                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+            displayName: getScopeDisplayName(scopeRecord)
         };
     }
 
@@ -325,10 +340,8 @@ function createNameCollisionTracker() {
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        if (!entriesByName.has(key)) {
-            entriesByName.set(key, []);
-        }
-        entriesByName.get(key).push(record);
+        const bucket = getOrCreateMapEntry(entriesByName, key, () => []);
+        bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };
 

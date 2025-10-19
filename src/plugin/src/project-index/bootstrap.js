@@ -2,7 +2,11 @@ import path from "node:path";
 
 import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import { coalesceOption, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    coalesceOption,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
@@ -22,9 +26,7 @@ const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
 function resolveOptionWithOverride(options, config) {
     const { onValue, onMissing, internalKey, externalKey } = config ?? {};
 
-    if (typeof onValue !== "function") {
-        throw new TypeError("onValue must be a function");
-    }
+    assertFunction(onValue, "onValue");
 
     const resolveMissing = () =>
         typeof onMissing === "function" ? onMissing() : onMissing;
