@@ -3,7 +3,6 @@ import { print } from "../printer/print.js";
 import { handleComments, printComment } from "../comments/comment-printer.js";
 import { identifierCaseOptions } from "../options/identifier-case.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
-import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 export function createDefaultGmlPluginComponents() {
     return {
@@ -164,26 +163,6 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
             },
-            missingOptionalArgumentPlaceholder: {
-                since: "0.0.0",
-                type: "choice",
-                category: "gml",
-                default: MissingOptionalArgumentPlaceholder.UNDEFINED,
-                description:
-                    "Controls how omitted optional arguments are printed. Set to 'empty' to leave the slot blank instead of inserting 'undefined'.",
-                choices: [
-                    {
-                        value: MissingOptionalArgumentPlaceholder.UNDEFINED,
-                        description:
-                            "Fill missing optional arguments with the literal 'undefined'."
-                    },
-                    {
-                        value: MissingOptionalArgumentPlaceholder.EMPTY,
-                        description:
-                            "Leave missing optional arguments empty so calls render as consecutive commas."
-                    }
-                ]
-            },
             convertDivisionToMultiplication: {
                 since: "0.0.0",
                 type: "boolean",
@@ -215,14 +194,6 @@ export function createDefaultGmlPluginComponents() {
                 default: false,
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
-            },
-            allowTrailingCallArguments: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Reserved for future use; enabling this option currently has no effect because trailing call commas are normalized into missing optional argument placeholders (see 'missingOptionalArgumentPlaceholder')."
             }
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
             // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)

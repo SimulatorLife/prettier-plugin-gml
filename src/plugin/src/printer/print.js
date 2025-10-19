@@ -61,7 +61,6 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
-import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 const {
     breakParent,
@@ -1049,14 +1048,6 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            const placeholder =
-                options.missingOptionalArgumentPlaceholder ??
-                MissingOptionalArgumentPlaceholder.UNDEFINED;
-
-            if (placeholder === MissingOptionalArgumentPlaceholder.EMPTY) {
-                return concat("");
-            }
-
             return concat("undefined");
         }
         case "NewExpression": {
