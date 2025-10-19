@@ -2,6 +2,10 @@ import path from "node:path";
 
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    isNonEmptyString,
+    isNonEmptyTrimmedString
+} from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
 import { createAbortGuard } from "./abort-guard.js";
@@ -33,7 +37,7 @@ function toProjectRelativePath(projectRoot, absolutePath) {
 }
 
 function normalizeResourcePath(rawPath, { projectRoot } = {}) {
-    if (typeof rawPath !== "string" || rawPath.length === 0) {
+    if (!isNonEmptyString(rawPath)) {
         return null;
     }
 
@@ -110,7 +114,7 @@ function resolveEventMetadata(event) {
               ? event.enumb
               : null;
 
-    if (event && typeof event.name === "string" && event.name.trim()) {
+    if (isNonEmptyTrimmedString(event?.name)) {
         return { eventType, eventNum, displayName: event.name };
     }
 
