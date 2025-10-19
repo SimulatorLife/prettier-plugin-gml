@@ -2598,7 +2598,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
-    it("reorders optional parameters after required ones and records fix metadata", () => {
+    it("converts required parameters after optional ones into undefined defaults", () => {
         const source = [
             "function example(a, b = 1, c, d = 2) {",
             "    return a + b + c + d;",
@@ -2625,14 +2625,28 @@ describe("applyFeatherFixes transform", () => {
               })
             : [];
 
-        assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
+        assert.deepStrictEqual(parameterNames, ["a", "b", "c", "d"]);
 
-        const defaultParameters = fn.params.filter(
-            (param) => param?.type === "DefaultParameter"
-        );
-        assert.strictEqual(defaultParameters.length, 2);
-        assert.strictEqual(defaultParameters[0].left?.name, "b");
-        assert.strictEqual(defaultParameters[1].left?.name, "d");
+        const [firstParam, secondParam, thirdParam, fourthParam] = fn.params ?? [];
+
+        assert.ok(firstParam);
+        assert.strictEqual(firstParam.type, "Identifier");
+        assert.strictEqual(firstParam.name, "a");
+
+        assert.ok(secondParam);
+        assert.strictEqual(secondParam.type, "DefaultParameter");
+        assert.strictEqual(secondParam.left?.name, "b");
+        assert.strictEqual(secondParam.right?.value, "1");
+
+        assert.ok(thirdParam);
+        assert.strictEqual(thirdParam.type, "DefaultParameter");
+        assert.strictEqual(thirdParam.left?.name, "c");
+        assert.strictEqual(thirdParam.right?.value, "undefined");
+        assert.strictEqual(thirdParam._preserveUndefinedDefault, true);
+
+        assert.ok(fourthParam);
+        assert.strictEqual(fourthParam.type, "DefaultParameter");
+        assert.strictEqual(fourthParam.left?.name, "d");
 
         assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
         assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);

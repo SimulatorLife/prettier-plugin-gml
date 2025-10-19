@@ -3178,6 +3178,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         const isConstructorLike =
             functionNode?.type === "ConstructorDeclaration" ||
             functionNode?.type === "ConstructorParentClause";
+        const preserveUndefinedDefault =
+            paramNode._preserveUndefinedDefault === true;
 
         const shouldIncludeDefaultText =
             !defaultIsUndefined ||
@@ -3189,9 +3191,11 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
-        const optional = defaultIsUndefined
-            ? !signatureOmitsUndefinedDefault
-            : true;
+        const optional = preserveUndefinedDefault
+            ? true
+            : defaultIsUndefined
+              ? !signatureOmitsUndefinedDefault
+              : true;
 
         return {
             name: docName,
@@ -3210,6 +3214,10 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 function shouldOmitDefaultValueForParameter(path) {
     const node = path.getValue();
     if (!node || node.type !== "DefaultParameter") {
+        return false;
+    }
+
+    if (node._preserveUndefinedDefault === true) {
         return false;
     }
 

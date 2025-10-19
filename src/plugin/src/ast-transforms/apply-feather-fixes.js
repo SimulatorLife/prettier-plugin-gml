@@ -16265,39 +16265,33 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
     }
 
     let encounteredOptional = false;
-    let needsReordering = false;
+    let appliedChanges = false;
 
-    for (const param of params) {
+    for (const [index, param] of params.entries()) {
         if (isOptionalParameter(param)) {
             encounteredOptional = true;
-        } else if (encounteredOptional) {
-            needsReordering = true;
-            break;
+            continue;
         }
+
+        if (!encounteredOptional) {
+            continue;
+        }
+
+        const converted = convertParameterToUndefinedDefault(param);
+        if (!converted) {
+            return null;
+        }
+
+        params[index] = converted;
+        encounteredOptional = true;
+        appliedChanges = true;
     }
 
-    if (!needsReordering) {
+    if (!appliedChanges) {
         return null;
     }
 
-    const requiredParams = [];
-    const optionalParams = [];
-
-    for (const param of params) {
-        if (isOptionalParameter(param)) {
-            optionalParams.push(param);
-        } else {
-            requiredParams.push(param);
-        }
-    }
-
-    const reorderedParams = requiredParams.concat(optionalParams);
-
-    if (reorderedParams.length !== params.length) {
-        return null;
-    }
-
-    node.params = reorderedParams;
+    node.params = params;
     node._flattenSyntheticNumericParens = true;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -16319,6 +16313,37 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
 function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
+}
+
+function convertParameterToUndefinedDefault(parameter) {
+    if (!parameter || typeof parameter !== "object") {
+        return null;
+    }
+
+    if (parameter.type === "DefaultParameter") {
+        return parameter;
+    }
+
+    if (parameter.type !== "Identifier") {
+        return null;
+    }
+
+    const defaultParameter = {
+        type: "DefaultParameter",
+        left: parameter,
+        right: createLiteral("undefined", parameter),
+        _preserveUndefinedDefault: true
+    };
+
+    if (Object.hasOwn(parameter, "start")) {
+        defaultParameter.start = cloneLocation(parameter.start);
+    }
+
+    if (Object.hasOwn(parameter, "end")) {
+        defaultParameter.end = cloneLocation(parameter.end);
+    }
+
+    return defaultParameter;
 }
 
 function getFunctionIdentifierName(node) {
