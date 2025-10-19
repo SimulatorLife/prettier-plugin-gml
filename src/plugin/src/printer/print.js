@@ -1886,10 +1886,16 @@ function isSkippableSemicolonWhitespace(charCode) {
         case 12: // form feed
         case 13: // carriage return
         case 32: // space
-        case 160: // non-breaking space
-        case 0x20_28: // line separator
+        case 160:
+        case 0x20_28:
         case 0x20_29: {
-            // paragraph separator
+            // GameMaker occasionally serializes or copy/pastes scripts with the
+            // U+00A0 non-breaking space and the U+2028/U+2029 line and
+            // paragraph separators—for example when creators paste snippets
+            // from the IDE or import JSON exports. Treat them as
+            // semicolon-trimmable whitespace so the cleanup logic keeps
+            // matching GameMaker's parser expectations instead of leaving stray
+            // semicolons behind.
             return true;
         }
         default: {
