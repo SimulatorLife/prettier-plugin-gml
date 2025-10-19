@@ -61,7 +61,9 @@ function normalizeVerboseOverrides(overrides) {
         return null;
     }
 
-    const entries = Object.entries(overrides).filter(([, value]) => value !== undefined);
+    const entries = Object.entries(overrides).filter(
+        ([, value]) => value !== undefined
+    );
 
     return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
@@ -122,30 +124,31 @@ function normalizeManualTagEntry(entry) {
         entry,
         "Manual tags response must contain objects with tag metadata."
     );
+
     if (typeof name !== "string" || name.length === 0) {
         throw new TypeError("Manual tag entry is missing a tag name.");
     }
 
-    if (commit === undefined || commit === null) {
+    if (commit == null) {
         return { name, sha: null };
     }
 
-    const commitRecord = assertPlainObject(
+    const { sha } = assertPlainObject(
         commit,
         "Manual tag entry commit must be an object when provided."
     );
 
-    if (commitRecord.sha === undefined || commitRecord.sha === null) {
+    if (sha == null) {
         return { name, sha: null };
     }
 
-    if (typeof commitRecord.sha !== "string" || commitRecord.sha.length === 0) {
+    if (typeof sha !== "string" || sha.length === 0) {
         throw new TypeError(
             "Manual tag entry commit SHA must be a non-empty string when provided."
         );
     }
 
-    return { name, sha: commitRecord.sha };
+    return { name, sha };
 }
 
 function resolveManualCacheRoot({
