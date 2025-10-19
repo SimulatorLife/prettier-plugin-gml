@@ -9,12 +9,12 @@ import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import {
-    getIdentifierText,
-    toNormalizedLowerCaseString
-} from "./shared-deps.js";
+import { getIdentifierText } from "./shared-deps.js";
 import { formatByteSize } from "./byte-format.js";
 import {
+    SuiteOutputFormat,
+    formatSuiteOutputFormatList,
+    normalizeSuiteOutputFormat,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites
@@ -28,11 +28,14 @@ function collectSuite(value, previous = []) {
 }
 
 function validateFormat(value) {
-    const normalized = toNormalizedLowerCaseString(value);
-    if (normalized === "json" || normalized === "human") {
+    const normalized = normalizeSuiteOutputFormat(value);
+    if (normalized) {
         return normalized;
     }
-    throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
+
+    throw new InvalidArgumentError(
+        `Format must be one of: ${formatSuiteOutputFormatList()}.`
+    );
 }
 
 function formatErrorDetails(error) {
@@ -367,7 +370,7 @@ export function createPerformanceCommand() {
             "--format <format>",
             "Output format: json (default) or human.",
             validateFormat,
-            "json"
+            SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.")
         .option(

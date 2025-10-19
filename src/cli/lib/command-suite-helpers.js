@@ -1,6 +1,36 @@
 import process from "node:process";
 
 import { CliUsageError } from "./cli-errors.js";
+import { toNormalizedLowerCaseString } from "./shared-deps.js";
+
+export const SuiteOutputFormat = Object.freeze({
+    JSON: "json",
+    HUMAN: "human"
+});
+
+const VALID_SUITE_OUTPUT_FORMATS = new Set(Object.values(SuiteOutputFormat));
+
+const SUITE_OUTPUT_FORMAT_LIST = [...VALID_SUITE_OUTPUT_FORMATS]
+    .sort()
+    .join(", ");
+
+export function formatSuiteOutputFormatList() {
+    return SUITE_OUTPUT_FORMAT_LIST;
+}
+
+export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
+    const normalized = toNormalizedLowerCaseString(value);
+
+    if (!normalized) {
+        return fallback ?? null;
+    }
+
+    if (VALID_SUITE_OUTPUT_FORMATS.has(normalized)) {
+        return normalized;
+    }
+
+    return null;
+}
 
 /**
  * Normalize the requested suite names for execution.
@@ -54,7 +84,17 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
  * @returns {boolean} `true` when JSON output was emitted.
  */
 export function emitSuiteResults(results, { format, pretty } = {}) {
-    if (format === "human") {
+    const normalizedFormat = normalizeSuiteOutputFormat(format, {
+        fallback: SuiteOutputFormat.JSON
+    });
+
+    if (!normalizedFormat) {
+        throw new RangeError(
+            `Unsupported suite output format '${format}'. Valid formats: ${formatSuiteOutputFormatList()}.`
+        );
+    }
+
+    if (normalizedFormat === SuiteOutputFormat.HUMAN) {
         return false;
     }
 
