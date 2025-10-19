@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { createManualGitHubClient } from "../lib/manual-utils.js";
+import {
+    createManualGitHubClient,
+    createManualVerboseState
+} from "../lib/manual-utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
 
@@ -32,6 +35,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { refResolver } = client;
 
         const responses = [
             {
@@ -49,8 +53,8 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                client.resolveManualRef("feature", {
-                    verbose: {},
+                refResolver.resolveManualRef("feature", {
+                    verbose: createManualVerboseState({ quiet: true }),
                     apiRoot: API_ROOT
                 }),
             /did not include a commit SHA/
@@ -64,6 +68,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { refResolver } = client;
 
         const responses = [
             {
@@ -83,8 +88,10 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                client.resolveManualRef(undefined, {
-                    verbose: { resolveRef: false },
+                refResolver.resolveManualRef(undefined, {
+                    verbose: createManualVerboseState({
+                        overrides: { resolveRef: false }
+                    }),
                     apiRoot: API_ROOT
                 }),
             /missing a tag name/
@@ -98,6 +105,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
+        const { refResolver } = client;
 
         const responses = [
             {
@@ -117,8 +125,10 @@ describe("manual GitHub client validation", () => {
             return next.response;
         };
 
-        const result = await client.resolveManualRef(undefined, {
-            verbose: { resolveRef: false },
+        const result = await refResolver.resolveManualRef(undefined, {
+            verbose: createManualVerboseState({
+                overrides: { resolveRef: false }
+            }),
             apiRoot: API_ROOT
         });
 

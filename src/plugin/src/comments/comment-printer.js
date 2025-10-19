@@ -1,8 +1,10 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
-import { isCommentNode } from "../../../shared/comments.js";
-import { getLineBreakCount } from "../../../shared/line-breaks.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    getLineBreakCount,
+    isCommentNode,
+    isObjectLike
+} from "./comment-boundary.js";
 import {
     applyInlinePadding,
     formatLineComment,
@@ -10,7 +12,7 @@ import {
 } from "./line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 
-const { addDanglingComment } = util;
+const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
 
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
@@ -52,13 +54,28 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
     return false;
 }
 
+function handleHoistedDeclarationLeadingComment(comment) {
+    const target = comment?._featherHoistedTarget;
+
+    if (!target) {
+        return false;
+    }
+
+    addLeadingComment(target, comment);
+    delete comment._featherHoistedTarget;
+
+    return true;
+}
+
 const OWN_LINE_COMMENT_HANDLERS = [
+    handleHoistedDeclarationLeadingComment,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
     handleOnlyComments
 ];
 
 const COMMON_COMMENT_HANDLERS = [
+    handleHoistedDeclarationLeadingComment,
     handleOnlyComments,
     handleCommentAttachedToOpenBrace,
     handleCommentInEmptyParens
@@ -326,17 +343,43 @@ function handleMacroComments(comment) {
 function handleCommentAttachedToOpenBrace(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.enclosingNode?.type !== "BlockStatement") {
+    const enclosingNode = comment.enclosingNode;
+
+    if (!isBlockStatement(enclosingNode)) {
         return false;
     }
 
-    if (comment.start.line !== comment.enclosingNode.start.line) {
+    if (!isCommentOnNodeStartLine(comment, enclosingNode)) {
         return false;
     }
 
     comment.attachToBrace = true;
-    addDanglingComment(comment.enclosingNode, comment);
+    addDanglingComment(enclosingNode, comment);
     return true;
+}
+
+function isBlockStatement(node) {
+    return node?.type === "BlockStatement";
+}
+
+/**
+ * Determines whether a comment starts on the same line as the enclosing node's
+ * start token. This guards against reaching through multiple layers of the
+ * syntax tree from the call site and keeps line comparisons centralized.
+ *
+ * @param {object} comment
+ * @param {object} node
+ * @returns {boolean}
+ */
+function isCommentOnNodeStartLine(comment, node) {
+    const commentLine = comment.start?.line;
+    const nodeStartLine = node?.start?.line;
+
+    if (commentLine == null || nodeStartLine == null) {
+        return false;
+    }
+
+    return commentLine === nodeStartLine;
 }
 
 function handleCommentInEmptyParens(

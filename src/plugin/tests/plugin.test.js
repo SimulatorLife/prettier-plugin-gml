@@ -235,6 +235,39 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("closes GM2008 vertex batches without leading padding", async () => {
+        const source = [
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_begin(vb, format);",
+            "",
+            "vertex_position_3d(vb, x2, y2, z2);",
+            "vertex_end(vb);",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source, {
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x, y, z);",
+            "vertex_end(vb);",
+            "",
+            "vertex_begin(vb, format);",
+            "vertex_position_3d(vb, x2, y2, z2);",
+            "vertex_end(vb);"
+        ].join("\n");
+
+        assert.strictEqual(
+            formatted,
+            expected,
+            "Expected Feather fixes to close vertex batches without extra blank lines."
+        );
+    });
+
     it("retains blank lines following macro directives", async () => {
         const source = [
             "#define  TRIPLE(value) ((value) * 3)",
@@ -319,6 +352,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function example",
             '/// @param [arg="default"]',
+            "/// @returns {undefined}",
             'function example(arg = "default") {}'
         ].join("\n");
 
@@ -341,6 +375,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function equalityExample",
             '/// @param [arg="fallback"]',
+            "/// @returns {undefined}",
             'function equalityExample(arg = "fallback") {}'
         ].join("\n");
 
@@ -363,6 +398,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected = [
             "/// @function inequalityExample",
             '/// @param [arg="fallback"]',
+            "/// @returns {undefined}",
             'function inequalityExample(arg = "fallback") {}'
         ].join("\n");
 
@@ -386,6 +422,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function equalityExample",
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
+            "/// @returns {undefined}",
             'function equalityExample(arg0, arg1 = "fallback") {}'
         ].join("\n");
 
@@ -409,6 +446,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function inequalityExample",
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
+            "/// @returns {undefined}",
             'function inequalityExample(arg0, arg1 = "fallback") {}'
         ].join("\n");
 

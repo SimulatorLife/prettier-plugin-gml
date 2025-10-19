@@ -4,6 +4,7 @@ import { applyEnvOptionOverrides } from "./env-overrides.js";
 
 export const MANUAL_REF_ENV_VAR = "GML_MANUAL_REF";
 export const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
+export const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 export function applyManualEnvOptionOverrides({
     command,

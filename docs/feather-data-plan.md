@@ -6,10 +6,10 @@
 - Produce a machine-readable artefact (stored as `resources/feather-metadata.json`) that can be regenerated against any GameMaker release tag and consumed by future formatting heuristics.
 
 ## Current implementation
-- [`src/cli/generate-feather-metadata.js`](../src/cli/generate-feather-metadata.js) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption. The thin [`scripts/generate-feather-metadata.mjs`](../scripts/generate-feather-metadata.mjs) shim simply delegates to the shared CLI entry point.【F:src/cli/generate-feather-metadata.js†L1-L40】【F:scripts/generate-feather-metadata.mjs†L1-L6】
-- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can now be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere.【F:src/cli/generate-feather-metadata.js†L228-L312】【F:src/cli/options/manual-cache.js†L1-L19】
-- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, `--manual-repo` targets a different GitHub repository, the new `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary.【F:src/cli/generate-feather-metadata.js†L88-L212】
-- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, `GML_MANUAL_REPO` to point at a forked manual repository, `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts, and `GML_IDENTIFIER_VM_TIMEOUT_MS` to relax or tighten the VM evaluation timeout shared with the identifier harvester.【F:src/cli/generate-feather-metadata.js†L88-L212】【F:src/cli/options/manual-cache.js†L1-L19】【F:src/cli/generate-gml-identifiers.js†L1-L220】
+- [`src/cli/commands/generate-feather-metadata.js`](../src/cli/commands/generate-feather-metadata.js) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption. All tooling now lives under the CLI—do not add stand-alone scripts when expanding the pipeline.
+- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere.
+- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, `--manual-repo` targets a different GitHub repository, the `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary.
+- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, `GML_MANUAL_REPO` to point at a forked manual repository, `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts, `GML_PROJECT_INDEX_CONCURRENCY` to raise or lower the default identifier-case project index concurrency, and `GML_IDENTIFIER_VM_TIMEOUT_MS` to relax or tighten the VM evaluation timeout shared with the identifier harvester.
 
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
@@ -18,14 +18,14 @@
    - `Feather_Settings` lists the configurable naming styles, prefixes/suffixes, and the linkage to GM2017, which is exactly the data we need to mirror Feather's naming policies.【702cf8†L31-L120】
    - `Feather_Directives` explains project-level overrides (`// Feather ignore …`, `// Feather use …`) including path glob syntax, so we can understand how to map diagnostics to suppressions and profiles.【40be1b†L1-L44】
    - `Feather_Data_Types` details the base types, specifiers, and collection syntax recognised by the language server, which we can lift to inform formatter-aware type hints later.【ec129e†L1-L80】
-2. **Existing identifier harvesting script**
-- `src/cli/generate-gml-identifiers.js` already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.【F:src/cli/generate-gml-identifiers.js†L1-L220】
+2. **Existing identifier harvesting command**
+- [`src/cli/commands/generate-gml-identifiers.js`](../src/cli/commands/generate-gml-identifiers.js) already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.
 
 ## Extraction pipeline outline
 1. **Version selection & caching**
-- Follow the identifier script's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.【F:src/cli/generate-gml-identifiers.js†L40-L210】
+- Follow the identifier command's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.
 2. **Data acquisition**
-- Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【F:src/cli/generate-gml-identifiers.js†L240-L332】【6f027d†L1-L10】
+- Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【6f027d†L1-L10】
    - Keep the fetch list configurable so we can add/remove topics without touching code (e.g. JSON manifest describing each page and the section(s) to extract).
 3. **HTML parsing**
    - Use a resilient HTML parser (Cheerio or `linkedom`) to traverse headings, paragraphs, tables, and code blocks. RoboHelp exports are consistent (nested `<h3>`, `<p class="code">`, `<table>` blocks), so we can map DOM structures to structured records.
@@ -37,7 +37,7 @@
    - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
    - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRef`, `commitSha`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
 5. **Tooling integration**
-  - Ship `scripts/generate-feather-metadata.mjs`, sharing CLI ergonomics with the identifier generator and exposing it via `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
+  - Expose a dedicated CLI entry point in `src/cli/commands/generate-feather-metadata.js`, sharing ergonomics with the identifier generator and wiring it into `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
 
 ## Regeneration helper

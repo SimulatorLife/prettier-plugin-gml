@@ -2,14 +2,25 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { withObjectLike } from "../../../shared/object-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
-export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE = 8 * 1024 * 1024; // 8 MiB
+export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
+    "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
+export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
+
+let configuredDefaultProjectIndexCacheMaxSize =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
 
 export const ProjectIndexCacheMissReason = Object.freeze({
     NOT_FOUND: "not-found",
@@ -34,19 +45,36 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return (
-        record != null &&
-        typeof record === "object" &&
-        Object.keys(record).length > 0
+    return withObjectLike(
+        record,
+        (object) => Object.keys(object).length > 0,
+        () => false
     );
 }
 
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
-    );
+function getDefaultProjectIndexCacheMaxSize() {
+    return configuredDefaultProjectIndexCacheMaxSize;
 }
+
+function setDefaultProjectIndexCacheMaxSize(size) {
+    const normalized = normalizeMaxSizeBytes(size);
+
+    configuredDefaultProjectIndexCacheMaxSize =
+        normalized ?? PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+    return configuredDefaultProjectIndexCacheMaxSize;
+}
+
+function applyProjectIndexCacheEnvOverride(env = process?.env) {
+    const rawValue = env?.[PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultProjectIndexCacheMaxSize(rawValue);
+}
+
+applyProjectIndexCacheEnvOverride();
 
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
@@ -59,18 +87,51 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
     );
 }
 
+function normalizeMaxSizeBytes(maxSizeBytes) {
+    if (maxSizeBytes == null) {
+        return null;
+    }
+
+    const numericLimit = Number(maxSizeBytes);
+    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+        return null;
+    }
+
+    return numericLimit;
+}
+
 function cloneMtimeMap(source) {
-    if (!source || typeof source !== "object") {
-        return {};
+    return withObjectLike(
+        source,
+        (record) => {
+            const normalized = {};
+
+            for (const [key, value] of Object.entries(record)) {
+                const numericValue = Number(value);
+
+                if (isFiniteNumber(numericValue)) {
+                    normalized[key] = numericValue;
+                }
+            }
+
+            return normalized;
+        },
+        () => ({})
+    );
+}
+
+function areNumbersApproximatelyEqual(a, b) {
+    if (a === b) {
+        return true;
     }
-    const result = {};
-    for (const [key, value] of Object.entries(source)) {
-        const numeric = Number(value);
-        if (Number.isFinite(numeric)) {
-            result[key] = numeric;
-        }
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return false;
     }
-    return result;
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance = Number.EPSILON * scale * 4;
+    return Math.abs(a - b) <= tolerance;
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
@@ -93,7 +154,15 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return false;
     }
 
-    return expectedEntries.every(([key, value]) => actual[key] === value);
+    return expectedEntries.every(([key, value]) => {
+        const actualValue = actual[key];
+
+        if (typeof value === "number" && typeof actualValue === "number") {
+            return areNumbersApproximatelyEqual(value, actualValue);
+        }
+
+        return actualValue === value;
+    });
 }
 
 function validateCachePayload(payload) {
@@ -142,9 +211,16 @@ function validateCachePayload(payload) {
     return true;
 }
 
+export {
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride
+};
+
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -160,6 +236,9 @@ export async function loadProjectIndexCache(
             "projectRoot must be provided to loadProjectIndexCache"
         );
     }
+
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
@@ -177,6 +256,8 @@ export async function loadProjectIndexCache(
         throw error;
     }
 
+    throwIfAborted(signal, "Project index cache load was aborted.");
+
     let parsed;
     try {
         parsed = parseJsonWithContext(rawContents, {
@@ -190,6 +271,8 @@ export async function loadProjectIndexCache(
             { error }
         );
     }
+
+    throwIfAborted(signal, "Project index cache load was aborted.");
 
     if (!validateCachePayload(parsed)) {
         return createCacheMiss(
@@ -261,7 +344,8 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade
+    fsFacade = defaultFsFacade,
+    options = {}
 ) {
     const {
         projectRoot,
@@ -272,7 +356,7 @@ export async function saveProjectIndexCache(
         sourceMtimes = {},
         projectIndex,
         metricsSummary,
-        maxSizeBytes = DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+        maxSizeBytes = getDefaultProjectIndexCacheMaxSize()
     } = descriptor ?? {};
 
     if (!projectRoot) {
@@ -286,11 +370,15 @@ export async function saveProjectIndexCache(
         );
     }
 
+    const signal = options?.signal ?? null;
+    throwIfAborted(signal, "Project index cache save was aborted.");
+
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
     await fsFacade.mkdir(cacheDir, { recursive: true });
+    throwIfAborted(signal, "Project index cache save was aborted.");
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -312,7 +400,8 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    if (maxSizeBytes != undefined && byteLength > maxSizeBytes) {
+    const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
+    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
         return {
             status: "skipped",
             cacheFilePath,
@@ -326,12 +415,20 @@ export async function saveProjectIndexCache(
 
     try {
         await fsFacade.writeFile(tempFilePath, serialized, "utf8");
+        throwIfAborted(signal, "Project index cache save was aborted.");
+
         await fsFacade.rename(tempFilePath, cacheFilePath);
+        throwIfAborted(signal, "Project index cache save was aborted.");
     } catch (error) {
         try {
             await fsFacade.unlink(tempFilePath);
         } catch {
-            // Ignore cleanup failures.
+            // The rename failure above is the actionable error for callers; a
+            // secondary failure while deleting the uniquely named temp file is
+            // best-effort hygiene. Dropping that error preserves the original
+            // stack trace while still leaving a breadcrumb that the write was
+            // attempted—the random suffix prevents future writes from
+            // colliding even if the orphaned file lingers.
         }
         throw error;
     }
@@ -358,7 +455,7 @@ export async function deriveCacheKey(
     if (resolvedRoot) {
         const entries = await listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
-            .filter(isManifestEntry)
+            .filter(isProjectManifestPath)
             .sort((a, b) => a.localeCompare(b));
 
         for (const manifestName of manifestNames) {

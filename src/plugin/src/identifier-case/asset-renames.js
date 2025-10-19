@@ -1,7 +1,10 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import {
@@ -11,15 +14,15 @@ import {
     RESERVED_CONFLICT_CODE,
     createConflict,
     resolveIdentifierConfigurationConflict,
-    incrementFileOccurrence,
-    summarizeFileOccurrences
+    summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
 function isReservedIdentifierName(name) {
-    if (!isNonEmptyString(name)) {
+    const normalizedName = toNormalizedLowerCaseString(name);
+    if (!normalizedName) {
         return false;
     }
 
@@ -27,7 +30,7 @@ function isReservedIdentifierName(name) {
         return false;
     }
 
-    return RESERVED_IDENTIFIER_NAMES.has(name.toLowerCase());
+    return RESERVED_IDENTIFIER_NAMES.has(normalizedName);
 }
 
 function buildAssetConflictSuggestions(identifierName) {
@@ -145,7 +148,7 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
     for (const entries of directories.values()) {
         const byLowerName = new Map();
         for (const entry of entries) {
-            const key = entry.finalName.toLowerCase();
+            const key = toNormalizedLowerCaseString(entry.finalName);
             const bucket = byLowerName.get(key) ?? [];
             bucket.push(entry);
             byLowerName.set(key, bucket);
@@ -229,19 +232,15 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {
-    const counts = new Map();
-    if (resourcePath) {
-        incrementFileOccurrence(counts, resourcePath);
-    }
+    const includeFilePaths =
+        typeof resourcePath === "string" && resourcePath.length > 0
+            ? [resourcePath]
+            : [];
 
-    for (const mutation of referenceMutations ?? []) {
-        if (!mutation?.filePath) {
-            continue;
-        }
-        incrementFileOccurrence(counts, mutation.filePath);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(referenceMutations, {
+        includeFilePaths,
+        fallbackPath: null
+    });
 }
 
 export function planAssetRenames({

@@ -1,6 +1,61 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
-import { getLineBreakCount } from "../../shared/line-breaks.js";
+import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+import { getNonEmptyTrimmedString } from "../../shared/utils.js";
 import ScopeTracker from "./scope-tracker.js";
+import { ScopeOverrideKeyword } from "./scope-override-keywords.js";
+import BinaryExpressionDelegate from "./binary-expression-delegate.js";
+import {
+    IdentifierRoleTracker,
+    IdentifierScopeCoordinator,
+    GlobalIdentifierRegistry,
+    createIdentifierLocation as buildIdentifierLocation
+} from "./identifier-metadata/index.js";
+
+const BINARY_OPERATORS = {
+    // Highest Precedence
+    "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+    "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+    "~": { prec: 14, assoc: "right", type: "unary" },
+    "!": { prec: 14, assoc: "right", type: "unary" },
+    // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
+    "*": { prec: 13, assoc: "left", type: "arithmetic" },
+    "/": { prec: 13, assoc: "left", type: "arithmetic" },
+    div: { prec: 13, assoc: "left", type: "arithmetic" },
+    "%": { prec: 13, assoc: "left", type: "arithmetic" },
+    mod: { prec: 13, assoc: "left", type: "arithmetic" },
+    "+": { prec: 12, assoc: "left", type: "arithmetic" }, // Addition
+    "-": { prec: 12, assoc: "left", type: "arithmetic" }, // Subtraction
+    "<<": { prec: 12, assoc: "left", type: "bitwise" },
+    ">>": { prec: 12, assoc: "left", type: "bitwise" },
+    "&": { prec: 11, assoc: "left", type: "bitwise" },
+    "^": { prec: 10, assoc: "left", type: "bitwise" },
+    "|": { prec: 9, assoc: "left", type: "bitwise" },
+    "<": { prec: 8, assoc: "left", type: "comparison" },
+    "<=": { prec: 8, assoc: "left", type: "comparison" },
+    ">": { prec: 8, assoc: "left", type: "comparison" },
+    ">=": { prec: 8, assoc: "left", type: "comparison" },
+    "==": { prec: 7, assoc: "left", type: "comparison" },
+    "!=": { prec: 7, assoc: "left", type: "comparison" },
+    "<>": { prec: 7, assoc: "left", type: "comparison" },
+    "&&": { prec: 6, assoc: "left", type: "logical" },
+    and: { prec: 6, assoc: "left", type: "logical" },
+    "||": { prec: 5, assoc: "left", type: "logical" },
+    or: { prec: 5, assoc: "left", type: "logical" },
+    "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
+    "*=": { prec: 1, assoc: "right", type: "assign" },
+    ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to "=" in GML
+    "=": { prec: 1, assoc: "right", type: "assign" },
+    "/=": { prec: 1, assoc: "right", type: "assign" },
+    "%=": { prec: 1, assoc: "right", type: "assign" },
+    "+=": { prec: 1, assoc: "right", type: "assign" },
+    "-=": { prec: 1, assoc: "right", type: "assign" },
+    "<<=": { prec: 1, assoc: "right", type: "assign" },
+    ">>=": { prec: 1, assoc: "right", type: "assign" },
+    "&=": { prec: 1, assoc: "right", type: "assign" },
+    "^=": { prec: 1, assoc: "right", type: "assign" },
+    "|=": { prec: 1, assoc: "right", type: "assign" },
+    "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
+};
 
 export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
     constructor(options = {}, whitespaces = []) {
@@ -8,98 +63,63 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         this.options = options || {};
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
-        this.globalIdentifiers = new Set();
-        this.identifierRoles = [];
         this.scopeTracker = new ScopeTracker({
             enabled: Boolean(this.options.getIdentifierMetadata)
         });
-
-        this.operators = {
-            // Highest Precedence
-            "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
-            "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
-            "~": { prec: 14, assoc: "right", type: "unary" },
-            "!": { prec: 14, assoc: "right", type: "unary" },
-            // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
-            "*": { prec: 13, assoc: "left", type: "arithmetic" },
-            "/": { prec: 13, assoc: "left", type: "arithmetic" },
-            div: { prec: 13, assoc: "left", type: "arithmetic" },
-            "%": { prec: 13, assoc: "left", type: "arithmetic" },
-            mod: { prec: 13, assoc: "left", type: "arithmetic" },
-            "+": { prec: 12, assoc: "left", type: "arithmetic" }, // Addition
-            "-": { prec: 12, assoc: "left", type: "arithmetic" }, // Subtraction
-            "<<": { prec: 12, assoc: "left", type: "bitwise" },
-            ">>": { prec: 12, assoc: "left", type: "bitwise" },
-            "&": { prec: 11, assoc: "left", type: "bitwise" },
-            "^": { prec: 10, assoc: "left", type: "bitwise" },
-            "|": { prec: 9, assoc: "left", type: "bitwise" },
-            "<": { prec: 8, assoc: "left", type: "comparison" },
-            "<=": { prec: 8, assoc: "left", type: "comparison" },
-            ">": { prec: 8, assoc: "left", type: "comparison" },
-            ">=": { prec: 8, assoc: "left", type: "comparison" },
-            "==": { prec: 7, assoc: "left", type: "comparison" },
-            "!=": { prec: 7, assoc: "left", type: "comparison" },
-            "<>": { prec: 7, assoc: "left", type: "comparison" },
-            "&&": { prec: 6, assoc: "left", type: "logical" },
-            and: { prec: 6, assoc: "left", type: "logical" },
-            "||": { prec: 5, assoc: "left", type: "logical" },
-            or: { prec: 5, assoc: "left", type: "logical" },
-            "??": { prec: 4, assoc: "right", type: "logical" }, // Nullish coalescing
-            "*=": { prec: 1, assoc: "right", type: "assign" },
-            ":=": { prec: 1, assoc: "right", type: "assign" }, // Equivalent to "=" in GML
-            "=": { prec: 1, assoc: "right", type: "assign" },
-            "/=": { prec: 1, assoc: "right", type: "assign" },
-            "%=": { prec: 1, assoc: "right", type: "assign" },
-            "+=": { prec: 1, assoc: "right", type: "assign" },
-            "-=": { prec: 1, assoc: "right", type: "assign" },
-            "<<=": { prec: 1, assoc: "right", type: "assign" },
-            ">>=": { prec: 1, assoc: "right", type: "assign" },
-            "&=": { prec: 1, assoc: "right", type: "assign" },
-            "^=": { prec: 1, assoc: "right", type: "assign" },
-            "|=": { prec: 1, assoc: "right", type: "assign" },
-            "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
+        this.identifierRoleTracker = new IdentifierRoleTracker();
+        this.identifierScopeCoordinator = new IdentifierScopeCoordinator({
+            scopeTracker: this.scopeTracker,
+            roleTracker: this.identifierRoleTracker
+        });
+        this.globalIdentifiers = new Set();
+        this.globalIdentifierRegistry = new GlobalIdentifierRegistry({
+            globalIdentifiers: this.globalIdentifiers
+        });
+        this.identifierScope = {
+            isEnabled: () => this.identifierScopeCoordinator.isEnabled(),
+            withScope: (kind, callback) =>
+                this.identifierScopeCoordinator.withScope(kind, callback)
         };
+        this.identifierRoles = {
+            withIdentifierRole: (role, callback) =>
+                this.identifierRoleTracker.withRole(role, callback),
+            cloneRole: (role) => this.identifierRoleTracker.cloneRole(role)
+        };
+        this.identifierClassifier = {
+            applyRoleToIdentifier: (name, node) =>
+                this.identifierScopeCoordinator.applyCurrentRoleToIdentifier(
+                    name,
+                    node
+                )
+        };
+        this.identifierGlobals = {
+            markGlobalIdentifier: (node) =>
+                this.globalIdentifierRegistry.markIdentifier(node),
+            applyGlobalFlag: (node) =>
+                this.globalIdentifierRegistry.applyToNode(node)
+        };
+        this.identifierLocations = {
+            createIdentifierLocation: (token) => buildIdentifierLocation(token)
+        };
+        this.binaryExpressions = new BinaryExpressionDelegate({
+            operators: BINARY_OPERATORS
+        });
     }
 
     isIdentifierMetadataEnabled() {
-        return this.scopeTracker.isEnabled();
+        return this.identifierScope.isEnabled();
     }
 
     withScope(kind, callback) {
-        if (!this.isIdentifierMetadataEnabled()) {
-            return callback();
-        }
-
-        this.scopeTracker.enterScope(kind);
-        try {
-            return callback();
-        } finally {
-            this.scopeTracker.exitScope();
-        }
+        return this.identifierScope.withScope(kind, callback);
     }
 
     withIdentifierRole(role, callback) {
-        this.identifierRoles.push(role);
-        try {
-            return callback();
-        } finally {
-            this.identifierRoles.pop();
-        }
+        return this.identifierRoles.withIdentifierRole(role, callback);
     }
 
     cloneRole(role) {
-        if (!role) {
-            return {};
-        }
-
-        const cloned = { ...role };
-        if (role.tags != undefined) {
-            cloned.tags = Array.isArray(role.tags)
-                ? [...role.tags]
-                : [role.tags];
-        }
-
-        return cloned;
+        return this.identifierRoles.cloneRole(role);
     }
 
     // Utility helper that replaces long chains of null checks when visiting
@@ -143,130 +163,14 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     }
 
     createIdentifierLocation(token) {
-        if (!token) {
-            return null;
-        }
-
-        const { line } = token;
-        const startIndex = token.start ?? token.startIndex ?? null;
-        const stopIndex = token.stop ?? token.stopIndex ?? startIndex ?? null;
-        const startColumn = token.column ?? null;
-        const identifierLength =
-            startIndex != undefined && stopIndex != undefined
-                ? stopIndex - startIndex + 1
-                : null;
-
-        const buildPoint = (index, column) => {
-            const point = { line, index };
-            if (column != undefined) {
-                point.column = column;
-            }
-
-            return point;
-        };
-
-        return {
-            start: buildPoint(startIndex, startColumn),
-            end: buildPoint(
-                stopIndex == undefined ? null : stopIndex + 1,
-                startColumn != undefined && identifierLength != undefined
-                    ? startColumn + identifierLength
-                    : null
-            )
-        };
+        return this.identifierLocations.createIdentifierLocation(token);
     }
 
     visitBinaryExpression(ctx) {
-        return this.handleBinaryExpression(ctx);
-    }
-
-    needsParentheses(operator, leftNode, rightNode) {
-        if (!operator || !leftNode || !rightNode) {
-            return false;
-        }
-
-        const leftOp =
-            leftNode.type === "BinaryExpression"
-                ? this.operators[leftNode.operator]
-                : { prec: 0, assoc: "left" };
-        const rightOp =
-            rightNode.type === "BinaryExpression"
-                ? this.operators[rightNode.operator]
-                : { prec: 0, assoc: "left" };
-        const currOp = this.operators[operator];
-
-        if (currOp.assoc === "left") {
-            return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;
-        }
-
-        // For right-associative operators
-        return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
-    }
-
-    wrapInParentheses(ctx, node) {
-        return this.astNode(ctx, {
-            type: "ParenthesizedExpression",
-            expression: node,
-            synthetic: true
+        return this.binaryExpressions.handle(ctx, {
+            visit: (node) => this.visit(node),
+            astNode: (context, value) => this.astNode(context, value)
         });
-    }
-
-    // This method will be the primary method handling the binary expressions
-    handleBinaryExpression(ctx, isEmbeddedExpression = false) {
-        // Check if the expression is defined and is a function
-        if (!ctx || !Object.hasOwn(ctx, "expression")) {
-            return this.visit(ctx);
-        }
-
-        // Determine the number of child expressions
-        let childExpressions = ctx.expression();
-
-        // If there are no child expressions or not 2 (unexpected), fall back to a default visit
-        if (!childExpressions || childExpressions.length > 2) {
-            return this.visit(ctx);
-        }
-
-        let leftNode, rightNode;
-
-        // If there's only one child expression, just visit it
-        if (childExpressions.length === 1) {
-            leftNode = this.visit(childExpressions[0]);
-        } else {
-            // For two child expressions, check if each is a binary expression
-            let leftIsBinary =
-                Object.hasOwn(childExpressions[0], "expression") &&
-                typeof childExpressions[0].expression === "function";
-            let rightIsBinary =
-                Object.hasOwn(childExpressions[1], "expression") &&
-                typeof childExpressions[1].expression === "function";
-
-            leftNode = leftIsBinary
-                ? this.handleBinaryExpression(childExpressions[0], true)
-                : this.visit(childExpressions[0]);
-
-            rightNode = rightIsBinary
-                ? this.handleBinaryExpression(childExpressions[1], true)
-                : this.visit(childExpressions[1]);
-        }
-
-        let operator = ctx.children[1].getText();
-
-        // Create the current BinaryExpression node
-        let node = this.astNode(ctx, {
-            type: "BinaryExpression",
-            operator: operator,
-            left: leftNode,
-            right: rightNode
-        });
-
-        if (
-            isEmbeddedExpression &&
-            this.needsParentheses(operator, leftNode, rightNode)
-        ) {
-            node = this.wrapInParentheses(ctx, node);
-        }
-
-        return node;
     }
 
     hasTrailingComma(commaList, itemList) {
@@ -665,23 +569,16 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                         type: "declaration",
                         kind: "variable",
                         tags: ["global"],
-                        scopeOverride: "global"
+                        scopeOverride: ScopeOverrideKeyword.GLOBAL
                     },
                     () => this.visit(identifierCtx)
                 );
 
-                if (
-                    identifier &&
-                    identifier.type === "Identifier" &&
-                    identifier.name
-                ) {
-                    identifier.isGlobalIdentifier = true;
-                    this.globalIdentifiers.add(identifier.name);
-                }
-
                 if (!identifier) {
                     return null;
                 }
+
+                this.identifierGlobals.markGlobalIdentifier(identifier);
 
                 return this.astNode(identifierCtx, {
                     type: "VariableDeclarator",
@@ -693,12 +590,6 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
 
         if (declarations.length === 0) {
             return null;
-        }
-
-        for (const identifier of declarations
-            .map((declarator) => declarator?.id)
-            .filter((identifier) => identifier && identifier.name)) {
-            this.globalIdentifiers.add(identifier.name);
         }
 
         return this.astNode(ctx, {
@@ -852,13 +743,27 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitIncDecStatement(ctx) {
         if (ctx.preIncDecExpression() != undefined) {
             let result = this.visit(ctx.preIncDecExpression());
-            // Modify type to denote statement context
+            // The ANTLR grammar models `++i;` statements by reusing the same
+            // visitor path as `++i` expressions, so we receive an
+            // `IncDecExpression` node here. Re-tag it as an
+            // `IncDecStatement` before returning so downstream passes know the
+            // increment/decrement consumed an entire statement slot. The
+            // printers and Feather compatibility transforms (see
+            // `src/plugin/src/ast-transforms/apply-feather-fixes.js`) only look
+            // for statement-shaped nodes when deciding whether to emit
+            // GameMaker-style semicolons or rewrite postfix updates; leaving
+            // the expression tag in place would quietly bypass those guards and
+            // reintroduce the very regressions they were added to prevent.
             result.type = "IncDecStatement";
             return result;
         }
         if (ctx.postIncDecExpression() != undefined) {
             let result = this.visit(ctx.postIncDecExpression());
-            // Modify type to denote statement context
+            // See the note above for the prefix branch: postfix statements also
+            // surface as expression nodes and must be re-tagged so the printers,
+            // loop-size hoisting logic (`src/plugin/src/printer/loop-size-hoisting.js`),
+            // and Feather fixups continue to recognise them as standalone
+            // statements instead of loose expressions.
             result.type = "IncDecStatement";
             return result;
         }
@@ -1340,26 +1245,8 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             type: "Identifier",
             name: name
         });
-        if (this.globalIdentifiers.has(name)) {
-            node.isGlobalIdentifier = true;
-        }
-        if (this.isIdentifierMetadataEnabled()) {
-            const role =
-                this.identifierRoles.length > 0
-                    ? this.identifierRoles.at(-1)
-                    : null;
-            const effectiveRole = this.cloneRole(role);
-            const roleType =
-                effectiveRole.type === "declaration"
-                    ? "declaration"
-                    : "reference";
-
-            if (roleType === "declaration") {
-                this.scopeTracker.declare(name, node, effectiveRole);
-            } else {
-                this.scopeTracker.reference(name, node, effectiveRole);
-            }
-        }
+        this.identifierGlobals.applyGlobalFlag(node);
+        this.identifierClassifier.applyRoleToIdentifier(name, node);
         return node;
     }
 
@@ -1411,7 +1298,7 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                 type: "declaration",
                 kind: "macro",
                 tags: ["global"],
-                scopeOverride: "global"
+                scopeOverride: ScopeOverrideKeyword.GLOBAL
             },
             () => this.visit(ctx.identifier())
         );
@@ -1431,9 +1318,9 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitDefineStatement(ctx) {
         const regionCharacters = ctx.RegionCharacters();
         const rawText = regionCharacters ? regionCharacters.getText() : "";
-        const trimmed = rawText.trim();
+        const trimmed = getNonEmptyTrimmedString(rawText);
 
-        if (trimmed.length === 0) {
+        if (!trimmed) {
             return null;
         }
 

@@ -2,6 +2,7 @@ import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers
 } from "../comments/index.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -20,7 +21,7 @@ const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
  * @param {{ hasComment?: (node: unknown) => boolean }} helpers
  */
 export function convertStringConcatenations(ast, helpers = DEFAULT_HELPERS) {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 
@@ -39,7 +40,7 @@ function createTraversalState() {
 }
 
 function traverse(node, parent, key, helpers, state = null) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return;
     }
 
@@ -115,7 +116,7 @@ function attemptConvertConcatenation(node, parent, key, helpers, stack) {
 }
 
 function collectConcatenationParts(node, helpers, output) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return false;
     }
 
