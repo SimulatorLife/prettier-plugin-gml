@@ -379,12 +379,17 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
-            const skippedMatch = stdout.match(/Skipped (\d+) files/);
+            const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
                 skippedMatch,
                 "Expected wrapper output to report skipped files"
             );
             assert.strictEqual(Number(skippedMatch[1]), 1);
+            assert.match(
+                stdout,
+                /Skipped 1 file because they were ignored or used different extensions\./,
+                "Expected wrapper output to include skip rationale"
+            );
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -709,29 +714,78 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("instructs users to supply a target path when none is provided", async () => {
+    it("formats the current working directory when no target path is provided", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
         try {
-            await execFileAsync("node", [wrapperPath]);
-            assert.fail(
-                "Expected the wrapper to exit with a non-zero status code"
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
             );
-        } catch (error) {
-            assert.ok(error, "Expected an error to be thrown");
-            assert.strictEqual(
-                error.code,
-                1,
-                "Expected a non-zero exit code when no target path is provided"
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /Formatted .*script\.gml/,
+                "Expected stdout to mention the formatted file"
             );
             assert.match(
-                error.stderr,
-                /No target path provided\./,
-                "Expected stderr to mention the missing target path"
+                stdout,
+                /Skipped 0 files\./,
+                "Expected stdout to summarize skipped files"
             );
-            assert.match(
-                error.stderr,
-                /--path <path>/,
-                "Expected stderr to point users to the --path option"
-            );
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
         }
+    });
+
+    it("informs the user when no files match the configured extensions", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const ignoredFile = path.join(tempDirectory, "notes.txt");
+            await fs.writeFile(ignoredFile, "hello", "utf8");
+
+            const { stdout, stderr } = await execFileAsync("node", [
+                wrapperPath,
+                tempDirectory
+            ]);
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /No files matching "\.gml" were found/,
+                "Expected stdout to explain why nothing was formatted"
+            );
+            assert.match(
+                stdout,
+                /Skipped \d+ file(?:s)? because they were ignored or used different extensions\./,
+                "Expected stdout to summarize the skipped files"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("prints CLI version information without triggering error handling", async () => {
+        const { stdout, stderr } = await execFileAsync("node", [
+            wrapperPath,
+            "--version"
+        ]);
+
+        assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.ok(
+            stdout.trim().length > 0,
+            "Expected stdout to include a version label"
+        );
     });
 });

@@ -20,9 +20,16 @@ export const languages = [
 
 export { parsers, printers, options };
 
-// Hard overrides for GML regardless of incoming config
-// These options are incompatible with GML or have no effect
-// So we force them to a specific value
+// Hard overrides for GML regardless of incoming config. These knobs either map
+// to syntax that GameMaker never emits (for example JSX attributes) or would
+// let callers re-enable formatting modes the printers deliberately avoid. The
+// fixtures showcased in README.md#formatter-at-a-glance and the
+// docs/examples/* snapshots all assume "no trailing commas" plus
+// "always-parenthesised arrow parameters", so letting user configs flip those
+// bits would desynchronise the documented contract from the code we ship. We
+// therefore clamp the values here to advertise a single canonical style and to
+// prevent project-level `.prettierrc` files from surfacing ineffective or
+// misleading toggles.
 const CORE_OPTION_OVERRIDES = {
     trailingComma: "none",
     arrowParens: "always",

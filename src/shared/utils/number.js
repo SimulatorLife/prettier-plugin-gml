@@ -4,7 +4,7 @@
  * @param {unknown} value Potential numeric value.
  * @returns {value is number} `true` when `value` is a finite number.
  */
-function isFiniteNumber(value) {
+export function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 
@@ -17,7 +17,7 @@ function isFiniteNumber(value) {
  * @returns {number | null} Truncated integer when `value` is finite, otherwise
  *          `null`.
  */
-function toNormalizedInteger(value) {
+export function toNormalizedInteger(value) {
     if (!isFiniteNumber(value)) {
         return null;
     }
@@ -50,7 +50,7 @@ function normalizeByteCount(value) {
  * @param {boolean} [options.trimTrailingZeros=false] Remove insignificant zeros from the fractional part.
  * @returns {string} Human-readable representation of the byte size.
  */
-function formatByteSize(
+export function formatByteSize(
     bytes,
     {
         decimals = 1,
@@ -84,9 +84,7 @@ function formatByteSize(
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
 
-function formatBytes(text) {
+export function formatBytes(text) {
     const size = Buffer.byteLength(text, "utf8");
     return formatByteSize(size, { decimals: 1 });
 }
-
-export { formatBytes, formatByteSize, isFiniteNumber, toNormalizedInteger };

@@ -4,17 +4,17 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
+const CARRIAGE_RETURN = "\r".charCodeAt(0);
+const LINE_FEED = "\n".charCodeAt(0);
+const LINE_SEPARATOR = "\u2028".charCodeAt(0);
+const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
+
 /**
  * Count the number of line break characters in a string.
  *
  * @param {string} text Text to inspect.
  * @returns {number} Number of recognized line break characters.
  */
-const CARRIAGE_RETURN = "\r".charCodeAt(0);
-const LINE_FEED = "\n".charCodeAt(0);
-const LINE_SEPARATOR = "\u2028".charCodeAt(0);
-const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
-
 export function getLineBreakCount(text) {
     if (!isNonEmptyString(text)) {
         return 0;
@@ -22,7 +22,11 @@ export function getLineBreakCount(text) {
 
     let count = 0;
     let index = 0;
-    const length = text.length; // Hoist for repeated loop checks.
+    // Hoist the length so the tight loop below only pays the property lookup
+    // once. The parser feeds this helper entire script bodies, so avoiding
+    // per-iteration property reads keeps large exports (tens of thousands of
+    // characters) from regressing due to needless engine work.
+    const length = text.length;
 
     // Manual scanning avoids creating RegExp match arrays for every call. The
     // parser frequently invokes this helper while iterating over tokens, so we

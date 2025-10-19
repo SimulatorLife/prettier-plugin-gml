@@ -1,15 +1,17 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
-    PRESERVE_CONFLICT_CODE,
-    IGNORE_CONFLICT_CODE,
     RESERVED_CONFLICT_CODE,
     createConflict,
+    formatConfigurationConflictMessage,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
@@ -18,7 +20,8 @@ import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
 function isReservedIdentifierName(name) {
-    if (!isNonEmptyString(name)) {
+    const normalizedName = toNormalizedLowerCaseString(name);
+    if (!normalizedName) {
         return false;
     }
 
@@ -26,7 +29,7 @@ function isReservedIdentifierName(name) {
         return false;
     }
 
-    return RESERVED_IDENTIFIER_NAMES.has(name.toLowerCase());
+    return RESERVED_IDENTIFIER_NAMES.has(normalizedName);
 }
 
 function buildAssetConflictSuggestions(identifierName) {
@@ -144,7 +147,7 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
     for (const entries of directories.values()) {
         const byLowerName = new Map();
         for (const entry of entries) {
-            const key = entry.finalName.toLowerCase();
+            const key = toNormalizedLowerCaseString(entry.finalName);
             const bucket = byLowerName.get(key) ?? [];
             bucket.push(entry);
             byLowerName.set(key, bucket);
@@ -303,20 +306,11 @@ export function planAssetRenames({
                 displayName: `${resourceRecord.resourceType}.${originalName}`
             };
 
-            let message;
-            switch (configConflict.code) {
-                case PRESERVE_CONFLICT_CODE: {
-                    message = `Asset '${originalName}' is preserved by configuration.`;
-                    break;
-                }
-                case IGNORE_CONFLICT_CODE: {
-                    message = `Asset '${originalName}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
-                    break;
-                }
-                default: {
-                    message = `Asset '${originalName}' cannot be renamed due to configuration.`;
-                }
-            }
+            const message = formatConfigurationConflictMessage({
+                configConflict,
+                identifierName: originalName,
+                noun: "Asset"
+            });
 
             conflicts.push(
                 createConflict({

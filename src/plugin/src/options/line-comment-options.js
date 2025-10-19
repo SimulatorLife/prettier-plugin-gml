@@ -1,14 +1,12 @@
 import { mergeUniqueValues } from "../../../shared/array-utils.js";
 import {
     getNonEmptyTrimmedString,
-    isNonEmptyTrimmedString
+    isNonEmptyTrimmedString,
+    normalizeStringList
 } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createCachedOptionResolver } from "./options-cache.js";
-import {
-    coercePositiveIntegerOption,
-    normalizeStringList
-} from "./option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;

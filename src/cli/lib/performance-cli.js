@@ -4,31 +4,26 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError } from "./cli-errors.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "../../shared/ast.js";
+import { getIdentifierText } from "./shared-deps.js";
+import { formatByteSize } from "./byte-format.js";
 import {
-    formatByteSize,
-    toNormalizedLowerCaseString
-} from "../../shared/utils.js";
+    SuiteOutputFormat,
+    resolveSuiteOutputFormatOrThrow,
+    emitSuiteResults as emitSuiteResultsJson,
+    ensureSuitesAreKnown,
+    resolveRequestedSuites
+} from "./command-suite-helpers.js";
 
 const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous = []) {
     previous.push(value);
     return previous;
-}
-
-function validateFormat(value) {
-    const normalized = toNormalizedLowerCaseString(value);
-    if (normalized === "json" || normalized === "human") {
-        return normalized;
-    }
-    throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
 }
 
 function formatErrorDetails(error) {
@@ -117,17 +112,40 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
-        results.index.push(attemptResult.runRecord);
+        const { shouldStop, nextLatestIndex } = recordProjectIndexAttempt(
+            results,
+            attemptResult
+        );
 
-        if (attemptResult.error) {
-            results.error = attemptResult.error;
+        if (shouldStop) {
             return { latestIndex: null };
         }
 
-        latestIndex = attemptResult.index;
+        latestIndex = nextLatestIndex;
     }
 
     return { latestIndex };
+}
+
+/**
+ * Store the outcome of a project index attempt in the aggregated results.
+ *
+ * @param {{ index: Array<object>, error?: object }} results
+ * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
+ * @returns {{ shouldStop: boolean, nextLatestIndex: object | null }}
+ */
+function recordProjectIndexAttempt(results, attemptResult) {
+    results.index.push(attemptResult.runRecord);
+
+    if (attemptResult.error) {
+        results.error = attemptResult.error;
+        return { shouldStop: true, nextLatestIndex: null };
+    }
+
+    return {
+        shouldStop: false,
+        nextLatestIndex: attemptResult.index ?? null
+    };
 }
 
 function createRenameOptions({ file, latestIndex, logger, verbose }) {
@@ -362,8 +380,11 @@ export function createPerformanceCommand() {
         .option(
             "--format <format>",
             "Output format: json (default) or human.",
-            validateFormat,
-            "json"
+            (value) =>
+                resolveSuiteOutputFormatOrThrow(value, {
+                    errorConstructor: InvalidArgumentError
+                }),
+            SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.")
         .option(
@@ -416,30 +437,6 @@ function printHumanReadable(results) {
  * @param {{ suite: Array<string> }} options
  * @returns {Array<string>}
  */
-function resolveRequestedSuites(options) {
-    const hasExplicitSuites = options.suite.length > 0;
-    const requested = hasExplicitSuites
-        ? options.suite
-        : [...AVAILABLE_SUITES.keys()];
-
-    return requested.map((name) => name.toLowerCase());
-}
-
-function ensureSuitesAreKnown(suiteNames, command) {
-    const unknownSuites = suiteNames.filter(
-        (suite) => !AVAILABLE_SUITES.has(suite)
-    );
-
-    if (unknownSuites.length === 0) {
-        return;
-    }
-
-    throw new CliUsageError(
-        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-        { usage: command.helpInformation() }
-    );
-}
-
 function createSuiteExecutionOptions(options) {
     return {
         projectRoot: options.project,
@@ -448,32 +445,21 @@ function createSuiteExecutionOptions(options) {
     };
 }
 
-function emitSuiteResults(results, options) {
-    if (options.format === "json") {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            suites: results
-        };
-        const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
-        return;
-    }
-
-    printHumanReadable(results);
-}
-
 export async function runPerformanceCommand({ command } = {}) {
     const options = command?.opts?.() ?? {};
 
-    const requestedSuites = resolveRequestedSuites(options);
-    ensureSuitesAreKnown(requestedSuites, command);
+    const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
+    ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
     const suiteResults = await executeSuites(
         requestedSuites,
         createSuiteExecutionOptions(options)
     );
 
-    emitSuiteResults(suiteResults, options);
+    const emittedJson = emitSuiteResultsJson(suiteResults, options);
+    if (!emittedJson) {
+        printHumanReadable(suiteResults);
+    }
 
     return 0;
 }

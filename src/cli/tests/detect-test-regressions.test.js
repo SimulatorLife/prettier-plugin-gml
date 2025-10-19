@@ -5,8 +5,12 @@ import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import {
     detectRegressions,
-    readTestResults
+    detectResolvedFailures,
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
 } from "../commands/detect-test-regressions.mjs";
+import { CliUsageError } from "../lib/cli-errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -106,6 +110,43 @@ test("treats failing tests without a base counterpart as regressions", () => {
     );
 });
 
+test("does not treat renamed failures as regressions when totals are stable", () => {
+    const baseDir = path.join(workspace, "base/test-results");
+    const mergeDir = path.join(workspace, "merge/test-results");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="renamed later" classname="test">
+          <failure message="boom" />
+        </testcase>
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="now failing" classname="test">
+          <failure message="still broken" />
+        </testcase>
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/test-results"], { workspace });
+    const merged = readTestResults(["merge/test-results"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    assert.strictEqual(regressions.length, 0);
+});
+
 test("parses top-level test cases that are not nested in a suite", () => {
     const baseDir = path.join(workspace, "base/test-results");
     const mergeDir = path.join(workspace, "merge/test-results");
@@ -170,4 +211,125 @@ test("normalizes whitespace when describing regression candidates", () => {
         record.displayName,
         "outer :: inner :: spaced name [/tmp/example]"
     );
+});
+
+test("ensureResultsAvailability throws when base results are unavailable", () => {
+    const base = { usedDir: null };
+    const target = { usedDir: "./test-results" };
+
+    assert.throws(
+        () => ensureResultsAvailability(base, target),
+        (error) => {
+            assert.equal(error instanceof CliUsageError, true);
+            assert.match(error.message, /Unable to locate base test results/i);
+            return true;
+        }
+    );
+});
+
+test("reportRegressionSummary returns failure details when regressions exist", () => {
+    const summary = reportRegressionSummary(
+        [
+            {
+                key: "suite :: test",
+                from: "passed",
+                to: "failed",
+                detail: { displayName: "suite :: test" }
+            }
+        ],
+        "PR head",
+        { resolvedFailures: [] }
+    );
+
+    assert.strictEqual(summary.exitCode, 1);
+    assert.deepEqual(summary.lines, [
+        "New failing tests detected (compared to base using PR head):",
+        "- suite :: test (passed -> failed)"
+    ]);
+});
+
+test("reportRegressionSummary returns success details when no regressions exist", () => {
+    const summary = reportRegressionSummary([], "PR head");
+
+    assert.strictEqual(summary.exitCode, 0);
+    assert.deepEqual(summary.lines, [
+        "No new failing tests compared to base using PR head."
+    ]);
+});
+
+test("reportRegressionSummary clarifies when regressions offset resolved failures", () => {
+    const summary = reportRegressionSummary(
+        [
+            {
+                key: "suite :: new failure",
+                from: "passed",
+                to: "failed",
+                detail: { displayName: "suite :: new failure" }
+            }
+        ],
+        "PR head",
+        {
+            resolvedFailures: [
+                {
+                    key: "suite :: resolved failure",
+                    from: "failed",
+                    to: "passed",
+                    detail: { displayName: "suite :: resolved failure" }
+                }
+            ]
+        }
+    );
+
+    assert.strictEqual(summary.exitCode, 1);
+    assert.deepEqual(summary.lines, [
+        "New failing tests detected (compared to base using PR head):",
+        "- suite :: new failure (passed -> failed)",
+        "Note: 1 previously failing test is now passing or missing, so totals may appear unchanged."
+    ]);
+});
+
+test("detectResolvedFailures returns failures that now pass or are missing", () => {
+    const baseDir = path.join(workspace, "base/test-results");
+    const mergeDir = path.join(workspace, "merge/test-results");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="existing failure" classname="test">
+          <failure message="nope" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="existing failure" classname="test" />
+        <testcase name="new failure" classname="test">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/test-results"], { workspace });
+    const merged = readTestResults(["merge/test-results"], { workspace });
+
+    const resolvedFailures = detectResolvedFailures(base, merged);
+    const regressions = detectRegressions(base, merged);
+
+    assert.strictEqual(resolvedFailures.length, 1);
+    assert.strictEqual(
+        resolvedFailures[0].key,
+        "sample :: test :: existing failure"
+    );
+    assert.strictEqual(resolvedFailures[0].to, "passed");
+
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].key, "sample :: test :: new failure");
 });

@@ -143,6 +143,7 @@ function __ChatterboxBufferBatch() constructor
             __destroyed = true;
         }
     }
+
 }
 
 function greet() {

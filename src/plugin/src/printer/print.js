@@ -29,8 +29,9 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
@@ -46,14 +47,15 @@ import {
     getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/local-plan.js";
+} from "../identifier-case/plan-state.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
@@ -419,6 +421,22 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
+            const locStart =
+                typeof options.locStart === "function"
+                    ? options.locStart
+                    : null;
+            const fallbackStart =
+                typeof node?.start === "number"
+                    ? node.start
+                    : typeof node?.start?.index === "number"
+                      ? node.start.index
+                      : 0;
+            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const originalText =
+                typeof options.originalText === "string"
+                    ? options.originalText
+                    : null;
+
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -463,7 +481,22 @@ export function print(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
-                if (needsLeadingBlankLine && !suppressLeadingBlank) {
+                const hasLeadingNonDocComment =
+                    !isNonEmptyArray(node.docComments) &&
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+                const hasExistingBlankLine =
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    isPreviousLineEmpty(originalText, nodeStartIndex);
+
+                if (
+                    !suppressLeadingBlank &&
+                    (needsLeadingBlankLine ||
+                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                ) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
@@ -481,7 +514,7 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc = isNonEmptyString(renamed) ? renamed : node.id;
+                functionNameDoc = getNonEmptyString(renamed) ?? node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
@@ -1629,6 +1662,8 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
+            const forceFollowingEmptyLine =
+                node?._featherForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
@@ -1656,6 +1691,14 @@ function printStatements(path, options, print, childrenAttribute) {
             if (shouldForceMacroPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
@@ -1669,6 +1712,18 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const parentNode = childPath.parent;
+            const shouldPreserveTrailingBlankLine =
+                parentNode?.type === "BlockStatement" &&
+                typeof options.originalText === "string" &&
+                isNextLineEmpty(options.originalText, nodeEndIndex + 1) &&
+                node?._featherSuppressFollowingEmptyLine !== true;
+
+            if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            }
         }
 
         return parts;
@@ -1846,10 +1901,16 @@ function isSkippableSemicolonWhitespace(charCode) {
         case 12: // form feed
         case 13: // carriage return
         case 32: // space
-        case 160: // non-breaking space
-        case 0x20_28: // line separator
+        case 160:
+        case 0x20_28:
         case 0x20_29: {
-            // paragraph separator
+            // GameMaker occasionally serializes or copy/pastes scripts with the
+            // U+00A0 non-breaking space and the U+2028/U+2029 line and
+            // paragraph separators—for example when creators paste snippets
+            // from the IDE or import JSON exports. Treat them as
+            // semicolon-trimmable whitespace so the cleanup logic keeps
+            // matching GameMaker's parser expectations instead of leaving stray
+            // semicolons behind.
             return true;
         }
         default: {
@@ -2744,7 +2805,8 @@ function computeSyntheticFunctionDocLines(
         if (
             shouldMarkOptional &&
             param?.type === "DefaultParameter" &&
-            isUndefinedLiteral(param.right)
+            isUndefinedLiteral(param.right) &&
+            param?._convertedFromRequiredParameter !== true
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
@@ -3152,7 +3214,7 @@ function getNormalizedParameterName(paramNode) {
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return isNonEmptyString(normalizedName) ? normalizedName : null;
+    return getNonEmptyString(normalizedName);
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
@@ -3476,7 +3538,11 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     }
 
     const [firstArg] = args;
-    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+    if (
+        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+            caseInsensitive: true
+        })
+    ) {
         return false;
     }
 
@@ -3528,19 +3594,6 @@ function applyOuterTrigConversion(node, conversionMap) {
 
     updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
     return true;
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const identifierName = getIdentifierText(node.object);
-    if (!identifierName) {
-        return false;
-    }
-
-    return identifierName.toLowerCase() === name;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {

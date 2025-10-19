@@ -6,6 +6,7 @@ import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener from "./gml-syntax-error.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 import { isErrorLike } from "../../shared/utils/capability-probes.js";
+import { isObjectLike } from "../../shared/object-utils.js";
 
 export default class GMLParser {
     constructor(text, options) {
@@ -233,7 +234,7 @@ export default class GMLParser {
     }
 
     removeLocationInfo(obj) {
-        if (!obj || typeof obj !== "object") {
+        if (!isObjectLike(obj)) {
             return;
         }
 
@@ -244,14 +245,14 @@ export default class GMLParser {
             }
 
             const value = obj[prop];
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 this.removeLocationInfo(value);
             }
         }
     }
 
     simplifyLocationInfo(obj) {
-        if (!obj || typeof obj !== "object") {
+        if (!isObjectLike(obj)) {
             return;
         }
 
@@ -267,7 +268,7 @@ export default class GMLParser {
             }
 
             const value = obj[prop];
-            if (value && typeof value === "object") {
+            if (isObjectLike(value)) {
                 this.simplifyLocationInfo(value);
             }
         }

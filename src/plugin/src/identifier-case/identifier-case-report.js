@@ -8,10 +8,11 @@
 
 import path from "node:path";
 
-import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 import { coalesceTrimmedString } from "../../../shared/string-utils.js";
 import {
     coalesceOption,
+    isObjectLike,
     withObjectLike
 } from "../../../shared/object-utils.js";
 import {
@@ -20,8 +21,8 @@ import {
     toArray
 } from "../../../shared/array-utils.js";
 
-import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../identifier-case/fs-facade.js";
+import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
@@ -69,54 +70,50 @@ function extractOperations(plan) {
 }
 
 function normalizeReference(reference) {
-    return withObjectLike(
-        reference,
-        (object) => {
-            const filePath = coalesceTrimmedString(
-                object.filePath,
-                object.path,
-                object.file
-            );
+    if (!isObjectLike(reference)) {
+        return null;
+    }
 
-            if (!filePath) {
-                return null;
-            }
-
-            const occurrenceCandidate =
-                object.occurrences ?? object.count ?? object.references ?? 0;
-            const occurrences = Number.isFinite(occurrenceCandidate)
-                ? Number(occurrenceCandidate)
-                : 0;
-
-            return {
-                filePath,
-                occurrences: Math.max(occurrences, 0)
-            };
-        },
-        null
+    const filePath = coalesceTrimmedString(
+        reference.filePath,
+        reference.path,
+        reference.file
     );
+
+    if (!filePath) {
+        return null;
+    }
+
+    const occurrenceCandidate =
+        reference.occurrences ?? reference.count ?? reference.references ?? 0;
+    const occurrences = Number.isFinite(occurrenceCandidate)
+        ? Number(occurrenceCandidate)
+        : 0;
+
+    return {
+        filePath,
+        occurrences: Math.max(occurrences, 0)
+    };
 }
 
 function normalizeScope(scope) {
-    return withObjectLike(
-        scope,
-        (object) => {
-            const displayName = coalesceTrimmedString(
-                object.displayName,
-                object.name,
-                object.scope,
-                object.path
-            );
-            const id = coalesceTrimmedString(object.id, object.scopeId);
+    if (!isObjectLike(scope)) {
+        return { id: null, displayName: null, name: null };
+    }
 
-            return {
-                id: id || null,
-                displayName: displayName || null,
-                name: coalesceTrimmedString(object.name) || null
-            };
-        },
-        { id: null, displayName: null, name: null }
+    const displayName = coalesceTrimmedString(
+        scope.displayName,
+        scope.name,
+        scope.scope,
+        scope.path
     );
+    const id = coalesceTrimmedString(scope.id, scope.scopeId);
+
+    return {
+        id: id || null,
+        displayName: displayName || null,
+        name: coalesceTrimmedString(scope.name) || null
+    };
 }
 
 function normalizeOperation(rawOperation) {
