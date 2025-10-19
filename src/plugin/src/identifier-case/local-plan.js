@@ -13,7 +13,10 @@ import {
     getNonEmptyString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    isObjectLike,
+    getOrCreateMapEntry
+} from "../../../shared/object-utils.js";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
@@ -325,10 +328,8 @@ function createNameCollisionTracker() {
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        if (!entriesByName.has(key)) {
-            entriesByName.set(key, []);
-        }
-        entriesByName.get(key).push(record);
+        const bucket = getOrCreateMapEntry(entriesByName, key, () => []);
+        bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };
 
