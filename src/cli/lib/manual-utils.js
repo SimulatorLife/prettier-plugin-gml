@@ -33,22 +33,19 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  */
 
 /**
- * Coordinating both ref resolution and commit lookups under a single
- * "resolver" contract forced consumers to depend on commit-level helpers even
- * when they only needed the higher-level manual tag flow. Splitting the
- * responsibilities keeps the individual surfaces focused.
+ * A combined reference coordinator keeps the contract focused on reference
+ * resolution concerns while still exposing direct commit lookups for the few
+ * call sites that need them. Downstream consumers no longer depend on an
+ * additional "commit resolver" surface when they only care about resolving the
+ * latest manual tag.
  */
 
 /**
- * @typedef {object} ManualGitHubCommitResolver
- * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
- *   resolveCommitFromRef
- */
-
-/**
- * @typedef {object} ManualGitHubRefResolver
+ * @typedef {object} ManualGitHubReferenceCoordinator
  * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
  *   resolveManualRef
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
  */
 
 /**
@@ -65,10 +62,9 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  */
 
 /**
- * @typedef {object} ManualGitHubClientViews
+ * @typedef {object} ManualGitHubClientSurfaces
  * @property {ManualGitHubRequestDispatcher} requestDispatcher
- * @property {ManualGitHubRefResolver} refResolver
- * @property {ManualGitHubCommitResolver} commitResolver
+ * @property {ManualGitHubReferenceCoordinator} references
  * @property {ManualGitHubFileFetcher} fileFetcher
  */
 
@@ -245,7 +241,7 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
  * Provide specialised GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
  *
- * @returns {ManualGitHubClientViews}
+ * @returns {ManualGitHubClientSurfaces}
  */
 function createManualGitHubClient({
     userAgent,
@@ -388,12 +384,9 @@ function createManualGitHubClient({
         requestDispatcher: {
             execute: curlRequest
         },
-        /** @type {ManualGitHubRefResolver} */
-        refResolver: {
-            resolveManualRef
-        },
-        /** @type {ManualGitHubCommitResolver} */
-        commitResolver: {
+        /** @type {ManualGitHubReferenceCoordinator} */
+        references: {
+            resolveManualRef,
             resolveCommitFromRef
         },
         /** @type {ManualGitHubFileFetcher} */

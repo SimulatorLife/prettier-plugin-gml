@@ -35,7 +35,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
-        const { refResolver } = client;
+        const { references } = client;
 
         const responses = [
             {
@@ -53,7 +53,7 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                refResolver.resolveManualRef("feature", {
+                references.resolveManualRef("feature", {
                     verbose: createManualVerboseState({ quiet: true }),
                     apiRoot: API_ROOT
                 }),
@@ -68,7 +68,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
-        const { refResolver } = client;
+        const { references } = client;
 
         const responses = [
             {
@@ -88,7 +88,7 @@ describe("manual GitHub client validation", () => {
 
         await assert.rejects(
             () =>
-                refResolver.resolveManualRef(undefined, {
+                references.resolveManualRef(undefined, {
                     verbose: createManualVerboseState({
                         overrides: { resolveRef: false }
                     }),
@@ -105,7 +105,7 @@ describe("manual GitHub client validation", () => {
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
-        const { refResolver } = client;
+        const { references } = client;
 
         const responses = [
             {
@@ -125,7 +125,7 @@ describe("manual GitHub client validation", () => {
             return next.response;
         };
 
-        const result = await refResolver.resolveManualRef(undefined, {
+        const result = await references.resolveManualRef(undefined, {
             verbose: createManualVerboseState({
                 overrides: { resolveRef: false }
             }),
@@ -159,7 +159,7 @@ describe("manual GitHub client validation", () => {
             return next.response;
         };
 
-        const result = await client.commitResolver.resolveCommitFromRef(
+        const result = await client.references.resolveCommitFromRef(
             "feature",
             { apiRoot: API_ROOT }
         );
