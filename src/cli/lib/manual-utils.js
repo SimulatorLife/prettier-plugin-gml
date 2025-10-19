@@ -56,24 +56,12 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  * @property {ManualGitHubFileFetcher} fileFetcher
  */
 
-function normalizeVerboseOverrides(overrides) {
-    if (!overrides || typeof overrides !== "object") {
-        return null;
-    }
-
-    const definedEntries = Object.entries(overrides).filter(
-        ([, value]) => value !== undefined
-    );
-
-    return definedEntries.length > 0 ? Object.fromEntries(definedEntries) : null;
-}
-
 function createManualVerboseState({
     quiet = false,
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = quiet
+    const state = quiet
         ? {
               resolveRef: false,
               downloads: false,
@@ -87,10 +75,17 @@ function createManualVerboseState({
               progressBar: isTerminal
           };
 
-    const normalizedOverrides = normalizeVerboseOverrides(overrides);
-    return normalizedOverrides
-        ? { ...baseState, ...normalizedOverrides }
-        : baseState;
+    if (!overrides || typeof overrides !== "object") {
+        return state;
+    }
+
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
+    }
+
+    return state;
 }
 
 function assertPlainObject(value, message) {
