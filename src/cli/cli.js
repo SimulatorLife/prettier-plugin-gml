@@ -657,12 +657,17 @@ async function handleFormattingError(error, filePath) {
     }
 
     if (parseErrorAction === ParseErrorAction.REVERT) {
-        if (!revertTriggered) {
-            revertTriggered = true;
-            abortRequested = true;
-            await revertFormattedFiles();
+        if (revertTriggered) {
+            return;
         }
-    } else if (parseErrorAction === ParseErrorAction.ABORT) {
+
+        revertTriggered = true;
+        abortRequested = true;
+        await revertFormattedFiles();
+        return;
+    }
+
+    if (parseErrorAction === ParseErrorAction.ABORT) {
         abortRequested = true;
     }
 }
