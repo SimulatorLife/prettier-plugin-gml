@@ -12,7 +12,7 @@ import {
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
-import { hasOwn } from "../../../shared/object-utils.js";
+import { getOrCreateMapEntry, hasOwn } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
@@ -26,7 +26,7 @@ import {
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
@@ -34,7 +34,10 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import {
+    resolveAbortSignalFromOptions,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -43,6 +46,10 @@ const PARSER_FACADE_OPTION_KEYS = [
     "gmlParserFacade",
     "parserFacade"
 ];
+
+const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
+    "Project root discovery was aborted.";
+const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -89,7 +96,9 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    });
 
     if (!filepath) {
         return null;
@@ -98,10 +107,10 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const startDirectory = path.dirname(path.resolve(filepath));
 
     for (const directory of walkAncestorDirectories(startDirectory)) {
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
 
         const entries = await listDirectory(fsFacade, directory, { signal });
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
 
         if (entries.some(isProjectManifestPath)) {
             return directory;
@@ -122,7 +131,7 @@ export function createProjectIndexCoordinator(options = {}) {
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
-            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            ? getDefaultProjectIndexCacheMaxSize()
             : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
@@ -246,6 +255,11 @@ export {
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
     loadProjectIndexCache,
     saveProjectIndexCache,
@@ -271,15 +285,17 @@ async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index build was aborted.");
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const currentMtime = await getFileMtime(
         fsFacade,
         GML_IDENTIFIER_FILE_PATH,
         { signal }
     );
-    throwIfAborted(signal, "Project index build was aborted.");
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -301,7 +317,7 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
@@ -350,7 +366,9 @@ async function scanProjectTree(
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -358,11 +376,11 @@ async function scanProjectTree(
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const entries = await listDirectory(fsFacade, absoluteDir, {
             signal
         });
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -371,7 +389,7 @@ async function scanProjectTree(
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
-                throwIfAborted(signal, "Project index build was aborted.");
+                throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -416,18 +434,7 @@ async function scanProjectTree(
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
-    let record = resourcesMap.get(resourcePath);
-    if (record) {
-        if (resourceData.name && record.name !== resourceData.name) {
-            record.name = resourceData.name;
-        }
-        if (
-            resourceData.resourceType &&
-            record.resourceType !== resourceData.resourceType
-        ) {
-            record.resourceType = resourceData.resourceType;
-        }
-    } else {
+    const record = getOrCreateMapEntry(resourcesMap, resourcePath, () => {
         const lowerPath = resourcePath.toLowerCase();
         let defaultName = path.posix.basename(resourcePath);
         if (lowerPath.endsWith(".yy")) {
@@ -438,7 +445,8 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
                 PROJECT_MANIFEST_EXTENSION
             );
         }
-        record = {
+
+        return {
             path: resourcePath,
             name: resourceData.name ?? defaultName,
             resourceType: resourceData.resourceType ?? "unknown",
@@ -446,7 +454,16 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
             gmlFiles: [],
             assetReferences: []
         };
-        resourcesMap.set(resourcePath, record);
+    });
+
+    if (resourceData.name && record.name !== resourceData.name) {
+        record.name = resourceData.name;
+    }
+    if (
+        resourceData.resourceType &&
+        record.resourceType !== resourceData.resourceType
+    ) {
+        record.resourceType = resourceData.resourceType;
     }
 
     return record;
@@ -648,7 +665,9 @@ function createResourceAnalysisContext() {
 }
 
 async function loadResourceDocument(file, fsFacade, options = {}) {
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     let rawContents;
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
@@ -659,7 +678,7 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
         throw error;
     }
 
-    throwIfAborted(signal, "Project index build was aborted.");
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     try {
         return JSON.parse(rawContents);
@@ -840,7 +859,7 @@ async function analyseResourceFiles({
     const context = createResourceAnalysisContext();
 
     for (const file of yyFiles) {
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
             continue;
@@ -910,10 +929,7 @@ function cloneIdentifierForCollections(record, filePath) {
 }
 
 function ensureCollectionEntry(map, key, initializer) {
-    if (!map.has(key)) {
-        map.set(key, initializer());
-    }
-    return map.get(key);
+    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function createIdentifierCollections() {
@@ -1779,40 +1795,30 @@ function registerInstanceAssignment({
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
-    let scopeRecord = scopeMap.get(descriptor.id);
-    if (!scopeRecord) {
-        scopeRecord = {
-            id: descriptor.id,
-            kind: descriptor.kind,
-            name: descriptor.name,
-            displayName: descriptor.displayName,
-            resourcePath: descriptor.resourcePath,
-            event: descriptor.event ?? null,
-            filePaths: [],
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        scopeMap.set(descriptor.id, scopeRecord);
-    }
-    return scopeRecord;
+    return getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        name: descriptor.name,
+        displayName: descriptor.displayName,
+        resourcePath: descriptor.resourcePath,
+        event: descriptor.event ?? null,
+        filePaths: [],
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function ensureFileRecord(filesMap, relativePath, scopeId) {
-    let fileRecord = filesMap.get(relativePath);
-    if (!fileRecord) {
-        fileRecord = {
-            filePath: relativePath,
-            scopeId,
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        filesMap.set(relativePath, fileRecord);
-    }
-    return fileRecord;
+    return getOrCreateMapEntry(filesMap, relativePath, () => ({
+        filePath: relativePath,
+        scopeId,
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function traverseAst(root, visitor) {
@@ -1856,6 +1862,285 @@ function traverseAst(root, visitor) {
     }
 }
 
+function handleScriptScopeFunctionDeclarationNode({
+    node,
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    sourceContents,
+    lineOffsets
+}) {
+    if (
+        scopeDescriptor?.kind !== "script" ||
+        (node?.type !== "FunctionDeclaration" &&
+            node?.type !== "ConstructorDeclaration")
+    ) {
+        return;
+    }
+
+    const classificationTags =
+        node.type === "ConstructorDeclaration"
+            ? ["constructor", "struct", "script"]
+            : ["script"];
+    const declarationRecord = createFunctionLikeIdentifierRecord({
+        node,
+        scopeRecord,
+        fileRecord,
+        classification: classificationTags,
+        source: sourceContents,
+        lineOffsets
+    });
+
+    if (!declarationRecord) {
+        return;
+    }
+
+    const removalDescriptor = {
+        name: declarationRecord.name,
+        scopeId: scopeRecord.id
+    };
+    removeSyntheticScriptDeclarations(
+        fileRecord.declarations,
+        removalDescriptor
+    );
+    removeSyntheticScriptDeclarations(
+        scopeRecord.declarations,
+        removalDescriptor
+    );
+
+    const declarationKey = buildLocationKey(declarationRecord.start);
+    const fileHasExisting = fileRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!fileHasExisting) {
+        fileRecord.declarations.push({ ...declarationRecord });
+    }
+
+    const scopeHasExisting = scopeRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!scopeHasExisting) {
+        scopeRecord.declarations.push({ ...declarationRecord });
+    }
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord,
+        filePath: fileRecord?.filePath ?? null
+    });
+}
+
+function handleIdentifierNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    identifierCollections,
+    enumLookup,
+    scopeDescriptor,
+    metrics
+}) {
+    if (node?.type !== "Identifier" || !Array.isArray(node.classifications)) {
+        return false;
+    }
+
+    const identifierRecord = createIdentifierRecord(node);
+    const isBuiltIn = builtInNames.has(identifierRecord.name);
+    identifierRecord.isBuiltIn = isBuiltIn;
+
+    metrics?.incrementCounter("identifiers.encountered");
+
+    if (isBuiltIn) {
+        metrics?.incrementCounter("identifiers.builtInSkipped");
+        identifierRecord.reason = "built-in";
+        fileRecord.ignoredIdentifiers.push(identifierRecord);
+        scopeRecord.ignoredIdentifiers.push(identifierRecord);
+        return true;
+    }
+
+    const isDeclaration =
+        identifierRecord.classifications.includes("declaration");
+    const isReference = identifierRecord.classifications.includes("reference");
+
+    if (isDeclaration) {
+        metrics?.incrementCounter("identifiers.declarations");
+        fileRecord.declarations.push(identifierRecord);
+        scopeRecord.declarations.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "declaration",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    if (isReference) {
+        metrics?.incrementCounter("identifiers.references");
+        fileRecord.references.push(identifierRecord);
+        scopeRecord.references.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "reference",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    return false;
+}
+
+function handleCallExpressionNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "CallExpression") {
+        return;
+    }
+
+    const callee = getCallExpressionIdentifier(node);
+    const calleeName = callee?.name ?? null;
+    if (!calleeName || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? (scriptNameToResourcePath.get(calleeName) ?? null)
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee?.start),
+            end: cloneLocation(callee?.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleNewExpressionScriptCall({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (
+        node?.type !== "NewExpression" ||
+        node.expression?.type !== "Identifier"
+    ) {
+        return;
+    }
+
+    const callee = node.expression;
+    const calleeName = callee.name;
+    if (typeof calleeName !== "string" || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? (scriptNameToResourcePath.get(calleeName) ?? null)
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee.start),
+            end: cloneLocation(callee.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleObjectEventAssignmentNode({
+    node,
+    scopeDescriptor,
+    identifierCollections,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    metrics
+}) {
+    if (
+        node?.type !== "AssignmentExpression" ||
+        node.left?.type !== "Identifier" ||
+        scopeDescriptor?.kind !== "objectEvent"
+    ) {
+        return;
+    }
+
+    const leftRecord = createIdentifierRecord(node.left);
+    const classifications = asArray(leftRecord?.classifications);
+
+    const isGlobalAssignment =
+        classifications.includes("global") || leftRecord.isGlobalIdentifier;
+    const hasDeclaration = Boolean(
+        leftRecord.declaration && leftRecord.declaration.scopeId
+    );
+
+    if (
+        identifierCollections &&
+        !isGlobalAssignment &&
+        !hasDeclaration &&
+        leftRecord.name &&
+        !builtInNames.has(leftRecord.name)
+    ) {
+        registerInstanceAssignment({
+            identifierCollections,
+            identifierRecord: leftRecord,
+            filePath: fileRecord?.filePath ?? null,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+        metrics?.incrementCounter("identifiers.instanceAssignments");
+    }
+}
+
 function analyseGmlAst({
     ast,
     builtInNames,
@@ -1873,221 +2158,61 @@ function analyseGmlAst({
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
     traverseAst(ast, (node) => {
-        if (
-            scopeDescriptor?.kind === "script" &&
-            (node?.type === "FunctionDeclaration" ||
-                node?.type === "ConstructorDeclaration")
-        ) {
-            const classificationTags =
-                node.type === "ConstructorDeclaration"
-                    ? ["constructor", "struct", "script"]
-                    : ["script"];
-            const declarationRecord = createFunctionLikeIdentifierRecord({
-                node,
-                scopeRecord,
-                fileRecord,
-                classification: classificationTags,
-                source: sourceContents,
-                lineOffsets
-            });
+        handleScriptScopeFunctionDeclarationNode({
+            node,
+            scopeDescriptor,
+            scopeRecord,
+            fileRecord,
+            identifierCollections,
+            sourceContents,
+            lineOffsets
+        });
 
-            if (declarationRecord) {
-                removeSyntheticScriptDeclarations(fileRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-                removeSyntheticScriptDeclarations(scopeRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-
-                const declarationKey = buildLocationKey(
-                    declarationRecord.start
-                );
-                const fileHasExisting = fileRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!fileHasExisting) {
-                    fileRecord.declarations.push({ ...declarationRecord });
-                }
-
-                const scopeHasExisting = scopeRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!scopeHasExisting) {
-                    scopeRecord.declarations.push({ ...declarationRecord });
-                }
-
-                registerScriptDeclaration({
-                    identifierCollections,
-                    descriptor: scopeDescriptor,
-                    declarationRecord,
-                    filePath: fileRecord?.filePath ?? null
-                });
-            }
+        const identifierHandled = handleIdentifierNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            identifierCollections,
+            enumLookup,
+            scopeDescriptor,
+            metrics
+        });
+        if (identifierHandled) {
+            return;
         }
 
-        if (
-            node?.type === "Identifier" &&
-            Array.isArray(node.classifications)
-        ) {
-            const identifierRecord = createIdentifierRecord(node);
-            const isBuiltIn = builtInNames.has(identifierRecord.name);
-            identifierRecord.isBuiltIn = isBuiltIn;
+        handleCallExpressionNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            metrics?.incrementCounter("identifiers.encountered");
+        handleNewExpressionScriptCall({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            if (isBuiltIn) {
-                metrics?.incrementCounter("identifiers.builtInSkipped");
-                identifierRecord.reason = "built-in";
-                fileRecord.ignoredIdentifiers.push(identifierRecord);
-                scopeRecord.ignoredIdentifiers.push(identifierRecord);
-                return;
-            }
-
-            const isDeclaration =
-                identifierRecord.classifications.includes("declaration");
-            const isReference =
-                identifierRecord.classifications.includes("reference");
-
-            if (isDeclaration) {
-                metrics?.incrementCounter("identifiers.declarations");
-                fileRecord.declarations.push(identifierRecord);
-                scopeRecord.declarations.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "declaration",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-
-            if (isReference) {
-                metrics?.incrementCounter("identifiers.references");
-                fileRecord.references.push(identifierRecord);
-                scopeRecord.references.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "reference",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-        }
-
-        if (node?.type === "CallExpression") {
-            const callee = getCallExpressionIdentifier(node);
-            const calleeName = callee?.name ?? null;
-            if (!calleeName || builtInNames.has(calleeName)) {
-                return;
-            }
-
-            const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
-            const targetResourcePath = targetScopeId
-                ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                : null;
-
-            const callRecord = {
-                kind: "script",
-                from: {
-                    filePath: fileRecord.filePath,
-                    scopeId: scopeRecord.id
-                },
-                target: {
-                    name: calleeName,
-                    scopeId: targetScopeId,
-                    resourcePath: targetResourcePath
-                },
-                isResolved: Boolean(targetScopeId),
-                location: {
-                    start: cloneLocation(callee?.start),
-                    end: cloneLocation(callee?.end)
-                }
-            };
-
-            fileRecord.scriptCalls.push(callRecord);
-            scopeRecord.scriptCalls.push(callRecord);
-            relationships.scriptCalls.push(callRecord);
-            metrics?.incrementCounter("scriptCalls.discovered");
-        }
-
-        if (
-            node?.type === "NewExpression" &&
-            node.expression?.type === "Identifier"
-        ) {
-            const callee = node.expression;
-            const calleeName = callee.name;
-            if (typeof calleeName === "string") {
-                const targetScopeId =
-                    scriptNameToScopeId.get(calleeName) ?? null;
-                const targetResourcePath = targetScopeId
-                    ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                    : null;
-
-                const callRecord = {
-                    kind: "script",
-                    from: {
-                        filePath: fileRecord.filePath,
-                        scopeId: scopeRecord.id
-                    },
-                    target: {
-                        name: calleeName,
-                        scopeId: targetScopeId,
-                        resourcePath: targetResourcePath
-                    },
-                    isResolved: Boolean(targetScopeId),
-                    location: {
-                        start: cloneLocation(callee.start),
-                        end: cloneLocation(callee.end)
-                    }
-                };
-
-                fileRecord.scriptCalls.push(callRecord);
-                scopeRecord.scriptCalls.push(callRecord);
-                relationships.scriptCalls.push(callRecord);
-                metrics?.incrementCounter("scriptCalls.discovered");
-            }
-        }
-
-        if (
-            node?.type === "AssignmentExpression" &&
-            node.left?.type === "Identifier" &&
-            scopeDescriptor?.kind === "objectEvent"
-        ) {
-            const leftRecord = createIdentifierRecord(node.left);
-            const classifications = asArray(leftRecord?.classifications);
-
-            const isGlobalAssignment =
-                classifications.includes("global") ||
-                leftRecord.isGlobalIdentifier;
-            const hasDeclaration = Boolean(
-                leftRecord.declaration && leftRecord.declaration.scopeId
-            );
-
-            if (
-                identifierCollections &&
-                !isGlobalAssignment &&
-                !hasDeclaration &&
-                leftRecord.name &&
-                !builtInNames.has(leftRecord.name)
-            ) {
-                registerInstanceAssignment({
-                    identifierCollections,
-                    identifierRecord: leftRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-                metrics?.incrementCounter("identifiers.instanceAssignments");
-            }
-        }
+        handleObjectEventAssignmentNode({
+            node,
+            scopeDescriptor,
+            identifierCollections,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            metrics
+        });
     });
 }
 
@@ -2111,9 +2236,11 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
         throw new TypeError("worker must be a function");
     }
 
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2158,9 +2285,11 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
     ensureNotAborted();
 
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>

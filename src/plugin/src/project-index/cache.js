@@ -2,17 +2,31 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import {
+    resolveAbortSignalFromOptions,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
-import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
-export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE = 8 * 1024 * 1024; // 8 MiB
+export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
+    "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
+export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
+
+let configuredDefaultProjectIndexCacheMaxSize =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
 
 export const ProjectIndexCacheMissReason = Object.freeze({
     NOT_FOUND: "not-found",
@@ -43,6 +57,30 @@ function hasEntries(record) {
         () => false
     );
 }
+
+function getDefaultProjectIndexCacheMaxSize() {
+    return configuredDefaultProjectIndexCacheMaxSize;
+}
+
+function setDefaultProjectIndexCacheMaxSize(size) {
+    const normalized = normalizeMaxSizeBytes(size);
+
+    configuredDefaultProjectIndexCacheMaxSize =
+        normalized ?? PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+    return configuredDefaultProjectIndexCacheMaxSize;
+}
+
+function applyProjectIndexCacheEnvOverride(env = process?.env) {
+    const rawValue = env?.[PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultProjectIndexCacheMaxSize(rawValue);
+}
+
+applyProjectIndexCacheEnvOverride();
 
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
@@ -179,6 +217,12 @@ function validateCachePayload(payload) {
     return true;
 }
 
+export {
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride
+};
+
 export async function loadProjectIndexCache(
     descriptor,
     fsFacade = defaultFsFacade,
@@ -199,8 +243,11 @@ export async function loadProjectIndexCache(
         );
     }
 
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    const abortMessage = "Project index cache load was aborted.";
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: abortMessage
+    });
+    throwIfAborted(signal, abortMessage);
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
@@ -218,7 +265,7 @@ export async function loadProjectIndexCache(
         throw error;
     }
 
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     let parsed;
     try {
@@ -234,7 +281,7 @@ export async function loadProjectIndexCache(
         );
     }
 
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     if (!validateCachePayload(parsed)) {
         return createCacheMiss(
@@ -318,7 +365,7 @@ export async function saveProjectIndexCache(
         sourceMtimes = {},
         projectIndex,
         metricsSummary,
-        maxSizeBytes = DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+        maxSizeBytes = getDefaultProjectIndexCacheMaxSize()
     } = descriptor ?? {};
 
     if (!projectRoot) {
@@ -332,15 +379,18 @@ export async function saveProjectIndexCache(
         );
     }
 
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index cache save was aborted.");
+    const abortMessage = "Project index cache save was aborted.";
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: abortMessage
+    });
+    throwIfAborted(signal, abortMessage);
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
     await fsFacade.mkdir(cacheDir, { recursive: true });
-    throwIfAborted(signal, "Project index cache save was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -377,10 +427,10 @@ export async function saveProjectIndexCache(
 
     try {
         await fsFacade.writeFile(tempFilePath, serialized, "utf8");
-        throwIfAborted(signal, "Project index cache save was aborted.");
+        throwIfAborted(signal, abortMessage);
 
         await fsFacade.rename(tempFilePath, cacheFilePath);
-        throwIfAborted(signal, "Project index cache save was aborted.");
+        throwIfAborted(signal, abortMessage);
     } catch (error) {
         try {
             await fsFacade.unlink(tempFilePath);

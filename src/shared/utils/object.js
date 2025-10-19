@@ -98,3 +98,54 @@ export function coalesceOption(
 export function hasOwn(object, key) {
     return hasOwnProperty.call(object, key);
 }
+
+/**
+ * Retrieve the entry associated with {@link key} from a `Map`-like store,
+ * creating it with {@link initializer} when absent. Consolidates the
+ * repetitive pattern of checking for an entry, constructing a default value,
+ * and updating the map which appears throughout the CLI, project index, and
+ * Feather transforms.
+ *
+ * The helper intentionally accepts `Map` and `WeakMap` instances (anything
+ * implementing `get`, `set`, and `has`) so call sites can share the same
+ * utility regardless of whether keys are primitive values or objects. The
+ * initializer receives the key to support value derivation without requiring
+ * surrounding closures.
+ *
+ * @template TKey
+ * @template TValue
+ * @param {{
+ *     get(key: TKey): TValue | undefined;
+ *     set(key: TKey, value: TValue): unknown;
+ *     has(key: TKey): boolean;
+ * }} store Map-like collection storing the entry.
+ * @param {TKey} key Entry key to resolve.
+ * @param {(key: TKey) => TValue} initializer Factory invoked when the entry is
+ *        missing.
+ * @returns {TValue} Existing or newly created entry.
+ */
+export function getOrCreateMapEntry(store, key, initializer) {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
+        throw new TypeError("store must provide get and set functions");
+    }
+
+    if (typeof store.has !== "function") {
+        throw new TypeError("store must provide a has function");
+    }
+
+    if (typeof initializer !== "function") {
+        throw new TypeError("initializer must be a function");
+    }
+
+    if (store.has(key)) {
+        return store.get(key);
+    }
+
+    const value = initializer(key);
+    store.set(key, value);
+    return value;
+}

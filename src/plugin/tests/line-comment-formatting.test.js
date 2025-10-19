@@ -32,4 +32,21 @@ describe("line comment formatting", () => {
             ["// First sentence.", "    // Second sentence."].join("\n")
         );
     });
+
+    it("treats missing comment values as empty strings", () => {
+        const comment = {
+            type: "CommentLine",
+            value: undefined,
+            raw: "//",
+            leadingText: "//",
+            leadingWS: "\n"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "// ");
+    });
 });

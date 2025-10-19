@@ -33,7 +33,7 @@ export function toTrimmedString(value) {
 
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == undefined) {
+        if (value == null) {
             continue;
         }
 
@@ -47,7 +47,7 @@ export function coalesceTrimmedString(...values) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == undefined) {
+    if (value == null) {
         return "";
     }
 
@@ -96,7 +96,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
@@ -127,11 +127,15 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        // Using a direct truthy lookup avoids an Object.hasOwn call for each entry.
-        if (trimmed.length === 0 || seen[trimmed]) {
+        // Checking the sentinel directly avoids an Object.hasOwn call for each entry.
+        if (trimmed.length === 0 || seen[trimmed] === true) {
             continue;
         }
 
+        // Storing a sentinel avoids repeatedly calling Object.hasOwn in the hot
+        // path. The lookup stays safe because `seen` is created without a
+        // prototype, so even strings like "__proto__" will not collide with
+        // inherited properties.
         seen[trimmed] = true;
         normalized.push(trimmed);
     }
