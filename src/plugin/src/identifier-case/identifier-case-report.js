@@ -8,7 +8,7 @@
 
 import path from "node:path";
 
-import { setIdentifierCaseOption } from "../identifier-case/option-store.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 import { coalesceTrimmedString } from "../../../shared/string-utils.js";
 import {
     coalesceOption,
@@ -21,8 +21,8 @@ import {
     toArray
 } from "../../../shared/array-utils.js";
 
-import { consumeIdentifierCaseDryRunContext } from "../identifier-case/identifier-case-context.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../identifier-case/fs-facade.js";
+import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
