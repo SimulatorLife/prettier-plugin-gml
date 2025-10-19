@@ -9,7 +9,10 @@ import {
     resolveIntegerOption
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
+import { applyEnvironmentOverride } from "./shared-deps.js";
 import {
+    SuiteOutputFormat,
+    resolveSuiteOutputFormatOrThrow,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites
@@ -64,12 +67,11 @@ export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
 }
 
 export function applyMemoryIterationsEnvOverride(env = process?.env) {
-    const rawValue = env?.[MEMORY_ITERATIONS_ENV_VAR];
-    if (rawValue === undefined) {
-        return;
-    }
-
-    setDefaultMemoryIterations(rawValue);
+    applyEnvironmentOverride({
+        env,
+        envVar: MEMORY_ITERATIONS_ENV_VAR,
+        applyValue: setDefaultMemoryIterations
+    });
 }
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
@@ -97,15 +99,6 @@ const AVAILABLE_SUITES = new Map();
 function collectSuite(value, previous = []) {
     previous.push(value);
     return previous;
-}
-
-function validateFormat(value) {
-    const normalized = value?.toLowerCase();
-    if (normalized === "json" || normalized === "human") {
-        return normalized;
-    }
-
-    throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
 }
 
 export function createMemoryCommand({ env = process.env } = {}) {
@@ -138,8 +131,11 @@ export function createMemoryCommand({ env = process.env } = {}) {
         .option(
             "--format <format>",
             "Output format: json (default) or human.",
-            validateFormat,
-            "json"
+            (value) =>
+                resolveSuiteOutputFormatOrThrow(value, {
+                    errorConstructor: InvalidArgumentError
+                }),
+            SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.");
     applyMemoryEnvOptionOverrides({ command, env });

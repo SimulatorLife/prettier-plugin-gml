@@ -1,6 +1,61 @@
 import process from "node:process";
 
 import { CliUsageError } from "./cli-errors.js";
+import { normalizeEnumeratedOption } from "./shared-deps.js";
+
+export const SuiteOutputFormat = Object.freeze({
+    JSON: "json",
+    HUMAN: "human"
+});
+
+const VALID_SUITE_OUTPUT_FORMATS = new Set(Object.values(SuiteOutputFormat));
+
+const SUITE_OUTPUT_FORMAT_LIST = [...VALID_SUITE_OUTPUT_FORMATS]
+    .sort()
+    .join(", ");
+
+export function formatSuiteOutputFormatList() {
+    return SUITE_OUTPUT_FORMAT_LIST;
+}
+
+export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
+    return normalizeEnumeratedOption(
+        value,
+        fallback ?? null,
+        VALID_SUITE_OUTPUT_FORMATS
+    );
+}
+
+export function resolveSuiteOutputFormatOrThrow(
+    value,
+    {
+        fallback,
+        errorConstructor = Error,
+        createErrorMessage = () =>
+            `Format must be one of: ${formatSuiteOutputFormatList()}.`
+    } = {}
+) {
+    const normalized = normalizeSuiteOutputFormat(value, { fallback });
+
+    if (normalized) {
+        return normalized;
+    }
+
+    const errorMessage =
+        typeof createErrorMessage === "function"
+            ? createErrorMessage(value)
+            : createErrorMessage;
+
+    const message =
+        typeof errorMessage === "string"
+            ? errorMessage
+            : String(errorMessage ?? "");
+
+    const ErrorConstructor =
+        typeof errorConstructor === "function" ? errorConstructor : Error;
+
+    throw new ErrorConstructor(message);
+}
 
 /**
  * Normalize the requested suite names for execution.
@@ -54,7 +109,14 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
  * @returns {boolean} `true` when JSON output was emitted.
  */
 export function emitSuiteResults(results, { format, pretty } = {}) {
-    if (format === "human") {
+    const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
+        fallback: SuiteOutputFormat.JSON,
+        errorConstructor: RangeError,
+        createErrorMessage: (received) =>
+            `Unsupported suite output format '${received}'. Valid formats: ${formatSuiteOutputFormatList()}.`
+    });
+
+    if (normalizedFormat === SuiteOutputFormat.HUMAN) {
         return false;
     }
 
