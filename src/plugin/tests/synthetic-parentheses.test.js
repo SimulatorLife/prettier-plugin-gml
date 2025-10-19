@@ -69,6 +69,21 @@ test("flattens longer chains of synthetic addition", async () => {
     );
 });
 
+test("preserves chains of sqr calls without additional parentheses", async () => {
+    const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var ll = sqr(dx) + sqr(dy) + sqr(dz);",
+        "Expected sqr() addition chains to remain untouched by synthetic parentheses normalization."
+    );
+});
+
 test("retains synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",
