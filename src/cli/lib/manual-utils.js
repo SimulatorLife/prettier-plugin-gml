@@ -11,38 +11,44 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+function normalizeVerboseOverrides(overrides) {
+    if (!overrides || typeof overrides !== "object") {
+        return null;
+    }
+
+    let normalized = null;
+
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined) {
+            continue;
+        }
+
+        if (normalized === null) {
+            normalized = {};
+        }
+
+        normalized[key] = value;
+    }
+
+    return normalized;
+}
+
 function createManualVerboseState({
     quiet = false,
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = quiet
-        ? {
-              resolveRef: false,
-              downloads: false,
-              parsing: false,
-              progressBar: false
-          }
-        : {
-              resolveRef: true,
-              downloads: true,
-              parsing: true,
-              progressBar: isTerminal
-          };
+    const baseState = {
+        resolveRef: !quiet,
+        downloads: !quiet,
+        parsing: !quiet,
+        progressBar: !quiet && isTerminal
+    };
 
-    if (!overrides || typeof overrides !== "object") {
-        return baseState;
-    }
-
-    const definedOverrides = Object.fromEntries(
-        Object.entries(overrides).filter(([, value]) => value !== undefined)
-    );
-
-    if (Object.keys(definedOverrides).length === 0) {
-        return baseState;
-    }
-
-    return { ...baseState, ...definedOverrides };
+    const normalizedOverrides = normalizeVerboseOverrides(overrides);
+    return normalizedOverrides
+        ? { ...baseState, ...normalizedOverrides }
+        : baseState;
 }
 
 function assertPlainObject(value, message) {
