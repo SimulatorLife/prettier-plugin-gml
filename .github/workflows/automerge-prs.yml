@@ -168,13 +168,19 @@ jobs:
           script: |
             const fs = require('node:fs');
             const path = require('node:path');
+            const { pathToFileURL } = require('node:url');
 
             const MARKER = '<!-- automerge-pr-test-summary -->';
             const targets = ['base','head','merge'];
-            const totals = {};
+            const suiteTotals = {};
             const coverage = {};
             const lint = {};
             const notes = [];
+            const testResults = {};
+
+            const modulePath = path.resolve(process.cwd(), 'src/cli/commands/detect-test-regressions.mjs');
+            const regressionModule = await import(pathToFileURL(modulePath).href);
+            const { readTestResults, detectRegressions } = regressionModule;
 
             function listFilesRecursive(root) {
               if (!fs.existsSync(root)) return [];
@@ -253,15 +259,162 @@ jobs:
               return `${data.pct.toFixed(1)}%`;
             };
 
+            function computeTotals(data) {
+              const tests = data?.stats?.total ?? 0;
+              const passed = data?.stats?.passed ?? 0;
+              const failed = data?.stats?.failed ?? 0;
+              const skipped = data?.stats?.skipped ?? 0;
+              return { tests, passed, failed, skipped };
+            }
+
+            function normalizeLocator(testCase) {
+              const node = testCase?.node || {};
+              const rawFile = typeof node.file === 'string' ? node.file.trim() : '';
+              if (rawFile) {
+                return `file:${path.normalize(rawFile).replace(/\\/g, '/').toLowerCase()}`;
+              }
+              const className = typeof node.classname === 'string' ? node.classname.trim() : '';
+              if (className) {
+                return `class:${className}`.toLowerCase();
+              }
+              if (Array.isArray(testCase?.suitePath) && testCase.suitePath.length > 0) {
+                return `suite:${testCase.suitePath.join('::')}`.toLowerCase();
+              }
+              return null;
+            }
+
+            function computeTestDiff(baseResults, targetResults) {
+              if (!baseResults?.usedDir || !targetResults?.usedDir) {
+                return null;
+              }
+
+              const newCases = [];
+              for (const [key, record] of targetResults.results.entries()) {
+                if (!baseResults.results.has(key)) {
+                  newCases.push(record);
+                }
+              }
+
+              const removedCases = [];
+              for (const [key, record] of baseResults.results.entries()) {
+                if (!targetResults.results.has(key)) {
+                  removedCases.push(record);
+                }
+              }
+
+              const removedByLocator = new Map();
+              for (const record of removedCases) {
+                const locator = normalizeLocator(record);
+                if (!locator) continue;
+                removedByLocator.set(locator, (removedByLocator.get(locator) || 0) + 1);
+              }
+
+              let renameCount = 0;
+              for (const record of newCases) {
+                const locator = normalizeLocator(record);
+                if (!locator) continue;
+                const remaining = removedByLocator.get(locator) || 0;
+                if (remaining > 0) {
+                  removeCase(locator, removedByLocator);
+                  renameCount += 1;
+                  continue;
+                }
+              }
+
+              function removeCase(locator, store) {
+                const next = (store.get(locator) || 0) - 1;
+                if (next > 0) {
+                  store.set(locator, next);
+                } else {
+                  store.delete(locator);
+                }
+              }
+
+              const adjustedNew = Math.max(0, newCases.length - renameCount);
+              const adjustedRemoved = Math.max(0, removedCases.length - renameCount);
+
+              return {
+                newTests: adjustedNew,
+                removedTests: adjustedRemoved,
+                renamedTests: renameCount
+              };
+            }
+
+            function formatDiffValue(value) {
+              return value === null || value === undefined ? '—' : `${Math.max(0, value)}`;
+            }
+
+            function describeRegressionCause(regressions, diff) {
+              if (!Array.isArray(regressions) || regressions.length === 0) {
+                return '';
+              }
+
+              const buckets = new Map();
+              for (const item of regressions) {
+                const fromKey = String(item?.from ?? 'missing').toLowerCase();
+                buckets.set(fromKey, (buckets.get(fromKey) || 0) + 1);
+              }
+
+              const fragments = [];
+
+              const addFragment = (count, singular, plural) => {
+                if (count <= 0) return;
+                fragments.push(count === 1 ? `1 ${singular}` : `${count} ${plural}`);
+              };
+
+              addFragment(
+                buckets.get('missing') || 0,
+                'test is failing but was not present in base (added or renamed)',
+                'tests are failing but were not present in base (added or renamed)'
+              );
+
+              addFragment(
+                buckets.get('passed') || 0,
+                'test is now failing after passing in base',
+                'tests are now failing after passing in base'
+              );
+
+              addFragment(
+                buckets.get('skipped') || 0,
+                'test is now failing after being skipped in base',
+                'tests are now failing after being skipped in base'
+              );
+
+              for (const [fromKey, count] of buckets.entries()) {
+                if (fromKey === 'missing' || fromKey === 'passed' || fromKey === 'skipped') {
+                  continue;
+                }
+                addFragment(
+                  count,
+                  `test is now failing after being ${fromKey} in base`,
+                  `tests are now failing after being ${fromKey} in base`
+                );
+              }
+
+              if (diff?.renamedTests > 0) {
+                addFragment(
+                  diff.renamedTests,
+                  'test appears to have been renamed compared to base',
+                  'tests appear to have been renamed compared to base'
+                );
+              }
+
+              return fragments.join('; ');
+            }
+
             for (const tgt of targets) {
               const dir = path.join(process.cwd(), `junit-${tgt}`);
               const files = listFilesRecursive(dir);
               const xmlFiles = files.filter(f => f.endsWith('.xml'));
               const lcovFiles = files.filter(f => path.basename(f) === 'lcov.info');
               const checkstyleFiles = files.filter(f => /checkstyle/i.test(path.basename(f)));
-              totals[tgt] = readSuites(xmlFiles);
+              suiteTotals[tgt] = readSuites(xmlFiles);
               coverage[tgt] = readCoverage(lcovFiles);
               lint[tgt] = readCheckstyle(checkstyleFiles);
+              testResults[tgt] = readTestResults([
+                path.join(dir, 'test-results'),
+                dir
+              ], { workspace: process.cwd() });
               if (xmlFiles.length === 0) notes.push(`No JUnit XML found for **${tgt}**.`);
               if (files.length > 0 && !coverage[tgt]) notes.push(`No coverage (LCOV) data found for **${tgt}**.`);
               if (files.length > 0 && checkstyleFiles.length === 0) notes.push(`No lint (checkstyle) data found for **${tgt}**.`);
@@ -274,15 +427,47 @@ jobs:
 
             const fmtLintCount = value => (value === null || value === undefined) ? '—' : `${value}`;
 
-            const row = (label, t, lintData, cov) => {
-              const hasAny = (t.tests + t.failures + t.errors + t.skipped) > 0;
+            const computeRowData = (totals, fallback, preferTotals) => {
+              if (preferTotals) {
+                const total = totals.tests ?? 0;
+                const failed = totals.failed ?? 0;
+                const skipped = totals.skipped ?? 0;
+                const passed = totals.passed ?? Math.max(0, total - failed - skipped);
+                return { total, passed, failed, skipped };
+              }
+
+              const total = fallback.tests ?? 0;
+              const failed = (fallback.failures ?? 0) + (fallback.errors ?? 0);
+              const skipped = fallback.skipped ?? 0;
+              const passed = Math.max(0, total - failed - skipped);
+              return { total, passed, failed, skipped };
+            };
+
+            const row = (label, tgt, lintData, cov, diffStats) => {
+              const totals = computeTotals(testResults[tgt]);
+              const fallback = suiteTotals[tgt] || {};
+              const preferTotals = Boolean(testResults[tgt]?.usedDir);
+              const data = computeRowData(totals, fallback, preferTotals);
+              const fallbackSum = (fallback.tests ?? 0) + (fallback.failures ?? 0) + (fallback.errors ?? 0) + (fallback.skipped ?? 0);
+              const hasAny = data.total > 0 || fallbackSum > 0;
               const coverageCell = fmtCoverage(cov);
               const lintWarningsCell = fmtLintCount(lintData?.warnings);
               const lintErrorsCell = fmtLintCount(lintData?.errors);
-              if (!hasAny) return `| ${label} | — | — | — | — | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | — |`;
-              const failed = t.failures + t.errors;
-              const passed = Math.max(0, t.tests - failed - t.skipped);
-              return `| ${label} | ${t.tests} | ${passed} | ${failed} | ${t.skipped} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | ${fmtTime(t.time)} |`;
+              const diff = diffStats ? {
+                newTests: formatDiffValue(diffStats.newTests),
+                removedTests: formatDiffValue(diffStats.removedTests),
+                renamedTests: formatDiffValue(diffStats.renamedTests)
+              } : { newTests: '—', removedTests: '—', renamedTests: '—' };
+              if (!hasAny) {
+                return `| ${label} | — | — | — | — | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | — |`;
+              }
+              return `| ${label} | ${data.total} | ${data.passed} | ${data.failed} | ${data.skipped} | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | ${fmtTime(fallback.time)} |`;
+            };
+
+            const diffStats = {
+              base: testResults.base?.usedDir ? { newTests: 0, removedTests: 0, renamedTests: 0 } : null,
+              head: computeTestDiff(testResults.base, testResults.head),
+              merge: computeTestDiff(testResults.base, testResults.merge)
             };
 
             const baseRef = context.payload.pull_request?.base?.ref || 'base';
@@ -291,11 +476,11 @@ jobs:
             const headSha = (context.payload.pull_request?.head?.sha || context.sha || '').slice(0,7) || '???????';
 
             const table = [
-              '| Target | Total | Passed | Failed | Skipped | Lint warnings | Lint errors | Coverage | Duration |',
-              '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
-              row(`Base (${baseRef} @ ${baseSha})`, totals.base, lint.base, coverage.base),
-              row(`PR (${headRef} @ ${headSha})`, totals.head, lint.head, coverage.head),
-              row('Merged (base+PR)', totals.merge, lint.merge, coverage.merge),
+              '| Target | Total | Passed | Failed | Skipped | New Tests | Removed Tests | Renamed Tests | Lint warnings | Lint errors | Coverage | Duration |',
+              '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+              row(`Base (${baseRef} @ ${baseSha})`, 'base', lint.base, coverage.base, diffStats.base),
+              row(`PR (${headRef} @ ${headSha})`, 'head', lint.head, coverage.head, diffStats.head),
+              row('Merged (base+PR)', 'merge', lint.merge, coverage.merge, diffStats.merge),
               '',
               ...notes.map(n => `> ⚠️ ${n}`)
             ].join('\n');
@@ -307,7 +492,21 @@ jobs:
             if (statusFlag === 'clean' || allGreenFlag) {
               statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
             } else if (statusFlag === 'regressions') {
-              statusLine = '❌ Test regressions detected — auto-merge is disabled.';
+              let causeDetails = '';
+              if (testResults.base?.usedDir) {
+                const targetKey = testResults.merge?.usedDir ? 'merge' : 'head';
+                const targetResults = testResults[targetKey];
+                if (targetResults?.usedDir && typeof detectRegressions === 'function') {
+                  const regressions = detectRegressions(testResults.base, targetResults);
+                  const description = describeRegressionCause(regressions, diffStats[targetKey]);
+                  causeDetails = description || '';
+                }
+              }
+              if (causeDetails) {
+                statusLine = `❌ Test regressions detected — auto-merge is disabled (${causeDetails}).`;
+              } else {
+                statusLine = '❌ Test regressions detected — auto-merge is disabled (cause could not be determined from available data).';
+              }
             } else if (statusFlag === 'error') {
               statusLine = '⚠️ Regression checks did not complete — auto-merge is blocked.';
             } else {
