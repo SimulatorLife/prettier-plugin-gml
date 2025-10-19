@@ -10,6 +10,9 @@ import {
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
 import {
+    SuiteOutputFormat,
+    formatSuiteOutputFormatList,
+    normalizeSuiteOutputFormat,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites
@@ -100,12 +103,14 @@ function collectSuite(value, previous = []) {
 }
 
 function validateFormat(value) {
-    const normalized = value?.toLowerCase();
-    if (normalized === "json" || normalized === "human") {
+    const normalized = normalizeSuiteOutputFormat(value);
+    if (normalized) {
         return normalized;
     }
 
-    throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
+    throw new InvalidArgumentError(
+        `Format must be one of: ${formatSuiteOutputFormatList()}.`
+    );
 }
 
 export function createMemoryCommand({ env = process.env } = {}) {
@@ -139,7 +144,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
             "--format <format>",
             "Output format: json (default) or human.",
             validateFormat,
-            "json"
+            SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.");
     applyMemoryEnvOptionOverrides({ command, env });
