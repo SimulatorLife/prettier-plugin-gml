@@ -8,7 +8,12 @@ import { createDefaultCliPluginServices } from "./plugin-service-providers/defau
 let projectIndexBuilder;
 let identifierCasePlanPreparer;
 
-export const defaultCliPluginServices = createDefaultCliPluginServices();
+const resolvedDefaultCliPluginServices = createDefaultCliPluginServices();
+
+export const defaultCliPluginServices = Object.freeze({
+    projectIndex: resolvedDefaultCliPluginServices.projectIndex,
+    identifierCasePlan: resolvedDefaultCliPluginServices.identifierCasePlan
+});
 
 resetRegisteredCliPluginServices();
 

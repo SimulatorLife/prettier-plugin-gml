@@ -163,14 +163,6 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
             },
-            fixMissingDecimalZeroes: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Pads bare decimal literals with leading or trailing zeroes to improve readability. Set to false to preserve the original literal text."
-            },
             convertDivisionToMultiplication: {
                 since: "0.0.0",
                 type: "boolean",
@@ -202,47 +194,11 @@ export function createDefaultGmlPluginComponents() {
                 default: false,
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
-            },
-            preserveLineBreaks: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Reserved for future use; enabling this option currently has no effect while line-break preservation heuristics are evaluated."
-            },
-            maintainArrayIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Keep existing indentation for array literals instead of reindenting according to Prettier defaults."
-            },
-            maintainStructIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Keep existing indentation for struct literals instead of reindenting according to Prettier defaults."
-            },
-            maintainWithIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Preserve the indentation within 'with' statements rather than reindenting the body relative to the statement."
-            },
-            maintainSwitchIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Preserve the indentation inside 'switch' statements rather than reindenting cases relative to the switch body."
             }
+            // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
+            // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
+            // were intentionally removed so the formatter can enforce a single opinionated
+            // indentation strategy. Avoid re-adding escape hatches that contradict that goal.
         }
     };
 }

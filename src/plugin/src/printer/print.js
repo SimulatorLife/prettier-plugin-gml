@@ -1027,21 +1027,11 @@ export function print(path, options, print) {
         }
         case "Literal": {
             let value = node.value;
-            const shouldPadDecimalZeroes =
-                options.fixMissingDecimalZeroes !== false;
 
-            if (
-                shouldPadDecimalZeroes &&
-                value.startsWith(".") &&
-                !value.startsWith('"')
-            ) {
+            if (value.startsWith(".") && !value.startsWith('"')) {
                 value = "0" + value; // Fix decimals without a leading 0.
             }
-            if (
-                shouldPadDecimalZeroes &&
-                value.endsWith(".") &&
-                !value.endsWith('"')
-            ) {
+            if (value.endsWith(".") && !value.endsWith('"')) {
                 value = value + "0"; // Fix decimals without a trailing 0.
             }
             return concat(value);

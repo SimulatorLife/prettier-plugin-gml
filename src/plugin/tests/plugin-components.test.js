@@ -42,6 +42,20 @@ test("GML plugin components expose validated defaults", () => {
         "default options should be registered"
     );
 
+    // The formatter is intentionally opinionated—legacy indentation toggles must stay removed.
+    for (const removedOption of [
+        "preserveLineBreaks",
+        "maintainArrayIndentation",
+        "maintainStructIndentation",
+        "maintainWithIndentation",
+        "maintainSwitchIndentation"
+    ]) {
+        assert.ok(
+            !Object.hasOwn(resolved.options, removedOption),
+            `${removedOption} should stay unregistered`
+        );
+    }
+
     assert.strictEqual(
         resolveGmlPluginComponents(),
         resolved,
