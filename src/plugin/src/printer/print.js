@@ -1670,6 +1670,16 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const suppressFollowingEmptyLine =
+                node?._featherSuppressFollowingEmptyLine === true;
+
+            if (
+                !suppressFollowingEmptyLine &&
+                isNextLineEmpty(options.originalText, nodeEndIndex + 1)
+            ) {
+                parts.push(hardline);
+            }
         }
 
         return parts;

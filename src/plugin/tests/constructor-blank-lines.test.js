@@ -33,3 +33,22 @@ test("preserves blank line between constructor header and first statement", asyn
         "Expected constructors to retain a blank line when the input separates the header from the first statement."
     );
 });
+
+test("preserves blank line before closing constructor brace", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    self.value = 1;",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected constructors to retain a blank line immediately before the closing brace."
+    );
+});
