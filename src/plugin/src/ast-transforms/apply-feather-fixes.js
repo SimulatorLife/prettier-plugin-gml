@@ -3,7 +3,8 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getNodeEndIndex,
     getNodeStartIndex,
-    cloneLocation
+    cloneLocation,
+    assignClonedLocation
 } from "../../../shared/ast-locations.js";
 import {
     getArrayProperty,
@@ -1569,13 +1570,7 @@ function createOtherMemberExpression(identifier) {
         property: cloneIdentifier(identifier)
     };
 
-    if (Object.hasOwn(identifier, "start")) {
-        memberExpression.start = cloneLocation(identifier.start);
-    }
-
-    if (Object.hasOwn(identifier, "end")) {
-        memberExpression.end = cloneLocation(identifier.end);
-    }
+    assignClonedLocation(memberExpression, identifier);
 
     return memberExpression;
 }
@@ -15341,15 +15336,7 @@ function createIdentifierFromTemplate(name, template) {
         name
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            identifier.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            identifier.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(identifier, template);
 
     return identifier;
 }
@@ -15364,13 +15351,7 @@ function cloneIdentifier(node) {
         name: node.name
     };
 
-    if (Object.hasOwn(node, "start")) {
-        cloned.start = cloneLocation(node.start);
-    }
-
-    if (Object.hasOwn(node, "end")) {
-        cloned.end = cloneLocation(node.end);
-    }
+    assignClonedLocation(cloned, node);
 
     return cloned;
 }
@@ -17013,15 +16994,7 @@ function createIdentifier(name, template) {
         name
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            identifier.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            identifier.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(identifier, template);
 
     return identifier;
 }
