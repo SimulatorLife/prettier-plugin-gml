@@ -27,14 +27,14 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
-    resolveManualRepoValue,
-    createManualVerboseState
+    resolveManualRepoValue
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,25 +142,14 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
     return command;
 }
 function resolveFeatherMetadataOptions(command) {
-    const options = command.opts();
-    const isTty = process.stdout.isTTY === true;
-
-    const verbose = createManualVerboseState({
-        quiet: Boolean(options.quiet),
-        isTerminal: isTty
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            ref: null,
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        }
     });
-
-    return {
-        ref: options.ref ?? null,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        usage: command.helpInformation()
-    };
 }
 
 // Manual fetching helpers are provided by manual-cli-helpers.js
