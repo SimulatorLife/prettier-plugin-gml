@@ -226,7 +226,7 @@ describe("GameMaker parser fixtures", () => {
         };
 
         const parser = new GMLParser("", {});
-        const prototypeSnapshot = JSON.parse(JSON.stringify(prototypeNode));
+        const prototypeSnapshot = structuredClone(prototypeNode);
 
         parser.removeLocationInfo(ast);
 

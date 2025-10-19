@@ -16,7 +16,11 @@ describe("createAbortError", () => {
     });
 
     it("reuses error-like reasons that are not native Error instances", () => {
-        const reason = { name: "AbortError", message: "custom", stack: "trace" };
+        const reason = {
+            name: "AbortError",
+            message: "custom",
+            stack: "trace"
+        };
         const signal = { aborted: true, reason };
         assert.strictEqual(createAbortError(signal, "ignored"), reason);
     });

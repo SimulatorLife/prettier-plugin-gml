@@ -7,7 +7,7 @@ import {
     toPosixPath,
     resolveContainedRelativePath
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/reporting.js";
+import { createMetricsTracker } from "../../../shared/utils.js";
 import {
     isNonEmptyString,
     getNonEmptyString,
@@ -30,11 +30,10 @@ import {
 import { setIdentifierCaseOption } from "./option-store.js";
 import {
     COLLISION_CONFLICT_CODE,
-    PRESERVE_CONFLICT_CODE,
-    IGNORE_CONFLICT_CODE,
     buildPatternMatchers,
-    resolveIdentifierConfigurationConflict,
     createConflict,
+    formatConfigurationConflictMessage,
+    resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
@@ -262,7 +261,9 @@ function isFunctionScriptEntry(entry) {
 }
 
 function summarizeReferencesAcrossFiles(references) {
-    return summarizeReferenceFileOccurrences(references, { fallbackPath: null });
+    return summarizeReferenceFileOccurrences(references, {
+        fallbackPath: null
+    });
 }
 
 function getDeclarationFilePath(entry) {
@@ -491,20 +492,10 @@ function planIdentifierRenamesForScope({
         }`;
 
         if (configConflict) {
-            let message;
-            switch (configConflict.code) {
-                case PRESERVE_CONFLICT_CODE: {
-                    message = `Identifier '${currentName}' is preserved by configuration.`;
-                    break;
-                }
-                case IGNORE_CONFLICT_CODE: {
-                    message = `Identifier '${currentName}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
-                    break;
-                }
-                default: {
-                    message = `Identifier '${currentName}' cannot be renamed due to configuration.`;
-                }
-            }
+            const message = formatConfigurationConflictMessage({
+                configConflict,
+                identifierName: currentName
+            });
 
             conflicts.push(
                 createConflict({
@@ -1065,20 +1056,10 @@ export async function prepareIdentifierCasePlan(options) {
                 declaration.scopeId
             );
 
-            let message;
-            switch (configConflict.code) {
-                case PRESERVE_CONFLICT_CODE: {
-                    message = `Identifier '${declaration.name}' is preserved by configuration.`;
-                    break;
-                }
-                case IGNORE_CONFLICT_CODE: {
-                    message = `Identifier '${declaration.name}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
-                    break;
-                }
-                default: {
-                    message = `Identifier '${declaration.name}' cannot be renamed due to configuration.`;
-                }
-            }
+            const message = formatConfigurationConflictMessage({
+                configConflict,
+                identifierName: declaration.name
+            });
 
             conflicts.push(
                 createConflict({

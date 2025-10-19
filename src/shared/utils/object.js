@@ -86,20 +86,9 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (!Array.isArray(keys)) {
-        // Single-key lookups are the common case and previously incurred an
-        // extra array allocation via `[keys]`. Guard explicitly so the hot path
-        // stays allocation-free inside frequently executed option probes.
-        const value = object[keys];
+    const keyList = Array.isArray(keys) ? keys : [keys];
 
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
-        }
-
-        return fallback;
-    }
-
-    for (const key of keys) {
+    for (const key of keyList) {
         const value = object[key];
 
         if (value !== undefined && (acceptNull || value !== null)) {
@@ -149,7 +138,11 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (!store || typeof store.get !== "function" || typeof store.set !== "function") {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
         throw new TypeError("store must provide get and set functions");
     }
 

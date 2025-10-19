@@ -9,6 +9,36 @@ export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
 export const RESERVED_CONFLICT_CODE = "reserved";
 
+export function formatConfigurationConflictMessage({
+    configConflict,
+    identifierName,
+    noun = "Identifier"
+}) {
+    if (!configConflict) {
+        return null;
+    }
+
+    const labelNoun = isNonEmptyString(noun) ? noun : "Identifier";
+    const labelName =
+        typeof identifierName === "string"
+            ? identifierName
+            : String(identifierName ?? "");
+    const subject = `${labelNoun} '${labelName}'`;
+
+    if (configConflict.code === PRESERVE_CONFLICT_CODE) {
+        return `${subject} is preserved by configuration.`;
+    }
+
+    if (configConflict.code === IGNORE_CONFLICT_CODE) {
+        const ignoreMatch = isNonEmptyString(configConflict.ignoreMatch)
+            ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
+            : " is ignored by configuration.";
+        return `${subject}${ignoreMatch}`;
+    }
+
+    return `${subject} cannot be renamed due to configuration.`;
+}
+
 export function escapeForRegExp(value) {
     if (typeof value !== "string") {
         throw new TypeError("Value must be a string");
