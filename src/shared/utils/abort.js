@@ -59,7 +59,8 @@ export function createAbortError(signal, fallbackMessage) {
         return ensureAbortErrorMetadata(reason, fallback);
     }
 
-    const message = reason == undefined ? null : String(reason);
+    const message =
+        reason === undefined || reason === null ? null : String(reason);
     const error = new Error(getNonEmptyString(message) ?? fallback);
     return ensureAbortErrorMetadata(error, fallback);
 }
