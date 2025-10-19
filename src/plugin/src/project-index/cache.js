@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { withObjectLike } from "../../../shared/object-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
@@ -36,7 +37,11 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return isObjectLike(record) && Object.keys(record).length > 0;
+    return withObjectLike(
+        record,
+        (object) => Object.keys(object).length > 0,
+        () => false
+    );
 }
 
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
@@ -64,14 +69,22 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (!isObjectLike(source)) {
-        return {};
-    }
+    return withObjectLike(
+        source,
+        (record) => {
+            const normalized = {};
 
-    return Object.fromEntries(
-        Object.entries(source)
-            .map(([key, value]) => [key, Number(value)])
-            .filter(([, numeric]) => Number.isFinite(numeric))
+            for (const [key, value] of Object.entries(record)) {
+                const numericValue = Number(value);
+
+                if (isFiniteNumber(numericValue)) {
+                    normalized[key] = numericValue;
+                }
+            }
+
+            return normalized;
+        },
+        () => ({})
     );
 }
 
