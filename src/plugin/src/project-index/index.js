@@ -12,7 +12,7 @@ import {
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
-import { hasOwn } from "../../../shared/object-utils.js";
+import { getOrCreateMapEntry, hasOwn } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
@@ -416,18 +416,7 @@ async function scanProjectTree(
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
-    let record = resourcesMap.get(resourcePath);
-    if (record) {
-        if (resourceData.name && record.name !== resourceData.name) {
-            record.name = resourceData.name;
-        }
-        if (
-            resourceData.resourceType &&
-            record.resourceType !== resourceData.resourceType
-        ) {
-            record.resourceType = resourceData.resourceType;
-        }
-    } else {
+    const record = getOrCreateMapEntry(resourcesMap, resourcePath, () => {
         const lowerPath = resourcePath.toLowerCase();
         let defaultName = path.posix.basename(resourcePath);
         if (lowerPath.endsWith(".yy")) {
@@ -438,7 +427,8 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
                 PROJECT_MANIFEST_EXTENSION
             );
         }
-        record = {
+
+        return {
             path: resourcePath,
             name: resourceData.name ?? defaultName,
             resourceType: resourceData.resourceType ?? "unknown",
@@ -446,7 +436,16 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
             gmlFiles: [],
             assetReferences: []
         };
-        resourcesMap.set(resourcePath, record);
+    });
+
+    if (resourceData.name && record.name !== resourceData.name) {
+        record.name = resourceData.name;
+    }
+    if (
+        resourceData.resourceType &&
+        record.resourceType !== resourceData.resourceType
+    ) {
+        record.resourceType = resourceData.resourceType;
     }
 
     return record;
@@ -910,10 +909,7 @@ function cloneIdentifierForCollections(record, filePath) {
 }
 
 function ensureCollectionEntry(map, key, initializer) {
-    if (!map.has(key)) {
-        map.set(key, initializer());
-    }
-    return map.get(key);
+    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function createIdentifierCollections() {
@@ -1779,40 +1775,30 @@ function registerInstanceAssignment({
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
-    let scopeRecord = scopeMap.get(descriptor.id);
-    if (!scopeRecord) {
-        scopeRecord = {
-            id: descriptor.id,
-            kind: descriptor.kind,
-            name: descriptor.name,
-            displayName: descriptor.displayName,
-            resourcePath: descriptor.resourcePath,
-            event: descriptor.event ?? null,
-            filePaths: [],
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        scopeMap.set(descriptor.id, scopeRecord);
-    }
-    return scopeRecord;
+    return getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        name: descriptor.name,
+        displayName: descriptor.displayName,
+        resourcePath: descriptor.resourcePath,
+        event: descriptor.event ?? null,
+        filePaths: [],
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function ensureFileRecord(filesMap, relativePath, scopeId) {
-    let fileRecord = filesMap.get(relativePath);
-    if (!fileRecord) {
-        fileRecord = {
-            filePath: relativePath,
-            scopeId,
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        filesMap.set(relativePath, fileRecord);
-    }
-    return fileRecord;
+    return getOrCreateMapEntry(filesMap, relativePath, () => ({
+        filePath: relativePath,
+        scopeId,
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function traverseAst(root, visitor) {

@@ -1,4 +1,8 @@
-import { coercePositiveInteger, resolveIntegerOption } from "./shared-deps.js";
+import {
+    coercePositiveInteger,
+    getOrCreateMapEntry,
+    resolveIntegerOption
+} from "./shared-deps.js";
 import { SingleBar, Presets } from "cli-progress";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
@@ -77,15 +81,17 @@ function renderProgressBar(label, current, total, width) {
     }
 
     const normalizedTotal = total > 0 ? total : 1;
-    let bar = activeProgressBars.get(label);
+    const normalizedCurrent = Math.min(current, normalizedTotal);
+    const hadBar = activeProgressBars.has(label);
+    const bar = getOrCreateMapEntry(activeProgressBars, label, () =>
+        progressBarFactory(label, width)
+    );
 
-    if (bar) {
+    if (hadBar) {
         bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
+        bar.update(normalizedCurrent);
     } else {
-        bar = progressBarFactory(label, width);
-        bar.start(normalizedTotal, Math.min(current, normalizedTotal));
-        activeProgressBars.set(label, bar);
+        bar.start(normalizedTotal, normalizedCurrent);
     }
 
     if (current >= normalizedTotal) {

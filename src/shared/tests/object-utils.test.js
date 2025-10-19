@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
     coalesceOption,
+    getOrCreateMapEntry,
     isObjectLike,
     withObjectLike
 } from "../object-utils.js";
@@ -86,4 +87,34 @@ test("coalesceOption can accept null values when requested", () => {
     });
 
     assert.strictEqual(value, null);
+});
+
+test("getOrCreateMapEntry initializes values on demand", () => {
+    const store = new Map();
+
+    const entry = getOrCreateMapEntry(store, "key", () => ({ created: true }));
+
+    assert.deepStrictEqual(entry, { created: true });
+    assert.strictEqual(store.get("key"), entry);
+});
+
+test("getOrCreateMapEntry reuses existing entries without invoking initializer", () => {
+    const store = new Map();
+    const initial = getOrCreateMapEntry(store, "key", () => ({ count: 1 }));
+
+    const reused = getOrCreateMapEntry(store, "key", () => {
+        throw new Error("initializer should not run for existing entry");
+    });
+
+    assert.strictEqual(reused, initial);
+});
+
+test("getOrCreateMapEntry works with WeakMap instances", () => {
+    const store = new WeakMap();
+    const key = {};
+
+    const value = getOrCreateMapEntry(store, key, () => ({ hits: 0 }));
+    const again = getOrCreateMapEntry(store, key, () => ({ hits: 1 }));
+
+    assert.strictEqual(again, value);
 });

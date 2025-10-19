@@ -26,7 +26,11 @@ import {
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
-import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    getOrCreateMapEntry,
+    hasOwn,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import {
     hasIterableItems,
@@ -8249,21 +8253,13 @@ function getStatementInsertionInfo(state, statements, baseIndex) {
         state.statementInsertionOffsets = new WeakMap();
     }
 
-    let arrayInfo = state.statementInsertionOffsets.get(statements);
+    const arrayInfo = getOrCreateMapEntry(
+        state.statementInsertionOffsets,
+        statements,
+        () => new Map()
+    );
 
-    if (!arrayInfo) {
-        arrayInfo = new Map();
-        state.statementInsertionOffsets.set(statements, arrayInfo);
-    }
-
-    let info = arrayInfo.get(baseIndex);
-
-    if (!info) {
-        info = { offset: 0 };
-        arrayInfo.set(baseIndex, info);
-    }
-
-    return info;
+    return getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
 }
 
 function findStatementContext(ancestors) {
