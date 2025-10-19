@@ -13,7 +13,8 @@ export {
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isObjectLike,
-    getOrCreateMapEntry
+    getOrCreateMapEntry,
+    applyEnvironmentOverride
 } from "../../shared/utils.js";
 
 export { normalizeStringList } from "../../shared/utils/string.js";
