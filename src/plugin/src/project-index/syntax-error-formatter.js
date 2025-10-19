@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { resolveContainedRelativePath } from "../../../shared/path-utils.js";
 
 export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const { filePath, projectRoot } = context ?? {};
@@ -52,15 +53,11 @@ function resolveDisplayPath(filePath, projectRoot) {
 
     const normalizedProjectRoot = getNonEmptyString(projectRoot);
     if (normalizedProjectRoot) {
-        const relative = path.relative(
-            normalizedProjectRoot,
-            normalizedFilePath
+        const relative = resolveContainedRelativePath(
+            normalizedFilePath,
+            normalizedProjectRoot
         );
-        if (
-            relative &&
-            !relative.startsWith("..") &&
-            !path.isAbsolute(relative)
-        ) {
+        if (relative) {
             return relative;
         }
     }

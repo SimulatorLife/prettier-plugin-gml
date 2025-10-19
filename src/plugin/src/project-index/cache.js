@@ -37,10 +37,10 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return (
-        record != null &&
-        typeof record === "object" &&
-        Object.keys(record).length > 0
+    return withObjectLike(
+        record,
+        (object) => Object.keys(object).length > 0,
+        () => false
     );
 }
 
@@ -53,6 +53,19 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
         PROJECT_INDEX_CACHE_DIRECTORY,
         PROJECT_INDEX_CACHE_FILENAME
     );
+}
+
+function normalizeMaxSizeBytes(maxSizeBytes) {
+    if (maxSizeBytes == null) {
+        return null;
+    }
+
+    const numericLimit = Number(maxSizeBytes);
+    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+        return null;
+    }
+
+    return numericLimit;
 }
 
 function cloneMtimeMap(source) {
@@ -349,7 +362,8 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    if (maxSizeBytes != undefined && byteLength > maxSizeBytes) {
+    const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
+    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
         return {
             status: "skipped",
             cacheFilePath,

@@ -2,8 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
 import {
+    toPosixPath,
+    walkAncestorDirectories
+} from "../../../shared/path-utils.js";
+import {
+    asArray,
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
@@ -13,6 +18,7 @@ import {
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
+import { clampConcurrency } from "./concurrency.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
@@ -32,87 +38,46 @@ import { throwIfAborted } from "../../../shared/abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
-const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
-const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
-
-let configuredDefaultProjectIndexGmlConcurrency =
-    PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
-
-function getDefaultProjectIndexGmlConcurrency() {
-    return configuredDefaultProjectIndexGmlConcurrency;
-}
-
-function normalizeDefaultProjectIndexConcurrencyInput(value) {
-    if (value === undefined || value === null) {
-        return null;
-    }
-
-    const trimmed =
-        typeof value === "string" ? value.trim() : value;
-    if (trimmed === "") {
-        return null;
-    }
-
-    const numeric = Number(trimmed);
-    return Number.isFinite(numeric) ? numeric : null;
-}
-
-function setDefaultProjectIndexGmlConcurrency(concurrency) {
-    const normalized = normalizeDefaultProjectIndexConcurrencyInput(concurrency);
-
-    if (normalized === null) {
-        configuredDefaultProjectIndexGmlConcurrency =
-            PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
-        return configuredDefaultProjectIndexGmlConcurrency;
-    }
-
-    configuredDefaultProjectIndexGmlConcurrency = clampConcurrency(normalized, {
-        fallback: PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-    });
-
-    return configuredDefaultProjectIndexGmlConcurrency;
-}
-
-function applyProjectIndexConcurrencyEnvOverride(env = process?.env) {
-    const rawValue = env?.[PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR];
-    if (rawValue === undefined) {
-        return;
-    }
-
-    setDefaultProjectIndexGmlConcurrency(rawValue);
-}
-
-applyProjectIndexConcurrencyEnvOverride();
-
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY =
-    getDefaultProjectIndexGmlConcurrency();
-
 const PARSER_FACADE_OPTION_KEYS = [
     "identifierCaseProjectIndexParserFacade",
     "gmlParserFacade",
     "parserFacade"
 ];
 
+/**
+ * Create shallow clones of common entry collections stored on project index
+ * records (for example declaration/reference lists). Guarding against
+ * non-object input keeps the helper resilient when callers forward values
+ * sourced from partially populated caches.
+ */
+function cloneEntryCollections(entry, ...keys) {
+    const source = entry && typeof entry === "object" ? entry : {};
+    const clones = {};
+
+    for (const key of keys) {
+        clones[key] = cloneObjectEntries(source[key]);
+    }
+
+    return clones;
+}
+
 function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
         return null;
     }
 
-    const facade = PARSER_FACADE_OPTION_KEYS.map((key) => options[key]).find(
-        (candidate) => candidate && typeof candidate.parse === "function"
-    );
-
-    if (facade) {
-        return {
-            facade,
-            parse: facade.parse.bind(facade)
-        };
+    for (const key of PARSER_FACADE_OPTION_KEYS) {
+        const facade = options[key];
+        if (typeof facade?.parse === "function") {
+            return {
+                facade,
+                parse: facade.parse.bind(facade)
+            };
+        }
     }
 
-    const { parseGml } = options;
-    return typeof parseGml === "function"
-        ? { facade: null, parse: parseGml }
-        : null;
+    const parse = options.parseGml;
+    return typeof parse === "function" ? { facade: null, parse } : null;
 }
 
 function resolveProjectIndexParser(options) {
@@ -130,23 +95,17 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
         return null;
     }
 
-    let current = path.dirname(path.resolve(filepath));
-    const visited = new Set();
+    const startDirectory = path.dirname(path.resolve(filepath));
 
-    while (!visited.has(current)) {
-        visited.add(current);
+    for (const directory of walkAncestorDirectories(startDirectory)) {
         throwIfAborted(signal, "Project root discovery was aborted.");
-        const entries = await listDirectory(fsFacade, current, { signal });
-        const hasManifest = entries.some(isProjectManifestPath);
-        if (hasManifest) {
-            return current;
-        }
 
-        const parent = path.dirname(current);
-        if (parent === current) {
-            break;
+        const entries = await listDirectory(fsFacade, directory, { signal });
+        throwIfAborted(signal, "Project root discovery was aborted.");
+
+        if (entries.some(isProjectManifestPath)) {
+            return directory;
         }
-        current = parent;
     }
 
     return null;
@@ -278,7 +237,10 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
+export {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
     PROJECT_INDEX_CACHE_DIRECTORY,
@@ -296,7 +258,7 @@ export {
     setDefaultProjectIndexGmlConcurrency,
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-};
+} from "./concurrency.js";
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
@@ -428,7 +390,10 @@ async function scanProjectTree(
 
             const relativePosix = toPosixPath(relativePath);
             const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+            if (
+                lowerPath.endsWith(".yy") ||
+                isProjectManifestPath(relativePosix)
+            ) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -922,9 +887,7 @@ function createIdentifierRecord(node) {
         start: cloneLocation(node?.start),
         end: cloneLocation(node?.end),
         scopeId: node?.scopeId ?? null,
-        classifications: Array.isArray(node?.classifications)
-            ? [...node.classifications]
-            : [],
+        classifications: [...asArray(node?.classifications)],
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
@@ -937,9 +900,7 @@ function cloneIdentifierForCollections(record, filePath) {
         scopeId: record?.scopeId ?? null,
         start: cloneLocation(record?.start),
         end: cloneLocation(record?.end),
-        classifications: Array.isArray(record?.classifications)
-            ? [...record.classifications]
-            : [],
+        classifications: [...asArray(record?.classifications)],
         declaration: record?.declaration ? { ...record.declaration } : null,
         isBuiltIn: record?.isBuiltIn ?? false,
         reason: record?.reason ?? null,
@@ -1197,8 +1158,7 @@ function createEnumLookup(ast, filePath) {
                     filePath: filePath ?? null
                 });
 
-                const members = Array.isArray(node.members) ? node.members : [];
-                for (const member of members) {
+                for (const member of asArray(node.members)) {
                     const memberIdentifier = member?.name ?? null;
                     if (!memberIdentifier) {
                         continue;
@@ -1308,9 +1268,7 @@ function registerScriptDeclaration({
         entry.declarations.push(clone);
     }
 
-    const declarationTags = Array.isArray(clone.classifications)
-        ? clone.classifications
-        : [];
+    const declarationTags = asArray(clone?.classifications);
     for (const tag of declarationTags) {
         if (
             tag &&
@@ -1679,9 +1637,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
         return false;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (classifications.includes("global")) {
         return false;
@@ -1714,9 +1670,7 @@ function registerIdentifierOccurrence({
         return;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (role === "declaration" && classifications.includes("script")) {
         registerScriptDeclaration({
@@ -2029,17 +1983,10 @@ function analyseGmlAst({
             }
         }
 
-        if (
-            node?.type === "CallExpression" &&
-            node.object?.type === "Identifier"
-        ) {
-            const callee = node.object;
-            const calleeName = callee.name;
-            if (typeof calleeName !== "string") {
-                return;
-            }
-
-            if (builtInNames.has(calleeName)) {
+        if (node?.type === "CallExpression") {
+            const callee = getCallExpressionIdentifier(node);
+            const calleeName = callee?.name ?? null;
+            if (!calleeName || builtInNames.has(calleeName)) {
                 return;
             }
 
@@ -2061,8 +2008,8 @@ function analyseGmlAst({
                 },
                 isResolved: Boolean(targetScopeId),
                 location: {
-                    start: cloneLocation(callee.start),
-                    end: cloneLocation(callee.end)
+                    start: cloneLocation(callee?.start),
+                    end: cloneLocation(callee?.end)
                 }
             };
 
@@ -2116,9 +2063,7 @@ function analyseGmlAst({
             scopeDescriptor?.kind === "objectEvent"
         ) {
             const leftRecord = createIdentifierRecord(node.left);
-            const classifications = Array.isArray(leftRecord.classifications)
-                ? leftRecord.classifications
-                : [];
+            const classifications = asArray(leftRecord?.classifications);
 
             const isGlobalAssignment =
                 classifications.includes("global") ||
@@ -2157,23 +2102,8 @@ function cloneAssetReference(reference) {
     };
 }
 
-function clampConcurrency(
-    value,
-    { min = 1, max = 16, fallback = getDefaultProjectIndexGmlConcurrency() } = {}
-) {
-    const candidate = value ?? fallback;
-    const numeric = Number(candidate);
-    if (!Number.isFinite(numeric) || numeric < min) {
-        return min;
-    }
-    if (numeric > max) {
-        return max;
-    }
-    return numeric;
-}
-
 async function processWithConcurrency(items, limit, worker, options = {}) {
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!isNonEmptyArray(items)) {
         return;
     }
 
@@ -2393,12 +2323,13 @@ export async function buildProjectIndex(
                 resourcePath: record.resourcePath,
                 event: record.event ? { ...record.event } : null,
                 filePaths: [...record.filePaths],
-                declarations: cloneObjectEntries(record.declarations),
-                references: cloneObjectEntries(record.references),
-                ignoredIdentifiers: cloneObjectEntries(
-                    record.ignoredIdentifiers
-                ),
-                scriptCalls: cloneObjectEntries(record.scriptCalls)
+                ...cloneEntryCollections(
+                    record,
+                    "declarations",
+                    "references",
+                    "ignoredIdentifiers",
+                    "scriptCalls"
+                )
             }
         ])
     );
@@ -2409,12 +2340,13 @@ export async function buildProjectIndex(
             {
                 filePath: record.filePath,
                 scopeId: record.scopeId,
-                declarations: cloneObjectEntries(record.declarations),
-                references: cloneObjectEntries(record.references),
-                ignoredIdentifiers: cloneObjectEntries(
-                    record.ignoredIdentifiers
-                ),
-                scriptCalls: cloneObjectEntries(record.scriptCalls)
+                ...cloneEntryCollections(
+                    record,
+                    "declarations",
+                    "references",
+                    "ignoredIdentifiers",
+                    "scriptCalls"
+                )
             }
         ])
     );
@@ -2428,10 +2360,8 @@ export async function buildProjectIndex(
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
-            declarationKinds: Array.isArray(entry.declarationKinds)
-                ? [...entry.declarationKinds]
-                : [],
-            declarations: cloneObjectEntries(entry.declarations),
+            declarationKinds: [...asArray(entry.declarationKinds)],
+            ...cloneEntryCollections(entry, "declarations"),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
                 scopeId: reference.scopeId ?? null,
@@ -2451,8 +2381,7 @@ export async function buildProjectIndex(
                 entry.identifierId ??
                 buildIdentifierId("macro", entry.name ?? ""),
             name: entry.name,
-            declarations: cloneObjectEntries(entry.declarations),
-            references: cloneObjectEntries(entry.references)
+            ...cloneEntryCollections(entry, "declarations", "references")
         })),
         enums: mapToObject(identifierCollections.enums, (entry) => ({
             identifierId:
@@ -2461,8 +2390,7 @@ export async function buildProjectIndex(
             key: entry.key,
             name: entry.name ?? null,
             filePath: entry.filePath ?? null,
-            declarations: cloneObjectEntries(entry.declarations),
-            references: cloneObjectEntries(entry.references)
+            ...cloneEntryCollections(entry, "declarations", "references")
         })),
         enumMembers: mapToObject(
             identifierCollections.enumMembers,
@@ -2475,8 +2403,7 @@ export async function buildProjectIndex(
                 enumKey: entry.enumKey ?? null,
                 enumName: entry.enumName ?? null,
                 filePath: entry.filePath ?? null,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         ),
         globalVariables: mapToObject(
@@ -2486,8 +2413,7 @@ export async function buildProjectIndex(
                     entry.identifierId ??
                     buildIdentifierId("global", entry.name ?? ""),
                 name: entry.name,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         ),
         instanceVariables: mapToObject(
@@ -2500,8 +2426,7 @@ export async function buildProjectIndex(
                 name: entry.name ?? null,
                 scopeId: entry.scopeId ?? null,
                 scopeKind: entry.scopeKind ?? null,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         )
     };

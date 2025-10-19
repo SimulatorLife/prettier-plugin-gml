@@ -1,6 +1,7 @@
-import path from "node:path";
-
-import { resolveContainedRelativePath } from "../../shared/path-utils.js";
+import {
+    resolveContainedRelativePath,
+    collectUniqueAncestorDirectories
+} from "./shared-deps.js";
 
 /**
  * Checks whether `child` resides within `parent` when both paths are resolved
@@ -34,28 +35,5 @@ export function isPathInside(child, parent) {
  *                          each start path toward the root.
  */
 export function collectAncestorDirectories(...startingDirectories) {
-    const seen = new Set();
-    const result = [];
-
-    for (const start of startingDirectories) {
-        if (!start) {
-            continue;
-        }
-
-        let current = path.resolve(start);
-
-        while (!seen.has(current)) {
-            seen.add(current);
-            result.push(current);
-
-            const parent = path.dirname(current);
-            if (parent === current) {
-                break;
-            }
-
-            current = parent;
-        }
-    }
-
-    return result;
+    return collectUniqueAncestorDirectories(startingDirectories);
 }

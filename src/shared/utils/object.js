@@ -73,26 +73,14 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const lookupKeys = Array.isArray(keys) ? keys : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of lookupKeys) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Fast-path the singular key case to avoid allocating a temporary array on
-    // every call. Option lookups hit this branch the vast majority of the time,
-    // so skipping the extra allocation trims a few nanoseconds off tight
-    // formatter hot paths.
-    const value = object[keys];
-
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;

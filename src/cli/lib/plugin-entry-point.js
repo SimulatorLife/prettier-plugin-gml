@@ -3,7 +3,12 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { escapeRegExp, getNonEmptyTrimmedString } from "../../shared/utils.js";
+import {
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    normalizeStringList,
+    toArray
+} from "./shared-deps.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
@@ -25,21 +30,6 @@ const LIST_SPLIT_PATTERN = new RegExp(
     `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
 );
 
-function normalizeCandidateDescriptors(candidates) {
-    if (!candidates) {
-        return [];
-    }
-
-    return Array.isArray(candidates) ? candidates : [candidates];
-}
-
-function splitCandidateList(rawValue) {
-    return rawValue
-        .split(LIST_SPLIT_PATTERN)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
-}
-
 function getEnvironmentCandidates(env) {
     const rawValue =
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ??
@@ -50,7 +40,10 @@ function getEnvironmentCandidates(env) {
         return [];
     }
 
-    return splitCandidateList(trimmed);
+    return normalizeStringList(trimmed, {
+        splitPattern: LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    });
 }
 
 function resolveCandidatePath(candidate) {
@@ -79,7 +72,7 @@ function resolveCandidatePath(candidate) {
 }
 
 function collectCandidatePaths({ env, candidates } = {}) {
-    const explicitCandidates = normalizeCandidateDescriptors(candidates);
+    const explicitCandidates = toArray(candidates);
     const envCandidates = getEnvironmentCandidates(env);
 
     return [

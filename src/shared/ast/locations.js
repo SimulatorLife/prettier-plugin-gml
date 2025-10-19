@@ -90,6 +90,41 @@ function cloneLocation(location) {
 }
 
 /**
+ * Copy the `start`/`end` location metadata from {@link template} onto
+ * {@link target} while cloning each boundary to avoid leaking shared
+ * references between nodes. Callers frequently perform this defensive copy
+ * when synthesizing AST nodes from existing ones, so centralizing the guard
+ * clauses here keeps those transforms focused on their core logic.
+ *
+ * @template TTarget extends object
+ * @param {TTarget | null | undefined} target Node whose location properties
+ *   should be updated in-place.
+ * @param {unknown} template Source node providing the optional `start` and
+ *   `end` locations to clone.
+ * @returns {TTarget | null | undefined} The original target reference for
+ *   chaining.
+ */
+function assignClonedLocation(target, template) {
+    if (!target || typeof target !== "object") {
+        return target;
+    }
+
+    if (!template || typeof template !== "object") {
+        return target;
+    }
+
+    if (Object.hasOwn(template, "start")) {
+        target.start = cloneLocation(template.start);
+    }
+
+    if (Object.hasOwn(template, "end")) {
+        target.end = cloneLocation(template.end);
+    }
+
+    return target;
+}
+
+/**
  * Resolves both the starting and ending offsets for a node in a single call.
  *
  * The helper mirrors {@link getNodeStartIndex} / {@link getNodeEndIndex}
@@ -114,5 +149,6 @@ export {
     getNodeStartIndex,
     getNodeEndIndex,
     getNodeRangeIndices,
-    cloneLocation
+    cloneLocation,
+    assignClonedLocation
 };
