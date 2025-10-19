@@ -1053,14 +1053,14 @@ async function processResolvedTarget({
  * @param {{ targetPath: string, targetIsDirectory: boolean }} params
  */
 function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
-    if (!encounteredFormattableFile) {
+    if (encounteredFormattableFile) {
+        logSkippedFileSummary();
+    } else {
         logNoMatchingFiles({
             targetPath,
             targetIsDirectory,
             extensions: targetExtensions
         });
-    } else {
-        logSkippedFileSummary();
     }
     if (encounteredFormattingError) {
         process.exitCode = 1;

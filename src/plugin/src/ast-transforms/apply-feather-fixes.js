@@ -10910,7 +10910,7 @@ function attachLeadingCommentsToWrappedPrimitive({
         insertionIndex > 0 ? (statements[insertionIndex - 1] ?? null) : null;
 
     const previousEndIndex =
-        precedingStatement != null ? getNodeEndIndex(precedingStatement) : null;
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
         if (!comment || comment.type !== "CommentLine") {
@@ -12302,7 +12302,7 @@ function attachLeadingCommentsToHoistedDeclaration({
     }
 
     const previousEndIndex =
-        precedingStatement != null ? getNodeEndIndex(precedingStatement) : null;
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
 
     let attachedComment = false;
 

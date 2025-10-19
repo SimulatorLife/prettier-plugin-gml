@@ -10,7 +10,8 @@ import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     DEFAULT_MANUAL_REPO,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
