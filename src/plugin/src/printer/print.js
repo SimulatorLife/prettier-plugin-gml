@@ -1711,6 +1711,18 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const parentNode = childPath.parent;
+            const shouldPreserveTrailingBlankLine =
+                parentNode?.type === "BlockStatement" &&
+                typeof options.originalText === "string" &&
+                isNextLineEmpty(options.originalText, nodeEndIndex + 1) &&
+                node?._featherSuppressFollowingEmptyLine !== true;
+
+            if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            }
         }
 
         return parts;
