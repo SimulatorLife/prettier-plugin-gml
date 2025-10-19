@@ -35,11 +35,7 @@ async function parse(text, options) {
     let preprocessedFixMetadata = null;
     let environmentPrepared = false;
 
-    if (
-        options &&
-        typeof options === "object" &&
-        options.originalText == undefined
-    ) {
+    if (options && typeof options === "object") {
         options.originalText = text;
     }
 

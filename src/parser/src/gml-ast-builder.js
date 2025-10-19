@@ -1014,9 +1014,21 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
                 atomList.push(this.visit(atom.expression()));
             }
             if (atom.TemplateStringText() != undefined) {
+                const templateText = atom.TemplateStringText();
+                const value = templateText.getText();
+                const symbol = templateText.symbol;
+
                 atomList.push({
                     type: "TemplateStringText",
-                    value: atom.TemplateStringText().getText()
+                    value,
+                    start: {
+                        line: symbol?.line ?? 0,
+                        index: symbol?.start ?? 0
+                    },
+                    end: {
+                        line: (symbol?.line ?? 0) + getLineBreakCount(value),
+                        index: symbol?.stop ?? symbol?.start ?? 0
+                    }
                 });
             }
         }
