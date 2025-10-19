@@ -30,16 +30,8 @@ export default class GameMakerParseErrorListener extends ErrorListener {
     // TODO: Provide better error messages.
     syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
-        const offendingText = offendingSymbol?.text ?? null;
-        let wrongSymbol = offendingText;
-
-        if (wrongSymbol === "<EOF>") {
-            wrongSymbol = "end of file";
-        } else if (isNonEmptyString(wrongSymbol)) {
-            wrongSymbol = `symbol '${wrongSymbol}'`;
-        } else {
-            wrongSymbol = "unknown symbol";
-        }
+        const offendingText = resolveOffendingSymbolText(offendingSymbol);
+        const wrongSymbol = formatWrongSymbol(offendingText);
 
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
@@ -77,6 +69,95 @@ export default class GameMakerParseErrorListener extends ErrorListener {
                 ` while matching rule ${currentRuleFormatted}`
         );
     }
+}
+
+export class GameMakerLexerErrorListener extends ErrorListener {
+    syntaxError(lexer, offendingSymbol, line, column, message, _error) {
+        const offendingText =
+            resolveOffendingSymbolText(offendingSymbol) ??
+            extractOffendingTextFromLexerMessage(message);
+        const wrongSymbol = formatWrongSymbol(offendingText);
+
+        throw new GameMakerSyntaxError({
+            message:
+                `Syntax Error (line ${line}, column ${column}): ` +
+                `unexpected ${wrongSymbol}`,
+            line,
+            column,
+            wrongSymbol,
+            offendingText
+        });
+    }
+}
+
+function resolveOffendingSymbolText(offendingSymbol) {
+    if (!offendingSymbol) {
+        return null;
+    }
+
+    if (isNonEmptyString(offendingSymbol?.text)) {
+        return offendingSymbol.text;
+    }
+
+    if (isNonEmptyString(offendingSymbol)) {
+        return offendingSymbol;
+    }
+
+    if (typeof offendingSymbol === "number") {
+        const codePoint = offendingSymbol;
+        if (Number.isFinite(codePoint)) {
+            return String.fromCodePoint(codePoint);
+        }
+    }
+
+    return null;
+}
+
+function extractOffendingTextFromLexerMessage(message) {
+    if (!isNonEmptyString(message)) {
+        return null;
+    }
+
+    const match = message.match(/token recognition error at:\s*(.+)$/i);
+    if (!match) {
+        return null;
+    }
+
+    const rawText = match[1].trim();
+
+    if (rawText.length === 0) {
+        return null;
+    }
+
+    if (
+        rawText.startsWith("'") &&
+        rawText.endsWith("'") &&
+        rawText.length >= 2
+    ) {
+        return unescapeLexerToken(rawText.slice(1, -1));
+    }
+
+    return rawText;
+}
+
+function unescapeLexerToken(text) {
+    if (!isNonEmptyString(text)) {
+        return text;
+    }
+
+    return text.replaceAll(/\\([\\'])/g, "$1");
+}
+
+function formatWrongSymbol(offendingText) {
+    if (offendingText === "<EOF>") {
+        return "end of file";
+    }
+
+    if (isNonEmptyString(offendingText)) {
+        return `symbol '${offendingText}'`;
+    }
+
+    return "unknown symbol";
 }
 
 function getSpecificSyntaxErrorMessage({
