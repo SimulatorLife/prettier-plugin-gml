@@ -43,7 +43,7 @@ import {
     uniqueArray
 } from "../shared/utils.js";
 import { isErrorLike } from "../shared/utils/capability-probes.js";
-import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
+import { collectAncestorDirectories, isPathInside } from "../shared/path-utils.js";
 
 import {
     CliUsageError,
