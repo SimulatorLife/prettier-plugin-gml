@@ -138,6 +138,33 @@ test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
     });
 });
 
+test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async () => {
+    await withTempDir(async (projectRoot) => {
+        const projectIndex = createProjectIndex(projectRoot);
+
+        const saveResult = await saveProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0",
+            manifestMtimes: {},
+            sourceMtimes: {},
+            projectIndex,
+            maxSizeBytes: 0
+        });
+
+        assert.equal(saveResult.status, "written");
+
+        const loadResult = await loadProjectIndexCache({
+            projectRoot,
+            formatterVersion: "1.0.0",
+            pluginVersion: "0.1.0"
+        });
+
+        assert.equal(loadResult.status, "hit");
+        assert.deepEqual(loadResult.projectIndex, projectIndex);
+    });
+});
+
 test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
