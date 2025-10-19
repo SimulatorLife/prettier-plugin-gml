@@ -95,8 +95,10 @@ export function createMetricsTracker({
 
     function ensureCacheStats(cacheName) {
         const normalized = normalizeLabel(cacheName);
-        return getOrCreateMapEntry(caches, normalized, () =>
-            new Map(cacheKeys.map((key) => [key, 0]))
+        return getOrCreateMapEntry(
+            caches,
+            normalized,
+            () => new Map(cacheKeys.map((key) => [key, 0]))
         );
     }
 

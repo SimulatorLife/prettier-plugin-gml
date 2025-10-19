@@ -113,9 +113,6 @@ test("normalizeNumericOption trims strings and forwards context", () => {
         },
         formatTypeError(optionName, type) {
             return `${optionName}:${type}`;
-        },
-        createCoerceOptions(context) {
-            return { ...context };
         }
     });
 
@@ -129,11 +126,17 @@ test("normalizeNumericOption trims strings and forwards context", () => {
     });
 });
 
-test("normalizeNumericOption uses fallback option factory", () => {
+test("normalizeNumericOption forwards context for numeric inputs", () => {
     const result = normalizeNumericOption(7, {
         optionName: "example",
         coerce(value, options) {
-            assert.deepStrictEqual(options, { optionName: "example" });
+            assert.deepStrictEqual(options, {
+                optionName: "example",
+                rawType: "number",
+                rawValue: 7,
+                received: 7,
+                isString: false
+            });
             return value;
         },
         formatTypeError(optionName, type) {

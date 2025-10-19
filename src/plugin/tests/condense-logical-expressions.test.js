@@ -154,7 +154,7 @@ test("retains original multi-branch descriptions when condensing", async () => {
         "    }",
         "    return foo or baz;",
         "}",
-        "",
+        ""
     ].join("\n");
 
     const formatted = await format(source, {

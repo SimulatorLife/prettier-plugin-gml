@@ -48,11 +48,17 @@ describe("getCallExpressionIdentifierName", () => {
             arguments: []
         };
 
-        assert.equal(getCallExpressionIdentifierName(callExpression), "do_work");
+        assert.equal(
+            getCallExpressionIdentifierName(callExpression),
+            "do_work"
+        );
     });
 
     it("returns null for non-call expressions", () => {
-        assert.equal(getCallExpressionIdentifierName({ type: "Identifier" }), null);
+        assert.equal(
+            getCallExpressionIdentifierName({ type: "Identifier" }),
+            null
+        );
     });
 
     it("returns null when the callee lacks a string name", () => {

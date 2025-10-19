@@ -261,7 +261,9 @@ function isFunctionScriptEntry(entry) {
 }
 
 function summarizeReferencesAcrossFiles(references) {
-    return summarizeReferenceFileOccurrences(references, { fallbackPath: null });
+    return summarizeReferenceFileOccurrences(references, {
+        fallbackPath: null
+    });
 }
 
 function getDeclarationFilePath(entry) {

@@ -421,7 +421,9 @@ export function print(path, options, print) {
             const parts = [];
 
             const locStart =
-                typeof options.locStart === "function" ? options.locStart : null;
+                typeof options.locStart === "function"
+                    ? options.locStart
+                    : null;
             const fallbackStart =
                 typeof node?.start === "number"
                     ? node.start
