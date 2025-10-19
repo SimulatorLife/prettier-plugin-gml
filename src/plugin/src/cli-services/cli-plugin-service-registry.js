@@ -101,9 +101,6 @@ function normalizeCliPluginServices(services) {
     });
 
     return Object.freeze({
-        buildProjectIndex: projectIndexService.buildProjectIndex,
-        prepareIdentifierCasePlan:
-            identifierCasePlanService.prepareIdentifierCasePlan,
         projectIndex: projectIndexService,
         identifierCasePlan: identifierCasePlanService
     });
