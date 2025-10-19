@@ -10755,7 +10755,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
         if (Array.isArray(node)) {
             const normalizedFixes = normalizeDrawVertexStatements(
                 node,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (isNonEmptyArray(normalizedFixes)) {
@@ -10785,7 +10786,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
     return fixes;
 }
 
-function normalizeDrawVertexStatements(statements, diagnostic) {
+function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     if (!Array.isArray(statements) || statements.length === 0) {
         return [];
     }
@@ -10828,6 +10829,7 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        const primitiveEnd = statements[endIndex] ?? null;
         const vertexStatements = statements.slice(index, blockEnd + 1);
         const fixDetails = [];
 
@@ -10858,13 +10860,106 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        if (primitiveEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
+        }
+
         statements.splice(index, 0, primitiveBegin);
+        attachLeadingCommentsToWrappedPrimitive({
+            ast,
+            primitiveBegin,
+            vertexStatements,
+            statements,
+            insertionIndex: index
+        });
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
     }
 
     return fixes;
+}
+
+function attachLeadingCommentsToWrappedPrimitive({
+    ast,
+    primitiveBegin,
+    vertexStatements,
+    statements,
+    insertionIndex
+}) {
+    if (
+        !ast ||
+        !primitiveBegin ||
+        !Array.isArray(vertexStatements) ||
+        vertexStatements.length === 0 ||
+        !Array.isArray(statements) ||
+        typeof insertionIndex !== "number"
+    ) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const firstVertex = vertexStatements[0];
+
+    const firstVertexStart = getNodeStartIndex(firstVertex);
+
+    if (typeof firstVertexStart !== "number") {
+        return;
+    }
+
+    const precedingStatement =
+        insertionIndex > 0
+            ? statements[insertionIndex - 1] ?? null
+            : null;
+
+    const previousEndIndex =
+        precedingStatement != null
+            ? getNodeEndIndex(precedingStatement)
+            : null;
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > firstVertexStart) {
+            continue;
+        }
+
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string"
+                ? comment.value.trim()
+                : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = primitiveBegin;
+    }
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
