@@ -7,7 +7,6 @@ import {
 } from "./shared-deps.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
-let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
 const activeProgressBars = new Map();
 let progressBarFactory = createDefaultProgressBar;
 
@@ -25,20 +24,11 @@ function coerceProgressBarWidth(value, { received }) {
 }
 
 function getDefaultProgressBarWidth() {
-    return configuredDefaultProgressBarWidth;
+    return DEFAULT_PROGRESS_BAR_WIDTH;
 }
 
-function setDefaultProgressBarWidth(width) {
-    configuredDefaultProgressBarWidth = coerceProgressBarWidth(width, {
-        received: width
-    });
-}
-
-function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    const fallback =
-        defaultWidth === undefined
-            ? getDefaultProgressBarWidth()
-            : defaultWidth;
+function resolveProgressBarWidth(rawValue) {
+    const fallback = getDefaultProgressBarWidth();
 
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
@@ -107,6 +97,5 @@ export {
     getDefaultProgressBarWidth,
     renderProgressBar,
     resolveProgressBarWidth,
-    setDefaultProgressBarWidth,
     setProgressBarFactoryForTesting
 };
