@@ -7,7 +7,7 @@ import {
     toPosixPath,
     resolveContainedRelativePath
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/utils.js";
+import { createMetricsTracker } from "../../../shared/reporting.js";
 import {
     isNonEmptyString,
     getNonEmptyString,
