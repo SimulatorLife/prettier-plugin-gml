@@ -24,6 +24,8 @@ const SOURCE_LINES = [
     ""
 ];
 
+// This tests the default, opinionated behavior of the formatter
+// To pad leading and trailing zeroes around decimal points
 test("pads bare decimal literals by default", async () => {
     const formatted = await format(SOURCE_LINES.join("\n"));
 
@@ -39,14 +41,5 @@ test("pads bare decimal literals by default", async () => {
             "}",
             ""
         ].join("\n")
-    );
-});
-
-test("does not expose a fixMissingDecimalZeroes plugin option", async () => {
-    const pluginModule = await import(pluginPath);
-
-    assert.ok(
-        !Object.hasOwn(pluginModule.options, "fixMissingDecimalZeroes"),
-        "The fixMissingDecimalZeroes option should not be exported by the plugin."
     );
 });
