@@ -11,6 +11,51 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+/**
+ * @typedef {object} ManualGitHubRequestOptions
+ * @property {Record<string, string>} [headers]
+ * @property {boolean} [acceptJson]
+ */
+
+/**
+ * @typedef {object} ManualGitHubRequestDispatcher
+ * @property {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} execute
+ */
+
+/**
+ * @typedef {object} ManualGitHubResolveOptions
+ * @property {object} verbose
+ * @property {string} apiRoot
+ */
+
+/**
+ * @typedef {object} ManualGitHubRefResolver
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
+ *   resolveManualRef
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubFetchOptions
+ * @property {boolean} [forceRefresh]
+ * @property {object} [verbose]
+ * @property {string} [cacheRoot]
+ * @property {string} [rawRoot]
+ */
+
+/**
+ * @typedef {object} ManualGitHubFileFetcher
+ * @property {(sha: string, filePath: string, options?: ManualGitHubFetchOptions) => Promise<string>} fetchManualFile
+ */
+
+/**
+ * @typedef {object} ManualGitHubClientViews
+ * @property {ManualGitHubRequestDispatcher} requestDispatcher
+ * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubFileFetcher} fileFetcher
+ */
+
 function normalizeVerboseOverrides(overrides) {
     if (!overrides || typeof overrides !== "object") {
         return null;
@@ -185,6 +230,12 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
     throw new TypeError(`${requirement} (received ${received}).`);
 }
 
+/**
+ * Provide specialised GitHub helpers for manual fetching without forcing
+ * consumers to depend on unrelated operations.
+ *
+ * @returns {ManualGitHubClientViews}
+ */
 function createManualGitHubClient({
     userAgent,
     defaultCacheRoot,
@@ -322,10 +373,19 @@ function createManualGitHubClient({
     }
 
     return {
-        curlRequest,
-        resolveManualRef,
-        resolveCommitFromRef,
-        fetchManualFile
+        /** @type {ManualGitHubRequestDispatcher} */
+        requestDispatcher: {
+            execute: curlRequest
+        },
+        /** @type {ManualGitHubRefResolver} */
+        refResolver: {
+            resolveManualRef,
+            resolveCommitFromRef
+        },
+        /** @type {ManualGitHubFileFetcher} */
+        fileFetcher: {
+            fetchManualFile
+        }
     };
 }
 
