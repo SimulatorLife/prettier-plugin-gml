@@ -222,7 +222,7 @@ function getSingleMemberIndexPropertyEntry(node) {
  *     empty array when no arguments exist so callers can iterate without
  *     additional null checks.
  */
-// Delegate to the shared array normaliser so call-expression traversals always
+// Delegate to the shared array normalizer so call-expression traversals always
 // reuse the same frozen empty array rather than recreating bespoke helpers.
 function getCallExpressionArguments(callExpression) {
     if (!isNode(callExpression)) {
