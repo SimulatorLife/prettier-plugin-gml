@@ -17,6 +17,8 @@ import { createDefaultCliPluginServiceImplementations } from "./providers/defaul
 
 /**
  * @typedef {object} CliPluginServiceSuite
+ * @property {CliProjectIndexBuilder} buildProjectIndex
+ * @property {CliIdentifierCasePlanPreparer} prepareIdentifierCasePlan
  * @property {CliProjectIndexService} projectIndex
  * @property {CliIdentifierCasePlanService} identifierCasePlan
  */
@@ -93,12 +95,32 @@ function normalizeCliPluginServices(services) {
         );
     }
 
-    return Object.freeze({
-        projectIndex: normalizeProjectIndexService({ buildProjectIndex }),
-        identifierCasePlan: normalizeIdentifierCasePlanService({
-            prepareIdentifierCasePlan
-        })
+    const projectIndex = normalizeProjectIndexService({ buildProjectIndex });
+    const identifierCasePlan = normalizeIdentifierCasePlanService({
+        prepareIdentifierCasePlan
     });
+
+    const normalizedServices = {
+        projectIndex,
+        identifierCasePlan
+    };
+
+    Object.defineProperties(normalizedServices, {
+        buildProjectIndex: {
+            value: projectIndex.buildProjectIndex,
+            enumerable: false,
+            writable: false,
+            configurable: false
+        },
+        prepareIdentifierCasePlan: {
+            value: identifierCasePlan.prepareIdentifierCasePlan,
+            enumerable: false,
+            writable: false,
+            configurable: false
+        }
+    });
+
+    return Object.freeze(normalizedServices);
 }
 
 export function hasRegisteredCliPluginServiceProvider() {
