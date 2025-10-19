@@ -127,10 +127,14 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
+        if (trimmed.length === 0 || seen[trimmed] === true) {
             continue;
         }
 
+        // Storing a sentinel avoids repeatedly calling Object.hasOwn in the hot
+        // path. The lookup stays safe because `seen` is created without a
+        // prototype, so even strings like "__proto__" will not collide with
+        // inherited properties.
         seen[trimmed] = true;
         normalized.push(trimmed);
     }
