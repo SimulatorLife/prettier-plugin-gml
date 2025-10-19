@@ -112,17 +112,40 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
-        results.index.push(attemptResult.runRecord);
+        const { shouldStop, nextLatestIndex } = recordProjectIndexAttempt(
+            results,
+            attemptResult
+        );
 
-        if (attemptResult.error) {
-            results.error = attemptResult.error;
+        if (shouldStop) {
             return { latestIndex: null };
         }
 
-        latestIndex = attemptResult.index;
+        latestIndex = nextLatestIndex;
     }
 
     return { latestIndex };
+}
+
+/**
+ * Store the outcome of a project index attempt in the aggregated results.
+ *
+ * @param {{ index: Array<object>, error?: object }} results
+ * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
+ * @returns {{ shouldStop: boolean, nextLatestIndex: object | null }}
+ */
+function recordProjectIndexAttempt(results, attemptResult) {
+    results.index.push(attemptResult.runRecord);
+
+    if (attemptResult.error) {
+        results.error = attemptResult.error;
+        return { shouldStop: true, nextLatestIndex: null };
+    }
+
+    return {
+        shouldStop: false,
+        nextLatestIndex: attemptResult.index ?? null
+    };
 }
 
 function createRenameOptions({ file, latestIndex, logger, verbose }) {

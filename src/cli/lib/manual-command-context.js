@@ -47,7 +47,11 @@ export function createManualCommandContext({
     const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
-    const manualClient = createManualGitHubClient({
+    const {
+        requestDispatcher: manualRequests,
+        references: manualReferences,
+        fileFetcher: manualFileFetcher
+    } = createManualGitHubClient({
         userAgent: assertUserAgent(userAgent),
         defaultCacheRoot,
         defaultRawRoot: defaultManualRawRoot
@@ -58,8 +62,10 @@ export function createManualCommandContext({
         defaultCacheRoot,
         defaultManualRawRoot,
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName),
-        manualClient,
-        fetchManualFile: manualClient.fileFetcher.fetchManualFile,
-        resolveManualRef: manualClient.references.resolveManualRef
+        manualRequests,
+        manualReferences,
+        manualFileFetcher,
+        fetchManualFile: manualFileFetcher.fetchManualFile,
+        resolveManualRef: manualReferences.resolveManualRef
     };
 }

@@ -44,7 +44,7 @@ export function coerceNonNegativeInteger(value, options = {}) {
  * @param {number} defaultValue Fallback returned when the option is absent or
  *                              resolves to zero without an explicit
  *                              `zeroReplacement`.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {number} [options.zeroReplacement] Replacement to use when the
  *                                           normalized value is exactly zero.
  * @returns {number} Either the coerced positive integer, the zero
@@ -88,9 +88,9 @@ export function coercePositiveIntegerOption(
  *   caller-provided or auto-generated for debugging clarity.
  *
  * @param {unknown} rawValue Incoming option value.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {number} [options.defaultValue] Fallback when the option is missing.
- * @param {(value: number, options: Object) => number} options.coerce Function
+ * @param {(value: number, options: object) => number} options.coerce Function
  *        invoked with the parsed number and context to validate range or
  *        return alternate values.
  * @param {(text: string) => number} [options.parseString=DEFAULT_PARSE_STRING]
@@ -154,10 +154,10 @@ export function resolveIntegerOption(
  * needing an extra abstraction layer.
  *
  * @param {unknown} rawValue Incoming option value from configuration or CLI.
- * @param {Object} options
+ * @param {object} options
  * @param {string} options.optionName Human-readable option name used in error
  *        messages.
- * @param {(value: number, context: Object) => number | undefined} options.coerce
+ * @param {(value: number, context: object) => number | undefined} options.coerce
  *        Coercion function that enforces bounds and transforms the numeric
  *        value.
  * @param {(name: string, type: string) => string} options.formatTypeError

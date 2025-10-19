@@ -42,7 +42,9 @@ export function registerCliIdentifierCasePlanPreparer(preparer) {
 
 export function resetRegisteredCliPluginServices() {
     ({
-        buildProjectIndex: projectIndexBuilder,
-        prepareIdentifierCasePlan: identifierCasePlanPreparer
+        projectIndex: { buildProjectIndex: projectIndexBuilder },
+        identifierCasePlan: {
+            prepareIdentifierCasePlan: identifierCasePlanPreparer
+        }
     } = defaultCliPluginServices);
 }

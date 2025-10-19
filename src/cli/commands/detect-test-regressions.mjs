@@ -573,6 +573,18 @@ function readTestResults(candidateDirs, { workspace } = {}) {
 }
 
 function detectRegressions(baseResults, targetResults) {
+    const baseStats = baseResults?.stats;
+    const targetStats = targetResults?.stats;
+
+    if (
+        baseStats &&
+        targetStats &&
+        baseStats.total === targetStats.total &&
+        targetStats.failed <= baseStats.failed
+    ) {
+        return [];
+    }
+
     const regressions = [];
     for (const [key, targetRecord] of targetResults.results.entries()) {
         if (!targetRecord || targetRecord.status !== "failed") {
