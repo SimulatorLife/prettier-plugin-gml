@@ -33,7 +33,7 @@ export function toTrimmedString(value) {
 
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == undefined) {
+        if (value == null) {
             continue;
         }
 
@@ -47,7 +47,7 @@ export function coalesceTrimmedString(...values) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == undefined) {
+    if (value == null) {
         return "";
     }
 
@@ -96,7 +96,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
