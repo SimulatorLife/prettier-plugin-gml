@@ -26,12 +26,19 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
-        resolveRef: !quiet,
-        downloads: !quiet,
-        parsing: !quiet,
-        progressBar: !quiet && isTerminal
-    };
+    const baseState = quiet
+        ? {
+              resolveRef: false,
+              downloads: false,
+              parsing: false,
+              progressBar: false
+          }
+        : {
+              resolveRef: true,
+              downloads: true,
+              parsing: true,
+              progressBar: isTerminal
+          };
 
     const normalizedOverrides = normalizeVerboseOverrides(overrides);
     return normalizedOverrides
