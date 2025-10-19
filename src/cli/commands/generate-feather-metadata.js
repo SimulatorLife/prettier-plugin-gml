@@ -54,7 +54,10 @@ const manualClient = createManualGitHubClient({
     defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
 });
 
-const { fetchManualFile, resolveManualRef } = manualClient;
+const {
+    fileFetcher: { fetchManualFile },
+    refResolver: { resolveManualRef }
+} = manualClient;
 
 const FEATHER_PAGES = {
     diagnostics:

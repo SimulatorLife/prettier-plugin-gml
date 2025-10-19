@@ -52,7 +52,10 @@ const manualClient = createManualGitHubClient({
     defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
 });
 
-const { fetchManualFile, resolveManualRef } = manualClient;
+const {
+    fileFetcher: { fetchManualFile },
+    refResolver: { resolveManualRef }
+} = manualClient;
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
