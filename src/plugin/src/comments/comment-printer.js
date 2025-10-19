@@ -10,7 +10,11 @@ import {
     formatLineComment,
     getLineCommentRawText
 } from "./line-comment-formatting.js";
-import { resolveLineCommentOptions } from "../options/line-comment-options.js";
+import {
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    LINE_COMMENT_BANNER_STANDARD_LENGTH,
+    resolveLineCommentOptions
+} from "../options/line-comment-options.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -166,8 +170,6 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
-            const { bannerMinimum, bannerAutofillThreshold } =
-                lineCommentOptions;
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/{2,})/);
 
@@ -177,8 +179,8 @@ function printComment(commentPath, options) {
 
             const slashRun = bannerMatch[1];
             const slashCount = slashRun.length;
-            if (slashCount >= bannerMinimum) {
-                return applyInlinePadding(comment, rawText.trim());
+            if (slashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES) {
+                return formatLineComment(comment, lineCommentOptions);
             }
 
             const bannerStart =
@@ -188,18 +190,18 @@ function printComment(commentPath, options) {
             const safeBannerStart = Math.max(bannerStart, 0);
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
-            const shouldAutofillBanner =
-                slashCount >= bannerAutofillThreshold &&
-                bannerMinimum > slashCount &&
-                remainderTrimmed.length > 0 &&
-                !remainderTrimmed.startsWith("@");
-
-            if (shouldAutofillBanner) {
-                const padded = `${"/".repeat(bannerMinimum)}${remainder}`;
-                return applyInlinePadding(comment, padded.trimEnd());
+            if (remainderTrimmed.startsWith("@")) {
+                return formatLineComment(comment, lineCommentOptions);
             }
 
-            return formatLineComment(comment, lineCommentOptions);
+            const normalizedSlashRun =
+                LINE_COMMENT_BANNER_STANDARD_LENGTH <= 0
+                    ? slashRun
+                    : "".padStart(LINE_COMMENT_BANNER_STANDARD_LENGTH, "/");
+            const normalizedBanner =
+                `${normalizedSlashRun}${remainder}`.trimEnd();
+
+            return applyInlinePadding(comment, normalizedBanner);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
