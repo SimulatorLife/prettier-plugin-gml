@@ -29,11 +29,22 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  */
 
 /**
+ * Coordinating both ref resolution and commit lookups under a single
+ * "resolver" contract forced consumers to depend on commit-level helpers even
+ * when they only needed the higher-level manual tag flow. Splitting the
+ * responsibilities keeps the individual surfaces focused.
+ */
+
+/**
+ * @typedef {object} ManualGitHubCommitResolver
+ * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
+ *   resolveCommitFromRef
+ */
+
+/**
  * @typedef {object} ManualGitHubRefResolver
  * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
  *   resolveManualRef
- * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
- *   resolveCommitFromRef
  */
 
 /**
@@ -53,6 +64,7 @@ const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
  * @typedef {object} ManualGitHubClientViews
  * @property {ManualGitHubRequestDispatcher} requestDispatcher
  * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubCommitResolver} commitResolver
  * @property {ManualGitHubFileFetcher} fileFetcher
  */
 
@@ -377,7 +389,10 @@ function createManualGitHubClient({
         },
         /** @type {ManualGitHubRefResolver} */
         refResolver: {
-            resolveManualRef,
+            resolveManualRef
+        },
+        /** @type {ManualGitHubCommitResolver} */
+        commitResolver: {
             resolveCommitFromRef
         },
         /** @type {ManualGitHubFileFetcher} */
