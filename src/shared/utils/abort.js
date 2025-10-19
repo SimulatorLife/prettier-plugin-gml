@@ -1,3 +1,36 @@
+import { getNonEmptyString } from "./string.js";
+
+const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
+const ERROR_METADATA_KEYS = ["message", "name", "stack"];
+
+function hasErrorMetadata(value) {
+    if (value == null) {
+        return false;
+    }
+
+    const valueType = typeof value;
+    if (valueType !== "object" && valueType !== "function") {
+        return false;
+    }
+
+    if (ERROR_METADATA_KEYS.some((key) => key in value && value[key] != null)) {
+        return true;
+    }
+
+    return "cause" in value;
+}
+
+function ensureAbortErrorMetadata(error, fallbackMessage) {
+    if (!getNonEmptyString(error.name)) {
+        error.name = "AbortError";
+    }
+
+    const fallback =
+        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    error.message = getNonEmptyString(error.message) ?? fallback;
+    return error;
+}
+
 /**
  * Convert an `AbortSignal` that has been triggered into an `Error` instance.
  *
@@ -13,62 +46,22 @@
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-function isErrorLike(value) {
-    if (value == null) {
-        return false;
-    }
-
-    const valueType = typeof value;
-    if (valueType !== "object" && valueType !== "function") {
-        return false;
-    }
-
-    if ("message" in value && value.message != null) {
-        return true;
-    }
-
-    if ("name" in value && value.name != null) {
-        return true;
-    }
-
-    if ("stack" in value && value.stack != null) {
-        return true;
-    }
-
-    return "cause" in value;
-}
-
-function ensureAbortErrorMetadata(error, fallbackMessage) {
-    if (typeof error.name !== "string" || error.name.length === 0) {
-        error.name = "AbortError";
-    }
-
-    if (typeof error.message !== "string" || error.message.length === 0) {
-        const message = fallbackMessage || "Operation aborted.";
-        if (message) {
-            error.message = message;
-        }
-    }
-
-    return error;
-}
-
 export function createAbortError(signal, fallbackMessage) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
 
+    const fallback =
+        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
     const { reason } = signal;
-    if (isErrorLike(reason)) {
-        return ensureAbortErrorMetadata(reason, fallbackMessage);
+
+    if (hasErrorMetadata(reason)) {
+        return ensureAbortErrorMetadata(reason, fallback);
     }
 
-    const message =
-        reason == undefined
-            ? fallbackMessage || "Operation aborted."
-            : String(reason);
-    const error = new Error(message || "Operation aborted.");
-    return ensureAbortErrorMetadata(error, fallbackMessage);
+    const message = reason == undefined ? null : String(reason);
+    const error = new Error(getNonEmptyString(message) ?? fallback);
+    return ensureAbortErrorMetadata(error, fallback);
 }
 
 /**
