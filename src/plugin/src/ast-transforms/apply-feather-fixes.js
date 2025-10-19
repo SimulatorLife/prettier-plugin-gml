@@ -11,6 +11,7 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
@@ -19,6 +20,7 @@ import {
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    toNormalizedLowerCaseString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
@@ -4187,7 +4189,7 @@ function normalizeDocParamNameForComparison(name) {
         return "";
     }
 
-    return name.trim().toLowerCase();
+    return toNormalizedLowerCaseString(name);
 }
 
 function createArgumentIndexMapping(indices) {
@@ -4405,7 +4407,9 @@ function replaceDeprecatedIdentifier(
     }
 
     const normalizedName =
-        typeof node.name === "string" ? node.name.toLowerCase() : null;
+        typeof node.name === "string"
+            ? toNormalizedLowerCaseString(node.name)
+            : null;
 
     if (!normalizedName || normalizedName.length === 0) {
         return null;
@@ -9155,11 +9159,27 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
+    for (
+        let cleanupIndex = property + 1;
+        cleanupIndex < insertionIndex;
+        cleanupIndex += 1
+    ) {
+        const candidate = siblings[cleanupIndex];
+
+        if (!isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        siblings.splice(cleanupIndex, 1);
+        insertionIndex -= 1;
+        cleanupIndex -= 1;
+    }
+
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
         !isAlphaTestDisableCall(nextSibling) &&
-        !nextSibling &&
+        nextSibling &&
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
@@ -9172,6 +9192,9 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -10733,7 +10756,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
         if (Array.isArray(node)) {
             const normalizedFixes = normalizeDrawVertexStatements(
                 node,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (isNonEmptyArray(normalizedFixes)) {
@@ -10763,7 +10787,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
     return fixes;
 }
 
-function normalizeDrawVertexStatements(statements, diagnostic) {
+function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     if (!Array.isArray(statements) || statements.length === 0) {
         return [];
     }
@@ -10806,6 +10830,7 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        const primitiveEnd = statements[endIndex] ?? null;
         const vertexStatements = statements.slice(index, blockEnd + 1);
         const fixDetails = [];
 
@@ -10836,13 +10861,106 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        if (primitiveEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
+        }
+
         statements.splice(index, 0, primitiveBegin);
+        attachLeadingCommentsToWrappedPrimitive({
+            ast,
+            primitiveBegin,
+            vertexStatements,
+            statements,
+            insertionIndex: index
+        });
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
     }
 
     return fixes;
+}
+
+function attachLeadingCommentsToWrappedPrimitive({
+    ast,
+    primitiveBegin,
+    vertexStatements,
+    statements,
+    insertionIndex
+}) {
+    if (
+        !ast ||
+        !primitiveBegin ||
+        !Array.isArray(vertexStatements) ||
+        vertexStatements.length === 0 ||
+        !Array.isArray(statements) ||
+        typeof insertionIndex !== "number"
+    ) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const firstVertex = vertexStatements[0];
+
+    const firstVertexStart = getNodeStartIndex(firstVertex);
+
+    if (typeof firstVertexStart !== "number") {
+        return;
+    }
+
+    const precedingStatement =
+        insertionIndex > 0
+            ? statements[insertionIndex - 1] ?? null
+            : null;
+
+    const previousEndIndex =
+        precedingStatement != null
+            ? getNodeEndIndex(precedingStatement)
+            : null;
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > firstVertexStart) {
+            continue;
+        }
+
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string"
+                ? comment.value.trim()
+                : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = primitiveBegin;
+    }
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
@@ -11668,6 +11786,8 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
+    const rootAst = ancestors.length > 0 ? ancestors[0]?.node : null;
+
     const fixDetail = hoistVariableDeclarationOutOfBlock({
         declarationNode: node,
         blockBody,
@@ -11675,7 +11795,8 @@ function handleLocalVariableDeclarationPatterns({
         statementContainer,
         statementIndex,
         diagnostic,
-        variableName
+        variableName,
+        ast: rootAst
     });
 
     if (fixDetail) {
@@ -12051,7 +12172,8 @@ function hoistVariableDeclarationOutOfBlock({
     statementContainer,
     statementIndex,
     diagnostic,
-    variableName
+    variableName,
+    ast
 }) {
     if (!declarationNode || declarationNode.type !== "VariableDeclaration") {
         return null;
@@ -12091,6 +12213,8 @@ function hoistVariableDeclarationOutOfBlock({
 
     const rangeStart = getNodeStartIndex(declarationNode);
     const owningStatement = statementContainer[statementIndex];
+    const precedingStatement =
+        statementIndex > 0 ? statementContainer[statementIndex - 1] : null;
     const rangeEnd = getNodeEndIndex(owningStatement ?? declarationNode);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -12107,6 +12231,13 @@ function hoistVariableDeclarationOutOfBlock({
 
     statementContainer.splice(statementIndex, 0, hoistedDeclaration);
     blockBody[declarationIndex] = assignment;
+
+    attachLeadingCommentsToHoistedDeclaration({
+        ast,
+        hoistedDeclaration,
+        owningStatement,
+        precedingStatement
+    });
 
     copyCommentMetadata(declarationNode, assignment);
 
@@ -12159,6 +12290,83 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
     }
 
     return declaration;
+}
+
+function attachLeadingCommentsToHoistedDeclaration({
+    ast,
+    hoistedDeclaration,
+    owningStatement,
+    precedingStatement
+}) {
+    if (!ast || !hoistedDeclaration || !owningStatement) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const owningStartIndex = getNodeStartIndex(owningStatement);
+
+    if (typeof owningStartIndex !== "number") {
+        return;
+    }
+
+    const previousEndIndex =
+        precedingStatement != null
+            ? getNodeEndIndex(precedingStatement)
+            : null;
+
+    let attachedComment = false;
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > owningStartIndex) {
+            continue;
+        }
+
+        if (
+            previousEndIndex != null &&
+            commentStartIndex < previousEndIndex
+        ) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string"
+                ? comment.value.trim()
+                : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = hoistedDeclaration;
+        attachedComment = true;
+    }
+
+    if (attachedComment) {
+        hoistedDeclaration._featherForceFollowingEmptyLine = true;
+    }
 }
 
 function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
@@ -15291,19 +15499,11 @@ function isIdentifier(node) {
 }
 
 function isDrawPrimitiveBeginCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_begin");
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
 
 function isDrawPrimitiveEndCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_end");
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, name);
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_end");
 }
 
 function createPrimitiveBeginCall(template) {
@@ -17110,7 +17310,10 @@ function isSupportedVariableDeclaration(node) {
         return false;
     }
 
-    const kind = typeof node.kind === "string" ? node.kind.toLowerCase() : null;
+    const kind =
+        typeof node.kind === "string"
+            ? toNormalizedLowerCaseString(node.kind)
+            : null;
 
     return kind === "var" || kind === "static";
 }

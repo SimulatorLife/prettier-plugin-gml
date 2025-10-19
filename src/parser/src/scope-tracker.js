@@ -1,4 +1,4 @@
-import { cloneLocation } from "../../shared/ast.js";
+import { assignClonedLocation, cloneLocation } from "../../shared/ast.js";
 import { isObjectLike, toArray } from "../../shared/utils.js";
 import {
     ScopeOverrideKeyword,
@@ -155,26 +155,20 @@ export default class ScopeTracker {
 
         const scope = this.resolveScopeOverride(role.scopeOverride);
         const scopeId = scope?.id ?? null;
-        const start = cloneLocation(node.start);
-        const end = cloneLocation(node.end);
         const classifications = this.buildClassifications(role, true);
 
         const metadata = {
             name,
             scopeId,
-            start,
-            end,
             classifications
         };
+
+        assignClonedLocation(metadata, node);
 
         this.storeDeclaration(scope, name, metadata);
 
         node.scopeId = scopeId;
-        node.declaration = {
-            start: cloneLocation(start),
-            end: cloneLocation(end),
-            scopeId
-        };
+        node.declaration = assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
     }
 
@@ -205,11 +199,10 @@ export default class ScopeTracker {
         node.classifications = classifications;
 
         node.declaration = declaration
-            ? {
-                  start: cloneLocation(declaration.start),
-                  end: cloneLocation(declaration.end),
-                  scopeId: declaration.scopeId
-              }
+            ? assignClonedLocation(
+                  { scopeId: declaration.scopeId },
+                  declaration
+              )
             : null;
     }
 }

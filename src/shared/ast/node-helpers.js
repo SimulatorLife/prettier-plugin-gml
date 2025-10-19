@@ -1,4 +1,5 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
+import { isNonEmptyString } from "../utils/string.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
@@ -47,7 +48,7 @@ function getVariableDeclarationKind(node) {
     }
 
     const { kind } = node;
-    if (typeof kind !== "string" || kind.length === 0) {
+    if (!isNonEmptyString(kind)) {
         return null;
     }
 
@@ -65,7 +66,7 @@ function getVariableDeclarationKind(node) {
  *     provided keyword.
  */
 function isVariableDeclarationOfKind(node, expectedKind) {
-    if (typeof expectedKind !== "string" || expectedKind.length === 0) {
+    if (!isNonEmptyString(expectedKind)) {
         return false;
     }
 
@@ -249,12 +250,34 @@ function getCallExpressionIdentifierName(callExpression) {
     return identifier ? identifier.name : null;
 }
 
+function isCallExpressionIdentifierMatch(
+    callExpression,
+    expectedName,
+    { caseInsensitive = false } = {}
+) {
+    if (!isNonEmptyString(expectedName)) {
+        return false;
+    }
+
+    const identifierName = getCallExpressionIdentifierName(callExpression);
+    if (!identifierName) {
+        return false;
+    }
+
+    if (caseInsensitive) {
+        const normalizedExpectedName = expectedName.toLowerCase();
+        return identifierName.toLowerCase() === normalizedExpectedName;
+    }
+
+    return identifierName === expectedName;
+}
+
 function getArrayProperty(node, propertyName) {
     if (!isNode(node)) {
         return [];
     }
 
-    if (typeof propertyName !== "string" || propertyName.length === 0) {
+    if (!isNonEmptyString(propertyName)) {
         return [];
     }
 
@@ -266,7 +289,7 @@ function hasArrayPropertyEntries(node, propertyName) {
         return false;
     }
 
-    if (typeof propertyName !== "string" || propertyName.length === 0) {
+    if (!isNonEmptyString(propertyName)) {
         return false;
     }
 
@@ -350,6 +373,7 @@ export {
     getCallExpressionArguments,
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     getArrayProperty,
     hasArrayPropertyEntries,
     getBodyStatements,
