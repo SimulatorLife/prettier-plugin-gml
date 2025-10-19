@@ -258,10 +258,32 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request.number;
-            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const loadPr = async () => (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const allowedStates = new Set(['clean','unstable','blocked','has_hooks']);
+
+            let pr = await loadPr();
 
             if (pr.draft) { core.notice(`Skip merge #${number}: draft.`); return; }
-            const ok = pr.mergeable === true && ['clean','unstable','blocked'].includes(String(pr.mergeable_state).toLowerCase());
+
+            const maxAttempts = 6;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const state = String(pr.mergeable_state || '').toLowerCase();
+              const mergeableKnown = pr.mergeable !== null && state && state !== 'unknown';
+              if (mergeableKnown) break;
+
+              if (attempt === maxAttempts) {
+                core.notice(`Skip merge #${number}: mergeability unresolved after ${maxAttempts} attempts (mergeable=${pr.mergeable}, state=${pr.mergeable_state}).`);
+                return;
+              }
+
+              core.info(`Mergeability pending for #${number} (attempt ${attempt}/${maxAttempts}): mergeable=${pr.mergeable}, state=${pr.mergeable_state}. Retrying in 5s...`);
+              await wait(5000);
+              pr = await loadPr();
+            }
+
+            const state = String(pr.mergeable_state || '').toLowerCase();
+            const ok = pr.mergeable === true && allowedStates.has(state);
             if (!ok) { core.notice(`Skip merge #${number}: mergeable=${pr.mergeable}, state=${pr.mergeable_state}.`); return; }
 
             await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
