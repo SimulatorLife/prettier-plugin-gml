@@ -10,7 +10,8 @@ import { createMetricsTracker } from "../../../shared/reporting.js";
 import { buildLocationKey } from "../../../shared/location-keys.js";
 import {
     isNonEmptyString,
-    getNonEmptyString
+    getNonEmptyString,
+    toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
 import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
 import {
@@ -332,7 +333,7 @@ function createNameCollisionTracker() {
     const entriesById = new Map();
 
     const toKey = (name) =>
-        typeof name === "string" ? name.toLowerCase() : "";
+        typeof name === "string" ? toNormalizedLowerCaseString(name) : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
