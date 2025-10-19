@@ -154,7 +154,7 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
     let expanded = "";
     let pointerOffset = 0;
 
-    for (const [index, char] of lineText.entries()) {
+    for (const [index, char] of Array.from(lineText).entries()) {
         if (index === clampedIndex) {
             pointerOffset = expanded.length;
         }
