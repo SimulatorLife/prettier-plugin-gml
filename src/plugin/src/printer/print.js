@@ -420,6 +420,20 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
+            const locStart =
+                typeof options.locStart === "function" ? options.locStart : null;
+            const fallbackStart =
+                typeof node?.start === "number"
+                    ? node.start
+                    : typeof node?.start?.index === "number"
+                      ? node.start.index
+                      : 0;
+            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const originalText =
+                typeof options.originalText === "string"
+                    ? options.originalText
+                    : null;
+
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -464,7 +478,22 @@ export function print(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
-                if (needsLeadingBlankLine && !suppressLeadingBlank) {
+                const hasLeadingNonDocComment =
+                    !isNonEmptyArray(node.docComments) &&
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+                const hasExistingBlankLine =
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    isPreviousLineEmpty(originalText, nodeStartIndex);
+
+                if (
+                    !suppressLeadingBlank &&
+                    (needsLeadingBlankLine ||
+                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                ) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
