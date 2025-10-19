@@ -23,7 +23,8 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
@@ -459,8 +460,9 @@ function normalizeContent(blocks) {
                 appendNormalizedText(content.headings, block.text);
                 break;
             }
-            default:
+            default: {
                 appendNormalizedText(content.paragraphs, block.text);
+            }
         }
     }
     return content;

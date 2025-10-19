@@ -44,8 +44,14 @@ test("assignClonedLocation gracefully handles invalid inputs", () => {
     assert.strictEqual(assignClonedLocation(undefined, template), undefined);
 
     const targetWithoutTemplate = {};
-    assert.strictEqual(assignClonedLocation(targetWithoutTemplate, null), targetWithoutTemplate);
+    assert.strictEqual(
+        assignClonedLocation(targetWithoutTemplate, null),
+        targetWithoutTemplate
+    );
 
     const targetWithPrimitiveTemplate = {};
-    assert.strictEqual(assignClonedLocation(targetWithPrimitiveTemplate, 42), targetWithPrimitiveTemplate);
+    assert.strictEqual(
+        assignClonedLocation(targetWithPrimitiveTemplate, 42),
+        targetWithPrimitiveTemplate
+    );
 });

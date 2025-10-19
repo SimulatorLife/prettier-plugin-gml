@@ -505,7 +505,8 @@ function appendScanNotes(context, scan) {
 }
 
 function handleMissingOrEmptyDirectory(context, directory, status) {
-    const bucket = status === "missing" ? context.missingDirs : context.emptyDirs;
+    const bucket =
+        status === "missing" ? context.missingDirs : context.emptyDirs;
     bucket.push(directory.display);
 }
 
@@ -688,9 +689,7 @@ function reportRegressionSummary(regressions, targetLabel) {
 
     return {
         exitCode: 0,
-        lines: [
-            `No new failing tests compared to base using ${targetLabel}.`
-        ]
+        lines: [`No new failing tests compared to base using ${targetLabel}.`]
     };
 }
 

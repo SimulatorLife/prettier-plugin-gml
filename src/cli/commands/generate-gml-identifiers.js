@@ -10,7 +10,8 @@ import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
     DEFAULT_MANUAL_REPO,
-    resolveManualRepoValue
+    resolveManualRepoValue,
+    buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -329,7 +330,11 @@ function normaliseIdentifier(name) {
     return name.trim();
 }
 
-function collectManualArrayIdentifiers(identifierMap, values, { type, source }) {
+function collectManualArrayIdentifiers(
+    identifierMap,
+    values,
+    { type, source }
+) {
     const entry = { type, sources: [source] };
 
     for (const value of values) {

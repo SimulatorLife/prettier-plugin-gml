@@ -118,8 +118,8 @@ function buildWordCase(normalized, transformToken) {
     // shows up in identifier formatting micro-benchmarks. A simple index-based
     // loop lets V8 reuse the existing array slots without synthesizing
     // temporary tuples on each iteration.
-    for (let index = 0; index < tokens.length; index += 1) {
-        base += transformToken(tokens[index], index);
+    for (const [index, token] of tokens.entries()) {
+        base += transformToken(token, index);
     }
 
     return finalizeIdentifier(normalized, base);

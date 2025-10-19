@@ -9,10 +9,9 @@ import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
-    PRESERVE_CONFLICT_CODE,
-    IGNORE_CONFLICT_CODE,
     RESERVED_CONFLICT_CODE,
     createConflict,
+    formatConfigurationConflictMessage,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
@@ -307,20 +306,11 @@ export function planAssetRenames({
                 displayName: `${resourceRecord.resourceType}.${originalName}`
             };
 
-            let message;
-            switch (configConflict.code) {
-                case PRESERVE_CONFLICT_CODE: {
-                    message = `Asset '${originalName}' is preserved by configuration.`;
-                    break;
-                }
-                case IGNORE_CONFLICT_CODE: {
-                    message = `Asset '${originalName}' matches ignore pattern '${configConflict.ignoreMatch}'.`;
-                    break;
-                }
-                default: {
-                    message = `Asset '${originalName}' cannot be renamed due to configuration.`;
-                }
-            }
+            const message = formatConfigurationConflictMessage({
+                configConflict,
+                identifierName: originalName,
+                noun: "Asset"
+            });
 
             conflicts.push(
                 createConflict({

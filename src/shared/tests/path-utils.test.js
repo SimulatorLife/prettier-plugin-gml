@@ -144,7 +144,12 @@ describe("path-utils", () => {
                 "empties"
             );
 
-            const result = collectAncestorDirectories(null, undefined, "", projectRoot);
+            const result = collectAncestorDirectories(
+                null,
+                undefined,
+                "",
+                projectRoot
+            );
 
             assert.strictEqual(result[0], path.resolve(projectRoot));
         });

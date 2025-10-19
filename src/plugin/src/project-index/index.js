@@ -56,8 +56,7 @@ const PARSER_FACADE_OPTION_KEYS = [
 
 const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";
-const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
-    "Project index build was aborted.";
+const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -464,12 +463,6 @@ async function scanProjectTree(
 
     return { yyFiles, gmlFiles };
 }
-
-
-
-
-
-
 
 function cloneIdentifierDeclaration(declaration) {
     if (!declaration || typeof declaration !== "object") {
@@ -1550,9 +1543,8 @@ function handleIdentifierNode({
         return true;
     }
 
-    const isDeclaration = identifierRecord.classifications.includes(
-        "declaration"
-    );
+    const isDeclaration =
+        identifierRecord.classifications.includes("declaration");
     const isReference = identifierRecord.classifications.includes("reference");
 
     if (isDeclaration) {
@@ -1610,7 +1602,7 @@ function handleCallExpressionNode({
 
     const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
     const targetResourcePath = targetScopeId
-        ? scriptNameToResourcePath.get(calleeName) ?? null
+        ? (scriptNameToResourcePath.get(calleeName) ?? null)
         : null;
 
     const callRecord = {
@@ -1647,7 +1639,10 @@ function handleNewExpressionScriptCall({
     scriptNameToResourcePath,
     metrics
 }) {
-    if (node?.type !== "NewExpression" || node.expression?.type !== "Identifier") {
+    if (
+        node?.type !== "NewExpression" ||
+        node.expression?.type !== "Identifier"
+    ) {
         return;
     }
 
@@ -1659,7 +1654,7 @@ function handleNewExpressionScriptCall({
 
     const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
     const targetResourcePath = targetScopeId
-        ? scriptNameToResourcePath.get(calleeName) ?? null
+        ? (scriptNameToResourcePath.get(calleeName) ?? null)
         : null;
 
     const callRecord = {
@@ -1728,9 +1723,6 @@ function handleObjectEventAssignmentNode({
         metrics?.incrementCounter("identifiers.instanceAssignments");
     }
 }
-
-
-
 
 function analyseGmlAst({
     ast,

@@ -1,7 +1,4 @@
-import {
-    getCommentArray,
-    isDocCommentLine
-} from "./comment-boundary.js";
+import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
@@ -15,7 +12,6 @@ const DOC_COMMENT_TARGET_TYPES = new Set([
     "StructFunctionDeclaration",
     "StructDeclaration"
 ]);
-
 export function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
 

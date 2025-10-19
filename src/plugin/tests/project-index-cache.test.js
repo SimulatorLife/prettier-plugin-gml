@@ -375,11 +375,13 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
 
 test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
     await withTempDir(async (projectRoot) => {
+        const manifestBase = 1_700_000_000_000;
         const manifestMtimes = {
-            "project.yyp": 1_700_000_000_000.1234
+            "project.yyp": manifestBase + 0.1234
         };
+        const sourceBase = 1_700_000_000_500;
         const sourceMtimes = {
-            "scripts/main.gml": 1_700_000_000_500.5678
+            "scripts/main.gml": sourceBase + 0.5678
         };
 
         await saveProjectIndexCache({

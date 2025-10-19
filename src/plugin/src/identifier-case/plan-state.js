@@ -122,7 +122,11 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         }
 
         if (snapshot.dryRun !== null) {
-            defineHiddenOption(object, "__identifierCaseDryRun", snapshot.dryRun);
+            defineHiddenOption(
+                object,
+                "__identifierCaseDryRun",
+                snapshot.dryRun
+            );
         }
 
         if (snapshot.planGenerated) {

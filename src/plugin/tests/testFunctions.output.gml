@@ -225,7 +225,6 @@ function scr_spring(a, b, dst, force) {
 	var actual_dist = xoff * xoff + yoff * yoff;
 	if (actual_dist == 0) {
         return false;
-    
     }
 	if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
 	    actual_dist = sqrt(actual_dist);

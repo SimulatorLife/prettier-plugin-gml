@@ -62,14 +62,10 @@ test("display path remains absolute when file matches the project root", () => {
     };
 
     const projectRoot = "/project/root";
-    const formatted = formatProjectIndexSyntaxError(
-        { ...error },
-        "",
-        {
-            filePath: projectRoot,
-            projectRoot
-        }
-    );
+    const formatted = formatProjectIndexSyntaxError({ ...error }, "", {
+        filePath: projectRoot,
+        projectRoot
+    });
 
     assert.strictEqual(formatted.filePath, projectRoot);
 });
@@ -81,14 +77,10 @@ test("display path stays absolute when file lies outside the project root", () =
         column: 1
     };
 
-    const formatted = formatProjectIndexSyntaxError(
-        { ...error },
-        "",
-        {
-            filePath: "/external/project/file.gml",
-            projectRoot: "/project/root"
-        }
-    );
+    const formatted = formatProjectIndexSyntaxError({ ...error }, "", {
+        filePath: "/external/project/file.gml",
+        projectRoot: "/project/root"
+    });
 
     assert.strictEqual(formatted.filePath, "/external/project/file.gml");
 });
