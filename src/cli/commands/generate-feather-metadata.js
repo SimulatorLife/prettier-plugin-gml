@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
@@ -22,11 +21,8 @@ import {
 import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot,
-    createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "../lib/manual-utils.js";
 import {
@@ -35,26 +31,19 @@ import {
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import { createManualCommandContext } from "../lib/manual-command-context.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
-const OUTPUT_DEFAULT = path.join(
-    REPO_ROOT,
-    "resources",
-    "feather-metadata.json"
-);
-
-const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
-
-const manualClient = createManualGitHubClient({
-    userAgent: "prettier-plugin-gml feather metadata generator",
+const {
+    repoRoot: REPO_ROOT,
     defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
+    defaultOutputPath: OUTPUT_DEFAULT,
+    fetchManualFile,
+    resolveManualRef
+} = createManualCommandContext({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml feather metadata generator",
+    outputFileName: "feather-metadata.json"
 });
-
-const { fetchManualFile, resolveManualRef } = manualClient;
 
 const FEATHER_PAGES = {
     diagnostics:
@@ -433,47 +422,46 @@ function normalizeContent(blocks) {
         }
     };
 
-    const handlers = {
-        code(block) {
-            if (block.text) {
-                content.codeExamples.push(block.text);
-            }
-        },
-        note(block) {
-            appendNormalizedText(content.notes, block.text);
-        },
-        list(block) {
-            const items = Array.isArray(block.items)
-                ? block.items
-                      .map((item) => normalizeMultilineText(item))
-                      .filter(Boolean)
-                : [];
-            if (items.length > 0) {
-                content.lists.push(items);
-            }
-        },
-        table(block) {
-            if (block.table) {
-                content.tables.push(block.table);
-            }
-        },
-        heading(block) {
-            appendNormalizedText(content.headings, block.text);
-        }
-    };
-
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        const handler = handlers[block.type];
-        if (handler) {
-            handler(block);
-            continue;
+        switch (block.type) {
+            case "code": {
+                if (block.text) {
+                    content.codeExamples.push(block.text);
+                }
+                break;
+            }
+            case "note": {
+                appendNormalizedText(content.notes, block.text);
+                break;
+            }
+            case "list": {
+                const items = Array.isArray(block.items)
+                    ? block.items
+                          .map((item) => normalizeMultilineText(item))
+                          .filter(Boolean)
+                    : [];
+                if (items.length > 0) {
+                    content.lists.push(items);
+                }
+                break;
+            }
+            case "table": {
+                if (block.table) {
+                    content.tables.push(block.table);
+                }
+                break;
+            }
+            case "heading": {
+                appendNormalizedText(content.headings, block.text);
+                break;
+            }
+            default:
+                appendNormalizedText(content.paragraphs, block.text);
         }
-
-        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }

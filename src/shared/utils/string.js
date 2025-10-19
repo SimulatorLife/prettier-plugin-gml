@@ -33,7 +33,7 @@ export function toTrimmedString(value) {
 
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == undefined) {
+        if (value == null) {
             continue;
         }
 
@@ -47,7 +47,7 @@ export function coalesceTrimmedString(...values) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == undefined) {
+    if (value == null) {
         return "";
     }
 
@@ -96,7 +96,7 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
@@ -119,7 +119,7 @@ export function normalizeStringList(
 
 function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    const seen = Object.create(null);
+    const seen = new Set();
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -127,11 +127,11 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
+        if (!trimmed || seen.has(trimmed)) {
             continue;
         }
 
-        seen[trimmed] = true;
+        seen.add(trimmed);
         normalized.push(trimmed);
     }
 

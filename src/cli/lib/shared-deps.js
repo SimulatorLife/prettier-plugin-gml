@@ -6,11 +6,13 @@ export {
     parseJsonWithContext,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
+    normalizeEnumeratedOption,
     toPosixPath,
     toTrimmedString,
     getNonEmptyTrimmedString,
     isNonEmptyString,
-    isObjectLike
+    isObjectLike,
+    getOrCreateMapEntry
 } from "../../shared/utils.js";
 
 export { normalizeStringList } from "../../shared/utils/string.js";

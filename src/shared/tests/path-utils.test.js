@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import path from "node:path";
 
 import {
+    collectAncestorDirectories,
+    collectUniqueAncestorDirectories,
+    isPathInside,
     resolveContainedRelativePath,
-    walkAncestorDirectories,
-    collectUniqueAncestorDirectories
+    walkAncestorDirectories
 } from "../path-utils.js";
 
 describe("path-utils", () => {
@@ -99,6 +101,69 @@ describe("path-utils", () => {
             assert.equal(result[1], expectedSecond);
             assert.equal(result.includes(expectedRoot), true);
             assert.equal(result.includes(path.resolve(second)), true);
+        });
+    });
+
+    describe("collectAncestorDirectories", () => {
+        it("accepts multiple path arguments and preserves discovery order", () => {
+            const base = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils",
+                "rest-args"
+            );
+            const nestedFeature = path.join(base, "src", "features", "core");
+            const nestedSibling = path.join(base, "src", "features", "extras");
+
+            const result = collectAncestorDirectories(
+                nestedFeature,
+                nestedSibling
+            );
+
+            const expectedFirst = path.resolve(nestedFeature);
+            const expectedRoot = path.parse(expectedFirst).root;
+
+            assert.equal(result[0], expectedFirst);
+            assert.equal(result.includes(expectedRoot), true);
+            assert.equal(new Set(result).size, result.length);
+        });
+
+        it("ignores empty inputs while still returning valid ancestors", () => {
+            const projectRoot = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils",
+                "empties"
+            );
+
+            const result = collectAncestorDirectories(null, undefined, "", projectRoot);
+
+            assert.equal(result[0], path.resolve(projectRoot));
+        });
+    });
+
+    describe("isPathInside", () => {
+        it("returns true when child equals parent", () => {
+            const root = path.join(process.cwd(), "tmp", "shared-path-utils");
+            assert.equal(isPathInside(root, root), true);
+        });
+
+        it("returns true when child resides under parent", () => {
+            const root = path.join(process.cwd(), "tmp", "shared-path-utils");
+            const child = path.join(root, "src", "index.gml");
+            assert.equal(isPathInside(child, root), true);
+        });
+
+        it("returns false when the child escapes the parent", () => {
+            const root = path.join(process.cwd(), "tmp", "shared-path-utils");
+            const child = path.join(root, "..", "other", "file.gml");
+            assert.equal(isPathInside(child, root), false);
+        });
+
+        it("returns false for empty inputs", () => {
+            const root = path.join(process.cwd(), "tmp", "shared-path-utils");
+            assert.equal(isPathInside("", root), false);
+            assert.equal(isPathInside(root, ""), false);
         });
     });
 });

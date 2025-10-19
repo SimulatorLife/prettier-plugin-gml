@@ -343,17 +343,43 @@ function handleMacroComments(comment) {
 function handleCommentAttachedToOpenBrace(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.enclosingNode?.type !== "BlockStatement") {
+    const enclosingNode = comment.enclosingNode;
+
+    if (!isBlockStatement(enclosingNode)) {
         return false;
     }
 
-    if (comment.start.line !== comment.enclosingNode.start.line) {
+    if (!isCommentOnNodeStartLine(comment, enclosingNode)) {
         return false;
     }
 
     comment.attachToBrace = true;
-    addDanglingComment(comment.enclosingNode, comment);
+    addDanglingComment(enclosingNode, comment);
     return true;
+}
+
+function isBlockStatement(node) {
+    return node?.type === "BlockStatement";
+}
+
+/**
+ * Determines whether a comment starts on the same line as the enclosing node's
+ * start token. This guards against reaching through multiple layers of the
+ * syntax tree from the call site and keeps line comparisons centralized.
+ *
+ * @param {object} comment
+ * @param {object} node
+ * @returns {boolean}
+ */
+function isCommentOnNodeStartLine(comment, node) {
+    const commentLine = comment.start?.line;
+    const nodeStartLine = node?.start?.line;
+
+    if (commentLine == null || nodeStartLine == null) {
+        return false;
+    }
+
+    return commentLine === nodeStartLine;
 }
 
 function handleCommentInEmptyParens(
