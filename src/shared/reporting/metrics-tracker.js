@@ -1,5 +1,8 @@
-import { getNonEmptyString, getNonEmptyTrimmedString } from "./string.js";
-import { getOrCreateMapEntry } from "./object.js";
+import {
+    getNonEmptyString,
+    getNonEmptyTrimmedString
+} from "../utils/string.js";
+import { getOrCreateMapEntry } from "../utils/object.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -31,15 +34,34 @@ function toKeyIterable(value) {
 }
 
 function normalizeCacheKeys(keys) {
-    const normalizedKeys = Array.from(
-        new Set(
-            toKeyIterable(keys ?? DEFAULT_CACHE_KEYS)
-                .map((candidate) => getNonEmptyTrimmedString(candidate))
-                .filter(Boolean)
-        )
-    );
+    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const normalized = [];
+    const seen = new Set();
 
-    return normalizedKeys.length > 0 ? normalizedKeys : [...DEFAULT_CACHE_KEYS];
+    for (const candidate of toKeyIterable(candidates)) {
+        const label = getNonEmptyString(candidate);
+        if (!label) {
+            continue;
+        }
+
+        const trimmed = label.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+
+        if (seen.has(trimmed)) {
+            continue;
+        }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
+    }
+
+    if (normalized.length === 0) {
+        return [...DEFAULT_CACHE_KEYS];
+    }
+
+    return normalized;
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
