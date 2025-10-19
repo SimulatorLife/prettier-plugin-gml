@@ -34,7 +34,7 @@ function ensureAbortErrorMetadata(error, fallbackMessage) {
 /**
  * Convert an `AbortSignal` that has been triggered into an `Error` instance.
  *
- * Centralises the guard logic shared by the parser and CLI so call sites can
+ * Centralizes the guard logic shared by the parser and CLI so call sites can
  * consistently surface `AbortError` instances while preserving any user-
  * supplied reason text. Non-aborted signals yield `null`, allowing callers to
  * short-circuit without additional branching.
@@ -48,7 +48,7 @@ function ensureAbortErrorMetadata(error, fallbackMessage) {
  */
 export function createAbortError(
     signal,
-    fallbackMessage = DEFAULT_ABORT_MESSAGE,
+    fallbackMessage = DEFAULT_ABORT_MESSAGE
 ) {
     if (!signal || signal.aborted !== true) {
         return null;
