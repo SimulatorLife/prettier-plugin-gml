@@ -31,6 +31,7 @@ import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
@@ -482,7 +483,7 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc = isNonEmptyString(renamed) ? renamed : node.id;
+                functionNameDoc = getNonEmptyString(renamed) ?? node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
@@ -3152,7 +3153,7 @@ function getNormalizedParameterName(paramNode) {
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return isNonEmptyString(normalizedName) ? normalizedName : null;
+    return getNonEmptyString(normalizedName);
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
