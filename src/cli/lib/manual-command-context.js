@@ -6,25 +6,17 @@ import {
     createManualGitHubClient,
     resolveManualCacheRoot
 } from "./manual-utils.js";
+import { assertNonEmptyString } from "./shared-deps.js";
 
 function assertFileUrl(value) {
-    if (typeof value !== "string" || value.length === 0) {
-        throw new TypeError(
-            "importMetaUrl must be provided as a file URL string."
-        );
-    }
-
-    return value;
+    return assertNonEmptyString(value, {
+        name: "importMetaUrl",
+        errorMessage: "importMetaUrl must be provided as a file URL string."
+    });
 }
 
 function assertUserAgent(value) {
-    if (typeof value !== "string" || value.length === 0) {
-        throw new TypeError(
-            "userAgent must be provided as a non-empty string."
-        );
-    }
-
-    return value;
+    return assertNonEmptyString(value, { name: "userAgent" });
 }
 
 function resolveOutputPath(repoRoot, fileName) {

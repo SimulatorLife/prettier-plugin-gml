@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJsonWithContext, toTrimmedString } from "./shared-deps.js";
+import {
+    assertNonEmptyString,
+    parseJsonWithContext,
+    toTrimmedString
+} from "./shared-deps.js";
 import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
@@ -114,27 +118,24 @@ function validateManualCommitPayload(payload, { ref }) {
         `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
     );
 
-    if (
-        typeof payloadRecord.sha !== "string" ||
-        payloadRecord.sha.length === 0
-    ) {
-        throw new TypeError(
-            `Manual ref '${ref}' response did not include a commit SHA.`
-        );
-    }
+    const sha = assertNonEmptyString(payloadRecord.sha, {
+        name: "Manual ref commit SHA",
+        errorMessage: `Manual ref '${ref}' response did not include a commit SHA.`
+    });
 
-    return payloadRecord.sha;
+    return sha;
 }
 
 function normalizeManualTagEntry(entry) {
-    const { name, commit } = assertPlainObject(
+    const { name: rawName, commit } = assertPlainObject(
         entry,
         "Manual tags response must contain objects with tag metadata."
     );
 
-    if (typeof name !== "string" || name.length === 0) {
-        throw new TypeError("Manual tag entry is missing a tag name.");
-    }
+    const name = assertNonEmptyString(rawName, {
+        name: "Manual tag entry name",
+        errorMessage: "Manual tag entry is missing a tag name."
+    });
 
     if (commit == null) {
         return { name, sha: null };
@@ -149,13 +150,13 @@ function normalizeManualTagEntry(entry) {
         return { name, sha: null };
     }
 
-    if (typeof sha !== "string" || sha.length === 0) {
-        throw new TypeError(
+    const normalizedSha = assertNonEmptyString(sha, {
+        name: "Manual tag entry commit SHA",
+        errorMessage:
             "Manual tag entry commit SHA must be a non-empty string when provided."
-        );
-    }
+    });
 
-    return { name, sha };
+    return { name, sha: normalizedSha };
 }
 
 function resolveManualCacheRoot({
