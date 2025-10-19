@@ -1,4 +1,5 @@
 export {
+    assertNonEmptyString,
     toArray,
     coercePositiveInteger,
     coerceNonNegativeInteger,
@@ -6,6 +7,7 @@ export {
     parseJsonWithContext,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
+    normalizeEnumeratedOption,
     toPosixPath,
     toTrimmedString,
     getNonEmptyTrimmedString,

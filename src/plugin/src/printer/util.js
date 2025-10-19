@@ -22,6 +22,15 @@ function nodeTypeNeedsSemicolon(type) {
     return NODE_TYPES_REQUIRING_SEMICOLON.has(type);
 }
 
+/**
+ * Determine whether the current AST path points to the final statement within
+ * its parent's body array. The printer uses this to decide when it can omit
+ * trailing semicolons or blank lines without peeking outside the current
+ * subtree.
+ *
+ * @param {import("prettier").AstPath} path AST path for the node being printed.
+ * @returns {boolean} `true` when the node is the last statement in its parent.
+ */
 function isLastStatement(path) {
     const body = getParentNodeListProperty(path);
     if (!body) {

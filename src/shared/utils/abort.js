@@ -94,3 +94,55 @@ export function throwIfAborted(signal, fallbackMessage) {
         throw error;
     }
 }
+
+function isAbortSignalLike(value) {
+    return (
+        value != null &&
+        (typeof value === "object" || typeof value === "function") &&
+        typeof value.aborted === "boolean"
+    );
+}
+
+/**
+ * Extract an `AbortSignal` from an options bag while ensuring it has not
+ * already been cancelled. This consolidates the repetitive guard logic spread
+ * throughout the project index helpers where every entry point previously
+ * reimplemented the same `options?.signal ?? null` pattern.
+ *
+ * Callers receive either the validated signal instance or `null` when the
+ * options bag does not expose a usable signal. Any pre-aborted signals raise an
+ * `AbortError` using the same fallback semantics as {@link throwIfAborted} to
+ * keep error reporting consistent.
+ *
+ * @param {unknown} options Candidate options object that may carry a signal.
+ * @param {{
+ *     key?: string | number | symbol,
+ *     fallbackMessage?: string | null | undefined
+ * }} [config]
+ * @param {string | number | symbol} [config.key="signal"] Property name used
+ *        to retrieve the signal from {@link options}.
+ * @param {string | null | undefined} [config.fallbackMessage] Optional message
+ *        forwarded when surfacing an `AbortError` for an already-cancelled
+ *        signal.
+ * @returns {AbortSignal | null} Normalized signal instance or `null` when the
+ *          options object does not supply one.
+ */
+export function resolveAbortSignalFromOptions(
+    options,
+    { key = "signal", fallbackMessage } = {}
+) {
+    if (
+        options == null ||
+        (typeof options !== "object" && typeof options !== "function")
+    ) {
+        return null;
+    }
+
+    const candidate = options[key] ?? null;
+    if (!isAbortSignalLike(candidate)) {
+        return null;
+    }
+
+    throwIfAborted(candidate, fallbackMessage);
+    return candidate;
+}

@@ -72,46 +72,43 @@ export function captureIdentifierCasePlanSnapshot(options) {
     );
 }
 
+const SNAPSHOT_OPTION_ENTRIES = Object.freeze([
+    ["projectIndex", "__identifierCaseProjectIndex"],
+    ["projectRoot", "__identifierCaseProjectRoot"],
+    ["bootstrap", "__identifierCaseProjectIndexBootstrap"],
+    ["renameMap", "__identifierCaseRenameMap"],
+    ["renamePlan", "__identifierCaseRenamePlan"],
+    ["conflicts", "__identifierCaseConflicts"],
+    ["metricsReport", "__identifierCaseMetricsReport"],
+    ["metrics", "__identifierCaseMetrics"],
+    ["assetRenames", "__identifierCaseAssetRenames"],
+    ["assetRenameResult", "__identifierCaseAssetRenameResult"]
+]);
+
+function defineHiddenOption(object, optionKey, value) {
+    setIdentifierCaseOption(object, optionKey, value);
+    Object.defineProperty(object, optionKey, {
+        value,
+        writable: true,
+        configurable: true,
+        enumerable: false
+    });
+}
+
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
     if (!snapshot) {
         return;
     }
 
     withObjectLike(options, (object) => {
-        const assignIfUnset = (optionKey, value) => {
+        for (const [snapshotKey, optionKey] of SNAPSHOT_OPTION_ENTRIES) {
+            const value = snapshot[snapshotKey];
             if (value && !object[optionKey]) {
                 setIdentifierCaseOption(object, optionKey, value);
             }
-        };
-
-        const assignHiddenOption = (optionKey, value) => {
-            setIdentifierCaseOption(object, optionKey, value);
-            Object.defineProperty(object, optionKey, {
-                value,
-                writable: true,
-                configurable: true,
-                enumerable: false
-            });
-        };
-
-        const snapshotAssignments = [
-            ["projectIndex", "__identifierCaseProjectIndex"],
-            ["projectRoot", "__identifierCaseProjectRoot"],
-            ["bootstrap", "__identifierCaseProjectIndexBootstrap"],
-            ["renameMap", "__identifierCaseRenameMap"],
-            ["renamePlan", "__identifierCaseRenamePlan"],
-            ["conflicts", "__identifierCaseConflicts"],
-            ["metricsReport", "__identifierCaseMetricsReport"],
-            ["metrics", "__identifierCaseMetrics"],
-            ["assetRenames", "__identifierCaseAssetRenames"],
-            ["assetRenameResult", "__identifierCaseAssetRenameResult"]
-        ];
-
-        for (const [snapshotKey, optionKey] of snapshotAssignments) {
-            assignIfUnset(optionKey, snapshot[snapshotKey]);
         }
 
-        assignHiddenOption("__identifierCasePlanSnapshot", snapshot);
+        defineHiddenOption(object, "__identifierCasePlanSnapshot", snapshot);
 
         if (
             snapshot.assetRenamesApplied != undefined &&
@@ -125,7 +122,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         }
 
         if (snapshot.dryRun !== null) {
-            assignHiddenOption("__identifierCaseDryRun", snapshot.dryRun);
+            defineHiddenOption(object, "__identifierCaseDryRun", snapshot.dryRun);
         }
 
         if (snapshot.planGenerated) {
