@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
@@ -35,11 +36,7 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return (
-        record != null &&
-        typeof record === "object" &&
-        Object.keys(record).length > 0
-    );
+    return isObjectLike(record) && Object.keys(record).length > 0;
 }
 
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
@@ -67,9 +64,10 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (!source || typeof source !== "object") {
+    if (!isObjectLike(source)) {
         return {};
     }
+
     return Object.fromEntries(
         Object.entries(source)
             .map(([key, value]) => [key, Number(value)])
