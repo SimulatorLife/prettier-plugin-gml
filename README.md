@@ -330,6 +330,12 @@ for the full suite of contributor commands.
   node ./node_modules/root/src/cli/cli.js --help
   ```
 
+- Check the wrapper version label surfaced by `--version` or `-V`:
+
+  ```bash
+  node ./node_modules/root/src/cli/cli.js --version
+  ```
+
 ### CLI wrapper environment knobs
 
 The wrapper honours environment variables so CI systems can tune behaviour
@@ -346,6 +352,9 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
+  `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
+  release tags or packaging nightly builds.
 
 ### Visual Studio Code
 
