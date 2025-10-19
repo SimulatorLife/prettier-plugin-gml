@@ -1,5 +1,9 @@
 import { isNonEmptyString } from "../../../shared/string-utils.js";
-import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
+import {
+    getOrCreateMapEntry,
+    isObjectLike,
+    withObjectLike
+} from "../../../shared/object-utils.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
@@ -76,14 +80,8 @@ function getStoreKey(options) {
 }
 
 function getOrCreateStoreEntry(storeKey) {
-    const existing = optionStoreMap.get(storeKey);
-    if (existing) {
-        optionStoreMap.delete(storeKey);
-        optionStoreMap.set(storeKey, existing);
-        return existing;
-    }
-
-    const entry = {};
+    const entry = getOrCreateMapEntry(optionStoreMap, storeKey, () => ({}));
+    optionStoreMap.delete(storeKey);
     optionStoreMap.set(storeKey, entry);
     return entry;
 }
