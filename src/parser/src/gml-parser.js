@@ -158,16 +158,14 @@ export default class GMLParser {
                         endIndex + 1
                     );
                 }
-            } else if (node.type === "TemplateStringText" && 
-                    Number.isInteger(startIndex) &&
-                    Number.isInteger(endIndex) &&
-                    endIndex >= startIndex
-                ) {
-                    node.value = this.originalText.slice(
-                        startIndex,
-                        endIndex + 1
-                    );
-                }
+            } else if (
+                node.type === "TemplateStringText" &&
+                Number.isInteger(startIndex) &&
+                Number.isInteger(endIndex) &&
+                endIndex >= startIndex
+            ) {
+                node.value = this.originalText.slice(startIndex, endIndex + 1);
+            }
 
             for (const value of Object.values(node)) {
                 if (!value || typeof value !== "object") {
