@@ -424,11 +424,8 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `condenseUnaryBooleanReturns` | `false` | Converts unary boolean returns (such as `return !condition;`) into ternaries so condensed output preserves intent. |
 | `condenseReturnStatements` | `false` | Merges complementary `if` branches that return literal booleans into a single simplified return statement. |
 | `allowTrailingCallArguments` | `false` | Reserved for future use; currently has no effect because trailing arguments are normalised via `missingOptionalArgumentPlaceholder`. |
-| `preserveLineBreaks` | `false` | Reserved for future use; enabling currently has no effect while line-break preservation heuristics are evaluated. |
-| `maintainArrayIndentation` | `false` | Preserves the original indentation depth for array literals rather than applying Prettier's defaults. |
-| `maintainStructIndentation` | `false` | Preserves the original indentation depth for struct literals rather than applying Prettier's defaults. |
-| `maintainWithIndentation` | `false` | Retains the body indentation within `with` statements instead of reindenting relative to the `with` keyword. |
-| `maintainSwitchIndentation` | `false` | Retains existing indentation inside `switch` statements instead of reindenting each case body. |
+
+> **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
 
 #### Identifier-case rollout
 
