@@ -3193,9 +3193,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             ? !signatureOmitsUndefinedDefault
             : true;
 
+        const convertedFromFeatherFix =
+            paramNode._gmConvertedFromFeatherFix === true;
+
+        const finalOptional = convertedFromFeatherFix ? true : optional;
+
         return {
             name: docName,
-            optional
+            optional: finalOptional
         };
     }
 
@@ -3210,6 +3215,10 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 function shouldOmitDefaultValueForParameter(path) {
     const node = path.getValue();
     if (!node || node.type !== "DefaultParameter") {
+        return false;
+    }
+
+    if (node._gmConvertedFromFeatherFix === true) {
         return false;
     }
 

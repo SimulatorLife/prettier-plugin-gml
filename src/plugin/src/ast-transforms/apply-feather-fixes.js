@@ -16196,24 +16196,35 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
         return null;
     }
 
-    const requiredParams = [];
-    const optionalParams = [];
+    encounteredOptional = false;
+    let convertedParameterCount = 0;
 
-    for (const param of params) {
+    const normalizedParams = params.map((param) => {
         if (isOptionalParameter(param)) {
-            optionalParams.push(param);
-        } else {
-            requiredParams.push(param);
+            encounteredOptional = true;
+            return param;
         }
-    }
 
-    const reorderedParams = requiredParams.concat(optionalParams);
+        if (!encounteredOptional) {
+            return param;
+        }
 
-    if (reorderedParams.length !== params.length) {
+        const converted = convertRequiredParameterToOptional(param);
+
+        if (!converted) {
+            return param;
+        }
+
+        converted._gmConvertedFromFeatherFix = true;
+        convertedParameterCount += 1;
+        return converted;
+    });
+
+    if (!encounteredOptional || convertedParameterCount === 0) {
         return null;
     }
 
-    node.params = reorderedParams;
+    node.params = normalizedParams;
     node._flattenSyntheticNumericParens = true;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -16235,6 +16246,36 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
 function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
+}
+
+function convertRequiredParameterToOptional(param) {
+    if (!isIdentifier(param)) {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(param);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const defaultParameter = {
+        type: "DefaultParameter",
+        left: identifier,
+        right: createLiteral("undefined", param)
+    };
+
+    if (Object.hasOwn(param, "start")) {
+        defaultParameter.start = cloneLocation(param.start);
+    }
+
+    if (Object.hasOwn(param, "end")) {
+        defaultParameter.end = cloneLocation(param.end);
+    }
+
+    copyCommentMetadata(param, defaultParameter);
+
+    return defaultParameter;
 }
 
 function getFunctionIdentifierName(node) {

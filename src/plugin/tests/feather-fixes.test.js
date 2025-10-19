@@ -2598,7 +2598,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
-    it("reorders optional parameters after required ones and records fix metadata", () => {
+    it("converts required parameters following optional ones into optional defaults and records fix metadata", () => {
         const source = [
             "function example(a, b = 1, c, d = 2) {",
             "    return a + b + c + d;",
@@ -2625,14 +2625,26 @@ describe("applyFeatherFixes transform", () => {
               })
             : [];
 
-        assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
+        assert.deepStrictEqual(parameterNames, ["a", "b", "c", "d"]);
 
         const defaultParameters = fn.params.filter(
             (param) => param?.type === "DefaultParameter"
         );
-        assert.strictEqual(defaultParameters.length, 2);
+        assert.strictEqual(defaultParameters.length, 3);
         assert.strictEqual(defaultParameters[0].left?.name, "b");
-        assert.strictEqual(defaultParameters[1].left?.name, "d");
+        assert.strictEqual(defaultParameters[1].left?.name, "c");
+        assert.strictEqual(defaultParameters[2].left?.name, "d");
+
+        assert.strictEqual(
+            defaultParameters[1].right?.value,
+            "undefined"
+        );
+
+        assert.strictEqual(
+            defaultParameters[1]._gmConvertedFromFeatherFix,
+            true,
+            "Expected converted parameters to be tagged for downstream formatting"
+        );
 
         assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
         assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
