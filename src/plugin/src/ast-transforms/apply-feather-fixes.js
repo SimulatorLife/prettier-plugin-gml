@@ -2005,10 +2005,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         if (node.type === "CallExpression") {
             const calleeName = getCallExpressionIdentifierName(node);
 
-            if (
-                calleeName &&
-                GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)
-            ) {
+            if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
                 const args = getCallExpressionArguments(node);
@@ -6287,7 +6284,9 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
     const topLevelFunctions = new Set(
         body.filter(
             (node) =>
-                node && typeof node === "object" && node.type === "FunctionDeclaration"
+                node &&
+                typeof node === "object" &&
+                node.type === "FunctionDeclaration"
         )
     );
 
@@ -10903,14 +10902,10 @@ function attachLeadingCommentsToWrappedPrimitive({
     }
 
     const precedingStatement =
-        insertionIndex > 0
-            ? statements[insertionIndex - 1] ?? null
-            : null;
+        insertionIndex > 0 ? (statements[insertionIndex - 1] ?? null) : null;
 
     const previousEndIndex =
-        precedingStatement != null
-            ? getNodeEndIndex(precedingStatement)
-            : null;
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
         if (!comment || comment.type !== "CommentLine") {
@@ -10940,9 +10935,7 @@ function attachLeadingCommentsToWrappedPrimitive({
         }
 
         const trimmedValue =
-            typeof comment.value === "string"
-                ? comment.value.trim()
-                : "";
+            typeof comment.value === "string" ? comment.value.trim() : "";
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -12304,9 +12297,7 @@ function attachLeadingCommentsToHoistedDeclaration({
     }
 
     const previousEndIndex =
-        precedingStatement != null
-            ? getNodeEndIndex(precedingStatement)
-            : null;
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
 
     let attachedComment = false;
 
@@ -12333,17 +12324,12 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        if (
-            previousEndIndex != null &&
-            commentStartIndex < previousEndIndex
-        ) {
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
             continue;
         }
 
         const trimmedValue =
-            typeof comment.value === "string"
-                ? comment.value.trim()
-                : "";
+            typeof comment.value === "string" ? comment.value.trim() : "";
 
         if (!trimmedValue.startsWith("/")) {
             continue;

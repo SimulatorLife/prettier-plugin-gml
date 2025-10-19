@@ -134,11 +134,14 @@ function formatConcurrencyValueError(optionName, received) {
 
 function coerceCacheMaxSize(
     numericValue,
-    { optionName, received, invalidNumberMessage }
+    { optionName, received, isString, rawType }
 ) {
     const normalized = toNormalizedInteger(numericValue);
     if (normalized === null) {
-        throw new TypeError(invalidNumberMessage);
+        const message = isString
+            ? formatCacheMaxSizeValueError(optionName, received)
+            : formatCacheMaxSizeTypeError(optionName, rawType);
+        throw new TypeError(message);
     }
 
     if (normalized < 0) {
@@ -165,16 +168,7 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
     return normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceCacheMaxSize,
-        formatTypeError: formatCacheMaxSizeTypeError,
-        createCoerceOptions({ optionName, rawType, received, isString }) {
-            return {
-                optionName,
-                received,
-                invalidNumberMessage: isString
-                    ? formatCacheMaxSizeValueError(optionName, received)
-                    : formatCacheMaxSizeTypeError(optionName, rawType)
-            };
-        }
+        formatTypeError: formatCacheMaxSizeTypeError
     });
 }
 
@@ -198,10 +192,7 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
     return normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceProjectIndexConcurrency,
-        formatTypeError: formatConcurrencyTypeError,
-        createCoerceOptions({ optionName, received }) {
-            return { optionName, received };
-        }
+        formatTypeError: formatConcurrencyTypeError
     });
 }
 

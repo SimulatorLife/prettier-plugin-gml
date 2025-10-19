@@ -1,7 +1,4 @@
-import {
-    getCommentArray,
-    isDocCommentLine
-} from "./comment-boundary.js";
+import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
