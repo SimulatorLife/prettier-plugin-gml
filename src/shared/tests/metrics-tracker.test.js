@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../reporting.js";
+import { createMetricsTracker } from "../utils/metrics-tracker.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
