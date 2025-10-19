@@ -97,7 +97,7 @@ export function isPathInside(childPath, parentPath) {
  * Guards against duplicate directories (for example when symbolic links point
  * back to an already-visited parent) to prevent infinite loops. Non-string and
  * empty inputs exit early so callers can forward optional metadata without
- * normalising it first.
+ * normalizing it first.
  *
  * @param {string | null | undefined} startPath Directory whose ancestors should
  *        be visited.
