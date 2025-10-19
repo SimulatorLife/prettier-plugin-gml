@@ -93,11 +93,19 @@ function normalizeCliPluginServices(services) {
         );
     }
 
+    const projectIndexService = normalizeProjectIndexService({
+        buildProjectIndex
+    });
+    const identifierCasePlanService = normalizeIdentifierCasePlanService({
+        prepareIdentifierCasePlan
+    });
+
     return Object.freeze({
-        projectIndex: normalizeProjectIndexService({ buildProjectIndex }),
-        identifierCasePlan: normalizeIdentifierCasePlanService({
-            prepareIdentifierCasePlan
-        })
+        buildProjectIndex: projectIndexService.buildProjectIndex,
+        prepareIdentifierCasePlan:
+            identifierCasePlanService.prepareIdentifierCasePlan,
+        projectIndex: projectIndexService,
+        identifierCasePlan: identifierCasePlanService
     });
 }
 
