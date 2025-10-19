@@ -1579,6 +1579,25 @@ function printStatements(path, options, print, childrenAttribute) {
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
 
+        const suppressFollowingEmptyLine =
+            node?._featherSuppressFollowingEmptyLine === true;
+        const forceFollowingEmptyLine =
+            node?._featherForceFollowingEmptyLine === true;
+        const trailingWhitespaceProbeIndex =
+            node?.type === "DefineStatement" ||
+            node?.type === "MacroDeclaration"
+                ? nodeEndIndex
+                : nodeEndIndex + 1;
+        const isMacroLikeNode = isMacroLikeStatement(node);
+        const isDefineMacroReplacement =
+            getNormalizedDefineReplacementDirective(node) === "#macro";
+        const isSanitizedMacro =
+            node?.type === "MacroDeclaration" &&
+            typeof node._featherMacroText === "string";
+        const sanitizedMacroHasExplicitBlankLine =
+            isSanitizedMacro &&
+            macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
@@ -1629,8 +1648,10 @@ function printStatements(path, options, print, childrenAttribute) {
         // Reset flag for next iteration
         previousNodeHadNewlineAddedAfter = false;
 
+        const isLast = isLastStatement(childPath);
+
         // Check if a newline should be added AFTER the statement
-        if (!isLastStatement(childPath)) {
+        if (!isLast) {
             const nextNode = statements ? statements[index + 1] : null;
             const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
                 node,
@@ -1649,34 +1670,16 @@ function printStatements(path, options, print, childrenAttribute) {
             const nextHasSyntheticDoc = nextNode
                 ? syntheticDocByNode.has(nextNode)
                 : false;
-            const nextLineProbeIndex =
-                node?.type === "DefineStatement" ||
-                node?.type === "MacroDeclaration"
-                    ? nodeEndIndex
-                    : nodeEndIndex + 1;
-
-            const suppressFollowingEmptyLine =
-                node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
-            const forceFollowingEmptyLine =
-                node?._featherForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
                     ? false
-                    : isNextLineEmpty(options.originalText, nextLineProbeIndex);
-
-            const isSanitizedMacro =
-                node?.type === "MacroDeclaration" &&
-                typeof node._featherMacroText === "string";
-            const sanitizedMacroHasExplicitBlankLine =
-                isSanitizedMacro &&
-                macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
-
-            const isMacroLikeNode = isMacroLikeStatement(node);
-            const isDefineMacroReplacement =
-                getNormalizedDefineReplacementDirective(node) === "#macro";
+                    : isNextLineEmpty(
+                          options.originalText,
+                          trailingWhitespaceProbeIndex
+                      );
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
@@ -1709,6 +1712,22 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const nextLineEmpty = suppressFollowingEmptyLine
+                ? false
+                : isNextLineEmpty(
+                      options.originalText,
+                      trailingWhitespaceProbeIndex
+                  );
+
+            if (
+                (forceFollowingEmptyLine &&
+                    !nextLineEmpty &&
+                    !sanitizedMacroHasExplicitBlankLine) ||
+                (nextLineEmpty && !sanitizedMacroHasExplicitBlankLine)
+            ) {
+                parts.push(hardline);
+            }
         }
 
         return parts;
