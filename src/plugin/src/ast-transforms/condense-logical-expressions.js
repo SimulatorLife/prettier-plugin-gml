@@ -111,6 +111,10 @@ function buildUpdatedDescription(existing, expression) {
     const trimmed = existing.trim();
     const lowered = trimmed.toLowerCase();
 
+    if (lowered.includes("original multi-branch")) {
+        return existing ?? "";
+    }
+
     if (lowered.includes("original") || lowered.includes("multi-clause")) {
         return `Simplified: ${normalizedExpression}`;
     }
