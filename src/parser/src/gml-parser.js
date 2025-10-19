@@ -3,7 +3,9 @@ import { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
-import GameMakerParseErrorListener from "./gml-syntax-error.js";
+import GameMakerParseErrorListener, {
+    GameMakerLexerErrorListener
+} from "./gml-syntax-error.js";
 import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 import { isErrorLike } from "../../shared/utils/capability-probes.js";
 import { isObjectLike } from "../../shared/object-utils.js";
@@ -59,6 +61,8 @@ export default class GMLParser {
     parse() {
         const chars = new antlr4.InputStream(this.text);
         const lexer = new GameMakerLanguageLexer(chars);
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(new GameMakerLexerErrorListener());
         lexer.strictMode = false;
         const tokens = new antlr4.CommonTokenStream(lexer);
         const parser = new GameMakerLanguageParser(tokens);

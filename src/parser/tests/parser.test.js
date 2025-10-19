@@ -332,6 +332,29 @@ describe("GameMaker parser fixtures", () => {
         });
     });
 
+    it("promotes lexer token recognition errors to syntax errors with context", () => {
+        const source = "\\";
+
+        assert.throws(
+            () => GMLParser.parse(source),
+            (error) => {
+                assert.ok(
+                    error instanceof Error,
+                    "Expected a syntax error to be thrown for invalid lexer input."
+                );
+                assert.match(
+                    error.message,
+                    /Syntax Error \(line 1, column 0\): unexpected symbol '\\'/
+                );
+                assert.strictEqual(error.line, 1);
+                assert.strictEqual(error.column, 0);
+                assert.strictEqual(error.wrongSymbol, String.raw`symbol '\'`);
+                assert.strictEqual(error.offendingText, "\\");
+                return true;
+            }
+        );
+    });
+
     it("tracks comment locations correctly when using CRLF", () => {
         const source = "/*first\r\nsecond*/";
         const ast = GMLParser.parse(source, {
