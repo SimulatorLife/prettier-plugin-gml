@@ -1056,9 +1056,9 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
             targetIsDirectory,
             extensions: targetExtensions
         });
+    } else {
+        logSkippedFileSummary();
     }
-
-    console.debug(`Skipped ${skippedFileCount} files`);
     if (encounteredFormattingError) {
         process.exitCode = 1;
     }
@@ -1131,12 +1131,20 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
         );
     }
 
-    if (skippedFileCount > 0) {
-        const skipLabel = skippedFileCount === 1 ? "file" : "files";
-        console.log(
-            `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
-        );
+    logSkippedFileSummary();
+}
+
+function logSkippedFileSummary() {
+    const skipLabel = skippedFileCount === 1 ? "file" : "files";
+
+    if (skippedFileCount === 0) {
+        console.log(`Skipped 0 ${skipLabel}.`);
+        return;
     }
+
+    console.log(
+        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
+    );
 }
 
 const formatCommand = createFormatCommand({ name: "format" });

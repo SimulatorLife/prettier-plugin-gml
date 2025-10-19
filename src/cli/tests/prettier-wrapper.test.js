@@ -379,12 +379,17 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
-            const skippedMatch = stdout.match(/Skipped (\d+) files/);
+            const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
                 skippedMatch,
                 "Expected wrapper output to report skipped files"
             );
             assert.strictEqual(Number(skippedMatch[1]), 1);
+            assert.match(
+                stdout,
+                /Skipped 1 file because they were ignored or used different extensions\./,
+                "Expected wrapper output to include skip rationale"
+            );
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -732,7 +737,7 @@ describe("Prettier wrapper CLI", () => {
             );
             assert.match(
                 stdout,
-                /Skipped \d+ files/,
+                /Skipped 0 files\./,
                 "Expected stdout to summarize skipped files"
             );
 
