@@ -16,21 +16,11 @@ function normalizeVerboseOverrides(overrides) {
         return null;
     }
 
-    let normalized = null;
+    const definedEntries = Object.entries(overrides).filter(
+        ([, value]) => value !== undefined
+    );
 
-    for (const [key, value] of Object.entries(overrides)) {
-        if (value === undefined) {
-            continue;
-        }
-
-        if (normalized === null) {
-            normalized = {};
-        }
-
-        normalized[key] = value;
-    }
-
-    return normalized;
+    return definedEntries.length > 0 ? Object.fromEntries(definedEntries) : null;
 }
 
 function createManualVerboseState({
