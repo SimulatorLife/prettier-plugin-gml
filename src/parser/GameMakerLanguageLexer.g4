@@ -205,7 +205,7 @@ fragment HexDigit
     ;
 
 fragment SingleEscapeCharacter
-    : ['"\\bfnrtv]
+    : ['"\\bfnrtvBFNRTV]
     ;
 
 fragment DecimalIntegerLiteral

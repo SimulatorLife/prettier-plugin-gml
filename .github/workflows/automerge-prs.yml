@@ -79,6 +79,10 @@ jobs:
         run: npm run test:report
         continue-on-error: true
 
+      - name: Run coverage (LCOV)
+        run: npm run test:coverage
+        continue-on-error: true
+
       - name: Publish test summary (${{ matrix.target }})
         if: ${{ always() }}
         uses: dorny/test-reporter@v2
@@ -90,12 +94,18 @@ jobs:
           fail-on-empty: false
           use-actions-summary: false
 
+      - name: Run lint (checkstyle)
+        run: npm run lint:report
+        continue-on-error: true
+
       - name: Upload JUnit artifacts (${{ matrix.target }})
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: junit-${{ matrix.target }}
-          path: test-results/*.xml
+          path: |
+            test-results/*.xml
+            test-results/lcov.info
           retention-days: 7
 
   summarize:
@@ -128,32 +138,71 @@ jobs:
         id: regress
         run: |
           set +e
+          set -o pipefail
+          log_file="$(mktemp)"
           export BASE_RESULTS_DIR="$(pwd)/junit-base"
           export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
           # Falls back to head when merge isn't available (handled by your script)
-          node src/cli/commands/detect-test-regressions.mjs
-          code=$?
+          node src/cli/commands/detect-test-regressions.mjs 2>&1 | tee "$log_file"
+          code=${PIPESTATUS[0]}
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
+            echo "status=clean" >> "$GITHUB_OUTPUT"
           else
             echo "all_green=false" >> "$GITHUB_OUTPUT"
+            if grep -q "New failing tests detected" "$log_file"; then
+              echo "status=regressions" >> "$GITHUB_OUTPUT"
+            else
+              echo "status=error" >> "$GITHUB_OUTPUT"
+            fi
           fi
+          rm -f "$log_file"
           exit 0
 
       - name: Summarize and comment
         uses: actions/github-script@v7
+        env:
+          REGRESSION_ALL_GREEN: ${{ steps.regress.outputs.all_green }}
+          REGRESSION_STATUS: ${{ steps.regress.outputs.status }}
         with:
           script: |
             const fs = require('node:fs');
             const path = require('node:path');
+            const { pathToFileURL } = require('node:url');
 
             const MARKER = '<!-- automerge-pr-test-summary -->';
             const targets = ['base','head','merge'];
-            const totals = {};
+            const suiteTotals = {};
+            const coverage = {};
+            const lint = {};
             const notes = [];
+            const testResults = {};
 
-            function readSuites(dir) {
-              const xmlFiles = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.xml')).map(f => path.join(dir,f)) : [];
+            const modulePath = path.resolve(process.cwd(), 'src/cli/commands/detect-test-regressions.mjs');
+            const regressionModule = await import(pathToFileURL(modulePath).href);
+            const { readTestResults, detectRegressions } = regressionModule;
+
+            function listFilesRecursive(root) {
+              if (!fs.existsSync(root)) return [];
+              const files = [];
+              const stack = [root];
+              while (stack.length > 0) {
+                const current = stack.pop();
+                const entries = fs.readdirSync(current, { withFileTypes: true });
+                for (const entry of entries) {
+                  if (entry.name === '.' || entry.name === '..') continue;
+                  const fullPath = path.join(current, entry.name);
+                  if (entry.isDirectory()) {
+                    stack.push(fullPath);
+                  } else {
+                    files.push(fullPath);
+                  }
+                }
+              }
+              return files;
+            }
+
+            function readSuites(xmlFiles) {
               let t = { tests:0, failures:0, errors:0, skipped:0, time:0 };
               for (const file of xmlFiles) {
                 const xml = fs.readFileSync(file,'utf8');
@@ -172,10 +221,203 @@ jobs:
               return t;
             }
 
+            function readCoverage(lcovFiles) {
+              if (lcovFiles.length === 0) return null;
+              let found = 0;
+              let hit = 0;
+              for (const file of lcovFiles) {
+                const text = fs.readFileSync(file, 'utf8');
+                for (const line of text.split(/\r?\n/)) {
+                  if (line.startsWith('LF:')) {
+                    found += Number.parseInt(line.slice(3), 10) || 0;
+                  } else if (line.startsWith('LH:')) {
+                    hit += Number.parseInt(line.slice(3), 10) || 0;
+                  }
+                }
+              }
+              if (found <= 0) return { found: 0, hit: hit, pct: null };
+              return { found, hit, pct: (hit / found) * 100 };
+            }
+
+            function readCheckstyle(checkstyleFiles) {
+              if (checkstyleFiles.length === 0) return null;
+              let warnings = 0;
+              let errors = 0;
+              for (const file of checkstyleFiles) {
+                const xml = fs.readFileSync(file, 'utf8');
+                for (const match of xml.matchAll(/<error\b[^>]*severity="([^"]*)"/gi)) {
+                  const severity = (match[1] || '').toLowerCase();
+                  if (severity === 'warning') warnings += 1;
+                  else if (severity === 'error') errors += 1;
+                }
+              }
+              return { warnings, errors };
+            }
+
+            const fmtCoverage = data => {
+              if (!data || !Number.isFinite(data.pct)) return '—';
+              return `${data.pct.toFixed(1)}%`;
+            };
+
+            function computeTotals(data) {
+              const tests = data?.stats?.total ?? 0;
+              const passed = data?.stats?.passed ?? 0;
+              const failed = data?.stats?.failed ?? 0;
+              const skipped = data?.stats?.skipped ?? 0;
+              return { tests, passed, failed, skipped };
+            }
+
+            function normalizeLocator(testCase) {
+              const node = testCase?.node || {};
+              const rawFile = typeof node.file === 'string' ? node.file.trim() : '';
+              if (rawFile) {
+                return `file:${path.normalize(rawFile).replace(/\\/g, '/').toLowerCase()}`;
+              }
+              const className = typeof node.classname === 'string' ? node.classname.trim() : '';
+              if (className) {
+                return `class:${className}`.toLowerCase();
+              }
+              if (Array.isArray(testCase?.suitePath) && testCase.suitePath.length > 0) {
+                return `suite:${testCase.suitePath.join('::')}`.toLowerCase();
+              }
+              return null;
+            }
+
+            function computeTestDiff(baseResults, targetResults) {
+              if (!baseResults?.usedDir || !targetResults?.usedDir) {
+                return null;
+              }
+
+              const newCases = [];
+              for (const [key, record] of targetResults.results.entries()) {
+                if (!baseResults.results.has(key)) {
+                  newCases.push(record);
+                }
+              }
+
+              const removedCases = [];
+              for (const [key, record] of baseResults.results.entries()) {
+                if (!targetResults.results.has(key)) {
+                  removedCases.push(record);
+                }
+              }
+
+              const removedByLocator = new Map();
+              for (const record of removedCases) {
+                const locator = normalizeLocator(record);
+                if (!locator) continue;
+                removedByLocator.set(locator, (removedByLocator.get(locator) || 0) + 1);
+              }
+
+              let renameCount = 0;
+              for (const record of newCases) {
+                const locator = normalizeLocator(record);
+                if (!locator) continue;
+                const remaining = removedByLocator.get(locator) || 0;
+                if (remaining > 0) {
+                  removeCase(locator, removedByLocator);
+                  renameCount += 1;
+                  continue;
+                }
+              }
+
+              function removeCase(locator, store) {
+                const next = (store.get(locator) || 0) - 1;
+                if (next > 0) {
+                  store.set(locator, next);
+                } else {
+                  store.delete(locator);
+                }
+              }
+
+              const adjustedNew = Math.max(0, newCases.length - renameCount);
+              const adjustedRemoved = Math.max(0, removedCases.length - renameCount);
+
+              return {
+                newTests: adjustedNew,
+                removedTests: adjustedRemoved,
+                renamedTests: renameCount
+              };
+            }
+
+            function formatDiffValue(value) {
+              return value === null || value === undefined ? '—' : `${Math.max(0, value)}`;
+            }
+
+            function describeRegressionCause(regressions, diff) {
+              if (!Array.isArray(regressions) || regressions.length === 0) {
+                return '';
+              }
+
+              const buckets = new Map();
+              for (const item of regressions) {
+                const fromKey = String(item?.from ?? 'missing').toLowerCase();
+                buckets.set(fromKey, (buckets.get(fromKey) || 0) + 1);
+              }
+
+              const fragments = [];
+
+              const addFragment = (count, singular, plural) => {
+                if (count <= 0) return;
+                fragments.push(count === 1 ? `1 ${singular}` : `${count} ${plural}`);
+              };
+
+              addFragment(
+                buckets.get('missing') || 0,
+                'test is failing but was not present in base (added or renamed)',
+                'tests are failing but were not present in base (added or renamed)'
+              );
+
+              addFragment(
+                buckets.get('passed') || 0,
+                'test is now failing after passing in base',
+                'tests are now failing after passing in base'
+              );
+
+              addFragment(
+                buckets.get('skipped') || 0,
+                'test is now failing after being skipped in base',
+                'tests are now failing after being skipped in base'
+              );
+
+              for (const [fromKey, count] of buckets.entries()) {
+                if (fromKey === 'missing' || fromKey === 'passed' || fromKey === 'skipped') {
+                  continue;
+                }
+                addFragment(
+                  count,
+                  `test is now failing after being ${fromKey} in base`,
+                  `tests are now failing after being ${fromKey} in base`
+                );
+              }
+
+              if (diff?.renamedTests > 0) {
+                addFragment(
+                  diff.renamedTests,
+                  'test appears to have been renamed compared to base',
+                  'tests appear to have been renamed compared to base'
+                );
+              }
+
+              return fragments.join('; ');
+            }
+
             for (const tgt of targets) {
               const dir = path.join(process.cwd(), `junit-${tgt}`);
-              totals[tgt] = readSuites(dir);
-              if (!fs.existsSync(dir)) notes.push(`No JUnit XML found for **${tgt}**.`);
+              const files = listFilesRecursive(dir);
+              const xmlFiles = files.filter(f => f.endsWith('.xml'));
+              const lcovFiles = files.filter(f => path.basename(f) === 'lcov.info');
+              const checkstyleFiles = files.filter(f => /checkstyle/i.test(path.basename(f)));
+              suiteTotals[tgt] = readSuites(xmlFiles);
+              coverage[tgt] = readCoverage(lcovFiles);
+              lint[tgt] = readCheckstyle(checkstyleFiles);
+              testResults[tgt] = readTestResults([
+                path.join(dir, 'test-results'),
+                dir
+              ], { workspace: process.cwd() });
+              if (xmlFiles.length === 0) notes.push(`No JUnit XML found for **${tgt}**.`);
+              if (files.length > 0 && !coverage[tgt]) notes.push(`No coverage (LCOV) data found for **${tgt}**.`);
+              if (files.length > 0 && checkstyleFiles.length === 0) notes.push(`No lint (checkstyle) data found for **${tgt}**.`);
             }
 
             const fmtTime = s => !Number.isFinite(s) || s <= 0 ? '—'
@@ -183,12 +425,49 @@ jobs:
               : s >= 60 ? `${Math.floor(s/60)}m ${(s - Math.floor(s/60)*60).toFixed(1)}s`
               : `${s.toFixed(2)}s`;
 
-            const row = (label, t) => {
-              const hasAny = (t.tests + t.failures + t.errors + t.skipped) > 0;
-              if (!hasAny) return `| ${label} | — | — | — | — | — |`;
-              const failed = t.failures + t.errors;
-              const passed = Math.max(0, t.tests - failed - t.skipped);
-              return `| ${label} | ${t.tests} | ${passed} | ${failed} | ${t.skipped} | ${fmtTime(t.time)} |`;
+            const fmtLintCount = value => (value === null || value === undefined) ? '—' : `${value}`;
+
+            const computeRowData = (totals, fallback, preferTotals) => {
+              if (preferTotals) {
+                const total = totals.tests ?? 0;
+                const failed = totals.failed ?? 0;
+                const skipped = totals.skipped ?? 0;
+                const passed = totals.passed ?? Math.max(0, total - failed - skipped);
+                return { total, passed, failed, skipped };
+              }
+
+              const total = fallback.tests ?? 0;
+              const failed = (fallback.failures ?? 0) + (fallback.errors ?? 0);
+              const skipped = fallback.skipped ?? 0;
+              const passed = Math.max(0, total - failed - skipped);
+              return { total, passed, failed, skipped };
+            };
+
+            const row = (label, tgt, lintData, cov, diffStats) => {
+              const totals = computeTotals(testResults[tgt]);
+              const fallback = suiteTotals[tgt] || {};
+              const preferTotals = Boolean(testResults[tgt]?.usedDir);
+              const data = computeRowData(totals, fallback, preferTotals);
+              const fallbackSum = (fallback.tests ?? 0) + (fallback.failures ?? 0) + (fallback.errors ?? 0) + (fallback.skipped ?? 0);
+              const hasAny = data.total > 0 || fallbackSum > 0;
+              const coverageCell = fmtCoverage(cov);
+              const lintWarningsCell = fmtLintCount(lintData?.warnings);
+              const lintErrorsCell = fmtLintCount(lintData?.errors);
+              const diff = diffStats ? {
+                newTests: formatDiffValue(diffStats.newTests),
+                removedTests: formatDiffValue(diffStats.removedTests),
+                renamedTests: formatDiffValue(diffStats.renamedTests)
+              } : { newTests: '—', removedTests: '—', renamedTests: '—' };
+              if (!hasAny) {
+                return `| ${label} | — | — | — | — | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | — |`;
+              }
+              return `| ${label} | ${data.total} | ${data.passed} | ${data.failed} | ${data.skipped} | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | ${fmtTime(fallback.time)} |`;
+            };
+
+            const diffStats = {
+              base: testResults.base?.usedDir ? { newTests: 0, removedTests: 0, renamedTests: 0 } : null,
+              head: computeTestDiff(testResults.base, testResults.head),
+              merge: computeTestDiff(testResults.base, testResults.merge)
             };
 
             const baseRef = context.payload.pull_request?.base?.ref || 'base';
@@ -197,16 +476,44 @@ jobs:
             const headSha = (context.payload.pull_request?.head?.sha || context.sha || '').slice(0,7) || '???????';
 
             const table = [
-              '| Target | Total | Passed | Failed | Skipped | Duration |',
-              '| --- | ---: | ---: | ---: | ---: | ---: |',
-              row(`Base (${baseRef} @ ${baseSha})`, totals.base),
-              row(`PR (${headRef} @ ${headSha})`, totals.head),
-              row('Merged (base+PR)', totals.merge),
+              '| Target | Total | Passed | Failed | Skipped | New Tests | Removed Tests | Renamed Tests | Lint warnings | Lint errors | Coverage | Duration |',
+              '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+              row(`Base (${baseRef} @ ${baseSha})`, 'base', lint.base, coverage.base, diffStats.base),
+              row(`PR (${headRef} @ ${headSha})`, 'head', lint.head, coverage.head, diffStats.head),
+              row('Merged (base+PR)', 'merge', lint.merge, coverage.merge, diffStats.merge),
               '',
               ...notes.map(n => `> ⚠️ ${n}`)
             ].join('\n');
 
-            const body = [ '<!-- automerge-pr-test-summary -->', '### Node.js regression test summary', '', table ].join('\n');
+            const statusFlag = (process.env.REGRESSION_STATUS || '').toLowerCase();
+            const allGreenFlag = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+
+            let statusLine;
+            if (statusFlag === 'clean' || allGreenFlag) {
+              statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
+            } else if (statusFlag === 'regressions') {
+              let causeDetails = '';
+              if (testResults.base?.usedDir) {
+                const targetKey = testResults.merge?.usedDir ? 'merge' : 'head';
+                const targetResults = testResults[targetKey];
+                if (targetResults?.usedDir && typeof detectRegressions === 'function') {
+                  const regressions = detectRegressions(testResults.base, targetResults);
+                  const description = describeRegressionCause(regressions, diffStats[targetKey]);
+                  causeDetails = description || '';
+                }
+              }
+              if (causeDetails) {
+                statusLine = `❌ Test regressions detected — auto-merge is disabled (${causeDetails}).`;
+              } else {
+                statusLine = '❌ Test regressions detected — auto-merge is disabled (cause could not be determined from available data).';
+              }
+            } else if (statusFlag === 'error') {
+              statusLine = '⚠️ Regression checks did not complete — auto-merge is blocked.';
+            } else {
+              statusLine = '⚠️ Regression status unknown — auto-merge is blocked.';
+            }
+
+            const body = [ '<!-- automerge-pr-test-summary -->', '### Node.js regression test summary', '', table, '', statusLine ].join('\n');
 
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request?.number;
@@ -232,10 +539,32 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request.number;
-            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const loadPr = async () => (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const allowedStates = new Set(['clean','unstable','blocked','has_hooks']);
+
+            let pr = await loadPr();
 
             if (pr.draft) { core.notice(`Skip merge #${number}: draft.`); return; }
-            const ok = pr.mergeable === true && ['clean','unstable','blocked'].includes(String(pr.mergeable_state).toLowerCase());
+
+            const maxAttempts = 6;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const state = String(pr.mergeable_state || '').toLowerCase();
+              const mergeableKnown = pr.mergeable !== null && state && state !== 'unknown';
+              if (mergeableKnown) break;
+
+              if (attempt === maxAttempts) {
+                core.notice(`Skip merge #${number}: mergeability unresolved after ${maxAttempts} attempts (mergeable=${pr.mergeable}, state=${pr.mergeable_state}).`);
+                return;
+              }
+
+              core.info(`Mergeability pending for #${number} (attempt ${attempt}/${maxAttempts}): mergeable=${pr.mergeable}, state=${pr.mergeable_state}. Retrying in 5s...`);
+              await wait(5000);
+              pr = await loadPr();
+            }
+
+            const state = String(pr.mergeable_state || '').toLowerCase();
+            const ok = pr.mergeable === true && allowedStates.has(state);
             if (!ok) { core.notice(`Skip merge #${number}: mergeable=${pr.mergeable}, state=${pr.mergeable_state}.`); return; }
 
             await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });

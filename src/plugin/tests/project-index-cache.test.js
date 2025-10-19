@@ -11,7 +11,12 @@ import {
     ProjectIndexCacheMissReason,
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
-    PROJECT_INDEX_CACHE_SCHEMA_VERSION
+    PROJECT_INDEX_CACHE_SCHEMA_VERSION,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride
 } from "../src/project-index/index.js";
 import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
 
@@ -283,6 +288,40 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
     });
 });
 
+test("bootstrapProjectIndex records build failures without throwing", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestPath = path.join(projectRoot, "project.yyp");
+        await writeFile(manifestPath, "{}");
+        const scriptsDir = path.join(projectRoot, "scripts");
+        await mkdir(scriptsDir, { recursive: true });
+        const scriptPath = path.join(scriptsDir, "main.gml");
+        await writeFile(scriptPath, "// script\n");
+
+        const failure = new Error("index build failed");
+        const coordinator = {
+            async ensureReady() {
+                throw failure;
+            },
+            dispose() {}
+        };
+
+        const options = {
+            filepath: scriptPath,
+            __identifierCaseProjectIndexCoordinator: coordinator
+        };
+
+        const result = await bootstrapProjectIndex(options);
+
+        assert.equal(result.status, "failed");
+        assert.equal(result.reason, "build-error");
+        assert.equal(result.projectIndex, null);
+        assert.equal(result.projectRoot, projectRoot);
+        assert.equal(result.error, failure);
+        assert.equal(options.__identifierCaseProjectIndexBootstrap, result);
+        assert.equal(typeof result.dispose, "function");
+    });
+});
+
 test("loadProjectIndexCache reports version mismatches", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
@@ -370,11 +409,13 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
 
 test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
     await withTempDir(async (projectRoot) => {
+        const manifestBase = 1_700_000_000_000;
         const manifestMtimes = {
-            "project.yyp": 1_700_000_000_000.1234
+            "project.yyp": manifestBase + 0.1234
         };
+        const sourceBase = 1_700_000_000_500;
         const sourceMtimes = {
-            "scripts/main.gml": 1_700_000_000_500.5678
+            "scripts/main.gml": sourceBase + 0.5678
         };
 
         await saveProjectIndexCache({
@@ -677,3 +718,93 @@ test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", a
     assert.equal(savedDescriptors[0].maxSizeBytes, 99);
     coordinator.dispose();
 });
+
+// The tests below all exercise the global default cache size. When they ran in
+// parallel the shared default from one case could bleed into another, leading
+// to assertions that intermittently observed a mutated baseline. Running them
+// sequentially keeps the shared state deterministic without relying on timing
+// quirks or the test scheduler's execution order.
+test.describe(
+    "project index cache default size overrides",
+    { concurrency: false },
+    () => {
+        test("project index cache max size can be tuned programmatically", () => {
+            const originalMax = getDefaultProjectIndexCacheMaxSize();
+
+            try {
+                const baseline = setDefaultProjectIndexCacheMaxSize(
+                    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
+                );
+                assert.equal(baseline, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+
+                const lowered = setDefaultProjectIndexCacheMaxSize(1024);
+                assert.equal(lowered, 1024);
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 1024);
+
+                const reset =
+                    setDefaultProjectIndexCacheMaxSize("not-a-number");
+                assert.equal(reset, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+                assert.equal(
+                    getDefaultProjectIndexCacheMaxSize(),
+                    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
+                );
+
+                const unlimited = setDefaultProjectIndexCacheMaxSize(0);
+                assert.equal(unlimited, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+            } finally {
+                setDefaultProjectIndexCacheMaxSize(originalMax);
+            }
+        });
+
+        test("environment overrides apply before using cache max size default", () => {
+            const originalMax = getDefaultProjectIndexCacheMaxSize();
+
+            try {
+                applyProjectIndexCacheEnvOverride({
+                    [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "2048"
+                });
+
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 2048);
+            } finally {
+                setDefaultProjectIndexCacheMaxSize(originalMax);
+            }
+        });
+
+        test("createProjectIndexCoordinator uses configured default cache max size", async () => {
+            const originalMax = getDefaultProjectIndexCacheMaxSize();
+            let coordinator = null;
+
+            try {
+                setDefaultProjectIndexCacheMaxSize(4096);
+
+                const savedDescriptors = [];
+                coordinator = createProjectIndexCoordinator({
+                    loadCache: async () => ({
+                        status: "miss",
+                        cacheFilePath: "virtual-cache.json",
+                        reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+                    }),
+                    saveCache: async (descriptor) => {
+                        savedDescriptors.push(descriptor);
+                        return {
+                            status: "written",
+                            cacheFilePath:
+                                descriptor.cacheFilePath ??
+                                "virtual-cache.json",
+                            size: 0
+                        };
+                    },
+                    buildIndex: async () => createProjectIndex("/project")
+                });
+
+                await coordinator.ensureReady({ projectRoot: "/project" });
+
+                assert.equal(savedDescriptors.length, 1);
+                assert.equal(savedDescriptors[0].maxSizeBytes, 4096);
+            } finally {
+                setDefaultProjectIndexCacheMaxSize(originalMax);
+                coordinator?.dispose();
+            }
+        });
+    }
+);

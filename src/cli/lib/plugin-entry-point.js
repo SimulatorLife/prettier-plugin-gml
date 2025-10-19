@@ -82,27 +82,49 @@ function collectCandidatePaths({ env, candidates } = {}) {
     ];
 }
 
-export function resolvePluginEntryPoint({ env, candidates } = {}) {
-    const orderedCandidates = collectCandidatePaths({
-        env: env ?? process.env,
-        candidates
-    });
+function resolveCandidatePathsInOrder(candidates) {
     const resolvedCandidates = [];
 
-    for (const candidate of orderedCandidates) {
+    for (const candidate of candidates) {
         const resolved = resolveCandidatePath(candidate);
         if (!resolved || resolvedCandidates.includes(resolved)) {
             continue;
         }
 
         resolvedCandidates.push(resolved);
-        if (fs.existsSync(resolved)) {
-            return resolved;
+    }
+
+    return resolvedCandidates;
+}
+
+function findFirstExistingPath(candidates) {
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
         }
     }
 
-    throw new Error(
+    return null;
+}
+
+function createMissingEntryPointError(resolvedCandidates) {
+    return new Error(
         "Unable to locate the Prettier plugin entry point. Expected one of: " +
             resolvedCandidates.join(", ")
     );
+}
+
+export function resolvePluginEntryPoint({ env, candidates } = {}) {
+    const orderedCandidates = collectCandidatePaths({
+        env: env ?? process.env,
+        candidates
+    });
+    const resolvedCandidates = resolveCandidatePathsInOrder(orderedCandidates);
+    const existingPath = findFirstExistingPath(resolvedCandidates);
+
+    if (existingPath) {
+        return existingPath;
+    }
+
+    throw createMissingEntryPointError(resolvedCandidates);
 }

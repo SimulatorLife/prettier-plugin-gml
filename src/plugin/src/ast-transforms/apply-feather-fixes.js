@@ -11,12 +11,14 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
     isNode
 } from "../../../shared/ast-node-helpers.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toNormalizedLowerCaseString,
@@ -25,7 +27,11 @@ import {
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
-import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    getOrCreateMapEntry,
+    hasOwn,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import {
     hasIterableItems,
@@ -35,7 +41,8 @@ import {
 import {
     collectCommentNodes,
     getCommentArray,
-    hasComment
+    hasComment,
+    getDocCommentManager
 } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -1999,10 +2006,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         if (node.type === "CallExpression") {
             const calleeName = getCallExpressionIdentifierName(node);
 
-            if (
-                calleeName &&
-                GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)
-            ) {
+            if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
                 const args = getCallExpressionArguments(node);
@@ -3025,7 +3029,7 @@ function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
 }
 
 function createReadOnlyReplacementName(originalName, nameRegistry) {
-    const baseName = isNonEmptyString(originalName) ? originalName : "value";
+    const baseName = getNonEmptyString(originalName) ?? "value";
     const sanitized = baseName.replaceAll(/[^a-zA-Z0-9_]/g, "_");
     let candidate = `__feather_${sanitized}`;
     let suffix = 1;
@@ -3732,9 +3736,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
+    const docCommentManager = getDocCommentManager(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
-        sourceText
+        sourceText,
+        docCommentManager
     );
 
     const visit = (node) => {
@@ -3989,15 +3995,51 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentManager) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const comments = getCommentArray(ast);
-    const paramComments = comments
+    const manager = docCommentManager ?? getDocCommentManager(ast);
+
+    manager.forEach((node, comments = []) => {
+        if (!isFunctionLikeNode(node)) {
+            return;
+        }
+
+        const documentedNames = extractDocumentedParamNames(
+            node,
+            comments,
+            sourceText
+        );
+
+        if (documentedNames.size > 0) {
+            lookup.set(node, documentedNames);
+        }
+    });
+
+    return lookup;
+}
+
+function extractDocumentedParamNames(functionNode, docComments, sourceText) {
+    const documentedNames = new Set();
+    if (!functionNode || typeof functionNode !== "object") {
+        return documentedNames;
+    }
+
+    if (!isNonEmptyArray(docComments)) {
+        return documentedNames;
+    }
+
+    const functionStart = getNodeStartIndex(functionNode);
+
+    if (typeof functionStart !== "number") {
+        return documentedNames;
+    }
+
+    const paramComments = docComments
         .filter(
             (comment) =>
                 comment &&
@@ -4006,72 +4048,25 @@ function buildDocumentedParamNameLookup(ast, sourceText) {
                 /@param\b/i.test(comment.value)
         )
         .sort((left, right) => {
-            const leftStart =
-                typeof left.start === "number"
-                    ? left.start
-                    : Number.NEGATIVE_INFINITY;
-            const rightStart =
-                typeof right.start === "number"
-                    ? right.start
-                    : Number.NEGATIVE_INFINITY;
+            const leftStart = getCommentStartIndex(left);
+            const rightStart = getCommentStartIndex(right);
+
+            if (leftStart == null && rightStart == null) {
+                return 0;
+            }
+
+            if (leftStart == null) {
+                return -1;
+            }
+
+            if (rightStart == null) {
+                return 1;
+            }
+
             return leftStart - rightStart;
         });
 
     if (paramComments.length === 0) {
-        return lookup;
-    }
-
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                visit(child);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (isFunctionLikeNode(node)) {
-            const documentedNames = extractDocumentedParamNames(
-                node,
-                paramComments,
-                sourceText
-            );
-
-            if (documentedNames.size > 0) {
-                lookup.set(node, documentedNames);
-            }
-
-            return;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
-
-    return lookup;
-}
-
-function extractDocumentedParamNames(functionNode, paramComments, sourceText) {
-    const documentedNames = new Set();
-    if (!functionNode || typeof functionNode !== "object") {
-        return documentedNames;
-    }
-
-    const functionStart = getNodeStartIndex(functionNode);
-
-    if (typeof functionStart !== "number") {
         return documentedNames;
     }
 
@@ -4192,7 +4187,7 @@ function normalizeDocParamNameForComparison(name) {
 }
 
 function createArgumentIndexMapping(indices) {
-    if (!Array.isArray(indices) || indices.length === 0) {
+    if (!isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -4887,7 +4882,7 @@ function convertMultidimensionalMemberIndex(
 }
 
 function buildNestedMemberIndexExpression({ object, indices, template }) {
-    if (!object || !Array.isArray(indices) || indices.length === 0) {
+    if (!object || !isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -4998,7 +4993,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     };
 
     const processStatementList = (container, statements) => {
-        if (!Array.isArray(statements) || statements.length === 0) {
+        if (!isNonEmptyArray(statements)) {
             return;
         }
 
@@ -6182,7 +6177,12 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const deprecatedFunctions = collectDeprecatedFunctionNames(ast, sourceText);
+    const docCommentManager = getDocCommentManager(ast);
+    const deprecatedFunctions = collectDeprecatedFunctionNames(
+        ast,
+        sourceText,
+        docCommentManager
+    );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
         return [];
@@ -6269,79 +6269,53 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
     const names = new Set();
 
-    if (!ast || typeof ast !== "object") {
+    if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
         return names;
     }
 
-    const comments = getCommentArray(ast);
     const body = getBodyStatements(ast);
 
-    if (comments.length === 0 || body.length === 0) {
+    if (!isNonEmptyArray(body)) {
         return names;
     }
 
-    const sortedComments = comments
-        .filter((comment) => typeof getCommentEndIndex(comment) === "number")
-        .sort(
-            (left, right) =>
-                getCommentEndIndex(left) - getCommentEndIndex(right)
-        );
+    const topLevelFunctions = new Set(
+        body.filter(
+            (node) =>
+                node &&
+                typeof node === "object" &&
+                node.type === "FunctionDeclaration"
+        )
+    );
 
-    const nodes = body
-        .filter((node) => node && typeof node === "object")
-        .sort((left, right) => {
-            const leftIndex = getNodeStartIndex(left);
-            const rightIndex = getNodeStartIndex(right);
+    if (topLevelFunctions.size === 0) {
+        return names;
+    }
 
-            if (
-                typeof leftIndex !== "number" ||
-                typeof rightIndex !== "number"
-            ) {
-                return 0;
-            }
+    const manager = docCommentManager ?? getDocCommentManager(ast);
 
-            return leftIndex - rightIndex;
-        });
-
-    let commentIndex = 0;
-
-    for (const node of nodes) {
-        if (!node || node.type !== "FunctionDeclaration") {
-            continue;
+    manager.forEach((node, comments = []) => {
+        if (!topLevelFunctions.has(node)) {
+            return;
         }
 
         const startIndex = getNodeStartIndex(node);
 
         if (typeof startIndex !== "number") {
-            continue;
+            return;
         }
 
-        while (
-            commentIndex < sortedComments.length &&
-            getCommentEndIndex(sortedComments[commentIndex]) < startIndex
-        ) {
-            commentIndex += 1;
-        }
+        const deprecatedComment = findDeprecatedDocComment(
+            comments,
+            startIndex,
+            sourceText
+        );
 
-        const comment = sortedComments[commentIndex - 1];
-
-        if (!isDeprecatedComment(comment)) {
-            continue;
-        }
-
-        const commentEnd = getCommentEndIndex(comment);
-
-        if (typeof commentEnd !== "number") {
-            continue;
-        }
-
-        const between = sourceText.slice(commentEnd + 1, startIndex);
-
-        if (!isWhitespaceOnly(between)) {
-            continue;
+        if (!deprecatedComment) {
+            return;
         }
 
         const identifier =
@@ -6350,9 +6324,37 @@ function collectDeprecatedFunctionNames(ast, sourceText) {
         if (identifier) {
             names.add(identifier);
         }
-    }
+    });
 
     return names;
+}
+
+function findDeprecatedDocComment(docComments, functionStart, sourceText) {
+    if (!isNonEmptyArray(docComments)) {
+        return null;
+    }
+
+    for (let index = docComments.length - 1; index >= 0; index -= 1) {
+        const comment = docComments[index];
+
+        if (!isDeprecatedComment(comment)) {
+            continue;
+        }
+
+        const commentEnd = getCommentEndIndex(comment);
+
+        if (typeof commentEnd !== "number" || commentEnd >= functionStart) {
+            continue;
+        }
+
+        if (!isWhitespaceBetween(commentEnd + 1, functionStart, sourceText)) {
+            continue;
+        }
+
+        return comment;
+    }
+
+    return null;
 }
 
 function getCommentEndIndex(comment) {
@@ -6379,10 +6381,6 @@ function isDeprecatedComment(comment) {
     }
 
     return /@deprecated\b/i.test(comment.value);
-}
-
-function isWhitespaceOnly(text) {
-    return !isNonEmptyTrimmedString(text);
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
@@ -6519,7 +6517,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "FunctionDeclaration") {
-            const functionName = isNonEmptyString(node.id) ? node.id : null;
+            const functionName = getNonEmptyString(node.id);
 
             if (functionName && !functionDeclarations.has(functionName)) {
                 functionDeclarations.set(functionName, node);
@@ -8248,21 +8246,13 @@ function getStatementInsertionInfo(state, statements, baseIndex) {
         state.statementInsertionOffsets = new WeakMap();
     }
 
-    let arrayInfo = state.statementInsertionOffsets.get(statements);
+    const arrayInfo = getOrCreateMapEntry(
+        state.statementInsertionOffsets,
+        statements,
+        () => new Map()
+    );
 
-    if (!arrayInfo) {
-        arrayInfo = new Map();
-        state.statementInsertionOffsets.set(statements, arrayInfo);
-    }
-
-    let info = arrayInfo.get(baseIndex);
-
-    if (!info) {
-        info = { offset: 0 };
-        arrayInfo.set(baseIndex, info);
-    }
-
-    return info;
+    return getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
 }
 
 function findStatementContext(ancestors) {
@@ -10031,7 +10021,7 @@ function ensurePrimitiveBeginBeforeEnd({
 }
 
 function hasAncestorDrawPrimitiveBegin({ ancestors, currentStatements }) {
-    if (!Array.isArray(ancestors) || ancestors.length === 0) {
+    if (!isNonEmptyArray(ancestors)) {
         return false;
     }
 
@@ -10156,7 +10146,7 @@ function ensurePrimitiveSequenceBalance(
     fixes,
     diagnostic
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -10266,7 +10256,7 @@ function liftDrawPrimitiveEndCallFromConditional(
 }
 
 function removeSyntheticDrawPrimitiveBeginInsertedByGM2028(statements) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return false;
     }
 
@@ -10755,7 +10745,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
         if (Array.isArray(node)) {
             const normalizedFixes = normalizeDrawVertexStatements(
                 node,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (isNonEmptyArray(normalizedFixes)) {
@@ -10785,8 +10776,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
     return fixes;
 }
 
-function normalizeDrawVertexStatements(statements, diagnostic) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+function normalizeDrawVertexStatements(statements, diagnostic, ast) {
+    if (!isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -10828,6 +10819,7 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        const primitiveEnd = statements[endIndex] ?? null;
         const vertexStatements = statements.slice(index, blockEnd + 1);
         const fixDetails = [];
 
@@ -10858,13 +10850,100 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        if (primitiveEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
+        }
+
         statements.splice(index, 0, primitiveBegin);
+        attachLeadingCommentsToWrappedPrimitive({
+            ast,
+            primitiveBegin,
+            vertexStatements,
+            statements,
+            insertionIndex: index
+        });
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
     }
 
     return fixes;
+}
+
+function attachLeadingCommentsToWrappedPrimitive({
+    ast,
+    primitiveBegin,
+    vertexStatements,
+    statements,
+    insertionIndex
+}) {
+    if (
+        !ast ||
+        !primitiveBegin ||
+        !Array.isArray(vertexStatements) ||
+        vertexStatements.length === 0 ||
+        !Array.isArray(statements) ||
+        typeof insertionIndex !== "number"
+    ) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!isNonEmptyArray(comments)) {
+        return;
+    }
+
+    const firstVertex = vertexStatements[0];
+
+    const firstVertexStart = getNodeStartIndex(firstVertex);
+
+    if (typeof firstVertexStart !== "number") {
+        return;
+    }
+
+    const precedingStatement =
+        insertionIndex > 0 ? (statements[insertionIndex - 1] ?? null) : null;
+
+    const previousEndIndex =
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > firstVertexStart) {
+            continue;
+        }
+
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string" ? comment.value.trim() : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = primitiveBegin;
+    }
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
@@ -12208,7 +12287,7 @@ function attachLeadingCommentsToHoistedDeclaration({
 
     const comments = collectCommentNodes(ast);
 
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return;
     }
 
@@ -12219,9 +12298,7 @@ function attachLeadingCommentsToHoistedDeclaration({
     }
 
     const previousEndIndex =
-        precedingStatement != null
-            ? getNodeEndIndex(precedingStatement)
-            : null;
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
 
     let attachedComment = false;
 
@@ -12248,17 +12325,12 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        if (
-            previousEndIndex != null &&
-            commentStartIndex < previousEndIndex
-        ) {
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
             continue;
         }
 
         const trimmedValue =
-            typeof comment.value === "string"
-                ? comment.value.trim()
-                : "";
+            typeof comment.value === "string" ? comment.value.trim() : "";
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -13049,7 +13121,7 @@ function createEnumMember(name) {
 }
 
 function getEnumInsertionIndex(members) {
-    if (!Array.isArray(members) || members.length === 0) {
+    if (!isNonEmptyArray(members)) {
         return Array.isArray(members) ? members.length : 0;
     }
 
@@ -13995,7 +14067,7 @@ function hasTrailingGpuPopInAlternate(alternate) {
 }
 
 function findTrailingGpuPopIndex(statements) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return -1;
     }
 
@@ -14151,7 +14223,7 @@ function sanitizeFileFindCalls(
     diagnostic,
     metadataRoot
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -14354,7 +14426,7 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
 }
 
 function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -14907,7 +14979,7 @@ function isInstanceCreateIdentifier(node) {
 }
 
 function findStructArgument(args) {
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return null;
     }
 
@@ -15403,19 +15475,11 @@ function isIdentifier(node) {
 }
 
 function isDrawPrimitiveBeginCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_begin");
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
 
 function isDrawPrimitiveEndCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_end");
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, name);
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_end");
 }
 
 function createPrimitiveBeginCall(template) {
@@ -16181,39 +16245,34 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
     }
 
     let encounteredOptional = false;
-    let needsReordering = false;
+    let appliedChanges = false;
 
-    for (const param of params) {
+    for (let index = 0; index < params.length; index += 1) {
+        const param = params[index];
+
         if (isOptionalParameter(param)) {
             encounteredOptional = true;
-        } else if (encounteredOptional) {
-            needsReordering = true;
-            break;
+            continue;
         }
+
+        if (!encounteredOptional) {
+            continue;
+        }
+
+        const converted = convertParameterToUndefinedDefault(param);
+
+        if (!converted) {
+            continue;
+        }
+
+        params[index] = converted;
+        appliedChanges = true;
     }
 
-    if (!needsReordering) {
+    if (!appliedChanges) {
         return null;
     }
 
-    const requiredParams = [];
-    const optionalParams = [];
-
-    for (const param of params) {
-        if (isOptionalParameter(param)) {
-            optionalParams.push(param);
-        } else {
-            requiredParams.push(param);
-        }
-    }
-
-    const reorderedParams = requiredParams.concat(optionalParams);
-
-    if (reorderedParams.length !== params.length) {
-        return null;
-    }
-
-    node.params = reorderedParams;
     node._flattenSyntheticNumericParens = true;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -16231,6 +16290,36 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function convertParameterToUndefinedDefault(parameter) {
+    if (!parameter || parameter.type !== "Identifier") {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(parameter);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const defaultParameter = {
+        type: "DefaultParameter",
+        left: identifier,
+        right: createLiteral("undefined", parameter)
+    };
+
+    if (Object.hasOwn(parameter, "start")) {
+        defaultParameter.start = cloneLocation(parameter.start);
+    }
+
+    if (Object.hasOwn(parameter, "end")) {
+        defaultParameter.end = cloneLocation(parameter.end);
+    }
+
+    copyCommentMetadata(parameter, defaultParameter);
+
+    return defaultParameter;
 }
 
 function isOptionalParameter(parameter) {
@@ -17541,7 +17630,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
 }
 
 function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return [];
     }
 

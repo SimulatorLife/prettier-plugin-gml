@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 import prettier from "prettier";
 
@@ -32,20 +32,20 @@ test("prints undefined for missing optional arguments by default", async () => {
     assert.strictEqual(formatted, DEFAULT_FORMATTED);
 });
 
-test("respects missingOptionalArgumentPlaceholder='empty'", async () => {
-    const formatted = await format(SOURCE_LINES.join("\n"), {
-        missingOptionalArgumentPlaceholder: "empty"
-    });
+test("plugin no longer exposes removed options", async () => {
+    const pluginModule = await import(pathToFileURL(pluginPath).href);
 
-    assert.strictEqual(
-        formatted,
-        [
-            "",
-            "/// @function demo",
-            "function demo() {",
-            "    return func(1, , 3);",
-            "}",
-            ""
-        ].join("\n")
-    );
+    for (const optionName of [
+        "missingOptionalArgumentPlaceholder",
+        "allowTrailingCallArguments"
+    ]) {
+        assert.ok(
+            !Object.hasOwn(pluginModule.options, optionName),
+            `${optionName} must be absent from plugin metadata`
+        );
+        assert.ok(
+            !Object.hasOwn(pluginModule.defaultOptions, optionName),
+            `${optionName} must be absent from plugin defaults`
+        );
+    }
 });

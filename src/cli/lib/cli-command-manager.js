@@ -152,7 +152,10 @@ class CliCommandManager {
             return false;
         }
 
-        if (error.code === "commander.helpDisplayed") {
+        if (
+            error.code === "commander.helpDisplayed" ||
+            error.code === "commander.version"
+        ) {
             return true;
         }
 

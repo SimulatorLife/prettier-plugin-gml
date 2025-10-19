@@ -225,7 +225,6 @@ function scr_spring(a, b, dst, force) {
 	var actual_dist = xoff * xoff + yoff * yoff;
 	if (actual_dist == 0) {
         return false;
-    
     }
 	if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
 	    actual_dist = sqrt(actual_dist);
@@ -252,4 +251,22 @@ function scr_spring(a, b, dst, force) {
 	}
 
 	return false;
+}
+
+// Synthetic docs should be added to non-local methods
+
+/// @function get_debug_text
+get_debug_text = function() {
+	var txt = "";
+	txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
+	txt += $"\nLand type: {global.island.get_land_string(land_type)}";
+	txt += $"\nDirection: {round(direction)}";
+	if (!is_undefined(weapon)) {
+		txt += weapon.get_debug_text();
+	}
+	txt += hp.get_debug_text();
+	txt += states.get_debug_text();
+	txt += mover.get_debug_text();
+	txt += arm_r.get_debug_text();
+	return txt;
 }

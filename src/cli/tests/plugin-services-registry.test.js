@@ -58,8 +58,12 @@ test("CLI plugin service registration", async (t) => {
         assert.deepStrictEqual(
             defaultCliPluginServices,
             {
-                buildProjectIndex: defaultBuildProjectIndex,
-                prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
+                projectIndex: {
+                    buildProjectIndex: defaultBuildProjectIndex
+                },
+                identifierCasePlan: {
+                    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
+                }
             },
             "aggregated default CLI services should match individual defaults"
         );

@@ -3,7 +3,6 @@ import { print } from "../printer/print.js";
 import { handleComments, printComment } from "../comments/comment-printer.js";
 import { identifierCaseOptions } from "../options/identifier-case.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
-import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 export function createDefaultGmlPluginComponents() {
     return {
@@ -96,24 +95,6 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     "Preserve 'globalvar' declarations instead of eliding them during formatting."
             },
-            lineCommentBannerMinimumSlashes: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 5,
-                range: { start: 1, end: Infinity },
-                description:
-                    "Minimum number of consecutive '/' characters that must prefix a line comment before it is preserved verbatim."
-            },
-            lineCommentBannerAutofillThreshold: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: 4,
-                range: { start: 0, end: Infinity },
-                description:
-                    "Autofill banner comments up to the minimum slash count when they already start with this many '/' characters. Set to 0 to disable autofilling."
-            },
             lineCommentBoilerplateFragments: {
                 since: "0.0.0",
                 type: "string",
@@ -164,34 +145,6 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
             },
-            missingOptionalArgumentPlaceholder: {
-                since: "0.0.0",
-                type: "choice",
-                category: "gml",
-                default: MissingOptionalArgumentPlaceholder.UNDEFINED,
-                description:
-                    "Controls how omitted optional arguments are printed. Set to 'empty' to leave the slot blank instead of inserting 'undefined'.",
-                choices: [
-                    {
-                        value: MissingOptionalArgumentPlaceholder.UNDEFINED,
-                        description:
-                            "Fill missing optional arguments with the literal 'undefined'."
-                    },
-                    {
-                        value: MissingOptionalArgumentPlaceholder.EMPTY,
-                        description:
-                            "Leave missing optional arguments empty so calls render as consecutive commas."
-                    }
-                ]
-            },
-            fixMissingDecimalZeroes: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: true,
-                description:
-                    "Pads bare decimal literals with leading or trailing zeroes to improve readability. Set to false to preserve the original literal text."
-            },
             convertDivisionToMultiplication: {
                 since: "0.0.0",
                 type: "boolean",
@@ -223,55 +176,11 @@ export function createDefaultGmlPluginComponents() {
                 default: false,
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
-            },
-            allowTrailingCallArguments: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Reserved for future use; enabling this option currently has no effect because trailing call commas are normalized into missing optional argument placeholders (see 'missingOptionalArgumentPlaceholder')."
-            },
-            preserveLineBreaks: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Preserve user-authored line breaks in select syntactic constructs such as chained function calls."
-            },
-            maintainArrayIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Keep existing indentation for array literals instead of reindenting according to Prettier defaults."
-            },
-            maintainStructIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Keep existing indentation for struct literals instead of reindenting according to Prettier defaults."
-            },
-            maintainWithIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Preserve the indentation within 'with' statements rather than reindenting the body relative to the statement."
-            },
-            maintainSwitchIndentation: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Preserve the indentation inside 'switch' statements rather than reindenting cases relative to the switch body."
             }
+            // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
+            // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
+            // were intentionally removed so the formatter can enforce a single opinionated
+            // indentation strategy. Avoid re-adding escape hatches that contradict that goal.
         }
     };
 }

@@ -12,10 +12,10 @@ test("GML plugin components expose validated defaults", () => {
     assert.strictEqual(
         resolved,
         gmlPluginComponents,
-        "resolver should return the shared component registry"
+        "resolver should return the shared component bundle"
     );
 
-    assert.ok(Object.isFrozen(resolved), "component registry should be frozen");
+    assert.ok(Object.isFrozen(resolved), "component bundle should be frozen");
     assert.ok(
         Object.isFrozen(resolved.parsers),
         "parsers map should be frozen"
@@ -41,6 +41,20 @@ test("GML plugin components expose validated defaults", () => {
         Object.hasOwn(resolved.options, "optimizeLoopLengthHoisting"),
         "default options should be registered"
     );
+
+    // The formatter is intentionally opinionated—legacy indentation toggles must stay removed.
+    for (const removedOption of [
+        "preserveLineBreaks",
+        "maintainArrayIndentation",
+        "maintainStructIndentation",
+        "maintainWithIndentation",
+        "maintainSwitchIndentation"
+    ]) {
+        assert.ok(
+            !Object.hasOwn(resolved.options, removedOption),
+            `${removedOption} should stay unregistered`
+        );
+    }
 
     assert.strictEqual(
         resolveGmlPluginComponents(),

@@ -379,12 +379,17 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
-            const skippedMatch = stdout.match(/Skipped (\d+) files/);
+            const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
                 skippedMatch,
                 "Expected wrapper output to report skipped files"
             );
             assert.strictEqual(Number(skippedMatch[1]), 1);
+            assert.match(
+                stdout,
+                /Skipped 1 file because they were ignored or used different extensions\./,
+                "Expected wrapper output to include skip rationale"
+            );
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -732,7 +737,7 @@ describe("Prettier wrapper CLI", () => {
             );
             assert.match(
                 stdout,
-                /Skipped \d+ files/,
+                /Skipped 0 files\./,
                 "Expected stdout to summarize skipped files"
             );
 
@@ -769,5 +774,18 @@ describe("Prettier wrapper CLI", () => {
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
+    });
+
+    it("prints CLI version information without triggering error handling", async () => {
+        const { stdout, stderr } = await execFileAsync("node", [
+            wrapperPath,
+            "--version"
+        ]);
+
+        assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.ok(
+            stdout.trim().length > 0,
+            "Expected stdout to include a version label"
+        );
     });
 });

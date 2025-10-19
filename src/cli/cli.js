@@ -36,6 +36,7 @@ import {
     isErrorWithCode,
     isObjectLike,
     mergeUniqueValues,
+    normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
@@ -43,7 +44,10 @@ import {
     uniqueArray
 } from "../shared/utils.js";
 import { isErrorLike } from "../shared/utils/capability-probes.js";
-import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
+import {
+    collectAncestorDirectories,
+    isPathInside
+} from "../shared/path-utils.js";
 
 import {
     CliUsageError,
@@ -58,6 +62,7 @@ import {
     resetRegisteredIgnorePaths
 } from "./lib/ignore-path-registry.js";
 import { createCliCommandManager } from "./lib/cli-command-manager.js";
+import { resolveCliVersion } from "./lib/cli-version.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -159,29 +164,6 @@ async function resolvePrettier() {
     return prettierModulePromise;
 }
 
-function normalizeEnumeratedOption(
-    value,
-    fallbackValue,
-    validValues,
-    { coerce = toNormalizedLowerCaseString } = {}
-) {
-    if (value == undefined) {
-        return fallbackValue;
-    }
-
-    const normalized = coerce(value);
-
-    if (typeof normalized !== "string" || normalized.length === 0) {
-        return fallbackValue;
-    }
-
-    if (validValues.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
-}
-
 function coerceExtensionValue(value) {
     if (typeof value !== "string") {
         return null;
@@ -245,6 +227,11 @@ const program = applyStandardCommandOptions(new Command())
             "Utilities for working with the prettier-plugin-gml project.",
             "Provides formatting, benchmarking, and manual data generation commands."
         ].join(" \n")
+    )
+    .version(
+        resolveCliVersion(),
+        "-V, --version",
+        "Show CLI version information."
     );
 
 const { registry: cliCommandRegistry, runner: cliCommandRunner } =
@@ -960,16 +947,16 @@ async function processFile(filePath, activeIgnorePaths = []) {
     }
 }
 
-async function executeFormatCommand(command) {
-    const {
-        targetPathInput,
-        targetPathProvided,
-        extensions: configuredExtensions,
-        prettierLogLevel,
-        onParseError,
-        usage
-    } = collectFormatCommandOptions(command);
-
+/**
+ * Validate command input to ensure the caller supplied a usable target path.
+ *
+ * @param {{ targetPathProvided: boolean, targetPathInput: unknown, usage: string }} params
+ */
+function validateTargetPathInput({
+    targetPathProvided,
+    targetPathInput,
+    usage
+}) {
     if (targetPathProvided && !targetPathInput) {
         throw new CliUsageError(
             [
@@ -979,49 +966,148 @@ async function executeFormatCommand(command) {
             { usage }
         );
     }
+}
 
-    const targetPath = path.resolve(process.cwd(), targetPathInput ?? ".");
+/**
+ * Resolve the file system path that should be formatted.
+ *
+ * @param {unknown} targetPathInput
+ * @returns {string}
+ */
+function resolveTargetPathFromInput(targetPathInput) {
+    return path.resolve(process.cwd(), targetPathInput ?? ".");
+}
+
+/**
+ * Configure global state for a formatting run based on CLI flags.
+ *
+ * @param {{ configuredExtensions: readonly string[], prettierLogLevel: string, onParseError: string }} params
+ */
+async function prepareFormattingRun({
+    configuredExtensions,
+    prettierLogLevel,
+    onParseError
+}) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     await resetFormattingSession(onParseError);
+}
+
+/**
+ * Resolve metadata about the requested target and ensure it can be formatted.
+ *
+ * @param {string} targetPath
+ * @param {string} usage
+ * @returns {Promise<{ targetIsDirectory: boolean, projectRoot: string }>}
+ */
+async function resolveTargetContext(targetPath, usage) {
+    const targetStats = await resolveTargetStats(targetPath, { usage });
+    const targetIsDirectory = targetStats.isDirectory();
+
+    if (!targetIsDirectory && !targetStats.isFile()) {
+        throw new CliUsageError(
+            `${targetPath} is not a file or directory that can be formatted`,
+            { usage }
+        );
+    }
+
+    const projectRoot = targetIsDirectory
+        ? targetPath
+        : path.dirname(targetPath);
+
+    return { targetIsDirectory, projectRoot };
+}
+
+/**
+ * Process a single-file target when the CLI input does not resolve to a directory.
+ *
+ * @param {string} targetPath
+ */
+async function processNonDirectoryTarget(targetPath) {
+    if (shouldFormatFile(targetPath)) {
+        encounteredFormattableFile = true;
+        await processFile(targetPath, baseProjectIgnorePaths);
+        return;
+    }
+
+    skippedFileCount += 1;
+}
+
+/**
+ * Execute formatting for the resolved target after validation.
+ *
+ * @param {{ targetPath: string, targetIsDirectory: boolean, projectRoot: string }} params
+ */
+async function processResolvedTarget({
+    targetPath,
+    targetIsDirectory,
+    projectRoot
+}) {
+    await initializeProjectIgnorePaths(projectRoot);
+
+    if (targetIsDirectory) {
+        await processDirectory(targetPath);
+        return;
+    }
+
+    await processNonDirectoryTarget(targetPath);
+}
+
+/**
+ * Emit summary information about a formatting run.
+ *
+ * @param {{ targetPath: string, targetIsDirectory: boolean }} params
+ */
+function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
+    if (encounteredFormattableFile) {
+        logSkippedFileSummary();
+    } else {
+        logNoMatchingFiles({
+            targetPath,
+            targetIsDirectory,
+            extensions: targetExtensions
+        });
+    }
+    if (encounteredFormattingError) {
+        process.exitCode = 1;
+    }
+}
+
+/**
+ * Fully execute the formatting workflow for a validated target path.
+ *
+ * @param {{ targetPath: string, usage: string }} params
+ */
+async function runFormattingWorkflow({ targetPath, usage }) {
+    const { targetIsDirectory, projectRoot } = await resolveTargetContext(
+        targetPath,
+        usage
+    );
+
+    await processResolvedTarget({
+        targetPath,
+        targetIsDirectory,
+        projectRoot
+    });
+
+    finalizeFormattingRun({ targetPath, targetIsDirectory });
+}
+
+async function executeFormatCommand(command) {
+    const commandOptions = collectFormatCommandOptions(command);
+    const { usage, targetPathInput } = commandOptions;
+
+    validateTargetPathInput(commandOptions);
+
+    const targetPath = resolveTargetPathFromInput(targetPathInput);
+    await prepareFormattingRun({
+        configuredExtensions: commandOptions.extensions,
+        prettierLogLevel: commandOptions.prettierLogLevel,
+        onParseError: commandOptions.onParseError
+    });
 
     try {
-        const targetStats = await resolveTargetStats(targetPath, { usage });
-        const targetIsDirectory = targetStats.isDirectory();
-
-        if (!targetIsDirectory && !targetStats.isFile()) {
-            throw new CliUsageError(
-                `${targetPath} is not a file or directory that can be formatted`,
-                { usage }
-            );
-        }
-
-        const projectRoot = targetIsDirectory
-            ? targetPath
-            : path.dirname(targetPath);
-
-        await initializeProjectIgnorePaths(projectRoot);
-        if (targetIsDirectory) {
-            await processDirectory(targetPath);
-        } else if (shouldFormatFile(targetPath)) {
-            encounteredFormattableFile = true;
-            await processFile(targetPath, baseProjectIgnorePaths);
-        } else {
-            skippedFileCount += 1;
-        }
-
-        if (!encounteredFormattableFile) {
-            logNoMatchingFiles({
-                targetPath,
-                targetIsDirectory,
-                extensions: targetExtensions
-            });
-        }
-
-        console.debug(`Skipped ${skippedFileCount} files`);
-        if (encounteredFormattingError) {
-            process.exitCode = 1;
-        }
+        await runFormattingWorkflow({ targetPath, usage });
     } finally {
         await discardFormattedFileOriginalContents();
     }
@@ -1054,12 +1140,20 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
         );
     }
 
-    if (skippedFileCount > 0) {
-        const skipLabel = skippedFileCount === 1 ? "file" : "files";
-        console.log(
-            `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
-        );
+    logSkippedFileSummary();
+}
+
+function logSkippedFileSummary() {
+    const skipLabel = skippedFileCount === 1 ? "file" : "files";
+
+    if (skippedFileCount === 0) {
+        console.log(`Skipped 0 ${skipLabel}.`);
+        return;
     }
+
+    console.log(
+        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
+    );
 }
 
 const formatCommand = createFormatCommand({ name: "format" });

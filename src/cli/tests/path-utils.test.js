@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { isPathInside } from "../lib/path-utils.js";
+import { isPathInside } from "../../shared/path-utils.js";
 
 test("isPathInside returns true when child equals parent", () => {
     const root = path.join(process.cwd(), "tmp", "cli-path-utils");
