@@ -201,5 +201,14 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
+    // Avoid allocating an intermediate array via `Array#map` when converting the
+    // normalized values to lower case. This helper sits on the option parsing
+    // hot path, so trimming even a single allocation helps keep repeated calls
+    // inexpensive.
+    const normalizedSet = new Set();
+    for (const entry of normalizedValues) {
+        normalizedSet.add(entry.toLowerCase());
+    }
+
+    return normalizedSet;
 }
