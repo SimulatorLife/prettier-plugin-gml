@@ -34,15 +34,21 @@ function createManualVerboseState({
         return baseState;
     }
 
-    const definedOverrides = Object.fromEntries(
-        Object.entries(overrides).filter(([, value]) => value !== undefined)
-    );
+    let mergedState = baseState;
 
-    if (Object.keys(definedOverrides).length === 0) {
-        return baseState;
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined) {
+            continue;
+        }
+
+        if (mergedState === baseState) {
+            mergedState = { ...baseState };
+        }
+
+        mergedState[key] = value;
     }
 
-    return { ...baseState, ...definedOverrides };
+    return mergedState;
 }
 
 function assertPlainObject(value, message) {
