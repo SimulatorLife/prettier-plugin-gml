@@ -236,7 +236,8 @@ export default [
             "max-statements": "off",
             "sonarjs/no-duplicate-string": "off",
             complexity: ["warn", { max: 35 }],
-            "no-restricted-syntax": "off"
+            "no-restricted-syntax": "off",
+            "no-throw-literal": "warn"
         }
     },
 

@@ -11,7 +11,7 @@
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
 
-function toArrayFromIterable(values) {
+export function toArrayFromIterable(values) {
     if (values == null) {
         return [];
     }
@@ -28,7 +28,7 @@ function toArrayFromIterable(values) {
 }
 
 export function toArray(value) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
@@ -79,15 +79,9 @@ export function cloneObjectEntries(entries) {
         return [];
     }
 
-    const clones = new Array(entries.length);
-
-    for (let index = 0; index < entries.length; index += 1) {
-        const entry = entries[index];
-        clones[index] =
-            entry && typeof entry === "object" ? { ...entry } : entry;
-    }
-
-    return clones;
+    return entries.map((entry) =>
+        entry && typeof entry === "object" ? { ...entry } : entry
+    );
 }
 
 /**

@@ -36,6 +36,28 @@ function isEventInheritedCall(node) {
     return callee?.type === "Identifier" && callee.name === "event_inherited";
 }
 
+function getCallExpressionName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node.object?.name ?? null;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = node.expression;
+
+        if (expression && expression.type === "CallExpression") {
+            return expression.object?.name ?? null;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
 describe("Feather diagnostic fixer registry", () => {
     it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
@@ -2576,7 +2598,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
-    it("reorders optional parameters after required ones and records fix metadata", () => {
+    it("assigns undefined defaults to required parameters following optional ones", () => {
         const source = [
             "function example(a, b = 1, c, d = 2) {",
             "    return a + b + c + d;",
@@ -2593,24 +2615,43 @@ describe("applyFeatherFixes transform", () => {
         const [fn] = ast.body ?? [];
         assert.ok(fn);
 
-        const parameterNames = Array.isArray(fn.params)
-            ? fn.params.map((param) => {
-                  if (param?.type === "DefaultParameter") {
-                      return param.left?.name ?? null;
-                  }
+        const params = Array.isArray(fn.params) ? fn.params : [];
+        assert.strictEqual(params.length, 4);
 
-                  return param?.name ?? null;
-              })
-            : [];
+        const parameterNames = params.map((param) => {
+            if (param?.type === "DefaultParameter") {
+                return param.left?.name ?? null;
+            }
 
-        assert.deepStrictEqual(parameterNames, ["a", "c", "b", "d"]);
+            return param?.name ?? null;
+        });
 
-        const defaultParameters = fn.params.filter(
+        assert.deepStrictEqual(parameterNames, ["a", "b", "c", "d"]);
+
+        assert.strictEqual(params[0]?.type, "Identifier");
+        assert.strictEqual(params[0]?.name, "a");
+
+        assert.strictEqual(params[1]?.type, "DefaultParameter");
+        assert.strictEqual(params[1]?.left?.name, "b");
+
+        assert.strictEqual(params[2]?.type, "DefaultParameter");
+        assert.strictEqual(params[2]?.left?.name, "c");
+        assert.strictEqual(params[2]?.right?.value, "undefined");
+
+        assert.strictEqual(params[3]?.type, "DefaultParameter");
+        assert.strictEqual(params[3]?.left?.name, "d");
+
+        const defaultParameters = params.filter(
             (param) => param?.type === "DefaultParameter"
         );
-        assert.strictEqual(defaultParameters.length, 2);
+        assert.strictEqual(defaultParameters.length, 3);
         assert.strictEqual(defaultParameters[0].left?.name, "b");
-        assert.strictEqual(defaultParameters[1].left?.name, "d");
+        assert.strictEqual(defaultParameters[1].left?.name, "c");
+        assert.strictEqual(defaultParameters[2].left?.name, "d");
+        assert.strictEqual(
+            defaultParameters[1]._featherOptionalParameter,
+            true
+        );
 
         assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
         assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
@@ -2740,6 +2781,39 @@ describe("applyFeatherFixes transform", () => {
             true,
             "Expected GM2048 metadata to be recorded on the inserted reset call."
         );
+    });
+
+    it("suppresses blank lines when inserting GM2048 resets", () => {
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            'draw_text(0, 0, "Hello!");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = ast.body ?? [];
+
+        assert.deepStrictEqual(
+            statements.map((node) => node?.type),
+            ["CallExpression", "CallExpression", "CallExpression"]
+        );
+
+        const [disableCall, drawCall, resetCall] = statements;
+
+        assert.strictEqual(disableCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(drawCall.object?.name, "draw_text");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(
+            disableCall._featherSuppressFollowingEmptyLine,
+            true
+        );
+        assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
     });
 
     it("resets fog flagged by GM2050 and records metadata", () => {
@@ -2906,34 +2980,31 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it(
-        "formats alpha test resets without inserting extra blank lines",
-        async () => {
-            const source = [
-                "/// Draw Event",
-                "",
-                "gpu_set_alphatestenable(true);",
-                "",
-                "draw_self();"
-            ].join("\n");
+    it("formats alpha test resets without inserting extra blank lines", async () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "",
+            "draw_self();"
+        ].join("\n");
 
-            const formatted = await prettier.format(source, {
-                parser: "gml-parse",
-                plugins: [pluginPath],
-                applyFeatherFixes: true
-            });
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
 
-            const expected = [
-                "/// Draw Event",
-                "",
-                "gpu_set_alphatestenable(true);",
-                "draw_self();",
-                "gpu_set_alphatestenable(false);"
-            ].join("\n");
+        const expected = [
+            "/// Draw Event",
+            "",
+            "gpu_set_alphatestenable(true);",
+            "draw_self();",
+            "gpu_set_alphatestenable(false);"
+        ].join("\n");
 
-            assert.strictEqual(formatted.trimEnd(), expected);
-        }
-    );
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
 
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
@@ -3027,6 +3098,39 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
+    });
+
+    it("removes dangling vertex_format_end statements before beginning a new definition", () => {
+        const source = [
+            "vertex_format_end();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        const callNames = programBody
+            .map(getCallExpressionName)
+            .filter(Boolean);
+
+        assert.strictEqual(
+            callNames.at(0),
+            "vertex_format_begin",
+            "Expected the stray vertex_format_end statement to be removed before formatting begins."
+        );
+
+        assert.strictEqual(
+            callNames.filter((name) => name === "vertex_format_end").length,
+            0,
+            "Top-level vertex_format_end calls should be removed when no preceding begin exists."
+        );
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {
@@ -4132,6 +4236,40 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(
             callDiagnostics.some((entry) => entry.id === "GM2052"),
             true
+        );
+    });
+
+    it("suppresses blank lines when resetting colour write enable flagged by GM2052", () => {
+        const source = [
+            "/// Draw Event",
+            "",
+            "gpu_set_colourwriteenable(true, true, true, false);",
+            "",
+            "draw_sprite(sprite_index, 0, x, y);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
+        );
+
+        const [disableCall, drawCall] = statements;
+
+        assert.strictEqual(
+            disableCall?._featherSuppressFollowingEmptyLine,
+            true,
+            "Expected disabling call to suppress following blank lines."
+        );
+        assert.strictEqual(
+            drawCall?._featherSuppressLeadingEmptyLine,
+            true,
+            "Expected draw call to suppress leading blank lines."
         );
     });
 

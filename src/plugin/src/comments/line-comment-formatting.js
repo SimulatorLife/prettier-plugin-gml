@@ -1,6 +1,7 @@
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
@@ -116,7 +117,7 @@ function formatLineComment(
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { bannerMinimum, boilerplateFragments } = normalizedOptions;
+    const { boilerplateFragments } = normalizedOptions;
     const codeDetectionPatterns =
         normalizedOptions.codeDetectionPatterns ??
         (lineCommentOptions && typeof lineCommentOptions === "object"
@@ -125,8 +126,9 @@ function formatLineComment(
         DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const trimmedValue = comment.value.trim();
-    const rawValue = typeof comment.value === "string" ? comment.value : "";
+    const hasStringValue = typeof comment?.value === "string";
+    const rawValue = hasStringValue ? comment.value : "";
+    const trimmedValue = hasStringValue ? comment.value.trim() : "";
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -141,14 +143,17 @@ function formatLineComment(
     }
 
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
-    if (slashesMatch && slashesMatch[1].length >= bannerMinimum) {
+    if (
+        slashesMatch &&
+        slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+    ) {
         return applyInlinePadding(comment, original.trim());
     }
 
     if (
         trimmedOriginal.startsWith("///") &&
         !trimmedOriginal.includes("@") &&
-        leadingSlashCount >= bannerMinimum
+        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -192,9 +197,11 @@ function formatLineComment(
         ? [trimmedValue]
         : splitCommentIntoSentences(trimmedValue);
     if (sentences.length > 1) {
-        const formattedSentences = sentences.map((sentence) =>
-            applyInlinePadding(comment, `// ${sentence}`)
-        );
+        const continuationIndent = extractContinuationIndentation(comment);
+        const formattedSentences = sentences.map((sentence, index) => {
+            const line = applyInlinePadding(comment, `// ${sentence}`);
+            return index === 0 ? line : continuationIndent + line;
+        });
         return formattedSentences.join("\n");
     }
 
@@ -232,6 +239,24 @@ function applyInlinePadding(comment, formattedText) {
     }
 
     return formattedText;
+}
+
+function extractContinuationIndentation(comment) {
+    if (!isObjectLike(comment)) {
+        return "";
+    }
+
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+
+    if (leadingWhitespace.length === 0) {
+        return "";
+    }
+
+    const segments = leadingWhitespace.split(/\r?\n/);
+    const lastSegment = segments.at(-1) ?? "";
+
+    return lastSegment.replaceAll("\t", "    ");
 }
 
 function applyJsDocReplacements(text) {

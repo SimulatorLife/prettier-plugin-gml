@@ -19,11 +19,11 @@ MultiLineComment:               '/*' .*? '*/'             -> channel(HIDDEN);
 SingleLineComment:              '//' ~[\r\n\u2028\u2029]* -> channel(HIDDEN);
 
 OpenBracket: '[';
-ListAccessor: '[|'; 
-MapAccessor: '[?'; 
+ListAccessor: '[|';
+MapAccessor: '[?';
 GridAccessor: '[#';
 ArrayAccessor: '[@';
-StructAccessor: '[$'; 
+StructAccessor: '[$';
 CloseBracket:                   ']';
 
 OpenParen:                      '(';
@@ -141,7 +141,7 @@ EndRegion: '#endregion' -> pushMode(REGION_NAME);
 Identifier
     : IdentifierStart IdentifierPart*
     ;
-    
+
 /// String Literals
 
 StringLiteral: '"' StringCharacter* '"';
@@ -154,7 +154,7 @@ VerbatimStringLiteral
     : '@"' (~'"' | '""')* '"'
     | '@\'' (~'\'' | '\'\'')* '\''
     ;
-	
+
 /// Misc
 
 WhiteSpaces
@@ -183,7 +183,7 @@ UnexpectedCharacter
 fragment IdentifierStart
     : [\p{L}] | '_'
     ;
-    
+
 fragment IdentifierPart
     : IdentifierStart
     | [\p{Mn}]
@@ -199,13 +199,13 @@ fragment StringCharacter
 fragment HexLiteralPrefix
     : '0x' | '$' | '#'
     ;
-    
+
 fragment HexDigit
     : [_0-9a-fA-F]
     ;
 
 fragment SingleEscapeCharacter
-    : ['"\\bfnrtv]
+    : ['"\\bfnrtvBFNRTV]
     ;
 
 fragment DecimalIntegerLiteral
@@ -218,7 +218,7 @@ mode REGION_NAME;
 RegionCharacters
     : ~[\r\n\u2028\u2029]+
     ;
-    
+
 RegionEOL
     : [\r\n\u2028\u2029] -> popMode
     ;

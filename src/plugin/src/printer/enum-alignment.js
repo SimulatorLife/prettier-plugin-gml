@@ -74,28 +74,42 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
     const lastIndex = memberStats.length - 1;
 
-    for (const [index, entry] of memberStats.entries()) {
-        if (!isNonEmptyArray(entry.trailingComments)) {
+    // Manual index iteration avoids allocating iterator tuples from
+    // `Array#entries()` while the printer walks enum members.
+    for (let index = 0; index <= lastIndex; index += 1) {
+        const entry = memberStats[index];
+        const trailingComments = entry.trailingComments;
+        const trailingCount = trailingComments.length;
+
+        if (trailingCount === 0) {
+            continue;
+        }
+
+        const basePadding = maxMemberWidth - entry.memberWidth;
+        if (basePadding <= 0) {
             continue;
         }
 
         const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
-        const extraPadding = Math.max(
-            maxMemberWidth - (entry.memberWidth ?? 0) - commaWidth,
-            0
-        );
+        const extraPadding = basePadding - commaWidth;
 
-        if (extraPadding === 0) {
+        if (extraPadding <= 0) {
             continue;
         }
 
-        for (const comment of entry.trailingComments) {
-            if (comment && typeof comment === "object") {
-                const previous =
-                    typeof comment._enumTrailingPadding === "number"
-                        ? comment._enumTrailingPadding
-                        : 0;
-                comment._enumTrailingPadding = Math.max(previous, extraPadding);
+        for (
+            let commentIndex = 0;
+            commentIndex < trailingCount;
+            commentIndex += 1
+        ) {
+            const comment = trailingComments[commentIndex];
+            const previous = comment._enumTrailingPadding;
+
+            // Skip reassignments when another member already provided padding
+            // that meets or exceeds the computed width. This mirrors the
+            // original Math.max call while avoiding the extra allocation.
+            if (typeof previous !== "number" || previous < extraPadding) {
+                comment._enumTrailingPadding = extraPadding;
             }
         }
     }

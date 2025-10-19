@@ -12,7 +12,5 @@ export function isProjectManifestPath(candidate) {
         return false;
     }
 
-    return candidate.toLowerCase().endsWith(
-        PROJECT_MANIFEST_EXTENSION_LOWER
-    );
+    return candidate.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION_LOWER);
 }

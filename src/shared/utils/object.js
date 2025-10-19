@@ -1,5 +1,30 @@
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
+/**
+ * Ensure the provided value is callable. Centralizing this guard keeps
+ * defensive checks consistent across modules that accept callbacks while
+ * preserving the specific error messages historically raised by each call
+ * site.
+ *
+ * @param {unknown} value Candidate function to validate.
+ * @param {string} name Descriptive name used when constructing the error.
+ */
+export function assertFunction(value, name) {
+    if (typeof value !== "function") {
+        throw new TypeError(`${name} must be a function`);
+    }
+}
+
+/**
+ * Check whether the provided value is an object-like reference. This mirrors
+ * Lodash's definition, treating arrays and boxed primitives as object-like
+ * while excluding `null` and primitive scalars. Functions are intentionally
+ * omitted because the formatter exclusively passes structural metadata
+ * objects through this guard.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is object} `true` when `value` can safely accept property access.
+ */
 export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
@@ -24,9 +49,7 @@ export function isObjectLike(value) {
  *                                or `undefined` when no fallback is supplied.
  */
 export function withObjectLike(value, onObjectLike, onNotObjectLike) {
-    if (typeof onObjectLike !== "function") {
-        throw new TypeError("onObjectLike must be a function");
-    }
+    assertFunction(onObjectLike, "onObjectLike");
 
     if (!isObjectLike(value)) {
         return typeof onNotObjectLike === "function"
@@ -63,31 +86,77 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const keyList = Array.isArray(keys) ? keys : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of keyList) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Fast-path the singular key case to avoid allocating a temporary array on
-    // every call. Option lookups hit this branch the vast majority of the time,
-    // so skipping the extra allocation trims a few nanoseconds off tight
-    // formatter hot paths.
-    const value = object[keys];
-
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;
 }
 
+/**
+ * Determine whether `object` defines `key` as an own property. Defers to the
+ * intrinsic `Object.prototype.hasOwnProperty` to avoid accidental shadowing by
+ * user data, which regularly happens when processing user-authored AST nodes.
+ *
+ * @param {object} object Object to inspect for the property.
+ * @param {string | number | symbol} key Property name or symbol.
+ * @returns {boolean} `true` when the property exists directly on `object`.
+ */
 export function hasOwn(object, key) {
     return hasOwnProperty.call(object, key);
+}
+
+/**
+ * Retrieve the entry associated with {@link key} from a `Map`-like store,
+ * creating it with {@link initializer} when absent. Consolidates the
+ * repetitive pattern of checking for an entry, constructing a default value,
+ * and updating the map which appears throughout the CLI, project index, and
+ * Feather transforms.
+ *
+ * The helper intentionally accepts `Map` and `WeakMap` instances (anything
+ * implementing `get`, `set`, and `has`) so call sites can share the same
+ * utility regardless of whether keys are primitive values or objects. The
+ * initializer receives the key to support value derivation without requiring
+ * surrounding closures.
+ *
+ * @template TKey
+ * @template TValue
+ * @param {{
+ *     get(key: TKey): TValue | undefined;
+ *     set(key: TKey, value: TValue): unknown;
+ *     has(key: TKey): boolean;
+ * }} store Map-like collection storing the entry.
+ * @param {TKey} key Entry key to resolve.
+ * @param {(key: TKey) => TValue} initializer Factory invoked when the entry is
+ *        missing.
+ * @returns {TValue} Existing or newly created entry.
+ */
+export function getOrCreateMapEntry(store, key, initializer) {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
+        throw new TypeError("store must provide get and set functions");
+    }
+
+    if (typeof store.has !== "function") {
+        throw new TypeError("store must provide a has function");
+    }
+
+    assertFunction(initializer, "initializer");
+
+    if (store.has(key)) {
+        return store.get(key);
+    }
+
+    const value = initializer(key);
+    store.set(key, value);
+    return value;
 }

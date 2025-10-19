@@ -1,18 +1,15 @@
 import { mergeUniqueValues } from "../../../shared/array-utils.js";
 import {
     getNonEmptyTrimmedString,
-    isNonEmptyTrimmedString
+    isNonEmptyTrimmedString,
+    normalizeStringList
 } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createCachedOptionResolver } from "./options-cache.js";
-import {
-    coercePositiveIntegerOption,
-    normalizeStringList
-} from "./option-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
-const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
-const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
+const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
+const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     "Script assets have changed for v2.3.0",
@@ -27,41 +24,9 @@ const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
 ]);
 
 const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
-    bannerMinimum: DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES,
-    bannerAutofillThreshold: DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-    boilerplateFragments: DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS
+    boilerplateFragments: DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS,
+    codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
-
-function coerceBannerMinimum(value) {
-    return coercePositiveIntegerOption(
-        value,
-        DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-    );
-}
-
-function coerceBannerAutofillThreshold(value) {
-    return coercePositiveIntegerOption(
-        value,
-        DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD,
-        { zeroReplacement: Number.POSITIVE_INFINITY }
-    );
-}
-
-function createLineCommentOptions(
-    bannerMinimum,
-    bannerAutofillThreshold,
-    boilerplateFragments = DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS
-) {
-    return {
-        bannerMinimum,
-        bannerAutofillThreshold,
-        boilerplateFragments
-    };
-}
-
-function readLineCommentOption(value, fallback) {
-    return typeof value === "number" ? value : fallback;
-}
 
 function mergeBoilerplateFragments(
     rawFragments,
@@ -96,29 +61,20 @@ function mergeLineCommentOptionOverrides(overrides) {
         { requireArrayInput: true }
     );
 
-    const merged = createLineCommentOptions(
-        readLineCommentOption(
-            overrides.bannerMinimum,
-            DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES
-        ),
-        readLineCommentOption(
-            overrides.bannerAutofillThreshold,
-            DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD
-        ),
+    const hasCodeDetectionOverride =
+        overrides.codeDetectionPatterns !== undefined;
+
+    const merged = {
         boilerplateFragments
-    );
-
-    if (overrides.codeDetectionPatterns === undefined) {
-        return merged;
-    }
-
-    return {
-        ...merged,
-        codeDetectionPatterns: mergeCodeDetectionPatterns(
-            overrides.codeDetectionPatterns,
-            { allowStringLists: true }
-        )
     };
+
+    merged.codeDetectionPatterns = hasCodeDetectionOverride
+        ? mergeCodeDetectionPatterns(overrides.codeDetectionPatterns, {
+              allowStringLists: true
+          })
+        : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+
+    return merged;
 }
 
 const LINE_COMMENT_OPTIONS_CACHE_KEY = Symbol("lineCommentOptions");
@@ -130,18 +86,14 @@ const resolveLineCommentOptionsCached = createCachedOptionResolver({
             options.lineCommentCodeDetectionPatterns
         );
 
-        return mergeLineCommentOptionOverrides({
-            bannerMinimum: coerceBannerMinimum(
-                options.lineCommentBannerMinimumSlashes
-            ),
-            bannerAutofillThreshold: coerceBannerAutofillThreshold(
-                options.lineCommentBannerAutofillThreshold
-            ),
-            boilerplateFragments: getBoilerplateCommentFragments(options),
+        const boilerplateFragments = getBoilerplateCommentFragments(options);
+
+        return {
+            boilerplateFragments,
             codeDetectionPatterns: hasCodeDetectionOverrideValue
                 ? getLineCommentCodeDetectionPatterns(options)
-                : undefined
-        });
+                : DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+        };
     }
 });
 
@@ -159,15 +111,10 @@ function resolveLineCommentOptions(options) {
     }
 
     const {
-        lineCommentBannerMinimumSlashes,
-        lineCommentBannerAutofillThreshold,
         lineCommentBoilerplateFragments,
         lineCommentCodeDetectionPatterns
     } = options;
 
-    const hasBannerOverride =
-        lineCommentBannerMinimumSlashes !== undefined ||
-        lineCommentBannerAutofillThreshold !== undefined;
     const hasBoilerplateOverrideValue = hasBoilerplateOverride(
         lineCommentBoilerplateFragments
     );
@@ -176,11 +123,7 @@ function resolveLineCommentOptions(options) {
         lineCommentCodeDetectionPatterns
     );
 
-    if (
-        !hasBannerOverride &&
-        !hasBoilerplateOverrideValue &&
-        !hasCodeDetectionOverrideValue
-    ) {
+    if (!hasBoilerplateOverrideValue && !hasCodeDetectionOverrideValue) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -292,13 +235,8 @@ function getLineCommentCodeDetectionPatterns(options) {
 }
 
 function normalizeLineCommentOptions(lineCommentOptions) {
-    if (
-        typeof lineCommentOptions === "number" &&
-        Number.isFinite(lineCommentOptions)
-    ) {
-        return mergeLineCommentOptionOverrides({
-            bannerMinimum: lineCommentOptions
-        });
+    if (lineCommentOptions === DEFAULT_LINE_COMMENT_OPTIONS) {
+        return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
     if (lineCommentOptions && typeof lineCommentOptions === "object") {
@@ -311,6 +249,8 @@ function normalizeLineCommentOptions(lineCommentOptions) {
 export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    LINE_COMMENT_BANNER_STANDARD_LENGTH,
     getLineCommentCodeDetectionPatterns,
     normalizeLineCommentOptions,
     resolveLineCommentOptions

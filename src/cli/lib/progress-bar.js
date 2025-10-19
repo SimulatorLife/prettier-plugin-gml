@@ -1,13 +1,13 @@
-import {
-    coercePositiveInteger,
-    resolveIntegerOption
-} from "../../shared/utils.js";
 import { SingleBar, Presets } from "cli-progress";
 
+import {
+    coercePositiveInteger,
+    getOrCreateMapEntry,
+    resolveIntegerOption
+} from "./shared-deps.js";
+
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
-let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
 const activeProgressBars = new Map();
-let progressBarFactory = createDefaultProgressBar;
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -23,20 +23,11 @@ function coerceProgressBarWidth(value, { received }) {
 }
 
 function getDefaultProgressBarWidth() {
-    return configuredDefaultProgressBarWidth;
+    return DEFAULT_PROGRESS_BAR_WIDTH;
 }
 
-function setDefaultProgressBarWidth(width) {
-    configuredDefaultProgressBarWidth = coerceProgressBarWidth(width, {
-        received: width
-    });
-}
-
-function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    const fallback =
-        defaultWidth === undefined
-            ? getDefaultProgressBarWidth()
-            : defaultWidth;
+function resolveProgressBarWidth(rawValue) {
+    const fallback = getDefaultProgressBarWidth();
 
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
@@ -58,11 +49,6 @@ function createDefaultProgressBar(label, width) {
     );
 }
 
-function setProgressBarFactoryForTesting(factory) {
-    progressBarFactory =
-        typeof factory === "function" ? factory : createDefaultProgressBar;
-}
-
 function disposeProgressBars() {
     for (const [, bar] of activeProgressBars) {
         try {
@@ -80,15 +66,17 @@ function renderProgressBar(label, current, total, width) {
     }
 
     const normalizedTotal = total > 0 ? total : 1;
-    let bar = activeProgressBars.get(label);
+    const normalizedCurrent = Math.min(current, normalizedTotal);
+    const hadBar = activeProgressBars.has(label);
+    const bar = getOrCreateMapEntry(activeProgressBars, label, () =>
+        createDefaultProgressBar(label, width)
+    );
 
-    if (bar) {
+    if (hadBar) {
         bar.setTotal(normalizedTotal);
-        bar.update(Math.min(current, normalizedTotal));
+        bar.update(normalizedCurrent);
     } else {
-        bar = progressBarFactory(label, width);
-        bar.start(normalizedTotal, Math.min(current, normalizedTotal));
-        activeProgressBars.set(label, bar);
+        bar.start(normalizedTotal, normalizedCurrent);
     }
 
     if (current >= normalizedTotal) {
@@ -99,10 +87,8 @@ function renderProgressBar(label, current, total, width) {
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
-    getDefaultProgressBarWidth,
-    setDefaultProgressBarWidth,
-    renderProgressBar,
     disposeProgressBars,
-    setProgressBarFactoryForTesting,
+    getDefaultProgressBarWidth,
+    renderProgressBar,
     resolveProgressBarWidth
 };

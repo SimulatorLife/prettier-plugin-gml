@@ -1,4 +1,4 @@
-import { createMetricsTracker } from "../../../shared/metrics-tracker.js";
+import { createMetricsTracker } from "../../../shared/reporting.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_METHODS = [
@@ -35,30 +35,28 @@ function createMetricsSnapshot(extra = {}) {
     };
 }
 
-function createNoopProjectIndexMetrics() {
-    const snapshot = createMetricsSnapshot;
+const noop = () => {};
 
+const NOOP_METRIC_HANDLERS = Object.freeze({
+    incrementCounter: noop,
+    setMetadata: noop,
+    recordCacheHit: noop,
+    recordCacheMiss: noop,
+    recordCacheStale: noop,
+    logSummary: noop
+});
+
+const finalizeSnapshot = (extra = {}) => createMetricsSnapshot(extra);
+
+function createNoopProjectIndexMetrics() {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
-        startTimer() {
-            return () => {};
-        },
-        async timeAsync(_label, callback) {
-            return await callback();
-        },
-        timeSync(_label, callback) {
-            return callback();
-        },
-        incrementCounter() {},
-        setMetadata() {},
-        recordCacheHit() {},
-        recordCacheMiss() {},
-        recordCacheStale() {},
-        snapshot,
-        finalize(extra = {}) {
-            return createMetricsSnapshot(extra);
-        },
-        logSummary() {}
+        startTimer: () => () => {},
+        timeAsync: async (_label, callback) => await callback(),
+        timeSync: (_label, callback) => callback(),
+        snapshot: createMetricsSnapshot,
+        finalize: finalizeSnapshot,
+        ...NOOP_METRIC_HANDLERS
     };
 }
 

@@ -1,8 +1,8 @@
-import { toTrimmedString } from "../../shared/utils.js";
 import {
+    toTrimmedString,
     isAggregateErrorLike,
     isErrorLike
-} from "../../shared/utils/capability-probes.js";
+} from "./shared-deps.js";
 
 const DEFAULT_INDENT = "  ";
 

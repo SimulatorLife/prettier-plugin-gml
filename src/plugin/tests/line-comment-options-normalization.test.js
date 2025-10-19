@@ -21,19 +21,24 @@ function createLineComment(value, raw = `//${value}`) {
 describe("resolveLineCommentOptions", () => {
     it("caches resolved objects for repeated plugin option lookups", () => {
         const pluginOptions = {
-            lineCommentBannerMinimumSlashes: 7,
-            lineCommentBannerAutofillThreshold: 3,
-            lineCommentBoilerplateFragments: "Alpha, Beta"
+            lineCommentBoilerplateFragments: "Alpha, Beta",
+            lineCommentCodeDetectionPatterns: "/^SQL:/i"
         };
+
+        Object.freeze(pluginOptions);
 
         const first = resolveLineCommentOptions(pluginOptions);
         const second = resolveLineCommentOptions(pluginOptions);
 
         assert.strictEqual(first, second);
-        assert.equal(first.bannerMinimum, 7);
-        assert.equal(first.bannerAutofillThreshold, 3);
         assert.ok(first.boilerplateFragments.includes("Alpha"));
         assert.ok(first.boilerplateFragments.includes("Beta"));
+        assert.ok(
+            first.codeDetectionPatterns.some(
+                (pattern) =>
+                    pattern instanceof RegExp && pattern.source === "^SQL:"
+            )
+        );
     });
 
     it("falls back to defaults when no overrides are provided", () => {
@@ -96,20 +101,6 @@ describe("resolveLineCommentOptions", () => {
 });
 
 describe("formatLineComment", () => {
-    it("applies banner overrides passed directly to the formatter", () => {
-        const comment = createLineComment(" Banner", "/// Banner");
-
-        const formatted = formatLineComment(comment, { bannerMinimum: 3 });
-        assert.equal(formatted, "/// Banner");
-    });
-
-    it("accepts numeric banner overrides", () => {
-        const comment = createLineComment(" Banner", "/// Banner");
-
-        const formatted = formatLineComment(comment, 3);
-        assert.equal(formatted, "/// Banner");
-    });
-
     it("dedupes custom boilerplate fragments while normalizing options", () => {
         const comment = createLineComment(
             " Auto-generated file. Do not edit.",
