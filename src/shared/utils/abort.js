@@ -3,7 +3,7 @@ import { getNonEmptyString } from "./string.js";
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
 
-function hasErrorMetadata(value) {
+function shouldReuseAbortReason(value) {
     if (value == null) {
         return false;
     }
@@ -13,21 +13,41 @@ function hasErrorMetadata(value) {
         return false;
     }
 
-    if (ERROR_METADATA_KEYS.some((key) => key in value && value[key] != null)) {
-        return true;
-    }
-
-    return "cause" in value;
+    return (
+        ERROR_METADATA_KEYS.some((key) => value[key] != null) || "cause" in value
+    );
 }
 
-function ensureAbortErrorMetadata(error, fallbackMessage) {
+function toAbortMessage(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value == null) {
+        return null;
+    }
+
+    try {
+        return String(value);
+    } catch {
+        return null;
+    }
+}
+
+function normalizeAbortError(reason, fallbackMessage) {
+    const fallback = getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    const error = shouldReuseAbortReason(reason)
+        ? reason
+        : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
+
     if (!getNonEmptyString(error.name)) {
         error.name = "AbortError";
     }
 
-    const fallback =
-        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
-    error.message = getNonEmptyString(error.message) ?? fallback;
+    if (!getNonEmptyString(error.message)) {
+        error.message = fallback;
+    }
+
     return error;
 }
 
@@ -54,18 +74,7 @@ export function createAbortError(
         return null;
     }
 
-    const fallback =
-        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
-    const { reason } = signal;
-
-    if (hasErrorMetadata(reason)) {
-        return ensureAbortErrorMetadata(reason, fallback);
-    }
-
-    const message =
-        reason === undefined || reason === null ? null : String(reason);
-    const error = new Error(getNonEmptyString(message) ?? fallback);
-    return ensureAbortErrorMetadata(error, fallback);
+    return normalizeAbortError(signal.reason, fallbackMessage);
 }
 
 /**
