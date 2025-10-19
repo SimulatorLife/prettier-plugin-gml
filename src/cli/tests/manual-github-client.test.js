@@ -159,10 +159,9 @@ describe("manual GitHub client validation", () => {
             return next.response;
         };
 
-        const result = await client.references.resolveCommitFromRef(
-            "feature",
-            { apiRoot: API_ROOT }
-        );
+        const result = await client.references.resolveCommitFromRef("feature", {
+            apiRoot: API_ROOT
+        });
 
         assert.deepEqual(result, { ref: "feature", sha: "sha-feature" });
         assert.equal(responses.length, 0);

@@ -14,7 +14,8 @@ function shouldReuseAbortReason(value) {
     }
 
     return (
-        ERROR_METADATA_KEYS.some((key) => value[key] != null) || "cause" in value
+        ERROR_METADATA_KEYS.some((key) => value[key] != null) ||
+        "cause" in value
     );
 }
 
@@ -35,7 +36,8 @@ function toAbortMessage(value) {
 }
 
 function normalizeAbortError(reason, fallbackMessage) {
-    const fallback = getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    const fallback =
+        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
     const error = shouldReuseAbortReason(reason)
         ? reason
         : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);

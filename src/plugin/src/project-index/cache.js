@@ -5,7 +5,10 @@ import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
-import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import { createAbortGuard } from "./abort-guard.js";

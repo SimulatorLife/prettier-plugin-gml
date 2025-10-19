@@ -329,7 +329,11 @@ function normaliseIdentifier(name) {
     return name.trim();
 }
 
-function collectManualArrayIdentifiers(identifierMap, values, { type, source }) {
+function collectManualArrayIdentifiers(
+    identifierMap,
+    values,
+    { type, source }
+) {
     const entry = { type, sources: [source] };
 
     for (const value of values) {

@@ -149,7 +149,11 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (!store || typeof store.get !== "function" || typeof store.set !== "function") {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
         throw new TypeError("store must provide get and set functions");
     }
 
