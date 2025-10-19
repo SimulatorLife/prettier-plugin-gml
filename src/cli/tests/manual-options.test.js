@@ -9,7 +9,8 @@ import {
     normalizeManualRepository,
     resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot
+    resolveManualCacheRoot,
+    createManualVerboseState
 } from "../lib/manual-utils.js";
 import {
     applyManualEnvOptionOverrides,
@@ -19,9 +20,11 @@ import {
 } from "../lib/manual-env.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    getDefaultProgressBarWidth
 } from "../lib/progress-bar.js";
 import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -107,6 +110,93 @@ describe("manual option helpers", () => {
                 resolveManualCacheRoot({ repoRoot, env }),
                 path.join(repoRoot, "scripts", "cache", "manual")
             );
+        });
+    });
+
+    describe("resolveManualCommandOptions", () => {
+        it("normalizes shared manual options with command defaults", () => {
+            const command = {
+                opts() {
+                    return {};
+                },
+                helpInformation() {
+                    return "usage details";
+                }
+            };
+
+            const result = resolveManualCommandOptions(command, {
+                defaults: {
+                    ref: null,
+                    outputPath: "/tmp/output.json",
+                    cacheRoot: "/tmp/cache",
+                    manualRepo: "Example/Manual"
+                }
+            });
+
+            assert.deepStrictEqual(result, {
+                ref: null,
+                outputPath: "/tmp/output.json",
+                forceRefresh: false,
+                verbose: createManualVerboseState({
+                    quiet: false,
+                    isTerminal: process.stdout.isTTY === true
+                }),
+                progressBarWidth: getDefaultProgressBarWidth(),
+                cacheRoot: "/tmp/cache",
+                manualRepo: "Example/Manual",
+                usage: "usage details"
+            });
+        });
+
+        it("merges extras returned by the mapper and preserves explicit values", () => {
+            const command = {
+                opts() {
+                    return {
+                        ref: "release",
+                        output: "/custom.json",
+                        forceRefresh: true,
+                        quiet: true,
+                        progressBarWidth: 77,
+                        cacheRoot: "/custom/cache",
+                        manualRepo: "Example/Manual",
+                        vmEvalTimeoutMs: 6500
+                    };
+                },
+                helpInformation() {
+                    return "usage details";
+                }
+            };
+
+            const result = resolveManualCommandOptions(command, {
+                defaults: {
+                    outputPath: "/tmp/fallback.json",
+                    cacheRoot: "/tmp/cache",
+                    manualRepo: "Fallback/Manual"
+                },
+                mapExtras: ({ options }) => ({
+                    vmEvalTimeoutMs:
+                        options.vmEvalTimeoutMs === undefined
+                            ? 1234
+                            : options.vmEvalTimeoutMs,
+                    extra: true
+                })
+            });
+
+            assert.deepStrictEqual(result, {
+                ref: "release",
+                outputPath: "/custom.json",
+                forceRefresh: true,
+                verbose: createManualVerboseState({
+                    quiet: true,
+                    isTerminal: process.stdout.isTTY === true
+                }),
+                progressBarWidth: 77,
+                cacheRoot: "/custom/cache",
+                manualRepo: "Example/Manual",
+                usage: "usage details",
+                vmEvalTimeoutMs: 6500,
+                extra: true
+            });
         });
     });
 
