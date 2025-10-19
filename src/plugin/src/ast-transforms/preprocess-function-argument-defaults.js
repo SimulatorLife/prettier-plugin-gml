@@ -165,6 +165,14 @@ function preprocessFunctionDeclaration(node, helpers) {
     }
 
     const statements = body.body;
+
+    const params = Array.isArray(node.params) ? node.params : [];
+    if (!Array.isArray(node.params)) {
+        node.params = params;
+    }
+
+    ensureTrailingOptionalParameters(params);
+
     const matches = [];
 
     for (const [statementIndex, statement] of statements.entries()) {
@@ -191,11 +199,6 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         return a.statementIndex - b.statementIndex;
     });
-
-    const params = Array.isArray(node.params) ? node.params : [];
-    if (!Array.isArray(node.params)) {
-        node.params = params;
-    }
 
     const paramInfoByName = new Map();
     for (const [index, param] of params.entries()) {
@@ -669,6 +672,58 @@ function extractAssignmentFromStatement(statement, helpers) {
     }
 
     return expression;
+}
+
+function ensureTrailingOptionalParameters(params) {
+    if (!Array.isArray(params) || params.length === 0) {
+        return;
+    }
+
+    let hasOptionalParameter = false;
+
+    for (let index = 0; index < params.length; index += 1) {
+        const param = params[index];
+
+        if (!param || typeof param !== "object") {
+            continue;
+        }
+
+        if (param.type === "DefaultParameter") {
+            hasOptionalParameter = true;
+            continue;
+        }
+
+        if (param.type === "Identifier") {
+            if (!hasOptionalParameter) {
+                continue;
+            }
+
+            const defaultParameter = {
+                type: "DefaultParameter",
+                left: param,
+                right: createUndefinedLiteral(),
+                _preserveUndefinedDefault: true
+            };
+            if (Object.hasOwn(param, "start")) {
+                defaultParameter.start = param.start;
+            }
+            if (Object.hasOwn(param, "end")) {
+                defaultParameter.end = param.end;
+            }
+
+            params[index] = defaultParameter;
+            hasOptionalParameter = true;
+            continue;
+        }
+
+        if (param.type === "MissingOptionalArgument") {
+            hasOptionalParameter = true;
+        }
+    }
+}
+
+function createUndefinedLiteral() {
+    return { type: "Literal", value: "undefined" };
 }
 
 /**

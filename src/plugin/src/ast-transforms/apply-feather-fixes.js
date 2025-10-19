@@ -16182,14 +16182,48 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
     let encounteredOptional = false;
     let needsReordering = false;
+    let convertedAnyParameter = false;
 
-    for (const param of params) {
+    for (let index = 0; index < params.length; index += 1) {
+        const param = params[index];
+
         if (isOptionalParameter(param)) {
             encounteredOptional = true;
-        } else if (encounteredOptional) {
+            continue;
+        }
+
+        if (!encounteredOptional) {
+            continue;
+        }
+
+        const converted = convertIdentifierParameterToUndefinedDefault(param);
+        if (!converted) {
             needsReordering = true;
             break;
         }
+
+        params[index] = converted;
+        convertedAnyParameter = true;
+    }
+
+    if (convertedAnyParameter) {
+        node._flattenSyntheticNumericParens = true;
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: getFunctionIdentifierName(node),
+            range: {
+                start: getNodeStartIndex(node),
+                end: getNodeEndIndex(node)
+            }
+        });
+
+        if (!fixDetail) {
+            return null;
+        }
+
+        attachFeatherFixMetadata(node, [fixDetail]);
+
+        return fixDetail;
     }
 
     if (!needsReordering) {
@@ -16235,6 +16269,31 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
 function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
+}
+
+function convertIdentifierParameterToUndefinedDefault(parameter) {
+    if (!parameter || parameter.type !== "Identifier") {
+        return null;
+    }
+
+    const defaultParameter = {
+        type: "DefaultParameter",
+        left: parameter,
+        right: createLiteral("undefined"),
+        _preserveUndefinedDefault: true
+    };
+
+    if (parameter && typeof parameter === "object") {
+        if (Object.hasOwn(parameter, "start")) {
+            defaultParameter.start = cloneLocation(parameter.start);
+        }
+
+        if (Object.hasOwn(parameter, "end")) {
+            defaultParameter.end = cloneLocation(parameter.end);
+        }
+    }
+
+    return defaultParameter;
 }
 
 function getFunctionIdentifierName(node) {

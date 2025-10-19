@@ -3172,9 +3172,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         }
 
         const defaultIsUndefined = isUndefinedLiteral(paramNode.right);
-        const signatureOmitsUndefinedDefault =
+        const shouldPreserveUndefinedDefault =
+            paramNode._preserveUndefinedDefault === true;
+        let signatureOmitsUndefinedDefault =
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(functionNode);
+        if (shouldPreserveUndefinedDefault) {
+            signatureOmitsUndefinedDefault = false;
+        }
         const isConstructorLike =
             functionNode?.type === "ConstructorDeclaration" ||
             functionNode?.type === "ConstructorParentClause";
@@ -3214,6 +3219,7 @@ function shouldOmitDefaultValueForParameter(path) {
     }
 
     if (
+        node._preserveUndefinedDefault === true ||
         preservedUndefinedDefaultParameters.has(node) ||
         !isUndefinedLiteral(node.right) ||
         typeof path.getParentNode !== "function"
