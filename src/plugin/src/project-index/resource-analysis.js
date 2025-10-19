@@ -3,10 +3,8 @@ import path from "node:path";
 import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
-import {
-    resolveAbortSignalFromOptions,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { createAbortGuard } from "./abort-guard.js";
 
 import { isFsErrorCode } from "./fs-utils.js";
 import {
@@ -261,7 +259,7 @@ function createResourceAnalysisContext() {
 }
 
 async function loadResourceDocument(file, fsFacade, options = {}) {
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: RESOURCE_ANALYSIS_ABORT_MESSAGE
     });
     let rawContents;
@@ -274,7 +272,7 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
         throw error;
     }
 
-    throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
+    ensureNotAborted();
 
     try {
         return JSON.parse(rawContents);
