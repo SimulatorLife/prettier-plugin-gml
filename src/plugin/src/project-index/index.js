@@ -38,14 +38,12 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    resolveAbortSignalFromOptions,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import { createAbortGuard } from "./abort-guard.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -105,7 +103,7 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
     });
 
@@ -116,10 +114,10 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const startDirectory = path.dirname(path.resolve(filepath));
 
     for (const directory of walkAncestorDirectories(startDirectory)) {
-        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
+        ensureNotAborted();
 
         const entries = await listDirectory(fsFacade, directory, { signal });
-        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
+        ensureNotAborted();
 
         if (entries.some(isProjectManifestPath)) {
             return directory;
@@ -294,17 +292,16 @@ async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const currentMtime = await getFileMtime(
         fsFacade,
         GML_IDENTIFIER_FILE_PATH,
         { signal }
     );
-    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+    ensureNotAborted();
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -326,7 +323,7 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
-        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+        ensureNotAborted();
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
@@ -354,7 +351,7 @@ async function scanProjectTree(
     metrics = null,
     options = {}
 ) {
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
     const yyFiles = [];
@@ -364,11 +361,11 @@ async function scanProjectTree(
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+        ensureNotAborted();
         const entries = await listDirectory(fsFacade, absoluteDir, {
             signal
         });
-        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+        ensureNotAborted();
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -377,7 +374,7 @@ async function scanProjectTree(
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
-                throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+                ensureNotAborted();
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -1781,11 +1778,9 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
 
     assertFunction(worker, "worker");
 
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const ensureNotAborted = () =>
-        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -1830,12 +1825,9 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const signal = resolveAbortSignalFromOptions(options, {
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const ensureNotAborted = () =>
-        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
-    ensureNotAborted();
 
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
         loadBuiltInIdentifiers(fsFacade, metrics, { signal })
