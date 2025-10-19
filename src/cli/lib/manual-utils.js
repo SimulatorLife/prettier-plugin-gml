@@ -83,18 +83,15 @@ function createManualVerboseState({
         return baseState;
     }
 
-    const definedOverrides = Object.entries(overrides).filter(
-        ([, value]) => value !== undefined
+    return Object.entries(overrides).reduce(
+        (state, [key, value]) => {
+            if (value !== undefined) {
+                state[key] = value;
+            }
+            return state;
+        },
+        { ...baseState }
     );
-
-    if (definedOverrides.length === 0) {
-        return baseState;
-    }
-
-    return {
-        ...baseState,
-        ...Object.fromEntries(definedOverrides)
-    };
 }
 
 function assertPlainObject(value, message) {
