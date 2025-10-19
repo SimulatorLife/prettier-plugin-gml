@@ -1421,12 +1421,19 @@ function recordScriptCallMetricsAndReferences({
     }
 }
 
-function mapToObject(map, transform) {
-    const entries = [...map.entries()].sort(([a], [b]) =>
-        typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0
-    );
+function mapToObject(map, transform, { sortEntries = true } = {}) {
+    const entries = [...map.entries()];
+
+    if (sortEntries) {
+        entries.sort(([a], [b]) =>
+            typeof a === "string" && typeof b === "string"
+                ? a.localeCompare(b)
+                : 0
+        );
+    }
+
     return Object.fromEntries(
-        entries.map(([key, value]) => [key, transform(value)])
+        entries.map(([key, value]) => [key, transform(value, key)])
     );
 }
 
@@ -2425,61 +2432,56 @@ export async function buildProjectIndex(
         identifierCollections
     });
 
-    const resources = Object.fromEntries(
-        [...resourceAnalysis.resourcesMap.entries()].map(
-            ([resourcePath, record]) => [
-                resourcePath,
-                {
-                    path: record.path,
-                    name: record.name,
-                    resourceType: record.resourceType,
-                    scopes: [...record.scopes],
-                    gmlFiles: [...record.gmlFiles],
-                    assetReferences: record.assetReferences.map((reference) =>
-                        cloneAssetReference(reference)
-                    )
-                }
-            ]
-        )
+    const resources = mapToObject(
+        resourceAnalysis.resourcesMap,
+        (record) => ({
+            path: record.path,
+            name: record.name,
+            resourceType: record.resourceType,
+            scopes: [...record.scopes],
+            gmlFiles: [...record.gmlFiles],
+            assetReferences: record.assetReferences.map((reference) =>
+                cloneAssetReference(reference)
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const scopes = Object.fromEntries(
-        [...scopeMap.entries()].map(([scopeId, record]) => [
-            scopeId,
-            {
-                id: record.id,
-                kind: record.kind,
-                name: record.name,
-                displayName: record.displayName,
-                resourcePath: record.resourcePath,
-                event: record.event ? { ...record.event } : null,
-                filePaths: [...record.filePaths],
-                ...cloneEntryCollections(
-                    record,
-                    "declarations",
-                    "references",
-                    "ignoredIdentifiers",
-                    "scriptCalls"
-                )
-            }
-        ])
+    const scopes = mapToObject(
+        scopeMap,
+        (record) => ({
+            id: record.id,
+            kind: record.kind,
+            name: record.name,
+            displayName: record.displayName,
+            resourcePath: record.resourcePath,
+            event: record.event ? { ...record.event } : null,
+            filePaths: [...record.filePaths],
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const files = Object.fromEntries(
-        [...filesMap.entries()].map(([filePath, record]) => [
-            filePath,
-            {
-                filePath: record.filePath,
-                scopeId: record.scopeId,
-                ...cloneEntryCollections(
-                    record,
-                    "declarations",
-                    "references",
-                    "ignoredIdentifiers",
-                    "scriptCalls"
-                )
-            }
-        ])
+    const files = mapToObject(
+        filesMap,
+        (record) => ({
+            filePath: record.filePath,
+            scopeId: record.scopeId,
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
     const identifiers = {
