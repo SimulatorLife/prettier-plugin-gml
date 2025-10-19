@@ -2,7 +2,10 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import {
+    resolveAbortSignalFromOptions,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
@@ -237,8 +240,11 @@ export async function loadProjectIndexCache(
         );
     }
 
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    const abortMessage = "Project index cache load was aborted.";
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: abortMessage
+    });
+    throwIfAborted(signal, abortMessage);
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
@@ -256,7 +262,7 @@ export async function loadProjectIndexCache(
         throw error;
     }
 
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     let parsed;
     try {
@@ -272,7 +278,7 @@ export async function loadProjectIndexCache(
         );
     }
 
-    throwIfAborted(signal, "Project index cache load was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     if (!validateCachePayload(parsed)) {
         return createCacheMiss(
@@ -370,15 +376,18 @@ export async function saveProjectIndexCache(
         );
     }
 
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index cache save was aborted.");
+    const abortMessage = "Project index cache save was aborted.";
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: abortMessage
+    });
+    throwIfAborted(signal, abortMessage);
 
     const resolvedRoot = path.resolve(projectRoot);
     const cacheFilePath = resolveCacheFilePath(resolvedRoot, explicitPath);
     const cacheDir = path.dirname(cacheFilePath);
 
     await fsFacade.mkdir(cacheDir, { recursive: true });
-    throwIfAborted(signal, "Project index cache save was aborted.");
+    throwIfAborted(signal, abortMessage);
 
     const sanitizedProjectIndex = { ...projectIndex };
     const summary = metricsSummary ?? sanitizedProjectIndex.metrics ?? null;
@@ -415,10 +424,10 @@ export async function saveProjectIndexCache(
 
     try {
         await fsFacade.writeFile(tempFilePath, serialized, "utf8");
-        throwIfAborted(signal, "Project index cache save was aborted.");
+        throwIfAborted(signal, abortMessage);
 
         await fsFacade.rename(tempFilePath, cacheFilePath);
-        throwIfAborted(signal, "Project index cache save was aborted.");
+        throwIfAborted(signal, abortMessage);
     } catch (error) {
         try {
             await fsFacade.unlink(tempFilePath);

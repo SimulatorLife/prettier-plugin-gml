@@ -34,7 +34,10 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import {
+    resolveAbortSignalFromOptions,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -43,6 +46,11 @@ const PARSER_FACADE_OPTION_KEYS = [
     "gmlParserFacade",
     "parserFacade"
 ];
+
+const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
+    "Project root discovery was aborted.";
+const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
+    "Project index build was aborted.";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -89,7 +97,9 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    });
 
     if (!filepath) {
         return null;
@@ -98,10 +108,10 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const startDirectory = path.dirname(path.resolve(filepath));
 
     for (const directory of walkAncestorDirectories(startDirectory)) {
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
 
         const entries = await listDirectory(fsFacade, directory, { signal });
-        throwIfAborted(signal, "Project root discovery was aborted.");
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
 
         if (entries.some(isProjectManifestPath)) {
             return directory;
@@ -276,15 +286,17 @@ async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
-    throwIfAborted(signal, "Project index build was aborted.");
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const currentMtime = await getFileMtime(
         fsFacade,
         GML_IDENTIFIER_FILE_PATH,
         { signal }
     );
-    throwIfAborted(signal, "Project index build was aborted.");
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -306,7 +318,7 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
@@ -355,7 +367,9 @@ async function scanProjectTree(
     metrics = null,
     options = {}
 ) {
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -363,11 +377,11 @@ async function scanProjectTree(
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const entries = await listDirectory(fsFacade, absoluteDir, {
             signal
         });
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -376,7 +390,7 @@ async function scanProjectTree(
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
-                throwIfAborted(signal, "Project index build was aborted.");
+                throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -652,7 +666,9 @@ function createResourceAnalysisContext() {
 }
 
 async function loadResourceDocument(file, fsFacade, options = {}) {
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     let rawContents;
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
@@ -663,7 +679,7 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
         throw error;
     }
 
-    throwIfAborted(signal, "Project index build was aborted.");
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     try {
         return JSON.parse(rawContents);
@@ -844,7 +860,7 @@ async function analyseResourceFiles({
     const context = createResourceAnalysisContext();
 
     for (const file of yyFiles) {
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
             continue;
@@ -2102,9 +2118,11 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
         throw new TypeError("worker must be a function");
     }
 
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2149,9 +2167,11 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const signal = options?.signal ?? null;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const ensureNotAborted = () =>
-        throwIfAborted(signal, "Project index build was aborted.");
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
     ensureNotAborted();
 
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
