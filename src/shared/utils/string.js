@@ -73,11 +73,11 @@ const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
  * `TypeError` semantics for invalid types so option parsing can surface clear
  * feedback to callers.
  *
- * @param {string|string[]|null|undefined} value Raw option value provided by a
+ * @param {string | string[] | null | undefined} value Raw option value provided by a
  *   consumer. Arrays are flattened as-is; strings are split using
  *   `splitPattern`.
  * @param {Object} [options]
- * @param {RegExp|null|false} [options.splitPattern=/[\n,]/] Pattern used to split
+ * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
  *   string input. Provide a falsy value (for example `false`) to keep the entire
  *   string as a single entry.
  * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
@@ -145,9 +145,9 @@ function collectUniqueTrimmedStrings(entries) {
  * entry so callers can compare configuration values without worrying about
  * minor formatting differences.
  *
- * @param {string|string[]|null|undefined} value Raw option value.
+ * @param {string | string[] | null | undefined} value Raw option value.
  * @param {Object} [options]
- * @param {RegExp|null|false} [options.splitPattern=null] Pattern passed through
+ * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
  *   to `normalizeStringList` for string input. Provide a falsy value to keep
  *   entire strings intact.
  * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid
