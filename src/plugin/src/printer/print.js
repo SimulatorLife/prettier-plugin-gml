@@ -50,7 +50,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
