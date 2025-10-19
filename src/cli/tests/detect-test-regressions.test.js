@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import {
     detectRegressions,
+    detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
     reportRegressionSummary
@@ -199,7 +200,8 @@ test("reportRegressionSummary returns failure details when regressions exist", (
                 detail: { displayName: "suite :: test" }
             }
         ],
-        "PR head"
+        "PR head",
+        { resolvedFailures: [] }
     );
 
     assert.strictEqual(summary.exitCode, 1);
@@ -216,4 +218,81 @@ test("reportRegressionSummary returns success details when no regressions exist"
     assert.deepEqual(summary.lines, [
         "No new failing tests compared to base using PR head."
     ]);
+});
+
+test("reportRegressionSummary clarifies when regressions offset resolved failures", () => {
+    const summary = reportRegressionSummary(
+        [
+            {
+                key: "suite :: new failure",
+                from: "passed",
+                to: "failed",
+                detail: { displayName: "suite :: new failure" }
+            }
+        ],
+        "PR head",
+        {
+            resolvedFailures: [
+                {
+                    key: "suite :: resolved failure",
+                    from: "failed",
+                    to: "passed",
+                    detail: { displayName: "suite :: resolved failure" }
+                }
+            ]
+        }
+    );
+
+    assert.strictEqual(summary.exitCode, 1);
+    assert.deepEqual(summary.lines, [
+        "New failing tests detected (compared to base using PR head):",
+        "- suite :: new failure (passed -> failed)",
+        "Note: 1 previously failing test is now passing or missing, so totals may appear unchanged."
+    ]);
+});
+
+test("detectResolvedFailures returns failures that now pass or are missing", () => {
+    const baseDir = path.join(workspace, "base/test-results");
+    const mergeDir = path.join(workspace, "merge/test-results");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="existing failure" classname="test">
+          <failure message="nope" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="existing failure" classname="test" />
+        <testcase name="new failure" classname="test">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/test-results"], { workspace });
+    const merged = readTestResults(["merge/test-results"], { workspace });
+
+    const resolvedFailures = detectResolvedFailures(base, merged);
+    const regressions = detectRegressions(base, merged);
+
+    assert.strictEqual(resolvedFailures.length, 1);
+    assert.strictEqual(
+        resolvedFailures[0].key,
+        "sample :: test :: existing failure"
+    );
+    assert.strictEqual(resolvedFailures[0].to, "passed");
+
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].key, "sample :: test :: new failure");
 });
