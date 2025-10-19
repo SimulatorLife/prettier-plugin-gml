@@ -4029,7 +4029,7 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
         return documentedNames;
     }
 
-    if (!Array.isArray(docComments) || docComments.length === 0) {
+    if (!isNonEmptyArray(docComments)) {
         return documentedNames;
     }
 
@@ -4187,7 +4187,7 @@ function normalizeDocParamNameForComparison(name) {
 }
 
 function createArgumentIndexMapping(indices) {
-    if (!Array.isArray(indices) || indices.length === 0) {
+    if (!isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -4882,7 +4882,7 @@ function convertMultidimensionalMemberIndex(
 }
 
 function buildNestedMemberIndexExpression({ object, indices, template }) {
-    if (!object || !Array.isArray(indices) || indices.length === 0) {
+    if (!object || !isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -4993,7 +4993,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     };
 
     const processStatementList = (container, statements) => {
-        if (!Array.isArray(statements) || statements.length === 0) {
+        if (!isNonEmptyArray(statements)) {
             return;
         }
 
@@ -6278,7 +6278,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
 
     const body = getBodyStatements(ast);
 
-    if (!Array.isArray(body) || body.length === 0) {
+    if (!isNonEmptyArray(body)) {
         return names;
     }
 
@@ -6330,7 +6330,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
 }
 
 function findDeprecatedDocComment(docComments, functionStart, sourceText) {
-    if (!Array.isArray(docComments) || docComments.length === 0) {
+    if (!isNonEmptyArray(docComments)) {
         return null;
     }
 
@@ -10021,7 +10021,7 @@ function ensurePrimitiveBeginBeforeEnd({
 }
 
 function hasAncestorDrawPrimitiveBegin({ ancestors, currentStatements }) {
-    if (!Array.isArray(ancestors) || ancestors.length === 0) {
+    if (!isNonEmptyArray(ancestors)) {
         return false;
     }
 
@@ -10146,7 +10146,7 @@ function ensurePrimitiveSequenceBalance(
     fixes,
     diagnostic
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -10256,7 +10256,7 @@ function liftDrawPrimitiveEndCallFromConditional(
 }
 
 function removeSyntheticDrawPrimitiveBeginInsertedByGM2028(statements) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return false;
     }
 
@@ -10777,7 +10777,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
 }
 
 function normalizeDrawVertexStatements(statements, diagnostic, ast) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -10890,7 +10890,7 @@ function attachLeadingCommentsToWrappedPrimitive({
 
     const comments = collectCommentNodes(ast);
 
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return;
     }
 
@@ -12287,7 +12287,7 @@ function attachLeadingCommentsToHoistedDeclaration({
 
     const comments = collectCommentNodes(ast);
 
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return;
     }
 
@@ -13121,7 +13121,7 @@ function createEnumMember(name) {
 }
 
 function getEnumInsertionIndex(members) {
-    if (!Array.isArray(members) || members.length === 0) {
+    if (!isNonEmptyArray(members)) {
         return Array.isArray(members) ? members.length : 0;
     }
 
@@ -14067,7 +14067,7 @@ function hasTrailingGpuPopInAlternate(alternate) {
 }
 
 function findTrailingGpuPopIndex(statements) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return -1;
     }
 
@@ -14223,7 +14223,7 @@ function sanitizeFileFindCalls(
     diagnostic,
     metadataRoot
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -14426,7 +14426,7 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
 }
 
 function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -14979,7 +14979,7 @@ function isInstanceCreateIdentifier(node) {
 }
 
 function findStructArgument(args) {
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return null;
     }
 
@@ -17630,7 +17630,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
 }
 
 function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return [];
     }
 
