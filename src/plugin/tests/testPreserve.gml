@@ -39,7 +39,7 @@ states.add_state(
 
 //global.rain_controller.draw();
 //if (room == rm_island) {
-//	//global.spart_controller.draw();
+//    //global.spart_controller.draw();
 //}
 //global.part_controller.draw();
 
@@ -65,18 +65,19 @@ global.settings = {
     nice_graphics : scr_ini_read_real("settings", "nice_graphics", 1, 0, 1),
     wavy_menu     : scr_ini_read_real("settings", "wavy_menu", 1, 0, 1),
     screen_shake  : scr_ini_read_real("settings", "screen_shake", 1, 0, 1),
+    // gui_scale     : ini_read_real("settings", "gui_scale", 1),
     fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
 
  // Particle system
  //if (!variable_instance_exists(id, "pt_colour")) {
- //	pt_colour = choose(
- //		eParticleType.fire_red,
- //		eParticleType.fire_blue,
- //		eParticleType.fire_green,
- //		eParticleType.fire_orange,
- //		eParticleType.fire_gold
- //	); // choose fire colour
+ //    pt_colour = choose(
+ //        eParticleType.fire_red,
+ //        eParticleType.fire_blue,
+ //        eParticleType.fire_green,
+ //        eParticleType.fire_orange,
+ //        eParticleType.fire_gold
+ //    ); // choose fire colour
  //}
 
 // The following line should be preserved; math-expression parentheses should not be applied to string concatenation
@@ -95,3 +96,22 @@ with (instance_create_layer(x, y, "Instances", obj_Fire)) {
 
 // The following line should be preserved; numbers with leading zeros are allowed in GML
 global.lighting.add_key_time(00, 253, 094, 083, 0.5); // Sunset peak at 00h
+
+
+global.lighting.draw(
+    vmat, pmat,
+    function() { // Depth drawing callback
+        global.renderer.draw_depth();
+    },
+    function() { // Geometry drawing callback
+        global.renderer.draw_geometry();
+        global.spart_controller.draw();
+
+        // Debug-drawing
+        if (!RELEASE) {
+            with (obj_debug) {
+                debug_draw();
+            }
+        }
+    }
+);

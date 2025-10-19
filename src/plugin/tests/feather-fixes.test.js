@@ -2598,7 +2598,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
-    it("reorders optional parameters after required ones and records fix metadata", () => {
+    it("assigns undefined defaults to required parameters following optional ones", () => {
         const source = [
             "function example(a, b = 1, c, d = 2) {",
             "    return a + b + c + d;",
@@ -2615,19 +2615,33 @@ describe("applyFeatherFixes transform", () => {
         const [fn] = ast.body ?? [];
         assert.ok(fn);
 
-        const parameterNames = Array.isArray(fn.params)
-            ? fn.params.map((param) => {
-                  if (param?.type === "DefaultParameter") {
-                      return param.left?.name ?? null;
-                  }
+        const params = Array.isArray(fn.params) ? fn.params : [];
+        assert.strictEqual(params.length, 4);
 
-                  return param?.name ?? null;
-              })
-            : [];
+        const parameterNames = params.map((param) => {
+            if (param?.type === "DefaultParameter") {
+                return param.left?.name ?? null;
+            }
+
+            return param?.name ?? null;
+        });
 
         assert.deepStrictEqual(parameterNames, ["a", "b", "c", "d"]);
 
-        const defaultParameters = fn.params.filter(
+        assert.strictEqual(params[0]?.type, "Identifier");
+        assert.strictEqual(params[0]?.name, "a");
+
+        assert.strictEqual(params[1]?.type, "DefaultParameter");
+        assert.strictEqual(params[1]?.left?.name, "b");
+
+        assert.strictEqual(params[2]?.type, "DefaultParameter");
+        assert.strictEqual(params[2]?.left?.name, "c");
+        assert.strictEqual(params[2]?.right?.value, "undefined");
+
+        assert.strictEqual(params[3]?.type, "DefaultParameter");
+        assert.strictEqual(params[3]?.left?.name, "d");
+
+        const defaultParameters = params.filter(
             (param) => param?.type === "DefaultParameter"
         );
         assert.strictEqual(defaultParameters.length, 3);

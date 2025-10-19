@@ -1,2 +1,2 @@
-///// minimal banner
+// minimal banner
 var message = "ready";

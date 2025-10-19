@@ -330,6 +330,12 @@ for the full suite of contributor commands.
   node ./node_modules/root/src/cli/cli.js --help
   ```
 
+- Check the wrapper version label surfaced by `--version` or `-V`:
+
+  ```bash
+  node ./node_modules/root/src/cli/cli.js --version
+  ```
+
 ### CLI wrapper environment knobs
 
 The wrapper honours environment variables so CI systems can tune behaviour
@@ -346,6 +352,9 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
+  `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
+  release tags or packaging nightly builds.
 
 ### Visual Studio Code
 
@@ -391,6 +400,8 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 #### Core formatter behaviour
 
+Optional arguments without explicit defaults always render as `undefined` in formatted output.
+
 | Option | Default | Summary |
 | --- | --- | --- |
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
@@ -400,26 +411,22 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
-| `lineCommentBannerMinimumSlashes` | `5` | Preserves banner-style comments with at least this many `/` characters. |
-| `lineCommentBannerAutofillThreshold` | `4` | Pads banner comments up to the minimum slash count when they already start with several `/`. |
 | `lineCommentBoilerplateFragments` | `["Script assets have changed for v2.3.0", "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"]` | Removes boilerplate line comments that contain any of the provided comma-separated substrings, extending this built-in removal list. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `missingOptionalArgumentPlaceholder` | `"undefined"` | Choose `"empty"` to leave missing optional arguments blank instead of inserting `undefined`. |
-| `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
 | `condenseUnaryBooleanReturns` | `false` | Converts unary boolean returns (such as `return !condition;`) into ternaries so condensed output preserves intent. |
 | `condenseReturnStatements` | `false` | Merges complementary `if` branches that return literal booleans into a single simplified return statement. |
-| `allowTrailingCallArguments` | `false` | Reserved for future use; currently has no effect because trailing arguments are normalised via `missingOptionalArgumentPlaceholder`. |
-| `preserveLineBreaks` | `false` | Reserved for future use; enabling currently has no effect while line-break preservation heuristics are evaluated. |
-| `maintainArrayIndentation` | `false` | Preserves the original indentation depth for array literals rather than applying Prettier's defaults. |
-| `maintainStructIndentation` | `false` | Preserves the original indentation depth for struct literals rather than applying Prettier's defaults. |
-| `maintainWithIndentation` | `false` | Retains the body indentation within `with` statements instead of reindenting relative to the `with` keyword. |
-| `maintainSwitchIndentation` | `false` | Retains existing indentation inside `switch` statements instead of reindenting each case body. |
+
+> **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
+
+Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
+
+Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
 
 #### Identifier-case rollout
 

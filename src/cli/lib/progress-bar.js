@@ -8,7 +8,6 @@ import {
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const activeProgressBars = new Map();
-let progressBarFactory = createDefaultProgressBar;
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -50,11 +49,6 @@ function createDefaultProgressBar(label, width) {
     );
 }
 
-function setProgressBarFactoryForTesting(factory) {
-    progressBarFactory =
-        typeof factory === "function" ? factory : createDefaultProgressBar;
-}
-
 function disposeProgressBars() {
     for (const [, bar] of activeProgressBars) {
         try {
@@ -75,7 +69,7 @@ function renderProgressBar(label, current, total, width) {
     const normalizedCurrent = Math.min(current, normalizedTotal);
     const hadBar = activeProgressBars.has(label);
     const bar = getOrCreateMapEntry(activeProgressBars, label, () =>
-        progressBarFactory(label, width)
+        createDefaultProgressBar(label, width)
     );
 
     if (hadBar) {
@@ -96,6 +90,5 @@ export {
     disposeProgressBars,
     getDefaultProgressBarWidth,
     renderProgressBar,
-    resolveProgressBarWidth,
-    setProgressBarFactoryForTesting
+    resolveProgressBarWidth
 };

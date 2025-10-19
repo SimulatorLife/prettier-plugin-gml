@@ -231,10 +231,9 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {
-    const includeFilePaths =
-        typeof resourcePath === "string" && resourcePath.length > 0
-            ? [resourcePath]
-            : [];
+    const includeFilePaths = isNonEmptyString(resourcePath)
+        ? [resourcePath]
+        : [];
 
     return summarizeReferenceFileOccurrences(referenceMutations, {
         includeFilePaths,

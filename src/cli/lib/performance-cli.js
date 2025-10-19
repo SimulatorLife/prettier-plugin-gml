@@ -112,17 +112,40 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
-        results.index.push(attemptResult.runRecord);
+        const { shouldStop, nextLatestIndex } = recordProjectIndexAttempt(
+            results,
+            attemptResult
+        );
 
-        if (attemptResult.error) {
-            results.error = attemptResult.error;
+        if (shouldStop) {
             return { latestIndex: null };
         }
 
-        latestIndex = attemptResult.index;
+        latestIndex = nextLatestIndex;
     }
 
     return { latestIndex };
+}
+
+/**
+ * Store the outcome of a project index attempt in the aggregated results.
+ *
+ * @param {{ index: Array<object>, error?: object }} results
+ * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
+ * @returns {{ shouldStop: boolean, nextLatestIndex: object | null }}
+ */
+function recordProjectIndexAttempt(results, attemptResult) {
+    results.index.push(attemptResult.runRecord);
+
+    if (attemptResult.error) {
+        results.error = attemptResult.error;
+        return { shouldStop: true, nextLatestIndex: null };
+    }
+
+    return {
+        shouldStop: false,
+        nextLatestIndex: attemptResult.index ?? null
+    };
 }
 
 function createRenameOptions({ file, latestIndex, logger, verbose }) {
@@ -210,8 +233,14 @@ async function runIdentifierPipelineBenchmark({ projectRoot, file, verbose }) {
     return context.results;
 }
 
-function runIdentifierTextBenchmark() {
-    const dataset = [
+/**
+ * Provide sample nodes used by the identifier text benchmark to mimic common
+ * AST structures.
+ *
+ * @returns {Array<unknown>}
+ */
+function createIdentifierTextDataset() {
+    return [
         "simple",
         { name: "identifier" },
         { type: "Identifier", name: "player" },
@@ -242,8 +271,25 @@ function runIdentifierTextBenchmark() {
             ]
         }
     ];
+}
 
-    const iterations = 5_000_000;
+/**
+ * Resolve the number of iterations the identifier text benchmark should run.
+ *
+ * @returns {number}
+ */
+function resolveIdentifierTextIterations() {
+    return 5_000_000;
+}
+
+/**
+ * Execute the identifier text benchmark and capture timing plus checksum data.
+ *
+ * @param {Array<unknown>} dataset
+ * @param {number} iterations
+ * @returns {{ iterations: number, checksum: number, duration: number }}
+ */
+function benchmarkIdentifierTextDataset(dataset, iterations) {
     let checksum = 0;
 
     const start = performance.now();
@@ -257,6 +303,12 @@ function runIdentifierTextBenchmark() {
     const duration = performance.now() - start;
 
     return { iterations, checksum, duration };
+}
+
+function runIdentifierTextBenchmark() {
+    const dataset = createIdentifierTextDataset();
+    const iterations = resolveIdentifierTextIterations();
+    return benchmarkIdentifierTextDataset(dataset, iterations);
 }
 
 async function runProjectIndexMemoryMeasurement({ projectRoot }) {

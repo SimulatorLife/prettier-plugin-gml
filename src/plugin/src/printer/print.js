@@ -31,6 +31,7 @@ import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
 import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
@@ -60,7 +61,6 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
-import { MissingOptionalArgumentPlaceholder } from "../options/missing-optional-argument-placeholder.js";
 
 const {
     breakParent,
@@ -513,7 +513,7 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc = isNonEmptyString(renamed) ? renamed : node.id;
+                functionNameDoc = getNonEmptyString(renamed) ?? node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
@@ -1027,21 +1027,11 @@ export function print(path, options, print) {
         }
         case "Literal": {
             let value = node.value;
-            const shouldPadDecimalZeroes =
-                options.fixMissingDecimalZeroes !== false;
 
-            if (
-                shouldPadDecimalZeroes &&
-                value.startsWith(".") &&
-                !value.startsWith('"')
-            ) {
+            if (value.startsWith(".") && !value.startsWith('"')) {
                 value = "0" + value; // Fix decimals without a leading 0.
             }
-            if (
-                shouldPadDecimalZeroes &&
-                value.endsWith(".") &&
-                !value.endsWith('"')
-            ) {
+            if (value.endsWith(".") && !value.endsWith('"')) {
                 value = value + "0"; // Fix decimals without a trailing 0.
             }
             return concat(value);
@@ -1058,14 +1048,6 @@ export function print(path, options, print) {
             return concat(node.value);
         }
         case "MissingOptionalArgument": {
-            const placeholder =
-                options.missingOptionalArgumentPlaceholder ??
-                MissingOptionalArgumentPlaceholder.UNDEFINED;
-
-            if (placeholder === MissingOptionalArgumentPlaceholder.EMPTY) {
-                return concat("");
-            }
-
             return concat("undefined");
         }
         case "NewExpression": {
@@ -1581,6 +1563,9 @@ function printStatements(path, options, print, childrenAttribute) {
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
 
+        const suppressFollowingEmptyLine =
+            node?._featherSuppressFollowingEmptyLine === true;
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
@@ -1657,8 +1642,6 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
 
-            const suppressFollowingEmptyLine =
-                node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
             const forceFollowingEmptyLine =
@@ -1711,6 +1694,23 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else {
+            const parentNode = childPath.parent;
+            const trailingProbeIndex =
+                node?.type === "DefineStatement" ||
+                node?.type === "MacroDeclaration"
+                    ? nodeEndIndex
+                    : nodeEndIndex + 1;
+            const shouldPreserveTrailingBlankLine =
+                parentNode?.type === "BlockStatement" &&
+                typeof options.originalText === "string" &&
+                isNextLineEmpty(options.originalText, trailingProbeIndex) &&
+                !suppressFollowingEmptyLine;
+
+            if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            }
         }
 
         return parts;
@@ -3189,7 +3189,7 @@ function getNormalizedParameterName(paramNode) {
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return isNonEmptyString(normalizedName) ? normalizedName : null;
+    return getNonEmptyString(normalizedName);
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {

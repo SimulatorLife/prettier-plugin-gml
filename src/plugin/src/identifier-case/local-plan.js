@@ -7,7 +7,7 @@ import {
     toPosixPath,
     resolveContainedRelativePath
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../../../shared/utils.js";
+import { createMetricsTracker } from "../../../shared/reporting.js";
 import {
     isNonEmptyString,
     getNonEmptyString,
@@ -279,13 +279,7 @@ function getReferenceLocation(reference) {
     if (!isObjectLike(reference)) {
         return null;
     }
-    if (reference.start) {
-        return reference.start;
-    }
-    if (reference.location?.start) {
-        return reference.location.start;
-    }
-    return null;
+    return reference.start ?? reference.location?.start ?? null;
 }
 
 function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {

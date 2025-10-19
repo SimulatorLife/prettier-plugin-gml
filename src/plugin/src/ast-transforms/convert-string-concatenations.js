@@ -69,7 +69,7 @@ function traverse(node, parent, key, helpers, state = null) {
             continue;
         }
 
-        if (value && typeof value === "object") {
+        if (isObjectLike(value)) {
             traverse(value, node, childKey, helpers, traversalState);
         }
     }
@@ -143,8 +143,7 @@ function collectConcatenationParts(node, helpers, output) {
 
         const expression = node.expression;
         if (
-            expression &&
-            typeof expression === "object" &&
+            isObjectLike(expression) &&
             expression.type === BINARY_EXPRESSION &&
             expression.operator === "+"
         ) {

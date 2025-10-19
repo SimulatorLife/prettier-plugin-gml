@@ -95,6 +95,31 @@ function createSkipResult(reason) {
     };
 }
 
+function createFailureResult({
+    reason,
+    projectRoot,
+    coordinator = null,
+    dispose = () => {},
+    error = null
+}) {
+    const result = {
+        status: "failed",
+        reason,
+        projectRoot,
+        projectIndex: null,
+        source: "error",
+        cache: null,
+        coordinator,
+        dispose
+    };
+
+    if (error !== null) {
+        result.error = error;
+    }
+
+    return result;
+}
+
 const DEFAULT_OPTION_WRITER = (options, key, value) => {
     if (isObjectLike(options)) {
         options[key] = value;
@@ -323,6 +348,12 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         coordinatorOverride ??
         createProjectIndexCoordinator(coordinatorOptions);
 
+    const disposeCoordinator = coordinatorOverride
+        ? () => {}
+        : () => {
+              coordinator.dispose();
+          };
+
     const buildOptions = {
         logger: options?.logger ?? null,
         logMetrics: options?.logIdentifierCaseMetrics === true
@@ -355,13 +386,19 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         descriptor.maxSizeBytes = cacheMaxSizeBytes;
     }
 
-    const ready = await coordinator.ensureReady(descriptor);
-
-    const dispose = coordinatorOverride
-        ? () => {}
-        : () => {
-              coordinator.dispose();
-          };
+    let ready;
+    try {
+        ready = await coordinator.ensureReady(descriptor);
+    } catch (error) {
+        const failureResult = createFailureResult({
+            reason: "build-error",
+            projectRoot,
+            coordinator,
+            dispose: disposeCoordinator,
+            error
+        });
+        return storeBootstrapResult(options, failureResult, writeOption);
+    }
 
     const result = storeBootstrapResult(
         options,
@@ -373,7 +410,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             source: ready?.source ?? rootResolution,
             cache: ready?.cache ?? null,
             coordinator,
-            dispose
+            dispose: disposeCoordinator
         },
         writeOption
     );
