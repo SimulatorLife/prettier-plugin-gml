@@ -79,6 +79,10 @@ jobs:
         run: npm run test:report
         continue-on-error: true
 
+      - name: Run coverage (LCOV)
+        run: npm run test:coverage
+        continue-on-error: true
+
       - name: Publish test summary (${{ matrix.target }})
         if: ${{ always() }}
         uses: dorny/test-reporter@v2
@@ -95,7 +99,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: junit-${{ matrix.target }}
-          path: test-results/*.xml
+          path: |
+            test-results/*.xml
+            test-results/lcov.info
           retention-days: 7
 
   summarize:
@@ -162,10 +168,30 @@ jobs:
             const MARKER = '<!-- automerge-pr-test-summary -->';
             const targets = ['base','head','merge'];
             const totals = {};
+            const coverage = {};
             const notes = [];
 
-            function readSuites(dir) {
-              const xmlFiles = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.xml')).map(f => path.join(dir,f)) : [];
+            function listFilesRecursive(root) {
+              if (!fs.existsSync(root)) return [];
+              const files = [];
+              const stack = [root];
+              while (stack.length > 0) {
+                const current = stack.pop();
+                const entries = fs.readdirSync(current, { withFileTypes: true });
+                for (const entry of entries) {
+                  if (entry.name === '.' || entry.name === '..') continue;
+                  const fullPath = path.join(current, entry.name);
+                  if (entry.isDirectory()) {
+                    stack.push(fullPath);
+                  } else {
+                    files.push(fullPath);
+                  }
+                }
+              }
+              return files;
+            }
+
+            function readSuites(xmlFiles) {
               let t = { tests:0, failures:0, errors:0, skipped:0, time:0 };
               for (const file of xmlFiles) {
                 const xml = fs.readFileSync(file,'utf8');
@@ -184,10 +210,38 @@ jobs:
               return t;
             }
 
+            function readCoverage(lcovFiles) {
+              if (lcovFiles.length === 0) return null;
+              let found = 0;
+              let hit = 0;
+              for (const file of lcovFiles) {
+                const text = fs.readFileSync(file, 'utf8');
+                for (const line of text.split(/\r?\n/)) {
+                  if (line.startsWith('LF:')) {
+                    found += Number.parseInt(line.slice(3), 10) || 0;
+                  } else if (line.startsWith('LH:')) {
+                    hit += Number.parseInt(line.slice(3), 10) || 0;
+                  }
+                }
+              }
+              if (found <= 0) return { found: 0, hit: hit, pct: null };
+              return { found, hit, pct: (hit / found) * 100 };
+            }
+
+            const fmtCoverage = data => {
+              if (!data || !Number.isFinite(data.pct)) return '—';
+              return `${data.pct.toFixed(1)}%`;
+            };
+
             for (const tgt of targets) {
               const dir = path.join(process.cwd(), `junit-${tgt}`);
-              totals[tgt] = readSuites(dir);
-              if (!fs.existsSync(dir)) notes.push(`No JUnit XML found for **${tgt}**.`);
+              const files = listFilesRecursive(dir);
+              const xmlFiles = files.filter(f => f.endsWith('.xml'));
+              const lcovFiles = files.filter(f => path.basename(f) === 'lcov.info');
+              totals[tgt] = readSuites(xmlFiles);
+              coverage[tgt] = readCoverage(lcovFiles);
+              if (xmlFiles.length === 0) notes.push(`No JUnit XML found for **${tgt}**.`);
+              if (files.length > 0 && !coverage[tgt]) notes.push(`No coverage (LCOV) data found for **${tgt}**.`);
             }
 
             const fmtTime = s => !Number.isFinite(s) || s <= 0 ? '—'
@@ -195,12 +249,13 @@ jobs:
               : s >= 60 ? `${Math.floor(s/60)}m ${(s - Math.floor(s/60)*60).toFixed(1)}s`
               : `${s.toFixed(2)}s`;
 
-            const row = (label, t) => {
+            const row = (label, t, cov) => {
               const hasAny = (t.tests + t.failures + t.errors + t.skipped) > 0;
-              if (!hasAny) return `| ${label} | — | — | — | — | — |`;
+              const coverageCell = fmtCoverage(cov);
+              if (!hasAny) return `| ${label} | — | — | — | — | ${coverageCell} | — |`;
               const failed = t.failures + t.errors;
               const passed = Math.max(0, t.tests - failed - t.skipped);
-              return `| ${label} | ${t.tests} | ${passed} | ${failed} | ${t.skipped} | ${fmtTime(t.time)} |`;
+              return `| ${label} | ${t.tests} | ${passed} | ${failed} | ${t.skipped} | ${coverageCell} | ${fmtTime(t.time)} |`;
             };
 
             const baseRef = context.payload.pull_request?.base?.ref || 'base';
@@ -209,11 +264,11 @@ jobs:
             const headSha = (context.payload.pull_request?.head?.sha || context.sha || '').slice(0,7) || '???????';
 
             const table = [
-              '| Target | Total | Passed | Failed | Skipped | Duration |',
-              '| --- | ---: | ---: | ---: | ---: | ---: |',
-              row(`Base (${baseRef} @ ${baseSha})`, totals.base),
-              row(`PR (${headRef} @ ${headSha})`, totals.head),
-              row('Merged (base+PR)', totals.merge),
+              '| Target | Total | Passed | Failed | Skipped | Coverage | Duration |',
+              '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
+              row(`Base (${baseRef} @ ${baseSha})`, totals.base, coverage.base),
+              row(`PR (${headRef} @ ${headSha})`, totals.head, coverage.head),
+              row('Merged (base+PR)', totals.merge, coverage.merge),
               '',
               ...notes.map(n => `> ⚠️ ${n}`)
             ].join('\n');
