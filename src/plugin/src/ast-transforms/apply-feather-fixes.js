@@ -11690,6 +11690,8 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
+    const rootAst = ancestors.length > 0 ? ancestors[0]?.node : null;
+
     const fixDetail = hoistVariableDeclarationOutOfBlock({
         declarationNode: node,
         blockBody,
@@ -11697,7 +11699,8 @@ function handleLocalVariableDeclarationPatterns({
         statementContainer,
         statementIndex,
         diagnostic,
-        variableName
+        variableName,
+        ast: rootAst
     });
 
     if (fixDetail) {
@@ -12073,7 +12076,8 @@ function hoistVariableDeclarationOutOfBlock({
     statementContainer,
     statementIndex,
     diagnostic,
-    variableName
+    variableName,
+    ast
 }) {
     if (!declarationNode || declarationNode.type !== "VariableDeclaration") {
         return null;
@@ -12113,6 +12117,8 @@ function hoistVariableDeclarationOutOfBlock({
 
     const rangeStart = getNodeStartIndex(declarationNode);
     const owningStatement = statementContainer[statementIndex];
+    const precedingStatement =
+        statementIndex > 0 ? statementContainer[statementIndex - 1] : null;
     const rangeEnd = getNodeEndIndex(owningStatement ?? declarationNode);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -12129,6 +12135,13 @@ function hoistVariableDeclarationOutOfBlock({
 
     statementContainer.splice(statementIndex, 0, hoistedDeclaration);
     blockBody[declarationIndex] = assignment;
+
+    attachLeadingCommentsToHoistedDeclaration({
+        ast,
+        hoistedDeclaration,
+        owningStatement,
+        precedingStatement
+    });
 
     copyCommentMetadata(declarationNode, assignment);
 
@@ -12181,6 +12194,83 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
     }
 
     return declaration;
+}
+
+function attachLeadingCommentsToHoistedDeclaration({
+    ast,
+    hoistedDeclaration,
+    owningStatement,
+    precedingStatement
+}) {
+    if (!ast || !hoistedDeclaration || !owningStatement) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const owningStartIndex = getNodeStartIndex(owningStatement);
+
+    if (typeof owningStartIndex !== "number") {
+        return;
+    }
+
+    const previousEndIndex =
+        precedingStatement != null
+            ? getNodeEndIndex(precedingStatement)
+            : null;
+
+    let attachedComment = false;
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > owningStartIndex) {
+            continue;
+        }
+
+        if (
+            previousEndIndex != null &&
+            commentStartIndex < previousEndIndex
+        ) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string"
+                ? comment.value.trim()
+                : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = hoistedDeclaration;
+        attachedComment = true;
+    }
+
+    if (attachedComment) {
+        hoistedDeclaration._featherForceFollowingEmptyLine = true;
+    }
 }
 
 function removeInvalidEventInheritedCalls({ ast, diagnostic }) {

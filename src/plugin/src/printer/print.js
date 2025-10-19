@@ -1630,6 +1630,8 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
+            const forceFollowingEmptyLine =
+                node?._featherForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
@@ -1655,6 +1657,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 !sanitizedMacroHasExplicitBlankLine;
 
             if (shouldForceMacroPadding) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
