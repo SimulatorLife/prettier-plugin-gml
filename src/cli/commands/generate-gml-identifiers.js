@@ -18,7 +18,8 @@ import {
     renderProgressBar,
     disposeProgressBars,
     resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    getDefaultProgressBarWidth,
+    applyProgressBarWidthEnvOverride
 } from "../lib/progress-bar.js";
 import {
     resolveVmEvalTimeout,
@@ -45,6 +46,9 @@ const {
 });
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
+    applyProgressBarWidthEnvOverride(env);
+    const defaultProgressBarWidth = getDefaultProgressBarWidth();
+
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-gml-identifiers")
@@ -82,7 +86,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
         )
         .option(
             "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            `Width of progress bars rendered in the terminal (default: ${defaultProgressBarWidth}).`,
             (value) => {
                 try {
                     return resolveProgressBarWidth(value);
@@ -90,7 +94,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
                     throw new InvalidArgumentError(error.message);
                 }
             },
-            getDefaultProgressBarWidth()
+            defaultProgressBarWidth
         )
         .option(
             "--manual-repo <owner/name>",

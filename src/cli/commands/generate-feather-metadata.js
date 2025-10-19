@@ -16,7 +16,8 @@ import {
     renderProgressBar,
     disposeProgressBars,
     resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    getDefaultProgressBarWidth,
+    applyProgressBarWidthEnvOverride
 } from "../lib/progress-bar.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
@@ -57,6 +58,9 @@ const FEATHER_PAGES = {
 };
 
 export function createFeatherMetadataCommand({ env = process.env } = {}) {
+    applyProgressBarWidthEnvOverride(env);
+    const defaultProgressBarWidth = getDefaultProgressBarWidth();
+
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-feather-metadata")
@@ -100,7 +104,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
         )
         .option(
             "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
+            `Width of progress bars rendered in the terminal (default: ${defaultProgressBarWidth}).`,
             (value) => {
                 try {
                     return resolveProgressBarWidth(value);
@@ -108,7 +112,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
                     throw new InvalidArgumentError(error.message);
                 }
             },
-            getDefaultProgressBarWidth()
+            defaultProgressBarWidth
         );
 
     command.addHelpText(

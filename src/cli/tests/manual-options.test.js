@@ -202,7 +202,10 @@ describe("manual option helpers", () => {
 
     describe("resolveProgressBarWidth", () => {
         it("defaults to the configured width when no value is provided", () => {
-            assert.equal(resolveProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+            assert.equal(
+                resolveProgressBarWidth(),
+                getDefaultProgressBarWidth()
+            );
         });
 
         it("normalizes numeric string inputs", () => {

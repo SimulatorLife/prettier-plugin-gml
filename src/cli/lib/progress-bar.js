@@ -3,10 +3,13 @@ import { SingleBar, Presets } from "cli-progress";
 import {
     coercePositiveInteger,
     getOrCreateMapEntry,
-    resolveIntegerOption
+    resolveIntegerOption,
+    applyEnvironmentOverride
 } from "./shared-deps.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
+const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
+let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
 const activeProgressBars = new Map();
 let progressBarFactory = createDefaultProgressBar;
 
@@ -24,11 +27,22 @@ function coerceProgressBarWidth(value, { received }) {
 }
 
 function getDefaultProgressBarWidth() {
-    return DEFAULT_PROGRESS_BAR_WIDTH;
+    return configuredDefaultProgressBarWidth;
 }
 
-function resolveProgressBarWidth(rawValue) {
-    const fallback = getDefaultProgressBarWidth();
+function setDefaultProgressBarWidth(width) {
+    configuredDefaultProgressBarWidth = resolveProgressBarWidth(width, {
+        defaultWidth: DEFAULT_PROGRESS_BAR_WIDTH
+    });
+
+    return configuredDefaultProgressBarWidth;
+}
+
+function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
+    const fallback =
+        defaultWidth === undefined
+            ? getDefaultProgressBarWidth()
+            : defaultWidth;
 
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
@@ -36,6 +50,16 @@ function resolveProgressBarWidth(rawValue) {
         typeErrorMessage: createTypeErrorMessage
     });
 }
+
+function applyProgressBarWidthEnvOverride(env = process?.env) {
+    applyEnvironmentOverride({
+        env,
+        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+        applyValue: setDefaultProgressBarWidth
+    });
+}
+
+applyProgressBarWidthEnvOverride();
 
 function createDefaultProgressBar(label, width) {
     return new SingleBar(
@@ -93,9 +117,12 @@ function renderProgressBar(label, current, total, width) {
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    applyProgressBarWidthEnvOverride,
     disposeProgressBars,
     getDefaultProgressBarWidth,
     renderProgressBar,
     resolveProgressBarWidth,
+    setDefaultProgressBarWidth,
     setProgressBarFactoryForTesting
 };

@@ -1,10 +1,13 @@
 import { MANUAL_REPO_ENV_VAR, resolveManualRepoValue } from "./manual-utils.js";
-import { resolveProgressBarWidth } from "./progress-bar.js";
+import {
+    PROGRESS_BAR_WIDTH_ENV_VAR as PROGRESS_BAR_WIDTH_ENV_VAR_INTERNAL,
+    resolveProgressBarWidth
+} from "./progress-bar.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
 
 export const MANUAL_REF_ENV_VAR = "GML_MANUAL_REF";
-export const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 export const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
+export const PROGRESS_BAR_WIDTH_ENV_VAR = PROGRESS_BAR_WIDTH_ENV_VAR_INTERNAL;
 
 export function applyManualEnvOptionOverrides({
     command,
