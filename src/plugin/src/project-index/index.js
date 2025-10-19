@@ -39,6 +39,7 @@ import {
     finalizeProjectIndexMetrics
 } from "./metrics.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -287,6 +288,55 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 
 let cachedBuiltInIdentifiers = null;
 
+function isPlainObject(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractBuiltInIdentifierNames(payload) {
+    if (!isPlainObject(payload)) {
+        throw new TypeError(
+            "Built-in identifier metadata must be an object payload."
+        );
+    }
+
+    const { identifiers } = payload;
+    if (!isPlainObject(identifiers)) {
+        throw new TypeError(
+            "Built-in identifier metadata must expose an identifiers object."
+        );
+    }
+
+    const names = new Set();
+
+    for (const [name, descriptor] of Object.entries(identifiers)) {
+        if (typeof name !== "string" || name.length === 0) {
+            continue;
+        }
+
+        if (!isPlainObject(descriptor)) {
+            continue;
+        }
+
+        const type = descriptor.type;
+        if (typeof type !== "string" || type.length === 0) {
+            continue;
+        }
+
+        names.add(name);
+    }
+
+    return names;
+}
+
+function parseBuiltInIdentifierNames(rawContents) {
+    const payload = parseJsonWithContext(rawContents, {
+        source: GML_IDENTIFIER_FILE_PATH,
+        description: "built-in identifier metadata"
+    });
+
+    return extractBuiltInIdentifierNames(payload);
+}
+
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
     metrics = null,
@@ -324,10 +374,7 @@ async function loadBuiltInIdentifiers(
             "utf8"
         );
         ensureNotAborted();
-        const parsed = JSON.parse(rawContents);
-        const identifiers = parsed?.identifiers ?? {};
-
-        names = new Set(Object.keys(identifiers));
+        names = parseBuiltInIdentifierNames(rawContents);
     } catch {
         // Built-in identifier metadata ships with the formatter bundle; if the
         // file is missing or unreadable we intentionally degrade to an empty
@@ -2114,3 +2161,4 @@ export async function buildProjectIndex(
 }
 export { getDefaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
+export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
