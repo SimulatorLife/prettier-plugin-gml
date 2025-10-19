@@ -13,8 +13,7 @@ import { getIdentifierText } from "./shared-deps.js";
 import { formatByteSize } from "./byte-format.js";
 import {
     SuiteOutputFormat,
-    formatSuiteOutputFormatList,
-    normalizeSuiteOutputFormat,
+    resolveSuiteOutputFormatOrThrow,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites
@@ -25,17 +24,6 @@ const AVAILABLE_SUITES = new Map();
 function collectSuite(value, previous = []) {
     previous.push(value);
     return previous;
-}
-
-function validateFormat(value) {
-    const normalized = normalizeSuiteOutputFormat(value);
-    if (normalized) {
-        return normalized;
-    }
-
-    throw new InvalidArgumentError(
-        `Format must be one of: ${formatSuiteOutputFormatList()}.`
-    );
 }
 
 function formatErrorDetails(error) {
@@ -369,7 +357,10 @@ export function createPerformanceCommand() {
         .option(
             "--format <format>",
             "Output format: json (default) or human.",
-            validateFormat,
+            (value) =>
+                resolveSuiteOutputFormatOrThrow(value, {
+                    errorConstructor: InvalidArgumentError
+                }),
             SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.")

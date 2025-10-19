@@ -32,6 +32,37 @@ export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
     return null;
 }
 
+export function resolveSuiteOutputFormatOrThrow(
+    value,
+    {
+        fallback,
+        errorConstructor = Error,
+        createErrorMessage = () =>
+            `Format must be one of: ${formatSuiteOutputFormatList()}.`
+    } = {}
+) {
+    const normalized = normalizeSuiteOutputFormat(value, { fallback });
+
+    if (normalized) {
+        return normalized;
+    }
+
+    const errorMessage =
+        typeof createErrorMessage === "function"
+            ? createErrorMessage(value)
+            : createErrorMessage;
+
+    const message =
+        typeof errorMessage === "string"
+            ? errorMessage
+            : String(errorMessage ?? "");
+
+    const ErrorConstructor =
+        typeof errorConstructor === "function" ? errorConstructor : Error;
+
+    throw new ErrorConstructor(message);
+}
+
 /**
  * Normalize the requested suite names for execution.
  *
@@ -84,15 +115,12 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
  * @returns {boolean} `true` when JSON output was emitted.
  */
 export function emitSuiteResults(results, { format, pretty } = {}) {
-    const normalizedFormat = normalizeSuiteOutputFormat(format, {
-        fallback: SuiteOutputFormat.JSON
+    const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
+        fallback: SuiteOutputFormat.JSON,
+        errorConstructor: RangeError,
+        createErrorMessage: (received) =>
+            `Unsupported suite output format '${received}'. Valid formats: ${formatSuiteOutputFormatList()}.`
     });
-
-    if (!normalizedFormat) {
-        throw new RangeError(
-            `Unsupported suite output format '${format}'. Valid formats: ${formatSuiteOutputFormatList()}.`
-        );
-    }
 
     if (normalizedFormat === SuiteOutputFormat.HUMAN) {
         return false;
