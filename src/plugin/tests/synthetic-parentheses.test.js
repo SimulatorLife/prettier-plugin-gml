@@ -7,7 +7,7 @@ import prettier from "prettier";
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
-test("flatten synthetic addition parentheses from reordered optional parameters", async () => {
+test("flatten synthetic addition parentheses when defaults preserve parameter order", async () => {
     const source = [
         "function example(a, b = 1, c, d = 2) {",
         "    return a + b + c + d;",
@@ -21,20 +21,20 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
         applyFeatherFixes: true
     });
 
-    const expectedLines = [
-        "/// @function example",
-        "/// @param a",
-        "/// @param c",
-        "/// @param [b=1]",
-        "/// @param [d=2]",
-        "function example(a, c, b = 1, d = 2) {",
-        "    return a + b + c + d;",
-        "}"
-    ].join("\n");
+    const lines = formatted.trim().split("\n");
 
-    assert.strictEqual(
-        formatted.trim(),
-        expectedLines,
+    assert.deepStrictEqual(
+        lines,
+        [
+            "/// @function example",
+            "/// @param a",
+            "/// @param [b=1]",
+            "/// @param [c]",
+            "/// @param [d=2]",
+            "function example(a, b = 1, c = undefined, d = 2) {",
+            "    return a + b + c + d;",
+            "}"
+        ],
         "Expected flattened addition without extra parentheses."
     );
 });
