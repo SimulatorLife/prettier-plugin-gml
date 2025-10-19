@@ -13,14 +13,54 @@
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
+function isErrorLike(value) {
+    if (value == null) {
+        return false;
+    }
+
+    const valueType = typeof value;
+    if (valueType !== "object" && valueType !== "function") {
+        return false;
+    }
+
+    if ("message" in value && value.message != null) {
+        return true;
+    }
+
+    if ("name" in value && value.name != null) {
+        return true;
+    }
+
+    if ("stack" in value && value.stack != null) {
+        return true;
+    }
+
+    return "cause" in value;
+}
+
+function ensureAbortErrorMetadata(error, fallbackMessage) {
+    if (typeof error.name !== "string" || error.name.length === 0) {
+        error.name = "AbortError";
+    }
+
+    if (typeof error.message !== "string" || error.message.length === 0) {
+        const message = fallbackMessage || "Operation aborted.";
+        if (message) {
+            error.message = message;
+        }
+    }
+
+    return error;
+}
+
 export function createAbortError(signal, fallbackMessage) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
 
     const { reason } = signal;
-    if (reason instanceof Error) {
-        return reason;
+    if (isErrorLike(reason)) {
+        return ensureAbortErrorMetadata(reason, fallbackMessage);
     }
 
     const message =
@@ -28,10 +68,7 @@ export function createAbortError(signal, fallbackMessage) {
             ? fallbackMessage || "Operation aborted."
             : String(reason);
     const error = new Error(message || "Operation aborted.");
-    if (!error.name) {
-        error.name = "AbortError";
-    }
-    return error;
+    return ensureAbortErrorMetadata(error, fallbackMessage);
 }
 
 /**
