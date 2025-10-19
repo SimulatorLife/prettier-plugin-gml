@@ -323,7 +323,25 @@ describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(ignorePath, "script.gml\n", "utf8");
 
-            await execFileAsync("node", [wrapperPath, targetFile]);
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                targetFile
+            ]);
+
+            const skipMessages = stdout
+                .split(/\r?\n/)
+                .filter((line) => line.startsWith("Skipping "));
+            assert.ok(
+                skipMessages.some((line) =>
+                    line.includes(" (ignored by ") &&
+                    line.includes(ignorePath)
+                ),
+                "Expected wrapper output to explain which ignore file skipped the target"
+            );
+
+            const summaryMatch = stdout.match(/Skipped (\d+) files/);
+            assert.ok(summaryMatch);
+            assert.strictEqual(Number(summaryMatch[1]), 1);
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var    a=1;\n");

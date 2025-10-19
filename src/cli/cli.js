@@ -124,6 +124,25 @@ function formatPathForDisplay(targetPath) {
     return resolvedTarget;
 }
 
+function normalizeIgnorePaths(ignorePaths) {
+    return uniqueArray(
+        (ignorePaths ?? []).filter(
+            (ignorePath) =>
+                typeof ignorePath === "string" && ignorePath.length > 0
+        )
+    );
+}
+
+function formatIgnorePathListForDisplay(ignorePaths) {
+    const normalized = normalizeIgnorePaths(ignorePaths);
+
+    if (normalized.length === 0) {
+        return "";
+    }
+
+    return normalized.map((ignorePath) => formatPathForDisplay(ignorePath)).join(", ");
+}
+
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
@@ -941,7 +960,19 @@ async function processFile(filePath, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${filePath} (ignored)`);
+            const relevantIgnorePaths =
+                activeIgnorePaths.length > 0
+                    ? activeIgnorePaths
+                    : baseProjectIgnorePaths;
+            const formattedIgnorePaths = formatIgnorePathListForDisplay(
+                relevantIgnorePaths
+            );
+            const ignoreReason =
+                formattedIgnorePaths.length > 0
+                    ? ` (ignored by ${formattedIgnorePaths})`
+                    : " (ignored)";
+            console.log(`Skipping ${filePath}${ignoreReason}`);
+            skippedFileCount += 1;
             return;
         }
 
