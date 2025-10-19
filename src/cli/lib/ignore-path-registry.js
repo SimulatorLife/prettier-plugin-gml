@@ -1,8 +1,6 @@
-const registeredIgnorePaths = new Set();
+import { isNonEmptyString } from "../../shared/string-utils.js";
 
-function isValidPath(path) {
-    return typeof path === "string" && path.length > 0;
-}
+const registeredIgnorePaths = new Set();
 
 /**
  * Determine whether the provided path has already been registered.
@@ -14,7 +12,7 @@ function isValidPath(path) {
  * @returns {boolean} `true` when the path has been seen before.
  */
 export function hasRegisteredIgnorePath(ignorePath) {
-    if (!isValidPath(ignorePath)) {
+    if (!isNonEmptyString(ignorePath)) {
         return false;
     }
     return registeredIgnorePaths.has(ignorePath);
@@ -29,7 +27,7 @@ export function hasRegisteredIgnorePath(ignorePath) {
  *        ignore entry.
  */
 export function registerIgnorePath(ignorePath) {
-    if (!isValidPath(ignorePath)) {
+    if (!isNonEmptyString(ignorePath)) {
         return;
     }
     registeredIgnorePaths.add(ignorePath);
