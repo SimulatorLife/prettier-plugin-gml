@@ -129,5 +129,5 @@ test("cloneObjectEntries preserves non-object entries", () => {
 
 test("cloneObjectEntries normalizes nullish input to empty arrays", () => {
     assert.deepEqual(cloneObjectEntries(null), []);
-    assert.deepEqual(cloneObjectEntries(undefined), []);
+    assert.deepEqual(cloneObjectEntries(), []);
 });

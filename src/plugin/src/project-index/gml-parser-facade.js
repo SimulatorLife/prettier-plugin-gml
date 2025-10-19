@@ -1,6 +1,6 @@
 import GMLParser, {
     isSyntaxErrorWithLocation
-} from "../../../parser/gml-parser.js";
+} from "gamemaker-language-parser";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {

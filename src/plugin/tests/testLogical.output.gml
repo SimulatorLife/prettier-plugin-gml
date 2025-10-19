@@ -44,7 +44,7 @@ function scr_logic_factor_shared_or(foo, bar) {
 /// @function scr_logic_xor_equivalent
 /// @param {bool} foo
 /// @param {bool} bar
-/// @description XOR equivalence: (foo and !bar) or (!foo and bar) == (foo or bar) and !(foo and bar).
+/// @description XOR equivalence: (foo and !bar) or (!foo and bar).
 /// @returns {bool}
 function scr_logic_xor_equivalent(foo, bar) {
     return (foo || bar) && !(foo && bar);

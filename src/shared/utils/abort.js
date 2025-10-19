@@ -3,7 +3,7 @@ import { getNonEmptyString } from "./string.js";
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
 
-function hasErrorMetadata(value) {
+function shouldReuseAbortReason(value) {
     if (value == null) {
         return false;
     }
@@ -13,21 +13,43 @@ function hasErrorMetadata(value) {
         return false;
     }
 
-    if (ERROR_METADATA_KEYS.some((key) => key in value && value[key] != null)) {
-        return true;
-    }
-
-    return "cause" in value;
+    return (
+        ERROR_METADATA_KEYS.some((key) => value[key] != null) ||
+        "cause" in value
+    );
 }
 
-function ensureAbortErrorMetadata(error, fallbackMessage) {
+function toAbortMessage(value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value == null) {
+        return null;
+    }
+
+    try {
+        return String(value);
+    } catch {
+        return null;
+    }
+}
+
+function normalizeAbortError(reason, fallbackMessage) {
+    const fallback =
+        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    const error = shouldReuseAbortReason(reason)
+        ? reason
+        : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
+
     if (!getNonEmptyString(error.name)) {
         error.name = "AbortError";
     }
 
-    const fallback =
-        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
-    error.message = getNonEmptyString(error.message) ?? fallback;
+    if (!getNonEmptyString(error.message)) {
+        error.message = fallback;
+    }
+
     return error;
 }
 
@@ -54,18 +76,7 @@ export function createAbortError(
         return null;
     }
 
-    const fallback =
-        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
-    const { reason } = signal;
-
-    if (hasErrorMetadata(reason)) {
-        return ensureAbortErrorMetadata(reason, fallback);
-    }
-
-    const message =
-        reason === undefined || reason === null ? null : String(reason);
-    const error = new Error(getNonEmptyString(message) ?? fallback);
-    return ensureAbortErrorMetadata(error, fallback);
+    return normalizeAbortError(signal.reason, fallbackMessage);
 }
 
 /**
@@ -84,4 +95,56 @@ export function throwIfAborted(signal, fallbackMessage) {
     if (error) {
         throw error;
     }
+}
+
+function isAbortSignalLike(value) {
+    return (
+        value != null &&
+        (typeof value === "object" || typeof value === "function") &&
+        typeof value.aborted === "boolean"
+    );
+}
+
+/**
+ * Extract an `AbortSignal` from an options bag while ensuring it has not
+ * already been cancelled. This consolidates the repetitive guard logic spread
+ * throughout the project index helpers where every entry point previously
+ * reimplemented the same `options?.signal ?? null` pattern.
+ *
+ * Callers receive either the validated signal instance or `null` when the
+ * options bag does not expose a usable signal. Any pre-aborted signals raise an
+ * `AbortError` using the same fallback semantics as {@link throwIfAborted} to
+ * keep error reporting consistent.
+ *
+ * @param {unknown} options Candidate options object that may carry a signal.
+ * @param {{
+ *     key?: string | number | symbol,
+ *     fallbackMessage?: string | null | undefined
+ * }} [config]
+ * @param {string | number | symbol} [config.key="signal"] Property name used
+ *        to retrieve the signal from {@link options}.
+ * @param {string | null | undefined} [config.fallbackMessage] Optional message
+ *        forwarded when surfacing an `AbortError` for an already-cancelled
+ *        signal.
+ * @returns {AbortSignal | null} Normalized signal instance or `null` when the
+ *          options object does not supply one.
+ */
+export function resolveAbortSignalFromOptions(
+    options,
+    { key = "signal", fallbackMessage } = {}
+) {
+    if (
+        options == null ||
+        (typeof options !== "object" && typeof options !== "function")
+    ) {
+        return null;
+    }
+
+    const candidate = options[key] ?? null;
+    if (!isAbortSignalLike(candidate)) {
+        return null;
+    }
+
+    throwIfAborted(candidate, fallbackMessage);
+    return candidate;
 }

@@ -1,4 +1,8 @@
-import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    hasOwn,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 
 const SHARED_CACHE = new WeakMap();
 
@@ -56,9 +60,7 @@ function defineCachedProperty(target, cacheKey, value) {
  * @returns {TValue} The cached or freshly computed value.
  */
 function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
-    if (typeof computeValue !== "function") {
-        throw new TypeError("computeValue must be a function");
-    }
+    assertFunction(computeValue, "computeValue");
 
     if (!isObjectLike(options)) {
         return computeValue();
@@ -104,9 +106,7 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
  *   for the provided options bag.
  */
 function createCachedOptionResolver({ cacheKey = null, cache, compute } = {}) {
-    if (typeof compute !== "function") {
-        throw new TypeError("compute must be a function");
-    }
+    assertFunction(compute, "compute");
 
     const fallbackCache = cache ?? new WeakMap();
 
