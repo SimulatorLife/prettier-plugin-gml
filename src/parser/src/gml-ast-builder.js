@@ -743,13 +743,27 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitIncDecStatement(ctx) {
         if (ctx.preIncDecExpression() != undefined) {
             let result = this.visit(ctx.preIncDecExpression());
-            // Modify type to denote statement context
+            // The ANTLR grammar models `++i;` statements by reusing the same
+            // visitor path as `++i` expressions, so we receive an
+            // `IncDecExpression` node here. Re-tag it as an
+            // `IncDecStatement` before returning so downstream passes know the
+            // increment/decrement consumed an entire statement slot. The
+            // printers and Feather compatibility transforms (see
+            // `src/plugin/src/ast-transforms/apply-feather-fixes.js`) only look
+            // for statement-shaped nodes when deciding whether to emit
+            // GameMaker-style semicolons or rewrite postfix updates; leaving
+            // the expression tag in place would quietly bypass those guards and
+            // reintroduce the very regressions they were added to prevent.
             result.type = "IncDecStatement";
             return result;
         }
         if (ctx.postIncDecExpression() != undefined) {
             let result = this.visit(ctx.postIncDecExpression());
-            // Modify type to denote statement context
+            // See the note above for the prefix branch: postfix statements also
+            // surface as expression nodes and must be re-tagged so the printers,
+            // loop-size hoisting logic (`src/plugin/src/printer/loop-size-hoisting.js`),
+            // and Feather fixups continue to recognise them as standalone
+            // statements instead of loose expressions.
             result.type = "IncDecStatement";
             return result;
         }
