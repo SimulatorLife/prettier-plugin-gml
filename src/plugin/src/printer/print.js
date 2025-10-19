@@ -3226,8 +3226,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
+        const optionalOverride = paramNode?._featherOptionalParameter === true;
         const optional = defaultIsUndefined
-            ? !signatureOmitsUndefinedDefault
+            ? optionalOverride || !signatureOmitsUndefinedDefault
             : true;
 
         return {

@@ -71,27 +71,24 @@ function resolveCandidatePath(candidate) {
     return null;
 }
 
-function collectCandidatePaths({ env, candidates } = {}) {
-    const explicitCandidates = toArray(candidates);
-    const envCandidates = getEnvironmentCandidates(env);
-
-    return [
-        ...explicitCandidates,
-        ...envCandidates,
+function resolveCandidatePaths({ env, candidates } = {}) {
+    const orderedCandidates = [
+        ...toArray(candidates),
+        ...getEnvironmentCandidates(env),
         ...DEFAULT_CANDIDATE_PLUGIN_PATHS
     ];
-}
 
-function resolveCandidatePathsInOrder(candidates) {
     const resolvedCandidates = [];
+    const seen = new Set();
 
-    for (const candidate of candidates) {
-        const resolved = resolveCandidatePath(candidate);
-        if (!resolved || resolvedCandidates.includes(resolved)) {
+    for (const candidate of orderedCandidates) {
+        const resolvedPath = resolveCandidatePath(candidate);
+        if (!resolvedPath || seen.has(resolvedPath)) {
             continue;
         }
 
-        resolvedCandidates.push(resolved);
+        seen.add(resolvedPath);
+        resolvedCandidates.push(resolvedPath);
     }
 
     return resolvedCandidates;
@@ -115,11 +112,10 @@ function createMissingEntryPointError(resolvedCandidates) {
 }
 
 export function resolvePluginEntryPoint({ env, candidates } = {}) {
-    const orderedCandidates = collectCandidatePaths({
+    const resolvedCandidates = resolveCandidatePaths({
         env: env ?? process.env,
         candidates
     });
-    const resolvedCandidates = resolveCandidatePathsInOrder(orderedCandidates);
     const existingPath = findFirstExistingPath(resolvedCandidates);
 
     if (existingPath) {

@@ -16259,25 +16259,20 @@ function convertParameterToUndefinedDefault(parameter) {
         return null;
     }
 
-    const identifier = cloneIdentifier(parameter);
-
-    if (!identifier) {
+    const identifier = cloneIdentifier(parameter) ?? parameter;
+    const undefinedLiteral = createLiteral("undefined", parameter);
+    if (!undefinedLiteral) {
         return null;
     }
 
     const defaultParameter = {
         type: "DefaultParameter",
         left: identifier,
-        right: createLiteral("undefined", parameter)
+        right: undefinedLiteral,
+        start: cloneLocation(parameter.start ?? identifier.start),
+        end: cloneLocation(parameter.end ?? identifier.end),
+        _featherOptionalParameter: true
     };
-
-    if (Object.hasOwn(parameter, "start")) {
-        defaultParameter.start = cloneLocation(parameter.start);
-    }
-
-    if (Object.hasOwn(parameter, "end")) {
-        defaultParameter.end = cloneLocation(parameter.end);
-    }
 
     copyCommentMetadata(parameter, defaultParameter);
 

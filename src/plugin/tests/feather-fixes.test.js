@@ -2618,6 +2618,16 @@ describe("applyFeatherFixes transform", () => {
         const params = Array.isArray(fn.params) ? fn.params : [];
         assert.strictEqual(params.length, 4);
 
+        const parameterNames = params.map((param) => {
+            if (param?.type === "DefaultParameter") {
+                return param.left?.name ?? null;
+            }
+
+            return param?.name ?? null;
+        });
+
+        assert.deepStrictEqual(parameterNames, ["a", "b", "c", "d"]);
+
         assert.strictEqual(params[0]?.type, "Identifier");
         assert.strictEqual(params[0]?.name, "a");
 
@@ -2630,6 +2640,18 @@ describe("applyFeatherFixes transform", () => {
 
         assert.strictEqual(params[3]?.type, "DefaultParameter");
         assert.strictEqual(params[3]?.left?.name, "d");
+
+        const defaultParameters = params.filter(
+            (param) => param?.type === "DefaultParameter"
+        );
+        assert.strictEqual(defaultParameters.length, 3);
+        assert.strictEqual(defaultParameters[0].left?.name, "b");
+        assert.strictEqual(defaultParameters[1].left?.name, "c");
+        assert.strictEqual(defaultParameters[2].left?.name, "d");
+        assert.strictEqual(
+            defaultParameters[1]._featherOptionalParameter,
+            true
+        );
 
         assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
         assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
