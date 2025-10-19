@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
 import { Command, InvalidArgumentError } from "commander";
@@ -10,11 +9,8 @@ import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
-    createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
-    buildManualRepositoryEndpoints,
-    resolveManualRepoValue,
-    resolveManualCacheRoot
+    resolveManualRepoValue
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -33,29 +29,19 @@ import {
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
-const OUTPUT_DEFAULT = path.join(
-    REPO_ROOT,
-    "resources",
-    "gml-identifiers.json"
-);
-
-const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
-
-const manualClient = createManualGitHubClient({
-    userAgent: "prettier-plugin-gml identifier generator",
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
-});
+import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
-    fileFetcher: { fetchManualFile },
-    refResolver: { resolveManualRef }
-} = manualClient;
+    repoRoot: REPO_ROOT,
+    defaultCacheRoot: DEFAULT_CACHE_ROOT,
+    defaultOutputPath: OUTPUT_DEFAULT,
+    fetchManualFile,
+    resolveManualRef
+} = createManualCommandContext({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml identifier generator",
+    outputFileName: "gml-identifiers.json"
+});
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
