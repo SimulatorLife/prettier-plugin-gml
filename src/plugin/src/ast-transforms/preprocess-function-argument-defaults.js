@@ -8,6 +8,7 @@ import {
     isUndefinedLiteral as sharedIsUndefinedLiteral,
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 
 const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,
@@ -46,7 +47,7 @@ export function preprocessFunctionArgumentDefaults(
     ast,
     helpers = DEFAULT_HELPERS
 ) {
-    if (!ast || typeof ast !== "object") {
+    if (!isObjectLike(ast)) {
         return ast;
     }
 
@@ -89,7 +90,7 @@ export function preprocessFunctionArgumentDefaults(
  * @returns {void}
  */
 function traverse(node, visitor, seen = new Set()) {
-    if (!node || typeof node !== "object") {
+    if (!isObjectLike(node)) {
         return;
     }
 
@@ -113,7 +114,7 @@ function traverse(node, visitor, seen = new Set()) {
             continue;
         }
 
-        if (value && typeof value === "object") {
+        if (isObjectLike(value)) {
             traverse(value, visitor, seen);
         }
     }
