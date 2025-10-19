@@ -40,7 +40,11 @@ import {
 import {
     collectCommentNodes,
     getCommentArray,
-    hasComment
+    hasComment,
+    getDocCommentManager,
+    getCommentEndIndex,
+    isWhitespaceBetween,
+    normalizeDocParamNameForComparison
 } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -3737,9 +3741,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
+    const docCommentManager = getDocCommentManager(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
-        sourceText
+        sourceText,
+        docCommentManager
     );
 
     const visit = (node) => {
@@ -3994,206 +4000,31 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentManager) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const comments = getCommentArray(ast);
-    const paramComments = comments
-        .filter(
-            (comment) =>
-                comment &&
-                comment.type === "CommentLine" &&
-                typeof comment.value === "string" &&
-                /@param\b/i.test(comment.value)
-        )
-        .sort((left, right) => {
-            const leftStart =
-                typeof left.start === "number"
-                    ? left.start
-                    : Number.NEGATIVE_INFINITY;
-            const rightStart =
-                typeof right.start === "number"
-                    ? right.start
-                    : Number.NEGATIVE_INFINITY;
-            return leftStart - rightStart;
-        });
+    const manager = docCommentManager ?? getDocCommentManager(ast);
 
-    if (paramComments.length === 0) {
-        return lookup;
-    }
-
-    const visit = (node) => {
-        if (!node) {
+    manager.forEach((node) => {
+        if (!isFunctionLikeNode(node)) {
             return;
         }
 
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                visit(child);
-            }
-            return;
+        const documentedNames = manager.getDocumentedParamNames(
+            node,
+            sourceText
+        );
+
+        if (documentedNames.size > 0) {
+            lookup.set(node, documentedNames);
         }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (isFunctionLikeNode(node)) {
-            const documentedNames = extractDocumentedParamNames(
-                node,
-                paramComments,
-                sourceText
-            );
-
-            if (documentedNames.size > 0) {
-                lookup.set(node, documentedNames);
-            }
-
-            return;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+    });
 
     return lookup;
-}
-
-function extractDocumentedParamNames(functionNode, paramComments, sourceText) {
-    const documentedNames = new Set();
-    if (!functionNode || typeof functionNode !== "object") {
-        return documentedNames;
-    }
-
-    const functionStart = getNodeStartIndex(functionNode);
-
-    if (typeof functionStart !== "number") {
-        return documentedNames;
-    }
-
-    let lastIndex = -1;
-
-    for (let index = paramComments.length - 1; index >= 0; index -= 1) {
-        const comment = paramComments[index];
-        const commentEnd = getCommentEndIndex(comment);
-
-        if (commentEnd !== null && commentEnd < functionStart) {
-            lastIndex = index;
-            break;
-        }
-    }
-
-    if (lastIndex === -1) {
-        return documentedNames;
-    }
-
-    let boundary = functionStart;
-
-    for (let index = lastIndex; index >= 0; index -= 1) {
-        const comment = paramComments[index];
-        const commentEnd = getCommentEndIndex(comment);
-        const commentStart = getCommentStartIndex(comment);
-
-        if (commentEnd === null || commentEnd >= boundary) {
-            continue;
-        }
-
-        if (typeof commentStart === "number" && commentStart >= boundary) {
-            continue;
-        }
-
-        if (!isWhitespaceBetween(commentEnd + 1, boundary, sourceText)) {
-            break;
-        }
-
-        const paramName = extractParamNameFromComment(comment.value);
-
-        if (!paramName) {
-            break;
-        }
-
-        documentedNames.add(paramName);
-        boundary = typeof commentStart === "number" ? commentStart : commentEnd;
-    }
-
-    return documentedNames;
-}
-
-function getCommentStartIndex(comment) {
-    if (!comment || typeof comment !== "object") {
-        return null;
-    }
-
-    const start = comment.start;
-
-    if (typeof start === "number") {
-        return start;
-    }
-
-    if (start && typeof start.index === "number") {
-        return start.index;
-    }
-
-    return null;
-}
-
-function isWhitespaceBetween(startIndex, endIndex, sourceText) {
-    if (!sourceText || typeof sourceText !== "string") {
-        return true;
-    }
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
-        return true;
-    }
-
-    if (startIndex >= endIndex) {
-        return true;
-    }
-
-    const slice = sourceText.slice(startIndex, endIndex);
-    return !/\S/.test(slice);
-}
-
-function extractParamNameFromComment(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const match = value.match(/@param\s+(?:\{[^}]+\}\s*)?(\S+)/i);
-    if (!match) {
-        return null;
-    }
-
-    let name = match[1] ?? "";
-    name = name.trim();
-
-    if (name.startsWith("[") && name.endsWith("]")) {
-        name = name.slice(1, -1);
-    }
-
-    const equalsIndex = name.indexOf("=");
-    if (equalsIndex !== -1) {
-        name = name.slice(0, equalsIndex);
-    }
-
-    return name.trim();
-}
-
-function normalizeDocParamNameForComparison(name) {
-    if (typeof name !== "string") {
-        return "";
-    }
-
-    return toNormalizedLowerCaseString(name);
 }
 
 function createArgumentIndexMapping(indices) {
@@ -6187,7 +6018,12 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const deprecatedFunctions = collectDeprecatedFunctionNames(ast, sourceText);
+    const docCommentManager = getDocCommentManager(ast);
+    const deprecatedFunctions = collectDeprecatedFunctionNames(
+        ast,
+        sourceText,
+        docCommentManager
+    );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
         return [];
@@ -6274,79 +6110,51 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
     const names = new Set();
 
-    if (!ast || typeof ast !== "object") {
+    if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
         return names;
     }
 
-    const comments = getCommentArray(ast);
     const body = getBodyStatements(ast);
 
-    if (comments.length === 0 || body.length === 0) {
+    if (!Array.isArray(body) || body.length === 0) {
         return names;
     }
 
-    const sortedComments = comments
-        .filter((comment) => typeof getCommentEndIndex(comment) === "number")
-        .sort(
-            (left, right) =>
-                getCommentEndIndex(left) - getCommentEndIndex(right)
-        );
+    const topLevelFunctions = new Set(
+        body.filter(
+            (node) =>
+                node && typeof node === "object" && node.type === "FunctionDeclaration"
+        )
+    );
 
-    const nodes = body
-        .filter((node) => node && typeof node === "object")
-        .sort((left, right) => {
-            const leftIndex = getNodeStartIndex(left);
-            const rightIndex = getNodeStartIndex(right);
+    if (topLevelFunctions.size === 0) {
+        return names;
+    }
 
-            if (
-                typeof leftIndex !== "number" ||
-                typeof rightIndex !== "number"
-            ) {
-                return 0;
-            }
+    const manager = docCommentManager ?? getDocCommentManager(ast);
 
-            return leftIndex - rightIndex;
-        });
-
-    let commentIndex = 0;
-
-    for (const node of nodes) {
-        if (!node || node.type !== "FunctionDeclaration") {
-            continue;
+    manager.forEach((node, comments = []) => {
+        if (!topLevelFunctions.has(node)) {
+            return;
         }
 
         const startIndex = getNodeStartIndex(node);
 
         if (typeof startIndex !== "number") {
-            continue;
+            return;
         }
 
-        while (
-            commentIndex < sortedComments.length &&
-            getCommentEndIndex(sortedComments[commentIndex]) < startIndex
-        ) {
-            commentIndex += 1;
-        }
+        const deprecatedComment = findDeprecatedDocComment(
+            comments,
+            startIndex,
+            sourceText
+        );
 
-        const comment = sortedComments[commentIndex - 1];
-
-        if (!isDeprecatedComment(comment)) {
-            continue;
-        }
-
-        const commentEnd = getCommentEndIndex(comment);
-
-        if (typeof commentEnd !== "number") {
-            continue;
-        }
-
-        const between = sourceText.slice(commentEnd + 1, startIndex);
-
-        if (!isWhitespaceOnly(between)) {
-            continue;
+        if (!deprecatedComment) {
+            return;
         }
 
         const identifier =
@@ -6355,24 +6163,34 @@ function collectDeprecatedFunctionNames(ast, sourceText) {
         if (identifier) {
             names.add(identifier);
         }
-    }
+    });
 
     return names;
 }
 
-function getCommentEndIndex(comment) {
-    if (!comment) {
+function findDeprecatedDocComment(docComments, functionStart, sourceText) {
+    if (!Array.isArray(docComments) || docComments.length === 0) {
         return null;
     }
 
-    const end = comment.end;
+    for (let index = docComments.length - 1; index >= 0; index -= 1) {
+        const comment = docComments[index];
 
-    if (typeof end === "number") {
-        return end;
-    }
+        if (!isDeprecatedComment(comment)) {
+            continue;
+        }
 
-    if (end && typeof end.index === "number") {
-        return end.index;
+        const commentEnd = getCommentEndIndex(comment);
+
+        if (typeof commentEnd !== "number" || commentEnd >= functionStart) {
+            continue;
+        }
+
+        if (!isWhitespaceBetween(commentEnd + 1, functionStart, sourceText)) {
+            continue;
+        }
+
+        return comment;
     }
 
     return null;
@@ -6384,10 +6202,6 @@ function isDeprecatedComment(comment) {
     }
 
     return /@deprecated\b/i.test(comment.value);
-}
-
-function isWhitespaceOnly(text) {
-    return !isNonEmptyTrimmedString(text);
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {

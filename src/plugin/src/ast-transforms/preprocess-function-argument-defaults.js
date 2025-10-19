@@ -1,7 +1,4 @@
-import {
-    hasComment as sharedHasComment,
-    getHasCommentHelper
-} from "../comments/index.js";
+import { getHasCommentHelper } from "../comments/index.js";
 import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,
@@ -13,7 +10,7 @@ const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,
     isUndefinedLiteral: sharedIsUndefinedLiteral,
     getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
-    hasComment: sharedHasComment
+    hasComment: getHasCommentHelper()
 };
 
 /**

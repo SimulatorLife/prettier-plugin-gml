@@ -1,12 +1,7 @@
-import {
-    hasComment as sharedHasComment,
-    normalizeHasCommentHelpers
-} from "../comments/index.js";
+import { normalizeHasCommentHelpers } from "../comments/index.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 
-const DEFAULT_HELPERS = Object.freeze({
-    hasComment: sharedHasComment
-});
+const DEFAULT_HELPERS = Object.freeze(normalizeHasCommentHelpers());
 
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";

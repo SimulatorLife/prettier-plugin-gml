@@ -30,3 +30,11 @@ export {
     getHasCommentHelper,
     normalizeHasCommentHelpers
 } from "./has-comment-helpers.js";
+export {
+    getDocCommentManager,
+    prepareDocCommentEnvironment,
+    extractDocumentedParamNames,
+    normalizeDocParamNameForComparison,
+    isWhitespaceBetween,
+    getCommentEndIndex
+} from "./doc-comment-manager.js";
