@@ -1,14 +1,62 @@
-import { toTrimmedString } from "../../shared/string-utils.js";
+import {
+    toTrimmedString,
+    isAggregateErrorLike,
+    isErrorLike
+} from "./shared-deps.js";
 
 const DEFAULT_INDENT = "  ";
 
 const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
+
+const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
+
+function brandCliUsageError(error) {
+    if (!error || typeof error !== "object") {
+        return;
+    }
+
+    if (error[CLI_USAGE_ERROR_BRAND]) {
+        return;
+    }
+
+    Object.defineProperty(error, CLI_USAGE_ERROR_BRAND, {
+        configurable: true,
+        enumerable: false,
+        value: true,
+        writable: false
+    });
+}
+
+export function markAsCliUsageError(error, { usage } = {}) {
+    if (!isErrorLike(error)) {
+        return null;
+    }
+
+    brandCliUsageError(error);
+    if (usage !== undefined || !("usage" in error)) {
+        error.usage = usage ?? null;
+    }
+
+    return error;
+}
 
 function indentBlock(text, indent = DEFAULT_INDENT) {
     return text
         .split("\n")
         .map((line) => `${indent}${line}`)
         .join("\n");
+}
+
+function isCliUsageError(error) {
+    return isErrorLike(error) && Boolean(error[CLI_USAGE_ERROR_BRAND]);
+}
+
+function formatSection(label, content) {
+    if (!content) {
+        return null;
+    }
+
+    return `${label}:\n${content}`;
 }
 
 function extractStackBody(stack) {
@@ -26,7 +74,7 @@ function extractStackBody(stack) {
 }
 
 function formatAggregateErrors(error, seen) {
-    if (!(error instanceof AggregateError) || !Array.isArray(error.errors)) {
+    if (!isAggregateErrorLike(error)) {
         return null;
     }
 
@@ -39,7 +87,7 @@ function formatAggregateErrors(error, seen) {
         return null;
     }
 
-    return `Errors:\n${formatted.join("\n")}`;
+    return formatSection("Errors", formatted.join("\n"));
 }
 
 function formatErrorCause(cause, seen) {
@@ -48,12 +96,16 @@ function formatErrorCause(cause, seen) {
     }
 
     const text = formatErrorValue(cause, seen);
-    return text ? `Caused by:\n${indentBlock(text)}` : null;
+    return formatSection("Caused by", indentBlock(text));
 }
 
 function formatErrorHeader(error) {
     const name = toTrimmedString(error.name);
     const message = toTrimmedString(error.message);
+
+    if (isCliUsageError(error)) {
+        return message;
+    }
 
     if (name && message) {
         return message.toLowerCase().startsWith(name.toLowerCase())
@@ -83,7 +135,10 @@ function formatErrorObject(error, seen) {
 
     seen.add(error);
 
-    const stack = typeof error.stack === "string" ? error.stack : null;
+    const stack =
+        !isCliUsageError(error) && typeof error.stack === "string"
+            ? error.stack
+            : null;
     const sections = [
         formatErrorHeader(error),
         extractStackBody(stack),
@@ -125,7 +180,7 @@ function formatErrorValue(value, seen) {
         return String(value);
     }
 
-    if (value instanceof Error) {
+    if (isErrorLike(value)) {
         return formatErrorObject(value, seen);
     }
 
@@ -144,7 +199,7 @@ export class CliUsageError extends Error {
     constructor(message, { usage } = {}) {
         super(message);
         this.name = "CliUsageError";
-        this.usage = usage ?? null;
+        markAsCliUsageError(this, { usage });
     }
 }
 

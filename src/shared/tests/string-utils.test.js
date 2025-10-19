@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 // Prefer strict assertion helpers to avoid relying on Node.js' deprecated
 // loose equality variants like assert.equal/assert.deepEqual.
@@ -9,6 +9,7 @@ import {
     isNonEmptyTrimmedString,
     isWordChar,
     toTrimmedString,
+    coalesceTrimmedString,
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet,
     capitalize,
@@ -26,6 +27,13 @@ test("toTrimmedString normalizes non-string values to empty strings", () => {
     assert.strictEqual(toTrimmedString(), "");
     assert.strictEqual(toTrimmedString(123), "");
     assert.strictEqual(toTrimmedString({}), "");
+});
+
+test("coalesceTrimmedString returns the first non-empty trimmed candidate", () => {
+    assert.strictEqual(coalesceTrimmedString(null, "   ", "value"), "value");
+    assert.strictEqual(coalesceTrimmedString("  first  ", "second"), "first");
+    assert.strictEqual(coalesceTrimmedString(), "");
+    assert.strictEqual(coalesceTrimmedString(null, "   "), "");
 });
 
 test("toNormalizedLowerCaseString trims and lowercases input values", () => {

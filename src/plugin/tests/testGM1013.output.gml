@@ -1,7 +1,7 @@
 /// @function AttackController
 /// @param [attack_bonus=10]
 function AttackController(attack_bonus = 10) constructor {
-
+    
     self.attack_bonus = attack_bonus;
 
     /// @function perform_attack
@@ -37,7 +37,7 @@ value = 40;
 item = function() constructor {
     value = 99;
     copied_value = self.value;
-}
+};
 
 my_item = new item();
 show_debug_message(my_item.copied_value);  // Prints 99

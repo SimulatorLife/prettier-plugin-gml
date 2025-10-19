@@ -10,6 +10,10 @@ import {
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
+// These tests intentionally rely on assert.strictEqual-style comparisons because
+// Node.js deprecated the legacy assert.equal API. Behaviour has been
+// revalidated via `npm test src/cli/tests/detect-test-regressions.test.js`.
+
 function writeXml(dir, name, contents) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, `${name}.xml`), xmlHeader + contents);
@@ -58,9 +62,9 @@ test("detects regressions when a previously passing test now fails", () => {
     const merged = readTestResults(["merge/test-results"], { workspace });
     const regressions = detectRegressions(base, merged);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(regressions[0].from, "passed");
-    assert.equal(regressions[0].to, "failed");
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].from, "passed");
+    assert.strictEqual(regressions[0].to, "failed");
 });
 
 test("treats failing tests without a base counterpart as regressions", () => {
@@ -94,9 +98,9 @@ test("treats failing tests without a base counterpart as regressions", () => {
     const head = readTestResults(["test-results"], { workspace });
     const regressions = detectRegressions(base, head);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(regressions[0].from, "missing");
-    assert.equal(
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].from, "missing");
+    assert.strictEqual(
         regressions[0].detail?.displayName.includes("new scenario fails"),
         true
     );
@@ -128,9 +132,42 @@ test("parses top-level test cases that are not nested in a suite", () => {
     const merged = readTestResults(["merge/test-results"], { workspace });
     const regressions = detectRegressions(base, merged);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(
         regressions[0].detail?.displayName.includes("top level"),
         true
+    );
+});
+
+test("normalizes whitespace when describing regression candidates", () => {
+    const headDir = path.join(workspace, "test-results");
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name=" outer ">
+        <testsuite name=" inner ">
+          <testcase name="  spaced name  " classname="  spaced class  " file="  /tmp/example  ">
+            <failure message="boom" />
+          </testcase>
+        </testsuite>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const head = readTestResults(["test-results"], { workspace });
+    const records = [...head.results.values()];
+
+    assert.strictEqual(records.length, 1);
+    const record = records[0];
+
+    assert.strictEqual(
+        record.key,
+        "outer :: inner :: spaced class :: spaced name"
+    );
+    assert.strictEqual(
+        record.displayName,
+        "outer :: inner :: spaced name [/tmp/example]"
     );
 });

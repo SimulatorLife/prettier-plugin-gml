@@ -1,11 +1,13 @@
 import { mergeUniqueValues } from "../../../shared/array-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    getNonEmptyTrimmedString,
+    isNonEmptyTrimmedString,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createCachedOptionResolver } from "./options-cache.js";
-import {
-    coercePositiveIntegerOption,
-    normalizeStringList
-} from "./option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
+import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const DEFAULT_LINE_COMMENT_BANNER_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_AUTOFILL_THRESHOLD = 4;
@@ -225,7 +227,7 @@ function mergeCodeDetectionPatterns(
 
     if (Array.isArray(rawValue)) {
         entries = rawValue;
-    } else if (rawValue instanceof RegExp) {
+    } else if (isRegExpLike(rawValue)) {
         entries = [rawValue];
     } else if (allowStringLists) {
         entries = normalizeStringList(rawValue, { allowInvalidType: true });
@@ -237,21 +239,20 @@ function mergeCodeDetectionPatterns(
 
     return mergeUniqueValues(DEFAULT_COMMENTED_OUT_CODE_PATTERNS, entries, {
         coerce: coerceRegExp,
-        getKey: (pattern) => pattern.toString()
+        getKey: (pattern) =>
+            typeof pattern?.toString === "function"
+                ? pattern.toString()
+                : String(pattern)
     });
 }
 
 function coerceRegExp(value) {
-    if (value instanceof RegExp) {
+    if (isRegExpLike(value)) {
         return value;
     }
 
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
+    const trimmed = getNonEmptyTrimmedString(value);
+    if (!trimmed) {
         return null;
     }
 
@@ -277,7 +278,7 @@ function hasCodeDetectionOverride(value) {
         return value.length > 0;
     }
 
-    if (value instanceof RegExp) {
+    if (isRegExpLike(value)) {
         return true;
     }
 

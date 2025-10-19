@@ -13,9 +13,18 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         return;
     }
 
+    const resolveName =
+        typeof getNodeName === "function" ? getNodeName : undefined;
+    const memberCount = members.length;
+    const memberStats = new Array(memberCount);
     let maxInitializerNameLength = 0;
-    const memberStats = members.map((member) => {
-        const rawName = getNodeName?.(member?.name);
+
+    // Avoid `Array#map` here so the hot enum printing path does not allocate a
+    // new callback for each member. The manual loop keeps the same data shape
+    // while shaving observable time off the tight formatter benchmark.
+    for (let index = 0; index < memberCount; index += 1) {
+        const member = members[index];
+        const rawName = resolveName ? resolveName(member?.name) : undefined;
         const nameLength = typeof rawName === "string" ? rawName.length : 0;
         const initializer = member?.initializer;
         const hasInitializer = Boolean(initializer);
@@ -25,14 +34,14 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
             maxInitializerNameLength = nameLength;
         }
 
-        return {
+        memberStats[index] = {
             member,
             nameLength,
             initializerWidth,
             hasInitializer,
             trailingComments: collectTrailingEnumComments(member)
         };
-    });
+    }
 
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
@@ -65,28 +74,42 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
     const lastIndex = memberStats.length - 1;
 
-    for (const [index, entry] of memberStats.entries()) {
-        if (!isNonEmptyArray(entry.trailingComments)) {
+    // Manual index iteration avoids allocating iterator tuples from
+    // `Array#entries()` while the printer walks enum members.
+    for (let index = 0; index <= lastIndex; index += 1) {
+        const entry = memberStats[index];
+        const trailingComments = entry.trailingComments;
+        const trailingCount = trailingComments.length;
+
+        if (trailingCount === 0) {
+            continue;
+        }
+
+        const basePadding = maxMemberWidth - entry.memberWidth;
+        if (basePadding <= 0) {
             continue;
         }
 
         const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
-        const extraPadding = Math.max(
-            maxMemberWidth - (entry.memberWidth ?? 0) - commaWidth,
-            0
-        );
+        const extraPadding = basePadding - commaWidth;
 
-        if (extraPadding === 0) {
+        if (extraPadding <= 0) {
             continue;
         }
 
-        for (const comment of entry.trailingComments) {
-            if (comment && typeof comment === "object") {
-                const previous =
-                    typeof comment._enumTrailingPadding === "number"
-                        ? comment._enumTrailingPadding
-                        : 0;
-                comment._enumTrailingPadding = Math.max(previous, extraPadding);
+        for (
+            let commentIndex = 0;
+            commentIndex < trailingCount;
+            commentIndex += 1
+        ) {
+            const comment = trailingComments[commentIndex];
+            const previous = comment._enumTrailingPadding;
+
+            // Skip reassignments when another member already provided padding
+            // that meets or exceeds the computed width. This mirrors the
+            // original Math.max call while avoiding the extra allocation.
+            if (typeof previous !== "number" || previous < extraPadding) {
+                comment._enumTrailingPadding = extraPadding;
             }
         }
     }
@@ -124,15 +147,26 @@ function getEnumInitializerWidth(initializer) {
 
 function collectTrailingEnumComments(member) {
     const comments = getCommentArray(member);
-    if (comments.length === 0) {
+    const { length } = comments;
+    if (length === 0) {
         return [];
     }
 
-    return comments.filter((comment) => {
+    // Manual iteration avoids creating a new callback per invocation while the
+    // printer walks enum members, which keeps the micro-hot path allocation
+    // free.
+    const trailingComments = [];
+
+    for (let index = 0; index < length; index += 1) {
+        const comment = comments[index];
         if (comment === null || typeof comment !== "object") {
-            return false;
+            continue;
         }
 
-        return comment.trailing === true || comment.placement === "endOfLine";
-    });
+        if (comment.trailing === true || comment.placement === "endOfLine") {
+            trailingComments.push(comment);
+        }
+    }
+
+    return trailingComments;
 }

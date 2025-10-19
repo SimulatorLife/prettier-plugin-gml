@@ -1,6 +1,10 @@
 {
   "name": "prettier-plugin-gamemaker",
   "type": "module",
+  "exports": {
+    ".": "./src/gml.js",
+    "./cli-services": "./src/cli-services.js"
+  },
   "config": {
     "root_path": "."
   },

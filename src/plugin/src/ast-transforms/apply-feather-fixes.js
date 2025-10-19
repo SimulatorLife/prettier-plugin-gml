@@ -9,25 +9,58 @@ import {
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifier,
+    getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
-    isVarVariableDeclaration
+    isProgramOrBlockStatement,
+    isVarVariableDeclaration,
+    isNode
 } from "../../../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    toNormalizedLowerCaseString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
-import { hasOwn, isObjectLike } from "../../../shared/object-utils.js";
+import {
+    getOrCreateMapEntry,
+    hasOwn,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
-import { collectCommentNodes, getCommentArray } from "../comments/index.js";
+import {
+    hasIterableItems,
+    isMapLike,
+    isSetLike
+} from "../../../shared/utils/capability-probes.js";
+import {
+    collectCommentNodes,
+    getCommentArray,
+    hasComment
+} from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../feather/metadata.js";
+
+function forEachNodeChild(node, callback) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        callback(value, key);
+    }
+}
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
@@ -120,14 +153,6 @@ const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
 
-function getCallArgumentsOrEmpty(node) {
-    if (!node || typeof node !== "object") {
-        return [];
-    }
-
-    const args = getCallExpressionArguments(node);
-    return Array.isArray(node.arguments) ? args : [];
-}
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
 const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
@@ -391,6 +416,20 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
 }
 
 function createNoOpFixer() {
+    // Feather diagnostics are harvested independently of the formatter bundle,
+    // so the plugin frequently encounters rule IDs before their fixer
+    // implementations land. Returning an empty fixer keeps the pipeline
+    // tolerant of that skew: downstream call sites treat "no edits" as "leave
+    // the AST untouched" while still surfacing diagnostic metadata. That
+    // contract matters because the orchestrator in applyFeatherFixes blindly
+    // concatenates the arrays returned by every fixer; providing [] keeps the
+    // type signature intact and avoids signalling "fixer missing" as a fatal
+    // error. When we experimented with throwing here the formatter would stop
+    // mid-run or, worse, fall back to speculative edits that reorder nodes
+    // without the guard rails laid out in docs/feather-data-plan.md. Until the
+    // corresponding fixer implementation ships we deliberately fall back to this
+    // inert function so diagnostics reach the caller while the AST remains
+    // untouched.
     return () => [];
 }
 
@@ -466,11 +505,9 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -560,18 +597,14 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         const nextBreakableDepth =
             breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        for (const [key, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
+        forEachNodeChild(node, (value, key) => {
             if (Array.isArray(value)) {
                 visitArray(value, node, key, nextBreakableDepth);
-                continue;
+                return;
             }
 
             visit(value, node, key, nextBreakableDepth, node);
-        }
+        });
 
         return false;
     };
@@ -812,6 +845,7 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
+                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
                     ast,
                     diagnostic
                 });
@@ -1169,9 +1203,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const declarations = Array.isArray(declaration?.declarations)
-        ? declaration.declarations
-        : [];
+    const declarations = asArray(declaration?.declarations);
 
     if (declarations.length !== 1) {
         return;
@@ -1248,47 +1280,65 @@ function convertIdentifierReference({
     }
 
     const candidates = variableDeclarations.get(identifier.name);
+    const hasCandidates = isNonEmptyArray(candidates);
 
-    if (!Array.isArray(candidates) || candidates.length === 0) {
-        return;
-    }
-
-    const withBodies = Array.isArray(context?.withBodies)
-        ? context.withBodies
-        : [];
+    const withBodies = asArray(context?.withBodies);
     const identifierStart = getNodeStartIndex(identifier);
     const identifierEnd = getNodeEndIndex(identifier);
 
     let matchedContext = null;
+    let sawUnpromotableCandidate = false;
 
-    for (let index = candidates.length - 1; index >= 0; index -= 1) {
-        const candidate = candidates[index];
+    if (hasCandidates) {
+        for (let index = candidates.length - 1; index >= 0; index -= 1) {
+            const candidate = candidates[index];
 
-        if (!candidate || candidate.invalid) {
-            continue;
+            if (!candidate || candidate.invalid) {
+                continue;
+            }
+
+            if (!isPromotableWithOtherCandidate(candidate)) {
+                sawUnpromotableCandidate = true;
+                continue;
+            }
+
+            if (candidate.owner && withBodies.includes(candidate.owner)) {
+                continue;
+            }
+
+            if (candidate.owner && !ancestorStack.includes(candidate.owner)) {
+                continue;
+            }
+
+            if (
+                typeof candidate.startIndex === "number" &&
+                typeof identifierStart === "number" &&
+                candidate.startIndex > identifierStart
+            ) {
+                continue;
+            }
+
+            matchedContext = candidate;
+            break;
         }
-
-        if (candidate.owner && withBodies.includes(candidate.owner)) {
-            continue;
-        }
-
-        if (candidate.owner && !ancestorStack.includes(candidate.owner)) {
-            continue;
-        }
-
-        if (
-            typeof candidate.startIndex === "number" &&
-            typeof identifierStart === "number" &&
-            candidate.startIndex > identifierStart
-        ) {
-            continue;
-        }
-
-        matchedContext = candidate;
-        break;
     }
 
     if (!matchedContext) {
+        if (hasCandidates || sawUnpromotableCandidate) {
+            return;
+        }
+
+        replaceIdentifierWithOtherMember({
+            identifier,
+            parent,
+            property,
+            arrayOwner,
+            arrayProperty,
+            diagnostic,
+            fixes,
+            identifierStart,
+            identifierEnd
+        });
         return;
     }
 
@@ -1305,6 +1355,30 @@ function convertIdentifierReference({
         }
     }
 
+    replaceIdentifierWithOtherMember({
+        identifier,
+        parent,
+        property,
+        arrayOwner,
+        arrayProperty,
+        diagnostic,
+        fixes,
+        identifierStart,
+        identifierEnd
+    });
+}
+
+function replaceIdentifierWithOtherMember({
+    identifier,
+    parent,
+    property,
+    arrayOwner,
+    arrayProperty,
+    diagnostic,
+    fixes,
+    identifierStart,
+    identifierEnd
+}) {
     const memberExpression = createOtherMemberExpression(identifier);
 
     if (Array.isArray(parent)) {
@@ -1319,7 +1393,7 @@ function convertIdentifierReference({
             : null;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: identifier.name ?? null,
+        target: identifier?.name ?? null,
         range
     });
 
@@ -1389,6 +1463,20 @@ function promoteVariableDeclaration(context, diagnostic, fixes) {
     context.assignment = assignment;
 
     return assignment;
+}
+
+function isPromotableWithOtherCandidate(candidate) {
+    if (!candidate) {
+        return false;
+    }
+
+    const owner = candidate.owner;
+
+    if (!owner || typeof owner !== "object") {
+        return true;
+    }
+
+    return owner.type === "Program";
 }
 
 function isWithStatementTargetingOther(node) {
@@ -1770,11 +1858,9 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -1871,22 +1957,21 @@ function isStringReturningExpression(node) {
     }
 
     if (node.type === "CallExpression") {
-        const callee = node.object;
+        const calleeName = getCallExpressionIdentifierName(node);
+        if (!calleeName) {
+            return false;
+        }
 
-        if (isIdentifierWithName(callee, "string")) {
+        if (calleeName === "string") {
             return true;
         }
 
-        if (callee?.type === "Identifier") {
-            const name = callee.name;
+        if (STRING_LENGTH_CALL_BLACKLIST.has(calleeName)) {
+            return false;
+        }
 
-            if (STRING_LENGTH_CALL_BLACKLIST.has(name)) {
-                return false;
-            }
-
-            if (name.startsWith("string_")) {
-                return true;
-            }
+        if (calleeName.startsWith("string_")) {
+            return true;
         }
     }
 
@@ -1917,16 +2002,12 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const calleeName =
-                node.object?.type === "Identifier" ? node.object.name : null;
+            const calleeName = getCallExpressionIdentifierName(node);
 
-            if (
-                typeof calleeName === "string" &&
-                GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)
-            ) {
+            if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
-                const args = getCallArgumentsOrEmpty(node);
+                const args = getCallExpressionArguments(node);
 
                 for (const argumentIndex of argumentIndexes) {
                     if (
@@ -1951,11 +2032,9 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -2027,9 +2106,7 @@ function buildFeatherTypeSystemInfo() {
     const baseTypesLowercase = new Set();
     const specifierBaseTypes = new Set();
 
-    const entries = Array.isArray(typeSystem?.baseTypes)
-        ? typeSystem.baseTypes
-        : [];
+    const entries = asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
         const name = toTrimmedString(entry?.name);
@@ -2041,9 +2118,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = Array.isArray(entry?.specifierExamples)
-            ? entry.specifierExamples
-            : [];
+        const specifierExamples = asArray(entry?.specifierExamples);
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;
@@ -3285,7 +3360,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length !== 1) {
         return null;
@@ -3795,7 +3870,7 @@ function fixArgumentReferencesWithinFunction(
         references.map((reference) => reference.index)
     );
 
-    if (!(mapping instanceof Map) || mapping.size === 0) {
+    if (!isMapLike(mapping) || !hasIterableItems(mapping)) {
         return fixes;
     }
 
@@ -4115,7 +4190,7 @@ function normalizeDocParamNameForComparison(name) {
         return "";
     }
 
-    return name.trim().toLowerCase();
+    return toNormalizedLowerCaseString(name);
 }
 
 function createArgumentIndexMapping(indices) {
@@ -4333,7 +4408,9 @@ function replaceDeprecatedIdentifier(
     }
 
     const normalizedName =
-        typeof node.name === "string" ? node.name.toLowerCase() : null;
+        typeof node.name === "string"
+            ? toNormalizedLowerCaseString(node.name)
+            : null;
 
     if (!normalizedName || normalizedName.length === 0) {
         return null;
@@ -5175,9 +5252,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
         return [];
     }
 
-    const gm1100Entries = Array.isArray(metadata?.GM1100)
-        ? metadata.GM1100
-        : [];
+    const gm1100Entries = asArray(metadata?.GM1100);
 
     if (gm1100Entries.length === 0) {
         return [];
@@ -5619,7 +5694,7 @@ function extractFeatherPreprocessMetadata(metadata, key) {
 
     const entries = metadata[key];
 
-    return Array.isArray(entries) ? entries.filter(Boolean) : [];
+    return asArray(entries).filter(Boolean);
 }
 
 function normalizePreprocessedRange(entry) {
@@ -6083,6 +6158,22 @@ function markCommentForTrailingPaddingPreservation(comment) {
     });
 }
 
+function markStatementToSuppressFollowingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressFollowingEmptyLine = true;
+}
+
+function markStatementToSuppressLeadingEmptyLine(statement) {
+    if (!statement || typeof statement !== "object") {
+        return;
+    }
+
+    statement._featherSuppressLeadingEmptyLine = true;
+}
+
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
         !diagnostic ||
@@ -6151,19 +6242,13 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
 }
 
 function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
-    if (!node || node.type !== "CallExpression") {
+    if (!node) {
         return null;
     }
 
-    const callee = node.object;
+    const functionName = getCallExpressionIdentifierName(node);
 
-    if (!callee || callee.type !== "Identifier") {
-        return null;
-    }
-
-    const functionName = callee.name;
-
-    if (!deprecatedFunctions.has(functionName)) {
+    if (!functionName || !deprecatedFunctions.has(functionName)) {
         return null;
     }
 
@@ -6326,7 +6411,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const args = getCallArgumentsOrEmpty(node);
+            const args = getCallExpressionArguments(node);
 
             for (const argument of args) {
                 const fix = convertNumericStringLiteral(argument, diagnostic);
@@ -7051,10 +7136,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
                     diagnostic
                 );
 
-                if (
-                    Array.isArray(statementFixes) &&
-                    statementFixes.length > 0
-                ) {
+                if (isNonEmptyArray(statementFixes)) {
                     fixes.push(...statementFixes);
                 }
             }
@@ -7082,7 +7164,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
 }
 
 function ensureVertexBatchesClosed(statements, diagnostic) {
-    if (!Array.isArray(statements) || statements.length === 0 || !diagnostic) {
+    if (!diagnostic || !isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -7093,6 +7175,7 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
         const statement = statements[index];
 
         if (isVertexBeginCallNode(statement)) {
+            markStatementToSuppressFollowingEmptyLine(statement);
             if (lastBeginCall) {
                 const vertexEndCall =
                     createVertexEndCallFromBegin(lastBeginCall);
@@ -7105,6 +7188,8 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                 });
 
                 if (vertexEndCall && fixDetail) {
+                    markStatementToSuppressFollowingEmptyLine(lastBeginCall);
+                    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
                     statements.splice(index, 0, vertexEndCall);
                     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
                     fixes.push(fixDetail);
@@ -7147,7 +7232,7 @@ function getVertexBatchTarget(callExpression) {
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(callExpression);
+    const args = getCallExpressionArguments(callExpression);
 
     if (args.length > 0) {
         const firstArgument = args[0];
@@ -7301,7 +7386,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    if (!Array.isArray(eventMarkers) || eventMarkers.length === 0) {
+    if (!isNonEmptyArray(eventMarkers)) {
         return null;
     }
 
@@ -7459,7 +7544,7 @@ function getCommentIndex(comment) {
 }
 
 function findEventMarkerForIndex(markers, index) {
-    if (!Array.isArray(markers) || markers.length === 0) {
+    if (!isNonEmptyArray(markers)) {
         return null;
     }
 
@@ -8004,7 +8089,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
     if (args.length === 0) {
         return null;
     }
@@ -8165,21 +8250,13 @@ function getStatementInsertionInfo(state, statements, baseIndex) {
         state.statementInsertionOffsets = new WeakMap();
     }
 
-    let arrayInfo = state.statementInsertionOffsets.get(statements);
+    const arrayInfo = getOrCreateMapEntry(
+        state.statementInsertionOffsets,
+        statements,
+        () => new Map()
+    );
 
-    if (!arrayInfo) {
-        arrayInfo = new Map();
-        state.statementInsertionOffsets.set(statements, arrayInfo);
-    }
-
-    let info = arrayInfo.get(baseIndex);
-
-    if (!info) {
-        info = { offset: 0 };
-        arrayInfo.set(baseIndex, info);
-    }
-
-    return info;
+    return getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
 }
 
 function findStatementContext(ancestors) {
@@ -8708,6 +8785,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
+    markStatementToSuppressFollowingEmptyLine(node);
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
@@ -8791,10 +8869,30 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
 
-    if (isFogResetCall(nextNode)) {
-        return null;
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (candidate?.type === "EmptyStatement") {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (isFogResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate || candidate.type !== "CallExpression") {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        insertionIndex += 1;
     }
 
     const resetCall = createFogResetCall(node);
@@ -8815,7 +8913,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -8898,12 +8996,21 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
             break;
         }
 
-        if (!isDrawFunctionCall(candidate)) {
+        const isDrawCall = isDrawFunctionCall(candidate);
+        const isActiveTargetSubmit =
+            !isDrawCall && isVertexSubmitCallUsingActiveTarget(candidate);
+
+        if (!isDrawCall && !isActiveTargetSubmit) {
             break;
         }
 
+        markStatementToSuppressLeadingEmptyLine(candidate);
         lastDrawCallIndex = insertionIndex;
         insertionIndex += 1;
+
+        if (isActiveTargetSubmit) {
+            break;
+        }
     }
 
     if (lastDrawCallIndex > property) {
@@ -9045,11 +9152,27 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
+    for (
+        let cleanupIndex = property + 1;
+        cleanupIndex < insertionIndex;
+        cleanupIndex += 1
+    ) {
+        const candidate = siblings[cleanupIndex];
+
+        if (!isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        siblings.splice(cleanupIndex, 1);
+        insertionIndex -= 1;
+        cleanupIndex -= 1;
+    }
+
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const needsSeparator =
         !isAlphaTestDisableCall(nextSibling) &&
-        !nextSibling &&
+        nextSibling &&
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
@@ -9062,6 +9185,9 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -9142,9 +9268,43 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    let insertionIndex = property + 1;
+    let lastDrawCallIndex = property;
 
-    if (isBlendModeResetCall(nextNode)) {
+    while (insertionIndex < siblings.length) {
+        const candidate = siblings[insertionIndex];
+
+        if (isBlendModeResetCall(candidate)) {
+            return null;
+        }
+
+        if (!candidate) {
+            break;
+        }
+
+        if (isTriviallyIgnorableStatement(candidate)) {
+            insertionIndex += 1;
+            continue;
+        }
+
+        if (!isCallExpression(candidate)) {
+            break;
+        }
+
+        if (!isDrawFunctionCall(candidate)) {
+            break;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+        lastDrawCallIndex = insertionIndex;
+        insertionIndex += 1;
+    }
+
+    if (lastDrawCallIndex > property) {
+        insertionIndex = lastDrawCallIndex + 1;
+    } else if (insertionIndex >= siblings.length) {
+        insertionIndex = siblings.length;
+    } else {
         return null;
     }
 
@@ -9166,7 +9326,8 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    markStatementToSuppressFollowingEmptyLine(node);
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -9521,7 +9682,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                const originalHasComments = hasComment(originalDeclaration);
+
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
 
                 // Suppress synthetic @returns metadata when a Feather fix removes
@@ -9529,7 +9691,11 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 // existing documentation intact without introducing additional
                 // lines so the output remains stable for the surviving
                 // declaration.
-                originalDeclaration._suppressSyntheticReturnsDoc = true;
+                if (originalHasComments) {
+                    originalDeclaration._suppressSyntheticReturnsDoc = true;
+                } else {
+                    delete originalDeclaration._suppressSyntheticReturnsDoc;
+                }
             }
         }
 
@@ -10207,13 +10373,26 @@ function ensureAlphaTestEnableResetAfterCall(
 
     let insertionIndex = insertionInfo.index;
 
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
     const previousSibling =
         siblings[insertionIndex - 1] ?? siblings[property] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        (!nextSibling || !isTriviallyIgnorableStatement(nextSibling)) &&
+        nextSibling &&
+        !isTriviallyIgnorableStatement(nextSibling) &&
         !isAlphaTestDisableCall(nextSibling) &&
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
@@ -10540,9 +10719,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
             continue;
         }
 
-        const metadata = Array.isArray(candidate?._appliedFeatherDiagnostics)
-            ? candidate._appliedFeatherDiagnostics
-            : [];
+        const metadata = asArray(candidate?._appliedFeatherDiagnostics);
 
         const hasGM2005Metadata = metadata.some(
             (entry) => entry?.id === "GM2005"
@@ -10572,7 +10749,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
         if (Array.isArray(node)) {
             const normalizedFixes = normalizeDrawVertexStatements(
                 node,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (isNonEmptyArray(normalizedFixes)) {
@@ -10602,7 +10780,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
     return fixes;
 }
 
-function normalizeDrawVertexStatements(statements, diagnostic) {
+function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     if (!Array.isArray(statements) || statements.length === 0) {
         return [];
     }
@@ -10645,6 +10823,7 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        const primitiveEnd = statements[endIndex] ?? null;
         const vertexStatements = statements.slice(index, blockEnd + 1);
         const fixDetails = [];
 
@@ -10675,13 +10854,100 @@ function normalizeDrawVertexStatements(statements, diagnostic) {
             continue;
         }
 
+        if (primitiveEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
+        }
+
         statements.splice(index, 0, primitiveBegin);
+        attachLeadingCommentsToWrappedPrimitive({
+            ast,
+            primitiveBegin,
+            vertexStatements,
+            statements,
+            insertionIndex: index
+        });
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
     }
 
     return fixes;
+}
+
+function attachLeadingCommentsToWrappedPrimitive({
+    ast,
+    primitiveBegin,
+    vertexStatements,
+    statements,
+    insertionIndex
+}) {
+    if (
+        !ast ||
+        !primitiveBegin ||
+        !Array.isArray(vertexStatements) ||
+        vertexStatements.length === 0 ||
+        !Array.isArray(statements) ||
+        typeof insertionIndex !== "number"
+    ) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const firstVertex = vertexStatements[0];
+
+    const firstVertexStart = getNodeStartIndex(firstVertex);
+
+    if (typeof firstVertexStart !== "number") {
+        return;
+    }
+
+    const precedingStatement =
+        insertionIndex > 0 ? (statements[insertionIndex - 1] ?? null) : null;
+
+    const previousEndIndex =
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > firstVertexStart) {
+            continue;
+        }
+
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string" ? comment.value.trim() : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = primitiveBegin;
+    }
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
@@ -10833,9 +11099,17 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     }
 
     const siblings = parent;
-    const nextNode = siblings[property + 1];
+    const insertionInfo = computeStateResetInsertionIndex({
+        siblings,
+        startIndex: property + 1,
+        isResetCall: isCullModeResetCall
+    });
 
-    if (isCullModeResetCall(nextNode)) {
+    if (!insertionInfo) {
+        return null;
+    }
+
+    if (insertionInfo.alreadyReset) {
         return null;
     }
 
@@ -10857,7 +11131,24 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    siblings.splice(property + 1, 0, resetCall);
+    let insertionIndex =
+        typeof insertionInfo.index === "number"
+            ? insertionInfo.index
+            : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+
+    siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
     return fixDetail;
@@ -10928,7 +11219,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -10988,7 +11279,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -11112,7 +11403,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -11161,6 +11452,13 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     siblings.splice(insertionIndex, 0, vertexEndCall);
     attachFeatherFixMetadata(vertexEndCall, [fixDetail]);
+    markStatementToSuppressLeadingEmptyLine(vertexEndCall);
+
+    const previousSibling = siblings[property - 1] ?? null;
+
+    if (previousSibling) {
+        markStatementToSuppressFollowingEmptyLine(previousSibling);
+    }
 
     return fixDetail;
 }
@@ -11237,7 +11535,7 @@ function hasFirstArgumentIdentifier(node, name) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -11281,7 +11579,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return true;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -11475,6 +11773,8 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
+    const rootAst = ancestors.length > 0 ? ancestors[0]?.node : null;
+
     const fixDetail = hoistVariableDeclarationOutOfBlock({
         declarationNode: node,
         blockBody,
@@ -11482,7 +11782,8 @@ function handleLocalVariableDeclarationPatterns({
         statementContainer,
         statementIndex,
         diagnostic,
-        variableName
+        variableName,
+        ast: rootAst
     });
 
     if (fixDetail) {
@@ -11858,7 +12159,8 @@ function hoistVariableDeclarationOutOfBlock({
     statementContainer,
     statementIndex,
     diagnostic,
-    variableName
+    variableName,
+    ast
 }) {
     if (!declarationNode || declarationNode.type !== "VariableDeclaration") {
         return null;
@@ -11898,6 +12200,8 @@ function hoistVariableDeclarationOutOfBlock({
 
     const rangeStart = getNodeStartIndex(declarationNode);
     const owningStatement = statementContainer[statementIndex];
+    const precedingStatement =
+        statementIndex > 0 ? statementContainer[statementIndex - 1] : null;
     const rangeEnd = getNodeEndIndex(owningStatement ?? declarationNode);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -11914,6 +12218,13 @@ function hoistVariableDeclarationOutOfBlock({
 
     statementContainer.splice(statementIndex, 0, hoistedDeclaration);
     blockBody[declarationIndex] = assignment;
+
+    attachLeadingCommentsToHoistedDeclaration({
+        ast,
+        hoistedDeclaration,
+        owningStatement,
+        precedingStatement
+    });
 
     copyCommentMetadata(declarationNode, assignment);
 
@@ -11966,6 +12277,76 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
     }
 
     return declaration;
+}
+
+function attachLeadingCommentsToHoistedDeclaration({
+    ast,
+    hoistedDeclaration,
+    owningStatement,
+    precedingStatement
+}) {
+    if (!ast || !hoistedDeclaration || !owningStatement) {
+        return;
+    }
+
+    const comments = collectCommentNodes(ast);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return;
+    }
+
+    const owningStartIndex = getNodeStartIndex(owningStatement);
+
+    if (typeof owningStartIndex !== "number") {
+        return;
+    }
+
+    const previousEndIndex =
+        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
+
+    let attachedComment = false;
+
+    for (const comment of comments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment._featherHoistedTarget) {
+            continue;
+        }
+
+        const commentStartIndex = getNodeStartIndex(comment);
+        const commentEndIndex = getNodeEndIndex(comment);
+
+        if (
+            typeof commentStartIndex !== "number" ||
+            typeof commentEndIndex !== "number"
+        ) {
+            continue;
+        }
+
+        if (commentEndIndex > owningStartIndex) {
+            continue;
+        }
+
+        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+            continue;
+        }
+
+        const trimmedValue =
+            typeof comment.value === "string" ? comment.value.trim() : "";
+
+        if (!trimmedValue.startsWith("/")) {
+            continue;
+        }
+
+        comment._featherHoistedTarget = hoistedDeclaration;
+        attachedComment = true;
+    }
+
+    if (attachedComment) {
+        hoistedDeclaration._featherForceFollowingEmptyLine = true;
+    }
 }
 
 function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
@@ -12187,10 +12568,13 @@ function ensureColourWriteEnableResetAfterCall(
 
     const previousSibling = siblings[insertionIndex - 1] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;
+    const hasOriginalSeparator = nextSibling
+        ? hasOriginalBlankLineBetween(previousSibling, nextSibling)
+        : hasOriginalBlankLineBetween(node, previousSibling);
     const shouldInsertSeparator =
         insertionIndex > property + 1 &&
         !isTriviallyIgnorableStatement(previousSibling) &&
-        !hasOriginalBlankLineBetween(previousSibling, nextSibling);
+        !hasOriginalSeparator;
 
     if (shouldInsertSeparator) {
         siblings.splice(
@@ -12200,6 +12584,9 @@ function ensureColourWriteEnableResetAfterCall(
         );
         insertionIndex += 1;
     }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -12828,7 +13215,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -13293,7 +13680,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return null;
         }
 
-        return Array.isArray(target.body) ? target.body : [];
+        return getBodyStatements(target);
     }
 
     function insertFileFindCloseBefore(statements, index, callNode) {
@@ -13457,7 +13844,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     }
 
     function getProgramStatements(node) {
-        if (!node || typeof node !== "object") {
+        if (!isNode(node)) {
             return [];
         }
 
@@ -13465,11 +13852,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return node.body;
         }
 
-        if (node.body && Array.isArray(node.body.body)) {
-            return node.body.body;
-        }
-
-        return [];
+        return getBodyStatements(node.body);
     }
 
     function createFileFindState() {
@@ -13750,24 +14133,32 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     return false;
 }
 
-function isGpuPopStateCallStatement(node) {
-    const expression = getCallExpression(node);
+function isGpuStateCall(node, expectedName, { allowStatements = false } = {}) {
+    if (typeof expectedName !== "string" || expectedName.length === 0) {
+        return false;
+    }
+
+    let expression = null;
+
+    if (allowStatements) {
+        expression = getCallExpression(node);
+    } else if (node && node.type === "CallExpression") {
+        expression = node;
+    }
 
     if (!expression) {
         return false;
     }
 
-    return isIdentifierWithName(expression.object, "gpu_pop_state");
+    return isIdentifierWithName(expression.object, expectedName);
+}
+
+function isGpuPopStateCallStatement(node) {
+    return isGpuStateCall(node, "gpu_pop_state", { allowStatements: true });
 }
 
 function isGpuPushStateCallStatement(node) {
-    const expression = getCallExpression(node);
-
-    if (!expression) {
-        return false;
-    }
-
-    return isIdentifierWithName(expression.object, "gpu_push_state");
+    return isGpuStateCall(node, "gpu_push_state", { allowStatements: true });
 }
 
 function getCallExpression(node) {
@@ -13882,7 +14273,7 @@ function isStatementList(parent, property) {
     }
 
     if (property === "body") {
-        return parent.type === "Program" || parent.type === "BlockStatement";
+        return isProgramOrBlockStatement(parent);
     }
 
     if (property === "consequent" && parent.type === "SwitchCase") {
@@ -14101,12 +14492,24 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
         const closingCount = countVertexFormatEndCalls(statement);
 
-        for (
-            let consumed = 0;
-            consumed < closingCount && openBegins.length > 0;
-            consumed += 1
-        ) {
+        let unmatchedClosers = closingCount;
+
+        while (unmatchedClosers > 0 && openBegins.length > 0) {
             openBegins.pop();
+            unmatchedClosers -= 1;
+        }
+
+        if (unmatchedClosers > 0) {
+            const removed = removeDanglingVertexFormatEndCall({
+                statements,
+                index,
+                diagnostic,
+                fixes
+            });
+
+            if (removed) {
+                continue;
+            }
         }
 
         index += 1;
@@ -14163,6 +14566,43 @@ function removeDanglingVertexFormatDefinition({
     return removalCount;
 }
 
+function removeDanglingVertexFormatEndCall({
+    statements,
+    index,
+    diagnostic,
+    fixes
+}) {
+    if (!Array.isArray(statements) || typeof index !== "number") {
+        return false;
+    }
+
+    const statement = statements[index];
+
+    if (!isCallExpressionStatementWithName(statement, "vertex_format_end")) {
+        return false;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getCallExpressionCalleeName(statement),
+        range: {
+            start: getNodeStartIndex(statement),
+            end: getNodeEndIndex(statement)
+        }
+    });
+
+    if (!fixDetail) {
+        return false;
+    }
+
+    statements.splice(index, 1);
+
+    if (Array.isArray(fixes)) {
+        fixes.push(fixDetail);
+    }
+
+    return true;
+}
+
 function createRangeFromNodes(startNode, endNode) {
     const start = getNodeStartIndex(startNode);
     const end = getNodeEndIndex(endNode);
@@ -14180,7 +14620,7 @@ function shouldProcessStatementSequence(parent, property) {
     }
 
     if (property === "body") {
-        return parent.type === "Program" || parent.type === "BlockStatement";
+        return isProgramOrBlockStatement(parent);
     }
 
     return parent.type === "CaseClause" && property === "consequent";
@@ -14691,8 +15131,8 @@ function getUserEventReference(node) {
         return null;
     }
 
-    const callee = node.object;
-    const args = getCallArgumentsOrEmpty(node);
+    const callee = getCallExpressionIdentifier(node);
+    const args = getCallExpressionArguments(node);
 
     if (isIdentifierWithName(callee, "event_user")) {
         const eventIndex = resolveUserEventIndex(args[0]);
@@ -15039,19 +15479,11 @@ function isIdentifier(node) {
 }
 
 function isDrawPrimitiveBeginCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_begin");
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
 
 function isDrawPrimitiveEndCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_end");
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, name);
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_end");
 }
 
 function createPrimitiveBeginCall(template) {
@@ -15160,7 +15592,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     return args.length === 0;
 }
@@ -15174,7 +15606,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length < 4) {
         return false;
@@ -15197,7 +15629,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15215,7 +15647,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15233,7 +15665,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15251,7 +15683,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15269,7 +15701,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length < 4) {
         return false;
@@ -15289,7 +15721,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15561,7 +15993,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -15629,7 +16061,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16182,7 +16614,10 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText ?? "";
     }
 
-    if (!(specifierBaseTypes instanceof Set) || specifierBaseTypes.size === 0) {
+    if (
+        !isSetLike(specifierBaseTypes) ||
+        !hasIterableItems(specifierBaseTypes)
+    ) {
         return typeText;
     }
 
@@ -16339,7 +16774,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!(baseTypesLower instanceof Set) || baseTypesLower.size === 0) {
+    if (!isSetLike(baseTypesLower) || !hasIterableItems(baseTypesLower)) {
         return typeText;
     }
 
@@ -16677,12 +17112,30 @@ function isDrawFunctionCall(node) {
     );
 }
 
+function isVertexSubmitCallUsingActiveTarget(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!isIdentifierWithName(node.object, "vertex_submit")) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (args.length < 3) {
+        return false;
+    }
+
+    return isNegativeOneLiteral(args[2]);
+}
+
 function extractSurfaceTargetName(node) {
     if (!node || node.type !== "CallExpression") {
         return null;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     if (args.length > 0 && isIdentifier(args[0])) {
         return args[0].name;
@@ -16726,7 +17179,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    const args = getCallArgumentsOrEmpty(node);
+    const args = getCallExpressionArguments(node);
 
     return args.length === 0;
 }
@@ -16737,7 +17190,7 @@ function isStatementContainer(owner, ownerKey) {
     }
 
     if (ownerKey === "body") {
-        return owner.type === "Program" || owner.type === "BlockStatement";
+        return isProgramOrBlockStatement(owner);
     }
 
     if (owner.type === "SwitchCase" && ownerKey === "consequent") {
@@ -16837,7 +17290,10 @@ function isSupportedVariableDeclaration(node) {
         return false;
     }
 
-    const kind = typeof node.kind === "string" ? node.kind.toLowerCase() : null;
+    const kind =
+        typeof node.kind === "string"
+            ? toNormalizedLowerCaseString(node.kind)
+            : null;
 
     return kind === "var" || kind === "static";
 }
@@ -17072,7 +17528,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
             return;
         }
 
-        if (node.type === "Program" || node.type === "BlockStatement") {
+        if (isProgramOrBlockStatement(node)) {
             const statements = getBodyStatements(node);
 
             if (statements.length > 0) {
@@ -17261,25 +17717,17 @@ function createGpuStateCall(name, template) {
 }
 
 function isGpuPushStateCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, "gpu_push_state");
+    return isGpuStateCall(node, "gpu_push_state");
 }
 
 function isGpuPopStateCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, "gpu_pop_state");
+    return isGpuStateCall(node, "gpu_pop_state");
 }
 
 function getManualFeatherFixRegistry(ast) {
     let registry = ast[MANUAL_FIX_TRACKING_KEY];
 
-    if (registry instanceof Set) {
+    if (isSetLike(registry)) {
         return registry;
     }
 
@@ -17346,7 +17794,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
     const replacements =
         extractFunctionCallReplacementsFromExamples(diagnostic);
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return [];
     }
 
@@ -17398,13 +17846,13 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    if (!(replacements instanceof Map) || replacements.size === 0) {
+    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
         return null;
     }
 
-    const callee = node.object;
+    const callee = getCallExpressionIdentifier(node);
 
-    if (!callee || callee.type !== "Identifier") {
+    if (!callee) {
         return null;
     }
 
