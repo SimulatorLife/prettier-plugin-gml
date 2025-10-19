@@ -36,6 +36,7 @@ import {
     isErrorWithCode,
     isObjectLike,
     mergeUniqueValues,
+    normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
@@ -157,29 +158,6 @@ async function resolvePrettier() {
     }
 
     return prettierModulePromise;
-}
-
-function normalizeEnumeratedOption(
-    value,
-    fallbackValue,
-    validValues,
-    { coerce = toNormalizedLowerCaseString } = {}
-) {
-    if (value == undefined) {
-        return fallbackValue;
-    }
-
-    const normalized = coerce(value);
-
-    if (typeof normalized !== "string" || normalized.length === 0) {
-        return fallbackValue;
-    }
-
-    if (validValues.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
 }
 
 function coerceExtensionValue(value) {

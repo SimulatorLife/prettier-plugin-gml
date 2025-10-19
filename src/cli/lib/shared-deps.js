@@ -6,6 +6,7 @@ export {
     parseJsonWithContext,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
+    normalizeEnumeratedOption,
     toPosixPath,
     toTrimmedString,
     getNonEmptyTrimmedString,
