@@ -12,6 +12,7 @@ import {
     toArray,
     toTrimmedString
 } from "../../shared/utils.js";
+import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
 
@@ -60,7 +61,9 @@ function looksLikeTestCase(node) {
 }
 
 function decodeEntities(value) {
-    if (typeof value !== "string" || value.length === 0) return value ?? "";
+    if (typeof value !== "string" || value.length === 0) {
+        return value ?? "";
+    }
     return value
         .replaceAll(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
             String.fromCodePoint(Number.parseInt(hex, 16))
@@ -76,7 +79,9 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) return false;
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
+        return false;
+    }
     return getErrorMessage(error, { fallback: "" }).includes(
         "'fast-xml-parser'"
     );
@@ -88,10 +93,9 @@ function createFallbackXmlParser() {
             try {
                 return parseXmlDocument(xml);
             } catch (innerError) {
-                const message =
-                    innerError && typeof innerError.message === "string"
-                        ? innerError.message
-                        : String(innerError);
+                const message = getErrorMessage(innerError, {
+                    fallback: "Unknown error"
+                });
                 throw new Error(`Fallback XML parser failed: ${message}`);
             }
         }
@@ -111,7 +115,9 @@ function attachChildNode(parent, name, value) {
 
 function parseAttributes(source) {
     const attributes = {};
-    if (!source) return attributes;
+    if (!source) {
+        return attributes;
+    }
     const attributePattern = /([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
     let match;
     while ((match = attributePattern.exec(source))) {
@@ -136,12 +142,16 @@ function parseXmlDocument(xml) {
     }
 
     function appendText(text, { preserveWhitespace = false } = {}) {
-        if (stack.length === 0) return;
+        if (stack.length === 0) {
+            return;
+        }
         const target = stack.at(-1).value;
         const normalized = preserveWhitespace
             ? text
             : text.replaceAll(/\s+/g, " ").trim();
-        if (!normalized) return;
+        if (!normalized) {
+            return;
+        }
         const decoded = decodeEntities(normalized);
         if (hasOwn(target, "#text")) {
             target["#text"] = preserveWhitespace
@@ -210,10 +220,14 @@ function parseXmlDocument(xml) {
         const rawContent = xml.slice(nextTag + 1, closingBracket);
         index = closingBracket + 1;
         const trimmed = rawContent.trim();
-        if (!trimmed) continue;
+        if (!trimmed) {
+            continue;
+        }
 
         if (trimmed.startsWith("/")) {
-            if (stack.length === 0) continue;
+            if (stack.length === 0) {
+                continue;
+            }
             const closingName = trimmed.slice(1).trim();
             const last = stack.pop();
             if (closingName && last && last.name && closingName !== last.name) {
@@ -228,7 +242,9 @@ function parseXmlDocument(xml) {
         const content = selfClosing
             ? trimmed.replace(/\/\s*$/, "").trim()
             : trimmed;
-        if (!content) continue;
+        if (!content) {
+            continue;
+        }
 
         const nameMatch = content.match(/^([\w:.-]+)/);
         if (!nameMatch) {
@@ -459,46 +475,61 @@ function recordTestCases(aggregates, testCases) {
     }
 }
 
-function readTestResults(candidateDirs, { workspace } = {}) {
-    const workspaceRoot =
-        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const directories = normalizeResultDirectories(
-        candidateDirs,
-        workspaceRoot
-    );
-
-    const notes = [];
-    const aggregates = {
+function createResultAggregates() {
+    return {
         results: new Map(),
         stats: { total: 0, passed: 0, failed: 0, skipped: 0 }
     };
+}
 
-    const missingDirs = [];
-    const emptyDirs = [];
+/**
+ * Builds the shared state used while scanning candidate result directories.
+ * @param {string[]|string} candidateDirs
+ * @param {string} workspaceRoot
+ */
+function buildReadContext(candidateDirs, workspaceRoot) {
+    return {
+        directories: normalizeResultDirectories(candidateDirs, workspaceRoot),
+        notes: [],
+        aggregates: createResultAggregates(),
+        missingDirs: [],
+        emptyDirs: []
+    };
+}
 
-    for (const directory of directories) {
-        const scan = scanResultDirectory(directory);
-        notes.push(...scan.notes);
-
-        if (scan.status === "missing") {
-            missingDirs.push(directory.display);
-            continue;
-        }
-
-        if (scan.status === "empty") {
-            emptyDirs.push(directory.display);
-            continue;
-        }
-
-        recordTestCases(aggregates, scan.cases);
-
-        return {
-            ...aggregates,
-            usedDir: directory.resolved,
-            displayDir: directory.display,
-            notes
-        };
+function appendScanNotes(context, scan) {
+    if (scan.notes.length === 0) {
+        return;
     }
+    context.notes.push(...scan.notes);
+}
+
+function handleMissingOrEmptyDirectory(context, directory, status) {
+    const bucket = status === "missing" ? context.missingDirs : context.emptyDirs;
+    bucket.push(directory.display);
+}
+
+function buildSuccessfulReadResult(context, directory) {
+    return {
+        ...context.aggregates,
+        usedDir: directory.resolved,
+        displayDir: directory.display,
+        notes: context.notes
+    };
+}
+
+function applyScanOutcome(context, directory, scan) {
+    if (scan.status === "missing" || scan.status === "empty") {
+        handleMissingOrEmptyDirectory(context, directory, scan.status);
+        return null;
+    }
+
+    recordTestCases(context.aggregates, scan.cases);
+    return buildSuccessfulReadResult(context, directory);
+}
+
+function appendAvailabilityNotes(context) {
+    const { missingDirs, emptyDirs, notes } = context;
 
     if (missingDirs.length === 1) {
         notes.push(`No directory found at ${missingDirs[0]}.`);
@@ -511,22 +542,46 @@ function readTestResults(candidateDirs, { workspace } = {}) {
     } else if (emptyDirs.length > 1) {
         notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
     }
+}
 
+function buildUnavailableResult(context) {
     return {
-        ...aggregates,
+        ...context.aggregates,
         usedDir: null,
         displayDir: "",
-        notes
+        notes: context.notes
     };
+}
+
+function readTestResults(candidateDirs, { workspace } = {}) {
+    const workspaceRoot =
+        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
+    const context = buildReadContext(candidateDirs, workspaceRoot);
+
+    for (const directory of context.directories) {
+        const scan = scanResultDirectory(directory);
+        appendScanNotes(context, scan);
+        const result = applyScanOutcome(context, directory, scan);
+        if (result) {
+            return result;
+        }
+    }
+
+    appendAvailabilityNotes(context);
+    return buildUnavailableResult(context);
 }
 
 function detectRegressions(baseResults, targetResults) {
     const regressions = [];
     for (const [key, targetRecord] of targetResults.results.entries()) {
-        if (!targetRecord || targetRecord.status !== "failed") continue;
+        if (!targetRecord || targetRecord.status !== "failed") {
+            continue;
+        }
         const baseRecord = baseResults.results.get(key);
         const baseStatus = baseRecord?.status;
-        if (baseStatus === "failed") continue;
+        if (baseStatus === "failed") {
+            continue;
+        }
         regressions.push({
             key,
             from: baseStatus ?? "missing",
@@ -608,33 +663,35 @@ function logResultNotes(base, target) {
 
 function ensureResultsAvailability(base, target) {
     if (!base.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate base test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
 
     if (!target.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate target test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
 }
 
 function reportRegressionSummary(regressions, targetLabel) {
     if (regressions.length > 0) {
-        console.log(
-            `New failing tests detected (compared to base using ${targetLabel}):`
-        );
-        for (const regression of regressions) {
-            console.log(formatRegression(regression));
-        }
-        process.exit(1);
-        return;
+        return {
+            exitCode: 1,
+            lines: [
+                `New failing tests detected (compared to base using ${targetLabel}):`,
+                ...regressions.map((regression) => formatRegression(regression))
+            ]
+        };
     }
 
-    console.log(`No new failing tests compared to base using ${targetLabel}.`);
+    return {
+        exitCode: 0,
+        lines: [
+            `No new failing tests compared to base using ${targetLabel}.`
+        ]
+    };
 }
 
 function runCli() {
@@ -650,7 +707,12 @@ function runCli() {
     ensureResultsAvailability(base, target);
 
     const regressions = detectRegressions(base, target);
-    reportRegressionSummary(regressions, targetLabel);
+    const summary = reportRegressionSummary(regressions, targetLabel);
+    for (const line of summary.lines) {
+        console.log(line);
+    }
+
+    return summary.exitCode;
 }
 
 const isMainModule = process.argv[1]
@@ -658,7 +720,23 @@ const isMainModule = process.argv[1]
     : false;
 
 if (isMainModule) {
-    runCli();
+    try {
+        const exitCode = runCli();
+        if (typeof exitCode === "number") {
+            process.exitCode = exitCode;
+        }
+    } catch (error) {
+        handleCliError(error, {
+            prefix: "Failed to detect test regressions.",
+            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        });
+    }
 }
 
-export { collectTestCases, detectRegressions, readTestResults };
+export {
+    collectTestCases,
+    detectRegressions,
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
+};

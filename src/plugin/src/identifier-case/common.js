@@ -1,5 +1,6 @@
 import { constants as fsConstants } from "node:fs";
 
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { escapeRegExp } from "../../../shared/regexp.js";
 import { isNonEmptyString } from "../../../shared/string-utils.js";
 
@@ -49,7 +50,7 @@ export function buildPatternMatchers(patterns) {
 }
 
 export function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Array.isArray(matchers) || matchers.length === 0) {
+    if (!isNonEmptyArray(matchers)) {
         return null;
     }
 
@@ -143,6 +144,28 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
 
     counts.set(key, (counts.get(key) ?? 0) + 1);
     return true;
+}
+
+export function summarizeReferenceFileOccurrences(
+    references,
+    { fallbackPath = null, includeFilePaths = [] } = {}
+) {
+    const counts = new Map();
+
+    for (const extraPath of includeFilePaths ?? []) {
+        if (typeof extraPath !== "string" || extraPath.length === 0) {
+            continue;
+        }
+
+        incrementFileOccurrence(counts, extraPath);
+    }
+
+    for (const reference of references ?? []) {
+        const filePath = reference?.filePath;
+        incrementFileOccurrence(counts, filePath, fallbackPath);
+    }
+
+    return summarizeFileOccurrences(counts);
 }
 
 export function summarizeFileOccurrences(counts) {

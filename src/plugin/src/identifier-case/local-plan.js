@@ -1,18 +1,22 @@
 import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { asArray } from "../../../shared/array-utils.js";
+import { buildRenameKey } from "./plan-state.js";
+import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     toPosixPath,
     resolveContainedRelativePath
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../metrics/metrics-tracker.js";
-import { buildLocationKey } from "../../../shared/location-keys.js";
+import { createMetricsTracker } from "../../../shared/reporting.js";
 import {
     isNonEmptyString,
-    getNonEmptyString
+    getNonEmptyString,
+    toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
-import { isObjectLike, withObjectLike } from "../../../shared/object-utils.js";
+import {
+    isObjectLike,
+    getOrCreateMapEntry
+} from "../../../shared/object-utils.js";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
@@ -31,15 +35,24 @@ import {
     buildPatternMatchers,
     resolveIdentifierConfigurationConflict,
     createConflict,
-    incrementFileOccurrence,
-    summarizeFileOccurrences
+    summarizeReferenceFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
-import {
-    getIterableSize,
-    isMapLike
-} from "../../../shared/utils/capability-probes.js";
+import { getIterableSize } from "../../../shared/utils/capability-probes.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+
+function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
+    if (!scopeRecord || typeof scopeRecord !== "object") {
+        return fallback;
+    }
+
+    return (
+        scopeRecord.displayName ??
+        scopeRecord.name ??
+        scopeRecord.id ??
+        fallback
+    );
+}
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     if (!isNonEmptyString(absoluteFilePath)) {
@@ -64,15 +77,6 @@ function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
     return toPosixPath(resolvedFile);
 }
 
-function buildRenameKey(_scopeId, location) {
-    const locationKey = buildLocationKey(location);
-    if (!locationKey) {
-        return null;
-    }
-
-    return locationKey;
-}
-
 function createScopeGroupingKey(scopeId, fallback) {
     if (isNonEmptyString(scopeId)) {
         return scopeId;
@@ -89,19 +93,22 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
         const scopeRecord = scopeMap[scopeId];
         return {
             id: scopeRecord.id,
-            displayName:
-                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+            displayName: getScopeDisplayName(scopeRecord)
         };
     }
 
     if (fileScopeId && scopeMap[fileScopeId]) {
         const parentScope = scopeMap[fileScopeId];
+        const parentDisplayName = getScopeDisplayName(
+            parentScope,
+            fileRecord?.filePath ?? "<locals>"
+        );
         return {
             id:
                 scopeId ??
                 parentScope.id ??
                 `locals:${fileRecord?.filePath ?? "<unknown>"}`,
-            displayName: `${parentScope.displayName ?? parentScope.name ?? fileRecord?.filePath ?? "<locals>"} (locals)`
+            displayName: `${parentDisplayName} (locals)`
         };
     }
 
@@ -113,13 +120,9 @@ function createScopeDescriptor(projectIndex, fileRecord, scopeId) {
 }
 
 function summarizeReferencesByFile(relativeFilePath, references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath, relativeFilePath);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, {
+        fallbackPath: relativeFilePath
+    });
 }
 
 function getEntryDeclarations(entry) {
@@ -223,19 +226,14 @@ function resolveIdentifierEntryName(entry) {
 
 function extractDeclarationClassifications(entry) {
     const tags = new Set();
-    const declarations = getEntryDeclarations(entry);
+    const classificationSources = [
+        ...getEntryDeclarations(entry).flatMap((declaration) =>
+            getEntityClassifications(declaration)
+        ),
+        ...getEntryDeclarationKinds(entry)
+    ];
 
-    for (const declaration of declarations) {
-        const classifications = getEntityClassifications(declaration);
-        for (const tag of classifications) {
-            if (tag) {
-                tags.add(tag);
-            }
-        }
-    }
-
-    const declarationKinds = getEntryDeclarationKinds(entry);
-    for (const tag of declarationKinds) {
+    for (const tag of classificationSources) {
         if (tag) {
             tags.add(tag);
         }
@@ -264,13 +262,7 @@ function isFunctionScriptEntry(entry) {
 }
 
 function summarizeReferencesAcrossFiles(references) {
-    const counts = new Map();
-
-    for (const reference of references ?? []) {
-        incrementFileOccurrence(counts, reference?.filePath ?? null, null);
-    }
-
-    return summarizeFileOccurrences(counts);
+    return summarizeReferenceFileOccurrences(references, { fallbackPath: null });
 }
 
 function getDeclarationFilePath(entry) {
@@ -305,10 +297,7 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
             const scopeRecord = scopeMap[scopeId];
             return {
                 id: scopeRecord.id,
-                displayName:
-                    scopeRecord.displayName ??
-                    scopeRecord.name ??
-                    scopeRecord.id
+                displayName: getScopeDisplayName(scopeRecord)
             };
         }
     }
@@ -318,8 +307,7 @@ function createTopLevelScopeDescriptor(projectIndex, entry, fallbackKey) {
         const scopeRecord = scopeMap[scopeId];
         return {
             id: scopeRecord.id,
-            displayName:
-                scopeRecord.displayName ?? scopeRecord.name ?? scopeRecord.id
+            displayName: getScopeDisplayName(scopeRecord)
         };
     }
 
@@ -348,14 +336,12 @@ function createNameCollisionTracker() {
     const entriesById = new Map();
 
     const toKey = (name) =>
-        typeof name === "string" ? name.toLowerCase() : "";
+        typeof name === "string" ? toNormalizedLowerCaseString(name) : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        if (!entriesByName.has(key)) {
-            entriesByName.set(key, []);
-        }
-        entriesByName.get(key).push(record);
+        const bucket = getOrCreateMapEntry(entriesByName, key, () => []);
+        bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };
 
@@ -462,7 +448,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+    if (!isNonEmptyArray(entries)) {
         return;
     }
 
@@ -1293,146 +1279,8 @@ export async function prepareIdentifierCasePlan(options) {
     }
 }
 
-export function getIdentifierCaseRenameForNode(node, options) {
-    if (!node || !options) {
-        return null;
-    }
-
-    const renameMap = options.__identifierCaseRenameMap;
-    if (!isMapLike(renameMap)) {
-        return null;
-    }
-
-    const key = buildRenameKey(node.scopeId ?? null, node.start ?? null);
-    if (!key) {
-        return null;
-    }
-
-    const renameTarget = renameMap.get(key) ?? null;
-    if (!renameTarget) {
-        return null;
-    }
-
-    const planSnapshot = options.__identifierCasePlanSnapshot ?? null;
-
-    if (options.__identifierCaseDryRun === true) {
-        return null;
-    }
-
-    if (planSnapshot?.dryRun === true) {
-        return null;
-    }
-
-    return renameTarget;
-}
-
-export function captureIdentifierCasePlanSnapshot(options) {
-    return withObjectLike(
-        options,
-        (object) => ({
-            projectIndex: object.__identifierCaseProjectIndex ?? null,
-            projectRoot: object.__identifierCaseProjectRoot ?? null,
-            bootstrap: object.__identifierCaseProjectIndexBootstrap ?? null,
-            renameMap: object.__identifierCaseRenameMap ?? null,
-            renamePlan: object.__identifierCaseRenamePlan ?? null,
-            conflicts: object.__identifierCaseConflicts ?? null,
-            metricsReport: object.__identifierCaseMetricsReport ?? null,
-            metrics: object.__identifierCaseMetrics ?? null,
-            assetRenames: object.__identifierCaseAssetRenames ?? null,
-            assetRenameResult: object.__identifierCaseAssetRenameResult ?? null,
-            assetRenamesApplied:
-                object.__identifierCaseAssetRenamesApplied ?? null,
-            dryRun:
-                object.__identifierCaseDryRun === undefined
-                    ? null
-                    : object.__identifierCaseDryRun,
-            planGenerated:
-                object.__identifierCasePlanGeneratedInternally === true
-        }),
-        null
-    );
-}
-
-export function applyIdentifierCasePlanSnapshot(snapshot, options) {
-    if (!snapshot) {
-        return;
-    }
-
-    withObjectLike(options, (object) => {
-        const truthyAssignments = [
-            ["projectIndex", "__identifierCaseProjectIndex"],
-            ["projectRoot", "__identifierCaseProjectRoot"],
-            ["bootstrap", "__identifierCaseProjectIndexBootstrap"]
-        ];
-
-        for (const [snapshotKey, optionKey] of truthyAssignments) {
-            const value = snapshot[snapshotKey];
-            if (value && !object[optionKey]) {
-                setIdentifierCaseOption(object, optionKey, value);
-            }
-        }
-
-        setIdentifierCaseOption(
-            object,
-            "__identifierCasePlanSnapshot",
-            snapshot
-        );
-        Object.defineProperty(object, "__identifierCasePlanSnapshot", {
-            value: snapshot,
-            writable: true,
-            configurable: true,
-            enumerable: false
-        });
-
-        const optionalAssignments = [
-            ["renameMap", "__identifierCaseRenameMap"],
-            ["renamePlan", "__identifierCaseRenamePlan"],
-            ["conflicts", "__identifierCaseConflicts"],
-            ["metricsReport", "__identifierCaseMetricsReport"],
-            ["metrics", "__identifierCaseMetrics"],
-            ["assetRenames", "__identifierCaseAssetRenames"],
-            ["assetRenameResult", "__identifierCaseAssetRenameResult"]
-        ];
-
-        for (const [snapshotKey, optionKey] of optionalAssignments) {
-            const value = snapshot[snapshotKey];
-            if (value && !object[optionKey]) {
-                setIdentifierCaseOption(object, optionKey, value);
-            }
-        }
-
-        const assetRenamesApplied = snapshot.assetRenamesApplied;
-        if (
-            assetRenamesApplied != undefined &&
-            object.__identifierCaseAssetRenamesApplied == undefined
-        ) {
-            setIdentifierCaseOption(
-                object,
-                "__identifierCaseAssetRenamesApplied",
-                assetRenamesApplied
-            );
-        }
-
-        if (snapshot.dryRun !== null) {
-            setIdentifierCaseOption(
-                object,
-                "__identifierCaseDryRun",
-                snapshot.dryRun
-            );
-            Object.defineProperty(object, "__identifierCaseDryRun", {
-                value: snapshot.dryRun,
-                writable: true,
-                configurable: true,
-                enumerable: false
-            });
-        }
-
-        if (snapshot.planGenerated) {
-            setIdentifierCaseOption(
-                object,
-                "__identifierCasePlanGeneratedInternally",
-                true
-            );
-        }
-    });
-}
+export {
+    getIdentifierCaseRenameForNode,
+    captureIdentifierCasePlanSnapshot,
+    applyIdentifierCasePlanSnapshot
+} from "./plan-state.js";

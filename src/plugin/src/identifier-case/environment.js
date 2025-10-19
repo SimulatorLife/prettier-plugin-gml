@@ -1,8 +1,6 @@
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import {
-    prepareIdentifierCasePlan,
-    captureIdentifierCasePlanSnapshot
-} from "./local-plan.js";
+import { prepareIdentifierCasePlan } from "./local-plan.js";
+import { captureIdentifierCasePlanSnapshot } from "./plan-state.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";

@@ -1,4 +1,4 @@
-import { defaultCliPluginServices } from "./plugin-service-providers/default-cli-plugin-services.js";
+import { createDefaultCliPluginServices } from "./plugin-service-providers/default-plugin-services.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
@@ -7,6 +7,8 @@ import { defaultCliPluginServices } from "./plugin-service-providers/default-cli
 
 let projectIndexBuilder;
 let identifierCasePlanPreparer;
+
+export const defaultCliPluginServices = createDefaultCliPluginServices();
 
 resetRegisteredCliPluginServices();
 

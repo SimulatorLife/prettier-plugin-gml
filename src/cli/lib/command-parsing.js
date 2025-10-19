@@ -1,5 +1,5 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isCommanderErrorLike } from "../../shared/utils/capability-probes.js";
+import { isCommanderErrorLike } from "./commander-error-utils.js";
 
 function isCommanderError(error) {
     return (
@@ -11,7 +11,7 @@ export {
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/utils.js";
+} from "./shared-deps.js";
 
 /**
  * Parse CLI arguments for a Commander.js command while normalizing help and

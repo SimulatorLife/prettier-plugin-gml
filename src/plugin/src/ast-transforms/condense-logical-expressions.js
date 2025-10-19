@@ -15,6 +15,7 @@ import {
     isNonEmptyTrimmedString,
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -62,6 +63,7 @@ export function condenseLogicalExpressions(ast, helpers) {
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
+    applyDocCommentUpdates(context);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -109,6 +111,10 @@ function buildUpdatedDescription(existing, expression) {
     const trimmed = existing.trim();
     const lowered = trimmed.toLowerCase();
 
+    if (lowered.includes("original multi-branch")) {
+        return existing ?? "";
+    }
+
     if (lowered.includes("original") || lowered.includes("multi-clause")) {
         return `Simplified: ${normalizedExpression}`;
     }
@@ -132,8 +138,16 @@ function buildUpdatedDescription(existing, expression) {
         return `${prefix} ${normalizedExpression}`;
     }
 
+    const mentionsReturn = /\breturn\b/.test(lowered);
+    const mentionsBranching =
+        /\bif\b/.test(lowered) || /\belse\b/.test(lowered);
+
+    if (mentionsReturn && mentionsBranching) {
+        return existing ?? "";
+    }
+
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
-    const needsSemicolon = lowered.includes("return");
+    const needsSemicolon = mentionsReturn;
     const separator = needsSemicolon ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
 }
@@ -335,6 +349,71 @@ function mapDocCommentsToFunctions(ast) {
     }
 
     return groups;
+}
+
+function applyDocCommentUpdates(context) {
+    if (!context || context.docUpdates.size === 0) {
+        return;
+    }
+
+    const commentGroups = ensureCommentGroups(context);
+
+    for (const [fn, update] of context.docUpdates.entries()) {
+        if (!update || !isNonEmptyTrimmedString(update.expression)) {
+            continue;
+        }
+
+        const comments = commentGroups.get(fn);
+        if (!comments || comments.length === 0) {
+            continue;
+        }
+
+        const descriptionComment = comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                /@description\b/i.test(comment.value)
+        );
+
+        if (!descriptionComment) {
+            continue;
+        }
+
+        let updatedDescription = buildUpdatedDescription(
+            update.description,
+            update.expression
+        );
+
+        if (!isNonEmptyTrimmedString(updatedDescription)) {
+            continue;
+        }
+
+        const originalDescription =
+            typeof update.description === "string"
+                ? update.description.trim()
+                : "";
+
+        if (
+            originalDescription.endsWith(".") &&
+            !/[.!?]$/.test(updatedDescription)
+        ) {
+            updatedDescription = `${updatedDescription}.`;
+        }
+
+        const existingDescription = extractDescriptionContent(
+            descriptionComment.value
+        );
+
+        if (existingDescription === updatedDescription) {
+            continue;
+        }
+
+        const prefixMatch = descriptionComment.value.match(
+            /^(\s*\/\s*@description\s*)/i
+        );
+        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
+
+        descriptionComment.value = `${prefix}${updatedDescription}`;
+    }
 }
 
 function collectFunctionNodes(ast) {
@@ -1597,10 +1676,12 @@ function factorOrExpression(expression) {
             andTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({
                     termIndex: index,
                     factor
                 });
@@ -1695,10 +1776,12 @@ function factorAndExpression(expression) {
             orTerms.push({ term, index, factors });
             for (const { factor } of factors) {
                 const key = booleanExpressionKey(factor);
-                if (!candidateFactors.has(key)) {
-                    candidateFactors.set(key, []);
-                }
-                candidateFactors.get(key).push({ termIndex: index, factor });
+                const occurrences = getOrCreateMapEntry(
+                    candidateFactors,
+                    key,
+                    () => []
+                );
+                occurrences.push({ termIndex: index, factor });
             }
         }
     }

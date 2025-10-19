@@ -4,32 +4,26 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { CliUsageError, handleCliError } from "./cli-errors.js";
-import { parseCommandLine } from "./command-parsing.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "../../shared/ast.js";
+import { getIdentifierText } from "./shared-deps.js";
+import { formatByteSize } from "./byte-format.js";
 import {
-    formatByteSize,
-    toNormalizedLowerCaseString
-} from "../../shared/utils.js";
+    SuiteOutputFormat,
+    resolveSuiteOutputFormatOrThrow,
+    emitSuiteResults as emitSuiteResultsJson,
+    ensureSuitesAreKnown,
+    resolveRequestedSuites
+} from "./command-suite-helpers.js";
 
 const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous = []) {
     previous.push(value);
     return previous;
-}
-
-function validateFormat(value) {
-    const normalized = toNormalizedLowerCaseString(value);
-    if (normalized === "json" || normalized === "human") {
-        return normalized;
-    }
-    throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
 }
 
 function formatErrorDetails(error) {
@@ -65,45 +59,6 @@ function createBenchmarkContext(resolvedProjectRoot) {
             index: []
         }
     };
-}
-
-/**
- * Track the result of a single project index benchmark run.
- *
- * @param {{ results: { index: Array<object> } }} context
- * @param {object} runRecord
- */
-function appendProjectIndexRun(context, runRecord) {
-    context.results.index.push(runRecord);
-}
-
-/**
- * Store a project index error on the shared benchmark context.
- *
- * @param {{ results: { error?: object } }} context
- * @param {object} error
- */
-function recordProjectIndexError(context, error) {
-    context.results.error = error;
-}
-
-/**
- * Apply the outcome of an indexing attempt and return control metadata for the
- * orchestrator.
- *
- * @param {{ results: { index: Array<object>, error?: object } }} context
- * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
- * @returns {{ shouldAbort: boolean, latestIndex: object | null }}
- */
-function applyProjectIndexAttemptResult(context, attemptResult) {
-    appendProjectIndexRun(context, attemptResult.runRecord);
-
-    if (attemptResult.error) {
-        recordProjectIndexError(context, attemptResult.error);
-        return { shouldAbort: true, latestIndex: null };
-    }
-
-    return { shouldAbort: false, latestIndex: attemptResult.index };
 }
 
 async function executeProjectIndexAttempt({
@@ -148,6 +103,7 @@ async function collectProjectIndexRuns({
     logger,
     verbose
 }) {
+    const { results } = context;
     let latestIndex = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
         const attemptResult = await executeProjectIndexAttempt({
@@ -156,15 +112,14 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
+        results.index.push(attemptResult.runRecord);
 
-        const { shouldAbort, latestIndex: attemptIndex } =
-            applyProjectIndexAttemptResult(context, attemptResult);
-
-        if (shouldAbort) {
+        if (attemptResult.error) {
+            results.error = attemptResult.error;
             return { latestIndex: null };
         }
 
-        latestIndex = attemptIndex;
+        latestIndex = attemptResult.index;
     }
 
     return { latestIndex };
@@ -375,7 +330,7 @@ AVAILABLE_SUITES.set("identifier-pipeline", runIdentifierPipelineBenchmark);
 AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
 AVAILABLE_SUITES.set("project-index-memory", runProjectIndexMemoryMeasurement);
 
-function createPerformanceCommand() {
+export function createPerformanceCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
@@ -402,8 +357,11 @@ function createPerformanceCommand() {
         .option(
             "--format <format>",
             "Output format: json (default) or human.",
-            validateFormat,
-            "json"
+            (value) =>
+                resolveSuiteOutputFormatOrThrow(value, {
+                    errorConstructor: InvalidArgumentError
+                }),
+            SuiteOutputFormat.JSON
         )
         .option("--pretty", "Pretty-print JSON output.")
         .option(
@@ -450,41 +408,12 @@ function printHumanReadable(results) {
  * @param {Array<string>} argv
  * @returns {boolean}
  */
-function helpWasRequested(command, argv) {
-    const { helpRequested } = parseCommandLine(command, argv);
-    return helpRequested;
-}
-
 /**
  * Normalize the requested benchmark suite names.
  *
  * @param {{ suite: Array<string> }} options
  * @returns {Array<string>}
  */
-function resolveRequestedSuites(options) {
-    const hasExplicitSuites = options.suite.length > 0;
-    const requested = hasExplicitSuites
-        ? options.suite
-        : [...AVAILABLE_SUITES.keys()];
-
-    return requested.map((name) => name.toLowerCase());
-}
-
-function ensureSuitesAreKnown(suiteNames, command) {
-    const unknownSuites = suiteNames.filter(
-        (suite) => !AVAILABLE_SUITES.has(suite)
-    );
-
-    if (unknownSuites.length === 0) {
-        return;
-    }
-
-    throw new CliUsageError(
-        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-        { usage: command.helpInformation() }
-    );
-}
-
 function createSuiteExecutionOptions(options) {
     return {
         projectRoot: options.project,
@@ -493,49 +422,21 @@ function createSuiteExecutionOptions(options) {
     };
 }
 
-function emitSuiteResults(results, options) {
-    if (options.format === "json") {
-        const payload = {
-            generatedAt: new Date().toISOString(),
-            suites: results
-        };
-        const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
-        return;
-    }
+export async function runPerformanceCommand({ command } = {}) {
+    const options = command?.opts?.() ?? {};
 
-    printHumanReadable(results);
-}
-
-async function main(argv = process.argv.slice(2)) {
-    const command = createPerformanceCommand();
-
-    if (helpWasRequested(command, argv)) {
-        return 0;
-    }
-
-    const options = command.opts();
-
-    const requestedSuites = resolveRequestedSuites(options);
-    ensureSuitesAreKnown(requestedSuites, command);
+    const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
+    ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
     const suiteResults = await executeSuites(
         requestedSuites,
         createSuiteExecutionOptions(options)
     );
 
-    emitSuiteResults(suiteResults, options);
+    const emittedJson = emitSuiteResultsJson(suiteResults, options);
+    if (!emittedJson) {
+        printHumanReadable(suiteResults);
+    }
 
     return 0;
-}
-
-export async function runPerformanceCli({ argv = process.argv.slice(2) } = {}) {
-    try {
-        return await main(argv);
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to run performance benchmarks."
-        });
-        return 1;
-    }
 }

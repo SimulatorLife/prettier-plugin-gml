@@ -22,7 +22,8 @@ export function getLineBreakCount(text) {
 
     let count = 0;
     let index = 0;
-    const length = text.length; // Hoist for repeated loop checks.
+    // Hoist for repeated loop checks.
+    const length = text.length;
 
     // Manual scanning avoids creating RegExp match arrays for every call. The
     // parser frequently invokes this helper while iterating over tokens, so we

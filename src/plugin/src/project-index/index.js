@@ -2,22 +2,35 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
+import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
 import {
+    toPosixPath,
+    walkAncestorDirectories
+} from "../../../shared/path-utils.js";
+import {
+    asArray,
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
-import { hasOwn } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    getOrCreateMapEntry,
+    hasOwn
+} from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
-import { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+import { clampConcurrency } from "./concurrency.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
@@ -25,9 +38,16 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
+import {
+    resolveAbortSignalFromOptions,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
+import {
+    analyseResourceFiles,
+    createFileScopeDescriptor
+} from "./resource-analysis.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = 4;
 
 const PARSER_FACADE_OPTION_KEYS = [
     "identifierCaseProjectIndexParserFacade",
@@ -35,26 +55,45 @@ const PARSER_FACADE_OPTION_KEYS = [
     "parserFacade"
 ];
 
+const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
+    "Project root discovery was aborted.";
+const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
+    "Project index build was aborted.";
+
+/**
+ * Create shallow clones of common entry collections stored on project index
+ * records (for example declaration/reference lists). Guarding against
+ * non-object input keeps the helper resilient when callers forward values
+ * sourced from partially populated caches.
+ */
+function cloneEntryCollections(entry, ...keys) {
+    const source = entry && typeof entry === "object" ? entry : {};
+    const clones = {};
+
+    for (const key of keys) {
+        clones[key] = cloneObjectEntries(source[key]);
+    }
+
+    return clones;
+}
+
 function getProjectIndexParserOverride(options) {
     if (!options || typeof options !== "object") {
         return null;
     }
 
-    const facade = PARSER_FACADE_OPTION_KEYS.map((key) => options[key]).find(
-        (candidate) => candidate && typeof candidate.parse === "function"
-    );
-
-    if (facade) {
-        return {
-            facade,
-            parse: facade.parse.bind(facade)
-        };
+    for (const key of PARSER_FACADE_OPTION_KEYS) {
+        const facade = options[key];
+        if (typeof facade?.parse === "function") {
+            return {
+                facade,
+                parse: facade.parse.bind(facade)
+            };
+        }
     }
 
-    const { parseGml } = options;
-    return typeof parseGml === "function"
-        ? { facade: null, parse: parseGml }
-        : null;
+    const parse = options.parseGml;
+    return typeof parse === "function" ? { facade: null, parse } : null;
 }
 
 function resolveProjectIndexParser(options) {
@@ -64,35 +103,27 @@ function resolveProjectIndexParser(options) {
     );
 }
 
-function isManifestEntry(entry) {
-    return (
-        typeof entry === "string" &&
-        entry.toLowerCase().endsWith(PROJECT_MANIFEST_EXTENSION)
-    );
-}
-
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    });
+
     if (!filepath) {
         return null;
     }
 
-    let current = path.dirname(path.resolve(filepath));
-    const visited = new Set();
+    const startDirectory = path.dirname(path.resolve(filepath));
 
-    while (!visited.has(current)) {
-        visited.add(current);
-        const entries = await listDirectory(fsFacade, current);
-        const hasManifest = entries.some(isManifestEntry);
-        if (hasManifest) {
-            return current;
-        }
+    for (const directory of walkAncestorDirectories(startDirectory)) {
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
 
-        const parent = path.dirname(current);
-        if (parent === current) {
-            break;
+        const entries = await listDirectory(fsFacade, directory, { signal });
+        throwIfAborted(signal, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE);
+
+        if (entries.some(isProjectManifestPath)) {
+            return directory;
         }
-        current = parent;
     }
 
     return null;
@@ -109,16 +140,23 @@ export function createProjectIndexCoordinator(options = {}) {
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
-            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            ? getDefaultProjectIndexCacheMaxSize()
             : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
     let disposed = false;
+    const abortController = new AbortController();
+    const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
+
+    function createDisposedError() {
+        return new Error(DISPOSED_MESSAGE);
+    }
 
     function ensureNotDisposed() {
         if (disposed) {
-            throw new Error("ProjectIndexCoordinator has been disposed");
+            throw createDisposedError();
         }
+        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
     async function ensureReady(descriptor) {
@@ -129,6 +167,8 @@ export function createProjectIndexCoordinator(options = {}) {
         }
         const resolvedRoot = path.resolve(projectRoot);
         const key = resolvedRoot;
+        const signal = abortController.signal;
+        throwIfAborted(signal, DISPOSED_MESSAGE);
 
         if (inFlight.has(key)) {
             return inFlight.get(key);
@@ -137,10 +177,13 @@ export function createProjectIndexCoordinator(options = {}) {
         const operation = (async () => {
             const loadResult = await loadCache(
                 { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade
+                fsFacade,
+                { signal }
             );
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             if (loadResult.status === "hit") {
+                throwIfAborted(signal, DISPOSED_MESSAGE);
                 return {
                     source: "cache",
                     projectIndex: loadResult.projectIndex,
@@ -148,11 +191,11 @@ export function createProjectIndexCoordinator(options = {}) {
                 };
             }
 
-            const projectIndex = await buildIndex(
-                resolvedRoot,
-                fsFacade,
-                descriptor?.buildOptions ?? {}
-            );
+            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
+                ...descriptor?.buildOptions,
+                signal
+            });
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             const descriptorMaxSizeBytes =
                 descriptor?.maxSizeBytes === undefined
@@ -167,7 +210,8 @@ export function createProjectIndexCoordinator(options = {}) {
                     metricsSummary: projectIndex.metrics,
                     maxSizeBytes: descriptorMaxSizeBytes
                 },
-                fsFacade
+                fsFacade,
+                { signal }
             ).catch((error) => {
                 return {
                     status: "failed",
@@ -175,6 +219,7 @@ export function createProjectIndexCoordinator(options = {}) {
                     cacheFilePath: loadResult.cacheFilePath
                 };
             });
+            throwIfAborted(signal, DISPOSED_MESSAGE);
 
             return {
                 source: "build",
@@ -193,7 +238,14 @@ export function createProjectIndexCoordinator(options = {}) {
     }
 
     function dispose() {
+        if (disposed) {
+            return;
+        }
+
         disposed = true;
+        if (!abortController.signal.aborted) {
+            abortController.abort(createDisposedError());
+        }
         inFlight.clear();
     }
 
@@ -203,19 +255,33 @@ export function createProjectIndexCoordinator(options = {}) {
     };
 }
 
-export { PROJECT_MANIFEST_EXTENSION } from "./constants.js";
+export {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath
+} from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
     loadProjectIndexCache,
     saveProjectIndexCache,
     deriveCacheKey
 } from "./cache.js";
 
-export { DEFAULT_PROJECT_INDEX_GML_CONCURRENCY };
+export {
+    DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
+    getDefaultProjectIndexGmlConcurrency,
+    setDefaultProjectIndexGmlConcurrency,
+    PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+} from "./concurrency.js";
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
@@ -225,9 +291,20 @@ let cachedBuiltInIdentifiers = null;
 
 async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
-    metrics = null
+    metrics = null,
+    options = {}
 ) {
-    const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH);
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+
+    const currentMtime = await getFileMtime(
+        fsFacade,
+        GML_IDENTIFIER_FILE_PATH,
+        { signal }
+    );
+    throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
     const cached = cachedBuiltInIdentifiers;
 
     if (cached) {
@@ -249,6 +326,7 @@ async function loadBuiltInIdentifiers(
             GML_IDENTIFIER_FILE_PATH,
             "utf8"
         );
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         const parsed = JSON.parse(rawContents);
         const identifiers = parsed?.identifiers ?? {};
 
@@ -270,28 +348,15 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
-function toProjectRelativePath(projectRoot, absolutePath) {
-    const relative = path.relative(projectRoot, absolutePath);
-    return toPosixPath(relative);
-}
-
-function normalizeResourcePath(rawPath, { projectRoot } = {}) {
-    if (typeof rawPath !== "string" || rawPath.length === 0) {
-        return null;
-    }
-
-    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
-    if (!projectRoot) {
-        return normalized;
-    }
-
-    const absoluteCandidate = path.isAbsolute(normalized)
-        ? normalized
-        : path.join(projectRoot, normalized);
-    return toProjectRelativePath(projectRoot, absoluteCandidate);
-}
-
-async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
+async function scanProjectTree(
+    projectRoot,
+    fsFacade,
+    metrics = null,
+    options = {}
+) {
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
     const yyFiles = [];
     const gmlFiles = [];
     const pending = ["."];
@@ -299,7 +364,11 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     while (pending.length > 0) {
         const relativeDir = pending.pop();
         const absoluteDir = path.join(projectRoot, relativeDir);
-        const entries = await listDirectory(fsFacade, absoluteDir);
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+        const entries = await listDirectory(fsFacade, absoluteDir, {
+            signal
+        });
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
         metrics?.incrementCounter("io.directoriesScanned");
 
         for (const entry of entries) {
@@ -308,6 +377,7 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
             let stats;
             try {
                 stats = await fsFacade.stat(absolutePath);
+                throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
             } catch (error) {
                 if (isFsErrorCode(error, "ENOENT")) {
                     metrics?.incrementCounter("io.skippedMissingEntries");
@@ -326,7 +396,10 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
 
             const relativePosix = toPosixPath(relativePath);
             const lowerPath = relativePosix.toLowerCase();
-            if (lowerPath.endsWith(".yy") || lowerPath.endsWith(".yyp")) {
+            if (
+                lowerPath.endsWith(".yy") ||
+                isProjectManifestPath(relativePosix)
+            ) {
                 yyFiles.push({
                     absolutePath,
                     relativePath: relativePosix
@@ -348,447 +421,11 @@ async function scanProjectTree(projectRoot, fsFacade, metrics = null) {
     return { yyFiles, gmlFiles };
 }
 
-function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
-    let record = resourcesMap.get(resourcePath);
-    if (record) {
-        if (resourceData.name && record.name !== resourceData.name) {
-            record.name = resourceData.name;
-        }
-        if (
-            resourceData.resourceType &&
-            record.resourceType !== resourceData.resourceType
-        ) {
-            record.resourceType = resourceData.resourceType;
-        }
-    } else {
-        const lowerPath = resourcePath.toLowerCase();
-        let defaultName = path.posix.basename(resourcePath);
-        if (lowerPath.endsWith(".yy")) {
-            defaultName = path.posix.basename(resourcePath, ".yy");
-        } else if (lowerPath.endsWith(".yyp")) {
-            defaultName = path.posix.basename(resourcePath, ".yyp");
-        }
-        record = {
-            path: resourcePath,
-            name: resourceData.name ?? defaultName,
-            resourceType: resourceData.resourceType ?? "unknown",
-            scopes: [],
-            gmlFiles: [],
-            assetReferences: []
-        };
-        resourcesMap.set(resourcePath, record);
-    }
 
-    return record;
-}
 
-function pushUnique(array, value) {
-    if (!array.includes(value)) {
-        array.push(value);
-    }
-}
 
-function deriveScopeId(kind, parts) {
-    const suffix = Array.isArray(parts)
-        ? parts.join("::")
-        : String(parts ?? "");
-    return `scope:${kind}:${suffix}`;
-}
 
-function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
-    const scopeId = deriveScopeId("script", [resourceRecord.name]);
-    return {
-        id: scopeId,
-        kind: "script",
-        name: resourceRecord.name,
-        displayName: `script.${resourceRecord.name}`,
-        resourcePath: resourceRecord.path,
-        gmlFile: gmlRelativePath
-    };
-}
 
-function resolveEventMetadata(event) {
-    const eventType =
-        typeof event?.eventType === "number"
-            ? event.eventType
-            : typeof event?.eventtype === "number"
-              ? event.eventtype
-              : null;
-    const eventNum =
-        typeof event?.eventNum === "number"
-            ? event.eventNum
-            : typeof event?.enumb === "number"
-              ? event.enumb
-              : null;
-
-    if (event && typeof event.name === "string" && event.name.trim()) {
-        return { eventType, eventNum, displayName: event.name };
-    }
-
-    if (eventType == undefined && eventNum == undefined) {
-        return { eventType, eventNum, displayName: "event" };
-    }
-
-    if (eventNum == undefined) {
-        return { eventType, eventNum, displayName: String(eventType) };
-    }
-
-    return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
-}
-
-function deriveEventDisplayName(event) {
-    return resolveEventMetadata(event).displayName;
-}
-
-function createObjectEventScopeDescriptor(
-    resourceRecord,
-    event,
-    gmlRelativePath
-) {
-    const { displayName, eventType, eventNum } = resolveEventMetadata(event);
-    const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
-    return {
-        id: scopeId,
-        kind: "objectEvent",
-        name: `${resourceRecord.name}.${displayName}`,
-        displayName: `object.${resourceRecord.name}.${displayName}`,
-        resourcePath: resourceRecord.path,
-        gmlFile: gmlRelativePath,
-        event: {
-            name: displayName,
-            eventType,
-            eventNum
-        }
-    };
-}
-
-function createFileScopeDescriptor(relativePath) {
-    const fileBaseName = path.posix.basename(
-        relativePath,
-        path.extname(relativePath)
-    );
-    const scopeId = deriveScopeId("file", [relativePath]);
-    return {
-        id: scopeId,
-        kind: "file",
-        name: fileBaseName,
-        displayName: `file.${relativePath}`,
-        resourcePath: null,
-        gmlFile: relativePath
-    };
-}
-
-function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
-    if (!event) {
-        return null;
-    }
-
-    const { displayName } = resolveEventMetadata(event);
-    const candidatePaths = [];
-    if (typeof event.eventContents === "string") {
-        candidatePaths.push(event.eventContents);
-    }
-    if (typeof event.event === "string") {
-        candidatePaths.push(event.event);
-    }
-    if (event.event && typeof event.event.path === "string") {
-        candidatePaths.push(event.event.path);
-    }
-    if (event.eventId && typeof event.eventId.path === "string") {
-        candidatePaths.push(event.eventId.path);
-    }
-    if (event.code && typeof event.code === "string") {
-        candidatePaths.push(event.code);
-    }
-
-    for (const candidate of candidatePaths) {
-        const normalized = normalizeResourcePath(candidate);
-        if (normalized) {
-            return normalized;
-        }
-    }
-
-    if (!resourceRecord?.name) {
-        return null;
-    }
-
-    const guessed = path.posix.join(
-        resourceRelativeDir,
-        `${resourceRecord.name}_${displayName}.gml`
-    );
-    return guessed;
-}
-
-function collectAssetReferences(root, callback) {
-    if (!root || typeof root !== "object") {
-        return;
-    }
-
-    const stack = [{ value: root, path: "" }];
-
-    while (stack.length > 0) {
-        const { value, path } = stack.pop();
-
-        if (Array.isArray(value)) {
-            for (let index = value.length - 1; index >= 0; index -= 1) {
-                const entry = value[index];
-                if (!entry || typeof entry !== "object") {
-                    continue;
-                }
-
-                stack.push({
-                    value: entry,
-                    path: path ? `${path}.${index}` : String(index)
-                });
-            }
-            continue;
-        }
-
-        if (typeof value.path === "string") {
-            callback({
-                propertyPath: path,
-                targetPath: value.path,
-                targetName: typeof value.name === "string" ? value.name : null
-            });
-        }
-
-        const entries = Object.entries(value);
-        for (let i = entries.length - 1; i >= 0; i -= 1) {
-            const [key, child] = entries[i];
-            if (!child || typeof child !== "object") {
-                continue;
-            }
-
-            stack.push({
-                value: child,
-                path: path ? `${path}.${key}` : key
-            });
-        }
-    }
-}
-
-function createResourceAnalysisContext() {
-    return {
-        resourcesMap: new Map(),
-        gmlScopeMap: new Map(),
-        assetReferences: [],
-        scriptNameToScopeId: new Map(),
-        scriptNameToResourcePath: new Map()
-    };
-}
-
-async function loadResourceDocument(file, fsFacade) {
-    let rawContents;
-    try {
-        rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            return null;
-        }
-        throw error;
-    }
-
-    try {
-        return JSON.parse(rawContents);
-    } catch {
-        return null;
-    }
-}
-
-function ensureResourceRecordForDocument(context, file, parsed) {
-    return ensureResourceRecord(context.resourcesMap, file.relativePath, {
-        name: parsed?.name,
-        resourceType: parsed?.resourceType
-    });
-}
-
-function attachScopeDescriptor({
-    context,
-    resourceRecord,
-    gmlRelativePath,
-    descriptor
-}) {
-    pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
-    context.gmlScopeMap.set(gmlRelativePath, descriptor);
-    pushUnique(resourceRecord.scopes, descriptor.id);
-}
-
-function registerScriptResourceIfNeeded({
-    context,
-    parsed,
-    resourceRecord,
-    resourceDir
-}) {
-    if (parsed?.resourceType !== "GMScript") {
-        return;
-    }
-
-    const gmlRelativePath = path.posix.join(
-        resourceDir,
-        `${resourceRecord.name}.gml`
-    );
-    const descriptor = createScriptScopeDescriptor(
-        resourceRecord,
-        gmlRelativePath
-    );
-
-    attachScopeDescriptor({
-        context,
-        resourceRecord,
-        gmlRelativePath,
-        descriptor
-    });
-
-    context.scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-    context.scriptNameToResourcePath.set(
-        resourceRecord.name,
-        resourceRecord.path
-    );
-}
-
-function registerResourceEvents({
-    context,
-    parsed,
-    resourceRecord,
-    resourceDir
-}) {
-    const eventList = parsed?.eventList;
-    if (!isNonEmptyArray(eventList)) {
-        return;
-    }
-
-    for (const event of eventList) {
-        const eventGmlPath = extractEventGmlPath(
-            event,
-            resourceRecord,
-            resourceDir
-        );
-        if (!eventGmlPath) {
-            continue;
-        }
-
-        const descriptor = createObjectEventScopeDescriptor(
-            resourceRecord,
-            event,
-            eventGmlPath
-        );
-
-        attachScopeDescriptor({
-            context,
-            resourceRecord,
-            gmlRelativePath: eventGmlPath,
-            descriptor
-        });
-    }
-}
-
-function collectResourceAssetReferences({
-    context,
-    parsed,
-    resourceRecord,
-    resourcePath,
-    projectRoot
-}) {
-    collectAssetReferences(
-        parsed,
-        ({ propertyPath, targetPath, targetName }) => {
-            const normalizedTarget = normalizeResourcePath(targetPath, {
-                projectRoot
-            });
-            if (!normalizedTarget) {
-                return;
-            }
-
-            const referenceRecord = {
-                fromResourcePath: resourcePath,
-                fromResourceName: resourceRecord.name,
-                propertyPath,
-                targetPath: normalizedTarget,
-                targetName: targetName ?? null,
-                targetResourceType: null
-            };
-
-            context.assetReferences.push(referenceRecord);
-            resourceRecord.assetReferences.push(referenceRecord);
-        }
-    );
-}
-
-function processResourceDocument({
-    context,
-    parsed,
-    resourceRecord,
-    resourcePath,
-    projectRoot
-}) {
-    const resourceDir = path.posix.dirname(resourcePath);
-
-    registerScriptResourceIfNeeded({
-        context,
-        parsed,
-        resourceRecord,
-        resourceDir
-    });
-
-    registerResourceEvents({
-        context,
-        parsed,
-        resourceRecord,
-        resourceDir
-    });
-
-    collectResourceAssetReferences({
-        context,
-        parsed,
-        resourceRecord,
-        resourcePath,
-        projectRoot
-    });
-}
-
-function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
-    for (const reference of assetReferences) {
-        const targetResource = resourcesMap.get(reference.targetPath);
-        if (targetResource) {
-            reference.targetResourceType = targetResource.resourceType;
-            if (!reference.targetName && targetResource.name) {
-                reference.targetName = targetResource.name;
-            }
-        }
-    }
-}
-
-async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade }) {
-    const context = createResourceAnalysisContext();
-
-    for (const file of yyFiles) {
-        const parsed = await loadResourceDocument(file, fsFacade);
-        if (!parsed) {
-            continue;
-        }
-
-        const resourceRecord = ensureResourceRecordForDocument(
-            context,
-            file,
-            parsed
-        );
-
-        processResourceDocument({
-            context,
-            parsed,
-            resourceRecord,
-            resourcePath: file.relativePath,
-            projectRoot
-        });
-    }
-
-    annotateAssetReferenceTargets(
-        context.assetReferences,
-        context.resourcesMap
-    );
-
-    return context;
-}
 
 function cloneIdentifierDeclaration(declaration) {
     if (!declaration || typeof declaration !== "object") {
@@ -808,9 +445,7 @@ function createIdentifierRecord(node) {
         start: cloneLocation(node?.start),
         end: cloneLocation(node?.end),
         scopeId: node?.scopeId ?? null,
-        classifications: Array.isArray(node?.classifications)
-            ? [...node.classifications]
-            : [],
+        classifications: [...asArray(node?.classifications)],
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
@@ -823,9 +458,7 @@ function cloneIdentifierForCollections(record, filePath) {
         scopeId: record?.scopeId ?? null,
         start: cloneLocation(record?.start),
         end: cloneLocation(record?.end),
-        classifications: Array.isArray(record?.classifications)
-            ? [...record.classifications]
-            : [],
+        classifications: [...asArray(record?.classifications)],
         declaration: record?.declaration ? { ...record.declaration } : null,
         isBuiltIn: record?.isBuiltIn ?? false,
         reason: record?.reason ?? null,
@@ -835,10 +468,7 @@ function cloneIdentifierForCollections(record, filePath) {
 }
 
 function ensureCollectionEntry(map, key, initializer) {
-    if (!map.has(key)) {
-        map.set(key, initializer());
-    }
-    return map.get(key);
+    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function createIdentifierCollections() {
@@ -1083,8 +713,7 @@ function createEnumLookup(ast, filePath) {
                     filePath: filePath ?? null
                 });
 
-                const members = Array.isArray(node.members) ? node.members : [];
-                for (const member of members) {
+                for (const member of asArray(node.members)) {
                     const memberIdentifier = member?.name ?? null;
                     if (!memberIdentifier) {
                         continue;
@@ -1194,9 +823,7 @@ function registerScriptDeclaration({
         entry.declarations.push(clone);
     }
 
-    const declarationTags = Array.isArray(clone.classifications)
-        ? clone.classifications
-        : [];
+    const declarationTags = asArray(clone?.classifications);
     for (const tag of declarationTags) {
         if (
             tag &&
@@ -1207,6 +834,49 @@ function registerScriptDeclaration({
             entry.declarationKinds.push(tag);
         }
     }
+}
+
+/**
+ * Ensures script scopes have a declaration even when the backing GML file
+ * omits an explicit declaration. Keeps the project index builder focused on
+ * orchestration by handling the bookkeeping here.
+ */
+function ensureSyntheticScriptDeclaration({
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    filePath
+}) {
+    if (
+        !scopeDescriptor ||
+        scopeDescriptor.kind !== "script" ||
+        !fileRecord ||
+        fileRecord.hasSyntheticDeclaration
+    ) {
+        return;
+    }
+
+    const syntheticDeclaration = {
+        name: scopeDescriptor.name,
+        start: null,
+        end: null,
+        scopeId: scopeRecord.id,
+        classifications: ["identifier", "declaration", "script"],
+        isBuiltIn: false,
+        isSynthetic: true
+    };
+
+    fileRecord.declarations.push({ ...syntheticDeclaration });
+    scopeRecord.declarations.push({ ...syntheticDeclaration });
+    fileRecord.hasSyntheticDeclaration = true;
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord: syntheticDeclaration,
+        filePath
+    });
 }
 
 function cloneScriptReference(callRecord) {
@@ -1268,12 +938,40 @@ function registerScriptReference({ identifierCollections, callRecord }) {
     }
 }
 
-function mapToObject(map, transform) {
-    const entries = [...map.entries()].sort(([a], [b]) =>
-        typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0
-    );
+function recordScriptCallMetricsAndReferences({
+    relationships,
+    metrics,
+    identifierCollections
+}) {
+    const scriptCalls = relationships?.scriptCalls ?? [];
+    for (const callRecord of scriptCalls) {
+        metrics.incrementCounter("scriptCalls.total");
+        if (callRecord.isResolved) {
+            metrics.incrementCounter("scriptCalls.resolved");
+        } else {
+            metrics.incrementCounter("scriptCalls.unresolved");
+        }
+
+        registerScriptReference({
+            identifierCollections,
+            callRecord
+        });
+    }
+}
+
+function mapToObject(map, transform, { sortEntries = true } = {}) {
+    const entries = [...map.entries()];
+
+    if (sortEntries) {
+        entries.sort(([a], [b]) =>
+            typeof a === "string" && typeof b === "string"
+                ? a.localeCompare(b)
+                : 0
+        );
+    }
+
     return Object.fromEntries(
-        entries.map(([key, value]) => [key, transform(value)])
+        entries.map(([key, value]) => [key, transform(value, key)])
     );
 }
 
@@ -1501,9 +1199,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
         return false;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (classifications.includes("global")) {
         return false;
@@ -1536,9 +1232,7 @@ function registerIdentifierOccurrence({
         return;
     }
 
-    const classifications = Array.isArray(identifierRecord.classifications)
-        ? identifierRecord.classifications
-        : [];
+    const classifications = asArray(identifierRecord?.classifications);
 
     if (role === "declaration" && classifications.includes("script")) {
         registerScriptDeclaration({
@@ -1647,40 +1341,30 @@ function registerInstanceAssignment({
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
-    let scopeRecord = scopeMap.get(descriptor.id);
-    if (!scopeRecord) {
-        scopeRecord = {
-            id: descriptor.id,
-            kind: descriptor.kind,
-            name: descriptor.name,
-            displayName: descriptor.displayName,
-            resourcePath: descriptor.resourcePath,
-            event: descriptor.event ?? null,
-            filePaths: [],
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        scopeMap.set(descriptor.id, scopeRecord);
-    }
-    return scopeRecord;
+    return getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        name: descriptor.name,
+        displayName: descriptor.displayName,
+        resourcePath: descriptor.resourcePath,
+        event: descriptor.event ?? null,
+        filePaths: [],
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function ensureFileRecord(filesMap, relativePath, scopeId) {
-    let fileRecord = filesMap.get(relativePath);
-    if (!fileRecord) {
-        fileRecord = {
-            filePath: relativePath,
-            scopeId,
-            declarations: [],
-            references: [],
-            ignoredIdentifiers: [],
-            scriptCalls: []
-        };
-        filesMap.set(relativePath, fileRecord);
-    }
-    return fileRecord;
+    return getOrCreateMapEntry(filesMap, relativePath, () => ({
+        filePath: relativePath,
+        scopeId,
+        declarations: [],
+        references: [],
+        ignoredIdentifiers: [],
+        scriptCalls: []
+    }));
 }
 
 function traverseAst(root, visitor) {
@@ -1724,6 +1408,286 @@ function traverseAst(root, visitor) {
     }
 }
 
+function handleScriptScopeFunctionDeclarationNode({
+    node,
+    scopeDescriptor,
+    scopeRecord,
+    fileRecord,
+    identifierCollections,
+    sourceContents,
+    lineOffsets
+}) {
+    if (
+        scopeDescriptor?.kind !== "script" ||
+        (node?.type !== "FunctionDeclaration" &&
+            node?.type !== "ConstructorDeclaration")
+    ) {
+        return;
+    }
+
+    const classificationTags =
+        node.type === "ConstructorDeclaration"
+            ? ["constructor", "struct", "script"]
+            : ["script"];
+    const declarationRecord = createFunctionLikeIdentifierRecord({
+        node,
+        scopeRecord,
+        fileRecord,
+        classification: classificationTags,
+        source: sourceContents,
+        lineOffsets
+    });
+
+    if (!declarationRecord) {
+        return;
+    }
+
+    const removalDescriptor = {
+        name: declarationRecord.name,
+        scopeId: scopeRecord.id
+    };
+    removeSyntheticScriptDeclarations(
+        fileRecord.declarations,
+        removalDescriptor
+    );
+    removeSyntheticScriptDeclarations(
+        scopeRecord.declarations,
+        removalDescriptor
+    );
+
+    const declarationKey = buildLocationKey(declarationRecord.start);
+    const fileHasExisting = fileRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!fileHasExisting) {
+        fileRecord.declarations.push({ ...declarationRecord });
+    }
+
+    const scopeHasExisting = scopeRecord.declarations.some(
+        (existing) => buildLocationKey(existing.start) === declarationKey
+    );
+    if (!scopeHasExisting) {
+        scopeRecord.declarations.push({ ...declarationRecord });
+    }
+
+    registerScriptDeclaration({
+        identifierCollections,
+        descriptor: scopeDescriptor,
+        declarationRecord,
+        filePath: fileRecord?.filePath ?? null
+    });
+}
+
+function handleIdentifierNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    identifierCollections,
+    enumLookup,
+    scopeDescriptor,
+    metrics
+}) {
+    if (node?.type !== "Identifier" || !Array.isArray(node.classifications)) {
+        return false;
+    }
+
+    const identifierRecord = createIdentifierRecord(node);
+    const isBuiltIn = builtInNames.has(identifierRecord.name);
+    identifierRecord.isBuiltIn = isBuiltIn;
+
+    metrics?.incrementCounter("identifiers.encountered");
+
+    if (isBuiltIn) {
+        metrics?.incrementCounter("identifiers.builtInSkipped");
+        identifierRecord.reason = "built-in";
+        fileRecord.ignoredIdentifiers.push(identifierRecord);
+        scopeRecord.ignoredIdentifiers.push(identifierRecord);
+        return true;
+    }
+
+    const isDeclaration = identifierRecord.classifications.includes(
+        "declaration"
+    );
+    const isReference = identifierRecord.classifications.includes("reference");
+
+    if (isDeclaration) {
+        metrics?.incrementCounter("identifiers.declarations");
+        fileRecord.declarations.push(identifierRecord);
+        scopeRecord.declarations.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "declaration",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    if (isReference) {
+        metrics?.incrementCounter("identifiers.references");
+        fileRecord.references.push(identifierRecord);
+        scopeRecord.references.push(identifierRecord);
+
+        registerIdentifierOccurrence({
+            identifierCollections,
+            identifierRecord,
+            filePath: fileRecord?.filePath ?? null,
+            role: "reference",
+            enumLookup,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+    }
+
+    return false;
+}
+
+function handleCallExpressionNode({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "CallExpression") {
+        return;
+    }
+
+    const callee = getCallExpressionIdentifier(node);
+    const calleeName = callee?.name ?? null;
+    if (!calleeName || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? scriptNameToResourcePath.get(calleeName) ?? null
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee?.start),
+            end: cloneLocation(callee?.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleNewExpressionScriptCall({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "NewExpression" || node.expression?.type !== "Identifier") {
+        return;
+    }
+
+    const callee = node.expression;
+    const calleeName = callee.name;
+    if (typeof calleeName !== "string" || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId
+        ? scriptNameToResourcePath.get(calleeName) ?? null
+        : null;
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: cloneLocation(callee.start),
+            end: cloneLocation(callee.end)
+        }
+    };
+
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.incrementCounter("scriptCalls.discovered");
+}
+
+function handleObjectEventAssignmentNode({
+    node,
+    scopeDescriptor,
+    identifierCollections,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    metrics
+}) {
+    if (
+        node?.type !== "AssignmentExpression" ||
+        node.left?.type !== "Identifier" ||
+        scopeDescriptor?.kind !== "objectEvent"
+    ) {
+        return;
+    }
+
+    const leftRecord = createIdentifierRecord(node.left);
+    const classifications = asArray(leftRecord?.classifications);
+
+    const isGlobalAssignment =
+        classifications.includes("global") || leftRecord.isGlobalIdentifier;
+    const hasDeclaration = Boolean(
+        leftRecord.declaration && leftRecord.declaration.scopeId
+    );
+
+    if (
+        identifierCollections &&
+        !isGlobalAssignment &&
+        !hasDeclaration &&
+        leftRecord.name &&
+        !builtInNames.has(leftRecord.name)
+    ) {
+        registerInstanceAssignment({
+            identifierCollections,
+            identifierRecord: leftRecord,
+            filePath: fileRecord?.filePath ?? null,
+            scopeDescriptor: scopeDescriptor ?? scopeRecord
+        });
+        metrics?.incrementCounter("identifiers.instanceAssignments");
+    }
+}
+
+
+
+
 function analyseGmlAst({
     ast,
     builtInNames,
@@ -1741,230 +1705,61 @@ function analyseGmlAst({
     const enumLookup = createEnumLookup(ast, fileRecord?.filePath ?? null);
 
     traverseAst(ast, (node) => {
-        if (
-            scopeDescriptor?.kind === "script" &&
-            (node?.type === "FunctionDeclaration" ||
-                node?.type === "ConstructorDeclaration")
-        ) {
-            const classificationTags =
-                node.type === "ConstructorDeclaration"
-                    ? ["constructor", "struct", "script"]
-                    : ["script"];
-            const declarationRecord = createFunctionLikeIdentifierRecord({
-                node,
-                scopeRecord,
-                fileRecord,
-                classification: classificationTags,
-                source: sourceContents,
-                lineOffsets
-            });
+        handleScriptScopeFunctionDeclarationNode({
+            node,
+            scopeDescriptor,
+            scopeRecord,
+            fileRecord,
+            identifierCollections,
+            sourceContents,
+            lineOffsets
+        });
 
-            if (declarationRecord) {
-                removeSyntheticScriptDeclarations(fileRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-                removeSyntheticScriptDeclarations(scopeRecord.declarations, {
-                    name: declarationRecord.name,
-                    scopeId: scopeRecord.id
-                });
-
-                const declarationKey = buildLocationKey(
-                    declarationRecord.start
-                );
-                const fileHasExisting = fileRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!fileHasExisting) {
-                    fileRecord.declarations.push({ ...declarationRecord });
-                }
-
-                const scopeHasExisting = scopeRecord.declarations.some(
-                    (existing) =>
-                        buildLocationKey(existing.start) === declarationKey
-                );
-                if (!scopeHasExisting) {
-                    scopeRecord.declarations.push({ ...declarationRecord });
-                }
-
-                registerScriptDeclaration({
-                    identifierCollections,
-                    descriptor: scopeDescriptor,
-                    declarationRecord,
-                    filePath: fileRecord?.filePath ?? null
-                });
-            }
+        const identifierHandled = handleIdentifierNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            identifierCollections,
+            enumLookup,
+            scopeDescriptor,
+            metrics
+        });
+        if (identifierHandled) {
+            return;
         }
 
-        if (
-            node?.type === "Identifier" &&
-            Array.isArray(node.classifications)
-        ) {
-            const identifierRecord = createIdentifierRecord(node);
-            const isBuiltIn = builtInNames.has(identifierRecord.name);
-            identifierRecord.isBuiltIn = isBuiltIn;
+        handleCallExpressionNode({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            metrics?.incrementCounter("identifiers.encountered");
+        handleNewExpressionScriptCall({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
 
-            if (isBuiltIn) {
-                metrics?.incrementCounter("identifiers.builtInSkipped");
-                identifierRecord.reason = "built-in";
-                fileRecord.ignoredIdentifiers.push(identifierRecord);
-                scopeRecord.ignoredIdentifiers.push(identifierRecord);
-                return;
-            }
-
-            const isDeclaration =
-                identifierRecord.classifications.includes("declaration");
-            const isReference =
-                identifierRecord.classifications.includes("reference");
-
-            if (isDeclaration) {
-                metrics?.incrementCounter("identifiers.declarations");
-                fileRecord.declarations.push(identifierRecord);
-                scopeRecord.declarations.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "declaration",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-
-            if (isReference) {
-                metrics?.incrementCounter("identifiers.references");
-                fileRecord.references.push(identifierRecord);
-                scopeRecord.references.push(identifierRecord);
-
-                registerIdentifierOccurrence({
-                    identifierCollections,
-                    identifierRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    role: "reference",
-                    enumLookup,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-            }
-        }
-
-        if (
-            node?.type === "CallExpression" &&
-            node.object?.type === "Identifier"
-        ) {
-            const callee = node.object;
-            const calleeName = callee.name;
-            if (typeof calleeName !== "string") {
-                return;
-            }
-
-            if (builtInNames.has(calleeName)) {
-                return;
-            }
-
-            const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
-            const targetResourcePath = targetScopeId
-                ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                : null;
-
-            const callRecord = {
-                kind: "script",
-                from: {
-                    filePath: fileRecord.filePath,
-                    scopeId: scopeRecord.id
-                },
-                target: {
-                    name: calleeName,
-                    scopeId: targetScopeId,
-                    resourcePath: targetResourcePath
-                },
-                isResolved: Boolean(targetScopeId),
-                location: {
-                    start: cloneLocation(callee.start),
-                    end: cloneLocation(callee.end)
-                }
-            };
-
-            fileRecord.scriptCalls.push(callRecord);
-            scopeRecord.scriptCalls.push(callRecord);
-            relationships.scriptCalls.push(callRecord);
-            metrics?.incrementCounter("scriptCalls.discovered");
-        }
-
-        if (
-            node?.type === "NewExpression" &&
-            node.expression?.type === "Identifier"
-        ) {
-            const callee = node.expression;
-            const calleeName = callee.name;
-            if (typeof calleeName === "string") {
-                const targetScopeId =
-                    scriptNameToScopeId.get(calleeName) ?? null;
-                const targetResourcePath = targetScopeId
-                    ? (scriptNameToResourcePath.get(calleeName) ?? null)
-                    : null;
-
-                const callRecord = {
-                    kind: "script",
-                    from: {
-                        filePath: fileRecord.filePath,
-                        scopeId: scopeRecord.id
-                    },
-                    target: {
-                        name: calleeName,
-                        scopeId: targetScopeId,
-                        resourcePath: targetResourcePath
-                    },
-                    isResolved: Boolean(targetScopeId),
-                    location: {
-                        start: cloneLocation(callee.start),
-                        end: cloneLocation(callee.end)
-                    }
-                };
-
-                fileRecord.scriptCalls.push(callRecord);
-                scopeRecord.scriptCalls.push(callRecord);
-                relationships.scriptCalls.push(callRecord);
-                metrics?.incrementCounter("scriptCalls.discovered");
-            }
-        }
-
-        if (
-            node?.type === "AssignmentExpression" &&
-            node.left?.type === "Identifier" &&
-            scopeDescriptor?.kind === "objectEvent"
-        ) {
-            const leftRecord = createIdentifierRecord(node.left);
-            const classifications = Array.isArray(leftRecord.classifications)
-                ? leftRecord.classifications
-                : [];
-
-            const isGlobalAssignment =
-                classifications.includes("global") ||
-                leftRecord.isGlobalIdentifier;
-            const hasDeclaration = Boolean(
-                leftRecord.declaration && leftRecord.declaration.scopeId
-            );
-
-            if (
-                identifierCollections &&
-                !isGlobalAssignment &&
-                !hasDeclaration &&
-                leftRecord.name &&
-                !builtInNames.has(leftRecord.name)
-            ) {
-                registerInstanceAssignment({
-                    identifierCollections,
-                    identifierRecord: leftRecord,
-                    filePath: fileRecord?.filePath ?? null,
-                    scopeDescriptor: scopeDescriptor ?? scopeRecord
-                });
-                metrics?.incrementCounter("identifiers.instanceAssignments");
-            }
-        }
+        handleObjectEventAssignmentNode({
+            node,
+            scopeDescriptor,
+            identifierCollections,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            metrics
+        });
     });
 }
 
@@ -1979,28 +1774,18 @@ function cloneAssetReference(reference) {
     };
 }
 
-function clampConcurrency(
-    value,
-    { min = 1, max = 16, fallback = DEFAULT_PROJECT_INDEX_GML_CONCURRENCY } = {}
-) {
-    const numeric = Number(value ?? fallback);
-    if (!Number.isFinite(numeric) || numeric < min) {
-        return min;
-    }
-    if (numeric > max) {
-        return max;
-    }
-    return numeric;
-}
-
-async function processWithConcurrency(items, limit, worker) {
-    if (!Array.isArray(items) || items.length === 0) {
+async function processWithConcurrency(items, limit, worker, options = {}) {
+    if (!isNonEmptyArray(items)) {
         return;
     }
 
-    if (typeof worker !== "function") {
-        throw new TypeError("worker must be a function");
-    }
+    assertFunction(worker, "worker");
+
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+    const ensureNotAborted = () =>
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2014,9 +1799,12 @@ async function processWithConcurrency(items, limit, worker) {
 
     let nextIndex = 0;
     const runWorker = async () => {
+        ensureNotAborted();
         let currentIndex;
         while ((currentIndex = nextIndex++) < items.length) {
+            ensureNotAborted();
             await worker(items[currentIndex], currentIndex);
+            ensureNotAborted();
         }
     };
 
@@ -2042,15 +1830,24 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
+    const signal = resolveAbortSignalFromOptions(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+    const ensureNotAborted = () =>
+        throwIfAborted(signal, PROJECT_INDEX_BUILD_ABORT_MESSAGE);
+    ensureNotAborted();
+
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics)
+        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
     );
+    ensureNotAborted();
     const builtInNames = builtInIdentifiers.names ?? new Set();
 
     const { yyFiles, gmlFiles } = await metrics.timeAsync(
         "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics)
+        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
     );
+    ensureNotAborted();
     metrics.setMetadata("yyFileCount", yyFiles.length);
     metrics.setMetadata("gmlFileCount", gmlFiles.length);
 
@@ -2060,9 +1857,11 @@ export async function buildProjectIndex(
             analyseResourceFiles({
                 projectRoot: resolvedRoot,
                 yyFiles,
-                fsFacade
+                fsFacade,
+                signal
             })
     );
+    ensureNotAborted();
 
     metrics.incrementCounter(
         "resources.total",
@@ -2081,162 +1880,146 @@ export async function buildProjectIndex(
 
     const concurrencySettings = options?.concurrency ?? {};
     const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ??
-            concurrencySettings.gmlParsing ??
-            DEFAULT_PROJECT_INDEX_GML_CONCURRENCY
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
     metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
     const parseProjectSource = resolveProjectIndexParser(options);
 
-    await processWithConcurrency(gmlFiles, gmlConcurrency, async (file) => {
-        metrics.incrementCounter("files.gmlProcessed");
-        let contents;
-        try {
-            contents = await metrics.timeAsync("fs.readGml", () =>
-                fsFacade.readFile(file.absolutePath, "utf8")
-            );
-        } catch (error) {
-            if (isFsErrorCode(error, "ENOENT")) {
-                metrics.incrementCounter("files.missingDuringRead");
-                return;
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) => {
+            ensureNotAborted();
+            metrics.incrementCounter("files.gmlProcessed");
+            let contents;
+            try {
+                contents = await metrics.timeAsync("fs.readGml", () =>
+                    fsFacade.readFile(file.absolutePath, "utf8")
+                );
+            } catch (error) {
+                if (isFsErrorCode(error, "ENOENT")) {
+                    metrics.incrementCounter("files.missingDuringRead");
+                    return;
+                }
+                throw error;
             }
-            throw error;
-        }
 
-        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
-        const lineOffsets = computeLineOffsets(contents);
+            ensureNotAborted();
 
-        const scopeDescriptor =
-            resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-            createFileScopeDescriptor(file.relativePath);
+            metrics.incrementCounter(
+                "io.gmlBytes",
+                Buffer.byteLength(contents)
+            );
+            const lineOffsets = computeLineOffsets(contents);
 
-        const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-        pushUnique(scopeRecord.filePaths, file.relativePath);
-        ensureScriptEntry(identifierCollections, scopeDescriptor);
+            const scopeDescriptor =
+                resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+                createFileScopeDescriptor(file.relativePath);
 
-        const fileRecord = ensureFileRecord(
-            filesMap,
-            file.relativePath,
-            scopeRecord.id
-        );
+            const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
+            if (!scopeRecord.filePaths.includes(file.relativePath)) {
+                scopeRecord.filePaths.push(file.relativePath);
+            }
+            ensureScriptEntry(identifierCollections, scopeDescriptor);
 
-        if (
-            scopeDescriptor.kind === "script" &&
-            !fileRecord.hasSyntheticDeclaration
-        ) {
-            const syntheticDeclaration = {
-                name: scopeDescriptor.name,
-                start: null,
-                end: null,
-                scopeId: scopeRecord.id,
-                classifications: ["identifier", "declaration", "script"],
-                isBuiltIn: false,
-                isSynthetic: true
-            };
-            fileRecord.declarations.push({ ...syntheticDeclaration });
-            scopeRecord.declarations.push({ ...syntheticDeclaration });
-            fileRecord.hasSyntheticDeclaration = true;
+            const fileRecord = ensureFileRecord(
+                filesMap,
+                file.relativePath,
+                scopeRecord.id
+            );
 
-            registerScriptDeclaration({
-                identifierCollections,
-                descriptor: scopeDescriptor,
-                declarationRecord: syntheticDeclaration,
-                filePath: file.relativePath
-            });
-        }
-
-        const ast = metrics.timeSync("gml.parse", () =>
-            parseProjectSource(contents, {
-                filePath: file.relativePath,
-                projectRoot: resolvedRoot
-            })
-        );
-
-        metrics.timeSync("gml.analyse", () =>
-            analyseGmlAst({
-                ast,
-                builtInNames,
+            ensureSyntheticScriptDeclaration({
+                scopeDescriptor,
                 scopeRecord,
                 fileRecord,
-                relationships,
-                scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-                scriptNameToResourcePath:
-                    resourceAnalysis.scriptNameToResourcePath,
                 identifierCollections,
-                scopeDescriptor,
-                metrics,
-                sourceContents: contents,
-                lineOffsets
-            })
-        );
+                filePath: file.relativePath
+            });
+            const ast = metrics.timeSync("gml.parse", () =>
+                parseProjectSource(contents, {
+                    filePath: file.relativePath,
+                    projectRoot: resolvedRoot
+                })
+            );
+
+            metrics.timeSync("gml.analyse", () =>
+                analyseGmlAst({
+                    ast,
+                    builtInNames,
+                    scopeRecord,
+                    fileRecord,
+                    relationships,
+                    scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+                    scriptNameToResourcePath:
+                        resourceAnalysis.scriptNameToResourcePath,
+                    identifierCollections,
+                    scopeDescriptor,
+                    metrics,
+                    sourceContents: contents,
+                    lineOffsets
+                })
+            );
+        },
+        { signal }
+    );
+    ensureNotAborted();
+
+    recordScriptCallMetricsAndReferences({
+        relationships,
+        metrics,
+        identifierCollections
     });
 
-    for (const callRecord of relationships.scriptCalls) {
-        metrics.incrementCounter("scriptCalls.total");
-        if (callRecord.isResolved) {
-            metrics.incrementCounter("scriptCalls.resolved");
-        } else {
-            metrics.incrementCounter("scriptCalls.unresolved");
-        }
-        registerScriptReference({
-            identifierCollections,
-            callRecord
-        });
-    }
-
-    const resources = Object.fromEntries(
-        [...resourceAnalysis.resourcesMap.entries()].map(
-            ([resourcePath, record]) => [
-                resourcePath,
-                {
-                    path: record.path,
-                    name: record.name,
-                    resourceType: record.resourceType,
-                    scopes: [...record.scopes],
-                    gmlFiles: [...record.gmlFiles],
-                    assetReferences: record.assetReferences.map((reference) =>
-                        cloneAssetReference(reference)
-                    )
-                }
-            ]
-        )
+    const resources = mapToObject(
+        resourceAnalysis.resourcesMap,
+        (record) => ({
+            path: record.path,
+            name: record.name,
+            resourceType: record.resourceType,
+            scopes: [...record.scopes],
+            gmlFiles: [...record.gmlFiles],
+            assetReferences: record.assetReferences.map((reference) =>
+                cloneAssetReference(reference)
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const scopes = Object.fromEntries(
-        [...scopeMap.entries()].map(([scopeId, record]) => [
-            scopeId,
-            {
-                id: record.id,
-                kind: record.kind,
-                name: record.name,
-                displayName: record.displayName,
-                resourcePath: record.resourcePath,
-                event: record.event ? { ...record.event } : null,
-                filePaths: [...record.filePaths],
-                declarations: cloneObjectEntries(record.declarations),
-                references: cloneObjectEntries(record.references),
-                ignoredIdentifiers: cloneObjectEntries(
-                    record.ignoredIdentifiers
-                ),
-                scriptCalls: cloneObjectEntries(record.scriptCalls)
-            }
-        ])
+    const scopes = mapToObject(
+        scopeMap,
+        (record) => ({
+            id: record.id,
+            kind: record.kind,
+            name: record.name,
+            displayName: record.displayName,
+            resourcePath: record.resourcePath,
+            event: record.event ? { ...record.event } : null,
+            filePaths: [...record.filePaths],
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
-    const files = Object.fromEntries(
-        [...filesMap.entries()].map(([filePath, record]) => [
-            filePath,
-            {
-                filePath: record.filePath,
-                scopeId: record.scopeId,
-                declarations: cloneObjectEntries(record.declarations),
-                references: cloneObjectEntries(record.references),
-                ignoredIdentifiers: cloneObjectEntries(
-                    record.ignoredIdentifiers
-                ),
-                scriptCalls: cloneObjectEntries(record.scriptCalls)
-            }
-        ])
+    const files = mapToObject(
+        filesMap,
+        (record) => ({
+            filePath: record.filePath,
+            scopeId: record.scopeId,
+            ...cloneEntryCollections(
+                record,
+                "declarations",
+                "references",
+                "ignoredIdentifiers",
+                "scriptCalls"
+            )
+        }),
+        { sortEntries: false }
     );
 
     const identifiers = {
@@ -2248,10 +2031,8 @@ export async function buildProjectIndex(
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
-            declarationKinds: Array.isArray(entry.declarationKinds)
-                ? [...entry.declarationKinds]
-                : [],
-            declarations: cloneObjectEntries(entry.declarations),
+            declarationKinds: [...asArray(entry.declarationKinds)],
+            ...cloneEntryCollections(entry, "declarations"),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
                 scopeId: reference.scopeId ?? null,
@@ -2271,8 +2052,7 @@ export async function buildProjectIndex(
                 entry.identifierId ??
                 buildIdentifierId("macro", entry.name ?? ""),
             name: entry.name,
-            declarations: cloneObjectEntries(entry.declarations),
-            references: cloneObjectEntries(entry.references)
+            ...cloneEntryCollections(entry, "declarations", "references")
         })),
         enums: mapToObject(identifierCollections.enums, (entry) => ({
             identifierId:
@@ -2281,8 +2061,7 @@ export async function buildProjectIndex(
             key: entry.key,
             name: entry.name ?? null,
             filePath: entry.filePath ?? null,
-            declarations: cloneObjectEntries(entry.declarations),
-            references: cloneObjectEntries(entry.references)
+            ...cloneEntryCollections(entry, "declarations", "references")
         })),
         enumMembers: mapToObject(
             identifierCollections.enumMembers,
@@ -2295,8 +2074,7 @@ export async function buildProjectIndex(
                 enumKey: entry.enumKey ?? null,
                 enumName: entry.enumName ?? null,
                 filePath: entry.filePath ?? null,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         ),
         globalVariables: mapToObject(
@@ -2306,8 +2084,7 @@ export async function buildProjectIndex(
                     entry.identifierId ??
                     buildIdentifierId("global", entry.name ?? ""),
                 name: entry.name,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         ),
         instanceVariables: mapToObject(
@@ -2320,8 +2097,7 @@ export async function buildProjectIndex(
                 name: entry.name ?? null,
                 scopeId: entry.scopeId ?? null,
                 scopeKind: entry.scopeKind ?? null,
-                declarations: cloneObjectEntries(entry.declarations),
-                references: cloneObjectEntries(entry.references)
+                ...cloneEntryCollections(entry, "declarations", "references")
             })
         )
     };

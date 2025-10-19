@@ -36,6 +36,7 @@ import {
     isErrorWithCode,
     isObjectLike,
     mergeUniqueValues,
+    normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
@@ -43,14 +44,13 @@ import {
     uniqueArray
 } from "../shared/utils.js";
 import { isErrorLike } from "../shared/utils/capability-probes.js";
-import { collectAncestorDirectories, isPathInside } from "./lib/path-utils.js";
+import { collectAncestorDirectories, isPathInside } from "../shared/path-utils.js";
 
 import {
     CliUsageError,
     formatCliError,
     handleCliError
 } from "./lib/cli-errors.js";
-import { parseCommandLine } from "./lib/command-parsing.js";
 import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
 import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
 import {
@@ -58,6 +58,20 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "./lib/ignore-path-registry.js";
+import { createCliCommandManager } from "./lib/cli-command-manager.js";
+import {
+    createPerformanceCommand,
+    runPerformanceCommand
+} from "./lib/performance-cli.js";
+import { createMemoryCommand, runMemoryCommand } from "./lib/memory-cli.js";
+import {
+    createGenerateIdentifiersCommand,
+    runGenerateGmlIdentifiers
+} from "./commands/generate-gml-identifiers.js";
+import {
+    createFeatherMetadataCommand,
+    runGenerateFeatherMetadata
+} from "./commands/generate-feather-metadata.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -72,6 +86,44 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
+const VALID_PRETTIER_LOG_LEVELS = new Set([
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "silent"
+]);
+
+function formatValidChoiceList(values) {
+    return [...values].sort().join(", ");
+}
+
+const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
+    VALID_PARSE_ERROR_ACTIONS
+);
+const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
+    VALID_PRETTIER_LOG_LEVELS
+);
+
+function formatExtensionListForDisplay(extensions) {
+    return extensions.map((extension) => `"${extension}"`).join(", ");
+}
+
+function formatPathForDisplay(targetPath) {
+    const resolvedTarget = path.resolve(targetPath);
+    const resolvedCwd = path.resolve(process.cwd());
+    const relativePath = path.relative(resolvedCwd, resolvedTarget);
+
+    if (
+        relativePath &&
+        !relativePath.startsWith("..") &&
+        !path.isAbsolute(relativePath)
+    ) {
+        return relativePath || ".";
+    }
+
+    return resolvedTarget;
+}
 
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
@@ -106,24 +158,6 @@ async function resolvePrettier() {
     }
 
     return prettierModulePromise;
-}
-
-function normalizeParseErrorAction(value, fallbackValue) {
-    if (value == undefined) {
-        return fallbackValue;
-    }
-
-    const normalized = toNormalizedLowerCaseString(value);
-
-    if (normalized.length === 0) {
-        return fallbackValue;
-    }
-
-    if (VALID_PARSE_ERROR_ACTIONS.has(normalized)) {
-        return normalized;
-    }
-
-    return null;
 }
 
 function coerceExtensionValue(value) {
@@ -168,23 +202,52 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
 );
 
 const DEFAULT_PARSE_ERROR_ACTION =
-    normalizeParseErrorAction(
+    normalizeEnumeratedOption(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        ParseErrorAction.SKIP
+        ParseErrorAction.SKIP,
+        VALID_PARSE_ERROR_ACTIONS
     ) ?? ParseErrorAction.SKIP;
 
-const cliArgs = process.argv.slice(2);
+const DEFAULT_PRETTIER_LOG_LEVEL =
+    normalizeEnumeratedOption(
+        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
+        "warn",
+        VALID_PRETTIER_LOG_LEVELS
+    ) ?? "warn";
 
-function parseCliArguments(args) {
-    const command = applyStandardCommandOptions(
+const program = applyStandardCommandOptions(new Command())
+    .name("prettier-plugin-gml")
+    .usage("[command] [options]")
+    .description(
+        [
+            "Utilities for working with the prettier-plugin-gml project.",
+            "Provides formatting, benchmarking, and manual data generation commands."
+        ].join(" \n")
+    );
+
+const { registrar: cliCommandRegistrar, runner: cliProgramRunner } =
+    createCliCommandManager({
+        program,
+        onUnhandledError: (error) =>
+            handleCliError(error, {
+                prefix: "Failed to run prettier-plugin-gml CLI.",
+                exitCode: 1
+            })
+    });
+
+function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
+    return applyStandardCommandOptions(
         new Command()
-            .name("prettier-wrapper")
-            .usage("[options] <path>")
+            .name(name)
+            .usage("[options] [path]")
             .description(
                 "Format GameMaker Language files using the prettier plugin."
             )
     )
-        .argument("[targetPath]", "Directory or file to format.")
+        .argument(
+            "[targetPath]",
+            "Directory or file to format. Defaults to the current working directory."
+        )
         .option(
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
@@ -195,45 +258,84 @@ function parseCliArguments(args) {
             (value) => normalizeExtensions(value, DEFAULT_EXTENSIONS)
         )
         .option(
-            "--on-parse-error <mode>",
-            "How to handle parser failures: revert, skip, or abort.",
+            "--log-level <level>",
+            "Prettier log level to use (debug, info, warn, error, or silent).",
             (value) => {
-                const normalized = normalizeParseErrorAction(
+                const normalized = normalizeEnumeratedOption(
                     value,
-                    DEFAULT_PARSE_ERROR_ACTION
+                    DEFAULT_PRETTIER_LOG_LEVEL,
+                    VALID_PRETTIER_LOG_LEVELS
                 );
                 if (!normalized) {
                     throw new InvalidArgumentError(
-                        `Must be one of: ${[...VALID_PARSE_ERROR_ACTIONS]
-                            .sort()
-                            .join(", ")}`
+                        `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
+                    );
+                }
+                return normalized;
+            },
+            DEFAULT_PRETTIER_LOG_LEVEL
+        )
+        .option(
+            "--on-parse-error <mode>",
+            "How to handle parser failures: revert, skip, or abort.",
+            (value) => {
+                const normalized = normalizeEnumeratedOption(
+                    value,
+                    DEFAULT_PARSE_ERROR_ACTION,
+                    VALID_PARSE_ERROR_ACTIONS
+                );
+                if (!normalized) {
+                    throw new InvalidArgumentError(
+                        `Must be one of: ${VALID_PARSE_ERROR_ACTION_CHOICES}`
                     );
                 }
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
         );
+}
 
-    const { helpRequested, usage } = parseCommandLine(command, args);
-    if (helpRequested) {
+/**
+ * Normalize CLI target path input into a trimmed value plus a flag indicating
+ * whether the user explicitly supplied a path argument.
+ *
+ * @param {unknown} rawInput
+ * @returns {{ targetPathInput: unknown, targetPathProvided: boolean }}
+ */
+function normalizeTargetPathInput(rawInput) {
+    if (typeof rawInput === "string") {
+        const trimmed = rawInput.trim();
         return {
-            helpRequested: true,
-            usage
+            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathProvided: true
         };
     }
 
+    const normalized = rawInput ?? null;
+    return {
+        targetPathInput: normalized,
+        targetPathProvided: normalized !== null
+    };
+}
+
+function collectFormatCommandOptions(command) {
     const options = command.opts();
-    const [positionalTarget] = command.processedArgs;
+    const [positionalTarget] = command.args ?? [];
     const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
 
+    const { targetPathInput, targetPathProvided } = normalizeTargetPathInput(
+        options.path ?? positionalTarget ?? null
+    );
+
     return {
-        helpRequested: false,
-        targetPathInput: options.path ?? positionalTarget ?? null,
+        targetPathInput,
+        targetPathProvided,
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
+        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        usage
+        usage: command.helpInformation()
     };
 }
 
@@ -279,10 +381,20 @@ function shouldFormatFile(filePath) {
 const options = {
     parser: "gml-parse",
     plugins: [PLUGIN_PATH],
-    loglevel: "warn",
+    loglevel: DEFAULT_PRETTIER_LOG_LEVEL,
     ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
 };
+
+function configurePrettierOptions({ logLevel } = {}) {
+    const normalized =
+        normalizeEnumeratedOption(
+            logLevel,
+            DEFAULT_PRETTIER_LOG_LEVEL,
+            VALID_PRETTIER_LOG_LEVELS
+        ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
+    options.loglevel = normalized;
+}
 
 let skippedFileCount = 0;
 let baseProjectIgnorePaths = [];
@@ -297,6 +409,7 @@ const formattedFileOriginalContents = new Map();
 let revertSnapshotDirectoryPromise = null;
 let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
+let encounteredFormattableFile = false;
 
 async function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
@@ -332,7 +445,14 @@ async function cleanupRevertSnapshotDirectory() {
     try {
         await rm(directory, { recursive: true, force: true });
     } catch {
-        // Ignore cleanup failures; the OS will eventually purge the temp dir.
+        // Treat teardown of the revert workspace as best-effort. The directory
+        // lives under `os.tmpdir()` and only exists when callers opt into the
+        // `--on-parse-error=revert` safety net described in
+        // README.md#format-from-a-local-clone. Surfacing an ENOENT/EACCES
+        // failure here would mask the original parser crash and leave users
+        // questioning whether their edits were restored. Leaving the directory
+        // behind is harmless because the OS eventually sweeps the temp folder,
+        // whereas interrupting the CLI would undermine the recovery guarantee.
     }
 }
 
@@ -363,7 +483,12 @@ async function discardFormattedFileOriginalContents() {
     formattedFileOriginalContents.clear();
 
     for (const snapshot of snapshots) {
-        // shared snapshot counter accurate and the directory removal deterministic.
+        // Release each snapshot in sequence so the shared
+        // `revertSnapshotFileCount` accounting stays in sync with the
+        // filesystem. `releaseSnapshot` also decides whether the directory can
+        // be torn down or has to stick around for inline fallbacks, so keeping
+        // this loop serial avoids racy cleanups that might drop still-needed
+        // backups when the process is under heavy I/O pressure.
         await releaseSnapshot(snapshot);
     }
 
@@ -405,6 +530,7 @@ async function resetFormattingSession(onParseError) {
     skippedFileCount = 0;
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
+    encounteredFormattableFile = false;
 }
 
 /**
@@ -474,15 +600,16 @@ async function revertFormattedFiles() {
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
         } catch (revertError) {
-            const message =
-                revertError && typeof revertError.message === "string"
-                    ? revertError.message
-                    : String(revertError ?? "");
+            const message = getErrorMessage(revertError);
             console.error(
                 `Failed to revert ${filePath}: ${message || "Unknown error"}`
             );
         } finally {
-            // the counter and directory lifecycle deterministic.
+            // Always release the snapshot so the shared revert bookkeeping can
+            // decide whether the temporary directory is still needed. Skipping
+            // this step after a failed write would leak backups, block future
+            // revert attempts from creating fresh snapshots, and leave the
+            // `revertSnapshotFileCount` counter desynchronised from reality.
             await releaseSnapshot(snapshot);
         }
     }
@@ -508,12 +635,17 @@ async function handleFormattingError(error, filePath) {
     }
 
     if (parseErrorAction === ParseErrorAction.REVERT) {
-        if (!revertTriggered) {
-            revertTriggered = true;
-            abortRequested = true;
-            await revertFormattedFiles();
+        if (revertTriggered) {
+            return;
         }
-    } else if (parseErrorAction === ParseErrorAction.ABORT) {
+
+        revertTriggered = true;
+        abortRequested = true;
+        await revertFormattedFiles();
+        return;
+    }
+
+    if (parseErrorAction === ParseErrorAction.ABORT) {
         abortRequested = true;
     }
 }
@@ -699,6 +831,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
+        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -746,8 +879,9 @@ async function resolveFormattingOptions(filePath) {
             editorconfig: true
         });
     } catch (error) {
+        const message = getErrorMessage(error, { fallback: "Unknown error" });
         console.warn(
-            `Unable to resolve Prettier config for ${filePath}: ${error.message}`
+            `Unable to resolve Prettier config for ${filePath}: ${message}`
         );
     }
 
@@ -804,65 +938,270 @@ async function processFile(filePath, activeIgnorePaths = []) {
     }
 }
 
-async function run() {
-    const {
-        targetPathInput,
-        extensions: configuredExtensions,
-        onParseError,
-        helpRequested,
-        usage
-    } = parseCliArguments(cliArgs);
-
-    if (helpRequested) {
-        return;
-    }
-
-    if (!targetPathInput) {
+/**
+ * Validate command input to ensure the caller supplied a usable target path.
+ *
+ * @param {{ targetPathProvided: boolean, targetPathInput: unknown, usage: string }} params
+ */
+function validateTargetPathInput({
+    targetPathProvided,
+    targetPathInput,
+    usage
+}) {
+    if (targetPathProvided && !targetPathInput) {
         throw new CliUsageError(
-            "No target project provided. Pass a directory path as the first argument or use --path=/absolute/to/project.",
+            [
+                "Target path cannot be empty. Pass a directory or file to format (relative or absolute) or omit --path to format the current working directory.",
+                "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
+            ].join(" "),
+            { usage }
+        );
+    }
+}
+
+/**
+ * Resolve the file system path that should be formatted.
+ *
+ * @param {unknown} targetPathInput
+ * @returns {string}
+ */
+function resolveTargetPathFromInput(targetPathInput) {
+    return path.resolve(process.cwd(), targetPathInput ?? ".");
+}
+
+/**
+ * Configure global state for a formatting run based on CLI flags.
+ *
+ * @param {{ configuredExtensions: readonly string[], prettierLogLevel: string, onParseError: string }} params
+ */
+async function prepareFormattingRun({
+    configuredExtensions,
+    prettierLogLevel,
+    onParseError
+}) {
+    configurePrettierOptions({ logLevel: prettierLogLevel });
+    configureTargetExtensionState(configuredExtensions);
+    await resetFormattingSession(onParseError);
+}
+
+/**
+ * Resolve metadata about the requested target and ensure it can be formatted.
+ *
+ * @param {string} targetPath
+ * @param {string} usage
+ * @returns {Promise<{ targetIsDirectory: boolean, projectRoot: string }>}
+ */
+async function resolveTargetContext(targetPath, usage) {
+    const targetStats = await resolveTargetStats(targetPath, { usage });
+    const targetIsDirectory = targetStats.isDirectory();
+
+    if (!targetIsDirectory && !targetStats.isFile()) {
+        throw new CliUsageError(
+            `${targetPath} is not a file or directory that can be formatted`,
             { usage }
         );
     }
 
-    const targetPath = path.resolve(process.cwd(), targetPathInput);
-    configureTargetExtensionState(configuredExtensions);
-    await resetFormattingSession(onParseError);
+    const projectRoot = targetIsDirectory
+        ? targetPath
+        : path.dirname(targetPath);
+
+    return { targetIsDirectory, projectRoot };
+}
+
+/**
+ * Process a single-file target when the CLI input does not resolve to a directory.
+ *
+ * @param {string} targetPath
+ */
+async function processNonDirectoryTarget(targetPath) {
+    if (shouldFormatFile(targetPath)) {
+        encounteredFormattableFile = true;
+        await processFile(targetPath, baseProjectIgnorePaths);
+        return;
+    }
+
+    skippedFileCount += 1;
+}
+
+/**
+ * Execute formatting for the resolved target after validation.
+ *
+ * @param {{ targetPath: string, targetIsDirectory: boolean, projectRoot: string }} params
+ */
+async function processResolvedTarget({
+    targetPath,
+    targetIsDirectory,
+    projectRoot
+}) {
+    await initializeProjectIgnorePaths(projectRoot);
+
+    if (targetIsDirectory) {
+        await processDirectory(targetPath);
+        return;
+    }
+
+    await processNonDirectoryTarget(targetPath);
+}
+
+/**
+ * Emit summary information about a formatting run.
+ *
+ * @param {{ targetPath: string, targetIsDirectory: boolean }} params
+ */
+function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
+    if (!encounteredFormattableFile) {
+        logNoMatchingFiles({
+            targetPath,
+            targetIsDirectory,
+            extensions: targetExtensions
+        });
+    } else {
+        logSkippedFileSummary();
+    }
+    if (encounteredFormattingError) {
+        process.exitCode = 1;
+    }
+}
+
+/**
+ * Fully execute the formatting workflow for a validated target path.
+ *
+ * @param {{ targetPath: string, usage: string }} params
+ */
+async function runFormattingWorkflow({ targetPath, usage }) {
+    const { targetIsDirectory, projectRoot } = await resolveTargetContext(
+        targetPath,
+        usage
+    );
+
+    await processResolvedTarget({
+        targetPath,
+        targetIsDirectory,
+        projectRoot
+    });
+
+    finalizeFormattingRun({ targetPath, targetIsDirectory });
+}
+
+async function executeFormatCommand(command) {
+    const commandOptions = collectFormatCommandOptions(command);
+    const { usage, targetPathInput } = commandOptions;
+
+    validateTargetPathInput(commandOptions);
+
+    const targetPath = resolveTargetPathFromInput(targetPathInput);
+    await prepareFormattingRun({
+        configuredExtensions: commandOptions.extensions,
+        prettierLogLevel: commandOptions.prettierLogLevel,
+        onParseError: commandOptions.onParseError
+    });
 
     try {
-        const targetStats = await resolveTargetStats(targetPath, { usage });
-        const targetIsDirectory = targetStats.isDirectory();
-
-        if (!targetIsDirectory && !targetStats.isFile()) {
-            throw new CliUsageError(
-                `${targetPath} is not a file or directory that can be formatted`,
-                { usage }
-            );
-        }
-
-        const projectRoot = targetIsDirectory
-            ? targetPath
-            : path.dirname(targetPath);
-
-        await initializeProjectIgnorePaths(projectRoot);
-        if (targetIsDirectory) {
-            await processDirectory(targetPath);
-        } else if (shouldFormatFile(targetPath)) {
-            await processFile(targetPath, baseProjectIgnorePaths);
-        } else {
-            skippedFileCount += 1;
-        }
-        console.debug(`Skipped ${skippedFileCount} files`);
-        if (encounteredFormattingError) {
-            process.exitCode = 1;
-        }
+        await runFormattingWorkflow({ targetPath, usage });
     } finally {
         await discardFormattedFileOriginalContents();
     }
 }
 
-run().catch((error) => {
+function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
+    const formattedExtensions = formatExtensionListForDisplay(extensions);
+    const locationDescription = targetIsDirectory
+        ? `in ${formatPathForDisplay(targetPath)}`
+        : formatPathForDisplay(targetPath);
+    const guidance = targetIsDirectory
+        ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
+        : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+
+    if (targetIsDirectory) {
+        console.log(
+            [
+                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                "Nothing to format.",
+                guidance
+            ].join(" ")
+        );
+    } else {
+        console.log(
+            [
+                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                "Nothing to format.",
+                guidance
+            ].join(" ")
+        );
+    }
+
+    logSkippedFileSummary();
+}
+
+function logSkippedFileSummary() {
+    const skipLabel = skippedFileCount === 1 ? "file" : "files";
+
+    if (skippedFileCount === 0) {
+        console.log(`Skipped 0 ${skipLabel}.`);
+        return;
+    }
+
+    console.log(
+        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
+    );
+}
+
+const formatCommand = createFormatCommand({ name: "format" });
+
+cliCommandRegistrar.registerDefaultCommand({
+    command: formatCommand,
+    run: ({ command }) => executeFormatCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to format project.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistrar.registerCommand({
+    command: createPerformanceCommand(),
+    run: ({ command }) => runPerformanceCommand({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run performance benchmarks.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistrar.registerCommand({
+    command: createMemoryCommand(),
+    run: ({ command }) => runMemoryCommand({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run memory diagnostics.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistrar.registerCommand({
+    command: createGenerateIdentifiersCommand({ env: process.env }),
+    run: ({ command }) => runGenerateGmlIdentifiers({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate GML identifiers.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistrar.registerCommand({
+    command: createFeatherMetadataCommand({ env: process.env }),
+    run: ({ command }) => runGenerateFeatherMetadata({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliProgramRunner.run(process.argv.slice(2)).catch((error) => {
     handleCliError(error, {
-        prefix: "Failed to format project.",
+        prefix: "Failed to run prettier-plugin-gml CLI.",
         exitCode: 1
     });
 });

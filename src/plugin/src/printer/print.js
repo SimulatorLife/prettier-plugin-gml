@@ -29,7 +29,7 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
@@ -46,14 +46,15 @@ import {
     getCallExpressionArguments,
     getIdentifierText,
     getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
 } from "../../../shared/ast-node-helpers.js";
-import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/local-plan.js";
+} from "../identifier-case/plan-state.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
@@ -419,6 +420,20 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
+            const locStart =
+                typeof options.locStart === "function" ? options.locStart : null;
+            const fallbackStart =
+                typeof node?.start === "number"
+                    ? node.start
+                    : typeof node?.start?.index === "number"
+                      ? node.start.index
+                      : 0;
+            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const originalText =
+                typeof options.originalText === "string"
+                    ? options.originalText
+                    : null;
+
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -463,7 +478,22 @@ export function print(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
-                if (needsLeadingBlankLine && !suppressLeadingBlank) {
+                const hasLeadingNonDocComment =
+                    !isNonEmptyArray(node.docComments) &&
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+
+                const hasExistingBlankLine =
+                    originalText !== null &&
+                    typeof nodeStartIndex === "number" &&
+                    isPreviousLineEmpty(originalText, nodeStartIndex);
+
+                if (
+                    !suppressLeadingBlank &&
+                    (needsLeadingBlankLine ||
+                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                ) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
@@ -1629,6 +1659,8 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
+            const forceFollowingEmptyLine =
+                node?._featherForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
@@ -1654,6 +1686,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 !sanitizedMacroHasExplicitBlankLine;
 
             if (shouldForceMacroPadding) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
@@ -3465,7 +3505,11 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     }
 
     const [firstArg] = args;
-    if (!isCallExpressionWithName(firstArg, "degtorad")) {
+    if (
+        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+            caseInsensitive: true
+        })
+    ) {
         return false;
     }
 
@@ -3517,19 +3561,6 @@ function applyOuterTrigConversion(node, conversionMap) {
 
     updateCallExpressionNameAndArgs(node, mapping.name, innerArgs);
     return true;
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const identifierName = getIdentifierText(node.object);
-    if (!identifierName) {
-        return false;
-    }
-
-    return identifierName.toLowerCase() === name;
 }
 
 function updateCallExpressionNameAndArgs(node, newName, newArgs) {

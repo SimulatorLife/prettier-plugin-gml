@@ -5,7 +5,6 @@ import {
     getIterableSize,
     hasIterableItems,
     isAggregateErrorLike,
-    isCommanderErrorLike,
     isErrorLike,
     isMapLike,
     isRegExpLike,
@@ -36,36 +35,6 @@ describe("capability probes", () => {
         };
         assert.equal(isRegExpLike(regExpLike), true);
         assert.equal(isRegExpLike({ test: () => true }), false);
-    });
-
-    it("recognizes commander-style errors by capability", () => {
-        const error = new Error("bad option");
-        error.code = "commander.invalidOption";
-        error.exitCode = 2;
-
-        assert.equal(isCommanderErrorLike(error), true);
-        assert.equal(
-            isCommanderErrorLike({
-                message: "bad option",
-                code: "commander.invalidOption"
-            }),
-            true
-        );
-        assert.equal(
-            isCommanderErrorLike({
-                message: "bad option",
-                code: "ERR_GENERIC"
-            }),
-            false
-        );
-        assert.equal(
-            isCommanderErrorLike({
-                message: "bad option",
-                code: "commander.invalidOption",
-                exitCode: "2"
-            }),
-            false
-        );
     });
 
     it("guards map-like collaborators", () => {

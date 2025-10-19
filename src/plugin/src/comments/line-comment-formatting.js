@@ -125,8 +125,9 @@ function formatLineComment(
         DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const trimmedValue = comment.value.trim();
-    const rawValue = typeof comment.value === "string" ? comment.value : "";
+    const hasStringValue = typeof comment?.value === "string";
+    const rawValue = hasStringValue ? comment.value : "";
+    const trimmedValue = hasStringValue ? comment.value.trim() : "";
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -192,9 +193,11 @@ function formatLineComment(
         ? [trimmedValue]
         : splitCommentIntoSentences(trimmedValue);
     if (sentences.length > 1) {
-        const formattedSentences = sentences.map((sentence) =>
-            applyInlinePadding(comment, `// ${sentence}`)
-        );
+        const continuationIndent = extractContinuationIndentation(comment);
+        const formattedSentences = sentences.map((sentence, index) => {
+            const line = applyInlinePadding(comment, `// ${sentence}`);
+            return index === 0 ? line : continuationIndent + line;
+        });
         return formattedSentences.join("\n");
     }
 
@@ -232,6 +235,24 @@ function applyInlinePadding(comment, formattedText) {
     }
 
     return formattedText;
+}
+
+function extractContinuationIndentation(comment) {
+    if (!isObjectLike(comment)) {
+        return "";
+    }
+
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+
+    if (leadingWhitespace.length === 0) {
+        return "";
+    }
+
+    const segments = leadingWhitespace.split(/\r?\n/);
+    const lastSegment = segments.at(-1) ?? "";
+
+    return lastSegment.replaceAll("\t", "    ");
 }
 
 function applyJsDocReplacements(text) {

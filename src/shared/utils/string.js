@@ -23,6 +23,41 @@ export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
 
+/**
+ * Assert that the provided value is a non-empty string. Optionally trims the
+ * value before evaluating emptiness so call sites can accept padded input
+ * without repeating `String#trim` checks.
+ *
+ * @param {unknown} value Candidate value to validate.
+ * @param {Object} [options]
+ * @param {string} [options.name="value"] Descriptive name used when
+ *        constructing the default error message.
+ * @param {boolean} [options.trim=false] When `true`, trim the value before
+ *        verifying it is non-empty.
+ * @param {string} [options.errorMessage] Optional error message that overrides
+ *        the default string when validation fails.
+ * @returns {string} The validated string value (trimmed when requested).
+ * @throws {TypeError} When `value` is not a string or is empty after trimming.
+ */
+export function assertNonEmptyString(
+    value,
+    { name = "value", trim = false, errorMessage } = {}
+) {
+    const message =
+        errorMessage ?? `${name} must be provided as a non-empty string.`;
+
+    if (typeof value !== "string") {
+        throw new TypeError(message);
+    }
+
+    const normalized = trim ? value.trim() : value;
+    if (normalized.length === 0) {
+        throw new TypeError(message);
+    }
+
+    return normalized;
+}
+
 export function isWordChar(character) {
     return typeof character === "string" && /[\w]/.test(character);
 }
@@ -33,7 +68,7 @@ export function toTrimmedString(value) {
 
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == undefined) {
+        if (value == null) {
             continue;
         }
 
@@ -47,7 +82,7 @@ export function coalesceTrimmedString(...values) {
 }
 
 export function toNormalizedLowerCaseString(value) {
-    if (value == undefined) {
+    if (value == null) {
         return "";
     }
 
@@ -64,19 +99,6 @@ export function capitalize(value) {
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
-function getCandidateEntries(value, splitPattern) {
-    if (Array.isArray(value)) {
-        return value;
-    }
-
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-    return pattern ? value.split(pattern) : [value];
-}
-
 /**
  * Normalize a string-or-string-array option into a deduplicated list of
  * trimmed strings.
@@ -86,12 +108,13 @@ function getCandidateEntries(value, splitPattern) {
  * `TypeError` semantics for invalid types so option parsing can surface clear
  * feedback to callers.
  *
- * @param {string|string[]|null|undefined} value Raw option value provided by a
+ * @param {string | string[] | null | undefined} value Raw option value provided by a
  *   consumer. Arrays are flattened as-is; strings are split using
  *   `splitPattern`.
  * @param {Object} [options]
- * @param {RegExp|null} [options.splitPattern=/[\n,]/] Pattern used to split
- *   string input. A `null` pattern keeps the entire string as a single entry.
+ * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
+ *   string input. Provide a falsy value (for example `false`) to keep the entire
+ *   string as a single entry.
  * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
  *   are treated as "no value" instead of throwing.
  * @param {string} [options.errorMessage] Message used when raising a
@@ -108,24 +131,29 @@ export function normalizeStringList(
         errorMessage = "Value must be provided as a string or array of strings."
     } = {}
 ) {
-    if (value == undefined) {
+    if (value == null) {
         return [];
     }
 
-    const entries = getCandidateEntries(value, splitPattern);
-
-    if (!entries) {
-        if (allowInvalidType) {
-            return [];
-        }
-
-        throw new TypeError(errorMessage);
+    if (Array.isArray(value)) {
+        return collectUniqueTrimmedStrings(value);
     }
 
+    if (typeof value === "string") {
+        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const entries = pattern ? value.split(pattern) : [value];
+        return collectUniqueTrimmedStrings(entries);
+    }
+
+    if (allowInvalidType) {
+        return [];
+    }
+
+    throw new TypeError(errorMessage);
+}
+
+function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    // Track unique, trimmed entries without the global borrowing logic that
-    // previously complicated this helper. Each invocation gets its own Set,
-    // keeping the flow easy to follow while preserving the same behaviour.
     const seen = new Set();
 
     for (const entry of entries) {
@@ -134,7 +162,7 @@ export function normalizeStringList(
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || seen.has(trimmed)) {
+        if (!trimmed || seen.has(trimmed)) {
             continue;
         }
 
@@ -152,10 +180,11 @@ export function normalizeStringList(
  * entry so callers can compare configuration values without worrying about
  * minor formatting differences.
  *
- * @param {string|string[]|null|undefined} value Raw option value.
+ * @param {string | string[] | null | undefined} value Raw option value.
  * @param {Object} [options]
- * @param {RegExp|null} [options.splitPattern=null] Pattern passed through to
- *   `normalizeStringList` for string input.
+ * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
+ *   to `normalizeStringList` for string input. Provide a falsy value to keep
+ *   entire strings intact.
  * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid
  *   types as empty input.
  * @param {string} [options.errorMessage] Message forwarded to
@@ -172,15 +201,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    const normalizedSet = new Set();
-
-    // Populate the set via a manual loop to avoid allocating a temporary array
-    // for `Array#map` on each invocation. The helper runs in hot formatter and
-    // option-parsing paths, so keeping it allocation-free shaves measurable
-    // time off tight micro-benchmarks.
-    for (const normalizedValue of normalizedValues) {
-        normalizedSet.add(normalizedValue.toLowerCase());
-    }
-
-    return normalizedSet;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }
