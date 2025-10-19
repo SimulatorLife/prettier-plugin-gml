@@ -11,6 +11,7 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
+    isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
@@ -15403,19 +15404,11 @@ function isIdentifier(node) {
 }
 
 function isDrawPrimitiveBeginCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_begin");
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
 
 function isDrawPrimitiveEndCall(node) {
-    return isCallExpressionWithName(node, "draw_primitive_end");
-}
-
-function isCallExpressionWithName(node, name) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    return isIdentifierWithName(node.object, name);
+    return isCallExpressionIdentifierMatch(node, "draw_primitive_end");
 }
 
 function createPrimitiveBeginCall(template) {
