@@ -4,17 +4,17 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
+const CARRIAGE_RETURN = "\r".charCodeAt(0);
+const LINE_FEED = "\n".charCodeAt(0);
+const LINE_SEPARATOR = "\u2028".charCodeAt(0);
+const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
+
 /**
  * Count the number of line break characters in a string.
  *
  * @param {string} text Text to inspect.
  * @returns {number} Number of recognized line break characters.
  */
-const CARRIAGE_RETURN = "\r".charCodeAt(0);
-const LINE_FEED = "\n".charCodeAt(0);
-const LINE_SEPARATOR = "\u2028".charCodeAt(0);
-const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
-
 export function getLineBreakCount(text) {
     if (!isNonEmptyString(text)) {
         return 0;

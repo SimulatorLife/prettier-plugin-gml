@@ -18,6 +18,7 @@ import {
     isNode
 } from "../../../shared/ast-node-helpers.js";
 import {
+    getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toNormalizedLowerCaseString,
@@ -3028,7 +3029,7 @@ function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
 }
 
 function createReadOnlyReplacementName(originalName, nameRegistry) {
-    const baseName = isNonEmptyString(originalName) ? originalName : "value";
+    const baseName = getNonEmptyString(originalName) ?? "value";
     const sanitized = baseName.replaceAll(/[^a-zA-Z0-9_]/g, "_");
     let candidate = `__feather_${sanitized}`;
     let suffix = 1;
@@ -6516,7 +6517,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "FunctionDeclaration") {
-            const functionName = isNonEmptyString(node.id) ? node.id : null;
+            const functionName = getNonEmptyString(node.id);
 
             if (functionName && !functionDeclarations.has(functionName)) {
                 functionDeclarations.set(functionName, node);
