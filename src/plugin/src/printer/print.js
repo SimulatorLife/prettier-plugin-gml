@@ -1447,6 +1447,11 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
     const parentNode = path.getValue();
+    const blockOwner =
+        typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const isConstructorBlock =
+        blockOwner?.type === "ConstructorDeclaration" &&
+        typeof options.originalText === "string";
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
@@ -1670,6 +1675,16 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         } else if (isTopLevel) {
             parts.push(hardline);
+        } else if (isConstructorBlock) {
+            const nextLineProbeIndex =
+                node?.type === "DefineStatement" ||
+                node?.type === "MacroDeclaration"
+                    ? nodeEndIndex
+                    : nodeEndIndex + 1;
+
+            if (isNextLineEmpty(options.originalText, nextLineProbeIndex)) {
+                parts.push(hardline);
+            }
         }
 
         return parts;
