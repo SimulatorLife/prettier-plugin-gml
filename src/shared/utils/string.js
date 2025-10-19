@@ -127,7 +127,8 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
+        // Using a direct truthy lookup avoids an Object.hasOwn call for each entry.
+        if (trimmed.length === 0 || seen[trimmed]) {
             continue;
         }
 
