@@ -742,4 +742,32 @@ describe("Prettier wrapper CLI", () => {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
+
+    it("informs the user when no files match the configured extensions", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const ignoredFile = path.join(tempDirectory, "notes.txt");
+            await fs.writeFile(ignoredFile, "hello", "utf8");
+
+            const { stdout, stderr } = await execFileAsync("node", [
+                wrapperPath,
+                tempDirectory
+            ]);
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /No files matching "\.gml" were found/,
+                "Expected stdout to explain why nothing was formatted"
+            );
+            assert.match(
+                stdout,
+                /Skipped \d+ file(?:s)? because they were ignored or used different extensions\./,
+                "Expected stdout to summarize the skipped files"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
 });
