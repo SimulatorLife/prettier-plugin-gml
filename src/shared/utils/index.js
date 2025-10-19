@@ -6,6 +6,7 @@ export * from "./error.js";
 export * from "./environment.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
+export * from "./metrics-tracker.js";
 export * from "./number.js";
 export * from "./numeric-options.js";
 export * from "./object.js";
