@@ -15,8 +15,60 @@ function normalizeLabel(label) {
     return getNonEmptyString(label) ?? "unknown";
 }
 
-const DEFAULT_CACHE_KEYS = ["hits", "misses", "stale"];
+const DEFAULT_CACHE_KEYS = Object.freeze(["hits", "misses", "stale"]);
 const SUMMARY_SECTIONS = ["timings", "counters", "caches", "metadata"];
+
+function toKeyIterable(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (value && typeof value[Symbol.iterator] === "function") {
+        return [...value];
+    }
+
+    return [];
+}
+
+function normalizeCacheKeys(keys) {
+    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const normalized = [];
+    const seen = new Set();
+
+    for (const candidate of toKeyIterable(candidates)) {
+        const label = getNonEmptyString(candidate);
+        if (!label) {
+            continue;
+        }
+
+        const trimmed = label.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+
+        if (seen.has(trimmed)) {
+            continue;
+        }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
+    }
+
+    if (normalized.length === 0) {
+        return [...DEFAULT_CACHE_KEYS];
+    }
+
+    return normalized;
+}
+
+function normalizeIncrementAmount(amount, fallback = 1) {
+    if (amount === undefined) {
+        return fallback;
+    }
+
+    const numeric = Number(amount);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
 
 function toPlainObject(map) {
     return Object.fromEntries(map);
@@ -25,13 +77,15 @@ function toPlainObject(map) {
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
-    autoLog = false
+    autoLog = false,
+    cacheKeys: cacheKeyOption
 } = {}) {
     const startTime = nowMs();
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
     const metadata = Object.create(null);
+    const cacheKeys = normalizeCacheKeys(cacheKeyOption);
 
     function incrementMapCounter(store, label, amount = 1) {
         const normalized = normalizeLabel(label);
@@ -42,7 +96,7 @@ export function createMetricsTracker({
     function ensureCacheStats(cacheName) {
         const normalized = normalizeLabel(cacheName);
         return getOrCreateMapEntry(caches, normalized, () =>
-            new Map(DEFAULT_CACHE_KEYS.map((key) => [key, 0]))
+            new Map(cacheKeys.map((key) => [key, 0]))
         );
     }
 
@@ -79,9 +133,22 @@ export function createMetricsTracker({
         incrementMapCounter(counters, label, amount);
     }
 
-    function recordCacheEvent(cacheName, key) {
+    function recordCacheEvent(cacheName, key, amount = 1) {
         const stats = ensureCacheStats(cacheName);
-        stats.set(key, (stats.get(key) ?? 0) + 1);
+        const normalizedKey = normalizeLabel(key);
+        if (!stats.has(normalizedKey)) {
+            stats.set(normalizedKey, 0);
+        }
+
+        const increment = normalizeIncrementAmount(
+            amount,
+            amount === undefined ? 1 : 0
+        );
+        if (increment === 0) {
+            return;
+        }
+
+        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
     }
 
     function mergeSummarySections(summary, extra) {
@@ -153,6 +220,9 @@ export function createMetricsTracker({
         },
         recordCacheStale(cacheName) {
             recordCacheEvent(cacheName, "stale");
+        },
+        recordCacheMetric(cacheName, key, amount = 1) {
+            recordCacheEvent(cacheName, key, amount);
         },
         snapshot,
         finalize,

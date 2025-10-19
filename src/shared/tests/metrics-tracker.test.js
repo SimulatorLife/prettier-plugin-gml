@@ -66,3 +66,21 @@ test("finalize logs once when auto logging is enabled", () => {
     assert.equal(events[0].message, "[auto] summary");
     assert.deepEqual(events[0].payload, report);
 });
+
+test("cache keys are configurable and support custom metrics", () => {
+    const tracker = createMetricsTracker({
+        cacheKeys: ["hits", "evictions"],
+        category: "custom"
+    });
+
+    tracker.recordCacheHit("store");
+    tracker.recordCacheMetric("store", "evictions", 2);
+    tracker.recordCacheMetric("store", "misses", 3);
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        evictions: 2,
+        misses: 3
+    });
+});
