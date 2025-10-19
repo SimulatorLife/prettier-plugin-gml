@@ -14,7 +14,7 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     const message =
         typeof createErrorMessage === "function"
             ? createErrorMessage(formattedReceived)
-            : createErrorMessage ?? fallbackMessage;
+            : (createErrorMessage ?? fallbackMessage);
 
     throw new TypeError(message);
 }
@@ -137,7 +137,7 @@ export function resolveIntegerOption(
     const message =
         typeof typeErrorMessage === "function"
             ? typeErrorMessage(type)
-            : typeErrorMessage ?? fallbackMessage;
+            : (typeErrorMessage ?? fallbackMessage);
 
     throw new TypeError(message);
 }
@@ -149,10 +149,9 @@ export function resolveIntegerOption(
  * for error messages.
  *
  * When consumers provide strings, the value is trimmed before validation so
- * whitespace-only inputs are treated as "unset". The optional
- * {@link createCoerceOptions} hook allows call sites to pass additional
- * metadata through to the {@link coerce} function (for example, the option
- * name or whether the original input was a string).
+ * whitespace-only inputs are treated as "unset". Callers receive rich context
+ * about the coercion attempt so they can tailor error messages without
+ * needing an extra abstraction layer.
  *
  * @param {unknown} rawValue Incoming option value from configuration or CLI.
  * @param {Object} options
@@ -163,15 +162,12 @@ export function resolveIntegerOption(
  *        value.
  * @param {(name: string, type: string) => string} options.formatTypeError
  *        Factory for the error message when a non-numeric type is provided.
- * @param {(context: Object) => Object} [options.createCoerceOptions] Optional
- *        factory that can enrich the context passed to {@link coerce}; defaults
- *        to providing `{ optionName }`.
  * @returns {number | undefined} The normalized numeric value, or `undefined`
  *          when the input should be treated as absent.
  */
 export function normalizeNumericOption(
     rawValue,
-    { optionName, coerce, formatTypeError, createCoerceOptions }
+    { optionName, coerce, formatTypeError }
 ) {
     if (rawValue == null) {
         return;
@@ -192,19 +188,11 @@ export function normalizeNumericOption(
     const received = isString ? `'${rawValue}'` : normalized;
     const numericValue = isString ? Number(normalized) : normalized;
 
-    const createOptions =
-        typeof createCoerceOptions === "function"
-            ? createCoerceOptions
-            : (context) => ({ optionName: context.optionName });
-
-    return coerce(
-        numericValue,
-        createOptions({
-            optionName,
-            rawType,
-            rawValue,
-            received,
-            isString
-        })
-    );
+    return coerce(numericValue, {
+        optionName,
+        rawType,
+        rawValue,
+        received,
+        isString
+    });
 }

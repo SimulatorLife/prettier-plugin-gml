@@ -38,4 +38,3 @@ export function createAbortGuard(options, { key, fallbackMessage } = {}) {
 
     return { signal, ensureNotAborted };
 }
-

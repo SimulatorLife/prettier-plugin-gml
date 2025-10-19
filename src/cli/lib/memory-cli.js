@@ -9,6 +9,7 @@ import {
     resolveIntegerOption
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
+import { applyEnvironmentOverride } from "./shared-deps.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -66,12 +67,11 @@ export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
 }
 
 export function applyMemoryIterationsEnvOverride(env = process?.env) {
-    const rawValue = env?.[MEMORY_ITERATIONS_ENV_VAR];
-    if (rawValue === undefined) {
-        return;
-    }
-
-    setDefaultMemoryIterations(rawValue);
+    applyEnvironmentOverride({
+        env,
+        envVar: MEMORY_ITERATIONS_ENV_VAR,
+        applyValue: setDefaultMemoryIterations
+    });
 }
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {

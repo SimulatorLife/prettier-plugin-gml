@@ -509,8 +509,7 @@ function tryCondenseIfStatement(
         activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
-        const docCommentManager =
-            activeTransformationContext.docCommentManager;
+        const docCommentManager = activeTransformationContext.docCommentManager;
         const description = docCommentManager
             ? docCommentManager.extractDescription(parentNode)
             : null;
