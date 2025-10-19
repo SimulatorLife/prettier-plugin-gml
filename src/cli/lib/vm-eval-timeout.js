@@ -1,9 +1,11 @@
 import {
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../../shared/numeric-option-utils.js";
+} from "./shared-deps.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
+
+let configuredDefaultVmEvalTimeoutMs = DEFAULT_VM_EVAL_TIMEOUT_MS;
 
 const createTimeoutErrorMessage = (received) =>
     `VM evaluation timeout must be a non-negative integer (received ${received}). Provide 0 to disable the timeout.`;
@@ -18,9 +20,24 @@ function coerceVmTimeout(value, { received }) {
     });
 }
 
-export function resolveVmEvalTimeout(rawValue) {
+export function getDefaultVmEvalTimeoutMs() {
+    return configuredDefaultVmEvalTimeoutMs;
+}
+
+export function setDefaultVmEvalTimeoutMs(timeout) {
+    configuredDefaultVmEvalTimeoutMs = coerceVmTimeout(timeout, {
+        received: timeout
+    });
+}
+
+export function resolveVmEvalTimeout(rawValue, { defaultTimeout } = {}) {
+    const fallback =
+        defaultTimeout === undefined
+            ? getDefaultVmEvalTimeoutMs()
+            : defaultTimeout;
+
     const normalized = resolveIntegerOption(rawValue, {
-        defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
+        defaultValue: fallback,
         coerce: coerceVmTimeout,
         typeErrorMessage: createTimeoutTypeErrorMessage
     });

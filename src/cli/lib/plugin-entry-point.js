@@ -3,6 +3,13 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import {
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    normalizeStringList,
+    toArray
+} from "./shared-deps.js";
+
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
@@ -15,44 +22,28 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["plugin", "index.js"]
 ]);
 
-function normalizeCandidateDescriptors(candidates) {
-    if (!candidates) {
-        return [];
-    }
+const LIST_SEPARATORS = Array.from(
+    new Set([",", path.delimiter].filter(Boolean))
+);
 
-    return Array.isArray(candidates) ? candidates : [candidates];
-}
-
-function splitCandidateList(rawValue) {
-    const entries = [];
-
-    for (const delimiterChunk of rawValue.split(path.delimiter)) {
-        for (const entry of delimiterChunk.split(",")) {
-            const trimmed = entry.trim();
-            if (trimmed) {
-                entries.push(trimmed);
-            }
-        }
-    }
-
-    return entries;
-}
+const LIST_SPLIT_PATTERN = new RegExp(
+    `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
+);
 
 function getEnvironmentCandidates(env) {
     const rawValue =
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ??
         env?.PRETTIER_PLUGIN_GML_PLUGIN_PATH;
 
-    if (typeof rawValue !== "string") {
+    const trimmed = getNonEmptyTrimmedString(rawValue);
+    if (!trimmed) {
         return [];
     }
 
-    const trimmed = rawValue.trim();
-    if (trimmed.length === 0) {
-        return [];
-    }
-
-    return splitCandidateList(trimmed);
+    return normalizeStringList(trimmed, {
+        splitPattern: LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    });
 }
 
 function resolveCandidatePath(candidate) {
@@ -64,24 +55,24 @@ function resolveCandidatePath(candidate) {
         return path.resolve(REPO_ROOT, ...candidate);
     }
 
-    if (typeof candidate !== "string") {
-        return null;
+    if (typeof candidate === "string") {
+        const trimmed = getNonEmptyTrimmedString(candidate);
+        if (!trimmed) {
+            return null;
+        }
+
+        if (path.isAbsolute(trimmed)) {
+            return trimmed;
+        }
+
+        return path.resolve(REPO_ROOT, trimmed);
     }
 
-    const trimmed = candidate.trim();
-    if (trimmed.length === 0) {
-        return null;
-    }
-
-    if (path.isAbsolute(trimmed)) {
-        return trimmed;
-    }
-
-    return path.resolve(REPO_ROOT, trimmed);
+    return null;
 }
 
 function collectCandidatePaths({ env, candidates } = {}) {
-    const explicitCandidates = normalizeCandidateDescriptors(candidates);
+    const explicitCandidates = toArray(candidates);
     const envCandidates = getEnvironmentCandidates(env);
 
     return [

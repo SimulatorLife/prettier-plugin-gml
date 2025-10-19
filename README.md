@@ -178,17 +178,18 @@ nvm use
 ### Install in a GameMaker project
 
 1. Change into the folder that contains your `.yyp` file.
-2. Install Prettier, the plugin, and the ANTLR runtime next to the project:
+2. Install Prettier v3, the plugin, and the ANTLR runtime next to the project:
 
    ```bash
-   npm install --save-dev prettier "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
+   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" "github:SimulatorLife/prettier-plugin-gml#main"
    ```
 
    - Quote dependency specifiers so shells such as `zsh` do not expand `^` as a glob.
    - Resolve any `EBADENGINE` errors by upgrading Node.js to a supported release.
    - Pin to a tag or commit (`#vX.Y.Z` or `#<sha>`) when you need a reproducible build for CI or audits.
+   - Swap the Git URL for a registry tag once an official package is published; adjust the plugin path below to match the package name exposed in `node_modules`.
 
-3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`):
+3. Point Prettier at the bundled plugin entry from your project configuration (for example `prettier.config.cjs` or the `prettier` field inside `package.json`). The dependency installs under `node_modules/root` because this repository’s top-level package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build. Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
 
    ```json
    {
@@ -204,10 +205,7 @@ nvm use
    }
    ```
 
-   The Git dependency installs under `node_modules/root` because the workspace root package is named `root`. Keeping the configuration pointed at that path ensures both the CLI wrapper and direct Prettier invocations resolve the same build.
-   Adjust the plugin path if you consume a packaged release that exposes a different folder name (inspect `node_modules` or run `npm ls --depth=0`).
-
-4. Wire a script or wrapper so team members can format consistently:
+4. Wire a script or wrapper so team members can format consistently. The workspace exposes a CLI that resolves the plugin entry point automatically, even when you relocate build artifacts or provide custom paths through the environment:
 
    ```jsonc
    {
@@ -218,14 +216,14 @@ nvm use
    ```
 
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
-   project reuses the same wrapper entry point and inherits future wrapper updates automatically.
+   project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory.
 
-5. Run the formatter:
+5. Run the formatter (it defaults to the current working directory when no path is provided):
 
    ```bash
-   npm run format:gml -- --path .
+   npm run format:gml
    # or
-   node ./node_modules/root/src/cli/cli.js --path .
+   node ./node_modules/root/src/cli/cli.js
    ```
 
 6. Validate your setup whenever you pull new revisions:
@@ -233,7 +231,7 @@ nvm use
    ```bash
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
    npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
-   npm run format:gml -- --path . --extensions=.gml,.yy
+   npm run format:gml -- --extensions=.gml,.yy
    ```
 
    The `--support-info` probe confirms that Prettier can locate the plugin. Add `--extensions` only when your project stores `.yy` metadata alongside `.gml`. Re-run the `--check` and wrapper commands after dependency updates so everyone stays aligned on formatter output. Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md) if you plan to enable automated renames and need to audit bootstrap behaviour or cache metrics.
@@ -254,7 +252,7 @@ nvm use
    npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata.
+  The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -271,17 +269,17 @@ If you see an `ENOTDIR` error mentioning `node_modules/root`, remove any stale f
 ## Architecture overview
 
 The repository is organised as a multi-package workspace so the parser, plugin,
-and CLI can evolve together. Each package ships its own tests and scripts while
-sharing utilities via the `src/shared/` module.
+and CLI can evolve together. Each package ships its own tests and CLI entry
+points while sharing utilities via the `src/shared/` module.
 
-| Directory | Purpose |
-| --- | --- |
-| `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, and regression fixtures. |
-| `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `src/cli/` | Command-line interface (`cli.js`) for metadata generating, formatting-wrapper, integration tests, performance testing, etc. |
-| `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
-| `resources/` | Generated metadata snapshots consumed by the formatter (identifier datasets, Feather metadata). |
-| `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
+| Package / folder | Location | Purpose |
+| --- | --- | --- |
+| `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
+| `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
+| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
+| Shared modules | `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
+| Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
+| Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
 The `npm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same
@@ -289,6 +287,10 @@ plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
 `npm run build:feather-metadata` refresh the datasets under `resources/` when the
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
+
+> **Note:** All developer-facing utilities live under `src/cli/commands/`.
+> When adding new helpers, expose them through the CLI instead of creating
+> stand-alone scripts so contributors have a single, discoverable entry point.
 
 ---
 
@@ -317,7 +319,7 @@ for the full suite of contributor commands.
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --path . --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
   ```
 
 - Discover supported flags or double-check defaults:
@@ -333,6 +335,9 @@ without editing project scripts:
 
 - `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
   extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
+- `PRETTIER_PLUGIN_GML_LOG_LEVEL` &mdash; Sets the default Prettier log level
+  when the wrapper runs without `--log-level`. Accepted values mirror Prettier:
+  `debug`, `info`, `warn`, `error`, or `silent`.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
 - `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
@@ -395,7 +400,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `lineCommentBannerMinimumSlashes` | `5` | Preserves banner-style comments with at least this many `/` characters. |
 | `lineCommentBannerAutofillThreshold` | `4` | Pads banner comments up to the minimum slash count when they already start with several `/`. |
-| `lineCommentBoilerplateFragments` | `""` | Removes boilerplate line comments that contain any of the provided comma-separated substrings. |
+| `lineCommentBoilerplateFragments` | `["Script assets have changed for v2.3.0", "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"]` | Removes boilerplate line comments that contain any of the provided comma-separated substrings, extending this built-in removal list. |
 | `lineCommentCodeDetectionPatterns` | `""` | Adds custom regular expressions that flag commented-out code for verbatim preservation. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
@@ -405,6 +410,14 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `fixMissingDecimalZeroes` | `true` | Pads bare decimal literals with leading/trailing zeroes; set to `false` to preserve the original text. |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
+| `condenseUnaryBooleanReturns` | `false` | Converts unary boolean returns (such as `return !condition;`) into ternaries so condensed output preserves intent. |
+| `condenseReturnStatements` | `false` | Merges complementary `if` branches that return literal booleans into a single simplified return statement. |
+| `allowTrailingCallArguments` | `false` | Reserved for future use; currently has no effect because trailing arguments are normalised via `missingOptionalArgumentPlaceholder`. |
+| `preserveLineBreaks` | `false` | Keeps user-authored line breaks in supported constructs like chained calls instead of reflowing them. |
+| `maintainArrayIndentation` | `false` | Preserves the original indentation depth for array literals rather than applying Prettier's defaults. |
+| `maintainStructIndentation` | `false` | Preserves the original indentation depth for struct literals rather than applying Prettier's defaults. |
+| `maintainWithIndentation` | `false` | Retains the body indentation within `with` statements instead of reindenting relative to the `with` keyword. |
+| `maintainSwitchIndentation` | `false` | Retains existing indentation inside `switch` statements instead of reindenting each case body. |
 
 #### Identifier-case rollout
 
@@ -418,7 +431,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 | `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
 | `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
 | `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set to `0` to disable the size guard when coordinating cache writes manually. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
@@ -429,16 +442,18 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 
 ## Identifier case rollout
 
-1. **Generate a project index** using `npm run format:gml -- --path <project> --dump-project-index` (see the playbook for details).
-2. **Dry-run renames** with locals-first safety nets before writing changes to disk.
-3. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
-4. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
+1. **Enable identifier casing** in your Prettier configuration. Start with a locals-first plan similar to [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](docs/examples/identifier-case/locals-first.prettierrc.mjs) so other scopes stay in observation mode.
+2. **Warm the project index cache** by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
+3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
+4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
+5. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
 
 ---
 
 ## Troubleshooting
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
+- Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
 - `npm install` reports `EBADENGINE` → upgrade Node.js to 18.20.0+, 20.18.1+, or 21.1.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
@@ -459,6 +474,10 @@ prettier-plugin-gml/
 ├─ docs/              # Design notes and rollout guides
 └─ package.json       # Workspace manifest with scripts and shared tooling
 ```
+
+All developer automation should be exposed through the CLI entry points in
+`src/cli/commands/`. Avoid adding stand-alone scripts elsewhere in the
+repository so new tooling remains easy to discover and maintain.
 
 ### Set up the workspace
 
@@ -512,6 +531,8 @@ npm run build:antlr
 npm run example:plugin      # Format a fixture with the development build
 npm run format:check        # Audit repository formatting without writes
 npm --prefix src/plugin run prettier:plugin -- --path=tests/test14.input.gml
+npm run cli -- --help       # Explore CLI utilities without switching directories
+npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
 ```
 
 ---

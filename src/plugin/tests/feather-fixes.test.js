@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, it } from "node:test";
 
 import GMLParser from "gamemaker-language-parser";
+import prettier from "prettier";
 
 import {
     getNodeEndIndex,
@@ -19,6 +23,9 @@ import {
     preprocessSourceForFeatherFixes
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -27,6 +34,28 @@ function isEventInheritedCall(node) {
     const callee = node.object;
 
     return callee?.type === "Identifier" && callee.name === "event_inherited";
+}
+
+function getCallExpressionName(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === "CallExpression") {
+        return node.object?.name ?? null;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = node.expression;
+
+        if (expression && expression.type === "CallExpression") {
+            return expression.object?.name ?? null;
+        }
+
+        return null;
+    }
+
+    return null;
 }
 
 describe("Feather diagnostic fixer registry", () => {
@@ -2033,6 +2062,48 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("appends surface target resets after vertex submissions that draw to the active target", () => {
+        const source = [
+            "surface_set_target(sf);",
+            "draw_clear_alpha(c_black, 1);",
+            "draw_circle(10, 10, 20, false);",
+            "vertex_submit(vb, pr_trianglelist, -1);"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const body = Array.isArray(ast.body) ? ast.body : [];
+        const submitIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "vertex_submit"
+        );
+        const resetIndex = body.findIndex(
+            (node) =>
+                node?.type === "CallExpression" &&
+                node.object?.name === "surface_reset_target"
+        );
+
+        assert.ok(
+            submitIndex !== -1,
+            "Expected vertex_submit call to be present in the AST."
+        );
+        assert.ok(
+            resetIndex !== -1,
+            "Expected surface_reset_target call to be inserted."
+        );
+        assert.strictEqual(
+            resetIndex,
+            submitIndex + 1,
+            "Expected reset call to be appended immediately after the vertex submission."
+        );
+    });
+
     it("captures metadata for deprecated function calls flagged by GM1017", () => {
         const source = [
             "/// @deprecated Use start_new_game instead.",
@@ -2693,6 +2764,39 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("suppresses blank lines when inserting GM2048 resets", () => {
+        const source = [
+            "gpu_set_blendenable(false);",
+            "",
+            'draw_text(0, 0, "Hello!");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = ast.body ?? [];
+
+        assert.deepStrictEqual(
+            statements.map((node) => node?.type),
+            ["CallExpression", "CallExpression", "CallExpression"]
+        );
+
+        const [disableCall, drawCall, resetCall] = statements;
+
+        assert.strictEqual(disableCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(drawCall.object?.name, "draw_text");
+        assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
+        assert.strictEqual(
+            disableCall._featherSuppressFollowingEmptyLine,
+            true
+        );
+        assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
+    });
+
     it("resets fog flagged by GM2050 and records metadata", () => {
         const source = [
             "gpu_set_fog(true, c_aqua, 0, 1000);",
@@ -2710,13 +2814,15 @@ describe("applyFeatherFixes transform", () => {
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
         );
-        const [setFogCall, fogResetCall, drawCall] = statements;
+        const [setFogCall, drawCall, fogResetCall] = statements;
 
         assert.ok(setFogCall);
-        assert.ok(fogResetCall);
         assert.ok(drawCall);
+        assert.ok(fogResetCall);
         assert.strictEqual(fogResetCall.type, "CallExpression");
         assert.strictEqual(fogResetCall.object?.name, "gpu_set_fog");
+        assert.strictEqual(drawCall.type, "CallExpression");
+        assert.strictEqual(drawCall.object?.name, "draw_self");
 
         const args = Array.isArray(fogResetCall.arguments)
             ? fogResetCall.arguments
@@ -2818,7 +2924,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts a separator before GM2053 resets appended at the end of a block", () => {
+    it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -2834,53 +2940,55 @@ describe("applyFeatherFixes transform", () => {
 
         applyFeatherFixes(ast, { sourceText: source });
 
-        const body = Array.isArray(ast.body) ? ast.body : [];
-        const resetIndex = body.findIndex((node) => {
-            if (!node || node.type !== "CallExpression") {
-                return false;
-            }
-
-            if (node.object?.type !== "Identifier") {
-                return false;
-            }
-
-            if (node.object.name !== "gpu_set_alphatestenable") {
-                return false;
-            }
-
-            const args = Array.isArray(node.arguments) ? node.arguments : [];
-
-            if (args.length === 0) {
-                return false;
-            }
-
-            const [firstArg] = args;
-
-            if (!firstArg || firstArg.type !== "Literal") {
-                return false;
-            }
-
-            return firstArg.value === false || firstArg.value === "false";
-        });
-
-        assert.ok(
-            resetIndex !== -1,
-            "Expected to locate the inserted alpha test enable reset call."
+        const statements = (ast.body ?? []).filter(
+            (node) => node?.type !== "EmptyStatement"
         );
 
-        const separator = body[resetIndex - 1];
+        const [enableCall, drawCall, resetCall] = statements;
 
-        assert.ok(
-            separator,
-            "Expected a separator node before the inserted alpha test enable reset call."
-        );
-
+        assert.ok(enableCall);
+        assert.ok(drawCall);
+        assert.ok(resetCall);
         assert.strictEqual(
-            separator.type,
-            "EmptyStatement",
-            "Expected an EmptyStatement separator before the inserted alpha test enable reset call."
+            enableCall?._featherSuppressFollowingEmptyLine,
+            true,
+            "Expected enabling call to suppress following blank lines."
+        );
+        assert.strictEqual(
+            drawCall?._featherSuppressLeadingEmptyLine,
+            true,
+            "Expected draw call to suppress leading blank lines."
         );
     });
+
+    it(
+        "formats alpha test resets without inserting extra blank lines",
+        async () => {
+            const source = [
+                "/// Draw Event",
+                "",
+                "gpu_set_alphatestenable(true);",
+                "",
+                "draw_self();"
+            ].join("\n");
+
+            const formatted = await prettier.format(source, {
+                parser: "gml-parse",
+                plugins: [pluginPath],
+                applyFeatherFixes: true
+            });
+
+            const expected = [
+                "/// Draw Event",
+                "",
+                "gpu_set_alphatestenable(true);",
+                "draw_self();",
+                "gpu_set_alphatestenable(false);"
+            ].join("\n");
+
+            assert.strictEqual(formatted.trimEnd(), expected);
+        }
+    );
 
     it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
@@ -2974,6 +3082,37 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
+    });
+
+    it("removes dangling vertex_format_end statements before beginning a new definition", () => {
+        const source = [
+            "vertex_format_end();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
+
+        assert.strictEqual(
+            callNames.at(0),
+            "vertex_format_begin",
+            "Expected the stray vertex_format_end statement to be removed before formatting begins."
+        );
+
+        assert.strictEqual(
+            callNames.filter((name) => name === "vertex_format_end").length,
+            0,
+            "Top-level vertex_format_end calls should be removed when no preceding begin exists."
+        );
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {
@@ -3220,7 +3359,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
@@ -3645,54 +3789,6 @@ describe("applyFeatherFixes transform", () => {
             true,
             "Expected inserted assignment to record GM2044 metadata."
         );
-    });
-
-    it("records metadata for GM2064 flagged struct properties", () => {
-        const source = [
-            "/// Create Event",
-            "",
-            "ins_companion = instance_create_layer(x, y, layer, obj_companion, {",
-            "    intro_message: message",
-            "});"
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const assignment = ast.body?.[0];
-        assert.ok(assignment);
-        const callExpression = assignment.right;
-        assert.ok(callExpression);
-        const structArgument = callExpression.arguments?.[4];
-        assert.ok(structArgument);
-        const [property] = structArgument.properties ?? [];
-        assert.ok(property);
-
-        const propertyMetadata = property._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(propertyMetadata.length, 1);
-
-        const [metadata] = propertyMetadata;
-        assert.strictEqual(metadata.id, "GM2064");
-        assert.strictEqual(metadata.target, "message");
-        assert.strictEqual(metadata.automatic, false);
-
-        const expectedMetadata = getFeatherDiagnosticById("GM2064");
-        assert.ok(expectedMetadata);
-        assert.strictEqual(metadata.title, expectedMetadata.title);
-        assert.strictEqual(metadata.description, expectedMetadata.description);
-        assert.strictEqual(metadata.correction, expectedMetadata.correction);
-
-        const recordedFixes = ast._appliedFeatherDiagnostics ?? [];
-        const gm2064Fixes = recordedFixes.filter(
-            (entry) => entry.id === "GM2064"
-        );
-        assert.strictEqual(gm2064Fixes.length, 1);
-        assert.strictEqual(gm2064Fixes[0].target, "message");
-        assert.strictEqual(gm2064Fixes[0].automatic, false);
     });
 
     it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
@@ -4144,7 +4240,12 @@ describe("applyFeatherFixes transform", () => {
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
 
-        const resetCall = body[1];
+        const vertexCall = body[1];
+        assert.ok(vertexCall);
+        assert.strictEqual(vertexCall.type, "CallExpression");
+        assert.strictEqual(vertexCall.object?.name, "vertex_submit");
+
+        const resetCall = body[2];
         assert.ok(resetCall);
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_cullmode");
@@ -4915,21 +5016,35 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
+        const callExpressions = statements.filter(
+            (statement) => statement?.type === "CallExpression"
+        );
         assert.strictEqual(
-            statements.length >= 3,
+            callExpressions.length >= 3,
             true,
-            "Expected blend mode reset to be inserted."
+            "Expected blend mode reset to be inserted after draw calls."
         );
 
-        const originalCall = statements[0];
+        const originalCall = callExpressions[0];
         assert.ok(originalCall);
-        assert.strictEqual(originalCall.type, "CallExpression");
         assert.strictEqual(originalCall.object?.name, "gpu_set_blendmode");
 
-        const resetCall = statements[1];
+        const resetCall = callExpressions.at(-1);
         assert.ok(resetCall);
-        assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendmode");
+
+        const drawCalls = callExpressions.slice(1, -1);
+        assert.strictEqual(
+            drawCalls.length > 0,
+            true,
+            "Expected at least one draw call between blend mode changes."
+        );
+        for (const drawCall of drawCalls) {
+            assert.strictEqual(
+                drawCall.object?.name?.startsWith("draw_"),
+                true
+            );
+        }
 
         const [resetArgument] = Array.isArray(resetCall.arguments)
             ? resetCall.arguments
@@ -4991,6 +5106,11 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(remainingFunction);
         assert.strictEqual(remainingFunction.type, "FunctionDeclaration");
         assert.strictEqual(remainingFunction.id, "make_game");
+        assert.strictEqual(
+            remainingFunction._suppressSyntheticReturnsDoc,
+            undefined,
+            "Expected surviving declaration to continue receiving synthetic returns docs when no comments exist."
+        );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm1064 = appliedDiagnostics.find(

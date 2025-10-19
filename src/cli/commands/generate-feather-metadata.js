@@ -1,15 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseHTML } from "linkedom";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { escapeRegExp } from "../../shared/regexp.js";
-import { toNormalizedLowerCaseSet } from "../../shared/string-utils.js";
-import { handleCliError } from "../lib/cli-errors.js";
+import {
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    toNormalizedLowerCaseSet
+} from "../lib/shared-deps.js";
+import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { formatDuration, timeSync } from "../../shared/number-utils.js";
+import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
@@ -19,38 +21,29 @@ import {
 import { ensureDir } from "../lib/file-system.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
-    resolveManualCacheRoot,
-    createManualGitHubClient,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
     resolveManualRepoValue
 } from "../lib/manual-utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
-import { parseCommandLine } from "../lib/command-parsing.js";
+import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import { createManualCommandContext } from "../lib/manual-command-context.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const DEFAULT_CACHE_ROOT = resolveManualCacheRoot({ repoRoot: REPO_ROOT });
-const OUTPUT_DEFAULT = path.join(
-    REPO_ROOT,
-    "resources",
-    "feather-metadata.json"
-);
-
-const { rawRoot: DEFAULT_MANUAL_RAW_ROOT } = buildManualRepositoryEndpoints();
-
-const manualClient = createManualGitHubClient({
-    userAgent: "prettier-plugin-gml feather metadata generator",
+const {
+    repoRoot: REPO_ROOT,
     defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultRawRoot: DEFAULT_MANUAL_RAW_ROOT
+    defaultOutputPath: OUTPUT_DEFAULT,
+    fetchManualFile,
+    resolveManualRef
+} = createManualCommandContext({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml feather metadata generator",
+    outputFileName: "feather-metadata.json"
 });
-
-const { fetchManualFile, resolveManualRef } = manualClient;
 
 const FEATHER_PAGES = {
     diagnostics:
@@ -62,17 +55,15 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
-function createFeatherMetadataCommand() {
-    const command = new Command()
-        .name("generate-feather-metadata")
-        .usage("[options]")
-        .description(
-            "Generate feather-metadata.json from the GameMaker manual."
-        )
-        .exitOverride()
-        .allowExcessArguments(false)
-        .helpOption("-h, --help", "Show this help message.")
-        .showHelpAfterError("(add --help for usage information)")
+export function createFeatherMetadataCommand({ env = process.env } = {}) {
+    const command = applyStandardCommandOptions(
+        new Command()
+            .name("generate-feather-metadata")
+            .usage("[options]")
+            .description(
+                "Generate feather-metadata.json from the GameMaker manual."
+            )
+    )
         .option(
             "-r, --ref <git-ref>",
             "Manual git ref (tag, branch, or commit)."
@@ -131,62 +122,28 @@ function createFeatherMetadataCommand() {
         ].join("\n")
     );
 
-    return command;
-}
-
-function parseArgs({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    const command = createFeatherMetadataCommand();
     applyManualEnvOptionOverrides({
         command,
         env,
         getUsage: () => command.helpInformation()
     });
 
-    const verbose = {
-        resolveRef: true,
-        downloads: true,
-        parsing: true,
-        progressBar: isTty
-    };
-
-    const { helpRequested, usage } = parseCommandLine(command, argv);
-    if (helpRequested) {
-        return {
-            helpRequested: true,
-            usage
-        };
-    }
-
-    const options = command.opts();
-
-    if (options.quiet) {
-        verbose.resolveRef = false;
-        verbose.downloads = false;
-        verbose.parsing = false;
-        verbose.progressBar = false;
-    }
-
-    return {
-        ref: options.ref ?? null,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        helpRequested: false,
-        usage
-    };
+    return command;
+}
+function resolveFeatherMetadataOptions(command) {
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            ref: null,
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        }
+    });
 }
 
 // Manual fetching helpers are provided by manual-cli-helpers.js
 
-function normaliseMultilineText(text) {
+function normalizeMultilineText(text) {
     if (typeof text !== "string" || text.length === 0) {
         return null;
     }
@@ -199,12 +156,30 @@ function normaliseMultilineText(text) {
     return collapsedLines.join("\n").trim();
 }
 
-function sanitiseManualString(value) {
+function sanitizeManualString(value) {
     if (typeof value !== "string") {
         return null;
     }
 
-    return normaliseMultilineText(value);
+    return normalizeMultilineText(value);
+}
+
+function getNormalizedTextContent(element, { trim = false } = {}) {
+    if (!element) {
+        return trim ? null : "";
+    }
+
+    const { textContent } = element;
+    if (typeof textContent !== "string" || textContent.length === 0) {
+        return trim ? null : "";
+    }
+
+    const normalized = textContent.replaceAll("\u00A0", " ");
+    if (!trim) {
+        return normalized;
+    }
+
+    return getNonEmptyTrimmedString(normalized);
 }
 
 function parseDocument(html) {
@@ -279,13 +254,13 @@ function extractTable(table) {
         if (rowIndex === 0 && hasHeaderCells) {
             headers.push(
                 ...values
-                    .map((value) => normaliseMultilineText(value))
+                    .map((value) => normalizeMultilineText(value))
                     .filter(Boolean)
             );
             return;
         }
 
-        rows.push(values.map((value) => normaliseMultilineText(value) ?? null));
+        rows.push(values.map((value) => normalizeMultilineText(value) ?? null));
     });
 
     return { headers, rows };
@@ -377,7 +352,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    let text = clone.textContent?.replaceAll("\u00A0", " ") ?? "";
+    let text = getNormalizedTextContent(clone);
     if (preserveLineBreaks) {
         return text
             .split("\n")
@@ -389,9 +364,9 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     return text.replaceAll(/\s+/g, " ").trim();
 }
 
-function extractSanitisedText(element, { preserveLineBreaks = false } = {}) {
+function extractSanitizedText(element, { preserveLineBreaks = false } = {}) {
     const text = extractText(element, { preserveLineBreaks });
-    return sanitiseManualString(text) ?? null;
+    return sanitizeManualString(text) ?? null;
 }
 
 function collectBlocksAfter(element, { stopTags = [] } = {}) {
@@ -417,7 +392,7 @@ function collectBlocksAfter(element, { stopTags = [] } = {}) {
     return blocks;
 }
 
-function normaliseTextBlock(block) {
+function normalizeTextBlock(block) {
     if (!block) {
         return null;
     }
@@ -426,12 +401,12 @@ function normaliseTextBlock(block) {
         Array.isArray(block.items) &&
         block.items.length > 0
     ) {
-        return block.items.join("\n").trim() || null;
+        return getNonEmptyTrimmedString(block.items.join("\n"));
     }
-    return block.text?.trim() || null;
+    return getNonEmptyTrimmedString(block.text);
 }
 
-function normaliseContent(blocks) {
+function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
         notes: [],
@@ -441,38 +416,9 @@ function normaliseContent(blocks) {
         tables: []
     };
     const appendNormalizedText = (target, text) => {
-        const normalized = normaliseMultilineText(text ?? "");
+        const normalized = normalizeMultilineText(text);
         if (normalized) {
             target.push(normalized);
-        }
-    };
-
-    const handlers = {
-        code(block) {
-            if (block.text) {
-                content.codeExamples.push(block.text);
-            }
-        },
-        note(block) {
-            appendNormalizedText(content.notes, block.text);
-        },
-        list(block) {
-            const items = Array.isArray(block.items)
-                ? block.items
-                      .map((item) => normaliseMultilineText(item))
-                      .filter(Boolean)
-                : [];
-            if (items.length > 0) {
-                content.lists.push(items);
-            }
-        },
-        table(block) {
-            if (block.table) {
-                content.tables.push(block.table);
-            }
-        },
-        heading(block) {
-            appendNormalizedText(content.headings, block.text);
         }
     };
 
@@ -481,24 +427,59 @@ function normaliseContent(blocks) {
             continue;
         }
 
-        const handler = handlers[block.type];
-        if (handler) {
-            handler(block);
-            continue;
+        switch (block.type) {
+            case "code": {
+                if (block.text) {
+                    content.codeExamples.push(block.text);
+                }
+                break;
+            }
+            case "note": {
+                appendNormalizedText(content.notes, block.text);
+                break;
+            }
+            case "list": {
+                const items = Array.isArray(block.items)
+                    ? block.items
+                          .map((item) => normalizeMultilineText(item))
+                          .filter(Boolean)
+                    : [];
+                if (items.length > 0) {
+                    content.lists.push(items);
+                }
+                break;
+            }
+            case "table": {
+                if (block.table) {
+                    content.tables.push(block.table);
+                }
+                break;
+            }
+            case "heading": {
+                appendNormalizedText(content.headings, block.text);
+                break;
+            }
+            default:
+                appendNormalizedText(content.paragraphs, block.text);
         }
-
-        appendNormalizedText(content.paragraphs, block.text);
     }
     return content;
 }
 
 function joinSections(parts) {
-    return (
-        parts
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join("\n\n") || null
-    );
+    if (!Array.isArray(parts) || parts.length === 0) {
+        return null;
+    }
+
+    const normalizedParts = parts
+        .map((part) => getNonEmptyTrimmedString(part))
+        .filter(Boolean);
+
+    if (normalizedParts.length === 0) {
+        return null;
+    }
+
+    return normalizedParts.join("\n\n");
 }
 
 function slugify(text) {
@@ -536,7 +517,7 @@ function collectDiagnosticDescriptionParts(blocks) {
         if (block.type === "heading") {
             continue;
         }
-        const text = normaliseTextBlock(block);
+        const text = normalizeTextBlock(block);
         if (text) {
             descriptionParts.push(text);
         }
@@ -548,38 +529,39 @@ function collectDiagnosticDescriptionParts(blocks) {
 function collectDiagnosticTrailingContent(blocks) {
     const additionalDescriptionParts = [];
     const correctionParts = [];
+    const goodExampleParts = [];
     let badExample = null;
-    let goodExample = null;
 
     for (const block of blocks) {
-        if (block.type === "heading") {
-            continue;
-        }
-        if (block.type === "code") {
-            const codeText = normaliseTextBlock(block);
-            if (!codeText) {
-                continue;
-            }
-            if (!badExample) {
-                badExample = codeText;
-            } else if (goodExample) {
-                goodExample = `${goodExample}\n\n${codeText}`.trim();
-            } else {
-                goodExample = codeText;
-            }
+        if (!block || block.type === "heading") {
             continue;
         }
 
-        const text = normaliseTextBlock(block);
+        const text = normalizeTextBlock(block);
         if (!text) {
             continue;
         }
+
+        if (block.type === "code") {
+            if (badExample) {
+                goodExampleParts.push(text);
+            } else {
+                badExample = text;
+            }
+            continue;
+        }
+
         if (badExample) {
             correctionParts.push(text);
         } else {
             additionalDescriptionParts.push(text);
         }
     }
+
+    const goodExample =
+        goodExampleParts.length > 0
+            ? goodExampleParts.join("\n\n").trim()
+            : null;
 
     return {
         additionalDescriptionParts,
@@ -670,7 +652,7 @@ function parseNamingRules(html) {
     }
 
     const blocks = collectBlocksAfter(heading, { stopTags: ["h2"] });
-    const content = normaliseContent(blocks);
+    const content = normalizeContent(blocks);
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
     const requiresMessage =
@@ -716,17 +698,17 @@ function parseNamingRules(html) {
                     listItem.querySelectorAll("ul li")
                 )
                     .map((styleEl) =>
-                        extractSanitisedText(styleEl, {
+                        extractSanitizedText(styleEl, {
                             preserveLineBreaks: false
                         })
                     )
                     .filter(Boolean);
             } else if (strongText === "Identifier Blocklist") {
-                identifierBlocklist = extractSanitisedText(listItem, {
+                identifierBlocklist = extractSanitizedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText.endsWith("Naming Rule")) {
-                identifierRuleSummary = extractSanitisedText(listItem, {
+                identifierRuleSummary = extractSanitizedText(listItem, {
                     preserveLineBreaks: true
                 });
             } else if (strongText === "Prefix") {
@@ -740,26 +722,23 @@ function parseNamingRules(html) {
 
         for (const item of getDirectChildren(mainList, "li")) {
             const strongChildren = getDirectChildren(item, "strong");
-            const title =
-                strongChildren[0]?.textContent
-                    ?.replaceAll("\u00A0", " ")
-                    .trim() || null;
+            const title = getNormalizedTextContent(strongChildren[0], {
+                trim: true
+            });
             const description = extractText(item, {
                 preserveLineBreaks: true
             });
-            let normalisedDescription = normaliseMultilineText(
-                description ?? ""
-            );
-            if (title && normalisedDescription) {
+            let normalizedDescription = normalizeMultilineText(description);
+            if (title && normalizedDescription) {
                 const prefixPattern = new RegExp(
                     `^${escapeRegExp(title)}\s*:?\s*`,
                     "i"
                 );
-                normalisedDescription = normalisedDescription.replace(
+                normalizedDescription = normalizedDescription.replace(
                     prefixPattern,
                     ""
                 );
-                normalisedDescription = normalisedDescription.trim();
+                normalizedDescription = normalizedDescription.trim();
             }
 
             const nestedList = item.querySelector("ul");
@@ -767,7 +746,7 @@ function parseNamingRules(html) {
             if (nestedList) {
                 options = getDirectChildren(nestedList, "li")
                     .map((option) =>
-                        normaliseMultilineText(
+                        normalizeMultilineText(
                             extractText(option, { preserveLineBreaks: false })
                         )
                     )
@@ -776,7 +755,7 @@ function parseNamingRules(html) {
 
             ruleSections.push({
                 title,
-                description: normalisedDescription,
+                description: normalizedDescription,
                 options
             });
         }
@@ -801,14 +780,14 @@ function parseDirectiveSections(html) {
     const sections = [];
 
     for (const element of document.querySelectorAll("h2")) {
-        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
+        const title = getNormalizedTextContent(element, { trim: true });
         if (!title) {
             continue;
         }
 
         const blocks = collectBlocksAfter(element, { stopTags: ["h2"] });
         const id = element.getAttribute("id") || slugify(title);
-        const content = normaliseContent(blocks);
+        const content = normalizeContent(blocks);
         sections.push({
             id,
             title,
@@ -865,7 +844,11 @@ function parseTypeValidationTable(table) {
     const headerCells = getDirectChildren(headerRow, "th, td");
     const columns = headerCells
         .slice(1)
-        .map((cell) => extractText(cell, { preserveLineBreaks: false }))
+        .map((cell) =>
+            getNonEmptyTrimmedString(
+                extractText(cell, { preserveLineBreaks: false })
+            )
+        )
         .filter(Boolean);
 
     const rows = [];
@@ -875,7 +858,9 @@ function parseTypeValidationTable(table) {
         if (cells.length === 0) {
             continue;
         }
-        const from = extractText(cells[0], { preserveLineBreaks: false });
+        const from = getNonEmptyTrimmedString(
+            extractText(cells[0], { preserveLineBreaks: false })
+        );
         if (!from) {
             continue;
         }
@@ -883,12 +868,17 @@ function parseTypeValidationTable(table) {
         columns.forEach((column, columnIndex) => {
             const cell = cells[columnIndex + 1];
             const outcome = cell
-                ? extractText(cell, { preserveLineBreaks: false }) || null
+                ? getNonEmptyTrimmedString(
+                      extractText(cell, { preserveLineBreaks: false })
+                  )
                 : null;
-            const style = cell?.getAttribute?.("style") ?? null;
+            const rawStyle = cell?.getAttribute?.("style");
+            const style = getNonEmptyTrimmedString(
+                rawStyle?.replaceAll(/\s+/g, " ")
+            );
             results[column] = {
                 outcome,
-                style: style?.replaceAll(/\s+/g, " ").trim() || null
+                style
             };
         });
         rows.push({ from, results });
@@ -916,7 +906,7 @@ function parseTypeSystem(html) {
             node = node.nextSibling;
         }
     }
-    const introContent = normaliseContent(introBlocks);
+    const introContent = normalizeContent(introBlocks);
 
     const tables = Array.from(document.querySelectorAll("table"));
     const baseTypeTable = tables[0] ?? null;
@@ -926,19 +916,19 @@ function parseTypeSystem(html) {
         .map((element) => createBlock(element))
         .filter(Boolean);
     const notes = noteBlocks
-        .map((block) => normaliseMultilineText(block.text ?? ""))
+        .map((block) => normalizeMultilineText(block.text))
         .filter(Boolean);
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
-        const title = element.textContent?.replaceAll("\u00A0", " ").trim();
+        const title = getNormalizedTextContent(element, { trim: true });
         if (!title) {
             continue;
         }
         const blocks = collectBlocksAfter(element, {
             stopTags: ["h3", "h2"]
         });
-        const content = normaliseContent(blocks);
+        const content = normalizeContent(blocks);
         specifierSections.push({
             id: element.getAttribute("id") || slugify(title),
             title,
@@ -976,7 +966,7 @@ function parseTypeSystem(html) {
             : null;
     }
 
-    const typeValidationContent = normaliseContent(typeValidationBlocks);
+    const typeValidationContent = normalizeContent(typeValidationBlocks);
 
     return {
         overview: joinSections(introContent.paragraphs) || undefined,
@@ -984,9 +974,9 @@ function parseTypeSystem(html) {
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
             specifierExamples: type.specifierExamples
-                .map((example) => normaliseMultilineText(example))
+                .map((example) => normalizeMultilineText(example))
                 .filter(Boolean),
-            description: normaliseMultilineText(type.description)
+            description: normalizeMultilineText(type.description)
         })),
         notes,
         specifierSections,
@@ -1004,7 +994,119 @@ function parseTypeSystem(html) {
     };
 }
 
-async function main({ argv, env, isTty } = {}) {
+function createFeatherManualMetadataPayload({
+    manualRef,
+    manualRepo,
+    sections
+}) {
+    return {
+        meta: {
+            manualRef: manualRef.ref,
+            commitSha: manualRef.sha,
+            generatedAt: new Date().toISOString(),
+            source: manualRepo,
+            manualPaths: { ...FEATHER_PAGES }
+        },
+        ...sections
+    };
+}
+
+async function fetchFeatherManualPayloads({
+    manualRef,
+    fetchManualFile: fetchManualFileFn,
+    forceRefresh,
+    verbose,
+    cacheRoot,
+    rawRoot,
+    progressBarWidth
+}) {
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
+
+    if (verbose.downloads) {
+        console.log(
+            `Fetching ${totalManualPages} manual page${
+                totalManualPages === 1 ? "" : "s"
+            }…`
+        );
+    }
+
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        });
+        fetchedCount += 1;
+        reportManualFetchProgress({
+            manualPath,
+            fetchedCount,
+            totalManualPages,
+            verbose,
+            progressBarWidth
+        });
+    }
+
+    return htmlPayloads;
+}
+
+function reportManualFetchProgress({
+    manualPath,
+    fetchedCount,
+    totalManualPages,
+    verbose,
+    progressBarWidth
+}) {
+    if (!verbose.downloads) {
+        return;
+    }
+
+    if (verbose.progressBar) {
+        renderProgressBar(
+            "Downloading manual pages",
+            fetchedCount,
+            totalManualPages,
+            progressBarWidth
+        );
+        return;
+    }
+
+    console.log(`✓ ${manualPath}`);
+}
+
+function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
+    if (verbose.parsing) {
+        console.log("Parsing manual sections…");
+    }
+
+    return {
+        diagnostics: timeSync(
+            "Diagnostics",
+            () => parseDiagnostics(htmlPayloads.diagnostics),
+            { verbose }
+        ),
+        directives: timeSync(
+            "Directives",
+            () => parseDirectiveSections(htmlPayloads.directives),
+            { verbose }
+        ),
+        namingRules: timeSync(
+            "Naming rules",
+            () => parseNamingRules(htmlPayloads.naming),
+            { verbose }
+        ),
+        typeSystem: timeSync(
+            "Type system",
+            () => parseTypeSystem(htmlPayloads.typeSystem),
+            { verbose }
+        )
+    };
+}
+
+export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -1016,92 +1118,35 @@ async function main({ argv, env, isTty } = {}) {
             progressBarWidth,
             cacheRoot,
             manualRepo,
-            helpRequested
-        } = parseArgs({ argv, env, isTty });
+            usage
+        } = resolveFeatherMetadataOptions(command);
 
-        if (helpRequested) {
-            return 0;
-        }
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const startTime = Date.now();
+        const logCompletion = createVerboseDurationLogger({ verbose });
         const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
         if (!manualRef?.sha) {
-            throw new Error("Could not resolve manual commit SHA.");
+            throw new CliUsageError("Could not resolve manual commit SHA.", {
+                usage
+            });
         }
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-        const htmlPayloads = {};
-        const manualEntries = Object.entries(FEATHER_PAGES);
-        const totalManualPages = manualEntries.length;
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${totalManualPages} manual page${
-                    totalManualPages === 1 ? "" : "s"
-                }…`
-            );
-        }
+        const htmlPayloads = await fetchFeatherManualPayloads({
+            manualRef,
+            fetchManualFile,
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot,
+            progressBarWidth
+        });
 
-        let fetchedCount = 0;
-        for (const [key, manualPath] of manualEntries) {
-            htmlPayloads[key] = await fetchManualFile(
-                manualRef.sha,
-                manualPath,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-            fetchedCount += 1;
-            if (verbose.progressBar && verbose.downloads) {
-                renderProgressBar(
-                    "Downloading manual pages",
-                    fetchedCount,
-                    totalManualPages,
-                    progressBarWidth
-                );
-            } else if (verbose.downloads) {
-                console.log(`✓ ${manualPath}`);
-            }
-        }
-        if (verbose.parsing) {
-            console.log("Parsing manual sections…");
-        }
-        const diagnostics = timeSync(
-            "Diagnostics",
-            () => parseDiagnostics(htmlPayloads.diagnostics),
-            { verbose }
-        );
-        const directives = timeSync(
-            "Directives",
-            () => parseDirectiveSections(htmlPayloads.directives),
-            { verbose }
-        );
-        const namingRules = timeSync(
-            "Naming rules",
-            () => parseNamingRules(htmlPayloads.naming),
-            { verbose }
-        );
-        const typeSystem = timeSync(
-            "Type system",
-            () => parseTypeSystem(htmlPayloads.typeSystem),
-            { verbose }
-        );
-
-        const payload = {
-            meta: {
-                manualRef: manualRef.ref,
-                commitSha: manualRef.sha,
-                generatedAt: new Date().toISOString(),
-                source: manualRepo,
-                manualPaths: { ...FEATHER_PAGES }
-            },
-            diagnostics,
-            directives,
-            namingRules,
-            typeSystem
-        };
+        const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
+        const payload = createFeatherManualMetadataPayload({
+            manualRef,
+            manualRepo,
+            sections
+        });
 
         await ensureDir(path.dirname(outputPath));
         await fs.writeFile(
@@ -1111,26 +1156,9 @@ async function main({ argv, env, isTty } = {}) {
         );
 
         console.log(`Wrote Feather metadata to ${outputPath}`);
-        if (verbose.parsing) {
-            console.log(`Completed in ${formatDuration(startTime)}.`);
-        }
+        logCompletion();
         return 0;
     } finally {
         disposeProgressBars();
-    }
-}
-
-export async function runGenerateFeatherMetadataCli({
-    argv = process.argv.slice(2),
-    env = process.env,
-    isTty = process.stdout.isTTY === true
-} = {}) {
-    try {
-        return await main({ argv, env, isTty });
-    } catch (error) {
-        handleCliError(error, {
-            prefix: "Failed to generate Feather metadata."
-        });
-        return 1;
     }
 }

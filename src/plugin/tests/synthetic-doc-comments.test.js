@@ -64,6 +64,34 @@ test("marks trailing parameters as optional when defaults appear earlier", async
     );
 });
 
+test(
+    "separates synthetic doc comments from preceding line comments",
+    async () => {
+        const source = [
+            "// Scenario 2",
+            "function scr_custom_gpu_func() {",
+            "    gpu_push_state();",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+        const lines = formatted.trim().split("\n");
+
+        assert.deepStrictEqual(
+            lines.slice(0, 5),
+            [
+                "// Scenario 2",
+                "",
+                "/// @function scr_custom_gpu_func",
+                "/// @returns {undefined}",
+                "function scr_custom_gpu_func() {"
+            ],
+            "Synthetic doc comments should be separated from preceding line comments by a blank line."
+        );
+    }
+);
+
 test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
     const source = "function noop() {}\n";
     const formatted = await formatWithPlugin(source);

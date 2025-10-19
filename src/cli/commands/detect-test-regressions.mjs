@@ -4,9 +4,15 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+    getErrorMessage,
+    hasOwn,
+    isErrorWithCode,
     isNonEmptyTrimmedString,
+    isObjectLike,
+    toArray,
     toTrimmedString
-} from "../../shared/string-utils.js";
+} from "../../shared/utils.js";
+import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
 
@@ -24,18 +30,12 @@ try {
     }
 }
 
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
-}
-
 function hasAnyOwn(object, keys) {
     return keys.some((key) => hasOwn(object, key));
 }
 
 function looksLikeTestCase(node) {
-    if (!node || typeof node !== "object" || Array.isArray(node)) {
+    if (!isObjectLike(node) || Array.isArray(node)) {
         return false;
     }
 
@@ -60,12 +60,6 @@ function looksLikeTestCase(node) {
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
-function toArray(value) {
-    if (Array.isArray(value)) return value;
-    if (value === undefined || value === null) return [];
-    return [value];
-}
-
 function decodeEntities(value) {
     if (typeof value !== "string" || value.length === 0) return value ?? "";
     return value
@@ -83,12 +77,10 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!error || typeof error !== "object") return false;
-    if (error.code !== "ERR_MODULE_NOT_FOUND") return false;
-    if (typeof error.message === "string") {
-        return error.message.includes("'fast-xml-parser'");
-    }
-    return false;
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) return false;
+    return getErrorMessage(error, { fallback: "" }).includes(
+        "'fast-xml-parser'"
+    );
 }
 
 function createFallbackXmlParser() {
@@ -97,10 +89,9 @@ function createFallbackXmlParser() {
             try {
                 return parseXmlDocument(xml);
             } catch (innerError) {
-                const message =
-                    innerError && typeof innerError.message === "string"
-                        ? innerError.message
-                        : String(innerError);
+                const message = getErrorMessage(innerError, {
+                    fallback: "Unknown error"
+                });
                 throw new Error(`Fallback XML parser failed: ${message}`);
             }
         }
@@ -152,7 +143,7 @@ function parseXmlDocument(xml) {
             : text.replaceAll(/\s+/g, " ").trim();
         if (!normalized) return;
         const decoded = decodeEntities(normalized);
-        if (Object.prototype.hasOwnProperty.call(target, "#text")) {
+        if (hasOwn(target, "#text")) {
             target["#text"] = preserveWhitespace
                 ? target["#text"] + decoded
                 : `${target["#text"]} ${decoded}`.trim();
@@ -305,14 +296,14 @@ function describeTestCase(testNode, suitePath) {
 
 function computeStatus(testNode) {
     const hasFailure =
-        Object.prototype.hasOwnProperty.call(testNode, "failure") ||
-        Object.prototype.hasOwnProperty.call(testNode, "failures") ||
-        Object.prototype.hasOwnProperty.call(testNode, "error") ||
-        Object.prototype.hasOwnProperty.call(testNode, "errors");
+        hasOwn(testNode, "failure") ||
+        hasOwn(testNode, "failures") ||
+        hasOwn(testNode, "error") ||
+        hasOwn(testNode, "errors");
     if (hasFailure) {
         return "failed";
     }
-    if (Object.prototype.hasOwnProperty.call(testNode, "skipped")) {
+    if (hasOwn(testNode, "skipped")) {
         return "skipped";
     }
     return "passed";
@@ -335,18 +326,12 @@ function collectTestCases(root) {
             continue;
         }
 
-        if (typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
-        const hasTestcase = Object.prototype.hasOwnProperty.call(
-            node,
-            "testcase"
-        );
-        const hasTestsuite = Object.prototype.hasOwnProperty.call(
-            node,
-            "testsuite"
-        );
+        const hasTestcase = hasOwn(node, "testcase");
+        const hasTestsuite = hasOwn(node, "testsuite");
         const normalizedSuiteName = normalizeSuiteName(node.name);
         const shouldExtendSuitePath =
             normalizedSuiteName && (hasTestcase || hasTestsuite);
@@ -384,7 +369,7 @@ function collectTestCases(root) {
                 continue;
             }
 
-            if (!value || typeof value !== "object") {
+            if (!isObjectLike(value)) {
                 continue;
             }
 
@@ -474,46 +459,59 @@ function recordTestCases(aggregates, testCases) {
     }
 }
 
-function readTestResults(candidateDirs, { workspace } = {}) {
-    const workspaceRoot =
-        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const directories = normalizeResultDirectories(
-        candidateDirs,
-        workspaceRoot
-    );
-
-    const notes = [];
-    const aggregates = {
+function createResultAggregates() {
+    return {
         results: new Map(),
         stats: { total: 0, passed: 0, failed: 0, skipped: 0 }
     };
+}
 
-    const missingDirs = [];
-    const emptyDirs = [];
+/**
+ * Builds the shared state used while scanning candidate result directories.
+ * @param {string[]|string} candidateDirs
+ * @param {string} workspaceRoot
+ */
+function buildReadContext(candidateDirs, workspaceRoot) {
+    return {
+        directories: normalizeResultDirectories(candidateDirs, workspaceRoot),
+        notes: [],
+        aggregates: createResultAggregates(),
+        missingDirs: [],
+        emptyDirs: []
+    };
+}
 
-    for (const directory of directories) {
-        const scan = scanResultDirectory(directory);
-        notes.push(...scan.notes);
+function appendScanNotes(context, scan) {
+    if (scan.notes.length === 0) return;
+    context.notes.push(...scan.notes);
+}
 
-        if (scan.status === "missing") {
-            missingDirs.push(directory.display);
-            continue;
-        }
+function handleMissingOrEmptyDirectory(context, directory, status) {
+    const bucket = status === "missing" ? context.missingDirs : context.emptyDirs;
+    bucket.push(directory.display);
+}
 
-        if (scan.status === "empty") {
-            emptyDirs.push(directory.display);
-            continue;
-        }
+function buildSuccessfulReadResult(context, directory) {
+    return {
+        ...context.aggregates,
+        usedDir: directory.resolved,
+        displayDir: directory.display,
+        notes: context.notes
+    };
+}
 
-        recordTestCases(aggregates, scan.cases);
-
-        return {
-            ...aggregates,
-            usedDir: directory.resolved,
-            displayDir: directory.display,
-            notes
-        };
+function applyScanOutcome(context, directory, scan) {
+    if (scan.status === "missing" || scan.status === "empty") {
+        handleMissingOrEmptyDirectory(context, directory, scan.status);
+        return null;
     }
+
+    recordTestCases(context.aggregates, scan.cases);
+    return buildSuccessfulReadResult(context, directory);
+}
+
+function appendAvailabilityNotes(context) {
+    const { missingDirs, emptyDirs, notes } = context;
 
     if (missingDirs.length === 1) {
         notes.push(`No directory found at ${missingDirs[0]}.`);
@@ -526,13 +524,33 @@ function readTestResults(candidateDirs, { workspace } = {}) {
     } else if (emptyDirs.length > 1) {
         notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
     }
+}
 
+function buildUnavailableResult(context) {
     return {
-        ...aggregates,
+        ...context.aggregates,
         usedDir: null,
         displayDir: "",
-        notes
+        notes: context.notes
     };
+}
+
+function readTestResults(candidateDirs, { workspace } = {}) {
+    const workspaceRoot =
+        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
+    const context = buildReadContext(candidateDirs, workspaceRoot);
+
+    for (const directory of context.directories) {
+        const scan = scanResultDirectory(directory);
+        appendScanNotes(context, scan);
+        const result = applyScanOutcome(context, directory, scan);
+        if (result) {
+            return result;
+        }
+    }
+
+    appendAvailabilityNotes(context);
+    return buildUnavailableResult(context);
 }
 
 function detectRegressions(baseResults, targetResults) {
@@ -559,21 +577,24 @@ function formatRegression(regression) {
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
-function runCli() {
-    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const baseCandidates = [
-        path.join("base", "test-results"),
-        "base-test-results"
-    ];
-    if (process.env.BASE_RESULTS_DIR)
-        baseCandidates.push(process.env.BASE_RESULTS_DIR);
+function buildResultCandidates(defaultCandidates, envVariable) {
+    const candidates = [...defaultCandidates];
+    const override = process.env[envVariable];
+    if (override) {
+        candidates.push(override);
+    }
+    return candidates;
+}
 
-    const mergeCandidates = [
-        path.join("merge", "test-results"),
-        "merge-test-results"
-    ];
-    if (process.env.MERGE_RESULTS_DIR)
-        mergeCandidates.push(process.env.MERGE_RESULTS_DIR);
+function loadResultSets(workspaceRoot) {
+    const baseCandidates = buildResultCandidates(
+        [path.join("base", "test-results"), "base-test-results"],
+        "BASE_RESULTS_DIR"
+    );
+    const mergeCandidates = buildResultCandidates(
+        [path.join("merge", "test-results"), "merge-test-results"],
+        "MERGE_RESULTS_DIR"
+    );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
     const head = readTestResults(["test-results"], {
@@ -583,57 +604,93 @@ function runCli() {
         workspace: workspaceRoot
     });
 
-    const target = merged.usedDir ? merged : head;
-    const targetLabel = merged.usedDir
+    return { base, head, merged };
+}
+
+function chooseTargetResultSet({ merged, head }) {
+    const usingMerged = Boolean(merged.usedDir);
+    const target = usingMerged ? merged : head;
+    const targetLabel = usingMerged
         ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
         : `PR head (${head.displayDir || "test-results"})`;
 
-    if (merged.usedDir) {
+    return { target, targetLabel, usingMerged };
+}
+
+function announceTargetSelection({ usingMerged, targetLabel }) {
+    if (usingMerged) {
         console.log(
             `Using synthetic merge test results for regression detection: ${targetLabel}.`
         );
-    } else {
-        console.log(
-            "Synthetic merge test results were not found; falling back to PR head results."
-        );
+        return;
     }
 
+    console.log(
+        "Synthetic merge test results were not found; falling back to PR head results."
+    );
+}
+
+function logResultNotes(base, target) {
     for (const note of base.notes) {
         console.log(`[base] ${note}`);
     }
     for (const note of target.notes) {
         console.log(`[target] ${note}`);
     }
+}
 
+function ensureResultsAvailability(base, target) {
     if (!base.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate base test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
 
     if (!target.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate target test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
+}
+
+function reportRegressionSummary(regressions, targetLabel) {
+    if (regressions.length > 0) {
+        return {
+            exitCode: 1,
+            lines: [
+                `New failing tests detected (compared to base using ${targetLabel}):`,
+                ...regressions.map((regression) => formatRegression(regression))
+            ]
+        };
+    }
+
+    return {
+        exitCode: 0,
+        lines: [
+            `No new failing tests compared to base using ${targetLabel}.`
+        ]
+    };
+}
+
+function runCli() {
+    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+    const { base, head, merged } = loadResultSets(workspaceRoot);
+    const { target, targetLabel, usingMerged } = chooseTargetResultSet({
+        merged,
+        head
+    });
+
+    announceTargetSelection({ usingMerged, targetLabel });
+    logResultNotes(base, target);
+    ensureResultsAvailability(base, target);
 
     const regressions = detectRegressions(base, target);
-
-    if (regressions.length > 0) {
-        console.log(
-            `New failing tests detected (compared to base using ${targetLabel}):`
-        );
-        for (const regression of regressions) {
-            console.log(formatRegression(regression));
-        }
-        process.exit(1);
-    } else {
-        console.log(
-            `No new failing tests compared to base using ${targetLabel}.`
-        );
+    const summary = reportRegressionSummary(regressions, targetLabel);
+    for (const line of summary.lines) {
+        console.log(line);
     }
+
+    return summary.exitCode;
 }
 
 const isMainModule = process.argv[1]
@@ -641,7 +698,23 @@ const isMainModule = process.argv[1]
     : false;
 
 if (isMainModule) {
-    runCli();
+    try {
+        const exitCode = runCli();
+        if (typeof exitCode === "number") {
+            process.exitCode = exitCode;
+        }
+    } catch (error) {
+        handleCliError(error, {
+            prefix: "Failed to detect test regressions.",
+            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        });
+    }
 }
 
-export { collectTestCases, detectRegressions, readTestResults };
+export {
+    collectTestCases,
+    detectRegressions,
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
+};

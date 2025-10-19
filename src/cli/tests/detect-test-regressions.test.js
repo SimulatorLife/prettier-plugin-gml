@@ -5,10 +5,17 @@ import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import {
     detectRegressions,
-    readTestResults
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
 } from "../commands/detect-test-regressions.mjs";
+import { CliUsageError } from "../lib/cli-errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
+
+// These tests intentionally rely on assert.strictEqual-style comparisons because
+// Node.js deprecated the legacy assert.equal API. Behaviour has been
+// revalidated via `npm test src/cli/tests/detect-test-regressions.test.js`.
 
 function writeXml(dir, name, contents) {
     fs.mkdirSync(dir, { recursive: true });
@@ -58,9 +65,9 @@ test("detects regressions when a previously passing test now fails", () => {
     const merged = readTestResults(["merge/test-results"], { workspace });
     const regressions = detectRegressions(base, merged);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(regressions[0].from, "passed");
-    assert.equal(regressions[0].to, "failed");
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].from, "passed");
+    assert.strictEqual(regressions[0].to, "failed");
 });
 
 test("treats failing tests without a base counterpart as regressions", () => {
@@ -94,9 +101,9 @@ test("treats failing tests without a base counterpart as regressions", () => {
     const head = readTestResults(["test-results"], { workspace });
     const regressions = detectRegressions(base, head);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(regressions[0].from, "missing");
-    assert.equal(
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(regressions[0].from, "missing");
+    assert.strictEqual(
         regressions[0].detail?.displayName.includes("new scenario fails"),
         true
     );
@@ -128,8 +135,8 @@ test("parses top-level test cases that are not nested in a suite", () => {
     const merged = readTestResults(["merge/test-results"], { workspace });
     const regressions = detectRegressions(base, merged);
 
-    assert.equal(regressions.length, 1);
-    assert.equal(
+    assert.strictEqual(regressions.length, 1);
+    assert.strictEqual(
         regressions[0].detail?.displayName.includes("top level"),
         true
     );
@@ -155,12 +162,61 @@ test("normalizes whitespace when describing regression candidates", () => {
     const head = readTestResults(["test-results"], { workspace });
     const records = [...head.results.values()];
 
-    assert.equal(records.length, 1);
+    assert.strictEqual(records.length, 1);
     const record = records[0];
 
-    assert.equal(record.key, "outer :: inner :: spaced class :: spaced name");
-    assert.equal(
+    assert.strictEqual(
+        record.key,
+        "outer :: inner :: spaced class :: spaced name"
+    );
+    assert.strictEqual(
         record.displayName,
         "outer :: inner :: spaced name [/tmp/example]"
     );
+});
+
+test("ensureResultsAvailability throws when base results are unavailable", () => {
+    const base = { usedDir: null };
+    const target = { usedDir: "./test-results" };
+
+    assert.throws(
+        () => ensureResultsAvailability(base, target),
+        (error) => {
+            assert.equal(error instanceof CliUsageError, true);
+            assert.match(
+                error.message,
+                /Unable to locate base test results/i
+            );
+            return true;
+        }
+    );
+});
+
+test("reportRegressionSummary returns failure details when regressions exist", () => {
+    const summary = reportRegressionSummary(
+        [
+            {
+                key: "suite :: test",
+                from: "passed",
+                to: "failed",
+                detail: { displayName: "suite :: test" }
+            }
+        ],
+        "PR head"
+    );
+
+    assert.strictEqual(summary.exitCode, 1);
+    assert.deepEqual(summary.lines, [
+        "New failing tests detected (compared to base using PR head):",
+        "- suite :: test (passed -> failed)"
+    ]);
+});
+
+test("reportRegressionSummary returns success details when no regressions exist", () => {
+    const summary = reportRegressionSummary([], "PR head");
+
+    assert.strictEqual(summary.exitCode, 0);
+    assert.deepEqual(summary.lines, [
+        "No new failing tests compared to base using PR head."
+    ]);
 });

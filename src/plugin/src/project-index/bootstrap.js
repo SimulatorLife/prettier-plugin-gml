@@ -19,6 +19,37 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
+function resolveOptionWithOverride(options, config) {
+    const { onValue, onMissing, internalKey, externalKey } = config ?? {};
+
+    if (typeof onValue !== "function") {
+        throw new TypeError("onValue must be a function");
+    }
+
+    const resolveMissing = () =>
+        typeof onMissing === "function" ? onMissing() : onMissing;
+
+    if (!isObjectLike(options)) {
+        return resolveMissing();
+    }
+
+    for (const [key, source] of [
+        [internalKey, "internal"],
+        [externalKey, "external"]
+    ]) {
+        if (key == null) {
+            continue;
+        }
+
+        const value = options[key];
+        if (value !== undefined) {
+            return onValue({ value, source });
+        }
+    }
+
+    return resolveMissing();
+}
+
 function getFsFacade(options) {
     return coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
         fallback: null
@@ -146,29 +177,18 @@ function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
 }
 
 function resolveCacheMaxSizeBytes(options) {
-    if (!isObjectLike(options)) {
-        return;
-    }
+    return resolveOptionWithOverride(options, {
+        internalKey: PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
+        externalKey: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME,
+        onValue(entry) {
+            if (entry.source === "internal" && entry.value === null) {
+                return null;
+            }
 
-    const internalValue =
-        options[PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME];
-
-    if (internalValue !== undefined) {
-        return internalValue === null
-            ? null
-            : normalizeCacheMaxSizeBytes(internalValue, {
-                  optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
-              });
-    }
-
-    const externalValue = options[PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME];
-
-    if (externalValue === undefined) {
-        return;
-    }
-
-    return normalizeCacheMaxSizeBytes(externalValue, {
-        optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            return normalizeCacheMaxSizeBytes(entry.value, {
+                optionName: PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME
+            });
+        }
     });
 }
 
@@ -184,39 +204,33 @@ function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
 }
 
 function resolveProjectIndexConcurrency(options) {
-    if (!isObjectLike(options)) {
-        return;
-    }
-
-    const internalValue =
-        options[PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME];
-    if (internalValue !== undefined) {
-        return normalizeProjectIndexConcurrency(internalValue, {
-            optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
-        });
-    }
-
-    const externalValue = options[PROJECT_INDEX_CONCURRENCY_OPTION_NAME];
-    if (externalValue === undefined) {
-        return;
-    }
-
-    return normalizeProjectIndexConcurrency(externalValue, {
-        optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+    return resolveOptionWithOverride(options, {
+        internalKey: PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
+        externalKey: PROJECT_INDEX_CONCURRENCY_OPTION_NAME,
+        onValue(entry) {
+            return normalizeProjectIndexConcurrency(entry.value, {
+                optionName: PROJECT_INDEX_CONCURRENCY_OPTION_NAME
+            });
+        }
     });
 }
 
 function resolveProjectRoot(options) {
-    if (isNonEmptyTrimmedString(options?.__identifierCaseProjectRoot)) {
-        return path.resolve(options.__identifierCaseProjectRoot);
-    }
+    return resolveOptionWithOverride(options, {
+        internalKey: "__identifierCaseProjectRoot",
+        externalKey: "gmlIdentifierCaseProjectRoot",
+        onMissing: null,
+        onValue(entry) {
+            if (!isNonEmptyTrimmedString(entry.value)) {
+                return null;
+            }
 
-    if (isNonEmptyTrimmedString(options?.gmlIdentifierCaseProjectRoot)) {
-        const configuredRoot = options.gmlIdentifierCaseProjectRoot.trim();
-        return path.resolve(configuredRoot);
-    }
+            const projectRoot =
+                entry.source === "external" ? entry.value.trim() : entry.value;
 
-    return null;
+            return path.resolve(projectRoot);
+        }
+    });
 }
 
 export async function bootstrapProjectIndex(options = {}, storeOption) {

@@ -1,8 +1,8 @@
-import { hasOwn } from "../../shared/object-utils.js";
 import {
+    hasOwn,
     isNonEmptyTrimmedString,
     isWordChar
-} from "../../shared/string-utils.js";
+} from "../../shared/utils.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -81,6 +81,19 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
     location.index = mapIndex(location.index);
 }
 
+/**
+ * Walk a source string and defensively expand bare assignment operators inside
+ * `if` conditions into equality checks. The underlying GameMaker parser treats
+ * `if (a = b)` as a syntax error rather than an assignment expression, so the
+ * sanitizer rewrites it to `if (a == b)` before parsing. When characters are
+ * inserted, their indices are recorded so downstream consumers can translate
+ * AST location metadata back to the original source.
+ *
+ * @param {unknown} sourceText Raw text that will be handed to the parser.
+ * @returns {{ sourceText: unknown, indexAdjustments: Array<number> | null }}
+ *     Potentially rewritten source text along with the insertion points needed
+ *     to map parser indices to the original string.
+ */
 export function sanitizeConditionalAssignments(sourceText) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return {
@@ -273,6 +286,18 @@ export function sanitizeConditionalAssignments(sourceText) {
     };
 }
 
+/**
+ * Apply the recorded index adjustments from {@link sanitizeConditionalAssignments}
+ * to a parsed AST (or any nested object containing `start` / `end` metadata).
+ * The mapper walks every object and array it encounters, updating numeric
+ * indices as well as `{ index: number }` records so location information once
+ * again matches the caller's pre-sanitized source text.
+ *
+ * @param {unknown} target AST node or metadata object with location fields.
+ * @param {Array<number> | null | undefined} insertPositions Collected
+ *     insertion offsets returned by {@link sanitizeConditionalAssignments}.
+ * @returns {void}
+ */
 export function applySanitizedIndexAdjustments(target, insertPositions) {
     if (!target || typeof target !== "object") {
         return;
