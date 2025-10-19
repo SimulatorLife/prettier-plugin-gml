@@ -16244,39 +16244,37 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
     }
 
     let encounteredOptional = false;
-    let needsReordering = false;
+    let mutated = false;
+    const normalizedParams = [];
 
     for (const param of params) {
         if (isOptionalParameter(param)) {
             encounteredOptional = true;
-        } else if (encounteredOptional) {
-            needsReordering = true;
-            break;
+            normalizedParams.push(param);
+            continue;
         }
+
+        if (!encounteredOptional) {
+            normalizedParams.push(param);
+            continue;
+        }
+
+        const converted = convertRequiredParameterToOptional(param);
+        if (!converted) {
+            normalizedParams.push(param);
+            continue;
+        }
+
+        encounteredOptional = true;
+        mutated = true;
+        normalizedParams.push(converted);
     }
 
-    if (!needsReordering) {
+    if (!mutated) {
         return null;
     }
 
-    const requiredParams = [];
-    const optionalParams = [];
-
-    for (const param of params) {
-        if (isOptionalParameter(param)) {
-            optionalParams.push(param);
-        } else {
-            requiredParams.push(param);
-        }
-    }
-
-    const reorderedParams = requiredParams.concat(optionalParams);
-
-    if (reorderedParams.length !== params.length) {
-        return null;
-    }
-
-    node.params = reorderedParams;
+    node.params = normalizedParams;
     node._flattenSyntheticNumericParens = true;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -16298,6 +16296,31 @@ function reorderFunctionOptionalParameters(node, diagnostic) {
 
 function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
+}
+
+function convertRequiredParameterToOptional(parameter) {
+    if (!isIdentifier(parameter)) {
+        return null;
+    }
+
+    const identifier = cloneIdentifier(parameter) ?? parameter;
+    const undefinedLiteral = createLiteral("undefined", parameter);
+    if (!undefinedLiteral) {
+        return null;
+    }
+
+    const defaultParameter = {
+        type: "DefaultParameter",
+        left: identifier,
+        right: undefinedLiteral,
+        start: cloneLocation(parameter.start ?? identifier.start),
+        end: cloneLocation(parameter.end ?? identifier.end),
+        _featherOptionalParameter: true
+    };
+
+    copyCommentMetadata(parameter, defaultParameter);
+
+    return defaultParameter;
 }
 
 function getFunctionIdentifierName(node) {
