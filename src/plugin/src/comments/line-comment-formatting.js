@@ -125,8 +125,9 @@ function formatLineComment(
         DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const trimmedValue = comment.value.trim();
-    const rawValue = typeof comment.value === "string" ? comment.value : "";
+    const hasStringValue = typeof comment?.value === "string";
+    const rawValue = hasStringValue ? comment.value : "";
+    const trimmedValue = hasStringValue ? comment.value.trim() : "";
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
