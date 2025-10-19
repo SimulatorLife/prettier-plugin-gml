@@ -4113,6 +4113,13 @@ function isNumericComputationNode(node) {
         case "MemberDotExpression": {
             return true;
         }
+        case "CallExpression": {
+            if (expressionIsStringLike(node)) {
+                return false;
+            }
+
+            return true;
+        }
         default: {
             return false;
         }
