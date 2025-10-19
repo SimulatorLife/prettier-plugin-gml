@@ -12,7 +12,11 @@ import {
     cloneObjectEntries,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
-import { getOrCreateMapEntry, hasOwn } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    getOrCreateMapEntry,
+    hasOwn
+} from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
@@ -2241,9 +2245,7 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
         return;
     }
 
-    if (typeof worker !== "function") {
-        throw new TypeError("worker must be a function");
-    }
+    assertFunction(worker, "worker");
 
     const signal = resolveAbortSignalFromOptions(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
