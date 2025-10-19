@@ -26,7 +26,7 @@ import {
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 import {
-    DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
     saveProjectIndexCache
 } from "./cache.js";
@@ -122,7 +122,7 @@ export function createProjectIndexCoordinator(options = {}) {
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
-            ? DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+            ? getDefaultProjectIndexCacheMaxSize()
             : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
@@ -246,6 +246,11 @@ export {
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
     loadProjectIndexCache,
     saveProjectIndexCache,
