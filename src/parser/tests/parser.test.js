@@ -112,6 +112,44 @@ function collectIdentifiers(node) {
     return identifiers;
 }
 
+function collectNodesByType(node, type) {
+    const nodes = [];
+    const visited = new Set();
+
+    function visit(value) {
+        if (value === null || typeof value !== "object") {
+            return;
+        }
+
+        if (visited.has(value)) {
+            return;
+        }
+
+        visited.add(value);
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                visit(item);
+            }
+            return;
+        }
+
+        if (value.type === type) {
+            nodes.push(value);
+        }
+
+        for (const [key, child] of Object.entries(value)) {
+            if (key === "start" || key === "end" || key === "declaration") {
+                continue;
+            }
+            visit(child);
+        }
+    }
+
+    visit(node);
+    return nodes;
+}
+
 function groupIdentifiersByName(identifiers) {
     const map = new Map();
 
@@ -185,6 +223,21 @@ describe("GameMaker parser fixtures", () => {
         const source = "function example() {\n    var value = 007;\n}";
 
         assert.doesNotThrow(() => parseFixture(source));
+    });
+
+    it("parses string literals with uppercase escape sequences", () => {
+        const source = `function example() {\n    var message = "\\N sounds";\n}`;
+
+        const ast = parseFixture(source);
+        const literals = collectNodesByType(ast, "Literal");
+        const stringLiteral = literals.find(
+            (literal) =>
+                typeof literal.value === "string" &&
+                literal.value.startsWith('"')
+        );
+
+        assert.ok(stringLiteral, "Expected to find a string literal");
+        assert.strictEqual(stringLiteral.value, String.raw`"\N sounds"`);
     });
 
     it("omits location metadata when disabled", async () => {

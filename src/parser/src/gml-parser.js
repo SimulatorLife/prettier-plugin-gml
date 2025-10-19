@@ -8,9 +8,30 @@ import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
 import { isErrorLike } from "../../shared/utils/capability-probes.js";
 import { isObjectLike } from "../../shared/object-utils.js";
 
+function normalizeSimpleEscapeCase(text) {
+    if (typeof text !== "string" || text.length === 0) {
+        return text;
+    }
+
+    return text.replaceAll(
+        /\\([bfnrtv])/gi,
+        (_match, escape) => `\\${escape.toLowerCase()}`
+    );
+}
+
+function isQuotedString(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return false;
+    }
+
+    const first = value[0];
+    return (first === '"' || first === "'") && value.endsWith(first);
+}
+
 export default class GMLParser {
     constructor(text, options) {
-        this.text = text;
+        this.originalText = text;
+        this.text = normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
         this.options = Object.assign({}, GMLParser.optionDefaults, options);
@@ -79,6 +100,10 @@ export default class GMLParser {
             this.simplifyLocationInfo(astTree);
         }
 
+        if (this.originalText !== this.text) {
+            this.restoreOriginalLiteralText(astTree);
+        }
+
         return astTree;
     }
 
@@ -102,6 +127,65 @@ export default class GMLParser {
         }
 
         console.log("");
+    }
+
+    restoreOriginalLiteralText(root) {
+        if (!root || typeof root !== "object") {
+            return;
+        }
+
+        const stack = [root];
+
+        while (stack.length > 0) {
+            const node = stack.pop();
+            if (!node || typeof node !== "object") {
+                continue;
+            }
+
+            const startIndex =
+                typeof node.start === "number" ? node.start : node.start?.index;
+            const endIndex =
+                typeof node.end === "number" ? node.end : node.end?.index;
+
+            if (node.type === "Literal" && isQuotedString(node.value)) {
+                if (
+                    Number.isInteger(startIndex) &&
+                    Number.isInteger(endIndex) &&
+                    endIndex >= startIndex
+                ) {
+                    node.value = this.originalText.slice(
+                        startIndex,
+                        endIndex + 1
+                    );
+                }
+            } else if (node.type === "TemplateStringText" && 
+                    Number.isInteger(startIndex) &&
+                    Number.isInteger(endIndex) &&
+                    endIndex >= startIndex
+                ) {
+                    node.value = this.originalText.slice(
+                        startIndex,
+                        endIndex + 1
+                    );
+                }
+
+            for (const value of Object.values(node)) {
+                if (!value || typeof value !== "object") {
+                    continue;
+                }
+
+                if (Array.isArray(value)) {
+                    for (const item of value) {
+                        if (item && typeof item === "object") {
+                            stack.push(item);
+                        }
+                    }
+                    continue;
+                }
+
+                stack.push(value);
+            }
+        }
     }
 
     // populates the comments array and whitespaces array.

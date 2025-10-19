@@ -288,6 +288,40 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
     });
 });
 
+test("bootstrapProjectIndex records build failures without throwing", async () => {
+    await withTempDir(async (projectRoot) => {
+        const manifestPath = path.join(projectRoot, "project.yyp");
+        await writeFile(manifestPath, "{}");
+        const scriptsDir = path.join(projectRoot, "scripts");
+        await mkdir(scriptsDir, { recursive: true });
+        const scriptPath = path.join(scriptsDir, "main.gml");
+        await writeFile(scriptPath, "// script\n");
+
+        const failure = new Error("index build failed");
+        const coordinator = {
+            async ensureReady() {
+                throw failure;
+            },
+            dispose() {}
+        };
+
+        const options = {
+            filepath: scriptPath,
+            __identifierCaseProjectIndexCoordinator: coordinator
+        };
+
+        const result = await bootstrapProjectIndex(options);
+
+        assert.equal(result.status, "failed");
+        assert.equal(result.reason, "build-error");
+        assert.equal(result.projectIndex, null);
+        assert.equal(result.projectRoot, projectRoot);
+        assert.equal(result.error, failure);
+        assert.equal(options.__identifierCaseProjectIndexBootstrap, result);
+        assert.equal(typeof result.dispose, "function");
+    });
+});
+
 test("loadProjectIndexCache reports version mismatches", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
