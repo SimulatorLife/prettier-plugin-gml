@@ -1,9 +1,10 @@
+import { SingleBar, Presets } from "cli-progress";
+
 import {
     coercePositiveInteger,
     getOrCreateMapEntry,
     resolveIntegerOption
 } from "./shared-deps.js";
-import { SingleBar, Presets } from "cli-progress";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
@@ -102,10 +103,10 @@ function renderProgressBar(label, current, total, width) {
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
-    getDefaultProgressBarWidth,
-    setDefaultProgressBarWidth,
-    renderProgressBar,
     disposeProgressBars,
-    setProgressBarFactoryForTesting,
-    resolveProgressBarWidth
+    getDefaultProgressBarWidth,
+    renderProgressBar,
+    resolveProgressBarWidth,
+    setDefaultProgressBarWidth,
+    setProgressBarFactoryForTesting
 };
