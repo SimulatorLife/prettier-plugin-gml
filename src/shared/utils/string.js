@@ -116,7 +116,7 @@ export function normalizeStringList(
     }
 
     const normalized = [];
-    const seen = new Set();
+    const seen = Object.create(null);
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -124,11 +124,11 @@ export function normalizeStringList(
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || seen.has(trimmed)) {
+        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
             continue;
         }
 
-        seen.add(trimmed);
+        seen[trimmed] = true;
         normalized.push(trimmed);
     }
 
