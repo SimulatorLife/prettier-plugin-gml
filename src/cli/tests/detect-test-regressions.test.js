@@ -110,6 +110,43 @@ test("treats failing tests without a base counterpart as regressions", () => {
     );
 });
 
+test("does not treat renamed failures as regressions when totals are stable", () => {
+    const baseDir = path.join(workspace, "base/test-results");
+    const mergeDir = path.join(workspace, "merge/test-results");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="renamed later" classname="test">
+          <failure message="boom" />
+        </testcase>
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="now failing" classname="test">
+          <failure message="still broken" />
+        </testcase>
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/test-results"], { workspace });
+    const merged = readTestResults(["merge/test-results"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    assert.strictEqual(regressions.length, 0);
+});
+
 test("parses top-level test cases that are not nested in a suite", () => {
     const baseDir = path.join(workspace, "base/test-results");
     const mergeDir = path.join(workspace, "merge/test-results");
