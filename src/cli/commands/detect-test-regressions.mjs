@@ -12,6 +12,7 @@ import {
     toArray,
     toTrimmedString
 } from "../../shared/utils.js";
+import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
 
@@ -640,33 +641,35 @@ function logResultNotes(base, target) {
 
 function ensureResultsAvailability(base, target) {
     if (!base.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate base test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
 
     if (!target.usedDir) {
-        console.log(
+        throw new CliUsageError(
             "Unable to locate target test results; regression detection cannot proceed."
         );
-        process.exit(1);
     }
 }
 
 function reportRegressionSummary(regressions, targetLabel) {
     if (regressions.length > 0) {
-        console.log(
-            `New failing tests detected (compared to base using ${targetLabel}):`
-        );
-        for (const regression of regressions) {
-            console.log(formatRegression(regression));
-        }
-        process.exit(1);
-        return;
+        return {
+            exitCode: 1,
+            lines: [
+                `New failing tests detected (compared to base using ${targetLabel}):`,
+                ...regressions.map((regression) => formatRegression(regression))
+            ]
+        };
     }
 
-    console.log(`No new failing tests compared to base using ${targetLabel}.`);
+    return {
+        exitCode: 0,
+        lines: [
+            `No new failing tests compared to base using ${targetLabel}.`
+        ]
+    };
 }
 
 function runCli() {
@@ -682,7 +685,12 @@ function runCli() {
     ensureResultsAvailability(base, target);
 
     const regressions = detectRegressions(base, target);
-    reportRegressionSummary(regressions, targetLabel);
+    const summary = reportRegressionSummary(regressions, targetLabel);
+    for (const line of summary.lines) {
+        console.log(line);
+    }
+
+    return summary.exitCode;
 }
 
 const isMainModule = process.argv[1]
@@ -690,7 +698,23 @@ const isMainModule = process.argv[1]
     : false;
 
 if (isMainModule) {
-    runCli();
+    try {
+        const exitCode = runCli();
+        if (typeof exitCode === "number") {
+            process.exitCode = exitCode;
+        }
+    } catch (error) {
+        handleCliError(error, {
+            prefix: "Failed to detect test regressions.",
+            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        });
+    }
 }
 
-export { collectTestCases, detectRegressions, readTestResults };
+export {
+    collectTestCases,
+    detectRegressions,
+    readTestResults,
+    ensureResultsAvailability,
+    reportRegressionSummary
+};
