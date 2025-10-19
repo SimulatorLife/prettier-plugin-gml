@@ -4,14 +4,93 @@ import { Command, InvalidArgumentError } from "commander";
 
 import { normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
-import { coercePositiveInteger } from "./command-parsing.js";
+import {
+    coercePositiveInteger,
+    resolveIntegerOption
+} from "./command-parsing.js";
+import { applyEnvOptionOverrides } from "./env-overrides.js";
 import {
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
 
-const DEFAULT_ITERATIONS = 500_000;
+export const DEFAULT_ITERATIONS = 500_000;
+export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
+
+let configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
+
+const createIterationErrorMessage = (received) =>
+    `Iteration count must be a positive integer (received ${received}).`;
+
+const createIterationTypeErrorMessage = (type) =>
+    `Iteration count must be provided as a number (received type '${type}').`;
+
+function coerceMemoryIterations(value, { received }) {
+    return coercePositiveInteger(value, {
+        received,
+        createErrorMessage: createIterationErrorMessage
+    });
+}
+
+export function getDefaultMemoryIterations() {
+    return configuredDefaultMemoryIterations;
+}
+
+export function setDefaultMemoryIterations(iterations) {
+    if (iterations === undefined) {
+        configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
+        return configuredDefaultMemoryIterations;
+    }
+
+    configuredDefaultMemoryIterations = resolveMemoryIterations(iterations, {
+        defaultIterations: DEFAULT_ITERATIONS
+    });
+
+    return configuredDefaultMemoryIterations;
+}
+
+export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
+    const fallback =
+        defaultIterations === undefined
+            ? getDefaultMemoryIterations()
+            : defaultIterations;
+
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce: coerceMemoryIterations,
+        typeErrorMessage: createIterationTypeErrorMessage
+    });
+}
+
+export function applyMemoryIterationsEnvOverride(env = process?.env) {
+    const rawValue = env?.[MEMORY_ITERATIONS_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultMemoryIterations(rawValue);
+}
+
+export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
+    if (!command || typeof command.setOptionValueWithSource !== "function") {
+        return;
+    }
+
+    applyEnvOptionOverrides({
+        command,
+        env,
+        overrides: [
+            {
+                envVar: MEMORY_ITERATIONS_ENV_VAR,
+                optionName: "iterations",
+                resolveValue: resolveMemoryIterations
+            }
+        ]
+    });
+}
+
+applyMemoryIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -29,15 +108,10 @@ function validateFormat(value) {
     throw new InvalidArgumentError("Format must be either 'json' or 'human'.");
 }
 
-function parseIterationsOption(value) {
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iteration count must be a positive integer (received ${received}).`
-    });
-}
+export function createMemoryCommand({ env = process.env } = {}) {
+    const defaultIterations = getDefaultMemoryIterations();
 
-export function createMemoryCommand() {
-    return applyStandardCommandOptions(
+    const command = applyStandardCommandOptions(
         new Command()
             .name("memory")
             .usage("[options]")
@@ -51,9 +125,15 @@ export function createMemoryCommand() {
         )
         .option(
             "-i, --iterations <count>",
-            `Iteration count for suites that support it (default: ${DEFAULT_ITERATIONS}).`,
-            parseIterationsOption,
-            DEFAULT_ITERATIONS
+            `Iteration count for suites that support it (default: ${defaultIterations}).`,
+            (value) => {
+                try {
+                    return resolveMemoryIterations(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
+                }
+            },
+            defaultIterations
         )
         .option(
             "--format <format>",
@@ -62,6 +142,9 @@ export function createMemoryCommand() {
             "json"
         )
         .option("--pretty", "Pretty-print JSON output.");
+    applyMemoryEnvOptionOverrides({ command, env });
+
+    return command;
 }
 
 function collectSuiteOptions(options) {
@@ -195,5 +278,3 @@ export async function runMemoryCommand({ command } = {}) {
 
     return 0;
 }
-
-export { DEFAULT_ITERATIONS };

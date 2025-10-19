@@ -104,6 +104,26 @@ const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
 
+function formatExtensionListForDisplay(extensions) {
+    return extensions.map((extension) => `"${extension}"`).join(", ");
+}
+
+function formatPathForDisplay(targetPath) {
+    const resolvedTarget = path.resolve(targetPath);
+    const resolvedCwd = path.resolve(process.cwd());
+    const relativePath = path.relative(resolvedCwd, resolvedTarget);
+
+    if (
+        relativePath &&
+        !relativePath.startsWith("..") &&
+        !path.isAbsolute(relativePath)
+    ) {
+        return relativePath || ".";
+    }
+
+    return resolvedTarget;
+}
+
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
@@ -411,6 +431,7 @@ const formattedFileOriginalContents = new Map();
 let revertSnapshotDirectoryPromise = null;
 let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
+let encounteredFormattableFile = false;
 
 async function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
@@ -531,6 +552,7 @@ async function resetFormattingSession(onParseError) {
     skippedFileCount = 0;
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
+    encounteredFormattableFile = false;
 }
 
 /**
@@ -635,12 +657,17 @@ async function handleFormattingError(error, filePath) {
     }
 
     if (parseErrorAction === ParseErrorAction.REVERT) {
-        if (!revertTriggered) {
-            revertTriggered = true;
-            abortRequested = true;
-            await revertFormattedFiles();
+        if (revertTriggered) {
+            return;
         }
-    } else if (parseErrorAction === ParseErrorAction.ABORT) {
+
+        revertTriggered = true;
+        abortRequested = true;
+        await revertFormattedFiles();
+        return;
+    }
+
+    if (parseErrorAction === ParseErrorAction.ABORT) {
         abortRequested = true;
     }
 }
@@ -826,6 +853,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
+        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -976,16 +1004,61 @@ async function executeFormatCommand(command) {
         if (targetIsDirectory) {
             await processDirectory(targetPath);
         } else if (shouldFormatFile(targetPath)) {
+            encounteredFormattableFile = true;
             await processFile(targetPath, baseProjectIgnorePaths);
         } else {
             skippedFileCount += 1;
         }
+
+        if (!encounteredFormattableFile) {
+            logNoMatchingFiles({
+                targetPath,
+                targetIsDirectory,
+                extensions: targetExtensions
+            });
+        }
+
         console.debug(`Skipped ${skippedFileCount} files`);
         if (encounteredFormattingError) {
             process.exitCode = 1;
         }
     } finally {
         await discardFormattedFileOriginalContents();
+    }
+}
+
+function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
+    const formattedExtensions = formatExtensionListForDisplay(extensions);
+    const locationDescription = targetIsDirectory
+        ? `in ${formatPathForDisplay(targetPath)}`
+        : formatPathForDisplay(targetPath);
+    const guidance = targetIsDirectory
+        ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
+        : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+
+    if (targetIsDirectory) {
+        console.log(
+            [
+                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                "Nothing to format.",
+                guidance
+            ].join(" ")
+        );
+    } else {
+        console.log(
+            [
+                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                "Nothing to format.",
+                guidance
+            ].join(" ")
+        );
+    }
+
+    if (skippedFileCount > 0) {
+        const skipLabel = skippedFileCount === 1 ? "file" : "files";
+        console.log(
+            `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
+        );
     }
 }
 

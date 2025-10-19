@@ -136,8 +136,7 @@ export function collectUniqueAncestorDirectories(
     startingDirectories,
     { includeSelf = true } = {}
 ) {
-    const result = [];
-    const seen = new Set();
+    const directories = new Set();
 
     for (const start of startingDirectories ?? []) {
         if (!isNonEmptyString(start)) {
@@ -147,14 +146,9 @@ export function collectUniqueAncestorDirectories(
         for (const directory of walkAncestorDirectories(start, {
             includeSelf
         })) {
-            if (seen.has(directory)) {
-                continue;
-            }
-
-            seen.add(directory);
-            result.push(directory);
+            directories.add(directory);
         }
     }
 
-    return result;
+    return Array.from(directories);
 }

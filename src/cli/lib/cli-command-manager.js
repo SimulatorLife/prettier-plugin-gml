@@ -2,6 +2,14 @@ import { CliUsageError, handleCliError } from "./cli-errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 
 /**
+ * The earlier CLI command "manager" mixed registration APIs with the runner
+ * surface. That broad contract forced consumers to depend on both concerns at
+ * once even if they only needed to register commands. To honour the Interface
+ * Segregation Principle we now expose narrower registry and runner views that
+ * sit on top of a shared coordinator.
+ */
+
+/**
  * @typedef {{
  *   command: import("commander").Command,
  *   run?: (context: { command: import("commander").Command }) =>
@@ -20,7 +28,6 @@ import { isCommanderErrorLike } from "./commander-error-utils.js";
  * @typedef {object} CliCommandRunner
  * @property {(argv: Array<string>) => Promise<void>} run
  */
-
 class CliCommandManager {
     /**
      * @param {{

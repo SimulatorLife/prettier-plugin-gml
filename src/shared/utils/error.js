@@ -1,10 +1,12 @@
+import { isNonEmptyString } from "./string.js";
+
 export function getErrorCode(error) {
     if (!error || typeof error !== "object") {
         return null;
     }
 
     const { code } = error;
-    if (typeof code !== "string" || code.length === 0) {
+    if (!isNonEmptyString(code)) {
         return null;
     }
 

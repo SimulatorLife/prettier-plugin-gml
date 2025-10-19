@@ -14,8 +14,7 @@ import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints,
     resolveManualRepoValue,
-    resolveManualCacheRoot,
-    createManualVerboseState
+    resolveManualCacheRoot
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
@@ -33,6 +32,7 @@ import {
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -137,29 +137,19 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
 }
 
 function resolveGenerateIdentifierOptions(command) {
-    const options = command.opts();
-    const isTty = process.stdout.isTTY === true;
-
-    const verbose = createManualVerboseState({
-        quiet: Boolean(options.quiet),
-        isTerminal: isTty
+    return resolveManualCommandOptions(command, {
+        defaults: {
+            outputPath: OUTPUT_DEFAULT,
+            cacheRoot: DEFAULT_CACHE_ROOT,
+            manualRepo: DEFAULT_MANUAL_REPO
+        },
+        mapExtras: ({ options }) => ({
+            vmEvalTimeoutMs:
+                options.vmEvalTimeoutMs === undefined
+                    ? getDefaultVmEvalTimeoutMs()
+                    : options.vmEvalTimeoutMs
+        })
     });
-
-    return {
-        ref: options.ref,
-        outputPath: options.output ?? OUTPUT_DEFAULT,
-        forceRefresh: Boolean(options.forceRefresh),
-        verbose,
-        vmEvalTimeoutMs:
-            options.vmEvalTimeoutMs === undefined
-                ? getDefaultVmEvalTimeoutMs()
-                : options.vmEvalTimeoutMs,
-        progressBarWidth:
-            options.progressBarWidth ?? getDefaultProgressBarWidth(),
-        cacheRoot: options.cacheRoot ?? DEFAULT_CACHE_ROOT,
-        manualRepo: options.manualRepo ?? DEFAULT_MANUAL_REPO,
-        usage: command.helpInformation()
-    };
 }
 
 function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {

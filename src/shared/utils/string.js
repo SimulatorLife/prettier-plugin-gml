@@ -100,23 +100,26 @@ export function normalizeStringList(
         return [];
     }
 
-    let entries;
-
     if (Array.isArray(value)) {
-        entries = value;
-    } else if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
-        entries = pattern ? value.split(pattern) : [value];
-    } else {
-        if (allowInvalidType) {
-            return [];
-        }
-
-        throw new TypeError(errorMessage);
+        return collectUniqueTrimmedStrings(value);
     }
 
+    if (typeof value === "string") {
+        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const entries = pattern ? value.split(pattern) : [value];
+        return collectUniqueTrimmedStrings(entries);
+    }
+
+    if (allowInvalidType) {
+        return [];
+    }
+
+    throw new TypeError(errorMessage);
+}
+
+function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    const seen = new Set();
+    const seen = Object.create(null);
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -124,11 +127,11 @@ export function normalizeStringList(
         }
 
         const trimmed = entry.trim();
-        if (trimmed.length === 0 || seen.has(trimmed)) {
+        if (trimmed.length === 0 || Object.hasOwn(seen, trimmed)) {
             continue;
         }
 
-        seen.add(trimmed);
+        seen[trimmed] = true;
         normalized.push(trimmed);
     }
 

@@ -29,7 +29,7 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../options/option-utils.js";
+import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
@@ -54,7 +54,7 @@ import { maybeReportIdentifierCaseDryRun } from "../reporting/identifier-case-re
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/local-plan.js";
+} from "../identifier-case/plan-state.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
@@ -1630,6 +1630,8 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?._featherSuppressFollowingEmptyLine === true;
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
+            const forceFollowingEmptyLine =
+                node?._featherForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
@@ -1655,6 +1657,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 !sanitizedMacroHasExplicitBlankLine;
 
             if (shouldForceMacroPadding) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
