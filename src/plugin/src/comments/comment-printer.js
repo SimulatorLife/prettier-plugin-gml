@@ -12,7 +12,7 @@ import {
 } from "./line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 
-const { addDanglingComment } = util;
+const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
 
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
@@ -54,13 +54,28 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
     return false;
 }
 
+function handleHoistedDeclarationLeadingComment(comment) {
+    const target = comment?._featherHoistedTarget;
+
+    if (!target) {
+        return false;
+    }
+
+    addLeadingComment(target, comment);
+    delete comment._featherHoistedTarget;
+
+    return true;
+}
+
 const OWN_LINE_COMMENT_HANDLERS = [
+    handleHoistedDeclarationLeadingComment,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
     handleOnlyComments
 ];
 
 const COMMON_COMMENT_HANDLERS = [
+    handleHoistedDeclarationLeadingComment,
     handleOnlyComments,
     handleCommentAttachedToOpenBrace,
     handleCommentInEmptyParens
