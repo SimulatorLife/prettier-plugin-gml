@@ -37,7 +37,9 @@ test("preserves blank line between constructor header and first statement", asyn
 test("preserves blank line before constructor closing brace", async () => {
     const source = [
         "function Demo() constructor {",
-        "    self.value = 1;",
+        "    static helper = function() {",
+        "        return 1;",
+        "    };",
         "",
         "}",
         ""
