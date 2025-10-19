@@ -166,3 +166,19 @@ export function collectUniqueAncestorDirectories(
 
     return Array.from(directories);
 }
+
+/**
+ * Collect ancestor directories for the provided paths while preserving the
+ * CLI-facing helper API. Accepts multiple path arguments via a rest parameter
+ * and forwards them to {@link collectUniqueAncestorDirectories} so the shared
+ * path helpers expose a single source of truth.
+ *
+ * @param {...(string | null | undefined)} startingDirectories Candidate paths
+ *        whose ancestors should be aggregated.
+ * @returns {Array<string>} Ordered list of unique ancestor directories.
+ */
+export function collectAncestorDirectories(
+    ...startingDirectories
+) {
+    return collectUniqueAncestorDirectories(startingDirectories);
+}
