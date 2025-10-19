@@ -60,6 +60,6 @@ export function createManualCommandContext({
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName),
         manualClient,
         fetchManualFile: manualClient.fileFetcher.fetchManualFile,
-        resolveManualRef: manualClient.refResolver.resolveManualRef
+        resolveManualRef: manualClient.references.resolveManualRef
     };
 }
