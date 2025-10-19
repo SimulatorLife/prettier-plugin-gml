@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { throwIfAborted } from "../../../shared/abort-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { withObjectLike } from "../../../shared/object-utils.js";
+import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
@@ -11,7 +12,15 @@ import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
-export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE = 8 * 1024 * 1024; // 8 MiB
+export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
+    "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
+export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
+
+let configuredDefaultProjectIndexCacheMaxSize =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
 
 export const ProjectIndexCacheMissReason = Object.freeze({
     NOT_FOUND: "not-found",
@@ -36,8 +45,36 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return isObjectLike(record) && Object.keys(record).length > 0;
+    return withObjectLike(
+        record,
+        (object) => Object.keys(object).length > 0,
+        () => false
+    );
 }
+
+function getDefaultProjectIndexCacheMaxSize() {
+    return configuredDefaultProjectIndexCacheMaxSize;
+}
+
+function setDefaultProjectIndexCacheMaxSize(size) {
+    const normalized = normalizeMaxSizeBytes(size);
+
+    configuredDefaultProjectIndexCacheMaxSize =
+        normalized ?? PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+
+    return configuredDefaultProjectIndexCacheMaxSize;
+}
+
+function applyProjectIndexCacheEnvOverride(env = process?.env) {
+    const rawValue = env?.[PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR];
+    if (rawValue === undefined) {
+        return;
+    }
+
+    setDefaultProjectIndexCacheMaxSize(rawValue);
+}
+
+applyProjectIndexCacheEnvOverride();
 
 function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
@@ -64,14 +101,22 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (!isObjectLike(source)) {
-        return {};
-    }
+    return withObjectLike(
+        source,
+        (record) => {
+            const normalized = {};
 
-    return Object.fromEntries(
-        Object.entries(source)
-            .map(([key, value]) => [key, Number(value)])
-            .filter(([, numeric]) => Number.isFinite(numeric))
+            for (const [key, value] of Object.entries(record)) {
+                const numericValue = Number(value);
+
+                if (isFiniteNumber(numericValue)) {
+                    normalized[key] = numericValue;
+                }
+            }
+
+            return normalized;
+        },
+        () => ({})
     );
 }
 
@@ -165,6 +210,12 @@ function validateCachePayload(payload) {
 
     return true;
 }
+
+export {
+    getDefaultProjectIndexCacheMaxSize,
+    setDefaultProjectIndexCacheMaxSize,
+    applyProjectIndexCacheEnvOverride
+};
 
 export async function loadProjectIndexCache(
     descriptor,
@@ -305,7 +356,7 @@ export async function saveProjectIndexCache(
         sourceMtimes = {},
         projectIndex,
         metricsSummary,
-        maxSizeBytes = DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE
+        maxSizeBytes = getDefaultProjectIndexCacheMaxSize()
     } = descriptor ?? {};
 
     if (!projectRoot) {

@@ -77,6 +77,20 @@ export function resolveContainedRelativePath(childPath, parentPath) {
 }
 
 /**
+ * Determine whether the candidate child path resides within the provided
+ * parent directory. Mirrors the guard semantics of
+ * {@link resolveContainedRelativePath} so callers can forward optional inputs
+ * without normalizing them first.
+ *
+ * @param {string | null | undefined} childPath Candidate descendant path.
+ * @param {string | null | undefined} parentPath Candidate ancestor directory.
+ * @returns {boolean} `true` when the child is contained within the parent.
+ */
+export function isPathInside(childPath, parentPath) {
+    return resolveContainedRelativePath(childPath, parentPath) !== null;
+}
+
+/**
  * Yield each ancestor directory for the provided start path, beginning with
  * the resolved start directory and walking toward the file system root.
  *

@@ -12,10 +12,10 @@ test("GML plugin components expose validated defaults", () => {
     assert.strictEqual(
         resolved,
         gmlPluginComponents,
-        "resolver should return the shared component registry"
+        "resolver should return the shared component bundle"
     );
 
-    assert.ok(Object.isFrozen(resolved), "component registry should be frozen");
+    assert.ok(Object.isFrozen(resolved), "component bundle should be frozen");
     assert.ok(
         Object.isFrozen(resolved.parsers),
         "parsers map should be frozen"

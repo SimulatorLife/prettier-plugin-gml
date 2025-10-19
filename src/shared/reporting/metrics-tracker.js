@@ -1,4 +1,5 @@
 import { getNonEmptyString } from "../string-utils.js";
+import { getOrCreateMapEntry } from "../object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -40,12 +41,9 @@ export function createMetricsTracker({
 
     function ensureCacheStats(cacheName) {
         const normalized = normalizeLabel(cacheName);
-        let cacheStats = caches.get(normalized);
-        if (!cacheStats) {
-            cacheStats = new Map(DEFAULT_CACHE_KEYS.map((key) => [key, 0]));
-            caches.set(normalized, cacheStats);
-        }
-        return cacheStats;
+        return getOrCreateMapEntry(caches, normalized, () =>
+            new Map(DEFAULT_CACHE_KEYS.map((key) => [key, 0]))
+        );
     }
 
     function recordTiming(label, durationMs) {
