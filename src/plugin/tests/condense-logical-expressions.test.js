@@ -140,3 +140,38 @@ test("retains original multi-branch descriptions when condensing", async () => {
         "Expected multi-branch doc descriptions to remain unchanged after condensing."
     );
 });
+
+test("preserves distinct functions that condense to the same expression", async () => {
+    const source = [
+        "function first(condition) {",
+        "    if (condition) {",
+        "        return true;",
+        "    }",
+        "    return false;",
+        "}",
+        "",
+        "function second(condition) {",
+        "    if (condition) {",
+        "        return true;",
+        "    }",
+        "    return false;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.match(
+        formatted,
+        /function first\(condition\) {\s+return condition;\s+}/,
+        "Expected the first condensed function to remain in the output."
+    );
+
+    assert.match(
+        formatted,
+        /function second\(condition\) {\s+return condition;\s+}/,
+        "Expected the second condensed function to remain in the output."
+    );
+});

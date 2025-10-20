@@ -3739,7 +3739,8 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+        const { sourceText, metadata } =
+            preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,
