@@ -61,6 +61,29 @@ export function isNonEmptyArray(value) {
 }
 
 /**
+ * Checks whether {@link index} can be safely used to read from {@link container}
+ * without tripping over non-array parents or non-numeric indices. Centralizes
+ * the guard so array-manipulating helpers can exit early before attempting to
+ * splice or access unknown structures.
+ *
+ * @param {unknown} container Potential array owner of {@link index}.
+ * @param {unknown} index Candidate index pointing into {@link container}.
+ * @returns {index is number} `true` when {@link container} is an array and the
+ *                            index is a numeric offset.
+ */
+export function isArrayIndex(container, index) {
+    if (!Array.isArray(container)) {
+        return false;
+    }
+
+    if (typeof index !== "number") {
+        return false;
+    }
+
+    return Number.isInteger(index);
+}
+
+/**
  * Create shallow clones of object-like entries in an array.
  *
  * This helper centralizes the "map and spread" pattern used throughout the
