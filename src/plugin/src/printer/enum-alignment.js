@@ -63,8 +63,14 @@ function getEnumInitializerWidth(initializer) {
     }
 
     if (typeof initializer === "object") {
-        const text = String(initializer.value ?? "").trim();
-        return text.length;
+        const rawText =
+            typeof initializer._enumInitializerText === "string"
+                ? initializer._enumInitializerText
+                : (initializer.value ?? "");
+        if (typeof rawText === "number") {
+            return String(rawText).trim().length;
+        }
+        return String(rawText ?? "").trim().length;
     }
 
     return String(initializer).trim().length;

@@ -2496,7 +2496,7 @@ function hasInvalidEnumInitializer(initializer) {
             }
         }
 
-        return true;
+        return false;
     }
 
     return true;
