@@ -30,7 +30,7 @@ function resolveOutputPath(repoRoot, fileName) {
 /**
  * Normalize shared defaults used by manual-powered CLI commands.
  *
- * Centralises bootstrap logic so each command can focus on its own behaviour
+ * Centralizes bootstrap logic so each command can focus on its own behavior
  * while reusing consistent repository discovery, cache directories, and manual
  * client wiring.
  */
