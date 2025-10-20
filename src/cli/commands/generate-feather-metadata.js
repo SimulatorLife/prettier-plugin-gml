@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import { parseHTML } from "linkedom";
 
@@ -19,7 +18,7 @@ import {
     getDefaultProgressBarWidth,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
-import { ensureDir } from "../lib/file-system.js";
+import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
@@ -1157,14 +1156,13 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
             sections
         });
 
-        await ensureDir(path.dirname(outputPath));
-        await fs.writeFile(
+        await writeManualJsonArtifact({
             outputPath,
-            `${JSON.stringify(payload, undefined, 2)}\n`,
-            "utf8"
-        );
-
-        console.log(`Wrote Feather metadata to ${outputPath}`);
+            payload,
+            onAfterWrite: () => {
+                console.log(`Wrote Feather metadata to ${outputPath}`);
+            }
+        });
         logCompletion();
         return 0;
     } finally {

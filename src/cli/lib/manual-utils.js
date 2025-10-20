@@ -6,10 +6,10 @@ import {
     parseJsonWithContext,
     toTrimmedString
 } from "./shared-deps.js";
-import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
 import { isNonEmptyArray } from "../../shared/array-utils.js";
+import { writeManualFile } from "./manual-file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -394,16 +394,22 @@ function createManualGitHubFileClient({
         const url = `${rawRoot}/${sha}/${filePath}`;
         const content = await request(url);
 
-        await ensureDir(path.dirname(cachePath));
-        await fs.writeFile(cachePath, content, "utf8");
+        await writeManualFile({
+            outputPath: cachePath,
+            contents: content,
+            encoding: "utf8",
+            onAfterWrite: () => {
+                if (!shouldLogDetails) {
+                    return;
+                }
 
-        if (shouldLogDetails) {
-            console.log(
-                `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
-                    startTime
-                )})`
-            );
-        }
+                console.log(
+                    `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
+                        startTime
+                    )})`
+                );
+            }
+        });
 
         return content;
     }
