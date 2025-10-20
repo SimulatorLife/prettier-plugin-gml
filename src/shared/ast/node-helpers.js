@@ -366,6 +366,22 @@ function isNode(value) {
     return value != undefined && typeof value === "object";
 }
 
+function unwrapParenthesizedExpression(node) {
+    let current = node;
+
+    while (isNode(current) && current.type === "ParenthesizedExpression") {
+        const { expression } = current;
+
+        if (!isNode(expression)) {
+            break;
+        }
+
+        current = expression;
+    }
+
+    return current;
+}
+
 export {
     getSingleVariableDeclarator,
     getVariableDeclarationKind,
@@ -384,6 +400,7 @@ export {
     isBooleanLiteral,
     isUndefinedLiteral,
     isNode,
+    unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration
 };

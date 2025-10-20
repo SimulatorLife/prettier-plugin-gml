@@ -16,7 +16,8 @@ import {
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
-    isNode
+    isNode,
+    unwrapParenthesizedExpression
 } from "../../../shared/ast-node-helpers.js";
 import {
     getNonEmptyString,
@@ -8605,16 +8606,6 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     return { fix: fixDetail, mutatedParent: false };
 }
 
-function unwrapParenthesizedExpression(node) {
-    let current = node;
-
-    while (current && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-
-    return current;
-}
-
 function extractUndefinedComparisonIdentifier(expression) {
     if (!expression || expression.type !== "BinaryExpression") {
         return null;
@@ -11631,14 +11622,28 @@ function createVertexBeginCall({
     }
 
     if (callExpression.arguments.length === 1) {
-        const fallbackArgument = createIdentifier("format");
+        const fallbackArgument =
+            createIdentifier("format", referenceCall?.object) ||
+            createIdentifier("format");
 
         if (fallbackArgument) {
             callExpression.arguments.push(fallbackArgument);
         }
     }
 
-    assignClonedLocation(callExpression, referenceCall);
+    if (template) {
+        if (hasOwn(template, "start")) {
+            callExpression.start = cloneLocation(template.start);
+        }
+
+        if (hasOwn(template, "end")) {
+            callExpression.end = cloneLocation(template.end);
+        }
+    }
+
+    if (!hasOwn(callExpression, "start") || !hasOwn(callExpression, "end")) {
+        assignClonedLocation(callExpression, referenceCall);
+    }
 
     return callExpression;
 }
@@ -11698,7 +11703,6 @@ function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
         return null;
     }
 }
-
 function ensureLocalVariablesAreDeclaredBeforeUse({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -12872,21 +12876,29 @@ function cloneNodeWithoutLocations(node) {
         return node;
     }
 
-    if (Array.isArray(node)) {
-        return node.map((item) => cloneNodeWithoutLocations(item));
-    }
-
-    const clone = {};
-
-    for (const [key, value] of Object.entries(node)) {
-        if (key === "start" || key === "end") {
-            continue;
-        }
-
-        clone[key] = cloneNodeWithoutLocations(value);
-    }
-
+    const clone = structuredClone(node);
+    removeLocationMetadata(clone);
     return clone;
+}
+
+function removeLocationMetadata(value) {
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            removeLocationMetadata(entry);
+        }
+        return;
+    }
+
+    delete value.start;
+    delete value.end;
+
+    for (const nestedValue of Object.values(value)) {
+        removeLocationMetadata(nestedValue);
+    }
 }
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {

@@ -1,11 +1,3 @@
-/**
- * Coerce a nullable or singular value into an array so downstream code can
- * iterate without sprinkling `== null` checks.
- *
- * @template T
- * @param {T | Array<T> | null | undefined} value
- * @returns {Array<T>} Normalized array representation of the provided value.
- */
 // Reuse a frozen empty array to avoid allocating a new array on every call to
 // `asArray`. The array is frozen so accidental mutations surface loudly during
 // development instead of leaking shared state across callers.
@@ -27,6 +19,14 @@ export function toArrayFromIterable(values) {
     return [];
 }
 
+/**
+ * Coerce a nullable or singular value into an array so downstream code can
+ * iterate without sprinkling `== null` checks.
+ *
+ * @template T
+ * @param {T | Array<T> | null | undefined} value
+ * @returns {Array<T>} Normalized array representation of the provided value.
+ */
 export function toArray(value) {
     if (value == null) {
         return [];

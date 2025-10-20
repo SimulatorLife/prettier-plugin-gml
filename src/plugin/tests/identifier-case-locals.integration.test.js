@@ -12,7 +12,7 @@ import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
 } from "../src/identifier-case/identifier-case-context.js";
-import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
+import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));

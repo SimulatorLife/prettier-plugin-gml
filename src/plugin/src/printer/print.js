@@ -55,7 +55,7 @@ import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-c
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/plan-state.js";
+} from "../identifier-case/plan-service.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
@@ -1783,6 +1783,15 @@ export function applyAssignmentAlignment(statements, options) {
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
 
+    const originalText =
+        typeof options?.originalText === "string" ? options.originalText : null;
+    const locStart =
+        typeof options?.locStart === "function" ? options.locStart : null;
+    const locEnd =
+        typeof options?.locEnd === "function" ? options.locEnd : null;
+
+    let previousSimpleAssignment = null;
+
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
@@ -1816,13 +1825,30 @@ export function applyAssignmentAlignment(statements, options) {
 
     for (const statement of statements) {
         if (isSimpleAssignment(statement)) {
+            if (
+                previousSimpleAssignment &&
+                shouldBreakAssignmentAlignment(
+                    previousSimpleAssignment,
+                    statement,
+                    originalText,
+                    locStart,
+                    locEnd
+                )
+            ) {
+                flushGroup();
+                previousSimpleAssignment = null;
+            }
+
             const nameLength = statement.left.name.length;
             currentGroup.push({ node: statement, nameLength });
             if (nameLength > currentGroupMaxLength) {
                 currentGroupMaxLength = nameLength;
             }
+
+            previousSimpleAssignment = statement;
         } else {
             flushGroup();
+            previousSimpleAssignment = null;
         }
     }
 
@@ -1848,6 +1874,91 @@ function isSimpleAssignment(node) {
         node.left.type === "Identifier" &&
         typeof node.left.name === "string"
     );
+}
+
+function shouldBreakAssignmentAlignment(
+    previousNode,
+    nextNode,
+    originalText,
+    locStart,
+    locEnd
+) {
+    if (
+        !originalText ||
+        typeof originalText !== "string" ||
+        !previousNode ||
+        !nextNode
+    ) {
+        return false;
+    }
+
+    const previousEnd = getNodeEndIndexForAlignment(previousNode, locEnd);
+    const nextStart = getNodeStartIndexForAlignment(nextNode, locStart);
+
+    if (
+        !Number.isInteger(previousEnd) ||
+        !Number.isInteger(nextStart) ||
+        previousEnd >= nextStart
+    ) {
+        return false;
+    }
+
+    const between = originalText.slice(previousEnd + 1, nextStart);
+
+    if (/\n[^\S\r\n]*\n/.test(between)) {
+        return true;
+    }
+
+    return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
+}
+
+function getNodeStartIndexForAlignment(node, locStart) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locStart === "function") {
+        const resolved = locStart(node);
+        if (Number.isInteger(resolved)) {
+            return resolved;
+        }
+    }
+
+    const startProp = node.start;
+    if (typeof startProp === "number") {
+        return startProp;
+    }
+
+    if (startProp && typeof startProp.index === "number") {
+        return startProp.index;
+    }
+
+    return null;
+}
+
+function getNodeEndIndexForAlignment(node, locEnd) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locEnd === "function") {
+        const resolved = locEnd(node);
+        if (Number.isInteger(resolved)) {
+            return resolved - 1;
+        }
+    }
+
+    const endProp = node.end;
+    if (typeof endProp === "number") {
+        return endProp;
+    }
+
+    if (endProp && typeof endProp.index === "number") {
+        return endProp.index;
+    }
+
+    const startIndex = getNodeStartIndexForAlignment(node, null);
+    return Number.isInteger(startIndex) ? startIndex : null;
 }
 
 function getSyntheticDocCommentForStaticVariable(node, options) {

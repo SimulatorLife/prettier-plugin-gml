@@ -70,4 +70,57 @@ describe("applyAssignmentAlignment", () => {
             "All assignments should receive padding even if the backing array mutates."
         );
     });
+
+    it("resets alignment groups across blank lines and leading comments", () => {
+        const source = [
+            "short = 1;",
+            "",
+            "// keep these separate",
+            "longIdentifier = 2;",
+            "third = 3;"
+        ].join("\n");
+
+        function createAssignment(name) {
+            const statementText =
+                name === "short"
+                    ? "short = 1;"
+                    : name === "longIdentifier"
+                      ? "longIdentifier = 2;"
+                      : "third = 3;";
+            const start = source.indexOf(statementText);
+            const end = start + statementText.length - 1;
+            let padding = -1;
+            return {
+                type: "AssignmentExpression",
+                operator: "=",
+                left: { type: "Identifier", name },
+                right: { type: "Literal", value: 0 },
+                start,
+                end,
+                get _alignAssignmentPadding() {
+                    return padding;
+                },
+                set _alignAssignmentPadding(value) {
+                    padding = value;
+                }
+            };
+        }
+
+        const statements = [
+            createAssignment("short"),
+            createAssignment("longIdentifier"),
+            createAssignment("third")
+        ];
+
+        applyAssignmentAlignment(statements, {
+            alignAssignmentsMinGroupSize: 2,
+            originalText: source
+        });
+
+        assert.deepStrictEqual(
+            statements.map((node) => node._alignAssignmentPadding),
+            [0, 0, "longIdentifier".length - "third".length],
+            "Assignments separated by comments should not align with following groups."
+        );
+    });
 });

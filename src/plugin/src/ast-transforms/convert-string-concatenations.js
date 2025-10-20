@@ -2,6 +2,7 @@ import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers
 } from "../comments/index.js";
+import { unwrapParenthesizedExpression } from "../../../shared/ast-node-helpers.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -193,7 +194,7 @@ function buildTemplateAtoms(parts) {
             return null;
         }
 
-        const core = unwrapParentheses(part);
+        const core = unwrapParenthesizedExpression(part);
         if (!core || typeof core !== "object") {
             return null;
         }
@@ -290,28 +291,14 @@ function isSafeInterpolatedExpression(node) {
             return true;
         }
         case PARENTHESIZED_EXPRESSION: {
-            return isSafeInterpolatedExpression(node.expression);
+            return isSafeInterpolatedExpression(
+                unwrapParenthesizedExpression(node)
+            );
         }
         default: {
             return false;
         }
     }
-}
-
-function unwrapParentheses(node) {
-    let current = node;
-
-    while (
-        current &&
-        typeof current === "object" &&
-        current.type === PARENTHESIZED_EXPRESSION &&
-        current.expression &&
-        typeof current.expression === "object"
-    ) {
-        current = current.expression;
-    }
-
-    return current;
 }
 
 function isStringLiteral(node) {

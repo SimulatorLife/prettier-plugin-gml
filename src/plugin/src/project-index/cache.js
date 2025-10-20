@@ -2,7 +2,6 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { withObjectLike } from "../../../shared/object-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
 import {
@@ -49,10 +48,10 @@ function createCacheMiss(cacheFilePath, type, details) {
 }
 
 function hasEntries(record) {
-    return withObjectLike(
-        record,
-        (object) => Object.keys(object).length > 0,
-        () => false
+    return (
+        typeof record === "object" &&
+        record !== null &&
+        Object.keys(record).length > 0
     );
 }
 
@@ -104,23 +103,21 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    return withObjectLike(
-        source,
-        (record) => {
-            const normalized = {};
+    if (typeof source !== "object" || source === null) {
+        return {};
+    }
 
-            for (const [key, value] of Object.entries(record)) {
-                const numericValue = Number(value);
+    const normalized = {};
 
-                if (isFiniteNumber(numericValue)) {
-                    normalized[key] = numericValue;
-                }
-            }
+    for (const [key, value] of Object.entries(source)) {
+        const numericValue = Number(value);
 
-            return normalized;
-        },
-        () => ({})
-    );
+        if (isFiniteNumber(numericValue)) {
+            normalized[key] = numericValue;
+        }
+    }
+
+    return normalized;
 }
 
 function areNumbersApproximatelyEqual(a, b) {

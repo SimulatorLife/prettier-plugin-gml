@@ -39,6 +39,9 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getIterableSize } from "../../../shared/utils/capability-probes.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { createIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
+
+const identifierCaseAssetRenamePolicy = createIdentifierCaseAssetRenamePolicy();
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
     if (!scopeRecord || typeof scopeRecord !== "object") {
@@ -143,23 +146,14 @@ function applyAssetRenamesIfEligible({
     assetConflicts,
     metrics
 }) {
-    if (options.__identifierCaseDryRun !== false) {
-        return;
-    }
+    const evaluation = identifierCaseAssetRenamePolicy.evaluate({
+        options,
+        projectIndex,
+        assetRenames,
+        assetConflicts
+    });
 
-    if (assetRenames.length === 0) {
-        return;
-    }
-
-    if ((assetConflicts ?? []).length > 0) {
-        return;
-    }
-
-    if (!projectIndex) {
-        return;
-    }
-
-    if (options.__identifierCaseAssetRenamesApplied === true) {
+    if (!evaluation.shouldApply) {
         return;
     }
 
@@ -170,7 +164,7 @@ function applyAssetRenamesIfEligible({
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
         projectIndex,
-        renames: assetRenames,
+        renames: evaluation.renames,
         fsFacade,
         logger
     });

@@ -6,7 +6,8 @@ import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,
     isUndefinedLiteral as sharedIsUndefinedLiteral,
-    getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry
+    getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
+    unwrapParenthesizedExpression
 } from "../../../shared/ast-node-helpers.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 
@@ -681,31 +682,25 @@ function extractAssignmentFromStatement(statement, helpers) {
  * @returns {ArgumentCountGuardResult | null}
  */
 function parseArgumentCountGuard(node) {
-    if (!node) {
+    const guard = unwrapParenthesizedExpression(node);
+
+    if (!guard || guard.type !== "BinaryExpression") {
         return null;
     }
 
-    if (node.type === "ParenthesizedExpression") {
-        return parseArgumentCountGuard(node.expression);
-    }
-
-    if (node.type !== "BinaryExpression") {
-        return null;
-    }
-
-    const left = node.left;
+    const left = guard.left;
     if (!left || left.type !== "Identifier" || left.name !== "argument_count") {
         return null;
     }
 
-    const rightIndex = parseArgumentIndexValue(node.right);
+    const rightIndex = parseArgumentIndexValue(guard.right);
     if (rightIndex === null) {
         return null;
     }
 
     let argumentIndex = rightIndex;
 
-    switch (node.operator) {
+    switch (guard.operator) {
         case ">=":
         case "<": {
             argumentIndex -= 1;
@@ -734,38 +729,43 @@ function parseArgumentCountGuard(node) {
  * @returns {number | null}
  */
 function parseArgumentIndexValue(node) {
-    if (!node) {
+    const expression = unwrapParenthesizedExpression(node);
+
+    if (!expression) {
         return null;
     }
 
-    if (node.type === "ParenthesizedExpression") {
-        return parseArgumentIndexValue(node.expression);
-    }
-
-    if (node.type === "UnaryExpression") {
-        if (node.operator !== "+" && node.operator !== "-") {
+    if (expression.type === "UnaryExpression") {
+        if (expression.operator !== "+" && expression.operator !== "-") {
             return null;
         }
 
-        const argumentValue = parseArgumentIndexValue(node.argument);
+        const argumentValue = parseArgumentIndexValue(expression.argument);
 
         if (argumentValue === null) {
             return null;
         }
 
-        return node.operator === "-" ? -argumentValue : argumentValue;
+        return expression.operator === "-" ? -argumentValue : argumentValue;
     }
 
-    if (node.type === "Literal") {
-        if (typeof node.value === "number" && Number.isInteger(node.value)) {
-            return node.value;
+    if (expression.type === "Literal") {
+        if (
+            typeof expression.value === "number" &&
+            Number.isInteger(expression.value)
+        ) {
+            return expression.value;
         }
 
-        if (typeof node.value === "string") {
-            const numeric = Number.parseInt(node.value, 10);
-            if (!Number.isNaN(numeric)) {
-                return numeric;
-            }
+        if (expression.prefix === true || expression.raw?.startsWith("0x")) {
+            return null;
+        }
+
+        if (
+            typeof expression.value === "string" &&
+            /^-?\d+$/.test(expression.value)
+        ) {
+            return Number.parseInt(expression.value, 10);
         }
     }
 
