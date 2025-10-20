@@ -1,6 +1,6 @@
 import { toArrayFromIterable } from "../../../shared/array-utils.js";
+import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isErrorWithCode } from "../../../shared/error-utils.js";
-import { createAbortGuard } from "./abort-guard.js";
 
 /**
  * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown
