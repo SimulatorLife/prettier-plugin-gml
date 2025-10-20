@@ -424,6 +424,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
+| `gmlLineCommentBannerLength` | `60` | Normalizes banner comments to a consistent slash width; set to `0` to keep the original run length. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
@@ -439,7 +440,7 @@ Line comments automatically drop YoYo Games' generated banner message (`Script a
 
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
-Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
+Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes by default so mixed-width comment markers settle on a single, readable standard. Adjust the width via `gmlLineCommentBannerLength` when teams prefer narrower or wider banners, or set it to `0` to preserve the source slash count.
 
 #### Identifier-case rollout
 

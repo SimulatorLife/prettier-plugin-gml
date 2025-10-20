@@ -194,10 +194,12 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
+            const bannerLength =
+                typeof lineCommentOptions.bannerLength === "number"
+                    ? lineCommentOptions.bannerLength
+                    : LINE_COMMENT_BANNER_STANDARD_LENGTH;
             const normalizedSlashRun =
-                LINE_COMMENT_BANNER_STANDARD_LENGTH <= 0
-                    ? slashRun
-                    : "".padStart(LINE_COMMENT_BANNER_STANDARD_LENGTH, "/");
+                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
             const normalizedBanner =
                 `${normalizedSlashRun}${remainder}`.trimEnd();
 

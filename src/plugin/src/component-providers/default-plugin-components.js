@@ -2,6 +2,10 @@ import { gmlParserAdapter } from "../parsers/gml-parser-adapter.js";
 import { print } from "../printer/print.js";
 import { handleComments, printComment } from "../comments/comment-printer.js";
 import { identifierCaseOptions } from "../options/identifier-case.js";
+import {
+    LINE_COMMENT_BANNER_LENGTH_OPTION_NAME,
+    LINE_COMMENT_BANNER_STANDARD_LENGTH
+} from "../options/line-comment-options.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 
 export function createDefaultGmlPluginComponents() {
@@ -94,6 +98,15 @@ export function createDefaultGmlPluginComponents() {
                 default: true,
                 description:
                     "Preserve 'globalvar' declarations instead of eliding them during formatting."
+            },
+            [LINE_COMMENT_BANNER_LENGTH_OPTION_NAME]: {
+                since: "0.0.0",
+                type: "int",
+                category: "gml",
+                default: LINE_COMMENT_BANNER_STANDARD_LENGTH,
+                range: { start: 0, end: Infinity },
+                description:
+                    "Normalizes detected banner comments to a fixed slash width. Set to 0 to preserve the original banner length."
             },
             alignAssignmentsMinGroupSize: {
                 since: "0.0.0",
