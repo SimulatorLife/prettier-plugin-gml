@@ -2922,6 +2922,22 @@ function computeSyntheticFunctionDocLines(
         node,
         options
     );
+    const implicitDocEntryByIndex = new Map();
+
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) {
+            continue;
+        }
+
+        const { index } = entry;
+        if (!Number.isInteger(index) || index < 0) {
+            continue;
+        }
+
+        if (!implicitDocEntryByIndex.has(index)) {
+            implicitDocEntryByIndex.set(index, entry);
+        }
+    }
 
     if (!Array.isArray(node.params)) {
         for (const { name: docName } of implicitArgumentDocNames) {
@@ -2936,20 +2952,29 @@ function computeSyntheticFunctionDocLines(
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
     }
 
-    for (const param of node.params) {
+    for (const [paramIndex, param] of node.params.entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
-        const canonicalParamName = getCanonicalParamNameFromText(
-            paramInfo.name
-        );
+        const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        const implicitName =
+            implicitDocEntry && typeof implicitDocEntry.name === "string"
+                ? implicitDocEntry.name
+                : null;
+        const canonicalParamName = implicitDocEntry?.canonical
+            ? implicitDocEntry.canonical
+            : getCanonicalParamNameFromText(paramInfo.name);
         const existingMetadata =
             canonicalParamName &&
             paramMetadataByCanonical.has(canonicalParamName)
                 ? paramMetadataByCanonical.get(canonicalParamName)
                 : null;
         const existingDocName = existingMetadata?.name;
+        const baseDocName =
+            implicitName && implicitName.length > 0
+                ? implicitName
+                : paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
@@ -2961,9 +2986,7 @@ function computeSyntheticFunctionDocLines(
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName = shouldMarkOptional
-            ? `[${paramInfo.name}]`
-            : paramInfo.name;
+        const docName = shouldMarkOptional ? `[${baseDocName}]` : baseDocName;
 
         if (documentedParamNames.has(docName)) {
             continue;
@@ -2987,11 +3010,7 @@ function computeSyntheticFunctionDocLines(
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
-    if (
-        !functionNode ||
-        functionNode.type !== "FunctionDeclaration" ||
-        options?.applyFeatherFixes !== true
-    ) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
         return [];
     }
 

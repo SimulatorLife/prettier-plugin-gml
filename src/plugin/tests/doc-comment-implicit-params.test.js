@@ -105,3 +105,41 @@ test("collectImplicitArgumentDocNames omits superseded argument docs", async () 
         "Expected direct argument doc entry to be preserved when referenced."
     );
 });
+
+const NO_FEATHER_SOURCE = `/// @function sampleAlias
+/// @param second
+function sampleAlias(argument0, argument1) {
+    var first = argument0;
+    var second = argument1;
+}
+`;
+
+test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes", async () => {
+    const formatted = await prettier.format(NO_FEATHER_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: false
+    });
+
+    const docStart = formatted.indexOf("/// @function sampleAlias");
+    let docEnd = formatted.indexOf("\nfunction sampleAlias", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function sampleAlias", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = formatted
+        .slice(docStart, docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(paramLines, [
+        "/// @param first",
+        "/// @param second"
+    ]);
+});
