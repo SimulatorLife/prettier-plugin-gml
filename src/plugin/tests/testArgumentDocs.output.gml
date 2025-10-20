@@ -44,3 +44,35 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
         ynet = yy;
     }
 }
+
+/// @function scr_create_fx
+/// @param sprite
+/// @param {real} fx_x
+/// @param {real} fx_y
+/// @param {real} [fx_z=0]
+/// @param {function} [func_fx_callback] - A function to call after the animation has completed
+/// @param {constant.Colour} [colour=c_white]
+/// @description Create an effect
+/// @returns {Id.Instance} instance
+function scr_create_fx(sprite, fx_x, fx_y, fx_z = 0, func_fx_callback = undefined, colour = c_white) {
+    gml_pragma("forceinline");
+
+    if (!RELEASE) {
+        if (!sprite_exists(sprite)) {
+            throw "ERROR scr_create_fx: Sprite is required";
+        }
+    }
+
+    return instance_create_layer(
+        fx_x,
+        fx_y,
+        "instances",
+        obj_fx,
+        {
+            z             : fx_z,
+            sprite_index  : sprite,
+            func_callback : func_fx_callback,
+            image_blend   : colour
+        }
+    );
+}

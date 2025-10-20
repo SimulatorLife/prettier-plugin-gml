@@ -55,3 +55,31 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 
 
 }
+
+
+/// @function scr_create_fx
+/// @param sprite_index
+/// @param {real} fx_x
+/// @param {real} fx_y
+/// @param {real} [fx_z=0]
+/// @param {Constant.Colour} [colour=c_white]
+/// @param {function} [func_fx_callback] - A function to call after the animation has completed
+/// @description Create an effect
+/// @returns {Id.Instance} instance
+function scr_create_fx(sprite, fx_x, fx_y, fx_z = 0, func_fx_callback = undefined, colour = c_white) {
+    gml_pragma("forceinline");
+
+    if (!RELEASE) {
+        if (!sprite_exists(sprite)) {
+            throw "ERROR scr_create_fx: Sprite is required";
+        }
+    }
+
+    return instance_create_layer(
+        fx_x,
+        fx_y,
+        $"instances",
+        obj_fx,
+        {z : fx_z, sprite_index : sprite, func_callback : func_fx_callback, image_blend :  colour}
+    );
+}
