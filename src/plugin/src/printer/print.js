@@ -2986,6 +2986,8 @@ function computeSyntheticFunctionDocLines(
     const metadata = Array.isArray(existingDocLines)
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
+    const hasExistingDocLines =
+        Array.isArray(existingDocLines) && existingDocLines.length > 0;
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -3018,6 +3020,7 @@ function computeSyntheticFunctionDocLines(
 
             const trimmedName = meta.name.trim();
             if (trimmedName.length > 0) {
+                documentedParamNames.add(trimmedName);
                 const canonical = getCanonicalParamNameFromText(trimmedName);
                 if (canonical && !paramMetadataByCanonical.has(canonical)) {
                     paramMetadataByCanonical.set(canonical, meta);
@@ -3065,6 +3068,54 @@ function computeSyntheticFunctionDocLines(
         node,
         options
     );
+    const implicitDocsAlreadyDocumented = implicitArgumentDocNames.every(
+        (entry) => {
+            if (!entry) {
+                return true;
+            }
+
+            const docName =
+                typeof entry.name === "string" ? entry.name.trim() : "";
+
+            if (docName.length === 0) {
+                return true;
+            }
+
+            if (documentedParamNames.has(docName)) {
+                return true;
+            }
+
+            if (documentedParamNames.has(entry.name)) {
+                return true;
+            }
+
+            const optionalName = `[${docName}]`;
+            if (documentedParamNames.has(optionalName)) {
+                return true;
+            }
+
+            return false;
+        }
+    );
+    const shouldAppendReturnsDoc =
+        overrides?.suppressReturns === true
+            ? false
+            : node?.type === "FunctionDeclaration" &&
+              !hasReturnsTag &&
+              node._suppressSyntheticReturnsDoc !== true &&
+              !functionReturnsNonUndefinedValue(node);
+
+    if (
+        hasExistingDocLines &&
+        hasCompleteMetadata &&
+        implicitDocsAlreadyDocumented &&
+        !shouldInsertFunctionTag &&
+        !shouldInsertOverrideTag &&
+        !shouldAppendReturnsDoc
+    ) {
+        return [];
+    }
+
     const implicitDocEntryByIndex = new Map();
 
     for (const entry of implicitArgumentDocNames) {
