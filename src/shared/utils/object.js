@@ -1,5 +1,3 @@
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -157,7 +155,7 @@ export function coalesceOption(
  * @returns {boolean} `true` when the property exists directly on `object`.
  */
 export function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
+    return Object.hasOwn(object, key);
 }
 
 /**
