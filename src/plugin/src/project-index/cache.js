@@ -10,8 +10,8 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
+import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
-import { createAbortGuard } from "./abort-guard.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
