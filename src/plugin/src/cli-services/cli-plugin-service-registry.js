@@ -1,3 +1,4 @@
+import { assertPlainObject } from "../../../shared/object-utils.js";
 import { createDefaultCliPluginServiceImplementations } from "./providers/default-cli-plugin-services.js";
 
 /**
@@ -35,13 +36,9 @@ function assertServiceProviderFactory(candidate) {
 }
 
 function normalizeProjectIndexService(service) {
-    if (!service || typeof service !== "object") {
-        throw new TypeError(
-            "CLI project index service must be provided as an object"
-        );
-    }
-
-    const { buildProjectIndex } = service;
+    const { buildProjectIndex } = assertPlainObject(service, {
+        errorMessage: "CLI project index service must be provided as an object"
+    });
 
     if (typeof buildProjectIndex !== "function") {
         throw new TypeError(
@@ -53,13 +50,11 @@ function normalizeProjectIndexService(service) {
 }
 
 function normalizeIdentifierCasePlanService(service) {
-    if (!service || typeof service !== "object") {
-        throw new TypeError(
-            "CLI identifier case plan service must be provided as an object"
-        );
-    }
-
-    const { prepareIdentifierCasePlan, clearIdentifierCaseCaches } = service;
+    const { prepareIdentifierCasePlan, clearIdentifierCaseCaches } =
+        assertPlainObject(service, {
+            errorMessage:
+                "CLI identifier case plan service must be provided as an object"
+        });
 
     if (typeof prepareIdentifierCasePlan !== "function") {
         throw new TypeError(
@@ -84,17 +79,13 @@ function normalizeIdentifierCasePlanService(service) {
  * @returns {CliPluginServiceSuite}
  */
 function normalizeCliPluginServices(services) {
-    if (!services || typeof services !== "object") {
-        throw new TypeError(
-            "CLI plugin services must be provided as an object"
-        );
-    }
-
     const {
         buildProjectIndex,
         prepareIdentifierCasePlan,
         clearIdentifierCaseCaches
-    } = services;
+    } = assertPlainObject(services, {
+        errorMessage: "CLI plugin services must be provided as an object"
+    });
 
     if (typeof buildProjectIndex !== "function") {
         throw new TypeError(

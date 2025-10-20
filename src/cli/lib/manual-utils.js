@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+    assertPlainObject,
     assertNonEmptyString,
     parseJsonWithContext,
     toTrimmedString
@@ -92,19 +93,10 @@ function createManualVerboseState({
     return state;
 }
 
-function assertPlainObject(value, message) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-        throw new TypeError(message);
-    }
-
-    return value;
-}
-
 function validateManualCommitPayload(payload, { ref }) {
-    const payloadRecord = assertPlainObject(
-        payload,
-        `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
-    );
+    const payloadRecord = assertPlainObject(payload, {
+        errorMessage: `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
+    });
 
     const sha = assertNonEmptyString(payloadRecord.sha, {
         name: "Manual ref commit SHA",
@@ -115,10 +107,10 @@ function validateManualCommitPayload(payload, { ref }) {
 }
 
 function normalizeManualTagEntry(entry) {
-    const { name: rawName, commit } = assertPlainObject(
-        entry,
-        "Manual tags response must contain objects with tag metadata."
-    );
+    const { name: rawName, commit } = assertPlainObject(entry, {
+        errorMessage:
+            "Manual tags response must contain objects with tag metadata."
+    });
 
     const name = assertNonEmptyString(rawName, {
         name: "Manual tag entry name",
@@ -129,10 +121,9 @@ function normalizeManualTagEntry(entry) {
         return { name, sha: null };
     }
 
-    const { sha } = assertPlainObject(
-        commit,
-        "Manual tag entry commit must be an object when provided."
-    );
+    const { sha } = assertPlainObject(commit, {
+        errorMessage: "Manual tag entry commit must be an object when provided."
+    });
 
     if (sha == null) {
         return { name, sha: null };
