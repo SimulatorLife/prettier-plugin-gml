@@ -1,7 +1,7 @@
 import path from "node:path";
 import vm from "node:vm";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
 
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
@@ -30,6 +30,7 @@ import {
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
@@ -71,37 +72,19 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
         .option(
             "--vm-eval-timeout-ms <ms>",
             `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${getDefaultVmEvalTimeoutMs()}). Set to 0 to disable the timeout.`,
-            (value) => {
-                try {
-                    return resolveVmEvalTimeout(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveVmEvalTimeout),
             getDefaultVmEvalTimeoutMs()
         )
         .option(
             "--progress-bar-width <columns>",
             `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveProgressBarWidth),
             getDefaultProgressBarWidth()
         )
         .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
-            (value) => {
-                try {
-                    return resolveManualRepoValue(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveManualRepoValue),
             DEFAULT_MANUAL_REPO
         )
         .option(
