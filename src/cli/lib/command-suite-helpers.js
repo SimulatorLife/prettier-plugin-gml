@@ -36,18 +36,16 @@ export function resolveSuiteOutputFormatOrThrow(
         return normalized;
     }
 
-    const defaultMessage = `Format must be one of: ${formatSuiteOutputFormatList()}.`;
-    const hasCustomMessage = createErrorMessage !== undefined;
-    const messageSource =
-        typeof createErrorMessage === "function"
-            ? createErrorMessage(value)
-            : hasCustomMessage
-              ? createErrorMessage
-              : defaultMessage;
-    const message = String(messageSource ?? "");
-
     const ErrorConstructor =
         typeof errorConstructor === "function" ? errorConstructor : Error;
+    const customMessage =
+        typeof createErrorMessage === "function"
+            ? createErrorMessage(value)
+            : createErrorMessage;
+    const message =
+        customMessage == null
+            ? `Format must be one of: ${formatSuiteOutputFormatList()}.`
+            : String(customMessage);
 
     throw new ErrorConstructor(message);
 }
