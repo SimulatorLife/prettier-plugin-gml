@@ -313,9 +313,8 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     const sanitizedSourceText = sanitizedParts.join("");
-    const enumSanitizedSourceText = sanitizeEnumInitializerStrings(
-        sanitizedSourceText
-    );
+    const enumSanitizedSourceText =
+        sanitizeEnumInitializerStrings(sanitizedSourceText);
     const metadata = {};
 
     if (gm1100Metadata.length > 0) {
@@ -353,7 +352,10 @@ function sanitizeEnumInitializerStrings(sourceText) {
     let result = "";
 
     while ((match = enumPattern.exec(sourceText)) !== null) {
-        const openBraceIndex = findNextOpenBrace(sourceText, enumPattern.lastIndex);
+        const openBraceIndex = findNextOpenBrace(
+            sourceText,
+            enumPattern.lastIndex
+        );
         if (openBraceIndex === -1) {
             break;
         }
@@ -370,7 +372,7 @@ function sanitizeEnumInitializerStrings(sourceText) {
         result += sourceText.slice(lastIndex, openBraceIndex + 1);
 
         const body = sourceText.slice(openBraceIndex + 1, closeBraceIndex);
-        const sanitizedBody = body.replace(
+        const sanitizedBody = body.replaceAll(
             /(\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(["'])([^"']*)(\2)/g,
             (fullMatch, prefix, _quote, rawValue) => {
                 const normalizedValue = rawValue.trim();
@@ -401,7 +403,7 @@ function findNextOpenBrace(sourceText, startIndex) {
     for (let index = startIndex; index < length; index += 1) {
         const char = sourceText[index];
 
-        if (char === "\"" || char === "'") {
+        if (char === '"' || char === "'") {
             index = skipStringLiteral(sourceText, index);
             continue;
         }
@@ -409,7 +411,7 @@ function findNextOpenBrace(sourceText, startIndex) {
         if (
             char === "@" &&
             index + 1 < length &&
-            (sourceText[index + 1] === "\"" || sourceText[index + 1] === "'")
+            (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
         ) {
             index = skipStringLiteral(sourceText, index + 1);
             continue;
@@ -442,7 +444,7 @@ function findMatchingClosingBrace(sourceText, openBraceIndex) {
     for (let index = openBraceIndex; index < length; index += 1) {
         const char = sourceText[index];
 
-        if (char === "\"" || char === "'") {
+        if (char === '"' || char === "'") {
             index = skipStringLiteral(sourceText, index);
             continue;
         }
@@ -450,7 +452,7 @@ function findMatchingClosingBrace(sourceText, openBraceIndex) {
         if (
             char === "@" &&
             index + 1 < length &&
-            (sourceText[index + 1] === "\"" || sourceText[index + 1] === "'")
+            (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
         ) {
             index = skipStringLiteral(sourceText, index + 1);
             continue;

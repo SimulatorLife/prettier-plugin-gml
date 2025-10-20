@@ -147,6 +147,42 @@ function removeDuplicateCondensedFunctions(context) {
         return;
     }
 
+    function getCondensedFunctionName(node) {
+        if (!node || typeof node !== "object") {
+            return null;
+        }
+
+        const { type } = node;
+
+        if (
+            type === "FunctionDeclaration" ||
+            type === "FunctionExpression" ||
+            type === "ConstructorDeclaration" ||
+            type === "MethodDeclaration"
+        ) {
+            const identifier = node.id;
+            return typeof identifier?.name === "string"
+                ? identifier.name
+                : null;
+        }
+
+        if (type === "StructFunctionDeclaration") {
+            const key = node.key;
+            if (typeof key === "string") {
+                return key;
+            }
+            if (typeof key?.name === "string") {
+                return key.name;
+            }
+            if (typeof key?.value === "string") {
+                return key.value;
+            }
+            return null;
+        }
+
+        return null;
+    }
+
     const docCommentManager = context.docCommentManager;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
@@ -167,6 +203,18 @@ function removeDuplicateCondensedFunctions(context) {
 
     for (const functions of signatureToFunctions.values()) {
         if (functions.length < 2) {
+            continue;
+        }
+
+        const normalizedNames = functions.map((fn) => {
+            const name = getCondensedFunctionName(fn);
+            return typeof name === "string" && name.trim() ? name : null;
+        });
+
+        if (
+            normalizedNames.includes(null) ||
+            new Set(normalizedNames).size !== 1
+        ) {
             continue;
         }
 
