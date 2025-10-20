@@ -790,6 +790,98 @@ var shade = Colors.Green;
             );
         });
 
+        it("parses enum members initialized with property access expressions", () => {
+            const source = [
+                "enum State {",
+                "    idle = 0,",
+                "    active = 1",
+                "}",
+                "",
+                "enum Transition {",
+                "    start = State.idle,",
+                "    finish = State.active",
+                "}"
+            ].join("\n");
+
+            const ast = parseFixture(source);
+            assert.ok(ast, "Parser returned no AST when parsing enum source.");
+
+            const enumDeclarations = collectNodesByType(ast, "EnumDeclaration");
+            assert.strictEqual(
+                enumDeclarations.length,
+                2,
+                "Expected two enum declarations in the source."
+            );
+
+            const transitionEnum = enumDeclarations.find(
+                (entry) => entry.name?.name === "Transition"
+            );
+            assert.ok(
+                transitionEnum,
+                "Expected to find the Transition enum declaration."
+            );
+
+            const { members } = transitionEnum;
+            assert.ok(
+                Array.isArray(members) && members.length === 2,
+                "Expected Transition enum to contain two members."
+            );
+
+            const startMember = members.find(
+                (member) => member?.name?.name === "start"
+            );
+            assert.ok(
+                startMember,
+                "Expected a start member in Transition enum."
+            );
+            assert.ok(
+                startMember.initializer,
+                "Expected start member to include an initializer."
+            );
+            assert.strictEqual(
+                startMember.initializer.type,
+                "MemberDotExpression",
+                "Expected start initializer to be a member access expression."
+            );
+            assert.strictEqual(
+                startMember.initializer.object?.name,
+                "State",
+                "Expected start initializer to reference the State enum."
+            );
+            assert.strictEqual(
+                startMember.initializer.property?.name,
+                "idle",
+                "Expected start initializer to access the idle member."
+            );
+
+            const finishMember = members.find(
+                (member) => member?.name?.name === "finish"
+            );
+            assert.ok(
+                finishMember,
+                "Expected a finish member in Transition enum."
+            );
+            assert.ok(
+                finishMember.initializer,
+                "Expected finish member to include an initializer."
+            );
+            assert.strictEqual(
+                finishMember.initializer.type,
+                "MemberDotExpression",
+                "Expected finish initializer to be a member access expression."
+            );
+            assert.strictEqual(
+                finishMember.initializer.object?.name,
+                "State",
+                "Expected finish initializer to reference the State enum."
+            );
+            assert.strictEqual(
+                finishMember.initializer.property?.name,
+                "active",
+                "Expected finish initializer to access the active member."
+            );
+        });
+
         it("tracks struct member scopes independently from methods", () => {
             const source = `
 function Player() constructor {

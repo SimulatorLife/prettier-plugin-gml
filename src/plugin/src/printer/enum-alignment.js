@@ -1,5 +1,9 @@
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getCommentArray } from "../../../shared/comments.js";
+import {
+    getNodeEndIndex,
+    getNodeStartIndex
+} from "../../../shared/ast/locations.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
@@ -50,12 +54,12 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (typeof initializer === "string") {
-        return initializer.trim().length;
-    }
-
     if (initializer == undefined) {
         return 0;
+    }
+
+    if (typeof initializer === "string") {
+        return initializer.trim().length;
     }
 
     if (typeof initializer === "number") {
@@ -63,11 +67,46 @@ function getEnumInitializerWidth(initializer) {
     }
 
     if (typeof initializer === "object") {
-        const text = String(initializer.value ?? "").trim();
-        return text.length;
+        const locationWidth = getInitializerWidthFromLocation(initializer);
+        if (typeof locationWidth === "number") {
+            return locationWidth;
+        }
+
+        if (initializer.type === "Literal") {
+            const literalText = String(initializer.value ?? "").trim();
+            return literalText.length;
+        }
+
+        if (initializer.type === "Identifier") {
+            return typeof initializer.name === "string"
+                ? initializer.name.length
+                : 0;
+        }
+
+        const fallbackText = String(initializer.value ?? "").trim();
+        if (fallbackText.length > 0) {
+            return fallbackText.length;
+        }
+
+        return 0;
     }
 
     return String(initializer).trim().length;
+}
+
+function getInitializerWidthFromLocation(initializer) {
+    const startIndex = getNodeStartIndex(initializer);
+    const endIndex = getNodeEndIndex(initializer);
+
+    if (
+        typeof startIndex === "number" &&
+        typeof endIndex === "number" &&
+        endIndex >= startIndex
+    ) {
+        return endIndex - startIndex;
+    }
+
+    return null;
 }
 
 function collectTrailingEnumComments(member) {

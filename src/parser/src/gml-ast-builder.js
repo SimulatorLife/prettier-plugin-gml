@@ -1289,14 +1289,22 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#enumerator.
     visitEnumerator(ctx) {
         let initializer = null;
-        if (ctx.IntegerLiteral()) {
-            initializer = ctx.IntegerLiteral().getText();
+        if (typeof ctx.expression === "function") {
+            const expression = ctx.expression();
+            if (expression) {
+                initializer = this.visit(expression);
+            }
         }
-        if (ctx.HexIntegerLiteral()) {
-            initializer = ctx.HexIntegerLiteral().getText();
-        }
-        if (ctx.BinaryLiteral()) {
-            initializer = ctx.BinaryLiteral().getText();
+        if (initializer == null) {
+            if (ctx.IntegerLiteral()) {
+                initializer = ctx.IntegerLiteral().getText();
+            }
+            if (ctx.HexIntegerLiteral()) {
+                initializer = ctx.HexIntegerLiteral().getText();
+            }
+            if (ctx.BinaryLiteral()) {
+                initializer = ctx.BinaryLiteral().getText();
+            }
         }
         return this.astNode(ctx, {
             type: "EnumMember",

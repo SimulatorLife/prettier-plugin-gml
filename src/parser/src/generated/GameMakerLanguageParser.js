@@ -3317,30 +3317,23 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 
 
-	enumerator() {
-	    let localctx = new EnumeratorContext(this, this._ctx, this.state);
-	    this.enterRule(localctx, 124, GameMakerLanguageParser.RULE_enumerator);
-	    var _la = 0;
-	    try {
-	        this.enterOuterAlt(localctx, 1);
-	        this.state = 681;
-	        this.identifier();
-	        this.state = 684;
-	        this._errHandler.sync(this);
-	        _la = this._input.LA(1);
-	        if(_la===19) {
-	            this.state = 682;
-	            this.match(GameMakerLanguageParser.Assign);
-	            this.state = 683;
-	            _la = this._input.LA(1);
-	            if(!(((((_la - 66)) & ~0x1f) === 0 && ((1 << (_la - 66)) & 13) !== 0))) {
-	            this._errHandler.recoverInline(this);
-	            }
-	            else {
-	            	this._errHandler.reportMatch(this);
-	                this.consume();
-	            }
-	        }
+        enumerator() {
+            let localctx = new EnumeratorContext(this, this._ctx, this.state);
+            this.enterRule(localctx, 124, GameMakerLanguageParser.RULE_enumerator);
+            var _la = 0;
+            try {
+                this.enterOuterAlt(localctx, 1);
+                this.state = 681;
+                this.identifier();
+                this.state = 684;
+                this._errHandler.sync(this);
+                _la = this._input.LA(1);
+                if(_la===19) {
+                    this.state = 682;
+                    this.match(GameMakerLanguageParser.Assign);
+                    this.state = 683;
+                    this.expression(0);
+                }
 
 	    } catch (re) {
 	    	if(re instanceof antlr4.error.RecognitionException) {
@@ -8249,13 +8242,17 @@ class EnumeratorContext extends antlr4.ParserRuleContext {
 	    return this.getTypedRuleContext(IdentifierContext,0);
 	};
 
-	Assign() {
-	    return this.getToken(GameMakerLanguageParser.Assign, 0);
-	};
+        Assign() {
+            return this.getToken(GameMakerLanguageParser.Assign, 0);
+        };
 
-	IntegerLiteral() {
-	    return this.getToken(GameMakerLanguageParser.IntegerLiteral, 0);
-	};
+        expression() {
+            return this.getTypedRuleContext(ExpressionContext,0);
+        };
+
+        IntegerLiteral() {
+            return this.getToken(GameMakerLanguageParser.IntegerLiteral, 0);
+        };
 
 	HexIntegerLiteral() {
 	    return this.getToken(GameMakerLanguageParser.HexIntegerLiteral, 0);
