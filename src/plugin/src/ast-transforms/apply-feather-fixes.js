@@ -16,7 +16,8 @@ import {
     isBooleanLiteral,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
-    isNode
+    isNode,
+    unwrapParenthesizedExpression
 } from "../../../shared/ast-node-helpers.js";
 import {
     getNonEmptyString,
@@ -8602,16 +8603,6 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     attachFeatherFixMetadata(nullishAssignment, [fixDetail]);
 
     return { fix: fixDetail, mutatedParent: false };
-}
-
-function unwrapParenthesizedExpression(node) {
-    let current = node;
-
-    while (current && current.type === "ParenthesizedExpression") {
-        current = current.expression;
-    }
-
-    return current;
 }
 
 function extractUndefinedComparisonIdentifier(expression) {
