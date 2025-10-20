@@ -529,20 +529,33 @@ function applyScanOutcome(context, directory, scan) {
     return buildSuccessfulReadResult(context, directory);
 }
 
+function pushAvailabilityNote(notes, entries, { single, multiple }) {
+    const count = entries.length;
+
+    if (count === 0) {
+        return;
+    }
+
+    if (count === 1) {
+        notes.push(single(entries[0]));
+        return;
+    }
+
+    notes.push(multiple(entries));
+}
+
 function appendAvailabilityNotes(context) {
     const { missingDirs, emptyDirs, notes } = context;
 
-    if (missingDirs.length === 1) {
-        notes.push(`No directory found at ${missingDirs[0]}.`);
-    } else if (missingDirs.length > 1) {
-        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, missingDirs, {
+        single: (dir) => `No directory found at ${dir}.`,
+        multiple: (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
+    });
 
-    if (emptyDirs.length === 1) {
-        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
-    } else if (emptyDirs.length > 1) {
-        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, emptyDirs, {
+        single: (dir) => `No JUnit XML files found in ${dir}.`,
+        multiple: (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
+    });
 }
 
 function buildUnavailableResult(context) {
