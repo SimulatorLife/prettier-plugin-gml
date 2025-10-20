@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
 
@@ -7,7 +6,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
-import { ensureDir } from "../lib/file-system.js";
+import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
     resolveManualRepoValue,
@@ -638,16 +637,15 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             identifiers: Object.fromEntries(sortedIdentifiers)
         };
 
-        await ensureDir(path.dirname(outputPath));
-        await fs.writeFile(
+        await writeManualJsonArtifact({
             outputPath,
-            `${JSON.stringify(payload, undefined, 2)}\n`,
-            "utf8"
-        );
-
-        console.log(
-            `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
-        );
+            payload,
+            onAfterWrite: () => {
+                console.log(
+                    `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
+                );
+            }
+        });
         logCompletion();
         return 0;
     } finally {
