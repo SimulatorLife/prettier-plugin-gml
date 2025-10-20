@@ -12746,21 +12746,29 @@ function cloneNodeWithoutLocations(node) {
         return node;
     }
 
-    if (Array.isArray(node)) {
-        return node.map((item) => cloneNodeWithoutLocations(item));
-    }
-
-    const clone = {};
-
-    for (const [key, value] of Object.entries(node)) {
-        if (key === "start" || key === "end") {
-            continue;
-        }
-
-        clone[key] = cloneNodeWithoutLocations(value);
-    }
-
+    const clone = structuredClone(node);
+    removeLocationMetadata(clone);
     return clone;
+}
+
+function removeLocationMetadata(value) {
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            removeLocationMetadata(entry);
+        }
+        return;
+    }
+
+    delete value.start;
+    delete value.end;
+
+    for (const nestedValue of Object.values(value)) {
+        removeLocationMetadata(nestedValue);
+    }
 }
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
