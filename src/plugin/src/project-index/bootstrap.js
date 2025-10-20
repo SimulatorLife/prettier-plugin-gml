@@ -28,28 +28,28 @@ function resolveOptionWithOverride(options, config) {
 
     assertFunction(onValue, "onValue");
 
-    const resolveMissing = () =>
-        typeof onMissing === "function" ? onMissing() : onMissing;
+    const handleMissing =
+        typeof onMissing === "function" ? onMissing : () => onMissing;
 
     if (!isObjectLike(options)) {
-        return resolveMissing();
+        return handleMissing();
     }
 
-    for (const [key, source] of [
-        [internalKey, "internal"],
-        [externalKey, "external"]
-    ]) {
-        if (key == null) {
-            continue;
-        }
+    const match =
+        internalKey != null && options[internalKey] !== undefined
+            ? { key: internalKey, source: "internal" }
+            : externalKey != null && options[externalKey] !== undefined
+              ? { key: externalKey, source: "external" }
+              : null;
 
-        const value = options[key];
-        if (value !== undefined) {
-            return onValue({ value, source });
-        }
+    if (!match) {
+        return handleMissing();
     }
 
-    return resolveMissing();
+    return onValue({
+        value: options[match.key],
+        source: match.source
+    });
 }
 
 function getFsFacade(options) {
