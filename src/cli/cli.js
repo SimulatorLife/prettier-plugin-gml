@@ -250,7 +250,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         "--extensions <list>",
         [
             "Comma-separated list of file extensions to format.",
-            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`
+            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`,
+            "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
     )
         .argParser((value) => normalizeExtensions(value, DEFAULT_EXTENSIONS))
@@ -278,7 +279,10 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .addOption(extensionsOption)
         .option(
             "--log-level <level>",
-            "Prettier log level to use (debug, info, warn, error, or silent).",
+            [
+                "Prettier log level to use (debug, info, warn, error, or silent).",
+                "Respects PRETTIER_PLUGIN_GML_LOG_LEVEL when set."
+            ].join(" "),
             (value) => {
                 const normalized = normalizeEnumeratedOption(
                     value,
@@ -296,7 +300,10 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         )
         .option(
             "--on-parse-error <mode>",
-            "How to handle parser failures: revert, skip, or abort.",
+            [
+                "How to handle parser failures: revert, skip, or abort.",
+                "Respects PRETTIER_PLUGIN_GML_ON_PARSE_ERROR when set."
+            ].join(" "),
             (value) => {
                 const normalized = normalizeEnumeratedOption(
                     value,
