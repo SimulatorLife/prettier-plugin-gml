@@ -420,7 +420,17 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
-let skippedFileCount = 0;
+const skippedFileSummary = {
+    ignored: 0,
+    unsupportedExtension: 0,
+    symbolicLink: 0
+};
+
+function resetSkippedFileSummary() {
+    skippedFileSummary.ignored = 0;
+    skippedFileSummary.unsupportedExtension = 0;
+    skippedFileSummary.symbolicLink = 0;
+}
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
@@ -557,7 +567,7 @@ async function resetFormattingSession(onParseError) {
     revertTriggered = false;
     await discardFormattedFileOriginalContents();
     clearIdentifierCaseCaches();
-    skippedFileCount = 0;
+    resetSkippedFileSummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
     encounteredFormattableFile = false;
@@ -847,7 +857,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
 
     if (stats.isSymbolicLink()) {
         console.log(`Skipping ${filePath} (symbolic link)`);
-        skippedFileCount += 1;
+        skippedFileSummary.symbolicLink += 1;
         return;
     }
 
@@ -865,7 +875,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         return;
     }
 
-    skippedFileCount += 1;
+    skippedFileSummary.unsupportedExtension += 1;
 }
 
 async function processDirectoryEntries(directory, files, currentIgnorePaths) {
@@ -949,6 +959,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         if (fileInfo.ignored) {
             console.log(`Skipping ${filePath} (ignored)`);
+            skippedFileSummary.ignored += 1;
             return;
         }
 
@@ -1050,7 +1061,7 @@ async function processNonDirectoryTarget(targetPath) {
         return;
     }
 
-    skippedFileCount += 1;
+    skippedFileSummary.unsupportedExtension += 1;
 }
 
 /**
@@ -1165,16 +1176,44 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
 }
 
 function logSkippedFileSummary() {
+    const skippedFileCount =
+        skippedFileSummary.ignored +
+        skippedFileSummary.unsupportedExtension +
+        skippedFileSummary.symbolicLink;
     const skipLabel = skippedFileCount === 1 ? "file" : "files";
+    const summary = `Skipped ${skippedFileCount} ${skipLabel}.`;
 
     if (skippedFileCount === 0) {
-        console.log(`Skipped 0 ${skipLabel}.`);
+        console.log(summary);
         return;
     }
 
-    console.log(
-        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
-    );
+    const detailEntries = [];
+
+    if (skippedFileSummary.ignored > 0) {
+        detailEntries.push(
+            `ignored by .prettierignore (${skippedFileSummary.ignored})`
+        );
+    }
+
+    if (skippedFileSummary.unsupportedExtension > 0) {
+        detailEntries.push(
+            `unsupported extensions (${skippedFileSummary.unsupportedExtension})`
+        );
+    }
+
+    if (skippedFileSummary.symbolicLink > 0) {
+        detailEntries.push(
+            `symbolic links (${skippedFileSummary.symbolicLink})`
+        );
+    }
+
+    if (detailEntries.length === 0) {
+        console.log(summary);
+        return;
+    }
+
+    console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
 }
 
 const formatCommand = createFormatCommand({ name: "format" });
