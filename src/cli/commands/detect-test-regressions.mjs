@@ -11,7 +11,7 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../../shared/utils.js";
+} from "../lib/shared/utils.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;

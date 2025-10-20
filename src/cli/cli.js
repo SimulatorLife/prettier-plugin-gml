@@ -41,12 +41,12 @@ import {
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     uniqueArray
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
+} from "./lib/shared/utils.js";
+import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "../shared/path-utils.js";
+} from "./lib/shared/path-utils.js";
 
 import {
     CliUsageError,
