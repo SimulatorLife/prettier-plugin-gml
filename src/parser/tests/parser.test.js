@@ -460,6 +460,29 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("parses template strings with escape sequences", () => {
+        const source = 'var message = $"Line 1\\nLine 2";\n';
+        const ast = parseFixture(source);
+
+        assert.ok(ast, "Parser returned no AST when parsing template strings.");
+
+        const [template] = collectNodesByType(ast, "TemplateStringExpression");
+
+        assert.ok(
+            template,
+            "Expected a TemplateStringExpression node to be present."
+        );
+
+        const textSegments = template.atoms.filter(
+            (atom) => atom && atom.type === "TemplateStringText"
+        );
+
+        assert.ok(
+            textSegments.some((segment) => segment.value === String.raw`\n`),
+            "Template string text should include the escaped newline sequence."
+        );
+    });
+
     describe("identifier metadata", () => {
         it("annotates scopes for functions and loops", () => {
             const source = `
