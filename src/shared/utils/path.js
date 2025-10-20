@@ -219,33 +219,14 @@ export function collectAncestorDirectories(...startingDirectories) {
  * } | null}
  */
 export function resolveProjectPathInfo(filePath, projectRoot) {
-    if (isNonEmptyString(filePath)) {
-        const absolutePath = path.resolve(filePath);
-        const inputWasAbsolute = path.isAbsolute(filePath);
-        const hasProjectRoot = isNonEmptyString(projectRoot);
+    if (!isNonEmptyString(filePath)) {
+        return null;
+    }
 
-        if (hasProjectRoot) {
-            const absoluteProjectRoot = path.resolve(projectRoot);
-            const containedRelative = resolveContainedRelativePath(
-                absolutePath,
-                absoluteProjectRoot
-            );
+    const absolutePath = path.resolve(filePath);
+    const inputWasAbsolute = path.isAbsolute(filePath);
 
-            const hasContainedRelative = containedRelative !== null;
-            const relativePath = hasContainedRelative
-                ? containedRelative
-                : path.relative(absoluteProjectRoot, absolutePath);
-
-            return {
-                absolutePath,
-                hasProjectRoot: true,
-                inputWasAbsolute,
-                isInsideProjectRoot: hasContainedRelative,
-                projectRoot: absoluteProjectRoot,
-                relativePath
-            };
-        }
-
+    if (!isNonEmptyString(projectRoot)) {
         return {
             absolutePath,
             hasProjectRoot: false,
@@ -256,5 +237,21 @@ export function resolveProjectPathInfo(filePath, projectRoot) {
         };
     }
 
-    return null;
+    const absoluteProjectRoot = path.resolve(projectRoot);
+    const containedRelative = resolveContainedRelativePath(
+        absolutePath,
+        absoluteProjectRoot
+    );
+    const isInsideProjectRoot = containedRelative !== null;
+
+    return {
+        absolutePath,
+        hasProjectRoot: true,
+        inputWasAbsolute,
+        isInsideProjectRoot,
+        projectRoot: absoluteProjectRoot,
+        relativePath: isInsideProjectRoot
+            ? containedRelative
+            : path.relative(absoluteProjectRoot, absolutePath)
+    };
 }
