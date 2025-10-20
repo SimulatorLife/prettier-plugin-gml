@@ -3317,9 +3317,9 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 
 
-	enumerator() {
-	    let localctx = new EnumeratorContext(this, this._ctx, this.state);
-	    this.enterRule(localctx, 124, GameMakerLanguageParser.RULE_enumerator);
+        enumerator() {
+            let localctx = new EnumeratorContext(this, this._ctx, this.state);
+            this.enterRule(localctx, 124, GameMakerLanguageParser.RULE_enumerator);
             var _la = 0;
             try {
                 this.enterOuterAlt(localctx, 1);

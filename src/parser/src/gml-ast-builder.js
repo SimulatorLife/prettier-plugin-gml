@@ -1294,26 +1294,24 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
             if (expressionContext) {
                 initializer = this.visit(expressionContext);
                 if (initializer && typeof initializer === "object") {
-                    if (initializer.type === "Literal") {
-                        initializer = initializer.value;
-                    } else {
-                        const initializerText = expressionContext.getText();
-                        if (typeof initializerText === "string") {
-                            initializer._enumInitializerText =
-                                initializerText.trim();
-                        }
+                    const initializerText = expressionContext.getText();
+                    if (typeof initializerText === "string") {
+                        initializer._enumInitializerText =
+                            initializerText.trim();
                     }
                 }
             }
         }
-        if (initializer == null && ctx.IntegerLiteral()) {
-            initializer = ctx.IntegerLiteral().getText();
-        }
-        if (initializer == null && ctx.HexIntegerLiteral()) {
-            initializer = ctx.HexIntegerLiteral().getText();
-        }
-        if (initializer == null && ctx.BinaryLiteral()) {
-            initializer = ctx.BinaryLiteral().getText();
+        if (initializer == null) {
+            if (ctx.IntegerLiteral()) {
+                initializer = ctx.IntegerLiteral().getText();
+            }
+            if (ctx.HexIntegerLiteral()) {
+                initializer = ctx.HexIntegerLiteral().getText();
+            }
+            if (ctx.BinaryLiteral()) {
+                initializer = ctx.BinaryLiteral().getText();
+            }
         }
         return this.astNode(ctx, {
             type: "EnumMember",

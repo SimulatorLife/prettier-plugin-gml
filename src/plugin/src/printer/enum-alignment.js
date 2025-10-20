@@ -1,5 +1,9 @@
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { getCommentArray } from "../../../shared/comments.js";
+import {
+    getNodeEndIndex,
+    getNodeStartIndex
+} from "../../../shared/ast/locations.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
@@ -50,12 +54,12 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (typeof initializer === "string") {
-        return initializer.trim().length;
-    }
-
     if (initializer == undefined) {
         return 0;
+    }
+
+    if (typeof initializer === "string") {
+        return initializer.trim().length;
     }
 
     if (typeof initializer === "number") {
@@ -63,17 +67,60 @@ function getEnumInitializerWidth(initializer) {
     }
 
     if (typeof initializer === "object") {
+        const locationWidth = getInitializerWidthFromLocation(initializer);
+        if (typeof locationWidth === "number") {
+            return locationWidth;
+        }
+
         const rawText =
             typeof initializer._enumInitializerText === "string"
                 ? initializer._enumInitializerText
                 : (initializer.value ?? "");
+
         if (typeof rawText === "number") {
             return String(rawText).trim().length;
         }
-        return String(rawText ?? "").trim().length;
+
+        const normalizedText = String(rawText ?? "").trim();
+        if (normalizedText.length > 0) {
+            return normalizedText.length;
+        }
+
+        if (initializer.type === "Literal") {
+            const literalText = String(initializer.value ?? "").trim();
+            return literalText.length;
+        }
+
+        if (initializer.type === "Identifier") {
+            return typeof initializer.name === "string"
+                ? initializer.name.length
+                : 0;
+        }
+
+        const fallbackText = String(initializer.value ?? "").trim();
+        if (fallbackText.length > 0) {
+            return fallbackText.length;
+        }
+
+        return 0;
     }
 
     return String(initializer).trim().length;
+}
+
+function getInitializerWidthFromLocation(initializer) {
+    const startIndex = getNodeStartIndex(initializer);
+    const endIndex = getNodeEndIndex(initializer);
+
+    if (
+        typeof startIndex === "number" &&
+        typeof endIndex === "number" &&
+        endIndex >= startIndex
+    ) {
+        return endIndex - startIndex;
+    }
+
+    return null;
 }
 
 function collectTrailingEnumComments(member) {
