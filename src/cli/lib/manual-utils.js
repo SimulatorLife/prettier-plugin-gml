@@ -123,18 +123,18 @@ function normalizeManualTagEntry(entry) {
                       "Manual tag entry commit must be an object when provided."
               });
 
-    const shaValue = commitRecord?.sha;
+    const sha =
+        commitRecord?.sha == null
+            ? null
+            : assertNonEmptyString(commitRecord.sha, {
+                  name: "Manual tag entry commit SHA",
+                  errorMessage:
+                      "Manual tag entry commit SHA must be a non-empty string when provided."
+              });
 
     return {
         name,
-        sha:
-            shaValue == null
-                ? null
-                : assertNonEmptyString(shaValue, {
-                      name: "Manual tag entry commit SHA",
-                      errorMessage:
-                          "Manual tag entry commit SHA must be a non-empty string when provided."
-                  })
+        sha
     };
 }
 
