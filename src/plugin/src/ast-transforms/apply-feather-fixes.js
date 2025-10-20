@@ -48,7 +48,7 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    getDocCommentManager,
+    resolveDocCommentInspectionService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -3951,11 +3951,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentInspection = resolveDocCommentInspectionService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentManager
+        docCommentInspection
     );
 
     const visit = (node) => {
@@ -4210,16 +4210,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentManager) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const manager = docCommentManager ?? getDocCommentManager(ast);
+    const inspection =
+        docCommentInspection ?? resolveDocCommentInspectionService(ast);
 
-    manager.forEach((node, comments = []) => {
+    inspection.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -6392,11 +6393,11 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentInspection = resolveDocCommentInspectionService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentManager
+        docCommentInspection
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6484,7 +6485,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6510,9 +6511,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
         return names;
     }
 
-    const manager = docCommentManager ?? getDocCommentManager(ast);
+    const inspection =
+        docCommentInspection ?? resolveDocCommentInspectionService(ast);
 
-    manager.forEach((node, comments = []) => {
+    inspection.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }

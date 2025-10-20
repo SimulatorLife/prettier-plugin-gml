@@ -7,9 +7,33 @@ import {
 } from "./plan-state.js";
 
 /**
+ * The original IdentifierCasePlanService bundled plan preparation, rename
+ * lookups, and snapshot orchestration behind one "service" facade. That wide
+ * surface made collaborators depend on behaviours they did not always need.
+ * We preserve the legacy facade for compatibility while also exposing narrow
+ * preparation, rename, and snapshot views to honour interface segregation.
+ */
+
+/**
  * @typedef {object} IdentifierCasePlanService
  * @property {(options: object | null | undefined) => Promise<void>} prepareIdentifierCasePlan
  * @property {(node: import("../../../shared/ast.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
+ * @property {(options: unknown) => ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} captureIdentifierCasePlanSnapshot
+ * @property {(snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>, options: Record<string, unknown> | null | undefined) => void} applyIdentifierCasePlanSnapshot
+ */
+
+/**
+ * @typedef {object} IdentifierCasePlanPreparationService
+ * @property {(options: object | null | undefined) => Promise<void>} prepareIdentifierCasePlan
+ */
+
+/**
+ * @typedef {object} IdentifierCaseRenameLookupService
+ * @property {(node: import("../../../shared/ast.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
+ */
+
+/**
+ * @typedef {object} IdentifierCasePlanSnapshotService
  * @property {(options: unknown) => ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} captureIdentifierCasePlanSnapshot
  * @property {(snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>, options: Record<string, unknown> | null | undefined) => void} applyIdentifierCasePlanSnapshot
  */
@@ -20,18 +44,18 @@ import {
 
 let serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
 let cachedService = null;
+let cachedPreparationService = null;
+let cachedRenameLookupService = null;
+let cachedSnapshotService = null;
 
 function createDefaultIdentifierCasePlanServiceProvider() {
-    return () =>
-        normalizeIdentifierCasePlanService({
-            prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
-            getIdentifierCaseRenameForNode:
-                defaultGetIdentifierCaseRenameForNode,
-            captureIdentifierCasePlanSnapshot:
-                defaultCaptureIdentifierCasePlanSnapshot,
-            applyIdentifierCasePlanSnapshot:
-                defaultApplyIdentifierCasePlanSnapshot
-        });
+    return () => ({
+        prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
+        getIdentifierCaseRenameForNode: defaultGetIdentifierCaseRenameForNode,
+        captureIdentifierCasePlanSnapshot:
+            defaultCaptureIdentifierCasePlanSnapshot,
+        applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
+    });
 }
 
 function normalizeIdentifierCasePlanService(service) {
@@ -91,6 +115,13 @@ function resolveIdentifierCasePlanServiceInternal() {
     return cachedService;
 }
 
+function invalidateCachedViews() {
+    cachedService = null;
+    cachedPreparationService = null;
+    cachedRenameLookupService = null;
+    cachedSnapshotService = null;
+}
+
 export function registerIdentifierCasePlanServiceProvider(provider) {
     if (typeof provider !== "function") {
         throw new TypeError(
@@ -98,17 +129,65 @@ export function registerIdentifierCasePlanServiceProvider(provider) {
         );
     }
 
-    serviceProvider = () => normalizeIdentifierCasePlanService(provider());
-    cachedService = null;
+    serviceProvider = () => provider();
+    invalidateCachedViews();
 }
 
 export function resetIdentifierCasePlanServiceProvider() {
     serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
-    cachedService = null;
+    invalidateCachedViews();
 }
 
 export function resolveIdentifierCasePlanService() {
     return resolveIdentifierCasePlanServiceInternal();
+}
+
+export function resolveIdentifierCasePlanPreparationService() {
+    const service = resolveIdentifierCasePlanServiceInternal();
+    if (
+        !cachedPreparationService ||
+        cachedPreparationService.prepareIdentifierCasePlan !==
+            service.prepareIdentifierCasePlan
+    ) {
+        cachedPreparationService = Object.freeze({
+            prepareIdentifierCasePlan: service.prepareIdentifierCasePlan
+        });
+    }
+    return cachedPreparationService;
+}
+
+export function resolveIdentifierCaseRenameLookupService() {
+    const service = resolveIdentifierCasePlanServiceInternal();
+    if (
+        !cachedRenameLookupService ||
+        cachedRenameLookupService.getIdentifierCaseRenameForNode !==
+            service.getIdentifierCaseRenameForNode
+    ) {
+        cachedRenameLookupService = Object.freeze({
+            getIdentifierCaseRenameForNode:
+                service.getIdentifierCaseRenameForNode
+        });
+    }
+    return cachedRenameLookupService;
+}
+
+export function resolveIdentifierCasePlanSnapshotService() {
+    const service = resolveIdentifierCasePlanServiceInternal();
+    if (
+        !cachedSnapshotService ||
+        cachedSnapshotService.captureIdentifierCasePlanSnapshot !==
+            service.captureIdentifierCasePlanSnapshot ||
+        cachedSnapshotService.applyIdentifierCasePlanSnapshot !==
+            service.applyIdentifierCasePlanSnapshot
+    ) {
+        cachedSnapshotService = Object.freeze({
+            captureIdentifierCasePlanSnapshot:
+                service.captureIdentifierCasePlanSnapshot,
+            applyIdentifierCasePlanSnapshot:
+                service.applyIdentifierCasePlanSnapshot
+        });
+    }
+    return cachedSnapshotService;
 }
 
 export function prepareIdentifierCasePlan(options) {
