@@ -97,6 +97,43 @@ export function throwIfAborted(signal, fallbackMessage) {
     }
 }
 
+/**
+ * Construct a reusable guard around an {@link AbortSignal} extracted from an
+ * options bag. The guard normalizes the signal once and exposes a convenience
+ * callback that can be reused at every async boundary to surface a consistent
+ * {@link AbortError} when cancellation occurs.
+ *
+ * The helper mirrors the pattern previously implemented in the project index
+ * layer where callers repeatedly pulled the signal from `options`, checked for
+ * cancellation, and forwarded the same fallback message. Centralizing the
+ * guard alongside the rest of the abort helpers keeps the behaviour consistent
+ * across feature areas while making the utility discoverable to other
+ * long-running workflows.
+ *
+ * @param {unknown} options Candidate options object that may expose a signal.
+ * @param {{
+ *     key?: string | number | symbol,
+ *     fallbackMessage?: string | null | undefined
+ * }} [config]
+ * @returns {{ signal: AbortSignal | null, ensureNotAborted(): AbortSignal | null }}
+ *          Guard exposing the normalized signal and a checkpoint callback.
+ */
+export function createAbortGuard(options, { key, fallbackMessage } = {}) {
+    const signal = resolveAbortSignalFromOptions(options, {
+        key,
+        fallbackMessage
+    });
+
+    function ensureNotAborted() {
+        throwIfAborted(signal, fallbackMessage);
+        return signal;
+    }
+
+    ensureNotAborted();
+
+    return { signal, ensureNotAborted };
+}
+
 function isAbortSignalLike(value) {
     return (
         value != null &&
