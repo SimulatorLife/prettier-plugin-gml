@@ -28,7 +28,11 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
+import {
+    isFsErrorCode,
+    listDirectory,
+    getFileMtime
+} from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
