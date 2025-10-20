@@ -313,6 +313,9 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     const sanitizedSourceText = sanitizedParts.join("");
+    const enumSanitizedSourceText = sanitizeEnumInitializerStrings(
+        sanitizedSourceText
+    );
     const metadata = {};
 
     if (gm1100Metadata.length > 0) {
@@ -323,7 +326,10 @@ export function preprocessSourceForFeatherFixes(sourceText) {
         metadata.GM1016 = gm1016Metadata;
     }
 
-    if (Object.keys(metadata).length === 0) {
+    const hasMetadata = Object.keys(metadata).length > 0;
+    const sourceChanged = enumSanitizedSourceText !== sourceText;
+
+    if (!hasMetadata && !sourceChanged) {
         return {
             sourceText,
             metadata: null
@@ -331,9 +337,198 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     return {
-        sourceText: sanitizedSourceText,
-        metadata
+        sourceText: sourceChanged ? enumSanitizedSourceText : sourceText,
+        metadata: hasMetadata ? metadata : null
     };
+}
+
+function sanitizeEnumInitializerStrings(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return sourceText;
+    }
+
+    const enumPattern = /\benum\b/g;
+    let lastIndex = 0;
+    let match;
+    let result = "";
+
+    while ((match = enumPattern.exec(sourceText)) !== null) {
+        const openBraceIndex = findNextOpenBrace(sourceText, enumPattern.lastIndex);
+        if (openBraceIndex === -1) {
+            break;
+        }
+
+        const closeBraceIndex = findMatchingClosingBrace(
+            sourceText,
+            openBraceIndex
+        );
+
+        if (closeBraceIndex === -1) {
+            break;
+        }
+
+        result += sourceText.slice(lastIndex, openBraceIndex + 1);
+
+        const body = sourceText.slice(openBraceIndex + 1, closeBraceIndex);
+        const sanitizedBody = body.replace(
+            /(\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(["'])([^"']*)(\2)/g,
+            (fullMatch, prefix, _quote, rawValue) => {
+                const normalizedValue = rawValue.trim();
+                if (!isIntegerLiteralString(normalizedValue)) {
+                    return fullMatch;
+                }
+
+                return `${prefix}${normalizedValue}`;
+            }
+        );
+
+        result += sanitizedBody;
+        lastIndex = closeBraceIndex;
+        enumPattern.lastIndex = closeBraceIndex;
+    }
+
+    if (lastIndex === 0) {
+        return sourceText;
+    }
+
+    result += sourceText.slice(lastIndex);
+    return result;
+}
+
+function findNextOpenBrace(sourceText, startIndex) {
+    const length = sourceText.length;
+
+    for (let index = startIndex; index < length; index += 1) {
+        const char = sourceText[index];
+
+        if (char === "\"" || char === "'") {
+            index = skipStringLiteral(sourceText, index);
+            continue;
+        }
+
+        if (
+            char === "@" &&
+            index + 1 < length &&
+            (sourceText[index + 1] === "\"" || sourceText[index + 1] === "'")
+        ) {
+            index = skipStringLiteral(sourceText, index + 1);
+            continue;
+        }
+
+        if (char === "/" && index + 1 < length) {
+            const nextChar = sourceText[index + 1];
+            if (nextChar === "/") {
+                index = skipLineComment(sourceText, index + 2);
+                continue;
+            }
+            if (nextChar === "*") {
+                index = skipBlockComment(sourceText, index + 2);
+                continue;
+            }
+        }
+
+        if (char === "{") {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
+function findMatchingClosingBrace(sourceText, openBraceIndex) {
+    const length = sourceText.length;
+    let depth = 0;
+
+    for (let index = openBraceIndex; index < length; index += 1) {
+        const char = sourceText[index];
+
+        if (char === "\"" || char === "'") {
+            index = skipStringLiteral(sourceText, index);
+            continue;
+        }
+
+        if (
+            char === "@" &&
+            index + 1 < length &&
+            (sourceText[index + 1] === "\"" || sourceText[index + 1] === "'")
+        ) {
+            index = skipStringLiteral(sourceText, index + 1);
+            continue;
+        }
+
+        if (char === "/" && index + 1 < length) {
+            const nextChar = sourceText[index + 1];
+            if (nextChar === "/") {
+                index = skipLineComment(sourceText, index + 2);
+                continue;
+            }
+            if (nextChar === "*") {
+                index = skipBlockComment(sourceText, index + 2);
+                continue;
+            }
+        }
+
+        if (char === "{") {
+            depth += 1;
+            continue;
+        }
+
+        if (char === "}") {
+            depth -= 1;
+            if (depth === 0) {
+                return index;
+            }
+        }
+    }
+
+    return -1;
+}
+
+function skipLineComment(sourceText, startIndex) {
+    const length = sourceText.length;
+
+    for (let index = startIndex; index < length; index += 1) {
+        const char = sourceText[index];
+        if (char === "\n" || char === "\r") {
+            return index - 1;
+        }
+    }
+
+    return length - 1;
+}
+
+function skipBlockComment(sourceText, startIndex) {
+    const length = sourceText.length;
+
+    for (let index = startIndex; index < length - 1; index += 1) {
+        if (sourceText[index] === "*" && sourceText[index + 1] === "/") {
+            return index + 1;
+        }
+    }
+
+    return length - 1;
+}
+
+function skipStringLiteral(sourceText, startIndex) {
+    const length = sourceText.length;
+    const quote = sourceText[startIndex];
+    let index = startIndex + 1;
+
+    while (index < length) {
+        const char = sourceText[index];
+        if (char === "\\") {
+            index += 2;
+            continue;
+        }
+
+        if (char === quote) {
+            return index;
+        }
+
+        index += 1;
+    }
+
+    return length - 1;
 }
 
 export function getFeatherDiagnosticFixers() {

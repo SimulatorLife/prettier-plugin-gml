@@ -3730,6 +3730,56 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("preprocesses numeric string enum initializers flagged by GM1003", () => {
+        const source = [
+            "enum Example {",
+            '    FIRST = "0",',
+            '    SECOND = "1"',
+            "}",
+            ""
+        ].join("\n");
+
+        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+
+        assert.notStrictEqual(
+            sourceText,
+            source,
+            "Expected GM1003 preprocessor to sanitize numeric string enum initializers."
+        );
+
+        assert.strictEqual(
+            /FIRST\s*=\s*0/.test(sourceText),
+            true,
+            "Expected sanitized enum initializer to drop surrounding quotes."
+        );
+
+        assert.strictEqual(
+            /SECOND\s*=\s*1/.test(sourceText),
+            true,
+            "Expected subsequent enum initializers to be sanitized."
+        );
+
+        assert.strictEqual(
+            metadata === null || metadata === undefined,
+            true,
+            "Expected no additional metadata to be required for GM1003 preprocessing."
+        );
+
+        const ast = GMLParser.parse(sourceText, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [enumDeclaration] = ast.body ?? [];
+        assert.ok(enumDeclaration);
+        assert.strictEqual(enumDeclaration.type, "EnumDeclaration");
+
+        const members = enumDeclaration.members ?? [];
+        assert.strictEqual(members.length, 2);
+        assert.strictEqual(members[0]?.initializer, "0");
+        assert.strictEqual(members[1]?.initializer, "1");
+    });
+
     it("deduplicates local variables flagged by GM2044 and records metadata", () => {
         const source = [
             "function demo() {",
