@@ -1,6 +1,8 @@
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
+import { readdir, readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError } from "commander";
 
@@ -20,7 +22,15 @@ import {
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
 
+import GMLParser from "../../parser/src/gml-parser.js";
+import { getBodyStatements } from "../../shared/ast-node-helpers.js";
+
 const AVAILABLE_SUITES = new Map();
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const PARSER_FIXTURE_DIRECTORY = path.resolve(
+    MODULE_DIRECTORY,
+    "../../parser/tests/input"
+);
 
 function collectSuite(value, previous = []) {
     previous.push(value);
@@ -211,6 +221,250 @@ async function runIdentifierPipelineBenchmark({ projectRoot, file, verbose }) {
     return context.results;
 }
 
+let parserFixtureCachePromise = null;
+const PARSER_BENCHMARK_PRECISION = 4;
+
+function formatDuration(durationMs) {
+    if (!Number.isFinite(durationMs)) {
+        return null;
+    }
+
+    return Number(durationMs.toFixed(PARSER_BENCHMARK_PRECISION));
+}
+
+async function readParserBenchmarkFixtures() {
+    if (!parserFixtureCachePromise) {
+        parserFixtureCachePromise = (async () => {
+            let entries;
+            try {
+                entries = await readdir(PARSER_FIXTURE_DIRECTORY, {
+                    withFileTypes: true
+                });
+            } catch (error) {
+                if (error?.code === "ENOENT") {
+                    return [];
+                }
+                throw error;
+            }
+
+            const fixtures = [];
+            for (const entry of entries) {
+                if (!entry.isFile()) {
+                    continue;
+                }
+
+                const fixturePath = path.join(
+                    PARSER_FIXTURE_DIRECTORY,
+                    entry.name
+                );
+                const sourceText = await readFile(fixturePath, "utf8");
+                fixtures.push({
+                    file: entry.name,
+                    path: fixturePath,
+                    sourceText,
+                    bytes: Buffer.byteLength(sourceText)
+                });
+            }
+
+            fixtures.sort((a, b) => a.file.localeCompare(b.file));
+            return fixtures;
+        })();
+    }
+
+    return parserFixtureCachePromise;
+}
+
+function executeParserRun(sourceText) {
+    const start = performance.now();
+    try {
+        GMLParser.parse(sourceText);
+        return { durationMs: performance.now() - start };
+    } catch (error) {
+        return {
+            durationMs: performance.now() - start,
+            error: formatErrorDetails(error)
+        };
+    }
+}
+
+function createParserRunRecord(run) {
+    const record = {
+        durationMs: formatDuration(run.durationMs)
+    };
+
+    if (run.error) {
+        record.error = run.error;
+    }
+
+    return record;
+}
+
+async function runParserBenchmark() {
+    const fixtures = await readParserBenchmarkFixtures();
+    if (fixtures.length === 0) {
+        return {
+            fixtureDirectory: PARSER_FIXTURE_DIRECTORY,
+            fixtureCount: 0,
+            totals: {
+                coldDurationMs: 0,
+                warmDurationMs: 0
+            },
+            fixtures: []
+        };
+    }
+
+    const coldRuns = [];
+    const warmRuns = [];
+
+    for (const fixture of fixtures) {
+        coldRuns.push(executeParserRun(fixture.sourceText));
+    }
+
+    for (const fixture of fixtures) {
+        warmRuns.push(executeParserRun(fixture.sourceText));
+    }
+
+    const fixtureSummaries = fixtures.map((fixture, index) => ({
+        file: fixture.file,
+        bytes: fixture.bytes,
+        cold: createParserRunRecord(coldRuns[index]),
+        warm: createParserRunRecord(warmRuns[index])
+    }));
+
+    const coldDurationMs = coldRuns.reduce(
+        (sum, run) => sum + (run.durationMs ?? 0),
+        0
+    );
+    const warmDurationMs = warmRuns.reduce(
+        (sum, run) => sum + (run.durationMs ?? 0),
+        0
+    );
+
+    return {
+        fixtureDirectory: PARSER_FIXTURE_DIRECTORY,
+        fixtureCount: fixtures.length,
+        totals: {
+            coldDurationMs: formatDuration(coldDurationMs),
+            warmDurationMs: formatDuration(warmDurationMs)
+        },
+        fixtures: fixtureSummaries
+    };
+}
+
+const EMPTY_PROGRAM_SCENARIOS = Object.freeze([
+    { ast: { type: "Program", body: [] }, enclosing: null, following: null },
+    {
+        ast: { type: "Program", body: [{}] },
+        enclosing: { type: "Program", body: [] },
+        following: null
+    },
+    {
+        ast: { type: "Program", body: [{}] },
+        enclosing: { type: "BlockStatement", body: [] },
+        following: { type: "Program", body: [] }
+    },
+    {
+        ast: { type: "Program", body: [{}] },
+        enclosing: null,
+        following: { type: "BlockStatement", body: [] }
+    }
+]);
+
+function isEmptyProgram(node) {
+    if (!node || node.type !== "Program") {
+        return false;
+    }
+
+    return getBodyStatements(node).length === 0;
+}
+
+function selectEmptyProgramBaseline(ast, enclosingNode, followingNode) {
+    if (isEmptyProgram(ast)) {
+        return ast;
+    }
+
+    for (const node of [enclosingNode, followingNode]) {
+        if (isEmptyProgram(node)) {
+            return node;
+        }
+    }
+
+    return null;
+}
+
+function selectEmptyProgramOptimized(ast, enclosingNode, followingNode) {
+    if (isEmptyProgram(ast)) {
+        return ast;
+    }
+
+    if (isEmptyProgram(enclosingNode)) {
+        return enclosingNode;
+    }
+
+    if (isEmptyProgram(followingNode)) {
+        return followingNode;
+    }
+
+    return null;
+}
+
+function executeEmptyProgramRun(fn, iterations) {
+    const scenarioCount = EMPTY_PROGRAM_SCENARIOS.length;
+    let result = null;
+    for (let index = 0; index < iterations; index += 1) {
+        const scenario = EMPTY_PROGRAM_SCENARIOS[index % scenarioCount];
+        result = fn(scenario.ast, scenario.enclosing, scenario.following);
+    }
+    return result;
+}
+
+function measureEmptyProgramRun(fn, iterations) {
+    const start = performance.now();
+    const result = executeEmptyProgramRun(fn, iterations);
+    return { durationMs: performance.now() - start, result };
+}
+
+function runEmptyProgramTargetBenchmark() {
+    const iterations = 5_000_000;
+    const warmupIterations = Math.max(1, Math.floor(iterations / 10));
+
+    executeEmptyProgramRun(selectEmptyProgramBaseline, warmupIterations);
+    executeEmptyProgramRun(selectEmptyProgramOptimized, warmupIterations);
+
+    const baseline = measureEmptyProgramRun(
+        selectEmptyProgramBaseline,
+        iterations
+    );
+    const optimized = measureEmptyProgramRun(
+        selectEmptyProgramOptimized,
+        iterations
+    );
+
+    const verificationBaseline = executeEmptyProgramRun(
+        selectEmptyProgramBaseline,
+        EMPTY_PROGRAM_SCENARIOS.length
+    );
+    const verificationOptimized = executeEmptyProgramRun(
+        selectEmptyProgramOptimized,
+        EMPTY_PROGRAM_SCENARIOS.length
+    );
+
+    const deltaMs = baseline.durationMs - optimized.durationMs;
+    const improvementPercent =
+        baseline.durationMs === 0 ? 0 : (deltaMs / baseline.durationMs) * 100;
+
+    return {
+        iterations,
+        warmupIterations,
+        scenarioCount: EMPTY_PROGRAM_SCENARIOS.length,
+        baselineDurationMs: formatDuration(baseline.durationMs),
+        optimizedDurationMs: formatDuration(optimized.durationMs),
+        deltaDurationMs: formatDuration(deltaMs),
+        improvementPercent: formatDuration(improvementPercent),
+        resultsMatch: Object.is(verificationBaseline, verificationOptimized)
+    };
+}
+
 /**
  * Provide sample nodes used by the identifier text benchmark to mimic common
  * AST structures.
@@ -356,8 +610,12 @@ async function runProjectIndexMemoryMeasurement({ projectRoot }) {
     };
 }
 
+AVAILABLE_SUITES.set("empty-program-target", () =>
+    runEmptyProgramTargetBenchmark()
+);
 AVAILABLE_SUITES.set("identifier-pipeline", runIdentifierPipelineBenchmark);
 AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
+AVAILABLE_SUITES.set("parser-fixtures", () => runParserBenchmark());
 AVAILABLE_SUITES.set("project-index-memory", runProjectIndexMemoryMeasurement);
 
 export function createPerformanceCommand() {

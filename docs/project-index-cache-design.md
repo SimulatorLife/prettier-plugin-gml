@@ -67,8 +67,12 @@ real projects. The collected metrics surfaced three practical improvements:
 The `performance` CLI command (`node ./src/cli/cli.js performance --suite
 identifier-pipeline`) runs the project index twice (to observe cache reuse) and
 optionally executes the rename planner for a specific file, printing the
-captured metrics as structured JSON. This gives us an ad-hoc regression harness
-for spotting regressions before they make it into CI.
+captured metrics as structured JSON. Additional suites retain historical
+benchmarks that previously lived in standalone scripts: `parser-fixtures` times
+the parser across the golden fixture corpus, while `empty-program-target`
+profiles the AST matcher optimisation used by the Feather fixer. Keeping these
+checks inside the aggregated CLI keeps the ergonomics of invoking the old
+scripts while avoiding orphaned wrappers in the tree.
 
 ## Cache persistence schema
 
