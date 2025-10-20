@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
 import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
@@ -103,7 +104,7 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (typeof source !== "object" || source === null) {
+    if (!isObjectLike(source)) {
         return {};
     }
 
@@ -139,11 +140,11 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return true;
     }
 
-    if (typeof expected !== "object" || expected === null) {
+    if (!isObjectLike(expected)) {
         return false;
     }
 
-    if (typeof actual !== "object" || actual === null) {
+    if (!isObjectLike(actual)) {
         return false;
     }
 
