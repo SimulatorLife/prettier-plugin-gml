@@ -97,6 +97,30 @@ export function capitalize(value) {
     return value.at(0).toUpperCase() + value.slice(1);
 }
 
+/**
+ * Remove matching string quotes from {@link value}, returning `null` when the
+ * input is not a quoted string. Supports both single- and double-quoted
+ * literals so call sites can focus on their specific validation logic without
+ * repeating defensive slicing guards.
+ *
+ * @param {unknown} value Candidate string literal.
+ * @returns {string | null} Inner string content when wrapped in matching quotes.
+ */
+export function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value.at(-1);
+
+    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
+}
+
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
 /**
