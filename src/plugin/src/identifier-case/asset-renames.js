@@ -6,7 +6,7 @@ import {
     toNormalizedLowerCaseString
 } from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
+import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
     RESERVED_CONFLICT_CODE,
