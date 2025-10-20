@@ -16,6 +16,25 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+const MANUAL_REPO_REQUIREMENTS = {
+    env: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
+    cli: "Manual repository must be provided in 'owner/name' format"
+};
+
+function formatManualRepoRequirement(source) {
+    return source === "env"
+        ? MANUAL_REPO_REQUIREMENTS.env
+        : MANUAL_REPO_REQUIREMENTS.cli;
+}
+
+function describeManualRepoInput(value) {
+    if (value == null) {
+        return String(value);
+    }
+
+    return `'${String(value)}'`;
+}
+
 /**
  * @typedef {object} ManualGitHubRequestOptions
  * @property {Record<string, string>} [headers]
@@ -201,19 +220,8 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
         return normalized;
     }
 
-    let received;
-    if (rawValue === undefined) {
-        received = "undefined";
-    } else if (rawValue === null) {
-        received = "null";
-    } else {
-        received = `'${rawValue}'`;
-    }
-
-    const requirement =
-        source === "env"
-            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
-            : "Manual repository must be provided in 'owner/name' format";
+    const requirement = formatManualRepoRequirement(source);
+    const received = describeManualRepoInput(rawValue);
 
     throw new TypeError(`${requirement} (received ${received}).`);
 }
