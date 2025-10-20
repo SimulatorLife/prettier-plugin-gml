@@ -34,3 +34,4 @@ export {
     getDocCommentManager,
     prepareDocCommentEnvironment
 } from "./doc-comment-manager.js";
+export { getCommentValue } from "./comment-utils.js";
