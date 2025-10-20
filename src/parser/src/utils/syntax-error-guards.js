@@ -1,4 +1,4 @@
-import { isErrorLike } from "../../../shared/utils/capability-probes.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 
 export function isSyntaxErrorWithLocation(value) {
     if (!isErrorLike(value)) {

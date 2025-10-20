@@ -1,1 +1,1 @@
-export { formatByteSize, formatBytes } from "../../shared/number-utils.js";
+export { formatByteSize, formatBytes } from "./shared/number-utils.js";
