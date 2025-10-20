@@ -1,66 +1,70 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import {
     DEFAULT_LINE_COMMENT_OPTIONS,
-    formatLineComment,
-    resolveLineCommentOptions
+    formatLineComment
 } from "../src/comments/index.js";
 
-function createLineComment(value) {
+function createLineComment(value, raw = `//${value}`) {
     return {
         type: "CommentLine",
         value,
-        leadingText: `//${value}`,
-        raw: `//${value}`
+        leadingText: raw,
+        raw
     };
 }
 
-describe("lineCommentBoilerplateFragments option", () => {
-    let originalLog;
-    let logCalls;
-
-    beforeEach(() => {
-        originalLog = console.log;
-        logCalls = [];
-        console.log = (...args) => {
-            logCalls.push(args.join(" "));
-        };
-    });
-
-    afterEach(() => {
-        console.log = originalLog;
-    });
-
-    it("preserves comments when no extra fragments are configured", () => {
-        const comment = createLineComment(" Auto-generated file. Do not edit.");
+describe("line comment boilerplate defaults", () => {
+    it("removes the YoYo asset banner without extra configuration", () => {
+        const comment = createLineComment(
+            " Script assets have changed for v2.3.0; visit https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
+        );
 
         const formatted = formatLineComment(
             comment,
             DEFAULT_LINE_COMMENT_OPTIONS
         );
 
-        assert.strictEqual(
-            formatted,
-            "// Auto-generated file.\n// Do not edit."
-        );
-        assert.deepStrictEqual(logCalls, []);
+        assert.strictEqual(formatted, "");
     });
 
-    it("removes comments that match configured boilerplate fragments", () => {
-        const comment = createLineComment(" Auto-generated file. Do not edit.");
+    it("removes GameMaker's default script description stub", () => {
+        const comment = createLineComment(
+            " @description Insert description here",
+            "/// @description Insert description here"
+        );
 
-        const customOptions = resolveLineCommentOptions({
-            lineCommentBoilerplateFragments: "Auto-generated file. Do not edit."
-        });
-
-        const formatted = formatLineComment(comment, customOptions);
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
 
         assert.strictEqual(formatted, "");
-        assert.ok(
-            logCalls.some((message) =>
-                message.includes("Removed boilerplate comment")
-            )
+    });
+
+    it("removes the default editor guidance stub", () => {
+        const comment = createLineComment(
+            " You can write your code in this editor",
+            "// You can write your code in this editor"
         );
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "");
+    });
+
+    it("preserves unrelated comments", () => {
+        const comment = createLineComment(" Remember to sync the controller.");
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "// Remember to sync the controller.");
     });
 });

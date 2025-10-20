@@ -117,13 +117,7 @@ function formatLineComment(
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { boilerplateFragments } = normalizedOptions;
-    const codeDetectionPatterns =
-        normalizedOptions.codeDetectionPatterns ??
-        (lineCommentOptions && typeof lineCommentOptions === "object"
-            ? lineCommentOptions.codeDetectionPatterns
-            : undefined) ??
-        DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+    const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const hasStringValue = typeof comment?.value === "string";
@@ -137,7 +131,6 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            console.log(`Removed boilerplate comment: ${lineFragment}`);
             return "";
         }
     }
