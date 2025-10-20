@@ -790,6 +790,88 @@ var shade = Colors.Green;
             );
         });
 
+        it("parses enum member initializers referencing other enums", () => {
+            const source = `
+enum eTransitionState {
+  idle,
+  complete,
+  delaying
+}
+
+enum eTransitionType {
+  start = eTransitionState.idle,
+  finish = eTransitionState.complete
+}
+`;
+
+            const ast = parseWithMetadata(source);
+            assert.ok(ast, "Parser returned no AST when parsing enum source.");
+
+            const transitionEnum = ast.body.find((node) => {
+                return (
+                    node &&
+                    node.type === "EnumDeclaration" &&
+                    node.name?.name === "eTransitionType"
+                );
+            });
+            assert.ok(
+                transitionEnum,
+                "Expected to locate the eTransitionType enum declaration."
+            );
+
+            const members = transitionEnum.members;
+            assert.ok(
+                Array.isArray(members),
+                "Enum members should be an array."
+            );
+            assert.strictEqual(
+                members.length,
+                2,
+                "Expected the transition enum to define two members."
+            );
+
+            const [startMember, finishMember] = members;
+            assert.ok(
+                startMember?.initializer,
+                "Expected the start member to include an initializer."
+            );
+            assert.strictEqual(
+                startMember.initializer.type,
+                "MemberDotExpression",
+                "Start member initializer should be parsed as a member access expression."
+            );
+            assert.strictEqual(
+                startMember.initializer.object?.name,
+                "eTransitionState",
+                "Member access should reference the transition state enum."
+            );
+            assert.strictEqual(
+                startMember.initializer.property?.name,
+                "idle",
+                "Member access should point at the idle enum member."
+            );
+            assert.strictEqual(
+                startMember.initializer._enumInitializerText,
+                "eTransitionState.idle",
+                "Initializer text should capture the referenced enum member."
+            );
+
+            assert.ok(
+                finishMember?.initializer,
+                "Expected the finish member to include an initializer."
+            );
+            assert.strictEqual(
+                finishMember.initializer.type,
+                "MemberDotExpression",
+                "Finish member initializer should be parsed as a member access expression."
+            );
+            assert.strictEqual(
+                finishMember.initializer.property?.name,
+                "complete",
+                "Finish initializer should target the complete enum member."
+            );
+        });
+
         it("tracks struct member scopes independently from methods", () => {
             const source = `
 function Player() constructor {
