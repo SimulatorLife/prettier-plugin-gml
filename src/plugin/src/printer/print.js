@@ -4171,7 +4171,17 @@ function getNodeName(node) {
     }
 
     if (node.id !== undefined) {
-        return getIdentifierText(node.id);
+        const idName = getIdentifierText(node.id);
+        if (idName) {
+            return idName;
+        }
+    }
+
+    if (node.key !== undefined) {
+        const keyName = getIdentifierText(node.key);
+        if (keyName) {
+            return keyName;
+        }
     }
 
     return getIdentifierText(node);
