@@ -1,13 +1,16 @@
 import path from "node:path";
 
-import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
+import {
+    normalizeNumericOption,
+    coerceNonNegativeInteger,
+    coercePositiveInteger
+} from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import {
     assertFunction,
     coalesceOption,
     isObjectLike
 } from "../../../shared/object-utils.js";
-import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
@@ -161,32 +164,37 @@ function coerceCacheMaxSize(
     numericValue,
     { optionName, received, isString, rawType }
 ) {
-    const normalized = toNormalizedInteger(numericValue);
-    if (normalized === null) {
-        const message = isString
-            ? formatCacheMaxSizeValueError(optionName, received)
-            : formatCacheMaxSizeTypeError(optionName, rawType);
-        throw new TypeError(message);
+    if (Number.isFinite(numericValue)) {
+        const truncated = Math.trunc(numericValue);
+
+        if (truncated < 0) {
+            throw new Error(formatCacheMaxSizeValueError(optionName, received));
+        }
     }
 
-    if (normalized < 0) {
-        throw new Error(formatCacheMaxSizeValueError(optionName, received));
+    if (!Number.isFinite(numericValue) && !isString) {
+        throw new TypeError(formatCacheMaxSizeTypeError(optionName, rawType));
     }
+
+    const normalized = coerceNonNegativeInteger(numericValue, {
+        received,
+        createErrorMessage: (value) =>
+            formatCacheMaxSizeValueError(optionName, value)
+    });
 
     return normalized === 0 ? null : normalized;
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    const normalized = toNormalizedInteger(numericValue);
-    if (normalized === null) {
-        throw new TypeError(formatConcurrencyValueError(optionName, received));
-    }
-
-    if (normalized < 1) {
+    if (Number.isFinite(numericValue) && numericValue < 1) {
         throw new Error(formatConcurrencyValueError(optionName, received));
     }
 
-    return normalized;
+    return coercePositiveInteger(numericValue, {
+        received,
+        createErrorMessage: (value) =>
+            formatConcurrencyValueError(optionName, value)
+    });
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
