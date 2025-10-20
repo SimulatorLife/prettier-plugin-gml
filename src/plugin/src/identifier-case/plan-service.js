@@ -122,6 +122,26 @@ function invalidateCachedViews() {
     cachedSnapshotService = null;
 }
 
+function refreshCachedServiceView(cache, service, propertyNames) {
+    const keys = Array.isArray(propertyNames) ? propertyNames : [propertyNames];
+
+    if (
+        cache &&
+        keys.every(
+            (propertyName) => cache[propertyName] === service[propertyName]
+        )
+    ) {
+        return cache;
+    }
+
+    const nextView = {};
+    for (const propertyName of keys) {
+        nextView[propertyName] = service[propertyName];
+    }
+
+    return Object.freeze(nextView);
+}
+
 export function registerIdentifierCasePlanServiceProvider(provider) {
     if (typeof provider !== "function") {
         throw new TypeError(
@@ -144,49 +164,31 @@ export function resolveIdentifierCasePlanService() {
 
 export function resolveIdentifierCasePlanPreparationService() {
     const service = resolveIdentifierCasePlanServiceInternal();
-    if (
-        !cachedPreparationService ||
-        cachedPreparationService.prepareIdentifierCasePlan !==
-            service.prepareIdentifierCasePlan
-    ) {
-        cachedPreparationService = Object.freeze({
-            prepareIdentifierCasePlan: service.prepareIdentifierCasePlan
-        });
-    }
+    cachedPreparationService = refreshCachedServiceView(
+        cachedPreparationService,
+        service,
+        "prepareIdentifierCasePlan"
+    );
     return cachedPreparationService;
 }
 
 export function resolveIdentifierCaseRenameLookupService() {
     const service = resolveIdentifierCasePlanServiceInternal();
-    if (
-        !cachedRenameLookupService ||
-        cachedRenameLookupService.getIdentifierCaseRenameForNode !==
-            service.getIdentifierCaseRenameForNode
-    ) {
-        cachedRenameLookupService = Object.freeze({
-            getIdentifierCaseRenameForNode:
-                service.getIdentifierCaseRenameForNode
-        });
-    }
+    cachedRenameLookupService = refreshCachedServiceView(
+        cachedRenameLookupService,
+        service,
+        "getIdentifierCaseRenameForNode"
+    );
     return cachedRenameLookupService;
 }
 
 export function resolveIdentifierCasePlanSnapshotService() {
     const service = resolveIdentifierCasePlanServiceInternal();
-    if (
-        !cachedSnapshotService ||
-        cachedSnapshotService.captureIdentifierCasePlanSnapshot !==
-            service.captureIdentifierCasePlanSnapshot ||
-        cachedSnapshotService.applyIdentifierCasePlanSnapshot !==
-            service.applyIdentifierCasePlanSnapshot
-    ) {
-        cachedSnapshotService = Object.freeze({
-            captureIdentifierCasePlanSnapshot:
-                service.captureIdentifierCasePlanSnapshot,
-            applyIdentifierCasePlanSnapshot:
-                service.applyIdentifierCasePlanSnapshot
-        });
-    }
+    cachedSnapshotService = refreshCachedServiceView(
+        cachedSnapshotService,
+        service,
+        ["captureIdentifierCasePlanSnapshot", "applyIdentifierCasePlanSnapshot"]
+    );
     return cachedSnapshotService;
 }
 
