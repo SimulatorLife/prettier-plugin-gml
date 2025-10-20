@@ -75,8 +75,7 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
-import { clearIdentifierCaseOptionStore } from "../plugin/src/identifier-case/option-store.js";
-import { clearIdentifierCaseDryRunContexts } from "../plugin/src/identifier-case/identifier-case-context.js";
+import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -437,8 +436,8 @@ let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
 function clearIdentifierCaseCaches() {
-    clearIdentifierCaseOptionStore(null);
-    clearIdentifierCaseDryRunContexts();
+    const clearCaches = resolveCliIdentifierCaseCacheClearer();
+    clearCaches();
 }
 
 async function ensureRevertSnapshotDirectory() {

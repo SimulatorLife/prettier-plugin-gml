@@ -3,6 +3,7 @@ import { createDefaultCliPluginServiceImplementations } from "./providers/defaul
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
  * @typedef {(options: object) => Promise<void>} CliIdentifierCasePlanPreparer
+ * @typedef {() => void} CliIdentifierCaseCacheClearer
  */
 
 /**
@@ -13,6 +14,7 @@ import { createDefaultCliPluginServiceImplementations } from "./providers/defaul
 /**
  * @typedef {object} CliIdentifierCasePlanService
  * @property {CliIdentifierCasePlanPreparer} prepareIdentifierCasePlan
+ * @property {CliIdentifierCaseCacheClearer} clearIdentifierCaseCaches
  */
 
 /**
@@ -57,7 +59,7 @@ function normalizeIdentifierCasePlanService(service) {
         );
     }
 
-    const { prepareIdentifierCasePlan } = service;
+    const { prepareIdentifierCasePlan, clearIdentifierCaseCaches } = service;
 
     if (typeof prepareIdentifierCasePlan !== "function") {
         throw new TypeError(
@@ -65,7 +67,16 @@ function normalizeIdentifierCasePlanService(service) {
         );
     }
 
-    return Object.freeze({ prepareIdentifierCasePlan });
+    if (typeof clearIdentifierCaseCaches !== "function") {
+        throw new TypeError(
+            "CLI identifier case plan service must provide a clearIdentifierCaseCaches function"
+        );
+    }
+
+    return Object.freeze({
+        prepareIdentifierCasePlan,
+        clearIdentifierCaseCaches
+    });
 }
 
 /**
@@ -79,7 +90,11 @@ function normalizeCliPluginServices(services) {
         );
     }
 
-    const { buildProjectIndex, prepareIdentifierCasePlan } = services;
+    const {
+        buildProjectIndex,
+        prepareIdentifierCasePlan,
+        clearIdentifierCaseCaches
+    } = services;
 
     if (typeof buildProjectIndex !== "function") {
         throw new TypeError(
@@ -93,16 +108,24 @@ function normalizeCliPluginServices(services) {
         );
     }
 
+    if (typeof clearIdentifierCaseCaches !== "function") {
+        throw new TypeError(
+            "CLI plugin services must provide a clearIdentifierCaseCaches function"
+        );
+    }
+
     const projectIndexService = normalizeProjectIndexService({
         buildProjectIndex
     });
     const identifierCasePlanService = normalizeIdentifierCasePlanService({
-        prepareIdentifierCasePlan
+        prepareIdentifierCasePlan,
+        clearIdentifierCaseCaches
     });
 
     return Object.freeze({
         buildProjectIndex,
         prepareIdentifierCasePlan,
+        clearIdentifierCaseCaches,
         projectIndex: projectIndexService,
         identifierCasePlan: identifierCasePlanService
     });
@@ -179,3 +202,5 @@ export const defaultProjectIndexBuilder =
     defaultCliPluginServices.projectIndex.buildProjectIndex;
 export const defaultIdentifierCasePlanPreparer =
     defaultCliPluginServices.identifierCasePlan.prepareIdentifierCasePlan;
+export const defaultIdentifierCaseCacheClearer =
+    defaultCliPluginServices.identifierCasePlan.clearIdentifierCaseCaches;
