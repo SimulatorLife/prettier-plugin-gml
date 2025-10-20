@@ -742,6 +742,23 @@ export function print(path, options, print) {
                 : concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
+            if (
+                node.preserveOriginalCallText &&
+                options &&
+                typeof options.originalText === "string"
+            ) {
+                const startIndex = getNodeStartIndex(node);
+                const endIndex = getNodeEndIndex(node);
+
+                if (
+                    typeof startIndex === "number" &&
+                    typeof endIndex === "number" &&
+                    endIndex > startIndex
+                ) {
+                    return options.originalText.slice(startIndex, endIndex);
+                }
+            }
+
             applyTrigonometricFunctionSimplification(path);
             let printedArgs = [];
 
@@ -4269,16 +4286,34 @@ function unwrapParenthesizedExpression(childPath, print) {
     return print();
 }
 
+function getInnermostClauseExpression(node) {
+    let current = node;
+
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current;
+}
+
 function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
 function wrapInClauseParens(path, print, clauseKey) {
-    return concat([
-        "(",
-        buildClauseGroup(printWithoutExtraParens(path, print, clauseKey)),
-        ")"
-    ]);
+    const clauseNode = path.getValue()?.[clauseKey];
+    const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
+
+    const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
+
+    if (
+        clauseExpressionNode?.type === "CallExpression" &&
+        clauseExpressionNode.preserveOriginalCallText
+    ) {
+        return concat(["(", clauseDoc, ")"]);
+    }
+
+    return concat(["(", buildClauseGroup(clauseDoc), ")"]);
 }
 
 // prints any statement that matches the structure [keyword, clause, statement]
@@ -4290,46 +4325,56 @@ function printSingleClauseStatement(
     clauseKey,
     bodyKey
 ) {
-    const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const node = path.getValue();
+    const clauseNode = node?.[clauseKey];
+    const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
+    const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
     const allowSingleLineIfStatements =
         options?.allowSingleLineIfStatements ?? true;
+    const clauseIsPreservedCall =
+        clauseExpressionNode?.type === "CallExpression" &&
+        clauseExpressionNode.preserveOriginalCallText === true;
 
-    if (allowSingleLineIfStatements && bodyNode) {
+    if (allowSingleLineIfStatements && bodyNode && !clauseIsPreservedCall) {
         let inlineReturnDoc = null;
+        let inlineStatementType = null;
 
-        if (bodyNode.type === "ReturnStatement" && !hasComment(bodyNode)) {
+        const inlineableTypes = new Set(["ReturnStatement", "ExitStatement"]);
+
+        if (inlineableTypes.has(bodyNode.type) && !hasComment(bodyNode)) {
             inlineReturnDoc = print(bodyKey);
+            inlineStatementType = bodyNode.type;
         } else if (
             bodyNode.type === "BlockStatement" &&
             !hasComment(bodyNode) &&
             Array.isArray(bodyNode.body) &&
             bodyNode.body.length === 1
         ) {
-            const startLine = bodyNode.start?.line;
-            const endLine = bodyNode.end?.line;
+            const [onlyStatement] = bodyNode.body;
             if (
-                startLine != undefined &&
-                endLine != undefined &&
-                startLine === endLine
+                onlyStatement &&
+                inlineableTypes.has(onlyStatement.type) &&
+                !hasComment(onlyStatement)
             ) {
-                const [onlyStatement] = bodyNode.body;
-                if (
-                    onlyStatement?.type === "ReturnStatement" &&
-                    !hasComment(onlyStatement)
-                ) {
-                    const blockSource = getSourceTextForNode(bodyNode, options);
-                    const blockContainsSemicolon =
-                        typeof blockSource === "string" &&
-                        blockSource.includes(";");
+                const startLine = bodyNode.start?.line;
+                const endLine = bodyNode.end?.line;
+                const blockSource = getSourceTextForNode(bodyNode, options);
+                const blockContainsSemicolon =
+                    typeof blockSource === "string" &&
+                    blockSource.includes(";");
+                const canInlineBlock =
+                    onlyStatement.type === "ExitStatement" ||
+                    (startLine != undefined &&
+                        endLine != undefined &&
+                        startLine === endLine);
 
-                    if (blockContainsSemicolon) {
-                        inlineReturnDoc = path.call(
-                            (childPath) => childPath.call(print, "body", 0),
-                            bodyKey
-                        );
-                    }
+                if (blockContainsSemicolon && canInlineBlock) {
+                    inlineReturnDoc = path.call(
+                        (childPath) => childPath.call(print, "body", 0),
+                        bodyKey
+                    );
+                    inlineStatementType = onlyStatement.type;
                 }
             }
         }
@@ -4341,7 +4386,7 @@ function printSingleClauseStatement(
                 clauseDoc,
                 " { ",
                 inlineReturnDoc,
-                optionalSemicolon("ReturnStatement"),
+                optionalSemicolon(inlineStatementType ?? "ReturnStatement"),
                 " }"
             ]);
         }
