@@ -369,7 +369,12 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     // Visit a parse tree produced by GameMakerLanguageParser#caseBlock.
     visitCaseBlock(ctx) {
         let caseClauses = [];
-        // yucky
+        // The ANTLR grammar exposes `caseClauses` groups both before and after the
+        // optional `default` clause, and each visit returns an array of case nodes.
+        // Flatten the arrays as we go so downstream consumers (printers, Feather
+        // fixups) continue to receive a single ordered list; skipping the
+        // concatenation leaves nested arrays behind and causes switch statements to
+        // lose cases during later traversals.
         if (ctx.caseClauses() != undefined) {
             let cases = ctx.caseClauses();
             for (const case_ of cases) {
