@@ -7,8 +7,10 @@ import {
     isNonEmptyTrimmedString
 } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
-import { createAbortGuard } from "./abort-guard.js";
+import {
+    createAbortGuard,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 
 import { isFsErrorCode } from "./fs-utils.js";
 import {

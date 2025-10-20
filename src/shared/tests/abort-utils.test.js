@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createAbortError, throwIfAborted } from "../abort-utils.js";
+import {
+    createAbortError,
+    createAbortGuard,
+    throwIfAborted
+} from "../abort-utils.js";
 
 describe("createAbortError", () => {
     it("returns null for non-aborted signals", () => {
@@ -60,5 +64,42 @@ describe("throwIfAborted", () => {
         assert.doesNotThrow(() => {
             throwIfAborted({ aborted: false }, "fallback");
         });
+    });
+});
+
+describe("createAbortGuard", () => {
+    it("normalizes the signal from an options bag", () => {
+        const signal = { aborted: false };
+        const guard = createAbortGuard({ signal });
+        assert.equal(guard.signal, signal);
+        assert.doesNotThrow(() => guard.ensureNotAborted());
+    });
+
+    it("returns null when no signal is provided", () => {
+        const guard = createAbortGuard({}, {});
+        assert.equal(guard.signal, null);
+        assert.doesNotThrow(() => guard.ensureNotAborted());
+    });
+
+    it("throws immediately when the signal is already aborted", () => {
+        const controller = new AbortController();
+        controller.abort("stop");
+        assert.throws(() => {
+            createAbortGuard({ signal: controller.signal });
+        }, /stop/);
+    });
+
+    it("reuses the fallback message when the abort reason is missing", () => {
+        const signal = { aborted: false, reason: undefined };
+        const guard = createAbortGuard(
+            { signal },
+            { fallbackMessage: "Cancelled." }
+        );
+
+        signal.aborted = true;
+
+        assert.throws(() => {
+            guard.ensureNotAborted();
+        }, /Cancelled\./);
     });
 });

@@ -38,13 +38,15 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import {
+    createAbortGuard,
+    throwIfAborted
+} from "../../../shared/abort-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
-import { createAbortGuard } from "./abort-guard.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
