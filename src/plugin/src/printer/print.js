@@ -2296,16 +2296,31 @@ function mergeSyntheticDocComments(
         return syntheticLines;
     }
 
+    const docTagMatches = (line, pattern) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            return false;
+        }
+
+        if (pattern.global || pattern.sticky) {
+            pattern.lastIndex = 0;
+        }
+
+        return pattern.test(trimmed);
+    };
+
     const isFunctionLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@function\b/i);
     const isOverrideLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
-    const isParamLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
 
     const isDescriptionLine = (line) =>
-        typeof line === "string" &&
-        /^\/\/\/\s*@description\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
@@ -2638,7 +2653,7 @@ function mergeSyntheticDocComments(
     let insertedParams = false;
 
     for (const line of result) {
-        if (typeof line === "string" && isParamLine(line)) {
+        if (isParamLine(line)) {
             if (!insertedParams && orderedParamDocs.length > 0) {
                 finalDocs.push(...orderedParamDocs);
                 insertedParams = true;
@@ -2679,7 +2694,7 @@ function mergeSyntheticDocComments(
 
         let lastParamIndex = -1;
         for (const [index, element] of docsWithoutDescription.entries()) {
-            if (typeof element === "string" && isParamLine(element)) {
+            if (isParamLine(element)) {
                 lastParamIndex = index;
             }
         }
@@ -2697,7 +2712,7 @@ function mergeSyntheticDocComments(
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
-        if (!isParamLine(line) || typeof line !== "string") {
+        if (!isParamLine(line)) {
             return line;
         }
 
@@ -2835,7 +2850,7 @@ function mergeSyntheticDocComments(
 
     for (let index = 0; index < reorderedDocs.length; index += 1) {
         const line = reorderedDocs[index];
-        if (typeof line === "string" && isDescriptionLine(line)) {
+        if (isDescriptionLine(line)) {
             const blockLines = [line];
             let lookahead = index + 1;
 
