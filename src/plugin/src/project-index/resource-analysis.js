@@ -12,7 +12,7 @@ import {
     throwIfAborted
 } from "../../../shared/abort-utils.js";
 
-import { isFsErrorCode } from "./fs-utils.js";
+import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
