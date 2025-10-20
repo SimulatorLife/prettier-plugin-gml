@@ -37,7 +37,13 @@ function isLastStatement(path) {
         return true;
     }
     const node = path.getValue();
-    return body.at(-1) === node;
+
+    // `Array#at` supports negative indices but pays an extra bounds check on
+    // every call. The printer hits this helper for nearly every statement
+    // emission, so using direct index math keeps the hot path leaner while
+    // preserving the existing semantics for empty arrays.
+    const lastIndex = body.length - 1;
+    return lastIndex >= 0 && body[lastIndex] === node;
 }
 
 function getParentNodeListProperty(path) {
