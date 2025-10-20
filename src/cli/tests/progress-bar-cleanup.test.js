@@ -12,7 +12,17 @@ import {
 describe("progress bar cleanup", () => {
     it("disposes active progress bars when callbacks fail", async () => {
         const originalIsTTY = process.stdout.isTTY;
-        const stopMock = mock.method(SingleBar.prototype, "stop");
+        const stopMock = mock.method(
+            SingleBar.prototype,
+            "stop",
+            function (...args) {
+                // The real progress bar schedules a timer in `start` via
+                // `render()`. Delegating to the original implementation keeps
+                // the timer clearing logic intact so the test does not leak
+                // handles when the cleanup path runs.
+                return stopMock.mock.original.call(this, ...args);
+            }
+        );
         process.stdout.isTTY = true;
 
         try {
