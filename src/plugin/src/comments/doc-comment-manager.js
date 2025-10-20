@@ -73,7 +73,11 @@ export function getDocCommentManager(ast) {
 
 /**
  * @typedef {object} DocCommentUpdateService
- * @property {(updates: Map<object, { expression?: string, hasDocComment?: boolean }>) => void} applyUpdates
+ * @property {(updates: Map<object, {
+ *   description?: string,
+ *   expression?: string,
+ *   hasDocComment?: boolean
+ * }>) => void} applyUpdates
  */
 
 export function resolveDocCommentInspectionService(ast) {
@@ -241,6 +245,30 @@ function collectFunctionNodes(ast) {
     return functions;
 }
 
+/**
+ * Applies doc comment edits emitted by call-site transforms.
+ *
+ * Each entry in {@link docUpdates} maps a function node to the raw doc comment
+ * metadata discovered before the transform ran. The update payload retains the
+ * pre-existing `description` text alongside a simplified `expression` so the
+ * formatter can rewrite legacy annotations without trampling bespoke wording.
+ *
+ * The routine intentionally ignores:
+ * - functions without doc comments (callers set {@link hasDocComment} to
+ *   `true` when they injected one themselves), and
+ * - updates whose computed description is blank after trimming.
+ *
+ * Those guardrails ensure we only touch original comments that still need to
+ * be reconciled while leaving user-authored phrasing alone.
+ *
+ * @param {Map<object, Array<object>>} commentGroups Indexed doc comment lists
+ *        produced by {@link mapDocCommentsToFunctions}.
+ * @param {Map<object, {
+ *   description?: string,
+ *   expression?: string,
+ *   hasDocComment?: boolean
+ * }>} docUpdates Normalized updates keyed by function node.
+ */
 function applyDocCommentUpdates(commentGroups, docUpdates) {
     if (!docUpdates || docUpdates.size === 0) {
         return;
