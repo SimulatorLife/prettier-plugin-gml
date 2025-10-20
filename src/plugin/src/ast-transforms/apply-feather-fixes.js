@@ -9629,12 +9629,6 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fileFindFirstCall = createFileFindFirstCall(node);
-
-    if (!fileFindFirstCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: node.object?.name ?? null,
         range: {
@@ -9647,8 +9641,7 @@ function ensureFileFindFirstBeforeCloseCall(
         return null;
     }
 
-    siblings.splice(property, 0, fileFindFirstCall);
-    attachFeatherFixMetadata(fileFindFirstCall, [fixDetail]);
+    siblings.splice(property, 1);
 
     return fixDetail;
 }
@@ -9696,41 +9689,6 @@ function containsFileFindFirstCall(node) {
     }
 
     return false;
-}
-
-function createFileFindFirstCall(template) {
-    const identifier = createIdentifier("file_find_first", template?.object);
-
-    if (!identifier) {
-        return null;
-    }
-
-    const searchPattern = createLiteral('""', null);
-    const attributes = createIdentifier("fa_none", null);
-
-    const callExpression = {
-        type: "CallExpression",
-        object: identifier,
-        arguments: []
-    };
-
-    if (searchPattern) {
-        callExpression.arguments.push(searchPattern);
-    }
-
-    if (attributes) {
-        callExpression.arguments.push(attributes);
-    }
-
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
-
-    return callExpression;
 }
 
 function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
