@@ -85,10 +85,25 @@ function renderProgressBar(label, current, total, width) {
     }
 }
 
+async function withProgressBarCleanup(callback) {
+    if (typeof callback !== "function") {
+        throw new TypeError(
+            "withProgressBarCleanup requires a callback function."
+        );
+    }
+
+    try {
+        return await callback();
+    } finally {
+        disposeProgressBars();
+    }
+}
+
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
     disposeProgressBars,
     getDefaultProgressBarWidth,
     renderProgressBar,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    withProgressBarCleanup
 };
