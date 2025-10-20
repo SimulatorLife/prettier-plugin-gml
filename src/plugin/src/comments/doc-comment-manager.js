@@ -2,6 +2,10 @@ import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    toMutableArray,
+    isNonEmptyArray
+} from "../../../shared/array-utils.js";
 
 const DOC_COMMENT_TARGET_TYPES = new Set([
     "FunctionDeclaration",
@@ -69,14 +73,14 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Array.isArray(comments) ? comments : [];
+            return toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
         },
         hasDocComment(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Array.isArray(comments) && comments.length > 0;
+            return isNonEmptyArray(comments);
         }
     };
 }

@@ -2,6 +2,7 @@ import process from "node:process";
 
 import { CliUsageError } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
+import { toMutableArray } from "../../shared/array-utils.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -58,7 +59,7 @@ export function resolveSuiteOutputFormatOrThrow(
  * @returns {Array<string>}
  */
 export function resolveRequestedSuites(options, availableSuites) {
-    const suiteOption = Array.isArray(options?.suite) ? options.suite : [];
+    const suiteOption = toMutableArray(options?.suite);
     const hasExplicitSuites = suiteOption.length > 0;
     const requested = hasExplicitSuites
         ? suiteOption

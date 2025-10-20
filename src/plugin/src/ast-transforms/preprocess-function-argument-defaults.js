@@ -9,6 +9,7 @@ import {
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
     unwrapParenthesizedExpression
 } from "../../../shared/ast-node-helpers.js";
+import { toMutableArray } from "../../../shared/array-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 
 const DEFAULT_HELPERS = {
@@ -194,7 +195,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         return a.statementIndex - b.statementIndex;
     });
 
-    const params = Array.isArray(node.params) ? node.params : [];
+    const params = toMutableArray(node.params);
     if (!Array.isArray(node.params)) {
         node.params = params;
     }
