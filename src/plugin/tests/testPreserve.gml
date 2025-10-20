@@ -1,5 +1,5 @@
 var my_val = (2 + 3) * 4;
-var b = (x > y) ? (a + b) : (a - b);
+var b = ((x > y) ? (a + b) : (a - b));
 
 /// @description States
 
@@ -9,6 +9,7 @@ states.add_state(
     function() { // enter
         gml_pragma("forceinline");
 
+        var l_jsDummy = (l_isJS ? function(){} : undefined);
         scr_play_sound_at(snd_slot_machine, x, y, z);
         scaler.big_squish();
         image_speed = 1; // start animation

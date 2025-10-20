@@ -216,8 +216,8 @@ function scr_spring(a, b, dst, force) {
 		return false;
 	}
 
-	var push_out = (argument_count > 4) ? argument[4] : true;
-	var pull_in = (argument_count > 5) ? argument[5] : true;
+	var push_out = (argument_count > 4 ? argument[4] : true);
+	var pull_in = (argument_count > 5 ? argument[5] : true);
 
 	var xoff = a.x - b.x;
 	var yoff = a.y - b.y;

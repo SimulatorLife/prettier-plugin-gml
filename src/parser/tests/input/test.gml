@@ -1,6 +1,11 @@
 // Make sure the global logger is created before we try to log anything
 gml_pragma("global", "variable_global_set(\"logger\", new DedupLogger())");
 
+
+gml_func_add("gml_pragma(setting, ...)",function(){});
+
+var l_jsDummy=(l_isJS?function(){}:undefined);
+
 function configureLighting__() {
 	global.lighting.add_key_time(00, 253, 094, 083, 0.50);  // Sunset peak at 00h
 }
@@ -167,4 +172,26 @@ function scr_sprite_exists(maybe_sprite) {
     return !is_ptr(maybe_sprite) and (!is_real(maybe_sprite) or !(maybe_sprite < 0)) and  // texture / surface pointer or negative number
     // Now it’s either a numeric ID >=0 **or** the new asset reference type
     sprite_exists(maybe_sprite);
+}
+
+/// @function get_debug_text
+/// @returns {string} debug_info
+get_debug_text = function() {
+	var txt = "";
+	txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
+	txt += $"\nLand type: {global.island.get_land_string(land_type)}";
+	txt += $"\nDirection: {round(direction)}";
+	if (!is_undefined(weapon)) {
+		txt += weapon.get_debug_text();
+	}
+	txt += hp.get_debug_text();
+	txt += states.get_debug_text();
+	txt += mover.get_debug_text();
+	if (variable_instance_exists(id, "collider") and !is_undefined(collider)) {
+		txt += collider.get_debug_text();
+	}
+	if (variable_instance_exists(id, "ai")) {
+		txt += ai.get_debug_text();
+	}
+	return txt;
 }
