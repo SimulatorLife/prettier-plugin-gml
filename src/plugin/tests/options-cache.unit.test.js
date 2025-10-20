@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    getCachedValue,
-    createCachedOptionResolver
-} from "../../shared/options-cache-utils.js";
+import { getCachedValue } from "../../shared/options-cache-utils.js";
 
 test("getCachedValue caches computed results per options object", () => {
     const options = {};
@@ -62,45 +59,33 @@ test("getCachedValue falls back to computing for non-object options", () => {
     assert.equal(computeCount, 2);
 });
 
-test("createCachedOptionResolver memoizes results per options object", () => {
+test("getCachedValue computes for primitive option inputs", () => {
     let computeCount = 0;
-    const resolver = createCachedOptionResolver({
-        cacheKey: Symbol("resolver"),
-        compute: (options) => {
-            computeCount += 1;
-            return { source: options };
-        }
+
+    const first = getCachedValue(null, Symbol("primitive"), new WeakMap(), () => {
+        computeCount += 1;
+        return "null";
     });
 
-    const options = {};
-    const first = resolver(options);
-    const second = resolver(options);
-
-    assert.equal(computeCount, 1);
-    assert.strictEqual(first, second);
-    assert.strictEqual(first.source, options);
-
-    const otherOptions = {};
-    const third = resolver(otherOptions);
-
-    assert.equal(computeCount, 2);
-    assert.strictEqual(third.source, otherOptions);
-    assert.notStrictEqual(first, third);
-});
-
-test("createCachedOptionResolver computes for primitive option inputs", () => {
-    let computeCount = 0;
-    const resolver = createCachedOptionResolver({
-        cacheKey: Symbol("primitive"),
-        compute: (options) => {
+    const second = getCachedValue(
+        "value",
+        Symbol("primitive"),
+        new WeakMap(),
+        () => {
             computeCount += 1;
-            return String(options);
+            return "value";
         }
-    });
+    );
 
-    const first = resolver(null);
-    const second = resolver("value");
-    const third = resolver("value");
+    const third = getCachedValue(
+        "value",
+        Symbol("primitive"),
+        new WeakMap(),
+        () => {
+            computeCount += 1;
+            return "value";
+        }
+    );
 
     assert.equal(first, "null");
     assert.equal(second, "value");

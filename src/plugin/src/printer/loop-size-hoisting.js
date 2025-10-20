@@ -7,7 +7,7 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifierName
 } from "../../../shared/ast-node-helpers.js";
-import { createCachedOptionResolver } from "../../../shared/options-cache-utils.js";
+import { getCachedValue } from "../../../shared/options-cache-utils.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
@@ -25,28 +25,32 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
     "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
 
-const getSizeRetrievalFunctionSuffixesCached = createCachedOptionResolver({
-    cacheKey: LOOP_SIZE_SUFFIX_CACHE,
-    compute: (options = {}) => {
-        const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-            options.loopLengthHoistFunctionSuffixes
-        );
-
-        const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-        for (const [functionName, suffix] of overrides) {
-            if (suffix === null) {
-                merged.delete(functionName);
-            } else {
-                merged.set(functionName, suffix);
-            }
-        }
-
-        return merged;
-    }
-});
+const SIZE_SUFFIX_CACHE = new WeakMap();
 
 function getSizeRetrievalFunctionSuffixes(options) {
-    return getSizeRetrievalFunctionSuffixesCached(options);
+    return getCachedValue(
+        options,
+        LOOP_SIZE_SUFFIX_CACHE,
+        SIZE_SUFFIX_CACHE,
+        () => {
+            const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+                options && typeof options === "object"
+                    ? options.loopLengthHoistFunctionSuffixes
+                    : undefined
+            );
+
+            const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+            for (const [functionName, suffix] of overrides) {
+                if (suffix === null) {
+                    merged.delete(functionName);
+                } else {
+                    merged.set(functionName, suffix);
+                }
+            }
+
+            return merged;
+        }
+    );
 }
 
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
