@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
@@ -7,6 +10,7 @@ import {
 } from "../lib/manual-utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
+const RAW_ROOT = "https://raw.github.com/example/manual";
 
 function makeResponse({ body, ok = true, statusText = "OK" }) {
     return {
@@ -27,6 +31,54 @@ describe("manual GitHub client validation", () => {
 
     afterEach(() => {
         globalThis.fetch = originalFetch;
+    });
+
+    it("fetches manual files while caching results to disk", async () => {
+        const cacheRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "manual-cache-")
+        );
+
+        const client = createManualGitHubClient({
+            userAgent: "test-agent",
+            defaultCacheRoot: cacheRoot,
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const responses = [
+            {
+                url: `${RAW_ROOT}/sha/path/to/file`,
+                response: makeResponse({ body: "cached body" })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const cachePath = path.join(cacheRoot, "sha", "path", "to", "file");
+
+        try {
+            const first = await client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file"
+            );
+            assert.equal(first, "cached body");
+            const cachedContent = await fs.readFile(cachePath, "utf8");
+            assert.equal(cachedContent, "cached body");
+
+            // Subsequent reads should reuse the cached artefact without fetching.
+            const second = await client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file"
+            );
+            assert.equal(second, "cached body");
+            assert.equal(responses.length, 0);
+        } finally {
+            await fs.rm(cacheRoot, { recursive: true, force: true });
+        }
     });
 
     it("rejects manual commit payloads without a SHA", async () => {
