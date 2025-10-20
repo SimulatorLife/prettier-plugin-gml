@@ -28,12 +28,7 @@ export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
 
 export function resolveSuiteOutputFormatOrThrow(
     value,
-    {
-        fallback,
-        errorConstructor = Error,
-        createErrorMessage = () =>
-            `Format must be one of: ${formatSuiteOutputFormatList()}.`
-    } = {}
+    { fallback, errorConstructor, createErrorMessage } = {}
 ) {
     const normalized = normalizeSuiteOutputFormat(value, { fallback });
 
@@ -41,15 +36,15 @@ export function resolveSuiteOutputFormatOrThrow(
         return normalized;
     }
 
-    const errorMessage =
+    const defaultMessage = `Format must be one of: ${formatSuiteOutputFormatList()}.`;
+    const hasCustomMessage = createErrorMessage !== undefined;
+    const messageSource =
         typeof createErrorMessage === "function"
             ? createErrorMessage(value)
-            : createErrorMessage;
-
-    const message =
-        typeof errorMessage === "string"
-            ? errorMessage
-            : String(errorMessage ?? "");
+            : hasCustomMessage
+              ? createErrorMessage
+              : defaultMessage;
+    const message = String(messageSource ?? "");
 
     const ErrorConstructor =
         typeof errorConstructor === "function" ? errorConstructor : Error;
