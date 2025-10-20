@@ -115,25 +115,27 @@ function normalizeManualTagEntry(entry) {
         errorMessage: "Manual tag entry is missing a tag name."
     });
 
-    if (commit == null) {
-        return { name, sha: null };
-    }
+    const commitRecord =
+        commit == null
+            ? null
+            : assertPlainObject(commit, {
+                  errorMessage:
+                      "Manual tag entry commit must be an object when provided."
+              });
 
-    const { sha } = assertPlainObject(commit, {
-        errorMessage: "Manual tag entry commit must be an object when provided."
-    });
+    const shaValue = commitRecord?.sha;
 
-    if (sha == null) {
-        return { name, sha: null };
-    }
-
-    const normalizedSha = assertNonEmptyString(sha, {
-        name: "Manual tag entry commit SHA",
-        errorMessage:
-            "Manual tag entry commit SHA must be a non-empty string when provided."
-    });
-
-    return { name, sha: normalizedSha };
+    return {
+        name,
+        sha:
+            shaValue == null
+                ? null
+                : assertNonEmptyString(shaValue, {
+                      name: "Manual tag entry commit SHA",
+                      errorMessage:
+                          "Manual tag entry commit SHA must be a non-empty string when provided."
+                  })
+    };
 }
 
 function resolveManualCacheRoot({
