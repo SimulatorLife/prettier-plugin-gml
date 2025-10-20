@@ -27,7 +27,11 @@ import {
 } from "../../../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
-import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    asArray,
+    isArrayIndex,
+    isNonEmptyArray
+} from "../../../shared/array-utils.js";
 import {
     getOrCreateMapEntry,
     hasOwn,
@@ -578,7 +582,7 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         }
 
         if (node.type === "BreakStatement" && breakableDepth === 0) {
-            if (!Array.isArray(parent) || typeof property !== "number") {
+            if (!isArrayIndex(parent, property)) {
                 return false;
             }
 
@@ -1218,7 +1222,7 @@ function recordVariableDeclaration(registry, context) {
 
     const { declaration, parent, property, owner } = context;
 
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!isArrayIndex(parent, property)) {
         return;
     }
 
@@ -2061,7 +2065,7 @@ function convertStringLiteralArgumentToIdentifier({
     index,
     diagnostic
 }) {
-    if (!Array.isArray(container) || typeof index !== "number") {
+    if (!isArrayIndex(container, index)) {
         return null;
     }
 
