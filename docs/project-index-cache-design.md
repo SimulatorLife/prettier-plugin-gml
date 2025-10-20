@@ -64,11 +64,11 @@ real projects. The collected metrics surfaced three practical improvements:
    it easy to spot tuning opportunities for ignore/preserve lists when the
    numbers spike.
 
-The new `scripts/bench-identifier-pipeline.mjs` helper runs the project index
-twice (to observe cache reuse) and optionally executes the rename planner for a
-specific file, printing the captured metrics as structured JSON. This gives us
-an ad-hoc regression harness for spotting regressions before they make it into
-CI.
+The `performance` CLI command (`node ./src/cli/cli.js performance --suite
+identifier-pipeline`) runs the project index twice (to observe cache reuse) and
+optionally executes the rename planner for a specific file, printing the
+captured metrics as structured JSON. This gives us an ad-hoc regression harness
+for spotting regressions before they make it into CI.
 
 ## Cache persistence schema
 
