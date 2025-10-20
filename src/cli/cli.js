@@ -35,7 +35,6 @@ import {
     getErrorMessage,
     isErrorWithCode,
     isObjectLike,
-    mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
@@ -189,15 +188,21 @@ function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
 ) {
-    const candidateValues = normalizeStringList(rawExtensions, {
+    const normalized = [];
+    const seen = new Set();
+
+    for (const candidate of normalizeStringList(rawExtensions, {
         splitPattern: /,/,
         allowInvalidType: true
-    });
+    })) {
+        const extension = coerceExtensionValue(candidate);
+        if (!extension || seen.has(extension)) {
+            continue;
+        }
 
-    const normalized = mergeUniqueValues([], candidateValues, {
-        coerce: coerceExtensionValue,
-        freeze: false
-    });
+        seen.add(extension);
+        normalized.push(extension);
+    }
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }
