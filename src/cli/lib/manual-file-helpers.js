@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { ensureDir } from "./file-system.js";
+import { ensureDir } from "./shared/fs-utils.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories
