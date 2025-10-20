@@ -1,4 +1,4 @@
-// Generated from GameMakerLanguageParser.g4 by ANTLR 4.13.1
+// Generated from GameMakerLanguageParser.g4 by ANTLR 4.13.2
 // jshint ignore: start
 import antlr4 from 'antlr4';
 
@@ -266,6 +266,12 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 
 	// Visit a parse tree produced by GameMakerLanguageParser#TernaryExpression.
 	visitTernaryExpression(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
+	// Visit a parse tree produced by GameMakerLanguageParser#FunctionExpression.
+	visitFunctionExpression(ctx) {
 	  return this.visitChildren(ctx);
 	}
 

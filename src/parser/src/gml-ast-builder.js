@@ -731,6 +731,11 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.visit(ctx.callStatement());
     }
 
+    // Visit a parse tree produced by GameMakerLanguageParser#FunctionExpression.
+    visitFunctionExpression(ctx) {
+        return this.visit(ctx.functionDeclaration());
+    }
+
     // Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedExpression.
     visitParenthesizedExpression(ctx) {
         return this.astNode(ctx, {
