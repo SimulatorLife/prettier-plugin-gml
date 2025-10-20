@@ -67,6 +67,29 @@ test("collectSuiteResults maps thrown errors using onError callback", async () =
     assert.equal(capturedErrors[0].error.message, "boom");
 });
 
+test("collectSuiteResults normalizes errors when onError is not provided", async () => {
+    const availableSuites = new Map([
+        [
+            "alpha",
+            () => {
+                const error = new Error("boom");
+                error.code = "ERR_TEST";
+                throw error;
+            }
+        ]
+    ]);
+
+    const results = await collectSuiteResults({
+        suiteNames: ["alpha"],
+        availableSuites
+    });
+
+    assert.equal(results.alpha.error.message, "boom");
+    assert.equal(results.alpha.error.name, "Error");
+    assert.equal(results.alpha.error.code, "ERR_TEST");
+    assert.ok(Array.isArray(results.alpha.error.stack));
+});
+
 test("collectSuiteResults skips suites without registered runners", async () => {
     const availableSuites = new Map([["alpha", () => ({ status: "ok" })]]);
 

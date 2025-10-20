@@ -1,5 +1,7 @@
 import {
     toTrimmedString,
+    getErrorCode,
+    getErrorMessage,
     isAggregateErrorLike,
     isErrorLike
 } from "./shared-deps.js";
@@ -201,6 +203,48 @@ export class CliUsageError extends Error {
         this.name = "CliUsageError";
         markAsCliUsageError(this, { usage });
     }
+}
+
+function normalizeStackLines(stack) {
+    if (typeof stack !== "string") {
+        return null;
+    }
+
+    const lines = stack.split("\n").map((line) => line.trimEnd());
+    return lines.some((line) => line.length > 0) ? lines : null;
+}
+
+function resolveErrorName(error) {
+    const explicitName = toTrimmedString(error?.name);
+    if (explicitName) {
+        return explicitName;
+    }
+
+    const constructorName = toTrimmedString(error?.constructor?.name);
+    return constructorName || "Error";
+}
+
+export function createCliErrorDetails(
+    error,
+    { fallbackMessage = "Unknown error" } = {}
+) {
+    const message = getErrorMessage(error, { fallback: fallbackMessage });
+    const details = {
+        message,
+        name: resolveErrorName(error)
+    };
+
+    const code = getErrorCode(error);
+    if (code) {
+        details.code = code;
+    }
+
+    const stackLines = normalizeStackLines(error?.stack);
+    if (stackLines) {
+        details.stack = stackLines;
+    }
+
+    return details;
 }
 
 export function handleCliError(error, { exitCode = 1, prefix } = {}) {

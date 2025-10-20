@@ -10,6 +10,8 @@ export {
     normalizeEnumeratedOption,
     toPosixPath,
     toTrimmedString,
+    getErrorCode,
+    getErrorMessage,
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isObjectLike,
