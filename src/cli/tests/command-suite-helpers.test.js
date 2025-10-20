@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { collectSuiteResults } from "../lib/command-suite-helpers.js";
+import {
+    collectSuiteResults,
+    resolveRequestedSuites
+} from "../lib/command-suite-helpers.js";
 
 test("collectSuiteResults executes suite runners with shared options", async () => {
     const calls = [];
@@ -99,4 +102,28 @@ test("collectSuiteResults skips suites without registered runners", async () => 
     });
 
     assert.deepStrictEqual(results, { alpha: { status: "ok" } });
+});
+
+test("resolveRequestedSuites normalizes explicit suite selections", () => {
+    const options = { suite: ["Alpha", "BETA"] };
+    const suites = new Map([
+        ["alpha", {}],
+        ["beta", {}],
+        ["gamma", {}]
+    ]);
+
+    const requested = resolveRequestedSuites(options, suites);
+
+    assert.deepStrictEqual(requested, ["alpha", "beta"]);
+});
+
+test("resolveRequestedSuites defaults to all available suites when unspecified", () => {
+    const suites = new Map([
+        ["alpha", {}],
+        ["beta", {}]
+    ]);
+
+    const requested = resolveRequestedSuites({}, suites);
+
+    assert.deepStrictEqual(requested, ["alpha", "beta"]);
 });
