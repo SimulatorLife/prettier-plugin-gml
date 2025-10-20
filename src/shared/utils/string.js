@@ -152,9 +152,11 @@ export function normalizeStringList(
     throw new TypeError(errorMessage);
 }
 
+const UNIQUE_SET_THRESHOLD = 8;
+
 function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    const seen = new Set();
+    let seen = null;
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -162,12 +164,38 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (!trimmed || seen.has(trimmed)) {
+        if (!trimmed) {
             continue;
         }
 
-        seen.add(trimmed);
+        if (seen) {
+            if (seen.has(trimmed)) {
+                continue;
+            }
+        } else if (normalized.length >= UNIQUE_SET_THRESHOLD) {
+            // Lazily create the tracking set once inputs grow beyond a small
+            // handful of unique entries so short options avoid Set allocations
+            // entirely. This mirrors the previous O(1) duplicate detection for
+            // larger lists without penalizing the common "one or two values"
+            // call sites.
+            seen = new Set(normalized);
+
+            if (seen.has(trimmed)) {
+                continue;
+            }
+        } else if (normalized.includes(trimmed)) {
+            // A duplicate showed up before we crossed the threshold, so start
+            // tracking membership with a Set for subsequent iterations. The
+            // duplicate itself is skipped to preserve the original behavior.
+            seen = new Set(normalized);
+            continue;
+        }
+
         normalized.push(trimmed);
+
+        if (seen) {
+            seen.add(trimmed);
+        }
     }
 
     return normalized;
