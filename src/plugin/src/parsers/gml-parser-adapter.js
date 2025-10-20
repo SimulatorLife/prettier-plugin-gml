@@ -20,6 +20,7 @@ import {
     getNodeStartIndex,
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
+import { toMutableArray } from "../../../shared/array-utils.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
@@ -990,7 +991,7 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
         return false;
     }
 
-    const args = Array.isArray(node.arguments) ? node.arguments : [];
+    const args = toMutableArray(node.arguments);
 
     if (
         args.some(
