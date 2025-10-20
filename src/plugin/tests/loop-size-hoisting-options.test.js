@@ -35,3 +35,27 @@ test("accepts array inputs when normalizing suffix overrides", () => {
     assert.strictEqual(overrides.get("ds_map_size"), "entries");
     assert.strictEqual(overrides.has("ds_grid_height"), false);
 });
+
+test("memoizes suffix overrides per options object", () => {
+    const options = {
+        loopLengthHoistFunctionSuffixes: "ds_list_size=items"
+    };
+
+    const first = getSizeRetrievalFunctionSuffixes(options);
+
+    options.loopLengthHoistFunctionSuffixes = "ds_list_size=count";
+
+    const second = getSizeRetrievalFunctionSuffixes(options);
+
+    assert.strictEqual(first, second);
+    assert.strictEqual(second.get("ds_list_size"), "items");
+
+    const otherOptions = {
+        loopLengthHoistFunctionSuffixes: "ds_list_size=count"
+    };
+
+    const third = getSizeRetrievalFunctionSuffixes(otherOptions);
+
+    assert.notStrictEqual(second, third);
+    assert.strictEqual(third.get("ds_list_size"), "count");
+});
