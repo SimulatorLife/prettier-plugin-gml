@@ -143,3 +143,43 @@ test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes",
         "/// @param second"
     ]);
 });
+
+const METADATA_SOURCE = `/// @function scr_bezier_4
+/// @param width
+/// @param steps
+function scr_bezier_4(argument0, argument1) {
+    var w = argument0;
+    var step = 1 / argument1;
+    return w + step;
+}
+`;
+
+test("synthetic doc comments prefer existing metadata names", async () => {
+    const formatted = await prettier.format(METADATA_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const docStart = formatted.indexOf("/// @function scr_bezier_4");
+    let docEnd = formatted.indexOf("\nfunction scr_bezier_4", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function scr_bezier_4", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = formatted
+        .slice(docStart, docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(paramLines, [
+        "/// @param width",
+        "/// @param steps"
+    ]);
+});

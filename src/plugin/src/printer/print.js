@@ -2287,6 +2287,8 @@ function mergeSyntheticDocComments(
         options,
         overrides
     );
+    const preserveParamOrder =
+        syntheticLines && syntheticLines._preserveParamOrder === true;
 
     if (syntheticLines.length === 0) {
         return existingDocLines;
@@ -2606,7 +2608,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const orderedParamDocs = [];
+    let orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
@@ -2630,8 +2632,14 @@ function mergeSyntheticDocComments(
         }
     }
 
-    for (const doc of paramDocsByCanonical.values()) {
-        orderedParamDocs.push(doc);
+    if (preserveParamOrder) {
+        orderedParamDocs = syntheticLines.filter(
+            (line) => typeof line === "string" && isParamLine(line)
+        );
+    } else {
+        for (const doc of paramDocsByCanonical.values()) {
+            orderedParamDocs.push(doc);
+        }
     }
 
     const finalDocs = [];
@@ -2708,8 +2716,9 @@ function mergeSyntheticDocComments(
             return normalizeDocCommentTypeAnnotations(line);
         }
 
-        const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
+        const [, rawPrefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+        const prefix = rawPrefix.replace(/\s*$/u, " ");
         let normalizedTypeSection = rawTypeSection.trim();
         if (
             normalizedTypeSection.startsWith("{") &&
@@ -2982,6 +2991,7 @@ function computeSyntheticFunctionDocLines(
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
+    const orderedParamMetadata = [];
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
     const existingFunctionMetadata = metadata.find(
@@ -3003,18 +3013,35 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-        const rawName = typeof meta.name === "string" ? meta.name : null;
-        if (!rawName) {
-            continue;
+        if (typeof meta.name === "string") {
+            documentedParamNames.add(meta.name);
+
+            const trimmedName = meta.name.trim();
+            if (trimmedName.length > 0) {
+                const canonical = getCanonicalParamNameFromText(trimmedName);
+                if (canonical && !paramMetadataByCanonical.has(canonical)) {
+                    paramMetadataByCanonical.set(canonical, meta);
+                }
+
+                orderedParamMetadata.push(meta);
+                continue;
+            }
         }
 
-        documentedParamNames.add(rawName);
-
-        const canonical = getCanonicalParamNameFromText(rawName);
+        const canonical = getCanonicalParamNameFromText(meta?.name);
         if (canonical && !paramMetadataByCanonical.has(canonical)) {
             paramMetadataByCanonical.set(canonical, meta);
         }
     }
+
+    const usableOrderedParamMetadata = orderedParamMetadata.filter(
+        (meta) => typeof meta?.name === "string" && meta.name.trim().length > 0
+    );
+    const paramCount = Array.isArray(node.params) ? node.params.length : 0;
+    const hasCompleteMetadata =
+        paramCount > 0 && usableOrderedParamMetadata.length === paramCount;
+    const usedParamMetadata = new Set();
+    const consumedImplicitDocEntries = new Set();
 
     const shouldInsertOverrideTag =
         overrides?.includeOverrideTag === true && !hasOverrideTag;
@@ -3056,12 +3083,19 @@ function computeSyntheticFunctionDocLines(
     }
 
     if (!Array.isArray(node.params)) {
-        for (const { name: docName } of implicitArgumentDocNames) {
-            if (documentedParamNames.has(docName)) {
+        for (const entry of implicitArgumentDocNames) {
+            const docName = entry?.name;
+            const normalizedDocName =
+                typeof docName === "string" ? docName.trim() : "";
+
+            if (
+                normalizedDocName.length === 0 ||
+                documentedParamNames.has(normalizedDocName)
+            ) {
                 continue;
             }
 
-            documentedParamNames.add(docName);
+            documentedParamNames.add(normalizedDocName);
             lines.push(`/// @param ${docName}`);
         }
 
@@ -3074,6 +3108,9 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        if (implicitDocEntry) {
+            consumedImplicitDocEntries.add(implicitDocEntry);
+        }
         const implicitName =
             (implicitDocEntry &&
                 typeof implicitDocEntry.name === "string" &&
@@ -3082,13 +3119,38 @@ function computeSyntheticFunctionDocLines(
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
-        const existingMetadata =
+        let existingMetadata =
             (canonicalParamName &&
                 paramMetadataByCanonical.has(canonicalParamName) &&
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
-        const existingDocName = existingMetadata?.name;
+        if (
+            (!existingMetadata ||
+                typeof existingMetadata.name !== "string" ||
+                existingMetadata.name.trim().length === 0) &&
+            hasCompleteMetadata
+        ) {
+            for (const meta of usableOrderedParamMetadata) {
+                if (usedParamMetadata.has(meta)) {
+                    continue;
+                }
+
+                existingMetadata = meta;
+                usedParamMetadata.add(meta);
+                break;
+            }
+        } else if (existingMetadata) {
+            usedParamMetadata.add(existingMetadata);
+        }
+
+        const existingDocName =
+            typeof existingMetadata?.name === "string"
+                ? existingMetadata.name.trim()
+                : null;
         const baseDocName =
+            (existingDocName &&
+                existingDocName.length > 0 &&
+                existingDocName) ||
             (implicitName && implicitName.length > 0 && implicitName) ||
             paramInfo.name;
         const shouldMarkOptional =
@@ -3102,28 +3164,63 @@ function computeSyntheticFunctionDocLines(
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName =
-            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
+        let docName =
+            shouldMarkOptional && baseDocName
+                ? `[${baseDocName}]`
+                : baseDocName;
 
-        if (documentedParamNames.has(docName)) {
+        if (
+            shouldMarkOptional &&
+            docName &&
+            isOptionalParamDocName(existingDocName) &&
+            isOptionalParamDocName(docName)
+        ) {
+            docName = existingDocName;
+        }
+
+        const normalizedDocName =
+            typeof docName === "string" ? docName.trim() : "";
+
+        if (normalizedDocName.length > 0) {
+            documentedParamNames.add(normalizedDocName);
+        }
+
+        if (!docName) {
             continue;
         }
-        documentedParamNames.add(docName);
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const { name: docName } of implicitArgumentDocNames) {
-        if (documentedParamNames.has(docName)) {
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry || consumedImplicitDocEntries.has(entry)) {
             continue;
         }
 
-        documentedParamNames.add(docName);
+        const { name: docName } = entry;
+        const normalizedDocName =
+            typeof docName === "string" ? docName.trim() : "";
+
+        if (
+            normalizedDocName.length === 0 ||
+            documentedParamNames.has(normalizedDocName)
+        ) {
+            continue;
+        }
+
+        documentedParamNames.add(normalizedDocName);
         lines.push(`/// @param ${docName}`);
     }
 
-    return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
-        (line) => normalizeDocCommentTypeAnnotations(line)
-    );
+    const normalizedLines = maybeAppendReturnsDoc(
+        lines,
+        node,
+        hasReturnsTag,
+        overrides
+    ).map((line) => normalizeDocCommentTypeAnnotations(line));
+
+    normalizedLines._preserveParamOrder = true;
+
+    return normalizedLines;
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -3422,12 +3519,12 @@ function parseDocCommentMetadata(line) {
     const remainder = match[2].trim();
 
     if (tag === "param") {
-        let paramSection = remainder;
+        let paramSection = remainder.trimStart();
 
         if (paramSection.startsWith("{")) {
             const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
             if (typeMatch) {
-                paramSection = typeMatch[1] ?? "";
+                paramSection = (typeMatch[1] ?? "").trimStart();
             }
         }
 
@@ -3449,7 +3546,7 @@ function parseDocCommentMetadata(line) {
         }
 
         if (!name) {
-            const paramMatch = paramSection.match(/^(\S+)/);
+            const paramMatch = paramSection.trimStart().match(/^(\S+)/);
             name = paramMatch ? paramMatch[1] : null;
         }
         return { tag, name };
