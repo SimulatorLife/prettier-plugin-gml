@@ -76,6 +76,8 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
+import { clearIdentifierCaseOptionStore } from "../plugin/src/identifier-case/option-store.js";
+import { clearIdentifierCaseDryRunContexts } from "../plugin/src/identifier-case/identifier-case-context.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -429,6 +431,11 @@ let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
+function clearIdentifierCaseCaches() {
+    clearIdentifierCaseOptionStore(null);
+    clearIdentifierCaseDryRunContexts();
+}
+
 async function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
         return revertSnapshotDirectory;
@@ -545,6 +552,7 @@ async function resetFormattingSession(onParseError) {
     abortRequested = false;
     revertTriggered = false;
     await discardFormattedFileOriginalContents();
+    clearIdentifierCaseCaches();
     skippedFileCount = 0;
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
@@ -1119,6 +1127,7 @@ async function executeFormatCommand(command) {
         await runFormattingWorkflow({ targetPath, usage });
     } finally {
         await discardFormattedFileOriginalContents();
+        clearIdentifierCaseCaches();
     }
 }
 
