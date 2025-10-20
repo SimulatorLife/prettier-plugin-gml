@@ -3,7 +3,7 @@ import {
     normalizeHasCommentHelpers
 } from "../comments/index.js";
 import {
-    cloneLocation,
+    assignClonedLocation,
     getNodeEndIndex,
     getNodeStartIndex
 } from "../../../shared/ast-locations.js";
@@ -1069,14 +1069,7 @@ function createCallExpressionNode(name, args, template) {
         arguments: Array.isArray(args) ? args : []
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            call.start = cloneLocation(template.start);
-        }
-        if (Object.hasOwn(template, "end")) {
-            call.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(call, template);
 
     return call;
 }
@@ -1091,15 +1084,7 @@ function createIdentifier(name, template) {
         name
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            identifier.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            identifier.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(identifier, template);
 
     return identifier;
 }
@@ -1110,14 +1095,7 @@ function createNumericLiteral(value, template) {
         value: String(value)
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            literal.start = cloneLocation(template.start);
-        }
-        if (Object.hasOwn(template, "end")) {
-            literal.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(literal, template);
 
     return literal;
 }
