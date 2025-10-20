@@ -12,6 +12,42 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     static print = function() {
         show_debug_message($"My foo is {self.foo}");
     }
+
+    /// @function generate
+    /// @returns {undefined}
+    /// @description Each time this is called, create new map
+    static generate = function() {
+        points = poisson_disk_sample(width, height, point_space);
+        create_nodes_from_points();
+        remove_ellipse();
+    };
+
+    /// @function remove_ellipse
+	/// @description Remove all nodes outside of ellipse
+	static remove_ellipse = function(){
+		for (var i = 0; i < array_length(nodes); i++) {
+		    if !collision_ellipse(0, 0, width, height, nodes[i], false, true) {
+				instance_destroy(nodes[i]);
+			}
+		}
+	}
+
+
+    /// @function draw_points
+    /// @returns {undefined}
+    /// @description Draw points in array for debugging
+    /// @returns {undefined}
+    /// @description
+    static draw_points = function() {
+        var num_points = array_length(points);
+        for (var i = 0; i < num_points; i++) {
+            draw_circle(points[i].x, points[i].y, 2, false);
+        }
+    };
+
+
+
+
 }
 
 /// @function
