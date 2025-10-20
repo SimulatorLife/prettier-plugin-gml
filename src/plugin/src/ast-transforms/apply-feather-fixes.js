@@ -11269,7 +11269,6 @@ function ensureVertexBeginBeforeVertexEndCall(
     }
 
     parent.splice(property, 1);
-    attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
 }
