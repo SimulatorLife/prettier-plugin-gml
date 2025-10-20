@@ -1,6 +1,9 @@
 import path from "node:path";
 
-import { toPosixPath } from "../../../shared/path-utils.js";
+import {
+    toPosixPath,
+    resolveProjectPathInfo
+} from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     isNonEmptyString,
@@ -33,11 +36,6 @@ function deriveScopeId(kind, parts) {
     return `scope:${kind}:${suffix}`;
 }
 
-function toProjectRelativePath(projectRoot, absolutePath) {
-    const relative = path.relative(projectRoot, absolutePath);
-    return toPosixPath(relative);
-}
-
 function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     if (!isNonEmptyString(rawPath)) {
         return null;
@@ -51,7 +49,12 @@ function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     const absoluteCandidate = path.isAbsolute(normalized)
         ? normalized
         : path.join(projectRoot, normalized);
-    return toProjectRelativePath(projectRoot, absoluteCandidate);
+    const info = resolveProjectPathInfo(absoluteCandidate, projectRoot);
+    if (!info) {
+        return null;
+    }
+
+    return toPosixPath(info.relativePath);
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
