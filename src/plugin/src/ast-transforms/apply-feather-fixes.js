@@ -48,7 +48,8 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    getDocCommentManager
+    getDocCommentManager,
+    getCommentValue
 } from "../comments/index.js";
 import {
     getFeatherDiagnosticById,
@@ -10942,8 +10943,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        const trimmedValue =
-            typeof comment.value === "string" ? comment.value.trim() : "";
+        const trimmedValue = getCommentValue(comment, { trim: true });
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -12420,8 +12420,7 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        const trimmedValue =
-            typeof comment.value === "string" ? comment.value.trim() : "";
+        const trimmedValue = getCommentValue(comment, { trim: true });
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -16503,7 +16502,7 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
         return null;
     }
 
-    const rawValue = typeof comment.value === "string" ? comment.value : "";
+    const rawValue = getCommentValue(comment);
 
     if (!rawValue || !rawValue.includes("@") || !rawValue.includes("{")) {
         return null;
