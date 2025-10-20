@@ -143,3 +143,43 @@ test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes",
         "/// @param second"
     ]);
 });
+
+const ORDERED_METADATA_SOURCE = `/// @function sampleDocs
+/// @param steps
+/// @param colour
+function sampleDocs(argument0, argument1) {
+    var total = argument0 * 2;
+    draw_set_colour(argument1);
+    return total;
+}
+`;
+
+test("parameter doc metadata order is preserved for argument placeholders", async () => {
+    const formatted = await prettier.format(ORDERED_METADATA_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const docStart = formatted.indexOf("/// @function sampleDocs");
+    let docEnd = formatted.indexOf("\nfunction sampleDocs", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function sampleDocs", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = formatted
+        .slice(docStart, docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(paramLines, [
+        "/// @param steps",
+        "/// @param colour"
+    ]);
+});

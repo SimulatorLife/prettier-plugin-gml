@@ -2754,6 +2754,45 @@ function mergeSyntheticDocComments(
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
+    if (Array.isArray(node.params)) {
+        const paramCount = node.params.length;
+        const paramDocs = reorderedDocs.filter(
+            (line) => typeof line === "string" && isParamLine(line)
+        );
+        if (paramDocs.length > paramCount && paramCount > 0) {
+            const fallbackParamPattern = /^(\/\/\/\s*@param\s+)argument\d+\b/i;
+            const nonFallbackDocs = paramDocs.filter(
+                (line) => !fallbackParamPattern.test(line)
+            );
+            const fallbackDocs = paramDocs.filter((line) =>
+                fallbackParamPattern.test(line)
+            );
+            const selectedDocs = [...nonFallbackDocs.slice(0, paramCount)];
+            if (selectedDocs.length < paramCount) {
+                selectedDocs.push(
+                    ...fallbackDocs.slice(0, paramCount - selectedDocs.length)
+                );
+            }
+
+            let selectedIndex = 0;
+            reorderedDocs = reorderedDocs
+                .map((line) => {
+                    if (typeof line === "string" && isParamLine(line)) {
+                        if (selectedIndex >= selectedDocs.length) {
+                            return null;
+                        }
+
+                        const replacement = selectedDocs[selectedIndex];
+                        selectedIndex += 1;
+                        return replacement;
+                    }
+
+                    return line;
+                })
+                .filter((line) => line !== null);
+        }
+    }
+
     const wrappedDocs = [];
     const normalizedPrintWidth = coercePositiveIntegerOption(
         options?.printWidth,
@@ -2973,6 +3012,9 @@ function computeSyntheticFunctionDocLines(
     const metadata = Array.isArray(existingDocLines)
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -3035,6 +3077,7 @@ function computeSyntheticFunctionDocLines(
         options
     );
     const implicitDocEntryByIndex = new Map();
+    const documentedParamIndices = new Set();
 
     for (const entry of implicitArgumentDocNames) {
         if (!entry) {
@@ -3070,6 +3113,7 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        const paramMetadataByIndex = orderedParamMetadata[paramIndex];
         const implicitName =
             (implicitDocEntry &&
                 typeof implicitDocEntry.name === "string" &&
@@ -3084,8 +3128,11 @@ function computeSyntheticFunctionDocLines(
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
         const existingDocName = existingMetadata?.name;
+        const indexedDocName = getNonEmptyString(paramMetadataByIndex?.name);
         const baseDocName =
             (implicitName && implicitName.length > 0 && implicitName) ||
+            (getNonEmptyString(existingDocName) ?? null) ||
+            indexedDocName ||
             paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
@@ -3101,14 +3148,44 @@ function computeSyntheticFunctionDocLines(
         const docName =
             (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
+        if (
+            indexedDocName &&
+            docName === indexedDocName &&
+            documentedParamNames.has(docName)
+        ) {
+            documentedParamNames.delete(docName);
+        }
+
         if (documentedParamNames.has(docName)) {
             continue;
         }
         documentedParamNames.add(docName);
         lines.push(`/// @param ${docName}`);
+        documentedParamIndices.add(paramIndex);
+
+        const fallbackCanonicalName =
+            typeof implicitDocEntry?.fallbackCanonical === "string"
+                ? implicitDocEntry.fallbackCanonical
+                : null;
+        if (
+            fallbackCanonicalName &&
+            fallbackCanonicalName !== docName &&
+            !documentedParamNames.has(fallbackCanonicalName)
+        ) {
+            documentedParamNames.add(fallbackCanonicalName);
+        }
     }
 
-    for (const { name: docName } of implicitArgumentDocNames) {
+    for (const entry of implicitArgumentDocNames) {
+        if (
+            entry &&
+            Number.isInteger(entry.index) &&
+            documentedParamIndices.has(entry.index)
+        ) {
+            continue;
+        }
+
+        const docName = entry?.name;
         if (documentedParamNames.has(docName)) {
             continue;
         }
