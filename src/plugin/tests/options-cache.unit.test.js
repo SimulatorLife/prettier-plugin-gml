@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     getCachedValue,
     createCachedOptionResolver
-} from "../src/options/options-cache.js";
+} from "../../shared/options-cache-utils.js";
 
 test("getCachedValue caches computed results per options object", () => {
     const options = {};
