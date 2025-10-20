@@ -344,6 +344,96 @@ function collectManualArrayIdentifiers(
     }
 }
 
+const MANUAL_KEYWORD_SOURCE = "manual:ZeusDocs_keywords.json";
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
+
+function shouldIncludeManualReference(normalisedPath) {
+    return (
+        normalisedPath.startsWith("3_Scripting") &&
+        normalisedPath.includes("4_GML_Reference")
+    );
+}
+
+function findManualTagEntry(manualTags, normalisedPath) {
+    const tagKeyCandidates = [
+        `${normalisedPath}.html`,
+        `${normalisedPath}/index.html`
+    ];
+
+    for (const key of tagKeyCandidates) {
+        if (manualTags[key]) {
+            return manualTags[key];
+        }
+    }
+
+    return null;
+}
+
+function resolveManualTagsForPath(manualTags, normalisedPath) {
+    const entry = findManualTagEntry(manualTags, normalisedPath);
+    if (!entry) {
+        return [];
+    }
+
+    return entry
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+}
+
+function isManualEntryDeprecated(normalisedPath, tags) {
+    const lowercasePath = normalisedPath.toLowerCase();
+    return (
+        tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
+        lowercasePath.includes("deprecated")
+    );
+}
+
+function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
+    for (const [rawIdentifier, manualPath] of Object.entries(manualKeywords)) {
+        const identifier = normaliseIdentifier(rawIdentifier);
+        if (!IDENTIFIER_PATTERN.test(identifier)) {
+            continue;
+        }
+
+        if (typeof manualPath !== "string" || manualPath.length === 0) {
+            continue;
+        }
+
+        const normalisedPath = toPosixPath(manualPath);
+        if (!shouldIncludeManualReference(normalisedPath)) {
+            continue;
+        }
+
+        const tags = resolveManualTagsForPath(manualTags, normalisedPath);
+        const type = classifyFromPath(normalisedPath, tags);
+        const deprecated = isManualEntryDeprecated(normalisedPath, tags);
+
+        mergeEntry(identifierMap, identifier, {
+            type,
+            sources: [MANUAL_KEYWORD_SOURCE],
+            manualPath: normalisedPath,
+            tags,
+            deprecated
+        });
+    }
+}
+
+function sortIdentifierEntries(identifierMap) {
+    return [...identifierMap.entries()]
+        .map(([identifier, data]) => [
+            identifier,
+            {
+                type: data.type,
+                sources: data.sources ? [...data.sources].sort() : [],
+                manualPath: data.manualPath,
+                tags: data.tags ? [...data.tags].sort() : [],
+                deprecated: data.deprecated
+            }
+        ])
+        .sort(([a], [b]) => a.localeCompare(b));
+}
+
 const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
 
 async function fetchManualAssets(
@@ -521,86 +611,20 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             { verbose }
         );
 
-        const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
-
         timeSync(
             "Classifying manual identifiers",
-            () => {
-                for (const [rawIdentifier, manualPath] of Object.entries(
-                    manualKeywords
-                )) {
-                    const identifier = normaliseIdentifier(rawIdentifier);
-                    if (!IDENTIFIER_PATTERN.test(identifier)) {
-                        continue;
-                    }
-
-                    if (
-                        typeof manualPath !== "string" ||
-                        manualPath.length === 0
-                    ) {
-                        continue;
-                    }
-
-                    const normalisedPath = toPosixPath(manualPath);
-                    if (
-                        !normalisedPath.startsWith("3_Scripting") ||
-                        !normalisedPath.includes("4_GML_Reference")
-                    ) {
-                        continue;
-                    }
-
-                    const tagKeyCandidates = [
-                        `${normalisedPath}.html`,
-                        `${normalisedPath}/index.html`
-                    ];
-                    let tagEntry;
-                    for (const key of tagKeyCandidates) {
-                        if (manualTags[key]) {
-                            tagEntry = manualTags[key];
-                            break;
-                        }
-                    }
-                    const tags = tagEntry
-                        ? tagEntry
-                              .split(",")
-                              .map((tag) => tag.trim())
-                              .filter(Boolean)
-                        : [];
-
-                    const type = classifyFromPath(normalisedPath, tags);
-                    const deprecated =
-                        tags.some((tag) =>
-                            tag.toLowerCase().includes("deprecated")
-                        ) ||
-                        normalisedPath.toLowerCase().includes("deprecated");
-
-                    mergeEntry(identifierMap, identifier, {
-                        type,
-                        sources: ["manual:ZeusDocs_keywords.json"],
-                        manualPath: normalisedPath,
-                        tags,
-                        deprecated
-                    });
-                }
-            },
+            () =>
+                classifyManualIdentifiers(
+                    identifierMap,
+                    manualKeywords,
+                    manualTags
+                ),
             { verbose }
         );
 
         const sortedIdentifiers = timeSync(
             "Sorting identifiers",
-            () =>
-                [...identifierMap.entries()]
-                    .map(([identifier, data]) => [
-                        identifier,
-                        {
-                            type: data.type,
-                            sources: [...data.sources].sort(),
-                            manualPath: data.manualPath,
-                            tags: [...data.tags].sort(),
-                            deprecated: data.deprecated
-                        }
-                    ])
-                    .sort(([a], [b]) => a.localeCompare(b)),
+            () => sortIdentifierEntries(identifierMap),
             { verbose }
         );
 
