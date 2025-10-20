@@ -29,7 +29,7 @@ import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
     getErrorMessage,
@@ -245,6 +245,19 @@ const { registry: cliCommandRegistry, runner: cliCommandRunner } =
     });
 
 function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
+    const extensionsOption = new Option(
+        "--extensions <list>",
+        [
+            "Comma-separated list of file extensions to format.",
+            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`
+        ].join(" ")
+    )
+        .argParser((value) => normalizeExtensions(value, DEFAULT_EXTENSIONS))
+        .default(
+            DEFAULT_EXTENSIONS,
+            formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
+        );
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -261,11 +274,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
         )
-        .option(
-            "--extensions <list>",
-            "Comma-separated list of file extensions to format.",
-            (value) => normalizeExtensions(value, DEFAULT_EXTENSIONS)
-        )
+        .addOption(extensionsOption)
         .option(
             "--log-level <level>",
             "Prettier log level to use (debug, info, warn, error, or silent).",
