@@ -1,8 +1,4 @@
-import {
-    assertFunction,
-    hasOwn,
-    isObjectLike
-} from "../../../shared/object-utils.js";
+import { assertFunction, hasOwn, isObjectLike } from "./object.js";
 
 const SHARED_CACHE = new WeakMap();
 
