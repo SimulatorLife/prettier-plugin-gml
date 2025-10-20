@@ -200,6 +200,7 @@ expression
     | lValueExpression # VariableExpression
     | callStatement # CallExpression
     | <assoc=right> expression QuestionMark expression Colon expression # TernaryExpression
+    | functionDeclaration # FunctionExpression
     | literal # LiteralExpression
     ;
 
