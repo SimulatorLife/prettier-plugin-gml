@@ -746,11 +746,15 @@ export function print(path, options, print) {
                 : concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
-            if (
-                node.preserveOriginalCallText &&
-                options &&
-                typeof options.originalText === "string"
-            ) {
+            if (options && typeof options.originalText === "string") {
+                const hasNestedPreservedArguments = Array.isArray(
+                    node.arguments
+                )
+                    ? node.arguments.some(
+                          (argument) =>
+                              argument?.preserveOriginalCallText === true
+                      )
+                    : false;
                 const startIndex = getNodeStartIndex(node);
                 const endIndex = getNodeEndIndex(node);
 
@@ -759,7 +763,24 @@ export function print(path, options, print) {
                     typeof endIndex === "number" &&
                     endIndex > startIndex
                 ) {
-                    return options.originalText.slice(startIndex, endIndex);
+                    const synthesizedText =
+                        synthesizeMissingCallArgumentSeparators(
+                            node,
+                            options.originalText,
+                            startIndex,
+                            endIndex
+                        );
+
+                    if (typeof synthesizedText === "string") {
+                        return synthesizedText;
+                    }
+
+                    if (
+                        node.preserveOriginalCallText &&
+                        !hasNestedPreservedArguments
+                    ) {
+                        return options.originalText.slice(startIndex, endIndex);
+                    }
                 }
             }
 
@@ -1240,6 +1261,97 @@ function printDelimitedList(
     return forceInline
         ? groupElementsNoBreak
         : group(groupElements, { groupId });
+}
+
+function synthesizeMissingCallArgumentSeparators(
+    node,
+    originalText,
+    startIndex,
+    endIndex
+) {
+    if (
+        !node ||
+        node.type !== "CallExpression" ||
+        !Array.isArray(node.arguments) ||
+        typeof originalText !== "string" ||
+        typeof startIndex !== "number" ||
+        typeof endIndex !== "number" ||
+        endIndex <= startIndex
+    ) {
+        return null;
+    }
+
+    let cursor = startIndex;
+    let normalizedText = "";
+    let insertedSeparator = false;
+
+    for (let index = 0; index < node.arguments.length; index += 1) {
+        const argument = node.arguments[index];
+        const argumentStart = getNodeStartIndex(argument);
+        const argumentEnd = getNodeEndIndex(argument);
+
+        if (
+            typeof argumentStart !== "number" ||
+            typeof argumentEnd !== "number" ||
+            argumentStart < cursor ||
+            argumentEnd > endIndex
+        ) {
+            return null;
+        }
+
+        normalizedText += originalText.slice(cursor, argumentStart);
+        normalizedText += originalText.slice(argumentStart, argumentEnd);
+        cursor = argumentEnd;
+
+        if (index >= node.arguments.length - 1) {
+            continue;
+        }
+
+        const nextArgument = node.arguments[index + 1];
+        const nextStart = getNodeStartIndex(nextArgument);
+
+        if (typeof nextStart !== "number" || nextStart < cursor) {
+            return null;
+        }
+
+        const between = originalText.slice(cursor, nextStart);
+
+        if (between.includes(",")) {
+            normalizedText += between;
+            cursor = nextStart;
+            continue;
+        }
+
+        const trimmedBetween = between.trim();
+
+        if (trimmedBetween.length === 0) {
+            const previousChar =
+                cursor > startIndex ? originalText[cursor - 1] : "";
+            const nextChar =
+                nextStart < originalText.length ? originalText[nextStart] : "";
+
+            if (
+                isNumericLiteralBoundaryCharacter(previousChar) &&
+                isNumericLiteralBoundaryCharacter(nextChar)
+            ) {
+                normalizedText += "," + between;
+                cursor = nextStart;
+                insertedSeparator = true;
+                continue;
+            }
+        }
+
+        normalizedText += between;
+        cursor = nextStart;
+    }
+
+    normalizedText += originalText.slice(cursor, endIndex);
+
+    return insertedSeparator ? normalizedText : null;
+}
+
+function isNumericLiteralBoundaryCharacter(character) {
+    return /[0-9.-]/.test(character ?? "");
 }
 
 function shouldAllowTrailingComma(options) {
