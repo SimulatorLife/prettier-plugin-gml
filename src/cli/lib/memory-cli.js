@@ -14,6 +14,7 @@ import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
     emitSuiteResults as emitSuiteResultsJson,
+    collectSuiteResults,
     ensureSuitesAreKnown,
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
@@ -221,37 +222,6 @@ function formatSuiteError(error) {
     };
 }
 
-function resolveSuiteRunner(suiteName) {
-    return AVAILABLE_SUITES.get(suiteName) ?? null;
-}
-
-function assignSuiteResult(results, suiteName, result) {
-    results[suiteName] = result;
-}
-
-async function executeSuite(runner, options) {
-    try {
-        return await runner(options);
-    } catch (error) {
-        return { error: formatSuiteError(error) };
-    }
-}
-
-async function executeSuites(suites, options) {
-    const results = {};
-    for (const suiteName of suites) {
-        const runner = resolveSuiteRunner(suiteName);
-        if (!runner) {
-            continue;
-        }
-
-        const suiteResult = await executeSuite(runner, options);
-        assignSuiteResult(results, suiteName, suiteResult);
-    }
-
-    return results;
-}
-
 function printHumanReadable(results) {
     const lines = ["Memory benchmark results:"];
     for (const [suite, payload] of Object.entries(results)) {
@@ -275,10 +245,12 @@ export async function runMemoryCommand({ command } = {}) {
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
-    const suiteResults = await executeSuites(
-        requestedSuites,
-        collectSuiteOptions(options)
-    );
+    const suiteResults = await collectSuiteResults({
+        suiteNames: requestedSuites,
+        availableSuites: AVAILABLE_SUITES,
+        runnerOptions: collectSuiteOptions(options),
+        onError: (error) => ({ error: formatSuiteError(error) })
+    });
 
     const emittedJson = emitSuiteResultsJson(suiteResults, options);
     if (!emittedJson) {

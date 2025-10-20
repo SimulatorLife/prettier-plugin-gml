@@ -102,6 +102,54 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
 }
 
 /**
+ * Execute the provided suite runners and collect their results.
+ *
+ * @param {{
+ *     suiteNames: Array<string>,
+ *     availableSuites: Map<string, unknown>,
+ *     runnerOptions?: unknown,
+ *     onError?: (error: unknown, context: { suiteName: string }) => unknown
+ * }} parameters
+ * @returns {Promise<Record<string, unknown>>}
+ */
+export async function collectSuiteResults({
+    suiteNames,
+    availableSuites,
+    runnerOptions,
+    onError
+}) {
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        throw new TypeError(
+            "availableSuites must provide a get function returning suite runners"
+        );
+    }
+
+    if (!Array.isArray(suiteNames) || suiteNames.length === 0) {
+        return {};
+    }
+
+    const results = {};
+
+    for (const suiteName of suiteNames) {
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
+            continue;
+        }
+
+        try {
+            results[suiteName] = await runner(runnerOptions);
+        } catch (error) {
+            results[suiteName] =
+                typeof onError === "function"
+                    ? onError(error, { suiteName })
+                    : { error };
+        }
+    }
+
+    return results;
+}
+
+/**
  * Emit suite results using the preferred output format.
  *
  * @param {Record<string, unknown>} results
