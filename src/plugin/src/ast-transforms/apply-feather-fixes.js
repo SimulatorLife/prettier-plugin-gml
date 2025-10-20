@@ -11268,17 +11268,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const vertexBeginCall = createVertexBeginCall(node, bufferArgument);
-
-    if (!vertexBeginCall) {
-        return null;
-    }
-
-    parent.splice(property, 0, vertexBeginCall);
-    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
-    attachFeatherFixMetadata(node, [fixDetail]);
-    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
-    markStatementToSuppressLeadingEmptyLine(node);
+    parent.splice(property, 1);
 
     return fixDetail;
 }
