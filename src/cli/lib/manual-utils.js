@@ -72,7 +72,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
+    const verboseState = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -80,18 +80,16 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return baseState;
+        return verboseState;
     }
 
-    return Object.entries(overrides).reduce(
-        (state, [key, value]) => {
-            if (value !== undefined) {
-                state[key] = value;
-            }
-            return state;
-        },
-        { ...baseState }
-    );
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            verboseState[key] = value;
+        }
+    }
+
+    return verboseState;
 }
 
 function assertPlainObject(value, message) {
