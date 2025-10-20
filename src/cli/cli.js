@@ -801,14 +801,13 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details = formatCliError(error) || "Unknown error";
+        const details =
+            getErrorMessage(error, { fallback: "Unknown error" }) ||
+            "Unknown error";
         const cliError = new CliUsageError(
             `Unable to access ${target}: ${details}`,
             { usage }
         );
-        if (isErrorLike(error)) {
-            cliError.cause = error;
-        }
         throw cliError;
     }
 }
