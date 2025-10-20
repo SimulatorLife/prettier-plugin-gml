@@ -5,5 +5,6 @@ export {
     resolveCliProjectIndexService,
     resolveCliIdentifierCasePlanService,
     defaultProjectIndexBuilder,
-    defaultIdentifierCasePlanPreparer
+    defaultIdentifierCasePlanPreparer,
+    defaultIdentifierCaseCacheClearer
 } from "prettier-plugin-gamemaker/cli-services";

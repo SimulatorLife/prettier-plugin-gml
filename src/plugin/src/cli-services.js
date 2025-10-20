@@ -5,5 +5,6 @@ export {
     resolveCliProjectIndexService,
     resolveCliIdentifierCasePlanService,
     defaultIdentifierCasePlanPreparer,
-    defaultProjectIndexBuilder
+    defaultProjectIndexBuilder,
+    defaultIdentifierCaseCacheClearer
 } from "./cli-services/cli-plugin-service-registry.js";

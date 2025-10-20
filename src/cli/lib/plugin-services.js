@@ -3,10 +3,12 @@ import { createDefaultCliPluginServices } from "./plugin-service-providers/defau
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
  * @typedef {(options: object) => Promise<void>} CliIdentifierCasePlanPreparer
+ * @typedef {() => void} CliIdentifierCaseCacheClearer
  */
 
 let projectIndexBuilder;
 let identifierCasePlanPreparer;
+let identifierCaseCacheClearer;
 
 const resolvedDefaultCliPluginServices = createDefaultCliPluginServices();
 
@@ -35,6 +37,11 @@ export function resolveCliIdentifierCasePlanPreparer() {
     return identifierCasePlanPreparer;
 }
 
+export function resolveCliIdentifierCaseCacheClearer() {
+    assertService(identifierCaseCacheClearer, "clearIdentifierCaseCaches");
+    return identifierCaseCacheClearer;
+}
+
 export function registerCliProjectIndexBuilder(builder) {
     assertService(builder, "buildProjectIndex");
     projectIndexBuilder = builder;
@@ -45,11 +52,17 @@ export function registerCliIdentifierCasePlanPreparer(preparer) {
     identifierCasePlanPreparer = preparer;
 }
 
+export function registerCliIdentifierCaseCacheClearer(clearer) {
+    assertService(clearer, "clearIdentifierCaseCaches");
+    identifierCaseCacheClearer = clearer;
+}
+
 export function resetRegisteredCliPluginServices() {
     ({
         projectIndex: { buildProjectIndex: projectIndexBuilder },
         identifierCasePlan: {
-            prepareIdentifierCasePlan: identifierCasePlanPreparer
+            prepareIdentifierCasePlan: identifierCasePlanPreparer,
+            clearIdentifierCaseCaches: identifierCaseCacheClearer
         }
     } = defaultCliPluginServices);
 }
