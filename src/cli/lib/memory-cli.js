@@ -209,31 +209,44 @@ function runNormalizeStringListSuite({ iterations }) {
 
 AVAILABLE_SUITES.set("normalize-string-list", runNormalizeStringListSuite);
 
+function formatSuiteError(error) {
+    return {
+        name: error?.name ?? error?.constructor?.name ?? "Error",
+        message:
+            typeof error?.message === "string" ? error.message : String(error),
+        stack:
+            typeof error?.stack === "string"
+                ? error.stack.split("\n")
+                : undefined
+    };
+}
+
+function resolveSuiteRunner(suiteName) {
+    return AVAILABLE_SUITES.get(suiteName) ?? null;
+}
+
+function assignSuiteResult(results, suiteName, result) {
+    results[suiteName] = result;
+}
+
+async function executeSuite(runner, options) {
+    try {
+        return await runner(options);
+    } catch (error) {
+        return { error: formatSuiteError(error) };
+    }
+}
+
 async function executeSuites(suites, options) {
     const results = {};
     for (const suiteName of suites) {
-        const runner = AVAILABLE_SUITES.get(suiteName);
+        const runner = resolveSuiteRunner(suiteName);
         if (!runner) {
             continue;
         }
 
-        try {
-            results[suiteName] = await runner(options);
-        } catch (error) {
-            results[suiteName] = {
-                error: {
-                    name: error?.name ?? error?.constructor?.name ?? "Error",
-                    message:
-                        typeof error?.message === "string"
-                            ? error.message
-                            : String(error),
-                    stack:
-                        typeof error?.stack === "string"
-                            ? error.stack.split("\n")
-                            : undefined
-                }
-            };
-        }
+        const suiteResult = await executeSuite(runner, options);
+        assignSuiteResult(results, suiteName, suiteResult);
     }
 
     return results;
