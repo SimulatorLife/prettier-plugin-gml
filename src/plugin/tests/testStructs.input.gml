@@ -14,6 +14,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     }
 
     /// @function generate
+    /// @param {real} width
     /// @returns {undefined}
     /// @description Each time this is called, create new map
     static generate = function() {
@@ -22,7 +23,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         remove_ellipse();
     };
 
-    /// @function remove_ellipse
+    /// @function incorrect_function_name
 	/// @description Remove all nodes outside of ellipse
 	static remove_ellipse = function(){
 		for (var i = 0; i < array_length(nodes); i++) {
