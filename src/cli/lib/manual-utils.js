@@ -239,26 +239,29 @@ function createManualGitHubClient({
     defaultCacheRoot,
     defaultRawRoot
 } = {}) {
-    if (typeof userAgent !== "string" || userAgent.length === 0) {
-        throw new Error("A userAgent string is required.");
-    }
-
-    if (typeof defaultRawRoot !== "string" || defaultRawRoot.length === 0) {
-        throw new Error(
+    const normalizedUserAgent = assertNonEmptyString(userAgent, {
+        name: "userAgent",
+        errorMessage: "A userAgent string is required."
+    });
+    const normalizedRawRoot = assertNonEmptyString(defaultRawRoot, {
+        name: "defaultRawRoot",
+        errorMessage:
             "A defaultRawRoot string is required to create the manual client."
-        );
-    }
+    });
 
-    const baseHeaders = { "User-Agent": userAgent };
-    if (process.env.GITHUB_TOKEN) {
-        baseHeaders.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    }
+    const token = process.env.GITHUB_TOKEN;
+    const baseHeaders = {
+        "User-Agent": normalizedUserAgent,
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
 
-    async function curlRequest(url, { headers = {}, acceptJson = false } = {}) {
-        const finalHeaders = { ...baseHeaders, ...headers };
-        if (acceptJson) {
-            finalHeaders.Accept = "application/vnd.github+json";
-        }
+    /** @type {ManualGitHubRequestDispatcher["execute"]} */
+    const execute = async (url, { headers, acceptJson } = {}) => {
+        const finalHeaders = {
+            ...baseHeaders,
+            ...headers,
+            ...(acceptJson ? { Accept: "application/vnd.github+json" } : {})
+        };
 
         const response = await fetch(url, {
             headers: finalHeaders,
@@ -272,27 +275,16 @@ function createManualGitHubClient({
         }
 
         return bodyText;
-    }
-
-    const requestDispatcher = {
-        /** @type {ManualGitHubRequestDispatcher} */
-        execute: curlRequest
     };
 
-    const references = createManualGitHubReferencesClient({
-        request: requestDispatcher.execute
-    });
-
-    const fileFetcher = createManualGitHubFileClient({
-        request: requestDispatcher.execute,
-        defaultCacheRoot,
-        defaultRawRoot
-    });
-
     return {
-        requestDispatcher,
-        references,
-        fileFetcher
+        requestDispatcher: { execute },
+        references: createManualGitHubReferencesClient({ request: execute }),
+        fileFetcher: createManualGitHubFileClient({
+            request: execute,
+            defaultCacheRoot,
+            defaultRawRoot: normalizedRawRoot
+        })
     };
 }
 
