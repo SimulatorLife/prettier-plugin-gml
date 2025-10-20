@@ -7,6 +7,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 	self.foo = _foo;
 	value = 0;
 
+    /// @description
     /// @method print
     /// @returns {void}
     static print = function() {
