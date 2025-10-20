@@ -3,12 +3,12 @@ import path from "node:path";
 import {
     assertPlainObject,
     assertNonEmptyString,
+    isNonEmptyArray,
     parseJsonWithContext,
     toTrimmedString
 } from "./shared-deps.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
-import { isNonEmptyArray } from "../../shared/array-utils.js";
 import { writeManualFile } from "./manual-file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
