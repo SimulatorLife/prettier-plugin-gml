@@ -23,6 +23,7 @@ import {
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
@@ -6668,7 +6669,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    const numericText = rawValue.slice(1, -1);
+    const numericText = stripStringQuotes(rawValue);
 
     if (!NUMERIC_STRING_LITERAL_PATTERN.test(numericText)) {
         return null;
@@ -13170,7 +13171,7 @@ function isCoercibleStringLiteral(node) {
             (startingQuote === '"' || startingQuote === "'") &&
             startingQuote === endingQuote
         ) {
-            literalText = rawValue.slice(1, -1);
+            literalText = stripStringQuotes(rawValue);
         }
     }
 
@@ -15707,21 +15708,6 @@ function extractIdentifierNameFromLiteral(value) {
     }
 
     return stripped;
-}
-
-function stripStringQuotes(value) {
-    if (typeof value !== "string" || value.length < 2) {
-        return null;
-    }
-
-    const firstChar = value[0];
-    const lastChar = value.at(-1);
-
-    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
-        return value.slice(1, -1);
-    }
-
-    return null;
 }
 
 function isIdentifierWithName(node, name) {
