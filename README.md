@@ -402,6 +402,8 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 Optional arguments without explicit defaults always render as `undefined` in formatted output.
 
+Template strings that never interpolate expressions automatically collapse back to regular quoted strings, stripping the `$` prefix so placeholder-free text stays concise.
+
 | Option | Default | Summary |
 | --- | --- | --- |
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
