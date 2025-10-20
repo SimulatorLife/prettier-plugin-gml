@@ -53,13 +53,6 @@ function describeManualRepoInput(value) {
  */
 
 /**
- * The original `ManualGitHubClientSurfaces` interface forced manual commands to
- * depend on request dispatching, reference resolution, and file fetching in one
- * bundle. By splitting the contract we let call sites wire up only the
- * collaborators they actually use, preserving interface segregation.
- */
-
-/**
  * @typedef {object} ManualGitHubReferencesClient
  * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
  *   resolveManualRef
@@ -81,10 +74,12 @@ function describeManualRepoInput(value) {
  */
 
 /**
- * @typedef {object} ManualGitHubClient
- * @property {ManualGitHubRequestDispatcher} requestDispatcher
- * @property {ManualGitHubReferencesClient} references
- * @property {ManualGitHubFileClient} fileFetcher
+ * Manual commands historically used a catch-all `ManualGitHubClient` surface
+ * that bundled request dispatching, reference resolution, and file fetching.
+ * That broad contract violated the Interface Segregation Principle by forcing
+ * collaborators that only needed one behaviour to depend on all of them. The
+ * helpers below expose each concern behind its own focused facade so call sites
+ * can compose only what they require.
  */
 
 function createManualVerboseState({
@@ -231,22 +226,15 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
 /**
  * Provide specialised GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
- *
- * @returns {ManualGitHubClient}
  */
-function createManualGitHubClient({
-    userAgent,
-    defaultCacheRoot,
-    defaultRawRoot
-} = {}) {
+/**
+ * @param {{ userAgent: string }} options
+ * @returns {ManualGitHubRequestDispatcher}
+ */
+function createManualGitHubRequestDispatcher({ userAgent } = {}) {
     const normalizedUserAgent = assertNonEmptyString(userAgent, {
         name: "userAgent",
         errorMessage: "A userAgent string is required."
-    });
-    const normalizedRawRoot = assertNonEmptyString(defaultRawRoot, {
-        name: "defaultRawRoot",
-        errorMessage:
-            "A defaultRawRoot string is required to create the manual client."
     });
 
     const token = process.env.GITHUB_TOKEN;
@@ -255,8 +243,7 @@ function createManualGitHubClient({
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    /** @type {ManualGitHubRequestDispatcher["execute"]} */
-    const execute = async (url, { headers, acceptJson } = {}) => {
+    async function execute(url, { headers, acceptJson } = {}) {
         const finalHeaders = {
             ...baseHeaders,
             ...headers,
@@ -275,24 +262,23 @@ function createManualGitHubClient({
         }
 
         return bodyText;
-    };
+    }
 
-    return {
-        requestDispatcher: { execute },
-        references: createManualGitHubReferencesClient({ request: execute }),
-        fileFetcher: createManualGitHubFileClient({
-            request: execute,
-            defaultCacheRoot,
-            defaultRawRoot: normalizedRawRoot
-        })
-    };
+    return Object.freeze({ execute });
 }
 
 /**
- * @param {{ request: ManualGitHubRequestDispatcher["execute"] }} options
+ * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
  * @returns {ManualGitHubReferencesClient}
  */
-function createManualGitHubReferencesClient({ request }) {
+function createManualGitHubReferencesClient({ requestDispatcher }) {
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            "ManualGitHubReferencesClient requires a request dispatcher with an execute function."
+        );
+    }
+
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
         const body = await request(url, { acceptJson: true });
@@ -347,17 +333,24 @@ function createManualGitHubReferencesClient({ request }) {
 
 /**
  * @param {{
- *   request: ManualGitHubRequestDispatcher["execute"],
+ *   requestDispatcher: ManualGitHubRequestDispatcher,
  *   defaultCacheRoot?: string,
  *   defaultRawRoot: string
  * }} options
  * @returns {ManualGitHubFileClient}
  */
 function createManualGitHubFileClient({
-    request,
+    requestDispatcher,
     defaultCacheRoot,
     defaultRawRoot
 }) {
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            "ManualGitHubFileClient requires a request dispatcher with an execute function."
+        );
+    }
+
     async function fetchManualFile(
         sha,
         filePath,
@@ -428,5 +421,7 @@ export {
     normalizeManualRepository,
     resolveManualRepoValue,
     resolveManualCacheRoot,
-    createManualGitHubClient
+    createManualGitHubRequestDispatcher,
+    createManualGitHubReferencesClient,
+    createManualGitHubFileClient
 };

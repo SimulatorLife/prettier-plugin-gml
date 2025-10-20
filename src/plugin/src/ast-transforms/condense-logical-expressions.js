@@ -1,7 +1,8 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    getDocCommentManager
+    resolveDocCommentInspectionService,
+    resolveDocCommentUpdateService
 } from "../comments/index.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
@@ -47,18 +48,20 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
         docCommentManager,
+        docCommentUpdateService,
         expressionSignatures: new Map()
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    docCommentManager.applyUpdates(context.docUpdates);
+    docCommentUpdateService.applyUpdates(context.docUpdates);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
