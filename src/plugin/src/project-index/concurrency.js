@@ -5,6 +5,11 @@ const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 16;
 
+const DEFAULT_CONCURRENCY_LIMITS = Object.freeze({
+    min: MIN_CONCURRENCY,
+    max: MAX_CONCURRENCY
+});
+
 let configuredDefaultProjectIndexGmlConcurrency =
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
 
@@ -26,6 +31,14 @@ function toFiniteConcurrency(value) {
     return Number.isFinite(numeric) ? numeric : null;
 }
 
+function clampToLimits(value, { min, max } = DEFAULT_CONCURRENCY_LIMITS) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function resolveConcurrencyCandidate(value, fallback) {
+    return toFiniteConcurrency(value ?? fallback);
+}
+
 function clampConcurrency(
     value,
     {
@@ -34,23 +47,24 @@ function clampConcurrency(
         fallback = getDefaultProjectIndexGmlConcurrency()
     } = {}
 ) {
-    const parsed = toFiniteConcurrency(value ?? fallback);
-    if (parsed === null) {
+    const candidate = resolveConcurrencyCandidate(value, fallback);
+    if (candidate === null) {
         return min;
     }
 
-    return Math.min(max, Math.max(min, parsed));
+    return clampToLimits(candidate, { min, max });
 }
 
 function setDefaultProjectIndexGmlConcurrency(concurrency) {
-    const parsed = toFiniteConcurrency(concurrency);
+    const candidate = resolveConcurrencyCandidate(
+        concurrency,
+        PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+    );
 
     configuredDefaultProjectIndexGmlConcurrency =
-        parsed === null
+        candidate === null
             ? PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-            : clampConcurrency(parsed, {
-                  fallback: PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-              });
+            : clampToLimits(candidate);
 
     return configuredDefaultProjectIndexGmlConcurrency;
 }
