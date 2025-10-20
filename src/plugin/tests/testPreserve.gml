@@ -47,6 +47,10 @@ states.add_state(
 var x_body = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);
 var y_body = y + lengthdir_y(radius, angle) - lengthdir_y(radius, aa);
 
+if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {
+    return []; // Return an empty array for invalid input
+}
+
 /// @description Draws the vertex buffer to screen
 
 matrix_set(matrix_world, matrix);
