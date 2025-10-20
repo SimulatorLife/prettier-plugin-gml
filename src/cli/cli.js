@@ -1177,6 +1177,34 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     logSkippedFileSummary();
 }
 
+/**
+ * Build human-readable detail messages describing skipped file categories.
+ *
+ * @param {{ ignored: number, unsupportedExtension: number, symbolicLink: number }} summary
+ * @returns {string[]}
+ */
+function buildSkippedFileDetailEntries({
+    ignored,
+    unsupportedExtension,
+    symbolicLink
+}) {
+    const detailEntries = [];
+
+    if (ignored > 0) {
+        detailEntries.push(`ignored by .prettierignore (${ignored})`);
+    }
+
+    if (unsupportedExtension > 0) {
+        detailEntries.push(`unsupported extensions (${unsupportedExtension})`);
+    }
+
+    if (symbolicLink > 0) {
+        detailEntries.push(`symbolic links (${symbolicLink})`);
+    }
+
+    return detailEntries;
+}
+
 function logSkippedFileSummary() {
     const skippedFileCount =
         skippedFileSummary.ignored +
@@ -1190,25 +1218,7 @@ function logSkippedFileSummary() {
         return;
     }
 
-    const detailEntries = [];
-
-    if (skippedFileSummary.ignored > 0) {
-        detailEntries.push(
-            `ignored by .prettierignore (${skippedFileSummary.ignored})`
-        );
-    }
-
-    if (skippedFileSummary.unsupportedExtension > 0) {
-        detailEntries.push(
-            `unsupported extensions (${skippedFileSummary.unsupportedExtension})`
-        );
-    }
-
-    if (skippedFileSummary.symbolicLink > 0) {
-        detailEntries.push(
-            `symbolic links (${skippedFileSummary.symbolicLink})`
-        );
-    }
+    const detailEntries = buildSkippedFileDetailEntries(skippedFileSummary);
 
     if (detailEntries.length === 0) {
         console.log(summary);
