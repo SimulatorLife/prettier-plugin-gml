@@ -1,6 +1,27 @@
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 /**
+ * Determine whether a value is a plain object (non-null object without an
+ * Array instance). Some callers additionally require objects with prototypes
+ * so the helper accepts an option mirroring that constraint.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @param {{ allowNullPrototype?: boolean }} [options]
+ * @returns {value is object}
+ */
+export function isPlainObject(value, { allowNullPrototype = true } = {}) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return false;
+    }
+
+    if (!allowNullPrototype && Object.getPrototypeOf(value) === null) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Ensure the provided value is callable. Centralizing this guard keeps
  * defensive checks consistent across modules that accept callbacks while
  * preserving the specific error messages historically raised by each call
@@ -27,6 +48,33 @@ export function assertFunction(value, name) {
  */
 export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
+}
+
+/**
+ * Validate that {@link value} is a plain object, throwing a descriptive
+ * `TypeError` otherwise. Returns the original value to keep call sites terse
+ * when destructuring or chaining normalization helpers.
+ *
+ * @template T extends object
+ * @param {T | unknown} value Candidate value to validate.
+ * @param {{
+ *   name?: string,
+ *   errorMessage?: string,
+ *   allowNullPrototype?: boolean
+ * }} [options]
+ * @returns {T}
+ */
+export function assertPlainObject(
+    value,
+    { name = "value", errorMessage, allowNullPrototype = true } = {}
+) {
+    const defaultMessage = `${name} must be a plain object`;
+
+    if (!isPlainObject(value, { allowNullPrototype })) {
+        throw new TypeError(errorMessage ?? defaultMessage);
+    }
+
+    return value;
 }
 
 /**

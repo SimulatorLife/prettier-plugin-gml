@@ -1,3 +1,4 @@
+import { assertPlainObject } from "../../../shared/object-utils.js";
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
     getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,
@@ -34,18 +35,15 @@ function createDefaultIdentifierCasePlanServiceProvider() {
 }
 
 function normalizeIdentifierCasePlanService(service) {
-    if (!service || typeof service !== "object") {
-        throw new TypeError(
-            "Identifier case plan service must be provided as an object"
-        );
-    }
-
     const {
         prepareIdentifierCasePlan,
         getIdentifierCaseRenameForNode,
         captureIdentifierCasePlanSnapshot,
         applyIdentifierCasePlanSnapshot
-    } = service;
+    } = assertPlainObject(service, {
+        errorMessage:
+            "Identifier case plan service must be provided as an object"
+    });
 
     if (typeof prepareIdentifierCasePlan !== "function") {
         throw new TypeError(
