@@ -1,6 +1,6 @@
-import { toArrayFromIterable } from "../../../shared/array-utils.js";
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { isErrorWithCode } from "../../../shared/error-utils.js";
+import { toArrayFromIterable } from "./array.js";
+import { createAbortGuard } from "./abort.js";
+import { isErrorWithCode } from "./error.js";
 
 /**
  * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown
@@ -19,8 +19,9 @@ export function isFsErrorCode(error, ...codes) {
 
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort
- * semantics exposed by project-index helpers. Missing directories resolve to an
- * empty array so callers can treat them as already-processed without branching.
+ * semantics shared by long-running filesystem workflows. Missing directories
+ * resolve to an empty array so callers can treat them as already-processed
+ * without branching.
  *
  * @param {{ readDir(path: string): Promise<Iterable<string>> }} fsFacade
  *        Filesystem facade whose `readDir` method mirrors `fs.promises.readdir`.

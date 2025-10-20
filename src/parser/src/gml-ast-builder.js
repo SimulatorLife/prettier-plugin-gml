@@ -1290,9 +1290,16 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
     visitEnumerator(ctx) {
         let initializer = null;
         if (typeof ctx.expression === "function") {
-            const expression = ctx.expression();
-            if (expression) {
-                initializer = this.visit(expression);
+            const expressionContext = ctx.expression();
+            if (expressionContext) {
+                initializer = this.visit(expressionContext);
+                if (initializer && typeof initializer === "object") {
+                    const initializerText = expressionContext.getText();
+                    if (typeof initializerText === "string") {
+                        initializer._enumInitializerText =
+                            initializerText.trim();
+                    }
+                }
             }
         }
         if (initializer == null) {

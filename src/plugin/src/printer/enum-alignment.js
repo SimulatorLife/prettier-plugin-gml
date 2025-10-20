@@ -72,6 +72,20 @@ function getEnumInitializerWidth(initializer) {
             return locationWidth;
         }
 
+        const rawText =
+            typeof initializer._enumInitializerText === "string"
+                ? initializer._enumInitializerText
+                : (initializer.value ?? "");
+
+        if (typeof rawText === "number") {
+            return String(rawText).trim().length;
+        }
+
+        const normalizedText = String(rawText ?? "").trim();
+        if (normalizedText.length > 0) {
+            return normalizedText.length;
+        }
+
         if (initializer.type === "Literal") {
             const literalText = String(initializer.value ?? "").trim();
             return literalText.length;

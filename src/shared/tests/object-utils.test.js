@@ -2,11 +2,46 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    assertPlainObject,
     coalesceOption,
     getOrCreateMapEntry,
     isObjectLike,
+    isPlainObject,
     withObjectLike
 } from "../object-utils.js";
+
+test("isPlainObject accepts non-null object literals", () => {
+    assert.strictEqual(isPlainObject({}), true);
+    assert.strictEqual(
+        isPlainObject(Object.create(null), { allowNullPrototype: true }),
+        true
+    );
+});
+
+test("isPlainObject rejects arrays, null, and primitives", () => {
+    assert.strictEqual(isPlainObject([]), false);
+    assert.strictEqual(isPlainObject(null), false);
+    assert.strictEqual(isPlainObject(42), false);
+    assert.strictEqual(isPlainObject("value"), false);
+});
+
+test("assertPlainObject returns the validated reference", () => {
+    const target = {};
+    assert.strictEqual(assertPlainObject(target), target);
+});
+
+test("assertPlainObject throws with descriptive error messages", () => {
+    assert.throws(() => assertPlainObject(null), TypeError);
+    assert.throws(
+        () =>
+            assertPlainObject([], {
+                errorMessage: "Custom plain object error"
+            }),
+        (error) =>
+            error instanceof TypeError &&
+            /Custom plain object error/.test(error.message)
+    );
+});
 
 test("isObjectLike returns true for non-null objects", () => {
     assert.strictEqual(isObjectLike({}), true);

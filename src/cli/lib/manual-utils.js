@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+    assertPlainObject,
     assertNonEmptyString,
     parseJsonWithContext,
     toTrimmedString
@@ -14,6 +15,25 @@ const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
+
+const MANUAL_REPO_REQUIREMENTS = {
+    env: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
+    cli: "Manual repository must be provided in 'owner/name' format"
+};
+
+function formatManualRepoRequirement(source) {
+    return source === "env"
+        ? MANUAL_REPO_REQUIREMENTS.env
+        : MANUAL_REPO_REQUIREMENTS.cli;
+}
+
+function describeManualRepoInput(value) {
+    if (value == null) {
+        return String(value);
+    }
+
+    return `'${String(value)}'`;
+}
 
 /**
  * @typedef {object} ManualGitHubRequestOptions
@@ -72,7 +92,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const state = {
+    const baseState = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -80,31 +100,20 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return state;
+        return baseState;
     }
 
-    for (const [key, value] of Object.entries(overrides)) {
-        if (value !== undefined) {
-            state[key] = value;
-        }
-    }
+    const normalizedOverrides = Object.fromEntries(
+        Object.entries(overrides).filter(([, value]) => value !== undefined)
+    );
 
-    return state;
-}
-
-function assertPlainObject(value, message) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-        throw new TypeError(message);
-    }
-
-    return value;
+    return { ...baseState, ...normalizedOverrides };
 }
 
 function validateManualCommitPayload(payload, { ref }) {
-    const payloadRecord = assertPlainObject(
-        payload,
-        `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
-    );
+    const payloadRecord = assertPlainObject(payload, {
+        errorMessage: `Unexpected payload while resolving manual ref '${ref}'. Expected an object.`
+    });
 
     const sha = assertNonEmptyString(payloadRecord.sha, {
         name: "Manual ref commit SHA",
@@ -115,36 +124,37 @@ function validateManualCommitPayload(payload, { ref }) {
 }
 
 function normalizeManualTagEntry(entry) {
-    const { name: rawName, commit } = assertPlainObject(
-        entry,
-        "Manual tags response must contain objects with tag metadata."
-    );
+    const { name: rawName, commit } = assertPlainObject(entry, {
+        errorMessage:
+            "Manual tags response must contain objects with tag metadata."
+    });
 
     const name = assertNonEmptyString(rawName, {
         name: "Manual tag entry name",
         errorMessage: "Manual tag entry is missing a tag name."
     });
 
-    if (commit == null) {
-        return { name, sha: null };
-    }
+    const commitRecord =
+        commit == null
+            ? null
+            : assertPlainObject(commit, {
+                  errorMessage:
+                      "Manual tag entry commit must be an object when provided."
+              });
 
-    const { sha } = assertPlainObject(
-        commit,
-        "Manual tag entry commit must be an object when provided."
-    );
+    const sha =
+        commitRecord?.sha == null
+            ? null
+            : assertNonEmptyString(commitRecord.sha, {
+                  name: "Manual tag entry commit SHA",
+                  errorMessage:
+                      "Manual tag entry commit SHA must be a non-empty string when provided."
+              });
 
-    if (sha == null) {
-        return { name, sha: null };
-    }
-
-    const normalizedSha = assertNonEmptyString(sha, {
-        name: "Manual tag entry commit SHA",
-        errorMessage:
-            "Manual tag entry commit SHA must be a non-empty string when provided."
-    });
-
-    return { name, sha: normalizedSha };
+    return {
+        name,
+        sha
+    };
 }
 
 function resolveManualCacheRoot({
@@ -212,19 +222,8 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
         return normalized;
     }
 
-    let received;
-    if (rawValue === undefined) {
-        received = "undefined";
-    } else if (rawValue === null) {
-        received = "null";
-    } else {
-        received = `'${rawValue}'`;
-    }
-
-    const requirement =
-        source === "env"
-            ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
-            : "Manual repository must be provided in 'owner/name' format";
+    const requirement = formatManualRepoRequirement(source);
+    const received = describeManualRepoInput(rawValue);
 
     throw new TypeError(`${requirement} (received ${received}).`);
 }

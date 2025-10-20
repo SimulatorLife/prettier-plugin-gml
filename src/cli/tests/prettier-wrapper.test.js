@@ -387,12 +387,42 @@ describe("Prettier wrapper CLI", () => {
             assert.strictEqual(Number(skippedMatch[1]), 1);
             assert.match(
                 stdout,
-                /Skipped 1 file because they were ignored or used different extensions\./,
-                "Expected wrapper output to include skip rationale"
+                /Breakdown: .*unsupported extensions \(1\)\./,
+                "Expected wrapper output to include skip rationale for non-target files"
             );
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("summarizes files ignored by .prettierignore", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "script.gml\n", "utf8");
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                tempDirectory
+            ]);
+
+            assert.match(stdout, /ignored by \.prettierignore \(1\)/);
+
+            assert.match(
+                stdout,
+                /Breakdown:/,
+                "Expected stdout to summarize the skip reasons"
+            );
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var    a=1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -768,8 +798,8 @@ describe("Prettier wrapper CLI", () => {
             );
             assert.match(
                 stdout,
-                /Skipped \d+ file(?:s)? because they were ignored or used different extensions\./,
-                "Expected stdout to summarize the skipped files"
+                /Breakdown: .*unsupported extensions \(\d+\)\./,
+                "Expected stdout to summarize the skipped files with extension details"
             );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });

@@ -273,7 +273,7 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "TernaryExpression": {
-            return group([
+            const ternaryDoc = group([
                 print("test"),
                 indent([
                     line,
@@ -284,6 +284,10 @@ export function print(path, options, print) {
                     print("alternate")
                 ])
             ]);
+
+            return shouldWrapTernaryExpression(path)
+                ? concat(["(", ternaryDoc, ")"])
+                : ternaryDoc;
         }
         case "ForStatement": {
             const shouldHoistLoopLengths =
@@ -4167,7 +4171,17 @@ function getNodeName(node) {
     }
 
     if (node.id !== undefined) {
-        return getIdentifierText(node.id);
+        const idName = getIdentifierText(node.id);
+        if (idName) {
+            return idName;
+        }
+    }
+
+    if (node.key !== undefined) {
+        const keyName = getIdentifierText(node.key);
+        if (keyName) {
+            return keyName;
+        }
     }
 
     return getIdentifierText(node);
@@ -4303,6 +4317,34 @@ function shouldOmitSyntheticParens(path) {
 
         depth += 1;
     }
+}
+
+function shouldWrapTernaryExpression(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "ParenthesizedExpression") {
+        return false;
+    }
+
+    const parentKey =
+        typeof path.getName === "function" ? path.getName() : undefined;
+
+    if (parent.type === "VariableDeclarator" && parentKey === "init") {
+        return true;
+    }
+
+    if (parent.type === "AssignmentExpression" && parentKey === "right") {
+        return true;
+    }
+
+    return false;
 }
 
 function shouldFlattenSyntheticBinary(parent, expression, path) {

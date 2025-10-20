@@ -3335,7 +3335,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
                     this.expression(0);
                 }
 
-	    } catch (re) {
+            } catch (re) {
 	    	if(re instanceof antlr4.error.RecognitionException) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
