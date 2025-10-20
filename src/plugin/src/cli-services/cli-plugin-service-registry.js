@@ -17,68 +17,59 @@ import { createDefaultCliPluginServiceImplementations } from "./providers/defaul
  * @property {() => void} clearIdentifierCaseCaches
  */
 
-const defaultImplementations = createDefaultCliPluginServiceImplementations();
+const {
+    buildProjectIndex,
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseCaches
+} = createDefaultCliPluginServiceImplementations();
 
-const projectIndexService = Object.freeze({
-    buildProjectIndex: defaultImplementations.buildProjectIndex
-});
+const projectIndexService = Object.freeze({ buildProjectIndex });
 
 const identifierCasePlanPreparationService = Object.freeze({
-    prepareIdentifierCasePlan: defaultImplementations.prepareIdentifierCasePlan
+    prepareIdentifierCasePlan
 });
 
 const identifierCasePlanCacheService = Object.freeze({
-    clearIdentifierCaseCaches: defaultImplementations.clearIdentifierCaseCaches
+    clearIdentifierCaseCaches
 });
 
 const identifierCasePlanService = Object.freeze({
-    prepareIdentifierCasePlan:
-        identifierCasePlanPreparationService.prepareIdentifierCasePlan,
-    clearIdentifierCaseCaches:
-        identifierCasePlanCacheService.clearIdentifierCaseCaches
+    ...identifierCasePlanPreparationService,
+    ...identifierCasePlanCacheService
 });
 
 const defaultCliPluginServices = Object.freeze({
-    buildProjectIndex: projectIndexService.buildProjectIndex,
-    prepareIdentifierCasePlan:
-        identifierCasePlanPreparationService.prepareIdentifierCasePlan,
-    clearIdentifierCaseCaches:
-        identifierCasePlanCacheService.clearIdentifierCaseCaches,
+    buildProjectIndex,
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseCaches,
     projectIndex: projectIndexService,
     identifierCasePlan: identifierCasePlanService,
     identifierCasePlanPreparation: identifierCasePlanPreparationService,
     identifierCasePlanCache: identifierCasePlanCacheService
 });
 
-const getDefaultCliPluginServices = () => defaultCliPluginServices;
-const getProjectIndexService = () => projectIndexService;
-const getIdentifierCasePlanService = () => identifierCasePlanService;
-const getIdentifierCasePlanPreparationService = () =>
-    identifierCasePlanPreparationService;
-const getIdentifierCasePlanCacheService = () => identifierCasePlanCacheService;
+export const createDefaultCliPluginServices = () => defaultCliPluginServices;
+export const resolveCliPluginServices = createDefaultCliPluginServices;
 
-export const createDefaultCliPluginServices = getDefaultCliPluginServices;
-export const resolveCliPluginServices = getDefaultCliPluginServices;
+export const resolveCliProjectIndexService = () => projectIndexService;
+export const createDefaultCliProjectIndexService =
+    resolveCliProjectIndexService;
 
-export const resolveCliProjectIndexService = getProjectIndexService;
-export const createDefaultCliProjectIndexService = getProjectIndexService;
-
-export const resolveCliIdentifierCasePlanService = getIdentifierCasePlanService;
+export const resolveCliIdentifierCasePlanService = () =>
+    identifierCasePlanService;
 export const createDefaultCliIdentifierCasePlanService =
-    getIdentifierCasePlanService;
+    resolveCliIdentifierCasePlanService;
 
-export const resolveCliIdentifierCasePlanPreparationService =
-    getIdentifierCasePlanPreparationService;
+export const resolveCliIdentifierCasePlanPreparationService = () =>
+    identifierCasePlanPreparationService;
 export const createDefaultCliIdentifierCasePlanPreparationService =
-    getIdentifierCasePlanPreparationService;
+    resolveCliIdentifierCasePlanPreparationService;
 
-export const resolveCliIdentifierCaseCacheService =
-    getIdentifierCasePlanCacheService;
+export const resolveCliIdentifierCaseCacheService = () =>
+    identifierCasePlanCacheService;
 export const createDefaultCliIdentifierCaseCacheService =
-    getIdentifierCasePlanCacheService;
+    resolveCliIdentifierCaseCacheService;
 
-export const defaultProjectIndexBuilder = projectIndexService.buildProjectIndex;
-export const defaultIdentifierCasePlanPreparer =
-    identifierCasePlanPreparationService.prepareIdentifierCasePlan;
-export const defaultIdentifierCaseCacheClearer =
-    identifierCasePlanCacheService.clearIdentifierCaseCaches;
+export const defaultProjectIndexBuilder = buildProjectIndex;
+export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
+export const defaultIdentifierCaseCacheClearer = clearIdentifierCaseCaches;
