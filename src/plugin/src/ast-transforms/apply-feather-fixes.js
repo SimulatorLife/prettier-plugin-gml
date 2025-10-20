@@ -26,7 +26,7 @@ import {
     toNormalizedLowerCaseString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
+import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import {
     asArray,
