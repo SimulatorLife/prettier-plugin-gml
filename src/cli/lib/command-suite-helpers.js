@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import { CliUsageError } from "./cli-errors.js";
+import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
 import { toMutableArray } from "../../shared/array-utils.js";
 
@@ -136,7 +136,7 @@ export async function collectSuiteResults({
             results[suiteName] =
                 typeof onError === "function"
                     ? onError(error, { suiteName })
-                    : { error };
+                    : { error: createCliErrorDetails(error) };
         }
     }
 
