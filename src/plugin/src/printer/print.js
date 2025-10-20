@@ -3071,22 +3071,22 @@ function computeSyntheticFunctionDocLines(
         }
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
         const implicitName =
-            implicitDocEntry && typeof implicitDocEntry.name === "string"
-                ? implicitDocEntry.name
-                : null;
-        const canonicalParamName = implicitDocEntry?.canonical
-            ? implicitDocEntry.canonical
-            : getCanonicalParamNameFromText(paramInfo.name);
+            (implicitDocEntry &&
+                typeof implicitDocEntry.name === "string" &&
+                implicitDocEntry.name) ||
+            null;
+        const canonicalParamName =
+            (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
+            getCanonicalParamNameFromText(paramInfo.name);
         const existingMetadata =
-            canonicalParamName &&
-            paramMetadataByCanonical.has(canonicalParamName)
-                ? paramMetadataByCanonical.get(canonicalParamName)
-                : null;
+            (canonicalParamName &&
+                paramMetadataByCanonical.has(canonicalParamName) &&
+                paramMetadataByCanonical.get(canonicalParamName)) ||
+            null;
         const existingDocName = existingMetadata?.name;
         const baseDocName =
-            implicitName && implicitName.length > 0
-                ? implicitName
-                : paramInfo.name;
+            (implicitName && implicitName.length > 0 && implicitName) ||
+            paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
@@ -3098,7 +3098,8 @@ function computeSyntheticFunctionDocLines(
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName = shouldMarkOptional ? `[${baseDocName}]` : baseDocName;
+        const docName =
+            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
         if (documentedParamNames.has(docName)) {
             continue;
@@ -3126,6 +3127,16 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         return [];
     }
 
+    const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+
+    return buildImplicitArgumentDocEntries(referenceInfo);
+}
+
+// Collects index/reference bookkeeping for implicit `arguments[index]` usages
+// within a function. The traversal tracks alias declarations, direct
+// references, and the set of indices that require doc entries so the caller
+// can format them without dipping into low-level mutation logic.
+function gatherImplicitArgumentReferences(functionNode) {
     const referencedIndices = new Set();
     const aliasByIndex = new Map();
     const directReferenceIndices = new Set();
@@ -3195,29 +3206,50 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     visit(functionNode.body, functionNode, "body");
 
-    if (referencedIndices.size === 0) {
+    return { referencedIndices, aliasByIndex, directReferenceIndices };
+}
+
+function buildImplicitArgumentDocEntries({
+    referencedIndices,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    if (!referencedIndices || referencedIndices.size === 0) {
         return [];
     }
 
     const sortedIndices = [...referencedIndices].sort(
         (left, right) => left - right
     );
-    return sortedIndices.map((index) => {
-        const fallbackName = `argument${index}`;
-        const alias = aliasByIndex.get(index);
-        const docName = alias && alias.length > 0 ? alias : fallbackName;
-        const canonical = getCanonicalParamNameFromText(docName) ?? docName;
-        const fallbackCanonical =
-            getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
 
-        return {
-            name: docName,
-            canonical,
-            fallbackCanonical,
+    return sortedIndices.map((index) =>
+        createImplicitArgumentDocEntry({
             index,
-            hasDirectReference: directReferenceIndices.has(index)
-        };
-    });
+            aliasByIndex,
+            directReferenceIndices
+        })
+    );
+}
+
+function createImplicitArgumentDocEntry({
+    index,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    const fallbackName = `argument${index}`;
+    const alias = aliasByIndex?.get(index);
+    const docName = (alias && alias.length > 0 && alias) || fallbackName;
+    const canonical = getCanonicalParamNameFromText(docName) ?? docName;
+    const fallbackCanonical =
+        getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
+
+    return {
+        name: docName,
+        canonical,
+        fallbackCanonical,
+        index,
+        hasDirectReference: directReferenceIndices?.has(index) === true
+    };
 }
 
 function getArgumentIndexFromNode(node) {

@@ -15,104 +15,29 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
 
     const resolveName =
         typeof getNodeName === "function" ? getNodeName : undefined;
-    const memberCount = members.length;
-    const memberStats = new Array(memberCount);
-    let maxInitializerNameLength = 0;
-
-    // Avoid `Array#map` here so the hot enum printing path does not allocate a
-    // new callback for each member. The manual loop keeps the same data shape
-    // while shaving observable time off the tight formatter benchmark.
-    for (let index = 0; index < memberCount; index += 1) {
-        const member = members[index];
-        const rawName = resolveName ? resolveName(member?.name) : undefined;
-        const nameLength = typeof rawName === "string" ? rawName.length : 0;
-        const initializer = member?.initializer;
-        const hasInitializer = Boolean(initializer);
-        const initializerWidth = getEnumInitializerWidth(initializer);
-
-        if (hasInitializer && nameLength > maxInitializerNameLength) {
-            maxInitializerNameLength = nameLength;
-        }
-
-        memberStats[index] = {
-            member,
-            nameLength,
-            initializerWidth,
-            hasInitializer,
-            trailingComments: collectTrailingEnumComments(member)
-        };
-    }
+    const { memberStats, maxInitializerNameLength } = collectEnumMemberStats(
+        members,
+        resolveName
+    );
 
     const shouldAlignInitializers = maxInitializerNameLength > 0;
 
-    let maxMemberWidth = 0;
-    for (const entry of memberStats) {
-        const alignmentPadding =
-            shouldAlignInitializers && entry.hasInitializer
-                ? maxInitializerNameLength - entry.nameLength
-                : 0;
-
-        entry.member._enumNameAlignmentPadding = alignmentPadding;
-
-        const initializerSpan = entry.hasInitializer
-            ? ENUM_INITIALIZER_OPERATOR_WIDTH + entry.initializerWidth
-            : 0;
-
-        const memberWidth =
-            entry.nameLength + alignmentPadding + initializerSpan;
-
-        entry.memberWidth = memberWidth;
-        if (memberWidth > maxMemberWidth) {
-            maxMemberWidth = memberWidth;
-        }
-    }
+    const maxMemberWidth = applyEnumMemberAlignment({
+        memberStats,
+        shouldAlignInitializers,
+        maxInitializerNameLength
+    });
 
     if (maxMemberWidth === 0) {
         return;
     }
 
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
-    const lastIndex = memberStats.length - 1;
-
-    // Manual index iteration avoids allocating iterator tuples from
-    // `Array#entries()` while the printer walks enum members.
-    for (let index = 0; index <= lastIndex; index += 1) {
-        const entry = memberStats[index];
-        const trailingComments = entry.trailingComments;
-        const trailingCount = trailingComments.length;
-
-        if (trailingCount === 0) {
-            continue;
-        }
-
-        const basePadding = maxMemberWidth - entry.memberWidth;
-        if (basePadding <= 0) {
-            continue;
-        }
-
-        const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
-        const extraPadding = basePadding - commaWidth;
-
-        if (extraPadding <= 0) {
-            continue;
-        }
-
-        for (
-            let commentIndex = 0;
-            commentIndex < trailingCount;
-            commentIndex += 1
-        ) {
-            const comment = trailingComments[commentIndex];
-            const previous = comment._enumTrailingPadding;
-
-            // Skip reassignments when another member already provided padding
-            // that meets or exceeds the computed width. This mirrors the
-            // original Math.max call while avoiding the extra allocation.
-            if (typeof previous !== "number" || previous < extraPadding) {
-                comment._enumTrailingPadding = extraPadding;
-            }
-        }
-    }
+    applyTrailingCommentPadding({
+        memberStats,
+        maxMemberWidth,
+        hasTrailingComma
+    });
 }
 
 export function getEnumNameAlignmentPadding(member) {
@@ -169,4 +94,115 @@ function collectTrailingEnumComments(member) {
     }
 
     return trailingComments;
+}
+
+function collectEnumMemberStats(members, resolveName) {
+    const memberCount = members.length;
+    const memberStats = new Array(memberCount);
+    let maxInitializerNameLength = 0;
+
+    // Avoid `Array#map` here so the hot enum printing path does not allocate a
+    // new callback for each member. The manual loop keeps the same data shape
+    // while shaving observable time off the tight formatter benchmark.
+    for (let index = 0; index < memberCount; index += 1) {
+        const member = members[index];
+        const rawName = resolveName ? resolveName(member?.name) : undefined;
+        const nameLength = typeof rawName === "string" ? rawName.length : 0;
+        const initializer = member?.initializer;
+        const hasInitializer = Boolean(initializer);
+        const initializerWidth = getEnumInitializerWidth(initializer);
+
+        if (hasInitializer && nameLength > maxInitializerNameLength) {
+            maxInitializerNameLength = nameLength;
+        }
+
+        memberStats[index] = {
+            member,
+            nameLength,
+            initializerWidth,
+            hasInitializer,
+            trailingComments: collectTrailingEnumComments(member)
+        };
+    }
+
+    return { memberStats, maxInitializerNameLength };
+}
+
+function applyEnumMemberAlignment({
+    memberStats,
+    shouldAlignInitializers,
+    maxInitializerNameLength
+}) {
+    let maxMemberWidth = 0;
+
+    for (const entry of memberStats) {
+        const alignmentPadding =
+            shouldAlignInitializers && entry.hasInitializer
+                ? maxInitializerNameLength - entry.nameLength
+                : 0;
+
+        entry.member._enumNameAlignmentPadding = alignmentPadding;
+
+        const initializerSpan = entry.hasInitializer
+            ? ENUM_INITIALIZER_OPERATOR_WIDTH + entry.initializerWidth
+            : 0;
+
+        const memberWidth =
+            entry.nameLength + alignmentPadding + initializerSpan;
+
+        entry.memberWidth = memberWidth;
+        if (memberWidth > maxMemberWidth) {
+            maxMemberWidth = memberWidth;
+        }
+    }
+
+    return maxMemberWidth;
+}
+
+function applyTrailingCommentPadding({
+    memberStats,
+    maxMemberWidth,
+    hasTrailingComma
+}) {
+    const lastIndex = memberStats.length - 1;
+
+    // Manual index iteration avoids allocating iterator tuples from
+    // `Array#entries()` while the printer walks enum members.
+    for (let index = 0; index <= lastIndex; index += 1) {
+        const entry = memberStats[index];
+        const trailingComments = entry.trailingComments;
+        const trailingCount = trailingComments.length;
+
+        if (trailingCount === 0) {
+            continue;
+        }
+
+        const basePadding = maxMemberWidth - entry.memberWidth;
+        if (basePadding <= 0) {
+            continue;
+        }
+
+        const commaWidth = index !== lastIndex || hasTrailingComma ? 1 : 0;
+        const extraPadding = basePadding - commaWidth;
+
+        if (extraPadding <= 0) {
+            continue;
+        }
+
+        for (
+            let commentIndex = 0;
+            commentIndex < trailingCount;
+            commentIndex += 1
+        ) {
+            const comment = trailingComments[commentIndex];
+            const previous = comment._enumTrailingPadding;
+
+            // Skip reassignments when another member already provided padding
+            // that meets or exceeds the computed width. This mirrors the
+            // original Math.max call while avoiding the extra allocation.
+            if (typeof previous !== "number" || previous < extraPadding) {
+                comment._enumTrailingPadding = extraPadding;
+            }
+        }
+    }
 }
