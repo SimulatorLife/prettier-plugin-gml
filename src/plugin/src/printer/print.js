@@ -1105,17 +1105,35 @@ export function print(path, options, print) {
             ]);
         }
         case "TemplateStringExpression": {
-            const parts = [];
-            parts.push('$"');
-            for (const [index, atom] of node.atoms.entries()) {
-                if (atom.type === "TemplateStringText") {
-                    parts.push(atom.value);
-                } else {
-                    parts.push("{", path.map(print, "atoms")[index], "}");
+            const hasAtomArray = Array.isArray(node.atoms);
+            const atoms = hasAtomArray ? node.atoms : [];
+            const literalTextParts = [];
+            let shouldCollapseToLiteral = hasAtomArray;
+
+            for (const atom of atoms) {
+                if (atom?.type !== "TemplateStringText") {
+                    shouldCollapseToLiteral = false;
+                    break;
                 }
+
+                if (typeof atom.value !== "string") {
+                    shouldCollapseToLiteral = false;
+                    break;
+                }
+
+                literalTextParts.push(atom.value);
             }
-            parts.push('"');
-            return concat(parts);
+
+            if (
+                shouldCollapseToLiteral &&
+                literalTextParts.length === atoms.length
+            ) {
+                const literalText = literalTextParts.join("");
+                const stringLiteral = JSON.stringify(literalText);
+                return concat(stringLiteral);
+            }
+
+            return concat(buildTemplateStringParts(atoms, path, print));
         }
         default: {
             console.warn(
@@ -1124,6 +1142,28 @@ export function print(path, options, print) {
             );
         }
     }
+}
+
+function buildTemplateStringParts(atoms, path, print) {
+    const parts = [];
+    parts.push('$"');
+
+    const printedAtoms = path.map(print, "atoms");
+
+    for (const [index, atom] of atoms.entries()) {
+        if (
+            atom?.type === "TemplateStringText" &&
+            typeof atom.value === "string"
+        ) {
+            parts.push(atom.value);
+            continue;
+        }
+
+        parts.push("{", printedAtoms[index], "}");
+    }
+
+    parts.push('"');
+    return parts;
 }
 
 function printDelimitedList(

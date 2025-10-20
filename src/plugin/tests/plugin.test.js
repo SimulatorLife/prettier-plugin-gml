@@ -635,6 +635,32 @@ describe("Prettier GameMaker plugin fixtures", () => {
         assert.strictEqual(formatted, expected);
     });
 
+    it("simplifies template strings without placeholders regardless of interpolation options", async () => {
+        const source =
+            'throw $"ERROR obj_item: Must be created with item id as a creation param";\n';
+        const expected =
+            'throw "ERROR obj_item: Must be created with item id as a creation param";';
+
+        const defaultFormatted = await formatWithPlugin(source);
+        assert.strictEqual(
+            defaultFormatted,
+            expected,
+            "Expected placeholder-free template strings to collapse into normal strings."
+        );
+
+        for (const useStringInterpolation of [true, false]) {
+            const formatted = await formatWithPlugin(source, {
+                useStringInterpolation
+            });
+
+            assert.strictEqual(
+                formatted,
+                expected,
+                `Template strings without expressions should simplify when useStringInterpolation is ${useStringInterpolation}.`
+            );
+        }
+    });
+
     it("rewrites safe string concatenations into template strings when enabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 
