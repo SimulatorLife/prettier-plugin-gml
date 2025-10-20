@@ -11247,6 +11247,12 @@ function ensureVertexBeginBeforeVertexEndCall(
         }
     }
 
+    const vertexBeginCall = createVertexBeginCall(node, bufferArgument);
+
+    if (!vertexBeginCall) {
+        return null;
+    }
+
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
         range: {
@@ -11259,8 +11265,11 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 1);
+    parent.splice(property, 0, vertexBeginCall);
+    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
     attachFeatherFixMetadata(node, [fixDetail]);
+    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+    markStatementToSuppressLeadingEmptyLine(node);
 
     return fixDetail;
 }
@@ -11552,6 +11561,52 @@ function createVertexEndCall(template, bufferIdentifier) {
         object: createIdentifier("vertex_end"),
         arguments: [cloneIdentifier(bufferIdentifier)]
     };
+
+    if (hasOwn(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (hasOwn(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
+function createVertexBeginCall(template, bufferIdentifier) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifier(bufferIdentifier)) {
+        return null;
+    }
+
+    const identifier = createIdentifier("vertex_begin", template.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    const bufferClone = cloneIdentifier(bufferIdentifier);
+
+    if (!bufferClone) {
+        return null;
+    }
+
+    callExpression.arguments.push(bufferClone);
+
+    const formatIdentifier = createIdentifier("format", template.object);
+
+    if (formatIdentifier) {
+        callExpression.arguments.push(formatIdentifier);
+    }
 
     if (hasOwn(template, "start")) {
         callExpression.start = cloneLocation(template.start);
