@@ -175,3 +175,25 @@ test("preserves distinct functions that condense to the same expression", async 
         "Expected the second condensed function to remain in the output."
     );
 });
+
+test("preserves positive operand order when condensing guard fallbacks", async () => {
+    const source = [
+        "function guard_with_fallback(foo, bar, baz) {",
+        "    if ((foo && bar) || baz) {",
+        "        return foo && bar;",
+        "    }",
+        "",
+        "    return foo || baz;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        condenseLogicalExpressions: true
+    });
+
+    assert.ok(
+        formatted.includes("return foo and (bar or !baz);"),
+        "Expected condensed expression to keep the original positive operand order."
+    );
+});

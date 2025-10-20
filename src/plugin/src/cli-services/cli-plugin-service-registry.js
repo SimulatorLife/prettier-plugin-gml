@@ -50,45 +50,32 @@ const defaultCliPluginServices = Object.freeze({
     identifierCasePlanCache: identifierCasePlanCacheService
 });
 
-export function createDefaultCliPluginServices() {
-    return defaultCliPluginServices;
-}
+const getDefaultCliPluginServices = () => defaultCliPluginServices;
+const getProjectIndexService = () => projectIndexService;
+const getIdentifierCasePlanService = () => identifierCasePlanService;
+const getIdentifierCasePlanPreparationService = () =>
+    identifierCasePlanPreparationService;
+const getIdentifierCasePlanCacheService = () => identifierCasePlanCacheService;
 
-export function resolveCliPluginServices() {
-    return defaultCliPluginServices;
-}
+export const createDefaultCliPluginServices = getDefaultCliPluginServices;
+export const resolveCliPluginServices = getDefaultCliPluginServices;
 
-export function resolveCliProjectIndexService() {
-    return projectIndexService;
-}
+export const resolveCliProjectIndexService = getProjectIndexService;
+export const createDefaultCliProjectIndexService = getProjectIndexService;
 
-export function resolveCliIdentifierCasePlanService() {
-    return identifierCasePlanService;
-}
+export const resolveCliIdentifierCasePlanService = getIdentifierCasePlanService;
+export const createDefaultCliIdentifierCasePlanService =
+    getIdentifierCasePlanService;
 
-export function resolveCliIdentifierCasePlanPreparationService() {
-    return identifierCasePlanPreparationService;
-}
+export const resolveCliIdentifierCasePlanPreparationService =
+    getIdentifierCasePlanPreparationService;
+export const createDefaultCliIdentifierCasePlanPreparationService =
+    getIdentifierCasePlanPreparationService;
 
-export function resolveCliIdentifierCaseCacheService() {
-    return identifierCasePlanCacheService;
-}
-
-export function createDefaultCliProjectIndexService() {
-    return projectIndexService;
-}
-
-export function createDefaultCliIdentifierCasePlanService() {
-    return identifierCasePlanService;
-}
-
-export function createDefaultCliIdentifierCasePlanPreparationService() {
-    return identifierCasePlanPreparationService;
-}
-
-export function createDefaultCliIdentifierCaseCacheService() {
-    return identifierCasePlanCacheService;
-}
+export const resolveCliIdentifierCaseCacheService =
+    getIdentifierCasePlanCacheService;
+export const createDefaultCliIdentifierCaseCacheService =
+    getIdentifierCasePlanCacheService;
 
 export const defaultProjectIndexBuilder = projectIndexService.buildProjectIndex;
 export const defaultIdentifierCasePlanPreparer =

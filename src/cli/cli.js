@@ -41,12 +41,12 @@ import {
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     uniqueArray
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
+} from "./lib/shared/utils.js";
+import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "../shared/path-utils.js";
+} from "./lib/shared/path-utils.js";
 
 import {
     CliUsageError,
@@ -187,21 +187,16 @@ function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
 ) {
-    const normalized = [];
-    const seen = new Set();
-
-    for (const candidate of normalizeStringList(rawExtensions, {
-        splitPattern: /,/,
-        allowInvalidType: true
-    })) {
-        const extension = coerceExtensionValue(candidate);
-        if (!extension || seen.has(extension)) {
-            continue;
-        }
-
-        seen.add(extension);
-        normalized.push(extension);
-    }
+    const normalized = Array.from(
+        new Set(
+            normalizeStringList(rawExtensions, {
+                splitPattern: /,/,
+                allowInvalidType: true
+            })
+                .map(coerceExtensionValue)
+                .filter(Boolean)
+        )
+    );
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }

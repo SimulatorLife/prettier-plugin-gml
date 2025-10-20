@@ -15,7 +15,8 @@ import {
 import {
     assertFunction,
     getOrCreateMapEntry,
-    hasOwn
+    hasOwn,
+    isPlainObject
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -292,10 +293,6 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 );
 
 let cachedBuiltInIdentifiers = null;
-
-function isPlainObject(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function extractBuiltInIdentifierNames(payload) {
     if (!isPlainObject(payload)) {

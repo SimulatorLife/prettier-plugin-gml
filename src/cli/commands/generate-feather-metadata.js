@@ -1,7 +1,7 @@
 import path from "node:path";
 import { parseHTML } from "linkedom";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
 
 import {
     escapeRegExp,
@@ -32,6 +32,7 @@ import {
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
@@ -83,13 +84,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
         .option(
             "--manual-repo <owner/name>",
             `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
-            (value) => {
-                try {
-                    return resolveManualRepoValue(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveManualRepoValue),
             DEFAULT_MANUAL_REPO
         )
         .option(
@@ -101,13 +96,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
         .option(
             "--progress-bar-width <columns>",
             `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveProgressBarWidth),
             getDefaultProgressBarWidth()
         );
 

@@ -1771,9 +1771,18 @@ function buildBinaryAst(operator, terms, context) {
         return booleanExpressionToAst(terms[0], context);
     }
 
-    let current = booleanExpressionToAst(terms[0], context);
-    for (let index = 1; index < terms.length; index++) {
-        const right = booleanExpressionToAst(terms[index], context);
+    const orderedTerms =
+        operator === "||"
+            ? [...terms].sort(
+                  (left, right) =>
+                      getBooleanExpressionSourceStart(left, context) -
+                      getBooleanExpressionSourceStart(right, context)
+              )
+            : terms;
+
+    let current = booleanExpressionToAst(orderedTerms[0], context);
+    for (let index = 1; index < orderedTerms.length; index++) {
+        const right = booleanExpressionToAst(orderedTerms[index], context);
         if (!current || !right) {
             return null;
         }
@@ -1788,6 +1797,67 @@ function buildBinaryAst(operator, terms, context) {
     }
 
     return current;
+}
+
+function getBooleanExpressionSourceStart(expression, context) {
+    if (!expression || typeof expression !== "object") {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    switch (expression.type) {
+        case BOOLEAN_NODE_TYPES.VAR: {
+            if (!context || !Array.isArray(context.variables)) {
+                return Number.POSITIVE_INFINITY;
+            }
+
+            const variableRecord =
+                context.variables[expression.variable?.index];
+            return getNodeLocationIndex(variableRecord?.node);
+        }
+        case BOOLEAN_NODE_TYPES.NOT: {
+            return getBooleanExpressionSourceStart(
+                expression.argument,
+                context
+            );
+        }
+        case BOOLEAN_NODE_TYPES.AND:
+        case BOOLEAN_NODE_TYPES.OR: {
+            let earliest = Number.POSITIVE_INFINITY;
+            for (const term of expression.terms ?? []) {
+                const termStart = getBooleanExpressionSourceStart(
+                    term,
+                    context
+                );
+                if (termStart < earliest) {
+                    earliest = termStart;
+                }
+            }
+            return earliest;
+        }
+        case BOOLEAN_NODE_TYPES.CONST: {
+            return getNodeLocationIndex(expression.node);
+        }
+        default: {
+            return Number.POSITIVE_INFINITY;
+        }
+    }
+}
+
+function getNodeLocationIndex(node) {
+    if (!node || typeof node !== "object") {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    const start = node.start;
+    if (typeof start === "number") {
+        return start;
+    }
+
+    if (start && typeof start.index === "number") {
+        return start.index;
+    }
+
+    return Number.POSITIVE_INFINITY;
 }
 
 function wrapBinaryOperand(node, parentOperator, position) {
@@ -1936,8 +2006,8 @@ function transformMixedReductionPattern(expression) {
                 );
                 const notBase = createBooleanNot(baseAnd);
                 return createBooleanOr([
-                    notBase,
-                    cloneBooleanExpression(positiveVarTerm)
+                    cloneBooleanExpression(positiveVarTerm),
+                    notBase
                 ]);
             }
         }
@@ -2018,7 +2088,7 @@ function transformMixedReductionPattern(expression) {
         node: positiveVarNode
     });
 
-    return createBooleanOr([notBase, positiveVar]);
+    return createBooleanOr([positiveVar, notBase]);
 }
 
 function isPlainOrOfVariables(expression) {
