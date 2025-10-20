@@ -82,10 +82,10 @@ describe("createAbortGuard", () => {
     });
 
     it("throws immediately when the signal is already aborted", () => {
-        const controller = new AbortController();
-        controller.abort("stop");
+        const signal = { aborted: true, reason: "stop" };
+
         assert.throws(() => {
-            createAbortGuard({ signal: controller.signal });
+            createAbortGuard({ signal });
         }, /stop/);
     });
 
