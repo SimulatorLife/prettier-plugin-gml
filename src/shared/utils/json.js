@@ -56,6 +56,30 @@ export class JsonParseError extends SyntaxError {
     }
 }
 
+export function isJsonParseError(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (value.name !== "JsonParseError") {
+        return false;
+    }
+
+    if (typeof value.description !== "string") {
+        return false;
+    }
+
+    if (value.source != undefined && typeof value.source !== "string") {
+        return false;
+    }
+
+    if (!isErrorLike(value.cause)) {
+        return false;
+    }
+
+    return true;
+}
+
 function normalizeDescription(description) {
     const normalized = toTrimmedString(description);
 

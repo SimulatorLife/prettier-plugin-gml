@@ -10,7 +10,7 @@ import {
     resolveMemoryIterations,
     setDefaultMemoryIterations
 } from "../lib/memory-cli.js";
-import { CliUsageError } from "../lib/cli-errors.js";
+import { isCliUsageError } from "../lib/cli-errors.js";
 
 describe("memory iteration configuration", () => {
     afterEach(() => {
@@ -79,7 +79,7 @@ describe("memory iteration configuration", () => {
                     command,
                     env: { [MEMORY_ITERATIONS_ENV_VAR]: "abc" }
                 }),
-            (error) => error instanceof CliUsageError
+            (error) => isCliUsageError(error)
         );
     });
 });

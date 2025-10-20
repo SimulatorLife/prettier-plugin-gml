@@ -47,7 +47,7 @@ function indentBlock(text, indent = DEFAULT_INDENT) {
         .join("\n");
 }
 
-function isCliUsageError(error) {
+export function isCliUsageError(error) {
     return isErrorLike(error) && Boolean(error[CLI_USAGE_ERROR_BRAND]);
 }
 
