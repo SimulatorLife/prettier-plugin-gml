@@ -11268,8 +11268,17 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 1);
+    const vertexBeginCall = createVertexBeginCall(node, bufferArgument);
+
+    if (!vertexBeginCall) {
+        return null;
+    }
+
+    parent.splice(property, 0, vertexBeginCall);
+    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
     attachFeatherFixMetadata(node, [fixDetail]);
+    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+    markStatementToSuppressLeadingEmptyLine(node);
 
     return fixDetail;
 }
@@ -11545,6 +11554,46 @@ function isVertexEndCallForBuffer(node, bufferName) {
     const firstArg = args[0];
 
     return isIdentifier(firstArg) && firstArg.name === bufferName;
+}
+
+function createVertexBeginCall(template, bufferIdentifier) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifier(bufferIdentifier)) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: createIdentifier("vertex_begin", template.object),
+        arguments: []
+    };
+
+    const clonedBuffer = cloneIdentifier(bufferIdentifier);
+
+    if (!clonedBuffer) {
+        return null;
+    }
+
+    callExpression.arguments.push(clonedBuffer);
+
+    const formatIdentifier = createIdentifier("format");
+
+    if (formatIdentifier) {
+        callExpression.arguments.push(formatIdentifier);
+    }
+
+    if (hasOwn(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (hasOwn(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
 }
 
 function createVertexEndCall(template, bufferIdentifier) {
