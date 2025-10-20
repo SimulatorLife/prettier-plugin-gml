@@ -5,11 +5,6 @@ const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 16;
 
-const DEFAULT_CONCURRENCY_LIMITS = Object.freeze({
-    min: MIN_CONCURRENCY,
-    max: MAX_CONCURRENCY
-});
-
 let configuredDefaultProjectIndexGmlConcurrency =
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
 
@@ -17,26 +12,27 @@ function getDefaultProjectIndexGmlConcurrency() {
     return configuredDefaultProjectIndexGmlConcurrency;
 }
 
-function toFiniteConcurrency(value) {
-    if (value == null) {
+function parseConcurrencyCandidate(value, fallback) {
+    const source = value ?? fallback;
+    if (source == null) {
         return null;
     }
 
-    const candidate = typeof value === "string" ? value.trim() : value;
-    if (candidate === "") {
+    const normalized = typeof source === "string" ? source.trim() : source;
+    if (normalized === "") {
         return null;
     }
 
-    const numeric = Number(candidate);
+    const numeric = Number(normalized);
     return Number.isFinite(numeric) ? numeric : null;
 }
 
-function clampToLimits(value, { min, max } = DEFAULT_CONCURRENCY_LIMITS) {
+function clampWithinLimits(
+    value,
+    min = MIN_CONCURRENCY,
+    max = MAX_CONCURRENCY
+) {
     return Math.min(max, Math.max(min, value));
-}
-
-function resolveConcurrencyCandidate(value, fallback) {
-    return toFiniteConcurrency(value ?? fallback);
 }
 
 function clampConcurrency(
@@ -47,16 +43,16 @@ function clampConcurrency(
         fallback = getDefaultProjectIndexGmlConcurrency()
     } = {}
 ) {
-    const candidate = resolveConcurrencyCandidate(value, fallback);
+    const candidate = parseConcurrencyCandidate(value, fallback);
     if (candidate === null) {
         return min;
     }
 
-    return clampToLimits(candidate, { min, max });
+    return clampWithinLimits(candidate, min, max);
 }
 
 function setDefaultProjectIndexGmlConcurrency(concurrency) {
-    const candidate = resolveConcurrencyCandidate(
+    const candidate = parseConcurrencyCandidate(
         concurrency,
         PROJECT_INDEX_GML_CONCURRENCY_BASELINE
     );
@@ -64,7 +60,7 @@ function setDefaultProjectIndexGmlConcurrency(concurrency) {
     configuredDefaultProjectIndexGmlConcurrency =
         candidate === null
             ? PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-            : clampToLimits(candidate);
+            : clampWithinLimits(candidate);
 
     return configuredDefaultProjectIndexGmlConcurrency;
 }
