@@ -11546,6 +11546,46 @@ function isVertexEndCallForBuffer(node, bufferName) {
     return isIdentifier(firstArg) && firstArg.name === bufferName;
 }
 
+function createVertexBeginCall(template, bufferIdentifier) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifier(bufferIdentifier)) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: createIdentifier("vertex_begin", template.object),
+        arguments: []
+    };
+
+    const clonedBuffer = cloneIdentifier(bufferIdentifier);
+
+    if (!clonedBuffer) {
+        return null;
+    }
+
+    callExpression.arguments.push(clonedBuffer);
+
+    const formatIdentifier = createIdentifier("format");
+
+    if (formatIdentifier) {
+        callExpression.arguments.push(formatIdentifier);
+    }
+
+    if (hasOwn(template, "start")) {
+        callExpression.start = cloneLocation(template.start);
+    }
+
+    if (hasOwn(template, "end")) {
+        callExpression.end = cloneLocation(template.end);
+    }
+
+    return callExpression;
+}
+
 function createVertexEndCall(template, bufferIdentifier) {
     if (!template || template.type !== "CallExpression") {
         return null;
