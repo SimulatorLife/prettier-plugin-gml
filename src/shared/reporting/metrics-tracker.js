@@ -1,7 +1,4 @@
-import {
-    getNonEmptyString,
-    getNonEmptyTrimmedString
-} from "../utils/string.js";
+import { getNonEmptyString } from "../utils/string.js";
 import { getOrCreateMapEntry } from "../utils/object.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
@@ -19,7 +16,12 @@ function normalizeLabel(label) {
 }
 
 const DEFAULT_CACHE_KEYS = Object.freeze(["hits", "misses", "stale"]);
-const SUMMARY_SECTIONS = ["timings", "counters", "caches", "metadata"];
+const SUMMARY_SECTIONS = Object.freeze([
+    "timings",
+    "counters",
+    "caches",
+    "metadata"
+]);
 
 function toKeyIterable(value) {
     if (Array.isArray(value)) {
