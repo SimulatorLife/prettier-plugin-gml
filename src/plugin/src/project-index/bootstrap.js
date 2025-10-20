@@ -26,33 +26,28 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
-function resolveOptionWithOverride(options, config) {
-    const { onValue, onMissing, internalKey, externalKey } = config ?? {};
+function resolveOptionWithOverride(options, config = {}) {
+    const { onValue, onMissing, internalKey, externalKey } = config;
 
     assertFunction(onValue, "onValue");
 
-    const handleMissing =
+    const callOnMissing =
         typeof onMissing === "function" ? onMissing : () => onMissing;
 
     if (!isObjectLike(options)) {
-        return handleMissing();
+        return callOnMissing();
     }
 
-    const match =
-        internalKey != null && options[internalKey] !== undefined
-            ? { key: internalKey, source: "internal" }
-            : externalKey != null && options[externalKey] !== undefined
-              ? { key: externalKey, source: "external" }
-              : null;
-
-    if (!match) {
-        return handleMissing();
+    for (const [key, source] of [
+        [internalKey, "internal"],
+        [externalKey, "external"]
+    ]) {
+        if (key != null && options[key] !== undefined) {
+            return onValue({ value: options[key], source });
+        }
     }
 
-    return onValue({
-        value: options[match.key],
-        source: match.source
-    });
+    return callOnMissing();
 }
 
 function getFsFacade(options) {
