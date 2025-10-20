@@ -91,6 +91,7 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
@@ -11256,6 +11257,16 @@ function ensureVertexBeginBeforeVertexEndCall(
         }
     }
 
+    const vertexBeginCall = createVertexBeginCall({
+        diagnostic,
+        referenceCall: node,
+        bufferIdentifier: bufferArgument
+    });
+
+    if (!vertexBeginCall) {
+        return null;
+    }
+
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
         range: {
@@ -11268,8 +11279,11 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 1);
+    parent.splice(property, 0, vertexBeginCall);
+    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
     attachFeatherFixMetadata(node, [fixDetail]);
+    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+    markStatementToSuppressLeadingEmptyLine(node);
 
     return fixDetail;
 }
@@ -11571,6 +11585,118 @@ function createVertexEndCall(template, bufferIdentifier) {
     }
 
     return callExpression;
+}
+
+function createVertexBeginCall({
+    diagnostic,
+    referenceCall,
+    bufferIdentifier
+}) {
+    if (!isIdentifier(bufferIdentifier)) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: createIdentifier("vertex_begin", referenceCall?.object),
+        arguments: []
+    };
+
+    if (!isIdentifier(callExpression.object)) {
+        return null;
+    }
+
+    const bufferClone = cloneIdentifier(bufferIdentifier);
+
+    if (!bufferClone) {
+        return null;
+    }
+
+    callExpression.arguments.push(bufferClone);
+
+    const template = getVertexBeginTemplateFromDiagnostic(diagnostic);
+
+    if (
+        template &&
+        Array.isArray(template.additionalArguments) &&
+        template.additionalArguments.length > 0
+    ) {
+        for (const argumentTemplate of template.additionalArguments) {
+            const clonedArgument = cloneNode(argumentTemplate);
+
+            if (clonedArgument) {
+                callExpression.arguments.push(clonedArgument);
+            }
+        }
+    }
+
+    if (callExpression.arguments.length === 1) {
+        const fallbackArgument = createIdentifier("format");
+
+        if (fallbackArgument) {
+            callExpression.arguments.push(fallbackArgument);
+        }
+    }
+
+    assignClonedLocation(callExpression, referenceCall);
+
+    return callExpression;
+}
+
+function getVertexBeginTemplateFromDiagnostic(diagnostic) {
+    if (!diagnostic) {
+        return null;
+    }
+
+    if (VERTEX_BEGIN_TEMPLATE_CACHE.has(diagnostic)) {
+        return VERTEX_BEGIN_TEMPLATE_CACHE.get(diagnostic);
+    }
+
+    const template = createVertexBeginCallTemplateFromDiagnostic(diagnostic);
+    VERTEX_BEGIN_TEMPLATE_CACHE.set(diagnostic, template);
+    return template;
+}
+
+function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
+    const example =
+        typeof diagnostic?.goodExample === "string"
+            ? diagnostic.goodExample
+            : null;
+
+    if (!example) {
+        return null;
+    }
+
+    try {
+        const exampleAst = GMLParser.parse(example, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+        const callExpression = findFirstCallExpression(exampleAst);
+
+        if (!callExpression) {
+            return null;
+        }
+
+        if (!isIdentifierWithName(callExpression.object, "vertex_begin")) {
+            return null;
+        }
+
+        const args = getCallExpressionArguments(callExpression);
+
+        if (args.length <= 1) {
+            return { additionalArguments: [] };
+        }
+
+        const additionalArguments = args
+            .slice(1)
+            .map((argument) => cloneNodeWithoutLocations(argument))
+            .filter((argument) => !!argument);
+
+        return { additionalArguments };
+    } catch {
+        return null;
+    }
 }
 
 function ensureLocalVariablesAreDeclaredBeforeUse({ ast, diagnostic }) {
