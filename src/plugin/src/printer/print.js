@@ -725,7 +725,11 @@ export function print(path, options, print) {
 
                             break;
                         }
-                        // No default
+                        // Intentionally omit a default branch so any operator that is not
+                        // covered above preserves the exact token emitted by the parser.
+                        // Introducing a catch-all would make it easy to "fix" unfamiliar
+                        // operators into something else, which risks corrupting source that
+                        // relies on newly added or editor-specific syntax.
                     }
                 } else {
                     operator = styledOperator;
