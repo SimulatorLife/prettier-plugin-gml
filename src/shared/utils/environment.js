@@ -31,12 +31,7 @@ export function applyEnvironmentOverride({
     });
     assertFunction(applyValue, "applyValue");
 
-    const sourceEnv =
-        env && typeof env === "object"
-            ? env
-            : typeof process?.env === "object" && process.env !== null
-              ? process.env
-              : null;
+    const sourceEnv = resolveEnvironmentMap(env);
 
     if (!sourceEnv) {
         return;
@@ -49,4 +44,16 @@ export function applyEnvironmentOverride({
     }
 
     applyValue(rawValue);
+}
+
+function resolveEnvironmentMap(candidate) {
+    if (candidate && typeof candidate === "object") {
+        return candidate;
+    }
+
+    if (typeof process?.env === "object" && process.env !== null) {
+        return process.env;
+    }
+
+    return null;
 }
