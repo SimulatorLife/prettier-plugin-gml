@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    createDefaultCliIdentifierCasePlanService,
     createDefaultCliPluginServices,
+    createDefaultCliProjectIndexService,
+    defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
-    defaultProjectIndexBuilder
+    defaultProjectIndexBuilder,
+    resolveCliIdentifierCasePlanService,
+    resolveCliPluginServices,
+    resolveCliProjectIndexService
 } from "../src/cli-services.js";
 
 test("CLI plugin services expose validated defaults", () => {
@@ -32,9 +38,66 @@ test("CLI plugin services expose validated defaults", () => {
         "default identifier case planner should match exported helper"
     );
     assert.strictEqual(
+        services.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "default identifier case cache clearer should match exported helper"
+    );
+    assert.strictEqual(
         createDefaultCliPluginServices(),
         services,
         "resolver should reuse the same object reference"
+    );
+    assert.strictEqual(
+        resolveCliPluginServices(),
+        services,
+        "resolver helper should return the default services"
+    );
+
+    const projectIndexService = resolveCliProjectIndexService();
+    assert.ok(
+        Object.isFrozen(projectIndexService),
+        "project index service should be frozen"
+    );
+    assert.strictEqual(
+        projectIndexService.buildProjectIndex,
+        defaultProjectIndexBuilder,
+        "project index service should expose the default builder"
+    );
+    assert.strictEqual(
+        createDefaultCliProjectIndexService(),
+        projectIndexService,
+        "default project index service helper should reuse singleton"
+    );
+    assert.strictEqual(
+        services.projectIndex,
+        projectIndexService,
+        "root registry should expose the same project index service"
+    );
+
+    const identifierCasePlanService = resolveCliIdentifierCasePlanService();
+    assert.ok(
+        Object.isFrozen(identifierCasePlanService),
+        "identifier case plan service should be frozen"
+    );
+    assert.strictEqual(
+        identifierCasePlanService.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "identifier case plan service should expose the default preparer"
+    );
+    assert.strictEqual(
+        identifierCasePlanService.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "identifier case plan service should expose the default cache clearer"
+    );
+    assert.strictEqual(
+        createDefaultCliIdentifierCasePlanService(),
+        identifierCasePlanService,
+        "default identifier case plan service helper should reuse singleton"
+    );
+    assert.strictEqual(
+        services.identifierCasePlan,
+        identifierCasePlanService,
+        "root registry should expose the same identifier case plan service"
     );
 });
 
@@ -47,5 +110,21 @@ test("CLI plugin services cannot be mutated", () => {
         },
         TypeError,
         "frozen registry should reject new entries"
+    );
+
+    assert.throws(
+        () => {
+            services.projectIndex.extra = {};
+        },
+        TypeError,
+        "nested project index service should be frozen"
+    );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlan.extra = {};
+        },
+        TypeError,
+        "nested identifier case plan service should be frozen"
     );
 });
