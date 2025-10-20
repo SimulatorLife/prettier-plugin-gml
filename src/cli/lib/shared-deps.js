@@ -2,6 +2,7 @@ export {
     assertPlainObject,
     assertNonEmptyString,
     toArray,
+    createEnvConfiguredValue,
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption,
