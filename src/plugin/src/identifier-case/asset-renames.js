@@ -16,6 +16,7 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
@@ -116,7 +117,7 @@ function collectDirectoryEntries({ projectIndex, renames }) {
         }
 
         const directory = path.posix.dirname(resourcePath);
-        const list = directories.get(directory) ?? [];
+        const list = getOrCreateMapEntry(directories, directory, () => []);
         list.push({
             directory,
             resourcePath,
@@ -126,7 +127,6 @@ function collectDirectoryEntries({ projectIndex, renames }) {
             isRename: Boolean(rename),
             rename
         });
-        directories.set(directory, list);
     }
 
     return directories;
@@ -148,9 +148,8 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
         const byLowerName = new Map();
         for (const entry of entries) {
             const key = toNormalizedLowerCaseString(entry.finalName);
-            const bucket = byLowerName.get(key) ?? [];
+            const bucket = getOrCreateMapEntry(byLowerName, key, () => []);
             bucket.push(entry);
-            byLowerName.set(key, bucket);
         }
 
         for (const bucket of byLowerName.values()) {
