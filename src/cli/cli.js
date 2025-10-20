@@ -664,20 +664,20 @@ async function handleFormattingError(error, filePath) {
         console.error(header);
     }
 
-    if (parseErrorAction === ParseErrorAction.REVERT) {
-        if (revertTriggered) {
-            return;
+    if (parseErrorAction !== ParseErrorAction.REVERT) {
+        if (parseErrorAction === ParseErrorAction.ABORT) {
+            abortRequested = true;
         }
-
-        revertTriggered = true;
-        abortRequested = true;
-        await revertFormattedFiles();
         return;
     }
 
-    if (parseErrorAction === ParseErrorAction.ABORT) {
-        abortRequested = true;
+    if (revertTriggered) {
+        return;
     }
+
+    revertTriggered = true;
+    abortRequested = true;
+    await revertFormattedFiles();
 }
 
 async function registerIgnorePaths(ignoreFiles) {
