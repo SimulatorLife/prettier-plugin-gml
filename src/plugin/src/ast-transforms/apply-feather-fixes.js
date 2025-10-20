@@ -986,8 +986,15 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM2009") {
+            const vertexBeginTemplate =
+                createVertexBeginCallTemplateFromDiagnostic(diagnostic);
+
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexBeginPrecedesEnd({ ast, diagnostic });
+                const fixes = ensureVertexBeginPrecedesEnd({
+                    ast,
+                    diagnostic,
+                    vertexBeginTemplate
+                });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
@@ -11161,8 +11168,12 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
-function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+function ensureVertexBeginPrecedesEnd({
+    ast,
+    diagnostic,
+    vertexBeginTemplate
+}) {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic) || !vertexBeginTemplate) {
         return [];
     }
 
@@ -11188,7 +11199,8 @@ function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
             node,
             parent,
             property,
-            diagnostic
+            diagnostic,
+            vertexBeginTemplate
         );
 
         if (fix) {
@@ -11212,7 +11224,8 @@ function ensureVertexBeginBeforeVertexEndCall(
     node,
     parent,
     property,
-    diagnostic
+    diagnostic,
+    vertexBeginTemplate
 ) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -11223,6 +11236,10 @@ function ensureVertexBeginBeforeVertexEndCall(
     }
 
     if (!isIdentifierWithName(node.object, "vertex_end")) {
+        return null;
+    }
+
+    if (!vertexBeginTemplate) {
         return null;
     }
 
@@ -11239,6 +11256,15 @@ function ensureVertexBeginBeforeVertexEndCall(
     }
 
     const bufferName = bufferArgument.name;
+
+    const vertexBeginCall = createVertexBeginCallFromTemplate(
+        vertexBeginTemplate,
+        bufferArgument
+    );
+
+    if (!vertexBeginCall) {
+        return null;
+    }
 
     for (let index = property - 1; index >= 0; index -= 1) {
         const sibling = parent[index];
@@ -11264,7 +11290,10 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 1);
+    parent.splice(property, 0, vertexBeginCall);
+    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+    markStatementToSuppressLeadingEmptyLine(node);
+    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
@@ -11292,6 +11321,50 @@ function isVertexBeginCallForBuffer(node, bufferName) {
     }
 
     return firstArgument.name === bufferName;
+}
+
+function createVertexBeginCallFromTemplate(template, bufferIdentifier) {
+    if (!template || template.type !== "CallExpression") {
+        return null;
+    }
+
+    if (!isIdentifierWithName(template.object, "vertex_begin")) {
+        return null;
+    }
+
+    const callExpression = cloneNodeWithoutLocations(template);
+    const args = Array.isArray(callExpression.arguments)
+        ? [...callExpression.arguments]
+        : [];
+
+    if (args.length === 0) {
+        return null;
+    }
+
+    callExpression.arguments = args;
+
+    const bufferClone = cloneIdentifier(bufferIdentifier);
+    const replacement = bufferClone
+        ? bufferClone
+        : isIdentifier(bufferIdentifier) && bufferIdentifier.name
+          ? createIdentifier(bufferIdentifier.name, args[0])
+          : null;
+
+    if (!replacement) {
+        return null;
+    }
+
+    if (
+        !bufferClone &&
+        bufferIdentifier &&
+        typeof bufferIdentifier === "object"
+    ) {
+        assignClonedLocation(replacement, bufferIdentifier);
+    }
+
+    args[0] = replacement;
+
+    return callExpression;
 }
 
 function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
@@ -12663,6 +12736,37 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
+    const example =
+        typeof diagnostic?.goodExample === "string"
+            ? diagnostic.goodExample
+            : null;
+
+    if (!example) {
+        return null;
+    }
+
+    try {
+        const exampleAst = GMLParser.parse(example, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+        const callExpression = findFirstCallExpression(exampleAst);
+
+        if (
+            !callExpression ||
+            callExpression.type !== "CallExpression" ||
+            !isIdentifierWithName(callExpression.object, "vertex_begin")
+        ) {
+            return null;
+        }
+
+        return cloneNodeWithoutLocations(callExpression);
+    } catch {
+        return null;
+    }
 }
 
 function createFunctionCallTemplateFromDiagnostic(diagnostic) {
