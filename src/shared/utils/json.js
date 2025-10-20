@@ -6,7 +6,7 @@ function getErrorMessage(value) {
         return value;
     }
 
-    if (value === undefined || value === null) {
+    if (value == null) {
         return null;
     }
 
@@ -69,7 +69,7 @@ export function isJsonParseError(value) {
         return false;
     }
 
-    if (value.source != undefined && typeof value.source !== "string") {
+    if (value.source != null && typeof value.source !== "string") {
         return false;
     }
 
@@ -87,7 +87,7 @@ function normalizeDescription(description) {
 }
 
 function normalizeSource(source) {
-    if (source == undefined) {
+    if (source == null) {
         return null;
     }
     if (isNonEmptyString(source)) {
