@@ -1,6 +1,8 @@
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import { prepareIdentifierCasePlan } from "./local-plan.js";
-import { captureIdentifierCasePlanSnapshot } from "./plan-state.js";
+import {
+    prepareIdentifierCasePlan,
+    captureIdentifierCasePlanSnapshot
+} from "./plan-service.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 
