@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
-import { prepareIdentifierCasePlan } from "../src/identifier-case/local-plan.js";
+import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 
 async function createCollisionProject() {
     const tempRoot = await fs.mkdtemp(

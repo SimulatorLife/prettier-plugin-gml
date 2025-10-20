@@ -55,7 +55,7 @@ import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-c
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/plan-state.js";
+} from "../identifier-case/plan-service.js";
 import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
