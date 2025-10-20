@@ -114,11 +114,15 @@ export function stripStringQuotes(value) {
     const firstChar = value[0];
     const lastChar = value.at(-1);
 
-    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
+    if (isQuoteCharacter(firstChar) && firstChar === lastChar) {
         return value.slice(1, -1);
     }
 
     return null;
+}
+
+function isQuoteCharacter(character) {
+    return character === '"' || character === "'";
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
