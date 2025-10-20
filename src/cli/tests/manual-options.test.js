@@ -7,6 +7,7 @@ import {
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
+    ManualRepoValueSource,
     resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
@@ -76,15 +77,40 @@ describe("manual option helpers", () => {
     });
 
     describe("resolveManualRepoValue", () => {
-        it("normalizes string inputs and preserves the expected error message", () => {
+        it("normalizes string inputs and preserves CLI-specific error messaging", () => {
             assert.equal(
                 resolveManualRepoValue(" TwoScoopStudio/GameMaker-Manual "),
                 "TwoScoopStudio/GameMaker-Manual"
             );
 
             assert.throws(
-                () => resolveManualRepoValue(42, { source: "cli" }),
+                () =>
+                    resolveManualRepoValue(42, {
+                        source: ManualRepoValueSource.CLI
+                    }),
                 /Manual repository must be provided in 'owner\/name' format \(received '42'\)\./
+            );
+        });
+
+        it("formats environment override errors with env-specific guidance", () => {
+            assert.throws(
+                () =>
+                    resolveManualRepoValue("example", {
+                        source: ManualRepoValueSource.ENV
+                    }),
+                new RegExp(
+                    `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository`
+                )
+            );
+        });
+
+        it("rejects unknown manual repo value sources", () => {
+            assert.throws(
+                () =>
+                    resolveManualRepoValue("TwoScoopStudio/GameMaker-Manual", {
+                        source: "file"
+                    }),
+                /Invalid manual repo source 'file'. Expected one of: cli, env\./
             );
         });
     });

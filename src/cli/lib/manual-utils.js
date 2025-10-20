@@ -15,6 +15,28 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
+export const ManualRepoValueSource = Object.freeze({
+    CLI: "cli",
+    ENV: "env"
+});
+
+const MANUAL_REPO_VALUE_SOURCE_SET = new Set(
+    Object.values(ManualRepoValueSource)
+);
+
+function formatManualRepoSourceList() {
+    return [...MANUAL_REPO_VALUE_SOURCE_SET].join(", ");
+}
+
+function assertManualRepoValueSource(value) {
+    if (!MANUAL_REPO_VALUE_SOURCE_SET.has(value)) {
+        const validSources = formatManualRepoSourceList();
+        throw new RangeError(
+            `Invalid manual repo source '${value}'. Expected one of: ${validSources}.`
+        );
+    }
+}
+
 /**
  * @typedef {object} ManualGitHubRequestOptions
  * @property {Record<string, string>} [headers]
@@ -206,7 +228,11 @@ function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
     };
 }
 
-function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
+function resolveManualRepoValue(
+    rawValue,
+    { source = ManualRepoValueSource.CLI } = {}
+) {
+    assertManualRepoValueSource(source);
     const normalized = normalizeManualRepository(rawValue);
     if (normalized) {
         return normalized;
@@ -222,7 +248,7 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
     }
 
     const requirement =
-        source === "env"
+        source === ManualRepoValueSource.ENV
             ? `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`
             : "Manual repository must be provided in 'owner/name' format";
 
