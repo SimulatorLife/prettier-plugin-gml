@@ -10162,12 +10162,6 @@ function ensurePrimitiveBeginBeforeEnd({
         return null;
     }
 
-    const beginCall = createPrimitiveBeginCall(endCall);
-
-    if (!beginCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: endCall?.object?.name ?? null,
         range: {
@@ -10180,8 +10174,8 @@ function ensurePrimitiveBeginBeforeEnd({
         return null;
     }
 
-    statements.splice(index, 0, beginCall);
-    attachFeatherFixMetadata(beginCall, [fixDetail]);
+    statements.splice(index, 1);
+    attachFeatherFixMetadata(endCall, [fixDetail]);
 
     return fixDetail;
 }

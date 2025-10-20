@@ -62,10 +62,15 @@ test("getCachedValue falls back to computing for non-object options", () => {
 test("getCachedValue computes for primitive option inputs", () => {
     let computeCount = 0;
 
-    const first = getCachedValue(null, Symbol("primitive"), new WeakMap(), () => {
-        computeCount += 1;
-        return "null";
-    });
+    const first = getCachedValue(
+        null,
+        Symbol("primitive"),
+        new WeakMap(),
+        () => {
+            computeCount += 1;
+            return "null";
+        }
+    );
 
     const second = getCachedValue(
         "value",
