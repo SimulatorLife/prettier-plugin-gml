@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { CliUsageError } from "../lib/cli-errors.js";
+import { isCliUsageError } from "../lib/cli-errors.js";
 import {
     applyEnvOptionOverride,
     applyEnvOptionOverrides
@@ -61,7 +61,7 @@ describe("applyEnvOptionOverride", () => {
                     getUsage: () => "usage information"
                 }),
             (error) => {
-                assert.ok(error instanceof CliUsageError);
+                assert.ok(isCliUsageError(error));
                 assert.equal(error.message, "bad value");
                 assert.equal(error.usage, "usage information");
                 return true;
@@ -88,7 +88,7 @@ describe("applyEnvOptionOverride", () => {
                     }
                 }),
             (error) => {
-                assert.ok(error instanceof CliUsageError);
+                assert.ok(isCliUsageError(error));
                 assert.equal(
                     error.message,
                     "Invalid value provided for TEST_VALUE."
@@ -122,7 +122,7 @@ describe("applyEnvOptionOverride", () => {
                     }
                 }),
             (error) => {
-                assert.ok(error instanceof CliUsageError);
+                assert.ok(isCliUsageError(error));
                 assert.equal(error.message, "custom failure");
                 assert.equal(error.cause, failure);
                 return true;
@@ -188,7 +188,7 @@ describe("applyEnvOptionOverrides", () => {
                     getUsage: () => "usage info"
                 }),
             (error) => {
-                assert.ok(error instanceof CliUsageError);
+                assert.ok(isCliUsageError(error));
                 assert.equal(error.message, "not allowed");
                 assert.equal(error.usage, "usage info");
                 return true;
@@ -221,7 +221,7 @@ describe("applyEnvOptionOverrides", () => {
                     getUsage: () => "shared usage"
                 }),
             (error) => {
-                assert.ok(error instanceof CliUsageError);
+                assert.ok(isCliUsageError(error));
                 assert.equal(error.message, "not allowed");
                 assert.equal(error.usage, "override usage");
                 return true;

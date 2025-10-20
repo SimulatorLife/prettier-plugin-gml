@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { Command } from "commander";
 
 import { parseCommandLine } from "../lib/command-parsing.js";
-import { CliUsageError } from "../lib/cli-errors.js";
+import { isCliUsageError } from "../lib/cli-errors.js";
 
 describe("parseCommandLine", () => {
     it("parses arguments and exposes command state", () => {
@@ -46,7 +46,7 @@ describe("parseCommandLine", () => {
         assert.throws(
             () => parseCommandLine(command, ["--unknown", "value"]),
             (error) =>
-                error instanceof CliUsageError &&
+                isCliUsageError(error) &&
                 error.message.includes("unknown option") &&
                 typeof error.usage === "string"
         );
@@ -69,7 +69,7 @@ describe("parseCommandLine", () => {
         assert.throws(
             () => parseCommandLine(command, []),
             (error) =>
-                error instanceof CliUsageError &&
+                isCliUsageError(error) &&
                 error.message === "bad option" &&
                 error.usage === "usage info"
         );

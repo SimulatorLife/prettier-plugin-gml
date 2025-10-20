@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { JsonParseError, parseJsonWithContext } from "../json-utils.js";
+import { isJsonParseError, parseJsonWithContext } from "../json-utils.js";
+import { isErrorLike } from "../utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {
     it("parses JSON payloads with optional revivers", () => {
@@ -26,8 +27,7 @@ describe("parseJsonWithContext", () => {
             error = error_;
         }
 
-        assert.ok(error instanceof JsonParseError);
-        assert.ok(error instanceof SyntaxError);
+        assert.ok(isJsonParseError(error));
         assert.equal(error.name, "JsonParseError");
         assert.equal(error.source, "demo.json");
         assert.equal(error.description, "project metadata");
@@ -35,7 +35,13 @@ describe("parseJsonWithContext", () => {
             error.message,
             /Failed to parse project metadata from demo\.json: .+/
         );
-        assert.ok(error.cause instanceof SyntaxError);
+        assert.ok(isErrorLike(error.cause));
+        assert.equal(error.cause.name, "SyntaxError");
+        assert.equal(isJsonParseError(new Error("nope")), false);
+        assert.equal(
+            isJsonParseError({ message: "fail", name: "JsonParseError" }),
+            false
+        );
     });
 
     it("normalizes whitespace-only descriptions and error messages", () => {
@@ -56,7 +62,7 @@ describe("parseJsonWithContext", () => {
             error = error_;
         }
 
-        assert.ok(error instanceof JsonParseError);
+        assert.ok(isJsonParseError(error));
         assert.equal(error.description, "custom");
         assert.equal(error.source, "demo.json");
         assert.match(
