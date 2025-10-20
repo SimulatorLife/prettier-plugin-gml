@@ -18,7 +18,8 @@ import {
     renderProgressBar,
     disposeProgressBars,
     resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    getDefaultProgressBarWidth,
+    withProgressBarCleanup
 } from "../lib/progress-bar.js";
 import {
     resolveVmEvalTimeout,
@@ -350,32 +351,38 @@ async function fetchManualAssets(
     manualAssets,
     { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
 ) {
-    const payloads = {};
-    let fetchedCount = 0;
-    const downloadsTotal = manualAssets.length;
+    return withProgressBarCleanup(async () => {
+        const payloads = {};
+        let fetchedCount = 0;
+        const downloadsTotal = manualAssets.length;
 
-    for (const asset of manualAssets) {
-        payloads[asset.key] = await fetchManualFile(manualRefSha, asset.path, {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
-        });
-
-        fetchedCount += 1;
-        if (verbose.progressBar && verbose.downloads) {
-            renderProgressBar(
-                DOWNLOAD_PROGRESS_LABEL,
-                fetchedCount,
-                downloadsTotal,
-                progressBarWidth
+        for (const asset of manualAssets) {
+            payloads[asset.key] = await fetchManualFile(
+                manualRefSha,
+                asset.path,
+                {
+                    forceRefresh,
+                    verbose,
+                    cacheRoot,
+                    rawRoot
+                }
             );
-        } else if (verbose.downloads) {
-            console.log(`✓ ${asset.path}`);
-        }
-    }
 
-    return payloads;
+            fetchedCount += 1;
+            if (verbose.progressBar && verbose.downloads) {
+                renderProgressBar(
+                    DOWNLOAD_PROGRESS_LABEL,
+                    fetchedCount,
+                    downloadsTotal,
+                    progressBarWidth
+                );
+            } else if (verbose.downloads) {
+                console.log(`✓ ${asset.path}`);
+            }
+        }
+
+        return payloads;
+    });
 }
 
 export async function runGenerateGmlIdentifiers({ command } = {}) {

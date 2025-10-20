@@ -16,7 +16,8 @@ import {
     renderProgressBar,
     disposeProgressBars,
     resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    getDefaultProgressBarWidth,
+    withProgressBarCleanup
 } from "../lib/progress-bar.js";
 import { ensureDir } from "../lib/file-system.js";
 import {
@@ -1022,37 +1023,43 @@ async function fetchFeatherManualPayloads({
     rawRoot,
     progressBarWidth
 }) {
-    const manualEntries = Object.entries(FEATHER_PAGES);
-    const totalManualPages = manualEntries.length;
+    return withProgressBarCleanup(async () => {
+        const manualEntries = Object.entries(FEATHER_PAGES);
+        const totalManualPages = manualEntries.length;
 
-    if (verbose.downloads) {
-        console.log(
-            `Fetching ${totalManualPages} manual page${
-                totalManualPages === 1 ? "" : "s"
-            }…`
-        );
-    }
+        if (verbose.downloads) {
+            console.log(
+                `Fetching ${totalManualPages} manual page${
+                    totalManualPages === 1 ? "" : "s"
+                }…`
+            );
+        }
 
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
-        });
-        fetchedCount += 1;
-        reportManualFetchProgress({
-            manualPath,
-            fetchedCount,
-            totalManualPages,
-            verbose,
-            progressBarWidth
-        });
-    }
+        const htmlPayloads = {};
+        let fetchedCount = 0;
+        for (const [key, manualPath] of manualEntries) {
+            htmlPayloads[key] = await fetchManualFileFn(
+                manualRef.sha,
+                manualPath,
+                {
+                    forceRefresh,
+                    verbose,
+                    cacheRoot,
+                    rawRoot
+                }
+            );
+            fetchedCount += 1;
+            reportManualFetchProgress({
+                manualPath,
+                fetchedCount,
+                totalManualPages,
+                verbose,
+                progressBarWidth
+            });
+        }
 
-    return htmlPayloads;
+        return htmlPayloads;
+    });
 }
 
 function reportManualFetchProgress({
