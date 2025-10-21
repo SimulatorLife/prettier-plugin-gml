@@ -320,17 +320,32 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
     return Object.freeze({ execute });
 }
 
+function resolveManualRequestExecutor(requestDispatcher, callerName) {
+    const normalizedCallerName = assertNonEmptyString(callerName, {
+        name: "callerName",
+        errorMessage:
+            "callerName must be provided to resolveManualRequestExecutor."
+    });
+
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            `${normalizedCallerName} requires a request dispatcher with an execute function.`
+        );
+    }
+
+    return request;
+}
+
 /**
  * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
  * @returns {ManualGitHubCommitResolver}
  */
 function createManualGitHubCommitResolver({ requestDispatcher }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubCommitResolver requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubCommitResolver"
+    );
 
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
@@ -355,12 +370,10 @@ function createManualGitHubCommitResolver({ requestDispatcher }) {
  * @returns {ManualGitHubRefResolver}
  */
 function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubRefResolver requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubRefResolver"
+    );
 
     const commitResolution =
         typeof commitResolver?.resolveCommitFromRef === "function"
@@ -418,12 +431,10 @@ function createManualGitHubFileClient({
     defaultCacheRoot,
     defaultRawRoot
 }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubFileClient requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubFileClient"
+    );
 
     async function fetchManualFile(
         sha,
