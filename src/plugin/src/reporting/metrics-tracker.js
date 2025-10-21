@@ -25,28 +25,23 @@ const SUMMARY_SECTIONS = Object.freeze([
 
 function normalizeCacheKeys(keys) {
     const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const iterable =
+        typeof candidates?.[Symbol.iterator] === "function"
+            ? candidates
+            : DEFAULT_CACHE_KEYS;
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
+    const normalized = new Set();
 
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
+    for (const candidate of iterable) {
         const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
+        if (label) {
+            normalized.add(label);
         }
-
-        seen.add(label);
-        normalized.push(label);
     }
 
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return normalized.size > 0
+        ? [...normalized]
+        : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -84,19 +79,22 @@ function createCacheStatsEnsurer(caches, cacheKeys) {
 function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(cacheName);
     const normalizedKey = normalizeLabel(key);
+    const currentValue = stats.get(normalizedKey) ?? 0;
+
     if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
+        stats.set(normalizedKey, currentValue);
     }
 
     const increment = normalizeIncrementAmount(
         amount,
         amount === undefined ? 1 : 0
     );
+
     if (increment === 0) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    stats.set(normalizedKey, currentValue + increment);
 }
 
 function mergeSummarySections(summary, extra) {
