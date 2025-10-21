@@ -96,9 +96,38 @@ class IdentifierServices {
     }
 }
 
-export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
+function createVisitorDelegate(host) {
+    const visitor = new GameMakerLanguageParserVisitor();
+    const prototypes = [];
+
+    for (
+        let prototype = Object.getPrototypeOf(host);
+        prototype && prototype !== Object.prototype;
+        prototype = Object.getPrototypeOf(prototype)
+    ) {
+        prototypes.push(prototype);
+    }
+
+    for (const prototype of prototypes) {
+        for (const name of Object.getOwnPropertyNames(prototype)) {
+            if (name === "constructor" || !name.startsWith("visit")) {
+                continue;
+            }
+
+            const method = prototype[name];
+            if (typeof method !== "function") {
+                continue;
+            }
+
+            visitor[name] = (...args) => method.apply(host, args);
+        }
+    }
+
+    return visitor;
+}
+
+export default class GameMakerASTBuilder {
     constructor(options = {}, whitespaces = []) {
-        super();
         this.options = options || {};
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
@@ -121,6 +150,10 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
         });
+
+        this.visitor = createVisitorDelegate(this);
+        this.visit = (node) => this.visitor.visit(node);
+        this.visitChildren = (node) => this.visitor.visitChildren(node);
     }
 
     isIdentifierMetadataEnabled() {
