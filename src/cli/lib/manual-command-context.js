@@ -6,9 +6,9 @@ import {
     createManualGitHubFileClient,
     createManualGitHubCommitResolver,
     createManualGitHubRefResolver,
-    createManualGitHubRequestDispatcher,
-    resolveManualCacheRoot
-} from "./manual/utils.js";
+    createManualGitHubRequestDispatcher
+} from "./manual/github.js";
+import { resolveManualCacheRoot } from "./manual/utils.js";
 import { assertNonEmptyString } from "./shared-deps.js";
 
 function assertFileUrl(value) {

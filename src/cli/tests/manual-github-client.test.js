@@ -8,9 +8,9 @@ import {
     createManualGitHubFileClient,
     createManualGitHubCommitResolver,
     createManualGitHubRefResolver,
-    createManualGitHubRequestDispatcher,
-    createManualVerboseState
-} from "../lib/manual/utils.js";
+    createManualGitHubRequestDispatcher
+} from "../lib/manual/github.js";
+import { createManualVerboseState } from "../lib/manual/utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
 const RAW_ROOT = "https://raw.github.com/example/manual";
