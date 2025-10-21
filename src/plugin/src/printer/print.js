@@ -2717,7 +2717,7 @@ function mergeSyntheticDocComments(
         }
 
         const match = line.match(
-            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\S+)(.*)$/i
+            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\s*\S+)(.*)$/i
         );
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
@@ -2725,6 +2725,7 @@ function mergeSyntheticDocComments(
 
         const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+        const normalizedPrefix = `${prefix.replace(/\s*$/, "")} `;
         let normalizedTypeSection = rawTypeSection.trim();
         if (
             normalizedTypeSection.startsWith("{") &&
@@ -2769,7 +2770,7 @@ function mergeSyntheticDocComments(
             }
         }
 
-        const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
+        const updatedLine = `${normalizedPrefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
