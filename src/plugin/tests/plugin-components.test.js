@@ -6,7 +6,8 @@ import {
     hasRegisteredGmlPluginComponentProvider,
     registerGmlPluginComponentProvider,
     resetGmlPluginComponentProvider,
-    resolveGmlPluginComponents
+    resolveGmlPluginComponents,
+    withGmlPluginComponentProvider
 } from "../src/plugin-components.js";
 
 test("GML plugin components expose validated defaults", () => {
@@ -155,5 +156,67 @@ test(
                 "registry should reset to defaults"
             );
         }
+    }
+);
+
+test(
+    "withGmlPluginComponentProvider scopes overrides to the active context",
+    { concurrency: false },
+    async () => {
+        resetGmlPluginComponentProvider();
+
+        const customParser = { parse: () => ({}) };
+        const customPrinter = { print: () => "scoped" };
+        const customComponents = {
+            parsers: { scoped: customParser },
+            printers: { scoped: customPrinter },
+            options: {
+                scopedOption: {
+                    since: "0.0.0",
+                    type: "boolean",
+                    default: true
+                }
+            }
+        };
+
+        const scopedResult = await withGmlPluginComponentProvider(
+            () => customComponents,
+            async () => {
+                const firstResolution = resolveGmlPluginComponents();
+
+                assert.strictEqual(
+                    firstResolution.parsers.scoped,
+                    customParser,
+                    "scoped parser should be exposed"
+                );
+
+                await new Promise((resolve) => setImmediate(resolve));
+
+                const secondResolution = resolveGmlPluginComponents();
+                assert.strictEqual(
+                    secondResolution,
+                    firstResolution,
+                    "scoped resolution should be cached for the context"
+                );
+
+                return secondResolution;
+            }
+        );
+
+        assert.strictEqual(
+            scopedResult.printers.scoped,
+            customPrinter,
+            "scoped printer should be available to the callback"
+        );
+
+        assert.ok(
+            !Object.hasOwn(resolveGmlPluginComponents().printers, "scoped"),
+            "scoped override should not leak outside the context"
+        );
+
+        assert.ok(
+            !hasRegisteredGmlPluginComponentProvider(),
+            "scoped overrides should not mark the global registry"
+        );
     }
 );
