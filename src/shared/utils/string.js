@@ -129,19 +129,15 @@ export function trimStringEntries(values) {
         throw new TypeError("values must be provided as an array of strings.");
     }
 
-    const trimmed = Array.from({ length: values.length });
-
-    for (const [index, value] of values.entries()) {
+    return values.map((value) => {
         if (typeof value !== "string") {
             throw new TypeError(
                 "values must be provided as an array of strings."
             );
         }
 
-        trimmed[index] = value.trim();
-    }
-
-    return trimmed;
+        return value.trim();
+    });
 }
 
 /**
