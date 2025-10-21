@@ -43,3 +43,34 @@ test("orders doc comments for implicit argument references", async () => {
         "/// @param argument4"
     ]);
 });
+
+test("reorders misaligned doc comments without renaming parameters", async () => {
+    const source = [
+        "/// @param {boolean} b - The second boolean",
+        "/// @param {boolean} a - The first boolean",
+        "function bool_negated(a, b) {",
+        "    return !(a and b);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const lines = formatted.split("\n");
+    const paramLines = lines
+        .filter((line) => line.startsWith("/// @param"))
+        .slice(0, 2);
+    assert.deepStrictEqual(paramLines, [
+        "/// @param {boolean} a - The first boolean",
+        "/// @param {boolean} b - The second boolean"
+    ]);
+
+    const signatureLine = lines.find((line) =>
+        line.startsWith("function bool_negated")
+    );
+    assert.strictEqual(signatureLine, "function bool_negated(a, b) {");
+});

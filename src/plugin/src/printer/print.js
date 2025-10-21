@@ -2722,7 +2722,19 @@ function mergeSyntheticDocComments(
                 if (preferredName) {
                     const preferredCanonical =
                         getCanonicalParamNameFromText(preferredName);
+                    const identifier = getIdentifierFromParameterNode(param);
+                    const identifierName = identifier?.name ?? null;
+                    const identifierCanonical = identifierName
+                        ? (getCanonicalParamNameFromText(identifierName) ??
+                          identifierName)
+                        : null;
+                    const shouldUsePreferred =
+                        isGenericArgumentIdentifierName(identifierName) ||
+                        (preferredCanonical &&
+                            identifierCanonical &&
+                            preferredCanonical === identifierCanonical);
                     if (
+                        shouldUsePreferred &&
                         preferredCanonical &&
                         docsByCanonical.has(preferredCanonical)
                     ) {
@@ -3122,6 +3134,11 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
+    const identifierName = identifier.name;
+    const identifierCanonical =
+        getCanonicalParamNameFromText(identifierName) ?? identifierName;
+    const isGenericIdentifier = isGenericArgumentIdentifierName(identifierName);
+
     const docPreferences = preferredParamDocNamesByNode.get(functionNode);
     let preferredSource =
         (docPreferences && docPreferences.get(paramIndex)) || null;
@@ -3156,6 +3173,12 @@ function getPreferredFunctionParameterName(path, node, options) {
 
     const normalizedName = normalizePreferredParameterName(preferredSource);
     if (!normalizedName || normalizedName === identifier.name) {
+        return null;
+    }
+
+    const preferredCanonical =
+        getCanonicalParamNameFromText(normalizedName) ?? normalizedName;
+    if (!isGenericIdentifier && preferredCanonical !== identifierCanonical) {
         return null;
     }
 
@@ -3725,6 +3748,14 @@ function getArgumentIndexFromIdentifier(name) {
 
     const parsed = Number.parseInt(match[1], 10);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isGenericArgumentIdentifierName(name) {
+    if (typeof name !== "string") {
+        return false;
+    }
+
+    return /^argument\d+$/i.test(name.trim());
 }
 
 function maybeAppendReturnsDoc(
