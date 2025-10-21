@@ -10,6 +10,20 @@ const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
 
+function resolveProgressStream(stdout) {
+    if (!stdout) {
+        return undefined;
+    }
+
+    const stream = stdout;
+
+    if (typeof stream.write !== "function") {
+        return undefined;
+    }
+
+    return stream;
+}
+
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
 
@@ -57,14 +71,15 @@ function applyProgressBarWidthEnvOverride(env = process?.env) {
 
 applyProgressBarWidthEnvOverride();
 
-function createDefaultProgressBar(label, width) {
+function createDefaultProgressBar(label, width, { stream } = {}) {
     return new SingleBar(
         {
             format: `${label} [{bar}] {value}/{total}`,
             barsize: width,
             hideCursor: true,
             clearOnComplete: true,
-            linewrap: true
+            linewrap: true,
+            ...(stream ? { stream } : {})
         },
         Presets.shades_classic
     );
@@ -81,8 +96,13 @@ function disposeProgressBars() {
     activeProgressBars.clear();
 }
 
-function renderProgressBar(label, current, total, width) {
-    if (!process.stdout.isTTY || width <= 0) {
+function renderProgressBar(label, current, total, width, options = {}) {
+    const {
+        stdout = process.stdout,
+        createBar = createDefaultProgressBar
+    } = options;
+
+    if (!stdout?.isTTY || width <= 0) {
         return;
     }
 
@@ -94,7 +114,8 @@ function renderProgressBar(label, current, total, width) {
         bar.setTotal(normalizedTotal);
         bar.update(normalizedCurrent);
     } else {
-        bar = createDefaultProgressBar(label, width);
+        const stream = resolveProgressStream(stdout);
+        bar = createBar(label, width, { stream });
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }
