@@ -3421,13 +3421,23 @@ function computeSyntheticFunctionDocLines(
             typeof ordinalMetadata?.name === "string" &&
             ordinalMetadata.name.length > 0
         ) {
-            let preferredDocs = preferredParamDocNamesByNode.get(node);
-            if (!preferredDocs) {
-                preferredDocs = new Map();
-                preferredParamDocNamesByNode.set(node, preferredDocs);
-            }
-            if (!preferredDocs.has(paramIndex)) {
-                preferredDocs.set(paramIndex, ordinalMetadata.name);
+            const documentedParamCanonical =
+                getCanonicalParamNameFromText(paramInfo.name) ?? null;
+            if (
+                documentedParamCanonical &&
+                paramMetadataByCanonical.has(documentedParamCanonical)
+            ) {
+                // The parameter already appears in the documented metadata;
+                // avoid overriding it with mismatched ordinal ordering.
+            } else {
+                let preferredDocs = preferredParamDocNamesByNode.get(node);
+                if (!preferredDocs) {
+                    preferredDocs = new Map();
+                    preferredParamDocNamesByNode.set(node, preferredDocs);
+                }
+                if (!preferredDocs.has(paramIndex)) {
+                    preferredDocs.set(paramIndex, ordinalMetadata.name);
+                }
             }
         }
         const ordinalDocName =

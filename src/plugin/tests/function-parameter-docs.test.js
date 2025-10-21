@@ -57,3 +57,32 @@ function scr_example(argument0, argument1) {
         "Expected all aliases to use their corresponding parameter names."
     );
 });
+
+test("preserves parameter order when doc comments are misordered", async () => {
+    const formatted = await prettier.format(
+        `/// @param {boolean} b - The second boolean
+/// @param {boolean} a - The first boolean
+function bool_negated(a, b) {
+    return !(a && b);
+}`,
+        {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        }
+    );
+
+    assert.match(
+        formatted,
+        /function bool_negated\(a, b\)/,
+        "Expected the formatter to keep the original parameter order."
+    );
+
+    const indexOfA = formatted.indexOf("/// @param {boolean} a");
+    const indexOfB = formatted.indexOf("/// @param {boolean} b");
+
+    assert.ok(
+        indexOfA !== -1 && indexOfB !== -1 && indexOfA < indexOfB,
+        "Expected the reordered doc comments to document 'a' before 'b'."
+    );
+});
