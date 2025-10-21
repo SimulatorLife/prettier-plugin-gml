@@ -33,6 +33,7 @@ import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
     getErrorMessage,
+    getNonEmptyTrimmedString,
     isErrorWithCode,
     isObjectLike,
     normalizeEnumeratedOption,
@@ -340,9 +341,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
  */
 function normalizeTargetPathInput(rawInput) {
     if (typeof rawInput === "string") {
-        const trimmed = rawInput.trim();
+        const trimmed = getNonEmptyTrimmedString(rawInput);
         return {
-            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathInput: trimmed ?? null,
             targetPathProvided: true
         };
     }
