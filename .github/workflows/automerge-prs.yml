@@ -528,9 +528,10 @@ jobs:
             }
 
       - name: Request Codex help for regressions
-        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' }}
+        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && secrets.GH_USER_TOKEN != '' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
             const marker = '<!-- automerge-pr-regression-codex -->';
             const { owner, repo } = context.repo;
@@ -590,6 +591,11 @@ jobs:
             }
 
             core.notice(`Requested Codex assistance for regressions on PR #${number}.`);
+
+      - name: Warn when Codex user token missing
+        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && secrets.GH_USER_TOKEN == '' }}
+        run: |
+          echo "::warning::GH_USER_TOKEN secret is not configured; skipping Codex regression comment."
 
   auto-merge:
     name: Auto-merge when green
