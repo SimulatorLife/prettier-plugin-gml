@@ -247,12 +247,10 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (!trimmed || seen.has(trimmed)) {
-            continue;
+        if (trimmed && !seen.has(trimmed)) {
+            seen.add(trimmed);
+            normalized.push(trimmed);
         }
-
-        seen.add(trimmed);
-        normalized.push(trimmed);
     }
 
     return normalized;
