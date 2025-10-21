@@ -75,8 +75,12 @@ function resolveEnvironmentMap(candidate) {
  * @param {TValue} parameters.defaultValue Baseline value returned before any
  *        overrides are applied.
  * @param {string | null | undefined} [parameters.envVar] Environment variable
- *        that triggers the override when defined. When omitted, the
- *        {@link applyEnvOverride} method becomes a no-op.
+ *        that triggers the override when defined. When omitted we intentionally
+ *        skip the environment plumbing so {@link applyEnvOverride} simply
+ *        returns the in-memory value. This keeps callers that do not expose an
+ *        env toggle (for example, tests or programmatic embeds) from
+ *        accidentally reading `process.env` or mutating the state, which would
+ *        blur the boundary between runtime configuration and defaults.
  * @param {(raw: unknown, context: {
  *     defaultValue: TValue;
  *     previousValue: TValue;
