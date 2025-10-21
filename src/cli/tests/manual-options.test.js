@@ -95,6 +95,23 @@ describe("manual option helpers", () => {
             );
         });
 
+        it("defaults to the CLI requirement when no source is provided", () => {
+            assert.throws(
+                () => resolveManualRepoValue(null),
+                /Manual repository must be provided in 'owner\/name' format \(received null\)\./
+            );
+        });
+
+        it("uses the environment requirement message when requested", () => {
+            assert.throws(
+                () =>
+                    resolveManualRepoValue("", {
+                        source: MANUAL_REPO_REQUIREMENT_SOURCE.ENV
+                    }),
+                /GML_MANUAL_REPO must specify a GitHub repository in 'owner\/name' format \(received ''\)\./
+            );
+        });
+
         it("rejects unknown requirement sources before normalizing values", () => {
             assert.throws(
                 () =>
