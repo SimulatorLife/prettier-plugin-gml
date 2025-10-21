@@ -96,119 +96,127 @@ test("GML plugin components cannot be mutated", () => {
     );
 });
 
-test("GML plugin component providers can be overridden", () => {
-    resetGmlPluginComponentProvider();
-
-    const customParser = { parse: () => ({}) };
-    const customPrinter = { print: () => "printed" };
-    const customComponents = {
-        parsers: { custom: customParser },
-        printers: { custom: customPrinter },
-        options: {
-            customOption: {
-                since: "0.0.0",
-                type: "boolean",
-                default: false
-            }
-        }
-    };
-
-    try {
-        const resolved = registerGmlPluginComponentProvider(
-            () => customComponents
-        );
-
-        assert.ok(
-            hasRegisteredGmlPluginComponentProvider(),
-            "custom provider should be registered"
-        );
-        assert.strictEqual(
-            resolveGmlPluginComponents(),
-            resolved,
-            "resolver should return cached custom components"
-        );
-        assert.notStrictEqual(
-            gmlPluginComponents,
-            resolved,
-            "default component bundle should remain available"
-        );
-        assert.strictEqual(
-            resolved.parsers.custom,
-            customParser,
-            "custom parser should be exposed"
-        );
-        assert.strictEqual(
-            resolved.printers.custom,
-            customPrinter,
-            "custom printer should be exposed"
-        );
-        assert.ok(
-            Object.hasOwn(resolved.options, "customOption"),
-            "custom option should be exposed"
-        );
-    } finally {
+test(
+    "GML plugin component providers can be overridden",
+    { concurrency: false },
+    () => {
         resetGmlPluginComponentProvider();
+
+        const customParser = { parse: () => ({}) };
+        const customPrinter = { print: () => "printed" };
+        const customComponents = {
+            parsers: { custom: customParser },
+            printers: { custom: customPrinter },
+            options: {
+                customOption: {
+                    since: "0.0.0",
+                    type: "boolean",
+                    default: false
+                }
+            }
+        };
+
+        try {
+            const resolved = registerGmlPluginComponentProvider(
+                () => customComponents
+            );
+
+            assert.ok(
+                hasRegisteredGmlPluginComponentProvider(),
+                "custom provider should be registered"
+            );
+            assert.strictEqual(
+                resolveGmlPluginComponents(),
+                resolved,
+                "resolver should return cached custom components"
+            );
+            assert.notStrictEqual(
+                gmlPluginComponents,
+                resolved,
+                "default component bundle should remain available"
+            );
+            assert.strictEqual(
+                resolved.parsers.custom,
+                customParser,
+                "custom parser should be exposed"
+            );
+            assert.strictEqual(
+                resolved.printers.custom,
+                customPrinter,
+                "custom printer should be exposed"
+            );
+            assert.ok(
+                Object.hasOwn(resolved.options, "customOption"),
+                "custom option should be exposed"
+            );
+        } finally {
+            resetGmlPluginComponentProvider();
+            assert.ok(
+                !hasRegisteredGmlPluginComponentProvider(),
+                "registry should reset to defaults"
+            );
+        }
+    }
+);
+
+test(
+    "withGmlPluginComponentProvider scopes overrides to the active context",
+    { concurrency: false },
+    async () => {
+        resetGmlPluginComponentProvider();
+
+        const customParser = { parse: () => ({}) };
+        const customPrinter = { print: () => "scoped" };
+        const customComponents = {
+            parsers: { scoped: customParser },
+            printers: { scoped: customPrinter },
+            options: {
+                scopedOption: {
+                    since: "0.0.0",
+                    type: "boolean",
+                    default: true
+                }
+            }
+        };
+
+        const scopedResult = await withGmlPluginComponentProvider(
+            () => customComponents,
+            async () => {
+                const firstResolution = resolveGmlPluginComponents();
+
+                assert.strictEqual(
+                    firstResolution.parsers.scoped,
+                    customParser,
+                    "scoped parser should be exposed"
+                );
+
+                await new Promise((resolve) => setImmediate(resolve));
+
+                const secondResolution = resolveGmlPluginComponents();
+                assert.strictEqual(
+                    secondResolution,
+                    firstResolution,
+                    "scoped resolution should be cached for the context"
+                );
+
+                return secondResolution;
+            }
+        );
+
+        assert.strictEqual(
+            scopedResult.printers.scoped,
+            customPrinter,
+            "scoped printer should be available to the callback"
+        );
+
+        assert.ok(
+            !Object.hasOwn(resolveGmlPluginComponents().printers, "scoped"),
+            "scoped override should not leak outside the context"
+        );
+
         assert.ok(
             !hasRegisteredGmlPluginComponentProvider(),
-            "registry should reset to defaults"
+            "scoped overrides should not mark the global registry"
         );
     }
-});
-
-test("withGmlPluginComponentProvider scopes overrides to the active context", async () => {
-    resetGmlPluginComponentProvider();
-
-    const customParser = { parse: () => ({}) };
-    const customPrinter = { print: () => "scoped" };
-    const customComponents = {
-        parsers: { scoped: customParser },
-        printers: { scoped: customPrinter },
-        options: {
-            scopedOption: {
-                since: "0.0.0",
-                type: "boolean",
-                default: true
-            }
-        }
-    };
-
-    const scopedResult = await withGmlPluginComponentProvider(
-        () => customComponents,
-        async () => {
-            const firstResolution = resolveGmlPluginComponents();
-
-            assert.strictEqual(
-                firstResolution.parsers.scoped,
-                customParser,
-                "scoped parser should be exposed"
-            );
-
-            await new Promise((resolve) => setImmediate(resolve));
-
-            const secondResolution = resolveGmlPluginComponents();
-            assert.strictEqual(
-                secondResolution,
-                firstResolution,
-                "scoped resolution should be cached for the context"
-            );
-
-            return secondResolution;
-        }
-    );
-
-    assert.strictEqual(
-        scopedResult.printers.scoped,
-        customPrinter,
-        "scoped printer should be available to the callback"
-    );
-
-    assert.ok(
-        !Object.hasOwn(resolveGmlPluginComponents().printers, "scoped"),
-        "scoped override should not leak outside the context"
-    );
-
-    assert.ok(
-        !hasRegisteredGmlPluginComponentProvider(),
-        "scoped overrides should not mark the global registry"
-    );
-});
+);
