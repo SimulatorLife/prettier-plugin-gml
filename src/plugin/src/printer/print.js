@@ -3418,6 +3418,7 @@ function computeSyntheticFunctionDocLines(
         documentedParamDocLines.add(docName);
         lines.push(`/// @param ${docName}`);
     }
+
     const normalizedLines = maybeAppendReturnsDoc(
         lines,
         node,
