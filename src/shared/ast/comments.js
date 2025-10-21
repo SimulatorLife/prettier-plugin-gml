@@ -14,7 +14,7 @@
  * @property {number} [end]
  */
 
-import { hasOwn, isObjectLike } from "../utils/object.js";
+import { isObjectLike } from "../utils/object.js";
 
 // Reuse a frozen empty array so repeated `getCommentArray` calls do not
 // allocate. This mirrors the strategy used by the shared array utilities while
@@ -129,21 +129,11 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        if (Array.isArray(current)) {
-            for (const child of current) {
-                if (isObjectLike(child)) {
-                    stack.push(child);
-                }
-            }
-            continue;
-        }
+        const children = Array.isArray(current)
+            ? current
+            : Object.values(current);
 
-        for (const key in current) {
-            if (!hasOwn(current, key)) {
-                continue;
-            }
-
-            const child = current[key];
+        for (const child of children) {
             if (isObjectLike(child)) {
                 stack.push(child);
             }
