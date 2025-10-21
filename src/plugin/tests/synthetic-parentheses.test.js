@@ -127,3 +127,32 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
         "Expected multiplication grouping parentheses to be preserved when comparing values."
     );
 });
+
+test(
+    "omits synthetic parentheses around boolean comparison chains",
+    async () => {
+        const source = [
+            "if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {",
+            "    return [];",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath]
+        });
+
+        const expectedLines = [
+            "if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {",
+            "    return [];",
+            "}"
+        ].join("\n");
+
+        assert.strictEqual(
+            formatted.trim(),
+            expectedLines,
+            "Expected boolean comparison chains wrapped in synthetic parentheses to be flattened."
+        );
+    }
+);
