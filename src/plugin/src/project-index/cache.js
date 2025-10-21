@@ -2,7 +2,10 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { isFiniteNumber } from "../../../shared/number-utils.js";
+import {
+    areNumbersApproximatelyEqual,
+    isFiniteNumber
+} from "../../../shared/number-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
 import {
@@ -120,35 +123,6 @@ function cloneMtimeMap(source) {
     }
 
     return normalized;
-}
-
-/**
- * Compare two numbers using a tolerance scaled to their magnitude so values
- * derived from filesystem timestamps continue to match even when floating
- * point precision differs between platforms.
- *
- * `Number.EPSILON` is scaled to the largest absolute operand and widened a bit
- * to account for file systems that round to coarse intervals (for example,
- * milliseconds versus seconds). Non-finite numbers never match to avoid
- * conflating sentinel values like `Infinity` or `NaN` with real timestamps.
- *
- * @param {number} a First number to compare.
- * @param {number} b Second number to compare.
- * @returns {boolean} `true` when both inputs are finite and fall within the
- *          dynamic tolerance window.
- */
-function areNumbersApproximatelyEqual(a, b) {
-    if (a === b) {
-        return true;
-    }
-
-    if (!Number.isFinite(a) || !Number.isFinite(b)) {
-        return false;
-    }
-
-    const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance = Number.EPSILON * scale * 4;
-    return Math.abs(a - b) <= tolerance;
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
