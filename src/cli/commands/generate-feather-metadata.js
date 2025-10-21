@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
 import { CliUsageError } from "../lib/cli-errors.js";
@@ -21,7 +22,7 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
@@ -106,7 +107,7 @@ function resolveFeatherMetadataOptions(command) {
 // Manual fetching helpers are provided by manual-cli-helpers.js
 
 function normalizeMultilineText(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return null;
     }
 
@@ -132,7 +133,7 @@ function getNormalizedTextContent(element, { trim = false } = {}) {
     }
 
     const { textContent } = element;
-    if (typeof textContent !== "string" || textContent.length === 0) {
+    if (!isNonEmptyString(textContent)) {
         return trim ? null : "";
     }
 

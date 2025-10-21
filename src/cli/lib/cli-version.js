@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 
+import { getNonEmptyTrimmedString } from "../../shared/string-utils.js";
+
 const require = createRequire(import.meta.url);
 
 const FALLBACK_CLI_VERSION_LABEL = "development build";
@@ -11,12 +13,7 @@ const PACKAGE_VERSION_CANDIDATES = Object.freeze([
 ]);
 
 function normalizeVersionValue(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    return getNonEmptyTrimmedString(value);
 }
 
 function readPackageVersion(candidate) {

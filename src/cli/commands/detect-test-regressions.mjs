@@ -7,6 +7,7 @@ import {
     getErrorMessage,
     hasOwn,
     isErrorWithCode,
+    isNonEmptyString,
     isNonEmptyTrimmedString,
     isObjectLike,
     toArray,
@@ -61,7 +62,7 @@ function looksLikeTestCase(node) {
 }
 
 function decodeEntities(value) {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isNonEmptyString(value)) {
         return value ?? "";
     }
     return value

@@ -11,7 +11,7 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
     createManualVerboseState
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
