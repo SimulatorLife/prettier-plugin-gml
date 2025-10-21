@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { createManualCommandContext } from "../lib/manual-command-context.js";
-import { resolveManualCacheRoot } from "../lib/manual-utils.js";
+import { resolveManualCacheRoot } from "../lib/manual/utils.js";
 
 test("createManualCommandContext centralizes manual command defaults", () => {
     const commandUrl = pathToFileURL(

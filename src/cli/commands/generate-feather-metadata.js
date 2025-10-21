@@ -21,7 +21,7 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
