@@ -13,77 +13,67 @@ const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     APPLY: "apply"
 });
 
-class IdentifierCaseAssetRenamePolicy {
-    evaluate(context = {}) {
-        const {
-            options = {},
-            projectIndex = null,
-            assetRenames = [],
-            assetConflicts = []
-        } = context;
+export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
+    const {
+        options = {},
+        projectIndex = null,
+        assetRenames = [],
+        assetConflicts = []
+    } = context;
 
-        if (options?.__identifierCaseDryRun !== false) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED,
-                renames: [],
-                conflicts: []
-            };
-        }
-
-        const renames = asArray(assetRenames);
-        if (!isNonEmptyArray(renames)) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.NO_RENAMES,
-                renames: [],
-                conflicts: []
-            };
-        }
-
-        const conflicts = asArray(assetConflicts);
-        if (isNonEmptyArray(conflicts)) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
-                renames: [],
-                conflicts
-            };
-        }
-
-        if (!projectIndex) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
-                renames,
-                conflicts
-            };
-        }
-
-        if (options?.__identifierCaseAssetRenamesApplied === true) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
-                renames,
-                conflicts
-            };
-        }
-
+    if (options?.__identifierCaseDryRun !== false) {
         return {
-            shouldApply: true,
-            reason: IdentifierCaseAssetRenamePolicyReason.APPLY,
+            shouldApply: false,
+            reason: IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED,
+            renames: [],
+            conflicts: []
+        };
+    }
+
+    const renames = asArray(assetRenames);
+    if (!isNonEmptyArray(renames)) {
+        return {
+            shouldApply: false,
+            reason: IdentifierCaseAssetRenamePolicyReason.NO_RENAMES,
+            renames: [],
+            conflicts: []
+        };
+    }
+
+    const conflicts = asArray(assetConflicts);
+    if (isNonEmptyArray(conflicts)) {
+        return {
+            shouldApply: false,
+            reason: IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
+            renames: [],
+            conflicts
+        };
+    }
+
+    if (!projectIndex) {
+        return {
+            shouldApply: false,
+            reason: IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
             renames,
             conflicts
         };
     }
+
+    if (options?.__identifierCaseAssetRenamesApplied === true) {
+        return {
+            shouldApply: false,
+            reason: IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
+            renames,
+            conflicts
+        };
+    }
+
+    return {
+        shouldApply: true,
+        reason: IdentifierCaseAssetRenamePolicyReason.APPLY,
+        renames,
+        conflicts
+    };
 }
 
-function createIdentifierCaseAssetRenamePolicy() {
-    return new IdentifierCaseAssetRenamePolicy();
-}
-
-export {
-    IdentifierCaseAssetRenamePolicy,
-    IdentifierCaseAssetRenamePolicyReason,
-    createIdentifierCaseAssetRenamePolicy
-};
+export { IdentifierCaseAssetRenamePolicyReason };
