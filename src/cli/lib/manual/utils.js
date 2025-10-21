@@ -30,44 +30,33 @@ export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
  * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
  */
 
-const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = new Set(
+const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
-function describeManualRepoRequirementSource(value) {
+const MANUAL_REPO_REQUIREMENT_MESSAGE_BY_SOURCE = Object.freeze({
+    [MANUAL_REPO_REQUIREMENT_SOURCE.CLI]: MANUAL_REPO_REQUIREMENTS.cli,
+    [MANUAL_REPO_REQUIREMENT_SOURCE.ENV]: MANUAL_REPO_REQUIREMENTS.env
+});
+
+function formatManualRequirementSource(value) {
     return value === undefined ? "undefined" : `'${String(value)}'`;
 }
 
-function throwManualRepoRequirementSourceError(value) {
-    const allowedValues = Array.from(
-        MANUAL_REPO_REQUIREMENT_SOURCE_VALUES
-    ).join(", ");
+function assertManualRepoRequirementSource(value) {
+    if (Object.hasOwn(MANUAL_REPO_REQUIREMENT_MESSAGE_BY_SOURCE, value)) {
+        return /** @type {ManualRepoRequirementSource} */ (value);
+    }
 
+    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
     throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${describeManualRepoRequirementSource(
-            value
-        )}.`
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatManualRequirementSource(value)}.`
     );
 }
 
-function assertManualRepoRequirementSource(value) {
-    if (!MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.has(value)) {
-        throwManualRepoRequirementSourceError(value);
-    }
-
-    return /** @type {ManualRepoRequirementSource} */ (value);
-}
-
 function formatManualRepoRequirement(source) {
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.ENV) {
-        return MANUAL_REPO_REQUIREMENTS.env;
-    }
-
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.CLI) {
-        return MANUAL_REPO_REQUIREMENTS.cli;
-    }
-
-    throwManualRepoRequirementSourceError(source);
+    const normalizedSource = assertManualRepoRequirementSource(source);
+    return MANUAL_REPO_REQUIREMENT_MESSAGE_BY_SOURCE[normalizedSource];
 }
 
 function describeManualRepoInput(value) {
