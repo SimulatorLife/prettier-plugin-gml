@@ -1,12 +1,8 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
+import { walkAncestorDirectories } from "../../../shared/path-utils.js";
 import {
     asArray,
     cloneObjectEntries,
@@ -25,15 +21,12 @@ import {
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import {
+    PROJECT_INDEX_BUILD_ABORT_MESSAGE,
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import {
-    isFsErrorCode,
-    listDirectory,
-    getFileMtime
-} from "../../../shared/fs-utils.js";
+import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -47,11 +40,12 @@ import {
     createAbortGuard,
     throwIfAborted
 } from "../../../shared/abort-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
+import { scanProjectTree } from "./project-tree-scanner.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -63,8 +57,6 @@ const PARSER_FACADE_OPTION_KEYS = [
 
 const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";
-const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
-
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -288,181 +280,8 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
 
-const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
-);
-
-let cachedBuiltInIdentifiers = null;
-
-function extractBuiltInIdentifierNames(payload) {
-    if (!isPlainObject(payload)) {
-        throw new TypeError(
-            "Built-in identifier metadata must be an object payload."
-        );
-    }
-
-    const { identifiers } = payload;
-    if (!isPlainObject(identifiers)) {
-        throw new TypeError(
-            "Built-in identifier metadata must expose an identifiers object."
-        );
-    }
-
-    const names = new Set();
-
-    for (const [name, descriptor] of Object.entries(identifiers)) {
-        if (typeof name !== "string" || name.length === 0) {
-            continue;
-        }
-
-        if (!isPlainObject(descriptor)) {
-            continue;
-        }
-
-        const type = descriptor.type;
-        if (typeof type !== "string" || type.length === 0) {
-            continue;
-        }
-
-        names.add(name);
-    }
-
-    return names;
-}
-
-function parseBuiltInIdentifierNames(rawContents) {
-    const payload = parseJsonWithContext(rawContents, {
-        source: GML_IDENTIFIER_FILE_PATH,
-        description: "built-in identifier metadata"
-    });
-
-    return extractBuiltInIdentifierNames(payload);
-}
-
-async function loadBuiltInIdentifiers(
-    fsFacade = defaultFsFacade,
-    metrics = null,
-    options = {}
-) {
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
-
-    const currentMtime = await getFileMtime(
-        fsFacade,
-        GML_IDENTIFIER_FILE_PATH,
-        { signal }
-    );
-    ensureNotAborted();
-    const cached = cachedBuiltInIdentifiers;
-    const cachedMtime = cached?.metadata?.mtimeMs ?? null;
-
-    if (!cached) {
-        metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (cachedMtime === currentMtime) {
-        metrics?.recordCacheHit("builtInIdentifiers");
-        return cached;
-    } else {
-        metrics?.recordCacheStale("builtInIdentifiers");
-    }
-
-    let names = new Set();
-
-    try {
-        const rawContents = await fsFacade.readFile(
-            GML_IDENTIFIER_FILE_PATH,
-            "utf8"
-        );
-        ensureNotAborted();
-        names = parseBuiltInIdentifierNames(rawContents);
-    } catch {
-        // Built-in identifier metadata ships with the formatter bundle; if the
-        // file is missing or unreadable we intentionally degrade to an empty
-        // set rather than aborting project indexing. That keeps the CLI usable
-        // when installations are partially upgraded or when read permissions
-        // are restricted, and the metrics recorder above still notes the cache
-        // miss for observability.
-    }
-
-    cachedBuiltInIdentifiers = {
-        metadata: { mtimeMs: currentMtime },
-        names
-    };
-
-    return cachedBuiltInIdentifiers;
-}
-
-async function scanProjectTree(
-    projectRoot,
-    fsFacade,
-    metrics = null,
-    options = {}
-) {
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
-    const yyFiles = [];
-    const gmlFiles = [];
-    const pending = ["."];
-
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
-        const absoluteDir = path.join(projectRoot, relativeDir);
-        ensureNotAborted();
-        const entries = await listDirectory(fsFacade, absoluteDir, {
-            signal
-        });
-        ensureNotAborted();
-        metrics?.incrementCounter("io.directoriesScanned");
-
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-                ensureNotAborted();
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
-
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            const lowerPath = relativePosix.toLowerCase();
-            if (
-                lowerPath.endsWith(".yy") ||
-                isProjectManifestPath(relativePosix)
-            ) {
-                yyFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.yyDiscovered");
-            } else if (lowerPath.endsWith(".gml")) {
-                gmlFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.gmlDiscovered");
-            }
-        }
-    }
-
-    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-    return { yyFiles, gmlFiles };
+function ensureCollectionEntry(map, key, initializer) {
+    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function cloneIdentifierDeclaration(declaration) {
@@ -503,10 +322,6 @@ function cloneIdentifierForCollections(record, filePath) {
         isSynthetic: record?.isSynthetic ?? false,
         isGlobalIdentifier: record?.isGlobalIdentifier ?? false
     };
-}
-
-function ensureCollectionEntry(map, key, initializer) {
-    return getOrCreateMapEntry(map, key, initializer);
 }
 
 function createIdentifierCollections() {
@@ -2230,4 +2045,4 @@ export async function buildProjectIndex(
 }
 export { getDefaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
-export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
+export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
