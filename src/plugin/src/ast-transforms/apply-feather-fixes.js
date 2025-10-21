@@ -23,10 +23,11 @@ import {
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../reserved-identifiers.js";
+import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
 import {
     asArray,
@@ -48,7 +49,7 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    getDocCommentManager,
+    resolveDocCommentInspectionService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -3951,11 +3952,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentInspection = resolveDocCommentInspectionService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentManager
+        docCommentInspection
     );
 
     const visit = (node) => {
@@ -4210,16 +4211,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentManager) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const manager = docCommentManager ?? getDocCommentManager(ast);
+    const inspection =
+        docCommentInspection ?? resolveDocCommentInspectionService(ast);
 
-    manager.forEach((node, comments = []) => {
+    inspection.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -6392,11 +6394,11 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentInspection = resolveDocCommentInspectionService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentManager
+        docCommentInspection
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6484,7 +6486,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6510,9 +6512,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentManager) {
         return names;
     }
 
-    const manager = docCommentManager ?? getDocCommentManager(ast);
+    const inspection =
+        docCommentInspection ?? resolveDocCommentInspectionService(ast);
 
-    manager.forEach((node, comments = []) => {
+    inspection.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }
@@ -6666,7 +6669,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    const numericText = rawValue.slice(1, -1);
+    const numericText = stripStringQuotes(rawValue);
 
     if (!NUMERIC_STRING_LITERAL_PATTERN.test(numericText)) {
         return null;
@@ -9627,12 +9630,6 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fileFindFirstCall = createFileFindFirstCall(node);
-
-    if (!fileFindFirstCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: node.object?.name ?? null,
         range: {
@@ -9645,8 +9642,7 @@ function ensureFileFindFirstBeforeCloseCall(
         return null;
     }
 
-    siblings.splice(property, 0, fileFindFirstCall);
-    attachFeatherFixMetadata(fileFindFirstCall, [fixDetail]);
+    siblings.splice(property, 1);
 
     return fixDetail;
 }
@@ -9694,41 +9690,6 @@ function containsFileFindFirstCall(node) {
     }
 
     return false;
-}
-
-function createFileFindFirstCall(template) {
-    const identifier = createIdentifier("file_find_first", template?.object);
-
-    if (!identifier) {
-        return null;
-    }
-
-    const searchPattern = createLiteral('""', null);
-    const attributes = createIdentifier("fa_none", null);
-
-    const callExpression = {
-        type: "CallExpression",
-        object: identifier,
-        arguments: []
-    };
-
-    if (searchPattern) {
-        callExpression.arguments.push(searchPattern);
-    }
-
-    if (attributes) {
-        callExpression.arguments.push(attributes);
-    }
-
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
-
-    return callExpression;
 }
 
 function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
@@ -10201,12 +10162,6 @@ function ensurePrimitiveBeginBeforeEnd({
         return null;
     }
 
-    const beginCall = createPrimitiveBeginCall(endCall);
-
-    if (!beginCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: endCall?.object?.name ?? null,
         range: {
@@ -10219,8 +10174,8 @@ function ensurePrimitiveBeginBeforeEnd({
         return null;
     }
 
-    statements.splice(index, 0, beginCall);
-    attachFeatherFixMetadata(beginCall, [fixDetail]);
+    statements.splice(index, 1);
+    attachFeatherFixMetadata(endCall, [fixDetail]);
 
     return fixDetail;
 }
@@ -13210,7 +13165,7 @@ function isCoercibleStringLiteral(node) {
             (startingQuote === '"' || startingQuote === "'") &&
             startingQuote === endingQuote
         ) {
-            literalText = rawValue.slice(1, -1);
+            literalText = stripStringQuotes(rawValue);
         }
     }
 
@@ -15747,21 +15702,6 @@ function extractIdentifierNameFromLiteral(value) {
     }
 
     return stripped;
-}
-
-function stripStringQuotes(value) {
-    if (typeof value !== "string" || value.length < 2) {
-        return null;
-    }
-
-    const firstChar = value[0];
-    const lastChar = value.at(-1);
-
-    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
-        return value.slice(1, -1);
-    }
-
-    return null;
 }
 
 function isIdentifierWithName(node, name) {

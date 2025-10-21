@@ -131,7 +131,10 @@ export function hasIterableItems(iterable) {
         return false;
     }
 
-    for (const _ of iterator) {
+    for (const item of iterator) {
+        // Mark the first yielded value as intentionally unused so linting rules
+        // recognize that the loop only probes for existence.
+        void item;
         return true;
     }
 
@@ -160,7 +163,10 @@ export function getIterableSize(iterable) {
     }
 
     let count = 0;
-    for (const _ of iterator) {
+    for (const item of iterator) {
+        // The iterator may yield expensive objects, so explicitly ignore the
+        // value after confirming iteration succeeded.
+        void item;
         count += 1;
     }
 

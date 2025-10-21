@@ -2298,16 +2298,31 @@ function mergeSyntheticDocComments(
         return syntheticLines;
     }
 
+    const docTagMatches = (line, pattern) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            return false;
+        }
+
+        if (pattern.global || pattern.sticky) {
+            pattern.lastIndex = 0;
+        }
+
+        return pattern.test(trimmed);
+    };
+
     const isFunctionLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@function\b/i);
     const isOverrideLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
-    const isParamLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
 
     const isDescriptionLine = (line) =>
-        typeof line === "string" &&
-        /^\/\/\/\s*@description\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
@@ -2633,9 +2648,61 @@ function mergeSyntheticDocComments(
     }
 
     if (preserveParamOrder) {
-        orderedParamDocs = syntheticLines.filter(
+        const syntheticParamDocs = syntheticLines.filter(
             (line) => typeof line === "string" && isParamLine(line)
         );
+
+        if (syntheticParamDocs.length > 0) {
+            const canonicalToDoc = new Map();
+            for (const doc of orderedParamDocs) {
+                const canonical = getParamCanonicalName(doc);
+                if (canonical && !canonicalToDoc.has(canonical)) {
+                    canonicalToDoc.set(canonical, doc);
+                }
+            }
+
+            const mergedParamDocs = [];
+            const usedDocs = new Set();
+
+            for (const syntheticDoc of syntheticParamDocs) {
+                const syntheticCanonical = getParamCanonicalName(syntheticDoc);
+                const preferredDoc =
+                    (syntheticCanonical &&
+                        canonicalToDoc.has(syntheticCanonical) &&
+                        canonicalToDoc.get(syntheticCanonical)) ||
+                    syntheticDoc;
+
+                mergedParamDocs.push(preferredDoc);
+
+                if (
+                    syntheticCanonical &&
+                    canonicalToDoc.has(syntheticCanonical)
+                ) {
+                    usedDocs.add(preferredDoc);
+                    canonicalToDoc.delete(syntheticCanonical);
+                }
+            }
+
+            for (const doc of orderedParamDocs) {
+                if (!usedDocs.has(doc)) {
+                    mergedParamDocs.push(doc);
+                    usedDocs.add(doc);
+                }
+            }
+
+            for (const doc of paramDocsByCanonical.values()) {
+                if (!usedDocs.has(doc)) {
+                    mergedParamDocs.push(doc);
+                    usedDocs.add(doc);
+                }
+            }
+
+            orderedParamDocs = mergedParamDocs;
+        } else {
+            for (const doc of paramDocsByCanonical.values()) {
+                orderedParamDocs.push(doc);
+            }
+        }
     } else {
         for (const doc of paramDocsByCanonical.values()) {
             orderedParamDocs.push(doc);
@@ -2646,7 +2713,7 @@ function mergeSyntheticDocComments(
     let insertedParams = false;
 
     for (const line of result) {
-        if (typeof line === "string" && isParamLine(line)) {
+        if (isParamLine(line)) {
             if (!insertedParams && orderedParamDocs.length > 0) {
                 finalDocs.push(...orderedParamDocs);
                 insertedParams = true;
@@ -2687,7 +2754,7 @@ function mergeSyntheticDocComments(
 
         let lastParamIndex = -1;
         for (const [index, element] of docsWithoutDescription.entries()) {
-            if (typeof element === "string" && isParamLine(element)) {
+            if (isParamLine(element)) {
                 lastParamIndex = index;
             }
         }
@@ -2705,7 +2772,7 @@ function mergeSyntheticDocComments(
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
-        if (!isParamLine(line) || typeof line !== "string") {
+        if (!isParamLine(line)) {
             return line;
         }
 
@@ -2844,7 +2911,7 @@ function mergeSyntheticDocComments(
 
     for (let index = 0; index < reorderedDocs.length; index += 1) {
         const line = reorderedDocs[index];
-        if (typeof line === "string" && isDescriptionLine(line)) {
+        if (isDescriptionLine(line)) {
             const blockLines = [line];
             let lookahead = index + 1;
 
@@ -2988,12 +3055,15 @@ function computeSyntheticFunctionDocLines(
         : [];
     const hasExistingDocLines =
         Array.isArray(existingDocLines) && existingDocLines.length > 0;
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
+    const documentedParamDocLines = new Set();
     const paramMetadataByCanonical = new Map();
-    const orderedParamMetadata = [];
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
     const existingFunctionMetadata = metadata.find(
@@ -3015,20 +3085,25 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-        if (typeof meta.name === "string") {
-            documentedParamNames.add(meta.name);
-
-            const trimmedName = meta.name.trim();
-            if (trimmedName.length > 0) {
-                documentedParamNames.add(trimmedName);
-                const canonical = getCanonicalParamNameFromText(trimmedName);
-                if (canonical && !paramMetadataByCanonical.has(canonical)) {
-                    paramMetadataByCanonical.set(canonical, meta);
-                }
-
-                orderedParamMetadata.push(meta);
-                continue;
+        const rawName = typeof meta.name === "string" ? meta.name : null;
+        if (!rawName) {
+            const canonical = getCanonicalParamNameFromText(meta?.name);
+            if (canonical && !paramMetadataByCanonical.has(canonical)) {
+                paramMetadataByCanonical.set(canonical, meta);
             }
+            continue;
+        }
+
+        documentedParamDocLines.add(rawName);
+
+        const trimmedName = rawName.trim();
+        if (trimmedName.length > 0) {
+            documentedParamNames.add(trimmedName);
+            const canonical = getCanonicalParamNameFromText(trimmedName);
+            if (canonical && !paramMetadataByCanonical.has(canonical)) {
+                paramMetadataByCanonical.set(canonical, meta);
+            }
+            continue;
         }
 
         const canonical = getCanonicalParamNameFromText(meta?.name);
@@ -3085,7 +3160,7 @@ function computeSyntheticFunctionDocLines(
                 return true;
             }
 
-            if (documentedParamNames.has(entry.name)) {
+            if (documentedParamDocLines.has(entry.name)) {
                 return true;
             }
 
@@ -3104,7 +3179,6 @@ function computeSyntheticFunctionDocLines(
               !hasReturnsTag &&
               node._suppressSyntheticReturnsDoc !== true &&
               !functionReturnsNonUndefinedValue(node);
-
     if (
         hasExistingDocLines &&
         hasCompleteMetadata &&
@@ -3141,16 +3215,27 @@ function computeSyntheticFunctionDocLines(
 
             if (
                 normalizedDocName.length === 0 ||
-                documentedParamNames.has(normalizedDocName)
+                documentedParamNames.has(normalizedDocName) ||
+                documentedParamDocLines.has(docName)
             ) {
                 continue;
             }
 
             documentedParamNames.add(normalizedDocName);
+            documentedParamDocLines.add(docName);
             lines.push(`/// @param ${docName}`);
         }
 
-        return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
+        const normalizedLines = maybeAppendReturnsDoc(
+            lines,
+            node,
+            hasReturnsTag,
+            overrides
+        ).map((line) => normalizeDocCommentTypeAnnotations(line));
+
+        normalizedLines._preserveParamOrder = true;
+
+        return normalizedLines;
     }
 
     for (const [paramIndex, param] of node.params.entries()) {
@@ -3158,15 +3243,21 @@ function computeSyntheticFunctionDocLines(
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
+        const ordinalMetadata =
+            Number.isInteger(paramIndex) && paramIndex >= 0
+                ? (orderedParamMetadata[paramIndex] ?? null)
+                : null;
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
         if (implicitDocEntry) {
             consumedImplicitDocEntries.add(implicitDocEntry);
         }
         const implicitName =
-            (implicitDocEntry &&
-                typeof implicitDocEntry.name === "string" &&
-                implicitDocEntry.name) ||
-            null;
+            implicitDocEntry &&
+            typeof implicitDocEntry.name === "string" &&
+            implicitDocEntry.name &&
+            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+                ? implicitDocEntry.name
+                : null;
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
@@ -3198,11 +3289,32 @@ function computeSyntheticFunctionDocLines(
             typeof existingMetadata?.name === "string"
                 ? existingMetadata.name.trim()
                 : null;
+        const normalizedExistingDocName =
+            typeof existingDocName === "string" && existingDocName.length > 0
+                ? normalizeDocMetadataName(existingDocName)
+                : null;
+        const normalizedParamDocName =
+            typeof paramInfo?.name === "string" && paramInfo.name.length > 0
+                ? normalizeDocMetadataName(paramInfo.name)
+                : null;
+        const ordinalDocName =
+            !implicitName &&
+            (!existingDocName || existingDocName.length === 0) &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? ordinalMetadata.name
+                : null;
+        const shouldPreferExistingMetadata =
+            normalizedExistingDocName &&
+            normalizedExistingDocName.length > 0 &&
+            normalizedExistingDocName !== normalizedParamDocName;
         const baseDocName =
-            (existingDocName &&
+            (shouldPreferExistingMetadata &&
+                existingDocName &&
                 existingDocName.length > 0 &&
                 existingDocName) ||
             (implicitName && implicitName.length > 0 && implicitName) ||
+            (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
@@ -3232,12 +3344,38 @@ function computeSyntheticFunctionDocLines(
         const normalizedDocName =
             typeof docName === "string" ? docName.trim() : "";
 
-        if (normalizedDocName.length > 0) {
-            documentedParamNames.add(normalizedDocName);
+        if (!docName || normalizedDocName.length === 0) {
+            continue;
         }
 
-        if (!docName) {
+        if (
+            documentedParamNames.has(normalizedDocName) ||
+            documentedParamDocLines.has(docName)
+        ) {
+            if (implicitDocEntry?.name) {
+                const implicitNormalized =
+                    typeof implicitDocEntry.name === "string"
+                        ? implicitDocEntry.name.trim()
+                        : "";
+                if (implicitNormalized.length > 0) {
+                    documentedParamNames.add(implicitNormalized);
+                }
+                documentedParamDocLines.add(implicitDocEntry.name);
+            }
             continue;
+        }
+
+        documentedParamNames.add(normalizedDocName);
+        documentedParamDocLines.add(docName);
+        if (implicitDocEntry?.name) {
+            const implicitNormalized =
+                typeof implicitDocEntry.name === "string"
+                    ? implicitDocEntry.name.trim()
+                    : "";
+            if (implicitNormalized.length > 0) {
+                documentedParamNames.add(implicitNormalized);
+            }
+            documentedParamDocLines.add(implicitDocEntry.name);
         }
         lines.push(`/// @param ${docName}`);
     }
@@ -3247,21 +3385,39 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-        const { name: docName } = entry;
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
         const normalizedDocName =
             typeof docName === "string" ? docName.trim() : "";
+        if (normalizedDocName.length === 0) {
+            continue;
+        }
+
+        if (Number.isInteger(index) && index < paramCount) {
+            continue;
+        }
+
+        const isFallbackEntry = canonical === fallbackCanonical;
+        if (
+            isFallbackEntry &&
+            Number.isInteger(index) &&
+            orderedParamMetadata[index] &&
+            typeof orderedParamMetadata[index].name === "string" &&
+            orderedParamMetadata[index].name.length > 0
+        ) {
+            continue;
+        }
 
         if (
-            normalizedDocName.length === 0 ||
-            documentedParamNames.has(normalizedDocName)
+            documentedParamNames.has(normalizedDocName) ||
+            documentedParamDocLines.has(docName)
         ) {
             continue;
         }
 
         documentedParamNames.add(normalizedDocName);
+        documentedParamDocLines.add(docName);
         lines.push(`/// @param ${docName}`);
     }
-
     const normalizedLines = maybeAppendReturnsDoc(
         lines,
         node,

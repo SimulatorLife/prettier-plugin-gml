@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
 // Pull array helpers from the shared utils barrel so new call sites avoid the
 // legacy `array-utils` shim slated for removal.
-import { toMutableArray } from "../../shared/utils.js";
+import { toMutableArray } from "./shared/utils.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",

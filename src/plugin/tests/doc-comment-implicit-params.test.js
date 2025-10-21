@@ -183,3 +183,73 @@ test("synthetic doc comments prefer existing metadata names", async () => {
         "/// @param steps"
     ]);
 });
+
+const EXISTING_DOC_SOURCE = `/// @function sampleExisting
+/// @param first
+/// @param second
+/// @param third
+function sampleExisting() {
+    var first = argument0;
+    var second = argument1;
+    return argument2;
+}
+`;
+
+test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
+    const formatted = await prettier.format(EXISTING_DOC_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docStart = formatted.indexOf("/// @function sampleExisting");
+    let docEnd = formatted.indexOf("\nfunction sampleExisting", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function sampleExisting", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = new Set(
+        formatted
+            .slice(docStart, docEnd)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("/// @param"))
+    );
+
+    assert.ok(
+        paramLines.has("/// @param third"),
+        "Expected existing doc metadata to be preserved."
+    );
+    assert.ok(
+        !paramLines.has("/// @param argument2"),
+        "Expected fallback doc line to be skipped when already documented."
+    );
+});
+
+const DIRECT_REFERENCE_SOURCE = `/// @function demo
+/// @param foo
+/// @param bar
+function demo(argument0, argument1) {
+    var foo = argument0;
+    return argument1;
+}
+`;
+
+test("collectImplicitArgumentDocNames keeps documented names for direct references", async () => {
+    const formatted = await prettier.format(DIRECT_REFERENCE_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: false
+    });
+
+    const docLines = formatted
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, ["/// @param foo", "/// @param bar"]);
+});

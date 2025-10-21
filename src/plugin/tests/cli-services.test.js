@@ -3,12 +3,16 @@ import test from "node:test";
 
 import {
     createDefaultCliIdentifierCasePlanService,
+    createDefaultCliIdentifierCasePlanPreparationService,
+    createDefaultCliIdentifierCaseCacheService,
     createDefaultCliPluginServices,
     createDefaultCliProjectIndexService,
     defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
     defaultProjectIndexBuilder,
     resolveCliIdentifierCasePlanService,
+    resolveCliIdentifierCasePlanPreparationService,
+    resolveCliIdentifierCaseCacheService,
     resolveCliPluginServices,
     resolveCliProjectIndexService
 } from "../src/cli-services.js";
@@ -98,6 +102,50 @@ test("CLI plugin services expose validated defaults", () => {
         services.identifierCasePlan,
         identifierCasePlanService,
         "root registry should expose the same identifier case plan service"
+    );
+
+    const identifierCasePlanPreparationService =
+        resolveCliIdentifierCasePlanPreparationService();
+    assert.ok(
+        Object.isFrozen(identifierCasePlanPreparationService),
+        "identifier case plan preparation service should be frozen"
+    );
+    assert.strictEqual(
+        identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "preparation service should expose the default preparer"
+    );
+    assert.strictEqual(
+        createDefaultCliIdentifierCasePlanPreparationService(),
+        identifierCasePlanPreparationService,
+        "default identifier case plan preparation helper should reuse singleton"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanPreparation,
+        identifierCasePlanPreparationService,
+        "root registry should expose the preparation service"
+    );
+
+    const identifierCasePlanCacheService =
+        resolveCliIdentifierCaseCacheService();
+    assert.ok(
+        Object.isFrozen(identifierCasePlanCacheService),
+        "identifier case plan cache service should be frozen"
+    );
+    assert.strictEqual(
+        identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "cache service should expose the default cache clearer"
+    );
+    assert.strictEqual(
+        createDefaultCliIdentifierCaseCacheService(),
+        identifierCasePlanCacheService,
+        "default identifier case cache service helper should reuse singleton"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanCache,
+        identifierCasePlanCacheService,
+        "root registry should expose the cache service"
     );
 });
 

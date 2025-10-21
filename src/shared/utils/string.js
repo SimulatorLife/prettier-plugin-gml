@@ -2,10 +2,29 @@ export function isNonEmptyString(value) {
     return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * Determine whether {@link value} is a string containing at least one
+ * non-whitespace character. Mirrors the defensive guards used when parsing
+ * identifiers and option values so callers can accept padded input without
+ * introducing bespoke trimming logic.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is string} `true` when {@link value} is a non-empty string
+ *                             after trimming.
+ */
 export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+/**
+ * Normalize {@link value} into a trimmed string or `null` when it does not
+ * contain visible characters. Keeps option normalization helpers consistent by
+ * collapsing blank or non-string inputs to a single sentinel value instead of
+ * leaking empty strings through call sites.
+ *
+ * @param {unknown} value Candidate value to normalize.
+ * @returns {string | null} Trimmed string when populated, otherwise `null`.
+ */
 export function getNonEmptyTrimmedString(value) {
     if (typeof value !== "string") {
         return null;
@@ -95,6 +114,40 @@ export function capitalize(value) {
     }
 
     return value.at(0).toUpperCase() + value.slice(1);
+}
+
+/**
+ * Remove matching string quotes from {@link value}, returning `null` when the
+ * input is not a quoted string. Supports both single- and double-quoted
+ * literals so call sites can focus on their specific validation logic without
+ * repeating defensive slicing guards.
+ *
+ * @param {unknown} value Candidate string literal.
+ * @returns {string | null} Inner string content when wrapped in matching quotes.
+ */
+export function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value.at(-1);
+
+    if (isQuoteCharacter(firstChar) && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
+}
+
+const DOUBLE_QUOTE_CHARACTER = '"';
+const SINGLE_QUOTE_CHARACTER = "'";
+
+function isQuoteCharacter(character) {
+    return (
+        character === DOUBLE_QUOTE_CHARACTER ||
+        character === SINGLE_QUOTE_CHARACTER
+    );
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;

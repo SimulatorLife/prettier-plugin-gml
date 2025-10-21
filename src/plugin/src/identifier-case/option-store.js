@@ -6,6 +6,11 @@ import {
 } from "../options/identifier-case.js";
 
 const optionStoreMap = new Map();
+const STORE_BLACKLIST = new Set([
+    "__identifierCaseProjectIndex",
+    "__identifierCaseRenameMap",
+    "__identifierCasePlanSnapshot"
+]);
 const DEFAULT_MAX_OPTION_STORE_ENTRIES =
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES;
 
@@ -101,9 +106,30 @@ function updateStore(options, key, value) {
         return;
     }
 
+    if (STORE_BLACKLIST.has(key)) {
+        return;
+    }
+
     const entry = getOrCreateStoreEntry(storeKey);
     entry[key] = value;
     trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
+}
+
+function deleteFromStore(storeKey, key) {
+    if (storeKey == undefined) {
+        return;
+    }
+
+    const entry = optionStoreMap.get(storeKey);
+    if (!entry || !Object.hasOwn(entry, key)) {
+        return;
+    }
+
+    delete entry[key];
+
+    if (Object.keys(entry).length === 0) {
+        optionStoreMap.delete(storeKey);
+    }
 }
 
 export function setIdentifierCaseOption(options, key, value) {
@@ -113,6 +139,23 @@ export function setIdentifierCaseOption(options, key, value) {
 
     options[key] = value;
     updateStore(options, key, value);
+}
+
+export function deleteIdentifierCaseOption(options, key) {
+    if (!isObjectLike(options) || key == undefined) {
+        return;
+    }
+
+    if (Object.hasOwn(options, key)) {
+        try {
+            delete options[key];
+        } catch {
+            options[key] = undefined;
+        }
+    }
+
+    const storeKey = getStoreKey(options);
+    deleteFromStore(storeKey, key);
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {

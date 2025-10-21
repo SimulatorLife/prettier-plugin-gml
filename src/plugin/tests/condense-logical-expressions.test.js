@@ -176,7 +176,7 @@ test("preserves distinct functions that condense to the same expression", async 
     );
 });
 
-test("preserves positive operand order when condensing guard fallbacks", async () => {
+test("prioritizes negated guard when condensing guard fallbacks", async () => {
     const source = [
         "function guard_with_fallback(foo, bar, baz) {",
         "    if ((foo && bar) || baz) {",
@@ -193,7 +193,7 @@ test("preserves positive operand order when condensing guard fallbacks", async (
     });
 
     assert.ok(
-        formatted.includes("return foo and (bar or !baz);"),
-        "Expected condensed expression to keep the original positive operand order."
+        formatted.includes("return foo and (!baz or bar);"),
+        "Expected condensed expression to place the negated guard before the positive operand."
     );
 });

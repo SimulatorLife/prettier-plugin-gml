@@ -83,8 +83,3 @@ export function formatByteSize(
 
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
-
-export function formatBytes(text) {
-    const size = Buffer.byteLength(text, "utf8");
-    return formatByteSize(size, { decimals: 1 });
-}
