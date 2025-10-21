@@ -235,3 +235,36 @@ test("collectImplicitArgumentDocNames retains descriptive docs when alias is sho
 
     assert.deepStrictEqual(docLines, ["/// @param width"]);
 });
+
+const IMPLICIT_ALIAS_SOURCE = `/// @function rewriteAliases
+/// @param foo
+/// @param bar
+function rewriteAliases(argument0, argument1) {
+    var foo = argument0;
+    var aliasBar = argument1;
+    return argument0 + argument1;
+}
+`;
+
+test("removes redundant implicit argument aliases without Feather fixes", async () => {
+    const formatted = await prettier.format(IMPLICIT_ALIAS_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: false
+    });
+
+    const lines = formatted.split(/\r?\n/).map((line) => line.trim());
+
+    assert.ok(
+        !lines.some((line) => line.startsWith("var foo =")),
+        "Expected redundant alias declarations to be removed."
+    );
+    assert.ok(
+        lines.includes("var aliasBar = bar;"),
+        "Expected remaining aliases to reference preferred parameter names."
+    );
+    assert.ok(
+        lines.includes("return foo + bar;"),
+        "Expected implicit argument references to adopt documented names."
+    );
+});
