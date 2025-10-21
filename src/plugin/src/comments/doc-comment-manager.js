@@ -229,7 +229,6 @@ function collectFunctionNodes(ast) {
         const keys = Object.keys(node);
 
         for (const key of keys) {
-
             if (key === "start" || key === "end" || key === "comments") {
                 continue;
             }

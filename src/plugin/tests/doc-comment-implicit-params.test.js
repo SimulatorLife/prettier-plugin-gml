@@ -213,3 +213,25 @@ test("collectImplicitArgumentDocNames keeps documented names for direct referenc
 
     assert.deepStrictEqual(docLines, ["/// @param foo", "/// @param bar"]);
 });
+
+const EXISTING_METADATA_ALIAS_SOURCE = `/// @function withAlias
+/// @param width
+function withAlias(argument0) {
+    var w = argument0;
+    return w;
+}
+`;
+
+test("implicit argument aliases defer to existing doc metadata", async () => {
+    const formatted = await prettier.format(EXISTING_METADATA_ALIAS_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docLines = formatted
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, ["/// @param width"]);
+});
