@@ -143,3 +143,113 @@ test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes",
         "/// @param second"
     ]);
 });
+
+const METADATA_SOURCE = `/// @function scr_bezier_4
+/// @param width
+/// @param steps
+function scr_bezier_4(argument0, argument1) {
+    var w = argument0;
+    var step = 1 / argument1;
+    return w + step;
+}
+`;
+
+test("synthetic doc comments prefer existing metadata names", async () => {
+    const formatted = await prettier.format(METADATA_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const docStart = formatted.indexOf("/// @function scr_bezier_4");
+    let docEnd = formatted.indexOf("\nfunction scr_bezier_4", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function scr_bezier_4", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = formatted
+        .slice(docStart, docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(paramLines, [
+        "/// @param width",
+        "/// @param steps"
+    ]);
+});
+
+const EXISTING_DOC_SOURCE = `/// @function sampleExisting
+/// @param first
+/// @param second
+/// @param third
+function sampleExisting() {
+    var first = argument0;
+    var second = argument1;
+    return argument2;
+}
+`;
+
+test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
+    const formatted = await prettier.format(EXISTING_DOC_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docStart = formatted.indexOf("/// @function sampleExisting");
+    let docEnd = formatted.indexOf("\nfunction sampleExisting", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function sampleExisting", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = new Set(
+        formatted
+            .slice(docStart, docEnd)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("/// @param"))
+    );
+
+    assert.ok(
+        paramLines.has("/// @param third"),
+        "Expected existing doc metadata to be preserved."
+    );
+    assert.ok(
+        !paramLines.has("/// @param argument2"),
+        "Expected fallback doc line to be skipped when already documented."
+    );
+});
+
+const DIRECT_REFERENCE_SOURCE = `/// @function demo
+/// @param foo
+/// @param bar
+function demo(argument0, argument1) {
+    var foo = argument0;
+    return argument1;
+}
+`;
+
+test("collectImplicitArgumentDocNames keeps documented names for direct references", async () => {
+    const formatted = await prettier.format(DIRECT_REFERENCE_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: false
+    });
+
+    const docLines = formatted
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, ["/// @param foo", "/// @param bar"]);
+});

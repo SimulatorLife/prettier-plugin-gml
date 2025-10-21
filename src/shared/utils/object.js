@@ -132,25 +132,14 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const keyList = Array.isArray(keys) ? keys : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of keyList) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Fast-path the common single-key case by skipping the short-lived array
-    // allocation. `coalesceOption` sits on the option parsing hot path, so the
-    // guard keeps repeated lookups allocation-free.
-    const value = object[keys];
-
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;

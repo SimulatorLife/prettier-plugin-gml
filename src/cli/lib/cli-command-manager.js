@@ -45,6 +45,7 @@ class CliCommandManager {
         this._program = program;
         this._entries = new Set();
         this._commandEntryLookup = new WeakMap();
+        this._defaultCommandEntry = null;
         this._defaultErrorHandler =
             typeof onUnhandledError === "function"
                 ? onUnhandledError
@@ -67,7 +68,8 @@ class CliCommandManager {
     registerDefaultCommand({ command, run, onError } = {}) {
         const entry = this._registerEntry(command, {
             run,
-            handleError: onError
+            handleError: onError,
+            isDefault: true
         });
         this._program.addCommand(command, { isDefault: true });
         return entry;
@@ -103,7 +105,7 @@ class CliCommandManager {
         }
     }
 
-    _registerEntry(command, { run, handleError } = {}) {
+    _registerEntry(command, { run, handleError, isDefault = false } = {}) {
         if (!command || typeof command.name !== "function") {
             throw new TypeError(
                 "registerCommand expects a Commander Command instance."
@@ -124,6 +126,9 @@ class CliCommandManager {
 
         this._entries.add(entry);
         this._commandEntryLookup.set(command, entry);
+        if (isDefault) {
+            this._defaultCommandEntry = entry;
+        }
 
         if (entry.run) {
             command.action(async (...actionArgs) => {
@@ -159,13 +164,17 @@ class CliCommandManager {
             return true;
         }
 
-        const command = error.command ?? this._program;
+        const commandFromError = error.command ?? this._program;
+        const resolvedCommand =
+            commandFromError === this._program && this._defaultCommandEntry
+                ? this._defaultCommandEntry.command
+                : commandFromError;
         const usage =
-            typeof command?.helpInformation === "function"
-                ? command.helpInformation()
+            typeof resolvedCommand?.helpInformation === "function"
+                ? resolvedCommand.helpInformation()
                 : this._program.helpInformation();
         const usageError = new CliUsageError(error.message.trim(), { usage });
-        this._handleCommandError(usageError, command);
+        this._handleCommandError(usageError, resolvedCommand ?? this._program);
         return true;
     }
 

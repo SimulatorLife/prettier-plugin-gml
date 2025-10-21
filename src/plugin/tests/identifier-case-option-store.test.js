@@ -5,7 +5,8 @@ import {
     setIdentifierCaseOption,
     getIdentifierCaseOptionStore,
     clearIdentifierCaseOptionStore,
-    MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES
+    MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
+    deleteIdentifierCaseOption
 } from "../src/identifier-case/option-store.js";
 
 function buildOptions(fileIndex, overrides = {}) {
@@ -110,6 +111,52 @@ test("option store keeps all entries when eviction is disabled", () => {
         assert.ok(store, `expected store for index ${index} to remain`);
         assert.equal(store.__identifierCaseRenamePlan.id, index);
     }
+
+    clearIdentifierCaseOptionStore(null);
+});
+
+test("deleteIdentifierCaseOption removes values from options and store", () => {
+    clearIdentifierCaseOptionStore(null);
+
+    const options = buildOptions(0);
+    const renameMap = new Map([["key", "value"]]);
+    setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
+    setIdentifierCaseOption(options, "__identifierCaseRenamePlan", { id: 1 });
+
+    deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
+
+    assert.equal(options.__identifierCaseRenameMap, undefined);
+    const store = getIdentifierCaseOptionStore(options.filepath);
+    assert.ok(store, "expected store to remain after deleting single key");
+    assert.equal(store.__identifierCaseRenameMap, undefined);
+    assert.equal(store.__identifierCaseRenamePlan.id, 1);
+
+    deleteIdentifierCaseOption(options, "__identifierCaseRenamePlan");
+
+    assert.equal(options.__identifierCaseRenamePlan, undefined);
+    const emptyStore = getIdentifierCaseOptionStore(options.filepath);
+    assert.equal(emptyStore, null, "expected store to be pruned when empty");
+
+    clearIdentifierCaseOptionStore(null);
+});
+
+test("option store skips blacklisted keys", () => {
+    clearIdentifierCaseOptionStore(null);
+
+    const options = buildOptions(0);
+    const projectIndex = { projectRoot: "/project" };
+
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseProjectIndex",
+        projectIndex
+    );
+    setIdentifierCaseOption(options, "__identifierCaseRenamePlan", { id: 1 });
+
+    const store = getIdentifierCaseOptionStore(options.filepath);
+    assert.ok(store, "expected store entry to exist");
+    assert.equal(store.__identifierCaseProjectIndex, undefined);
+    assert.equal(store.__identifierCaseRenamePlan.id, 1);
 
     clearIdentifierCaseOptionStore(null);
 });

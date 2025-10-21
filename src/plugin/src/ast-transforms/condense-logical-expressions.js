@@ -1,7 +1,8 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    getDocCommentManager
+    resolveDocCommentInspectionService,
+    resolveDocCommentUpdateService
 } from "../comments/index.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
@@ -47,18 +48,20 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
         docCommentManager,
+        docCommentUpdateService,
         expressionSignatures: new Map()
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    docCommentManager.applyUpdates(context.docUpdates);
+    docCommentUpdateService.applyUpdates(context.docUpdates);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -1768,13 +1771,47 @@ function buildBinaryAst(operator, terms, context) {
         return booleanExpressionToAst(terms[0], context);
     }
 
+    let originalOrOrder = null;
+    if (operator === "||") {
+        originalOrOrder = new WeakMap();
+        for (const [index, term] of terms.entries()) {
+            if (term && typeof term === "object") {
+                originalOrOrder.set(term, index);
+            }
+        }
+    }
+
     const orderedTerms =
         operator === "||"
-            ? [...terms].sort(
-                  (left, right) =>
-                      getBooleanExpressionSourceStart(left, context) -
-                      getBooleanExpressionSourceStart(right, context)
-              )
+            ? [...terms].sort((left, right) => {
+                  const leftPriority = getBooleanOrTermPriority(left);
+                  const rightPriority = getBooleanOrTermPriority(right);
+                  if (leftPriority !== rightPriority) {
+                      return leftPriority - rightPriority;
+                  }
+
+                  const leftStart = getBooleanExpressionSourceStart(
+                      left,
+                      context
+                  );
+                  const rightStart = getBooleanExpressionSourceStart(
+                      right,
+                      context
+                  );
+                  if (leftStart !== rightStart) {
+                      return leftStart - rightStart;
+                  }
+
+                  const leftIndex = getOriginalBooleanTermIndex(
+                      originalOrOrder,
+                      left
+                  );
+                  const rightIndex = getOriginalBooleanTermIndex(
+                      originalOrOrder,
+                      right
+                  );
+                  return leftIndex - rightIndex;
+              })
             : terms;
 
     let current = booleanExpressionToAst(orderedTerms[0], context);
@@ -1794,6 +1831,23 @@ function buildBinaryAst(operator, terms, context) {
     }
 
     return current;
+}
+
+function getBooleanOrTermPriority(expression) {
+    if (!expression || typeof expression !== "object") {
+        return 1;
+    }
+
+    return expression.type === BOOLEAN_NODE_TYPES.NOT ? 0 : 1;
+}
+
+function getOriginalBooleanTermIndex(orderMap, term) {
+    if (!orderMap || !term || typeof term !== "object") {
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    const index = orderMap.get(term);
+    return typeof index === "number" ? index : Number.MAX_SAFE_INTEGER;
 }
 
 function getBooleanExpressionSourceStart(expression, context) {
