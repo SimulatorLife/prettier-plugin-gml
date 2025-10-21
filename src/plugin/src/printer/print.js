@@ -2350,6 +2350,11 @@ function mergeSyntheticDocComments(
         return canonical;
     };
 
+    const originalParamCanonicals = existingDocLines
+        .filter(isParamLine)
+        .map((line) => getParamCanonicalName(line))
+        .filter(Boolean);
+
     let mergedLines = [...existingDocLines];
     let removedAnyLine = false;
 
@@ -2929,6 +2934,57 @@ function mergeSyntheticDocComments(
 
     result = reorderedDocs;
 
+    if (originalParamCanonicals.length > 0) {
+        const currentParamEntries = [];
+        for (const line of result) {
+            if (!isParamLine(line)) {
+                continue;
+            }
+            const canonical = getParamCanonicalName(line);
+            if (!canonical) {
+                currentParamEntries.length = 0;
+                break;
+            }
+            currentParamEntries.push({ line, canonical });
+        }
+
+        if (currentParamEntries.length === originalParamCanonicals.length) {
+            const linesByCanonical = new Map();
+            for (const entry of currentParamEntries) {
+                if (!linesByCanonical.has(entry.canonical)) {
+                    linesByCanonical.set(entry.canonical, []);
+                }
+                linesByCanonical.get(entry.canonical).push(entry.line);
+            }
+
+            const reorderedParamLines = [];
+            let canReorder = true;
+            for (const canonical of originalParamCanonicals) {
+                const bucket = linesByCanonical.get(canonical);
+                if (!bucket || bucket.length === 0) {
+                    canReorder = false;
+                    break;
+                }
+                reorderedParamLines.push(bucket.shift());
+            }
+
+            if (
+                canReorder &&
+                reorderedParamLines.length === originalParamCanonicals.length
+            ) {
+                let paramIndex = 0;
+                result = result.map((line) => {
+                    if (!isParamLine(line)) {
+                        return line;
+                    }
+                    const replacement = reorderedParamLines[paramIndex];
+                    paramIndex += 1;
+                    return replacement ?? line;
+                });
+            }
+        }
+    }
+
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
     }
@@ -3097,13 +3153,32 @@ function computeSyntheticFunctionDocLines(
                 ? (orderedParamMetadata[paramIndex] ?? null)
                 : null;
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
-        const implicitName =
+        let implicitName =
             implicitDocEntry &&
             typeof implicitDocEntry.name === "string" &&
             implicitDocEntry.name &&
             implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
                 ? implicitDocEntry.name
                 : null;
+        if (
+            implicitName &&
+            Array.isArray(orderedParamMetadata) &&
+            Array.isArray(node.params) &&
+            orderedParamMetadata.length === node.params.length &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+        ) {
+            const ordinalCanonical = getCanonicalParamNameFromText(
+                ordinalMetadata.name
+            );
+            if (
+                ordinalCanonical &&
+                ordinalCanonical !== implicitDocEntry?.fallbackCanonical &&
+                ordinalCanonical !== implicitDocEntry?.canonical
+            ) {
+                implicitName = null;
+            }
+        }
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
