@@ -1794,6 +1794,76 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(rootEntry.automatic, true);
     });
 
+    it("continues visiting parameters inserted during GM1059 fixes", () => {
+        const createIdentifier = (name) => ({
+            type: "Identifier",
+            name,
+            start: { index: 0 },
+            end: { index: 0 }
+        });
+
+        const createFunction = (name, paramsArray) => ({
+            type: "FunctionDeclaration",
+            id: name ? createIdentifier(name) : null,
+            params: paramsArray,
+            body: {
+                type: "BlockStatement",
+                body: [],
+                start: { index: 0 },
+                end: { index: 0 }
+            },
+            start: { index: 0 },
+            end: { index: 0 }
+        });
+
+        const outerParams = [];
+        let injectedAdded = false;
+
+        const injectedParams = [createIdentifier("z"), createIdentifier("z")];
+        const injectedFunction = createFunction("injected", injectedParams);
+
+        const nestedParams = [createIdentifier("x"), createIdentifier("x")];
+        const originalSplice = Array.prototype.splice;
+        nestedParams.splice = function (...args) {
+            const result = originalSplice.apply(this, args);
+            if (!injectedAdded) {
+                injectedAdded = true;
+                outerParams.push(injectedFunction);
+            }
+            return result;
+        };
+
+        const nestedFunction = createFunction("nested", nestedParams);
+
+        outerParams.push(createIdentifier("a"), nestedFunction);
+
+        const program = {
+            type: "Program",
+            body: [createFunction("outer", outerParams)],
+            start: { index: 0 },
+            end: { index: 0 }
+        };
+
+        const registry = getFeatherDiagnosticFixers();
+        const gm1059Fixer = registry.get("GM1059");
+        assert.ok(gm1059Fixer, "Expected GM1059 fixer to be registered.");
+
+        gm1059Fixer.applyFix(program, { options: {} });
+
+        assert.ok(
+            injectedAdded,
+            "Expected nested parameter fixes to append the injected function."
+        );
+
+        const nestedNames = nestedFunction.params.map((param) => param.name);
+        assert.deepStrictEqual(nestedNames, ["x"]);
+
+        const injectedNames = injectedFunction.params.map(
+            (param) => param.name
+        );
+        assert.deepStrictEqual(injectedNames, ["z"]);
+    });
+
     it("adds missing enum members and records fix metadata", () => {
         const source = [
             "enum FRUIT {",

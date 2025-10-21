@@ -7062,7 +7062,21 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
         }
 
         if (Array.isArray(node)) {
-            node.forEach(visit);
+            let index = 0;
+
+            while (index < node.length) {
+                const value = node[index];
+
+                visit(value);
+
+                if (index >= node.length) {
+                    continue;
+                }
+
+                if (node[index] === value) {
+                    index += 1;
+                }
+            }
             return;
         }
 
