@@ -14,51 +14,69 @@ export const defaultProjectIndexBuilder = buildProjectIndex;
 export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
 export const defaultIdentifierCaseCacheClearer = clearIdentifierCaseCaches;
 
-const projectIndexService = Object.freeze({
-    buildProjectIndex: defaultProjectIndexBuilder
+const createFrozenService = (methods) => Object.freeze({ ...methods });
+
+const nestedServices = Object.freeze({
+    projectIndex: createFrozenService({
+        buildProjectIndex: defaultProjectIndexBuilder
+    }),
+    identifierCasePlanPreparation: createFrozenService({
+        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+    }),
+    identifierCasePlanCache: createFrozenService({
+        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
+    })
 });
 
-const identifierCasePlanPreparationService = Object.freeze({
-    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+const identifierCasePlanService = createFrozenService({
+    ...nestedServices.identifierCasePlanPreparation,
+    ...nestedServices.identifierCasePlanCache
 });
 
-const identifierCasePlanCacheService = Object.freeze({
-    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
-});
-
-const identifierCasePlanService = Object.freeze({
-    ...identifierCasePlanPreparationService,
-    ...identifierCasePlanCacheService
-});
-
-const defaultCliPluginServices = Object.freeze({
+const defaultCliPluginServices = createFrozenService({
     buildProjectIndex: defaultProjectIndexBuilder,
     prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
     clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
-    projectIndex: projectIndexService,
+    projectIndex: nestedServices.projectIndex,
     identifierCasePlan: identifierCasePlanService,
-    identifierCasePlanPreparation: identifierCasePlanPreparationService,
-    identifierCasePlanCache: identifierCasePlanCacheService
+    identifierCasePlanPreparation: nestedServices.identifierCasePlanPreparation,
+    identifierCasePlanCache: nestedServices.identifierCasePlanCache
 });
 
-export const createDefaultCliPluginServices = () => defaultCliPluginServices;
+const createSingletonResolver = (value) => () => value;
+
+export const createDefaultCliPluginServices = createSingletonResolver(
+    defaultCliPluginServices
+);
 export const resolveCliPluginServices = createDefaultCliPluginServices;
 
-export const resolveCliProjectIndexService = () => projectIndexService;
+const resolveProjectIndexService = createSingletonResolver(
+    nestedServices.projectIndex
+);
+export const resolveCliProjectIndexService = resolveProjectIndexService;
 export const createDefaultCliProjectIndexService =
     resolveCliProjectIndexService;
 
-export const resolveCliIdentifierCasePlanService = () =>
-    identifierCasePlanService;
+const resolveIdentifierCasePlanService = createSingletonResolver(
+    identifierCasePlanService
+);
+export const resolveCliIdentifierCasePlanService =
+    resolveIdentifierCasePlanService;
 export const createDefaultCliIdentifierCasePlanService =
     resolveCliIdentifierCasePlanService;
 
-export const resolveCliIdentifierCasePlanPreparationService = () =>
-    identifierCasePlanPreparationService;
+const resolveIdentifierCasePlanPreparationService = createSingletonResolver(
+    nestedServices.identifierCasePlanPreparation
+);
+export const resolveCliIdentifierCasePlanPreparationService =
+    resolveIdentifierCasePlanPreparationService;
 export const createDefaultCliIdentifierCasePlanPreparationService =
     resolveCliIdentifierCasePlanPreparationService;
 
-export const resolveCliIdentifierCaseCacheService = () =>
-    identifierCasePlanCacheService;
+const resolveIdentifierCaseCacheService = createSingletonResolver(
+    nestedServices.identifierCasePlanCache
+);
+export const resolveCliIdentifierCaseCacheService =
+    resolveIdentifierCaseCacheService;
 export const createDefaultCliIdentifierCaseCacheService =
     resolveCliIdentifierCaseCacheService;
