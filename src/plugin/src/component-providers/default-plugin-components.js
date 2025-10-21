@@ -55,7 +55,7 @@ export function createDefaultGmlPluginComponents() {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
-                default: true,
+                default: false,
                 description:
                     "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines."
             },
