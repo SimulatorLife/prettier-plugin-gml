@@ -135,7 +135,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Replace divisions by constant values with multiplication by their reciprocal (for example, 'value / 2' becomes 'value * 0.5')."
+                    "Reserved toggle for future reciprocal rewrites. Division by two already canonicalizes to '* 0.5'; other divisors remain unchanged."
             },
             convertManualMathToBuiltins: {
                 since: "0.0.0",
