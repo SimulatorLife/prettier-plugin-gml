@@ -2,17 +2,19 @@
 
 Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
-can pick the right level of detail for your task. Looking for installation or
-contributor setup steps? Start with the [repository README](../README.md) for
-the quick-start checklist, formatter configuration matrix, CLI wrapper options,
-and day-to-day development commands, then return here when you need deeper
-context.
+can pick the right level of detail for your task. Looking for installation,
+release consumption, or contributor setup steps? Start with the
+[repository README](../README.md) for the quick-start checklist, formatter
+configuration matrix, CLI wrapper options, and day-to-day development commands,
+then return here when you need deeper context.
 
 ## Reference guides
 
 - [Identifier Case & Naming Convention Guide](naming-conventions.md) — One-stop
   overview of the identifier normalisation pipeline, configuration roadmap,
-  rollout workflow, and operational safeguards for `gmlIdentifierCase`.
+  rollout workflow, and operational safeguards for `gmlIdentifierCase`. The
+  final section also captures the condensed implementation plan, testing
+  expectations, and rename risk mitigations.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
   — A collection of real-world identifiers that demonstrate how the formatter
   classifies edge cases and applies rename overrides.
@@ -36,11 +38,8 @@ context.
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
 
-## Planning notes
+## Planning notes & design history
 
-- [Identifier Case & Naming Convention Guide](naming-conventions.md) — Also
-  contains the condensed implementation plan, testing expectations, and rename
-  risk mitigations for the feature.
 - [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline that
   collects built-in Feather debugger metadata and how the generated files are
   versioned.
