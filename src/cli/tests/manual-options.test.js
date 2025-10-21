@@ -24,7 +24,10 @@ import {
     getDefaultProgressBarWidth
 } from "../lib/progress-bar.js";
 import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
-import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import {
+    applySharedManualCommandOptions,
+    resolveManualCommandOptions
+} from "../lib/manual-command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
@@ -282,6 +285,72 @@ describe("manual option helpers", () => {
             });
 
             assert.deepEqual(calls, [["vmEvalTimeoutMs", 6500, "env"]]);
+        });
+    });
+
+    describe("applySharedManualCommandOptions", () => {
+        it("attaches shared manual options in default order", () => {
+            const calls = [];
+            const command = {
+                option(...args) {
+                    calls.push(args);
+                    return this;
+                }
+            };
+
+            applySharedManualCommandOptions(command, {
+                outputPath: { defaultValue: "/tmp/output.json" },
+                cacheRoot: { defaultValue: "/tmp/cache" }
+            });
+
+            assert.deepStrictEqual(
+                calls.map(([flag]) => flag),
+                [
+                    "-o, --output <path>",
+                    "--force-refresh",
+                    "--quiet",
+                    "--manual-repo <owner/name>",
+                    "--cache-root <path>",
+                    "--progress-bar-width <columns>"
+                ]
+            );
+        });
+
+        it("supports custom quiet descriptions and option ordering", () => {
+            const calls = [];
+            const command = {
+                option(...args) {
+                    calls.push(args);
+                    return this;
+                }
+            };
+
+            applySharedManualCommandOptions(command, {
+                outputPath: { defaultValue: "/tmp/output.json" },
+                cacheRoot: { defaultValue: "/tmp/cache" },
+                quietDescription: "custom quiet",
+                optionOrder: [
+                    "outputPath",
+                    "progressBarWidth",
+                    "manualRepo",
+                    "forceRefresh",
+                    "quiet",
+                    "cacheRoot"
+                ]
+            });
+
+            assert.equal(calls[4][1], "custom quiet");
+            assert.deepStrictEqual(
+                calls.map(([flag]) => flag),
+                [
+                    "-o, --output <path>",
+                    "--progress-bar-width <columns>",
+                    "--manual-repo <owner/name>",
+                    "--force-refresh",
+                    "--quiet",
+                    "--cache-root <path>"
+                ]
+            );
         });
     });
 });
