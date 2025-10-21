@@ -73,6 +73,27 @@ function forEachNodeChild(node, callback) {
     }
 }
 
+function cloneOwnLocation(source, target) {
+    if (
+        !source ||
+        typeof source !== "object" ||
+        !target ||
+        typeof target !== "object"
+    ) {
+        return target;
+    }
+
+    if (hasOwn(source, "start")) {
+        target.start = cloneLocation(source.start);
+    }
+
+    if (hasOwn(source, "end")) {
+        target.end = cloneLocation(source.end);
+    }
+
+    return target;
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -2133,13 +2154,7 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         arguments: [argumentExpression]
     };
 
-    if (hasOwn(node, "start")) {
-        callExpression.start = cloneLocation(node.start);
-    }
-
-    if (hasOwn(node, "end")) {
-        callExpression.end = cloneLocation(node.end);
-    }
+    cloneOwnLocation(node, callExpression);
 
     copyCommentMetadata(node, callExpression);
 
@@ -4895,13 +4910,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         init: initializer
     };
 
-    if (hasOwn(argument, "start")) {
-        declarator.start = cloneLocation(argument.start);
-    }
-
-    if (hasOwn(argument, "end")) {
-        declarator.end = cloneLocation(argument.end);
-    }
+    cloneOwnLocation(argument, declarator);
 
     const variableDeclaration = {
         type: "VariableDeclaration",
@@ -4909,13 +4918,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         kind: "var"
     };
 
-    if (hasOwn(node, "start")) {
-        variableDeclaration.start = cloneLocation(node.start);
-    }
-
-    if (hasOwn(node, "end")) {
-        variableDeclaration.end = cloneLocation(node.end);
-    }
+    cloneOwnLocation(node, variableDeclaration);
 
     const temporaryIdentifier = createIdentifier(temporaryName, argument);
 
@@ -4930,13 +4933,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         argument: temporaryIdentifier
     };
 
-    if (hasOwn(node, "start")) {
-        rewrittenStatement.start = cloneLocation(node.start);
-    }
-
-    if (hasOwn(node, "end")) {
-        rewrittenStatement.end = cloneLocation(node.end);
-    }
+    cloneOwnLocation(node, rewrittenStatement);
 
     copyCommentMetadata(node, variableDeclaration);
     copyCommentMetadata(node, rewrittenStatement);
