@@ -80,6 +80,7 @@ const { willBreak } = utils;
 const preservedUndefinedDefaultParameters = new WeakSet();
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
+const preferredArgumentReferenceNamesByNode = new WeakMap();
 
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
@@ -1095,6 +1096,16 @@ export function print(path, options, print) {
             );
             if (isNonEmptyString(preferredParamName)) {
                 identifierName = preferredParamName;
+            } else {
+                const preferredArgumentName =
+                    getPreferredFunctionArgumentReferenceName(
+                        path,
+                        node,
+                        options
+                    );
+                if (isNonEmptyString(preferredArgumentName)) {
+                    identifierName = preferredArgumentName;
+                }
             }
 
             const renamed = getIdentifierCaseRenameForNode(node, options);
@@ -3162,6 +3173,93 @@ function getPreferredFunctionParameterName(path, node, options) {
     return isValidIdentifierName(normalizedName) ? normalizedName : null;
 }
 
+function getPreferredFunctionArgumentReferenceName(path, node, options) {
+    if (!node || typeof node.name !== "string") {
+        return null;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(node.name);
+    if (argumentIndex === null) {
+        return null;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (
+        !functionNode ||
+        (functionNode.type !== "FunctionDeclaration" &&
+            functionNode.type !== "ConstructorDeclaration")
+    ) {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+    if (argumentIndex >= params.length) {
+        return null;
+    }
+
+    let cachedNames = preferredArgumentReferenceNamesByNode.get(functionNode);
+    if (!cachedNames) {
+        cachedNames = new Map();
+        preferredArgumentReferenceNamesByNode.set(functionNode, cachedNames);
+    }
+
+    if (cachedNames.has(argumentIndex)) {
+        return cachedNames.get(argumentIndex) ?? null;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[argumentIndex]);
+    if (!identifier || typeof identifier.name !== "string") {
+        cachedNames.set(argumentIndex, null);
+        return null;
+    }
+
+    let preferredSource = null;
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    if (docPreferences?.has(argumentIndex)) {
+        preferredSource = docPreferences.get(argumentIndex);
+    }
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === argumentIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !==
+                        implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== identifier.name
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === identifier.name) {
+        cachedNames.set(argumentIndex, null);
+        return null;
+    }
+
+    cachedNames.set(argumentIndex, normalizedName);
+    return normalizedName;
+}
+
 function findFunctionParameterContext(path) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
@@ -3211,6 +3309,30 @@ function getIdentifierFromParameterNode(param) {
         param.left?.type === "Identifier"
     ) {
         return param.left;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "FunctionExpression" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            return parent;
+        }
     }
 
     return null;
