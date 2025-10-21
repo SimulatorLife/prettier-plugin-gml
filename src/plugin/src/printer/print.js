@@ -80,6 +80,7 @@ const { willBreak } = utils;
 const preservedUndefinedDefaultParameters = new WeakSet();
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
+const resolvedFunctionParameterNamesByNode = new WeakMap();
 
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
@@ -635,23 +636,34 @@ export function print(path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
-            let decls = [];
-            decls =
-                node.declarations.length > 1
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "declarations",
-                          "",
-                          "",
-                          options,
-                          {
-                              leadingNewline: false,
-                              trailingNewline: false
-                          }
-                      )
-                    : path.map(print, "declarations");
-            return concat([node.kind, " ", decls]);
+            const declarations = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+
+            const printedDeclarators = [];
+
+            for (const [index, declarator] of declarations.entries()) {
+                if (
+                    shouldOmitRedundantArgumentAliasDeclarator(path, declarator)
+                ) {
+                    continue;
+                }
+
+                printedDeclarators.push(
+                    path.call(print, "declarations", index)
+                );
+            }
+
+            if (printedDeclarators.length === 0) {
+                return;
+            }
+
+            const declsDoc =
+                printedDeclarators.length === 1
+                    ? printedDeclarators[0]
+                    : group(join([",", line], printedDeclarators));
+
+            return concat([node.kind, " ", declsDoc]);
         }
         case "VariableDeclarator": {
             return concat(printSimpleDeclaration(print("id"), print("init")));
@@ -3155,11 +3167,20 @@ function getPreferredFunctionParameterName(path, node, options) {
     }
 
     const normalizedName = normalizePreferredParameterName(preferredSource);
-    if (!normalizedName || normalizedName === identifier.name) {
+    const identifierName = identifier.name;
+
+    const resolvedName =
+        normalizedName && isValidIdentifierName(normalizedName)
+            ? normalizedName
+            : identifierName;
+
+    recordResolvedFunctionParameterName(functionNode, paramIndex, resolvedName);
+
+    if (resolvedName === identifierName) {
         return null;
     }
 
-    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+    return resolvedName;
 }
 
 function findFunctionParameterContext(path) {
@@ -3192,6 +3213,63 @@ function findFunctionParameterContext(path) {
         }
 
         candidate = parent;
+    }
+
+    return null;
+}
+
+function recordResolvedFunctionParameterName(functionNode, index, name) {
+    if (
+        !functionNode ||
+        !Number.isInteger(index) ||
+        index < 0 ||
+        typeof name !== "string" ||
+        name.length === 0
+    ) {
+        return;
+    }
+
+    let paramMap = resolvedFunctionParameterNamesByNode.get(functionNode);
+    if (!paramMap) {
+        paramMap = new Map();
+        resolvedFunctionParameterNamesByNode.set(functionNode, paramMap);
+    }
+
+    if (!paramMap.has(index)) {
+        paramMap.set(index, name);
+    }
+}
+
+function getResolvedFunctionParameterName(functionNode, index) {
+    if (!functionNode || !Number.isInteger(index) || index < 0) {
+        return null;
+    }
+
+    const paramMap = resolvedFunctionParameterNamesByNode.get(functionNode);
+    return paramMap?.get(index) ?? null;
+}
+
+function findEnclosingFunctionLikeNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let depth = 0;
+    while (true) {
+        const ancestor =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!ancestor) {
+            break;
+        }
+
+        if (
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "ConstructorDeclaration"
+        ) {
+            return ancestor;
+        }
+
+        depth += 1;
     }
 
     return null;
@@ -3688,6 +3766,52 @@ function createImplicitArgumentDocEntry({
     };
 }
 
+function shouldOmitRedundantArgumentAliasDeclarator(path, declarator) {
+    if (!declarator || declarator.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    if (declarator._suppressRedundantArgumentAlias === true) {
+        return true;
+    }
+
+    const identifier =
+        declarator.id?.type === "Identifier" ? declarator.id : null;
+    if (!identifier) {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromNode(declarator.init);
+    if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
+        return false;
+    }
+
+    const functionNode = findEnclosingFunctionLikeNode(path);
+    if (!functionNode) {
+        return false;
+    }
+
+    const resolvedName = getResolvedFunctionParameterName(
+        functionNode,
+        argumentIndex
+    );
+
+    if (typeof resolvedName !== "string" || resolvedName.length === 0) {
+        return false;
+    }
+
+    const canonicalAlias =
+        getCanonicalParamNameFromText(identifier.name) ??
+        normalizeDocMetadataName(identifier.name) ??
+        identifier.name;
+    const canonicalParam =
+        getCanonicalParamNameFromText(resolvedName) ??
+        normalizeDocMetadataName(resolvedName) ??
+        resolvedName;
+
+    return canonicalAlias === canonicalParam;
+}
+
 function getArgumentIndexFromNode(node) {
     if (!node || typeof node !== "object") {
         return null;
@@ -3913,7 +4037,7 @@ function normalizeOptionalParamNameToken(name) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -3924,7 +4048,7 @@ function normalizeOptionalParamNameToken(name) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;
