@@ -3733,10 +3733,50 @@ function parseDocCommentMetadata(line) {
             const paramMatch = paramSection.match(/^(\S+)/);
             name = paramMatch ? paramMatch[1] : null;
         }
+        if (typeof name === "string") {
+            name = normalizeOptionalParamNameToken(name);
+        }
         return { tag, name };
     }
 
     return { tag, name: remainder };
+}
+
+function normalizeOptionalParamNameToken(name) {
+    if (typeof name !== "string") {
+        return name;
+    }
+
+    const trimmed = name.trim();
+
+    if (/^\[[^\]]+\]$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    let stripped = trimmed;
+    let hadSentinel = false;
+
+    while (stripped.startsWith("*")) {
+        stripped = stripped.slice(1);
+        hadSentinel = true;
+    }
+
+    while (stripped.endsWith("*")) {
+        stripped = stripped.slice(0, - 1);
+        hadSentinel = true;
+    }
+
+    if (!hadSentinel) {
+        return trimmed;
+    }
+
+    const normalized = stripped.trim();
+
+    if (normalized.length === 0) {
+        return stripped.replaceAll('*', "");
+    }
+
+    return `[${normalized}]`;
 }
 
 function getSourceTextForNode(node, options) {
@@ -4489,8 +4529,17 @@ function normalizeDocMetadataName(name) {
         return name;
     }
 
-    const sanitized = stripSyntheticParameterSentinels(name);
-    return sanitized.length > 0 ? sanitized : name;
+    const optionalNormalized = normalizeOptionalParamNameToken(name);
+    if (typeof optionalNormalized === "string") {
+        if (/^\[[^\]]+\]$/.test(optionalNormalized)) {
+            return optionalNormalized;
+        }
+
+        const sanitized = stripSyntheticParameterSentinels(optionalNormalized);
+        return sanitized.length > 0 ? sanitized : optionalNormalized;
+    }
+
+    return name;
 }
 
 function docHasTrailingComment(doc) {
