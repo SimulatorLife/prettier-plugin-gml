@@ -23,47 +23,23 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
-function toKeyIterable(value) {
-    if (Array.isArray(value)) {
-        return value;
-    }
-
-    if (value && typeof value[Symbol.iterator] === "function") {
-        return [...value];
-    }
-
-    return [];
-}
-
 function normalizeCacheKeys(keys) {
     const candidates = keys ?? DEFAULT_CACHE_KEYS;
-    const normalized = [];
-    const seen = new Set();
+    const iterable =
+        Array.isArray(candidates) ||
+        typeof candidates?.[Symbol.iterator] === "function"
+            ? candidates
+            : [];
 
-    for (const candidate of toKeyIterable(candidates)) {
-        const label = getNonEmptyString(candidate);
-        if (!label) {
-            continue;
-        }
+    const normalized = Array.from(
+        new Set(
+            Array.from(iterable, (candidate) =>
+                getNonEmptyString(candidate)?.trim()
+            ).filter(Boolean)
+        )
+    );
 
-        const trimmed = label.trim();
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        if (seen.has(trimmed)) {
-            continue;
-        }
-
-        seen.add(trimmed);
-        normalized.push(trimmed);
-    }
-
-    if (normalized.length === 0) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
-
-    return normalized;
+    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {

@@ -6,6 +6,7 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
+import { trimStringEntries } from "../../../shared/string-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
@@ -444,10 +445,9 @@ function splitCommentIntoSentences(text) {
     }
 
     const splitPattern = /(?<=\.)\s+(?=[A-Z])/g;
-    const segments = text
-        .split(splitPattern)
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
+    const segments = trimStringEntries(text.split(splitPattern)).filter(
+        (segment) => segment.length > 0
+    );
 
     return segments.length > 0 ? segments : [text];
 }

@@ -1666,6 +1666,109 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
  * coordinator focused on orchestration. Handles filesystem access, metrics,
  * record preparation, and AST analysis for the provided file.
  */
+async function readProjectGmlFile({ file, fsFacade, metrics }) {
+    try {
+        const contents = await metrics.timeAsync("fs.readGml", () =>
+            fsFacade.readFile(file.absolutePath, "utf8")
+        );
+        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        return contents;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics.incrementCounter("files.missingDuringRead");
+            return null;
+        }
+        throw error;
+    }
+}
+
+function registerFilePathWithScope(scopeRecord, filePath) {
+    if (!scopeRecord?.filePaths) {
+        return;
+    }
+
+    if (!scopeRecord.filePaths.includes(filePath)) {
+        scopeRecord.filePaths.push(filePath);
+    }
+}
+
+function prepareProjectIndexRecords({
+    file,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections
+}) {
+    const scopeDescriptor =
+        resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+        createFileScopeDescriptor(file.relativePath);
+    const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
+    registerFilePathWithScope(scopeRecord, file.relativePath);
+    ensureScriptEntry(identifierCollections, scopeDescriptor);
+
+    const fileRecord = ensureFileRecord(
+        filesMap,
+        file.relativePath,
+        scopeRecord.id
+    );
+
+    ensureSyntheticScriptDeclaration({
+        scopeDescriptor,
+        scopeRecord,
+        fileRecord,
+        identifierCollections,
+        filePath: file.relativePath
+    });
+
+    return { scopeDescriptor, scopeRecord, fileRecord };
+}
+
+function parseProjectGmlSource({
+    contents,
+    file,
+    parseProjectSource,
+    metrics,
+    projectRoot
+}) {
+    return metrics.timeSync("gml.parse", () =>
+        parseProjectSource(contents, {
+            filePath: file.relativePath,
+            projectRoot
+        })
+    );
+}
+
+function analyseProjectGmlAst({
+    ast,
+    builtInNames,
+    scopeRecord,
+    fileRecord,
+    relationships,
+    resourceAnalysis,
+    identifierCollections,
+    scopeDescriptor,
+    metrics,
+    sourceContents,
+    lineOffsets
+}) {
+    metrics.timeSync("gml.analyse", () =>
+        analyseGmlAst({
+            ast,
+            builtInNames,
+            scopeRecord,
+            fileRecord,
+            relationships,
+            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
+            identifierCollections,
+            scopeDescriptor,
+            metrics,
+            sourceContents,
+            lineOffsets
+        })
+    );
+}
+
 async function processProjectGmlFile({
     file,
     fsFacade,
@@ -1683,71 +1786,44 @@ async function processProjectGmlFile({
     ensureNotAborted();
     metrics.incrementCounter("files.gmlProcessed");
 
-    let contents;
-    try {
-        contents = await metrics.timeAsync("fs.readGml", () =>
-            fsFacade.readFile(file.absolutePath, "utf8")
-        );
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            metrics.incrementCounter("files.missingDuringRead");
-            return;
-        }
-        throw error;
+    const contents = await readProjectGmlFile({ file, fsFacade, metrics });
+    if (contents === null) {
+        return;
     }
 
     ensureNotAborted();
 
-    metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
     const lineOffsets = computeLineOffsets(contents);
+    const { scopeDescriptor, scopeRecord, fileRecord } =
+        prepareProjectIndexRecords({
+            file,
+            resourceAnalysis,
+            scopeMap,
+            filesMap,
+            identifierCollections
+        });
 
-    const scopeDescriptor =
-        resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-        createFileScopeDescriptor(file.relativePath);
-
-    const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-    if (!scopeRecord.filePaths.includes(file.relativePath)) {
-        scopeRecord.filePaths.push(file.relativePath);
-    }
-    ensureScriptEntry(identifierCollections, scopeDescriptor);
-
-    const fileRecord = ensureFileRecord(
-        filesMap,
-        file.relativePath,
-        scopeRecord.id
-    );
-
-    ensureSyntheticScriptDeclaration({
-        scopeDescriptor,
-        scopeRecord,
-        fileRecord,
-        identifierCollections,
-        filePath: file.relativePath
+    const ast = parseProjectGmlSource({
+        contents,
+        file,
+        parseProjectSource,
+        metrics,
+        projectRoot
     });
 
-    const ast = metrics.timeSync("gml.parse", () =>
-        parseProjectSource(contents, {
-            filePath: file.relativePath,
-            projectRoot
-        })
-    );
-
-    metrics.timeSync("gml.analyse", () =>
-        analyseGmlAst({
-            ast,
-            builtInNames,
-            scopeRecord,
-            fileRecord,
-            relationships,
-            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
-            identifierCollections,
-            scopeDescriptor,
-            metrics,
-            sourceContents: contents,
-            lineOffsets
-        })
-    );
+    analyseProjectGmlAst({
+        ast,
+        builtInNames,
+        scopeRecord,
+        fileRecord,
+        relationships,
+        resourceAnalysis,
+        identifierCollections,
+        scopeDescriptor,
+        metrics,
+        sourceContents: contents,
+        lineOffsets
+    });
 }
 
 /**

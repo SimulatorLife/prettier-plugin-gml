@@ -117,6 +117,34 @@ export function capitalize(value) {
 }
 
 /**
+ * Trim each string entry in {@link values}, preserving array order. Throws when
+ * encountering a non-string entry so call sites relying on `String#split`
+ * semantics continue to surface early when provided unexpected input.
+ *
+ * @param {Array<string>} values List of string entries to trim.
+ * @returns {Array<string>} New array containing the trimmed entries.
+ */
+export function trimStringEntries(values) {
+    if (!Array.isArray(values)) {
+        throw new TypeError("values must be provided as an array of strings.");
+    }
+
+    const trimmed = Array.from({ length: values.length });
+
+    for (const [index, value] of values.entries()) {
+        if (typeof value !== "string") {
+            throw new TypeError(
+                "values must be provided as an array of strings."
+            );
+        }
+
+        trimmed[index] = value.trim();
+    }
+
+    return trimmed;
+}
+
+/**
  * Remove matching string quotes from {@link value}, returning `null` when the
  * input is not a quoted string. Supports both single- and double-quoted
  * literals so call sites can focus on their specific validation logic without
@@ -140,7 +168,15 @@ export function stripStringQuotes(value) {
     return null;
 }
 
+/**
+ * Literal double-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
 const DOUBLE_QUOTE_CHARACTER = '"';
+/**
+ * Literal single-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
 const SINGLE_QUOTE_CHARACTER = "'";
 
 function isQuoteCharacter(character) {

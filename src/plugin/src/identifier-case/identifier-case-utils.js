@@ -1,6 +1,7 @@
 import {
     capitalize,
-    normalizeStringList
+    normalizeStringList,
+    trimStringEntries
 } from "../../../shared/string-utils.js";
 
 const RESERVED_PREFIX_PATTERN =
@@ -71,10 +72,9 @@ function tokenizeCore(core) {
         return [];
     }
 
-    const rawSegments = core
-        .split(CORE_SEGMENT_DELIMITER_PATTERN)
-        .map((segment) => segment.trim())
-        .filter(Boolean);
+    const rawSegments = trimStringEntries(
+        core.split(CORE_SEGMENT_DELIMITER_PATTERN)
+    ).filter(Boolean);
 
     const tokens = [];
     for (const segment of rawSegments) {

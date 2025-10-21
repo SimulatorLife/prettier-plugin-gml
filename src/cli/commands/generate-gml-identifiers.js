@@ -4,7 +4,11 @@ import { Command } from "commander";
 
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
+import {
+    normalizeIdentifierMetadataEntries,
+    toNormalizedLowerCaseSet,
+    toPosixPath
+} from "../lib/shared-deps.js";
 import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
@@ -31,6 +35,10 @@ import {
 } from "../lib/manual-command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
+import {
+    decodeManualKeywordsPayload,
+    decodeManualTagsPayload
+} from "../lib/manual-payload-validation.js";
 
 const {
     repoRoot: REPO_ROOT,
@@ -572,12 +580,18 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
 
         const manualKeywords = timeSync(
             "Decoding ZeusDocs keywords",
-            () => JSON.parse(keywordsJson),
+            () =>
+                decodeManualKeywordsPayload(keywordsJson, {
+                    source: "ZeusDocs_keywords.json"
+                }),
             { verbose }
         );
         const manualTags = timeSync(
             "Decoding ZeusDocs tags",
-            () => JSON.parse(tagsJsonText),
+            () =>
+                decodeManualTagsPayload(tagsJsonText, {
+                    source: "ZeusDocs_tags.json"
+                }),
             { verbose }
         );
 
@@ -598,6 +612,21 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             { verbose }
         );
 
+        const identifiersObject = Object.fromEntries(sortedIdentifiers);
+        const normalizedEntries = normalizeIdentifierMetadataEntries({
+            identifiers: identifiersObject
+        });
+
+        if (normalizedEntries.length !== sortedIdentifiers.length) {
+            throw new Error(
+                "Generated manual identifier metadata contained invalid entries."
+            );
+        }
+
+        const normalizedIdentifiers = Object.fromEntries(
+            normalizedEntries.map(({ name, descriptor }) => [name, descriptor])
+        );
+
         const payload = {
             meta: {
                 manualRef: manualRef.ref,
@@ -605,7 +634,7 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
                 generatedAt: new Date().toISOString(),
                 source: manualRepo
             },
-            identifiers: Object.fromEntries(sortedIdentifiers)
+            identifiers: normalizedIdentifiers
         };
 
         await writeManualJsonArtifact({
@@ -613,7 +642,7 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             payload,
             onAfterWrite: () => {
                 console.log(
-                    `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
+                    `Wrote ${normalizedEntries.length} identifiers to ${outputPath}`
                 );
             }
         });
