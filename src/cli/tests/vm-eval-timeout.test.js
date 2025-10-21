@@ -5,7 +5,9 @@ import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs,
-    setDefaultVmEvalTimeoutMs
+    setDefaultVmEvalTimeoutMs,
+    applyVmEvalTimeoutEnvOverride,
+    VM_EVAL_TIMEOUT_ENV_VAR
 } from "../lib/vm-eval-timeout.js";
 
 const originalDefaultTimeout = getDefaultVmEvalTimeoutMs();
@@ -77,6 +79,15 @@ describe("VM evaluation timeout defaults", () => {
         setDefaultVmEvalTimeoutMs(0);
         assert.strictEqual(getDefaultVmEvalTimeoutMs(), 0);
         assert.strictEqual(resolveVmEvalTimeout(), null);
+    });
+
+    it("applies the environment override for the default timeout", () => {
+        applyVmEvalTimeoutEnvOverride({
+            [VM_EVAL_TIMEOUT_ENV_VAR]: "7500"
+        });
+
+        assert.strictEqual(getDefaultVmEvalTimeoutMs(), 7500);
+        assert.strictEqual(resolveVmEvalTimeout(), 7500);
     });
 
     it("rejects negative overrides", () => {
