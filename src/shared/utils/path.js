@@ -210,12 +210,12 @@ export function collectAncestorDirectories(...startingDirectories) {
  * @param {string | null | undefined} projectRoot Optional project root used
  *        when computing relative paths.
  * @returns {{
- *   absolutePath: string,
- *   hasProjectRoot: boolean,
- *   inputWasAbsolute: boolean,
- *   isInsideProjectRoot: boolean,
- *   projectRoot: string | null,
- *   relativePath: string
+ *     absolutePath: string,
+ *     hasProjectRoot: boolean,
+ *     inputWasAbsolute: boolean,
+ *     isInsideProjectRoot: boolean,
+ *     projectRoot: string | null,
+ *     relativePath: string
  * } | null}
  */
 export function resolveProjectPathInfo(filePath, projectRoot) {
