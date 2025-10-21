@@ -387,7 +387,16 @@ function visitChildNodes(node, callback) {
         return;
     }
 
-    for (const value of Object.values(node)) {
+    // `Object.values` allocates a fresh array on every call which shows up in
+    // hot traversal loops. Iterating the object with `for…in` and guarding with
+    // `Object.hasOwn` keeps the semantics identical while avoiding the extra
+    // array allocation.
+    for (const key in node) {
+        if (!Object.hasOwn(node, key)) {
+            continue;
+        }
+
+        const value = node[key];
         if (
             value !== undefined &&
             value !== null &&
