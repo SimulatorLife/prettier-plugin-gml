@@ -1,5 +1,6 @@
 import { getNonEmptyString } from "../../../shared/string-utils.js";
 import { resolveProjectPathInfo } from "../../../shared/path-utils.js";
+import { splitLines } from "../../../shared/line-breaks.js";
 
 /**
  * Format parser-originated syntax errors into the structured messages surfaced
@@ -140,10 +141,6 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     const pointerLine = `${indicatorSpacing}${" ".repeat(pointerOffset)}^`;
 
     return `${contentLine}\n${pointerLine}`;
-}
-
-function splitLines(sourceText) {
-    return sourceText.split(/\r\n|\n|\r|\u2028|\u2029|\u0085/);
 }
 
 function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
