@@ -11,6 +11,7 @@ export {
     getOrCreateMapEntry,
     isNonEmptyString,
     isObjectLike,
+    normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
     parseJsonWithContext,
     resolveIntegerOption,

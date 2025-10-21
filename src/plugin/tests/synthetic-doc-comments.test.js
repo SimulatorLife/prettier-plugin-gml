@@ -265,6 +265,33 @@ test("reorders description doc comments between parameters and returns", async (
     );
 });
 
+test("omits alias-style description doc comments when synthetic metadata is emitted", async () => {
+    const source = [
+        "/// @description sample_alias(arg0, arg1)",
+        "/// @param arg0",
+        "/// @param arg1",
+        "function sample_alias(argument0, argument1)",
+        "{",
+        "    return argument0 + argument1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.ok(
+        lines.includes("/// @function sample_alias"),
+        "Synthetic doc comments should still describe the function name."
+    );
+    assert.ok(
+        !lines.some((line) =>
+            line.startsWith("/// @description sample_alias(")
+        ),
+        "Alias-style @description entries should be removed once synthetic metadata provides the function name."
+    );
+});
+
 test("respects wider printWidth when wrapping description doc comments", async () => {
     const source = [
         "/// @function sample(_first, _second)",

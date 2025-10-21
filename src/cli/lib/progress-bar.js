@@ -3,7 +3,6 @@ import { SingleBar, Presets } from "cli-progress";
 import {
     coercePositiveInteger,
     createEnvConfiguredValue,
-    getOrCreateMapEntry,
     resolveIntegerOption
 } from "./shared-deps.js";
 
@@ -89,19 +88,18 @@ function renderProgressBar(label, current, total, width) {
 
     const normalizedTotal = total > 0 ? total : 1;
     const normalizedCurrent = Math.min(current, normalizedTotal);
-    const hadBar = activeProgressBars.has(label);
-    const bar = getOrCreateMapEntry(activeProgressBars, label, () =>
-        createDefaultProgressBar(label, width)
-    );
+    let bar = activeProgressBars.get(label);
 
-    if (hadBar) {
+    if (bar) {
         bar.setTotal(normalizedTotal);
         bar.update(normalizedCurrent);
     } else {
+        bar = createDefaultProgressBar(label, width);
+        activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }
 
-    if (current >= normalizedTotal) {
+    if (normalizedCurrent >= normalizedTotal) {
         bar.stop();
         activeProgressBars.delete(label);
     }

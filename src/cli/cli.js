@@ -85,6 +85,7 @@ import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
+const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
@@ -120,7 +121,7 @@ function formatExtensionListForDisplay(extensions) {
 
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
-    const resolvedCwd = path.resolve(process.cwd());
+    const resolvedCwd = INITIAL_WORKING_DIRECTORY;
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
     if (resolvedTarget === resolvedCwd) {

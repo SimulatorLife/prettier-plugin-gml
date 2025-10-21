@@ -32,6 +32,9 @@ context.
 - [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
   file tuned for common GameMaker metadata folders when rolling the formatter
   into an existing repository.
+- [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
+  lookup for environment variables and wrapper behaviour when scripting
+  formatter runs in CI or editor tooling.
 
 ## Planning notes
 

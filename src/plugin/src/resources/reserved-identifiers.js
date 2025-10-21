@@ -1,10 +1,7 @@
 import { createRequire } from "node:module";
 
-import {
-    isNonEmptyString,
-    toNormalizedLowerCaseSet
-} from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { toNormalizedLowerCaseSet } from "../../../shared/string-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 
 const require = createRequire(import.meta.url);
 
@@ -29,35 +26,22 @@ function resolveExcludedTypes(types) {
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
-    const identifiers = metadata?.identifiers;
+    const entries = normalizeIdentifierMetadataEntries(metadata);
 
-    if (!isObjectLike(identifiers)) {
+    if (entries.length === 0) {
         return new Set();
     }
 
     const excludedTypes = resolveExcludedTypes(disallowedTypes);
+    const names = new Set();
 
-    return Object.entries(identifiers).reduce(
-        (names, [name, info]) =>
-            addIdentifierWhenAllowed(names, name, info, excludedTypes),
-        new Set()
-    );
-}
+    for (const { name, type } of entries) {
+        if (excludedTypes.has(type)) {
+            continue;
+        }
 
-function addIdentifierWhenAllowed(names, rawName, info, excludedTypes) {
-    if (!isNonEmptyString(rawName)) {
-        return names;
+        names.add(name.toLowerCase());
     }
 
-    const normalizedType = normalizeIdentifierType(info);
-    if (excludedTypes.has(normalizedType)) {
-        return names;
-    }
-
-    names.add(rawName.toLowerCase());
     return names;
-}
-
-function normalizeIdentifierType(info) {
-    return typeof info?.type === "string" ? info.type.toLowerCase() : "";
 }

@@ -6,12 +6,13 @@ import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
     resolveManualRepoValue
-} from "./manual-utils.js";
+} from "./manual/utils.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import { hasOwn } from "./shared/object-utils.js";
+import { assertFunction, hasOwn } from "./shared/object-utils.js";
+import { isNonEmptyString } from "./shared/string-utils.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
@@ -41,10 +42,9 @@ function resolveManualOptionBaseConfig(
 
     const config = option ?? {};
     const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
-    const description =
-        typeof config.description === "string" && config.description.length > 0
-            ? config.description
-            : describe(defaultValue);
+    const description = isNonEmptyString(config.description)
+        ? config.description
+        : describe(defaultValue);
 
     return {
         config,
@@ -54,41 +54,27 @@ function resolveManualOptionBaseConfig(
     };
 }
 
-function createOptionOrder({ optionOrder, handlers, customHandlers }) {
-    const defaultOrder = [
-        "outputPath",
-        "forceRefresh",
-        "quiet",
-        "manualRepo",
-        "cacheRoot",
-        "progressBarWidth"
-    ];
+const DEFAULT_OPTION_ORDER = Object.freeze([
+    "outputPath",
+    "forceRefresh",
+    "quiet",
+    "manualRepo",
+    "cacheRoot",
+    "progressBarWidth"
+]);
 
-    const registeredKeys = new Set([
-        ...handlers.keys(),
-        ...customHandlers.keys()
+function createOptionOrder({ optionOrder, handlers, customHandlers }) {
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = Array.from(customHandlers.keys());
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys
     ]);
 
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const orderingCandidates = [
-        ...preferredOrder,
-        ...defaultOrder,
-        ...customHandlers.keys()
-    ];
-
-    const seen = new Set();
-    const sequence = [];
-
-    for (const key of orderingCandidates) {
-        if (seen.has(key) || !registeredKeys.has(key)) {
-            continue;
-        }
-
-        seen.add(key);
-        sequence.push(key);
-    }
-
-    return sequence;
+    return [...ordering].filter(
+        (key) => handlers.has(key) || customHandlers.has(key)
+    );
 }
 
 export function applySharedManualCommandOptions(
@@ -173,9 +159,7 @@ export function applySharedManualCommandOptions(
                 ? progressOption.config.resolve
                 : resolveProgressBarWidth;
 
-        if (typeof resolveFn !== "function") {
-            throw new TypeError("progressBarWidth.resolve must be a function.");
-        }
+        assertFunction(resolveFn, "progressBarWidth.resolve");
 
         handlers.set("progressBarWidth", () =>
             command.option(
@@ -193,9 +177,7 @@ export function applySharedManualCommandOptions(
                 ? manualRepoOption.config.resolve
                 : resolveManualRepoValue;
 
-        if (typeof resolveFn !== "function") {
-            throw new TypeError("manualRepo.resolve must be a function.");
-        }
+        assertFunction(resolveFn, "manualRepo.resolve");
 
         handlers.set("manualRepo", () =>
             command.option(
