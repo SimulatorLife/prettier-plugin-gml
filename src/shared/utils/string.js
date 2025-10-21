@@ -129,7 +129,7 @@ export function trimStringEntries(values) {
         throw new TypeError("values must be provided as an array of strings.");
     }
 
-    const trimmed = Array.from({length: values.length});
+    const trimmed = Array.from({ length: values.length });
 
     for (const [index, value] of values.entries()) {
         if (typeof value !== "string") {
