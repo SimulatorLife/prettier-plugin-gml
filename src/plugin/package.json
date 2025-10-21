@@ -3,7 +3,8 @@
   "type": "module",
   "exports": {
     ".": "./src/gml.js",
-    "./cli-services": "./src/cli-services.js"
+    "./project-index": "./src/project-index.js",
+    "./identifier-case": "./src/identifier-case.js"
   },
   "config": {
     "root_path": "."
