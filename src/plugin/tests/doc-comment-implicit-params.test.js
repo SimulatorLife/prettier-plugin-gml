@@ -172,11 +172,13 @@ test("collectImplicitArgumentDocNames reuses documented names when alias is miss
         docEnd = formatted.length;
     }
 
-    const paramLines = new Set(formatted
-        .slice(docStart, docEnd)
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("/// @param")));
+    const paramLines = new Set(
+        formatted
+            .slice(docStart, docEnd)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("/// @param"))
+    );
 
     assert.ok(
         paramLines.has("/// @param third"),
