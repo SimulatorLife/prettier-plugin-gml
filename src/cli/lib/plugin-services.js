@@ -62,13 +62,15 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 }
 
 export function resetRegisteredCliPluginServices() {
-    ({
-        projectIndex: { buildProjectIndex: projectIndexBuilder },
-        identifierCasePlanPreparation: {
-            prepareIdentifierCasePlan: identifierCasePlanPreparer
-        },
-        identifierCasePlanCache: {
-            clearIdentifierCaseCaches: identifierCaseCacheClearer
-        }
-    } = defaultCliPluginServices);
+    const {
+        projectIndex,
+        identifierCasePlanPreparation,
+        identifierCasePlanCache
+    } = defaultCliPluginServices;
+
+    projectIndexBuilder = projectIndex.buildProjectIndex;
+    identifierCasePlanPreparer =
+        identifierCasePlanPreparation.prepareIdentifierCasePlan;
+    identifierCaseCacheClearer =
+        identifierCasePlanCache.clearIdentifierCaseCaches;
 }
