@@ -806,6 +806,28 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("describes the current directory using '.' when no files match", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
+            );
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.ok(
+                stdout.includes("found in ."),
+                "Expected stdout to describe the current directory as '.'"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("prints CLI version information without triggering error handling", async () => {
         const { stdout, stderr } = await execFileAsync("node", [
             wrapperPath,

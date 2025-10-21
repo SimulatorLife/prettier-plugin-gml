@@ -123,12 +123,16 @@ function formatPathForDisplay(targetPath) {
     const resolvedCwd = path.resolve(process.cwd());
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
+    if (resolvedTarget === resolvedCwd) {
+        return ".";
+    }
+
     if (
-        relativePath &&
+        relativePath.length > 0 &&
         !relativePath.startsWith("..") &&
         !path.isAbsolute(relativePath)
     ) {
-        return relativePath || ".";
+        return relativePath;
     }
 
     return resolvedTarget;
