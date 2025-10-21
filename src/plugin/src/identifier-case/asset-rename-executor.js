@@ -7,8 +7,12 @@ import {
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
+import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+
+const DEFAULT_WRITE_ACCESS_ARGS =
+    DEFAULT_WRITE_ACCESS_MODE == undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
 
 function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
@@ -24,7 +28,7 @@ function tryAccess(fsFacade, method, targetPath, ...args) {
         const result = fn.call(fsFacade, targetPath, ...args);
         return method === "existsSync" ? Boolean(result) : true;
     } catch (error) {
-        if (error?.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return false;
         }
         throw error;
@@ -129,13 +133,13 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
         return;
     }
 
-    const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE == undefined
-            ? []
-            : [DEFAULT_WRITE_ACCESS_MODE];
-
     if (
-        tryAccess(fsFacade, "accessSync", directoryPath, ...accessArgs) ||
+        tryAccess(
+            fsFacade,
+            "accessSync",
+            directoryPath,
+            ...DEFAULT_WRITE_ACCESS_ARGS
+        ) ||
         tryAccess(fsFacade, "existsSync", directoryPath)
     ) {
         return;
@@ -147,13 +151,13 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
 }
 
 function ensureWritableFile(fsFacade, filePath) {
-    const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE == undefined
-            ? []
-            : [DEFAULT_WRITE_ACCESS_MODE];
-
     if (
-        tryAccess(fsFacade, "accessSync", filePath, ...accessArgs) ||
+        tryAccess(
+            fsFacade,
+            "accessSync",
+            filePath,
+            ...DEFAULT_WRITE_ACCESS_ARGS
+        ) ||
         tryAccess(fsFacade, "statSync", filePath)
     ) {
         return;

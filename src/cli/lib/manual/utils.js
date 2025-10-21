@@ -10,6 +10,7 @@ import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { isNonEmptyArray } from "../shared/array-utils.js";
 import { writeManualFile } from "../manual-file-helpers.js";
+import { isFsErrorCode } from "../shared/fs-utils.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -447,7 +448,7 @@ function createManualGitHubFileClient({
 
                 return cached;
             } catch (error) {
-                if (error.code !== "ENOENT") {
+                if (!isFsErrorCode(error, "ENOENT")) {
                     throw error;
                 }
             }
