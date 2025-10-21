@@ -1,24 +1,35 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { SingleBar } from "cli-progress";
-
-import { disposeProgressBars, renderProgressBar } from "../lib/progress-bar.js";
+import {
+    TerminalProgressBar,
+    disposeProgressBars,
+    renderProgressBar
+} from "../lib/progress-bar.js";
 
 describe("manual CLI helpers", () => {
     it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();
+        const originalStart = TerminalProgressBar.prototype.start;
+        const originalStop = TerminalProgressBar.prototype.stop;
+
         const startMock = mock.method(
-            SingleBar.prototype,
+            TerminalProgressBar.prototype,
             "start",
-            function () {
+            function (...args) {
                 createdBars.add(this);
+                return originalStart.call(this, ...args);
             }
         );
-        const stopMock = mock.method(SingleBar.prototype, "stop", function () {
-            stopCounts.set(this, (stopCounts.get(this) ?? 0) + 1);
-        });
+        const stopMock = mock.method(
+            TerminalProgressBar.prototype,
+            "stop",
+            function (...args) {
+                stopCounts.set(this, (stopCounts.get(this) ?? 0) + 1);
+                return originalStop.call(this, ...args);
+            }
+        );
 
         const originalIsTTY = process.stdout.isTTY;
         process.stdout.isTTY = true;
