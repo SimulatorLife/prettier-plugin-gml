@@ -445,6 +445,98 @@ function createProjectTreeCollector(metrics = null) {
     };
 }
 
+function createDirectoryTraversalState(projectRoot) {
+    const pending = ["."];
+
+    return {
+        hasPending() {
+            return pending.length > 0;
+        },
+        nextDirectory() {
+            return pending.pop();
+        },
+        queueDirectory(relativePath) {
+            pending.push(relativePath);
+        },
+        resolve(relativePath) {
+            return path.join(projectRoot, relativePath);
+        }
+    };
+}
+
+async function readDirectoryEntries({
+    traversal,
+    relativeDir,
+    fsFacade,
+    signal,
+    ensureNotAborted,
+    metrics
+}) {
+    const absoluteDir = traversal.resolve(relativeDir);
+    ensureNotAborted();
+    const entries = await listDirectory(fsFacade, absoluteDir, { signal });
+    ensureNotAborted();
+    metrics?.incrementCounter("io.directoriesScanned");
+    return entries;
+}
+
+async function processDirectoryEntry({
+    entryName,
+    relativeDir,
+    traversal,
+    fsFacade,
+    collector,
+    signal,
+    ensureNotAborted,
+    metrics
+}) {
+    const relativePath = path.join(relativeDir, entryName);
+    const absolutePath = traversal.resolve(relativePath);
+    let stats;
+    try {
+        stats = await fsFacade.stat(absolutePath);
+        ensureNotAborted();
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics?.incrementCounter("io.skippedMissingEntries");
+            return;
+        }
+        throw error;
+    }
+
+    if (typeof stats?.isDirectory === "function" && stats.isDirectory()) {
+        traversal.queueDirectory(relativePath);
+        return;
+    }
+
+    const relativePosix = toPosixPath(relativePath);
+    collector.register(relativePosix, absolutePath);
+}
+
+async function processDirectoryEntries({
+    entries,
+    relativeDir,
+    traversal,
+    fsFacade,
+    collector,
+    signal,
+    ensureNotAborted,
+    metrics
+}) {
+    for (const entryName of entries) {
+        await processDirectoryEntry({
+            entryName,
+            relativeDir,
+            traversal,
+            fsFacade,
+            collector,
+            signal,
+            ensureNotAborted,
+            metrics
+        });
+    }
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -454,45 +546,30 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const pending = ["."];
+    const traversal = createDirectoryTraversalState(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
-        const absoluteDir = path.join(projectRoot, relativeDir);
-        ensureNotAborted();
-        const entries = await listDirectory(fsFacade, absoluteDir, {
-            signal
+    while (traversal.hasPending()) {
+        const relativeDir = traversal.nextDirectory();
+        const entries = await readDirectoryEntries({
+            traversal,
+            relativeDir,
+            fsFacade,
+            signal,
+            ensureNotAborted,
+            metrics
         });
-        ensureNotAborted();
-        metrics?.incrementCounter("io.directoriesScanned");
 
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-                ensureNotAborted();
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
-
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            collector.register(relativePosix, absolutePath);
-        }
+        await processDirectoryEntries({
+            entries,
+            relativeDir,
+            traversal,
+            fsFacade,
+            collector,
+            signal,
+            ensureNotAborted,
+            metrics
+        });
     }
 
     return collector.snapshot();
