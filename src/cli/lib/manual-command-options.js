@@ -11,7 +11,8 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import { hasOwn } from "./shared/object-utils.js";
+import { assertFunction, hasOwn } from "./shared/object-utils.js";
+import { isNonEmptyString } from "./shared/string-utils.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
@@ -41,10 +42,9 @@ function resolveManualOptionBaseConfig(
 
     const config = option ?? {};
     const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
-    const description =
-        typeof config.description === "string" && config.description.length > 0
-            ? config.description
-            : describe(defaultValue);
+    const description = isNonEmptyString(config.description)
+        ? config.description
+        : describe(defaultValue);
 
     return {
         config,
@@ -173,9 +173,7 @@ export function applySharedManualCommandOptions(
                 ? progressOption.config.resolve
                 : resolveProgressBarWidth;
 
-        if (typeof resolveFn !== "function") {
-            throw new TypeError("progressBarWidth.resolve must be a function.");
-        }
+        assertFunction(resolveFn, "progressBarWidth.resolve");
 
         handlers.set("progressBarWidth", () =>
             command.option(
@@ -193,9 +191,7 @@ export function applySharedManualCommandOptions(
                 ? manualRepoOption.config.resolve
                 : resolveManualRepoValue;
 
-        if (typeof resolveFn !== "function") {
-            throw new TypeError("manualRepo.resolve must be a function.");
-        }
+        assertFunction(resolveFn, "manualRepo.resolve");
 
         handlers.set("manualRepo", () =>
             command.option(
