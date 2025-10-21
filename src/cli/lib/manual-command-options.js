@@ -31,33 +31,9 @@ function resolveDefaultValue(option, name, fallback) {
     throw new TypeError(`${name}.defaultValue must be provided.`);
 }
 
-function createPathOption(option, { flag, describe, name, fallbackDefault }) {
-    if (option === false) {
-        return null;
-    }
-
-    const config = option ?? {};
-    const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
-    const description =
-        typeof config.description === "string" && config.description.length > 0
-            ? config.description
-            : describe(defaultValue);
-    const normalize =
-        typeof config.normalize === "function"
-            ? config.normalize
-            : (value) => path.resolve(value);
-
-    return {
-        flag: config.flag ?? flag,
-        description,
-        defaultValue,
-        normalize
-    };
-}
-
-function createWrappedOption(
+function resolveManualOptionBaseConfig(
     option,
-    { flag, describe, name, fallbackDefault, resolver }
+    { flag, describe, name, fallbackDefault }
 ) {
     if (option === false) {
         return null;
@@ -69,18 +45,12 @@ function createWrappedOption(
         typeof config.description === "string" && config.description.length > 0
             ? config.description
             : describe(defaultValue);
-    const resolveFn =
-        typeof config.resolve === "function" ? config.resolve : resolver;
-
-    if (typeof resolveFn !== "function") {
-        throw new TypeError(`${name}.resolve must be a function.`);
-    }
 
     return {
+        config,
         flag: config.flag ?? flag,
-        description,
         defaultValue,
-        mapValue: wrapInvalidArgumentResolver(resolveFn)
+        description
     };
 }
 
@@ -138,45 +108,48 @@ export function applySharedManualCommandOptions(
         throw new TypeError("command must provide an option function");
     }
 
-    const outputOption = createPathOption(outputPath, {
+    const outputOption = resolveManualOptionBaseConfig(outputPath, {
         flag: "-o, --output <path>",
         describe: (value) => `Output JSON path (default: ${value}).`,
         name: "outputPath"
     });
 
-    const cacheOption = createPathOption(cacheRoot, {
+    const cacheOption = resolveManualOptionBaseConfig(cacheRoot, {
         flag: "--cache-root <path>",
         describe: (value) =>
             `Directory to store cached manual artefacts (default: ${value}).`,
         name: "cacheRoot"
     });
 
-    const progressOption = createWrappedOption(progressBarWidth, {
+    const progressOption = resolveManualOptionBaseConfig(progressBarWidth, {
         flag: "--progress-bar-width <columns>",
         describe: (value) =>
             `Width of progress bars rendered in the terminal (default: ${value}).`,
         name: "progressBarWidth",
-        fallbackDefault: () => getDefaultProgressBarWidth(),
-        resolver: resolveProgressBarWidth
+        fallbackDefault: () => getDefaultProgressBarWidth()
     });
 
-    const manualRepoOption = createWrappedOption(manualRepo, {
+    const manualRepoOption = resolveManualOptionBaseConfig(manualRepo, {
         flag: "--manual-repo <owner/name>",
         describe: (value) =>
             `GitHub repository hosting the manual (default: ${value}).`,
         name: "manualRepo",
-        fallbackDefault: () => DEFAULT_MANUAL_REPO,
-        resolver: resolveManualRepoValue
+        fallbackDefault: () => DEFAULT_MANUAL_REPO
     });
 
     const handlers = new Map();
 
     if (outputOption) {
+        const normalize =
+            typeof outputOption.config.normalize === "function"
+                ? outputOption.config.normalize
+                : (value) => path.resolve(value);
+
         handlers.set("outputPath", () =>
             command.option(
                 outputOption.flag,
                 outputOption.description,
-                outputOption.normalize,
+                normalize,
                 outputOption.defaultValue
             )
         );
@@ -195,33 +168,56 @@ export function applySharedManualCommandOptions(
     }
 
     if (progressOption) {
+        const resolveFn =
+            typeof progressOption.config.resolve === "function"
+                ? progressOption.config.resolve
+                : resolveProgressBarWidth;
+
+        if (typeof resolveFn !== "function") {
+            throw new TypeError("progressBarWidth.resolve must be a function.");
+        }
+
         handlers.set("progressBarWidth", () =>
             command.option(
                 progressOption.flag,
                 progressOption.description,
-                progressOption.mapValue,
+                wrapInvalidArgumentResolver(resolveFn),
                 progressOption.defaultValue
             )
         );
     }
 
     if (manualRepoOption) {
+        const resolveFn =
+            typeof manualRepoOption.config.resolve === "function"
+                ? manualRepoOption.config.resolve
+                : resolveManualRepoValue;
+
+        if (typeof resolveFn !== "function") {
+            throw new TypeError("manualRepo.resolve must be a function.");
+        }
+
         handlers.set("manualRepo", () =>
             command.option(
                 manualRepoOption.flag,
                 manualRepoOption.description,
-                manualRepoOption.mapValue,
+                wrapInvalidArgumentResolver(resolveFn),
                 manualRepoOption.defaultValue
             )
         );
     }
 
     if (cacheOption) {
+        const normalize =
+            typeof cacheOption.config.normalize === "function"
+                ? cacheOption.config.normalize
+                : (value) => path.resolve(value);
+
         handlers.set("cacheRoot", () =>
             command.option(
                 cacheOption.flag,
                 cacheOption.description,
-                cacheOption.normalize,
+                normalize,
                 cacheOption.defaultValue
             )
         );
