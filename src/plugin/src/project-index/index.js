@@ -48,6 +48,7 @@ import {
     throwIfAborted
 } from "../../../shared/abort-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -308,19 +309,11 @@ function extractBuiltInIdentifierNames(payload) {
         );
     }
 
+    const entries = normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
 
-    for (const [name, descriptor] of Object.entries(identifiers)) {
-        if (typeof name !== "string" || name.length === 0) {
-            continue;
-        }
-
-        if (!isPlainObject(descriptor)) {
-            continue;
-        }
-
-        const type = descriptor.type;
-        if (typeof type !== "string" || type.length === 0) {
+    for (const { name, type } of entries) {
+        if (type.length === 0) {
             continue;
         }
 
