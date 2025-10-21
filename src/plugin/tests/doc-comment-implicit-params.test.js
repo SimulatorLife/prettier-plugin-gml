@@ -143,3 +143,47 @@ test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes",
         "/// @param second"
     ]);
 });
+
+const EXISTING_DOC_SOURCE = `/// @function sampleExisting
+/// @param first
+/// @param second
+/// @param third
+function sampleExisting() {
+    var first = argument0;
+    var second = argument1;
+    return argument2;
+}
+`;
+
+test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
+    const formatted = await prettier.format(EXISTING_DOC_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docStart = formatted.indexOf("/// @function sampleExisting");
+    let docEnd = formatted.indexOf("\nfunction sampleExisting", docStart);
+    if (docEnd === -1) {
+        docEnd = formatted.indexOf("function sampleExisting", docStart + 1);
+    } else {
+        docEnd += 1;
+    }
+    if (docEnd === -1) {
+        docEnd = formatted.length;
+    }
+
+    const paramLines = new Set(formatted
+        .slice(docStart, docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param")));
+
+    assert.ok(
+        paramLines.has("/// @param third"),
+        "Expected existing doc metadata to be preserved."
+    );
+    assert.ok(
+        !paramLines.has("/// @param argument2"),
+        "Expected fallback doc line to be skipped when already documented."
+    );
+});

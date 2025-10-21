@@ -2992,6 +2992,9 @@ function computeSyntheticFunctionDocLines(
     const metadata = Array.isArray(existingDocLines)
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -3090,10 +3093,12 @@ function computeSyntheticFunctionDocLines(
         }
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
         const implicitName =
-            (implicitDocEntry &&
-                typeof implicitDocEntry.name === "string" &&
-                implicitDocEntry.name) ||
-            null;
+            implicitDocEntry &&
+            typeof implicitDocEntry.name === "string" &&
+            implicitDocEntry.name &&
+            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+                ? implicitDocEntry.name
+                : null;
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
@@ -3121,13 +3126,35 @@ function computeSyntheticFunctionDocLines(
             (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
         if (documentedParamNames.has(docName)) {
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+            }
             continue;
         }
         documentedParamNames.add(docName);
+        if (implicitDocEntry?.name) {
+            documentedParamNames.add(implicitDocEntry.name);
+        }
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const { name: docName } of implicitArgumentDocNames) {
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) {
+            continue;
+        }
+
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
+        const isFallbackEntry = canonical === fallbackCanonical;
+        if (
+            isFallbackEntry &&
+            Number.isInteger(index) &&
+            orderedParamMetadata[index] &&
+            typeof orderedParamMetadata[index].name === "string" &&
+            orderedParamMetadata[index].name.length > 0
+        ) {
+            continue;
+        }
+
         if (documentedParamNames.has(docName)) {
             continue;
         }
