@@ -162,7 +162,7 @@ Start by confirming your toolchain, then pick the workflow that fits how you wan
 
 ### Requirements
 
-- Node.js **18.20.0+** (20.18.1+ recommended). Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
+- Node.js **20.18.1+** (or any >=21.1.0 release). Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
 - npm (installed with Node.js). Verify availability with `node -v` and `npm -v`.
 
 <details>
@@ -476,7 +476,7 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
 - Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
-- `npm install` reports `EBADENGINE` → upgrade Node.js to 18.20.0+, 20.18.1+, or 21.1.0+.
+- `npm install` reports `EBADENGINE` → upgrade Node.js to 20.18.1+ or any >=21.1.0 release.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
 - Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.
