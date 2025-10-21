@@ -30,44 +30,29 @@ export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
  * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
  */
 
-const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = new Set(
+const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
-function describeManualRepoRequirementSource(value) {
-    return value === undefined ? "undefined" : `'${String(value)}'`;
-}
+function assertManualRepoRequirementSource(value) {
+    if (MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.includes(value)) {
+        return /** @type {ManualRepoRequirementSource} */ (value);
+    }
 
-function throwManualRepoRequirementSourceError(value) {
-    const allowedValues = Array.from(
-        MANUAL_REPO_REQUIREMENT_SOURCE_VALUES
-    ).join(", ");
+    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
+    const received = value === undefined ? "undefined" : `'${String(value)}'`;
 
     throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${describeManualRepoRequirementSource(
-            value
-        )}.`
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${received}.`
     );
 }
 
-function assertManualRepoRequirementSource(value) {
-    if (!MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.has(value)) {
-        throwManualRepoRequirementSourceError(value);
-    }
-
-    return /** @type {ManualRepoRequirementSource} */ (value);
-}
-
 function formatManualRepoRequirement(source) {
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.ENV) {
-        return MANUAL_REPO_REQUIREMENTS.env;
-    }
+    const requirementSource = assertManualRepoRequirementSource(source);
 
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.CLI) {
-        return MANUAL_REPO_REQUIREMENTS.cli;
-    }
-
-    throwManualRepoRequirementSourceError(source);
+    return requirementSource === MANUAL_REPO_REQUIREMENT_SOURCE.ENV
+        ? MANUAL_REPO_REQUIREMENTS.env
+        : MANUAL_REPO_REQUIREMENTS.cli;
 }
 
 function describeManualRepoInput(value) {
