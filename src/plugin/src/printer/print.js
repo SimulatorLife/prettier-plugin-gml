@@ -78,6 +78,16 @@ const {
 const { willBreak } = utils;
 
 const preservedUndefinedDefaultParameters = new WeakSet();
+const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
+const FUNCTION_LIKE_NODE_TYPES = new Set([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration",
+    "StructDeclaration"
+]);
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 
@@ -654,6 +664,12 @@ export function print(path, options, print) {
             return concat([node.kind, " ", decls]);
         }
         case "VariableDeclarator": {
+            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
+            if (initializerOverride) {
+                return concat(
+                    printSimpleDeclaration(print("id"), initializerOverride)
+                );
+            }
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
         case "ParenthesizedExpression": {
@@ -5244,6 +5260,123 @@ function printSingleClauseStatement(
 
 function printSimpleDeclaration(leftDoc, rightDoc) {
     return rightDoc ? [leftDoc, " = ", rightDoc] : leftDoc;
+}
+
+function resolveArgumentAliasInitializerDoc(path) {
+    const node = path.getValue();
+    if (!node || node.type !== "VariableDeclarator") {
+        return null;
+    }
+
+    const initializer = node.init;
+    if (!initializer || initializer.type !== "Identifier") {
+        return null;
+    }
+
+    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(initializer.name ?? "");
+    if (!match) {
+        return null;
+    }
+
+    const aliasIdentifier = node.id;
+    if (!aliasIdentifier || aliasIdentifier.type !== "Identifier") {
+        return null;
+    }
+
+    const aliasName = aliasIdentifier.name;
+    if (typeof aliasName !== "string" || aliasName.length === 0) {
+        return null;
+    }
+
+    const argumentIndex = Number.parseInt(match[1], 10);
+    if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
+        return null;
+    }
+
+    const functionNode = findEnclosingFunctionForPath(path);
+    if (!functionNode) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let parameterName = null;
+
+    if (docPreferences && docPreferences.has(argumentIndex)) {
+        const preferred = docPreferences.get(argumentIndex);
+        if (typeof preferred === "string" && preferred.length > 0) {
+            parameterName = preferred;
+        }
+    }
+
+    if (!parameterName) {
+        parameterName = getFunctionParameterNameByIndex(
+            functionNode,
+            argumentIndex
+        );
+    }
+
+    if (
+        !parameterName ||
+        parameterName === aliasName ||
+        parameterName === initializer.name
+    ) {
+        return null;
+    }
+
+    return parameterName;
+}
+
+function findEnclosingFunctionForPath(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (FUNCTION_LIKE_NODE_TYPES.has(parent.type)) {
+            return parent;
+        }
+    }
+
+    return null;
+}
+
+function getFunctionParameterNameByIndex(functionNode, index) {
+    if (!functionNode || typeof functionNode !== "object") {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+
+    if (!Number.isInteger(index) || index < 0 || index >= params.length) {
+        return null;
+    }
+
+    const param = params[index];
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier" && typeof param.name === "string") {
+        return param.name;
+    }
+
+    if (
+        param.type === "DefaultParameter" &&
+        param.left?.type === "Identifier" &&
+        typeof param.left.name === "string"
+    ) {
+        return param.left.name;
+    }
+
+    return null;
 }
 
 // prints empty parens with dangling comments

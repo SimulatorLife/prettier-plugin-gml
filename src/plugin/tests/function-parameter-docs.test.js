@@ -28,3 +28,32 @@ test("formats function parameters using documented argument names", async () => 
         "Expected documented parameter names to replace argument indices."
     );
 });
+
+test("initializes argument aliases using parameter names", async () => {
+    const formatted = await prettier.format(
+        `/// @function scr_example
+/// @param width
+/// @param height
+function scr_example(argument0, argument1) {
+    var w = argument0;
+    var h = argument1;
+    return w * h;
+}`,
+        {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        }
+    );
+
+    assert.match(
+        formatted,
+        /var w = width;/,
+        "Expected aliases to reference the named parameter instead of argument indices."
+    );
+    assert.match(
+        formatted,
+        /var h = height;/,
+        "Expected all aliases to use their corresponding parameter names."
+    );
+});
