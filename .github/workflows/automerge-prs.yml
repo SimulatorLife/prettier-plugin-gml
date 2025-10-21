@@ -527,6 +527,70 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
             }
 
+      - name: Request Codex help for regressions
+        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- automerge-pr-regression-codex -->';
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request?.number;
+            if (!number) {
+              core.notice('No PR number; skipping Codex regression comment.');
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: number,
+              per_page: 100,
+            });
+
+            const existing = comments.find(comment => comment.body && comment.body.includes(marker));
+
+            const lines = [
+              marker,
+              '',
+              `@codex The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes or guidance needed so this change can be merged.`,
+              '',
+              'Suggested next steps:',
+              '1. Review the "Node.js regression test summary" comment and the uploaded junit-* artifacts for detailed failure reports.',
+              '2. Reproduce the failures locally (for example, `npm run test:report` and `npm run test:coverage`) to confirm the regression.',
+              '3. Deliver the smallest possible fix—or a precise explanation of the required follow-up—that resolves the regression blocking auto-merge.',
+              '',
+              `Once done, ensure all changes are pushed to remote branch **${pr.head.ref}** on base **${pr.base.ref}** and keep all commits tied to PR #${number}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
+              '',
+              '```bash',
+              'git config user.name  "codex-bot"',
+              'git config user.email "codex@example.com"',
+              'git -c credential.helper= \\',
+              `    -c 'credential.helper=store --file .git/codex-cred' \\',`,
+              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
+              '```',
+              '',
+              'Context for this request:',
+              '```yaml',
+              'codex_task:',
+              `  branch: "${pr.head.ref}"`,
+              `  pr_number: ${number}`,
+              `  base: "${pr.base.ref}"`,
+              `  head_sha: "${pr.head.sha}"`,
+              '  reason: "automerge regression gate failure"',
+              '```',
+            ];
+
+            const body = lines.join('\n');
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            }
+
+            core.notice(`Requested Codex assistance for regressions on PR #${number}.`);
+
   auto-merge:
     name: Auto-merge when green
     needs: summarize
