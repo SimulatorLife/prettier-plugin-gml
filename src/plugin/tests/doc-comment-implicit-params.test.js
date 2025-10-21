@@ -214,11 +214,11 @@ test("collectImplicitArgumentDocNames keeps documented names for direct referenc
     assert.deepStrictEqual(docLines, ["/// @param foo", "/// @param bar"]);
 });
 
-const DESCRIPTIVE_DOC_SOURCE = `/// @function descriptive
+const DESCRIPTIVE_DOC_SOURCE = `/// @function preserveDocs
 /// @param width
-function descriptive(argument0) {
+function preserveDocs(argument0) {
     var w = argument0;
-    return w;
+    return argument0;
 }
 `;
 
@@ -228,17 +228,10 @@ test("collectImplicitArgumentDocNames preserves descriptive doc names", async ()
         plugins: [pluginPath]
     });
 
-    const docLines = new Set(formatted
+    const docLines = formatted
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter((line) => line.startsWith("/// @param")));
+        .filter((line) => line.startsWith("/// @param"));
 
-    assert.ok(
-        docLines.has("/// @param width"),
-        "Expected descriptive doc metadata to be preserved."
-    );
-    assert.ok(
-        !docLines.has("/// @param w"),
-        "Expected aliases not to overwrite descriptive doc names."
-    );
+    assert.deepStrictEqual(docLines, ["/// @param width"]);
 });

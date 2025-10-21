@@ -49,4 +49,21 @@ describe("line comment formatting", () => {
 
         assert.strictEqual(formatted, "// ");
     });
+
+    it("normalizes Feather optional parameter sentinels", () => {
+        const comment = {
+            type: "CommentLine",
+            value: "/// @param {real} *func_fx_callback",
+            raw: "/// @param {real} *func_fx_callback",
+            leadingText: "/// @param {real} *func_fx_callback",
+            leadingWS: "\n"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "/// @param {real} [func_fx_callback]");
+    });
 });

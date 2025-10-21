@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { ensureDir } from "./shared/fs-utils.js";
+import { isNonEmptyString } from "./shared/utils.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories
@@ -26,7 +27,7 @@ export async function writeManualFile({
     encoding = "utf8",
     onAfterWrite
 }) {
-    if (typeof outputPath !== "string" || outputPath.length === 0) {
+    if (!isNonEmptyString(outputPath)) {
         throw new TypeError("outputPath must be provided to writeManualFile.");
     }
 

@@ -385,6 +385,60 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+function createProjectTreeCollector(metrics = null) {
+    const yyFiles = [];
+    const gmlFiles = [];
+
+    function recordFile(category, record) {
+        if (category === "yy") {
+            yyFiles.push(record);
+            metrics?.incrementCounter("files.yyDiscovered");
+        } else if (category === "gml") {
+            gmlFiles.push(record);
+            metrics?.incrementCounter("files.gmlDiscovered");
+        }
+    }
+
+    function classify(relativePosix) {
+        const lowerPath = relativePosix.toLowerCase();
+        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+            return "yy";
+        }
+        if (lowerPath.endsWith(".gml")) {
+            return "gml";
+        }
+        return null;
+    }
+
+    function createRecord(absolutePath, relativePosix) {
+        return {
+            absolutePath,
+            relativePath: relativePosix
+        };
+    }
+
+    function register(relativePosix, absolutePath) {
+        const category = classify(relativePosix);
+        if (!category) {
+            return;
+        }
+
+        recordFile(category, createRecord(absolutePath, relativePosix));
+    }
+
+    function snapshot() {
+        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+
+        return { yyFiles, gmlFiles };
+    }
+
+    return {
+        register,
+        snapshot
+    };
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -394,9 +448,8 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const yyFiles = [];
-    const gmlFiles = [];
     const pending = ["."];
+    const collector = createProjectTreeCollector(metrics);
 
     while (pending.length > 0) {
         const relativeDir = pending.pop();
@@ -432,30 +485,11 @@ async function scanProjectTree(
             }
 
             const relativePosix = toPosixPath(relativePath);
-            const lowerPath = relativePosix.toLowerCase();
-            if (
-                lowerPath.endsWith(".yy") ||
-                isProjectManifestPath(relativePosix)
-            ) {
-                yyFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.yyDiscovered");
-            } else if (lowerPath.endsWith(".gml")) {
-                gmlFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.gmlDiscovered");
-            }
+            collector.register(relativePosix, absolutePath);
         }
     }
 
-    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-    return { yyFiles, gmlFiles };
+    return collector.snapshot();
 }
 
 function cloneIdentifierDeclaration(declaration) {

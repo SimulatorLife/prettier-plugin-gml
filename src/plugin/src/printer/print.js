@@ -78,6 +78,8 @@ const {
 const { willBreak } = utils;
 
 const preservedUndefinedDefaultParameters = new WeakSet();
+const suppressedImplicitDocCanonicalByNode = new WeakMap();
+const preferredParamDocNamesByNode = new WeakMap();
 
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
@@ -2323,6 +2325,15 @@ function mergeSyntheticDocComments(
         docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
+    const syntheticFunctionMetadata = functionLines
+        .map((line) => parseDocCommentMetadata(line))
+        .find(
+            (meta) => meta?.tag === "function" && typeof meta.name === "string"
+        );
+    const syntheticFunctionName =
+        typeof syntheticFunctionMetadata?.name === "string"
+            ? syntheticFunctionMetadata.name.trim()
+            : null;
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
@@ -2595,6 +2606,13 @@ function mergeSyntheticDocComments(
     }
 
     const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
+    const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
+
+    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        for (const canonical of suppressedCanonicals) {
+            paramDocsByCanonical.delete(canonical);
+        }
+    }
 
     if (implicitDocEntries.length > 0) {
         const canonicalNames = new Set();
@@ -2621,7 +2639,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const orderedParamDocs = [];
+    let orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
@@ -2647,6 +2665,77 @@ function mergeSyntheticDocComments(
 
     for (const doc of paramDocsByCanonical.values()) {
         orderedParamDocs.push(doc);
+    }
+
+    if (orderedParamDocs.length > 0) {
+        const docsByCanonical = new Map();
+        for (const docLine of orderedParamDocs) {
+            if (typeof docLine !== "string") {
+                continue;
+            }
+
+            const canonical = getParamCanonicalName(docLine);
+            if (canonical) {
+                docsByCanonical.set(canonical, docLine);
+            }
+        }
+
+        const preferredDocs = preferredParamDocNamesByNode.get(node);
+        const implicitEntryByIndex = new Map();
+        for (const entry of implicitDocEntries) {
+            if (entry && Number.isInteger(entry.index)) {
+                implicitEntryByIndex.set(entry.index, entry);
+            }
+        }
+        const reordered = [];
+
+        if (Array.isArray(node.params)) {
+            for (const [index, param] of node.params.entries()) {
+                const implicitEntry = implicitEntryByIndex.get(index);
+                if (implicitEntry) {
+                    const implicitCanonical = implicitEntry.canonical
+                        ? implicitEntry.canonical
+                        : getCanonicalParamNameFromText(implicitEntry.name);
+                    if (
+                        implicitCanonical &&
+                        docsByCanonical.has(implicitCanonical)
+                    ) {
+                        reordered.push(docsByCanonical.get(implicitCanonical));
+                        docsByCanonical.delete(implicitCanonical);
+                        continue;
+                    }
+                }
+
+                const preferredName = preferredDocs?.get(index);
+                if (preferredName) {
+                    const preferredCanonical =
+                        getCanonicalParamNameFromText(preferredName);
+                    if (
+                        preferredCanonical &&
+                        docsByCanonical.has(preferredCanonical)
+                    ) {
+                        reordered.push(docsByCanonical.get(preferredCanonical));
+                        docsByCanonical.delete(preferredCanonical);
+                        continue;
+                    }
+                }
+
+                const paramInfo = getParameterDocInfo(param, node, options);
+                const paramCanonical = paramInfo?.name
+                    ? getCanonicalParamNameFromText(paramInfo.name)
+                    : null;
+                if (paramCanonical && docsByCanonical.has(paramCanonical)) {
+                    reordered.push(docsByCanonical.get(paramCanonical));
+                    docsByCanonical.delete(paramCanonical);
+                }
+            }
+        }
+
+        for (const docLine of docsByCanonical.values()) {
+            reordered.push(docLine);
+        }
+
+        orderedParamDocs = reordered;
     }
 
     const finalDocs = [];
@@ -2692,23 +2781,65 @@ function mergeSyntheticDocComments(
             ...reorderedDocs.slice(descriptionEndIndex)
         ];
 
-        let lastParamIndex = -1;
-        for (const [index, element] of docsWithoutDescription.entries()) {
-            if (isParamLine(element)) {
-                lastParamIndex = index;
+        let shouldOmitDescriptionBlock = false;
+        if (syntheticFunctionName && descriptionBlock.length === 1) {
+            const descriptionMetadata = parseDocCommentMetadata(
+                descriptionBlock[0]
+            );
+            const descriptionText =
+                typeof descriptionMetadata?.name === "string"
+                    ? descriptionMetadata.name.trim()
+                    : null;
+
+            if (
+                descriptionText &&
+                descriptionText.startsWith(syntheticFunctionName)
+            ) {
+                const remainder = descriptionText.slice(
+                    syntheticFunctionName.length
+                );
+                const trimmedRemainder = remainder.trim();
+                if (
+                    trimmedRemainder.startsWith("(") &&
+                    trimmedRemainder.endsWith(")")
+                ) {
+                    shouldOmitDescriptionBlock = true;
+                }
             }
         }
 
-        const insertionAfterParams =
-            lastParamIndex === -1
-                ? docsWithoutDescription.length
-                : lastParamIndex + 1;
+        if (shouldOmitDescriptionBlock) {
+            reorderedDocs = docsWithoutDescription;
+        } else {
+            let lastParamIndex = -1;
+            for (const [index, element] of docsWithoutDescription.entries()) {
+                if (isParamLine(element)) {
+                    lastParamIndex = index;
+                }
+            }
 
-        reorderedDocs = [
-            ...docsWithoutDescription.slice(0, insertionAfterParams),
-            ...descriptionBlock,
-            ...docsWithoutDescription.slice(insertionAfterParams)
-        ];
+            const insertionAfterParams =
+                lastParamIndex === -1
+                    ? docsWithoutDescription.length
+                    : lastParamIndex + 1;
+
+            reorderedDocs = [
+                ...docsWithoutDescription.slice(0, insertionAfterParams),
+                ...descriptionBlock,
+                ...docsWithoutDescription.slice(insertionAfterParams)
+            ];
+        }
+    }
+
+    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        reorderedDocs = reorderedDocs.filter((line) => {
+            if (!isParamLine(line)) {
+                return true;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            return !canonical || !suppressedCanonicals.has(canonical);
+        });
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
@@ -3122,11 +3253,27 @@ function computeSyntheticFunctionDocLines(
             existingDocName && existingDocName.length > 0
                 ? getCanonicalParamNameFromText(existingDocName)
                 : null;
-        const fallbackCanonical =
-            typeof implicitDocEntry?.fallbackCanonical === "string"
-                ? implicitDocEntry.fallbackCanonical
-                : null;
+        const hasCompleteOrdinalDocs =
+            Array.isArray(node.params) &&
+            orderedParamMetadata.length === node.params.length;
+        if (
+            hasCompleteOrdinalDocs &&
+            node &&
+            typeof paramIndex === "number" &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+        ) {
+            let preferredDocs = preferredParamDocNamesByNode.get(node);
+            if (!preferredDocs) {
+                preferredDocs = new Map();
+                preferredParamDocNamesByNode.set(node, preferredDocs);
+            }
+            if (!preferredDocs.has(paramIndex)) {
+                preferredDocs.set(paramIndex, ordinalMetadata.name);
+            }
+        }
         const ordinalDocName =
+            hasCompleteOrdinalDocs &&
             (!existingDocName || existingDocName.length === 0) &&
             typeof ordinalMetadata?.name === "string" &&
             ordinalMetadata.name.length > 0
@@ -3136,9 +3283,70 @@ function computeSyntheticFunctionDocLines(
             ordinalDocName && ordinalDocName.length > 0
                 ? getCanonicalParamNameFromText(ordinalDocName)
                 : null;
+        const fallbackCanonical =
+            typeof implicitDocEntry?.fallbackCanonical === "string"
+                ? implicitDocEntry.fallbackCanonical
+                : getCanonicalParamNameFromText(paramInfo.name);
+        let effectiveImplicitName = implicitName;
+        if (effectiveImplicitName && ordinalDocName) {
+            const canonicalOrdinal =
+                getCanonicalParamNameFromText(ordinalDocName) ?? null;
+            const canonicalImplicit =
+                getCanonicalParamNameFromText(effectiveImplicitName) ?? null;
+
+            if (
+                canonicalOrdinal &&
+                canonicalOrdinal !== fallbackCanonical &&
+                canonicalOrdinal !== canonicalImplicit
+            ) {
+                const ordinalLength = canonicalOrdinal.length;
+                const implicitLength =
+                    (canonicalImplicit && canonicalImplicit.length) ||
+                    effectiveImplicitName.trim().length;
+
+                if (ordinalLength > implicitLength) {
+                    effectiveImplicitName = null;
+                    if (implicitDocEntry) {
+                        implicitDocEntry._suppressDocLine = true;
+                        if (implicitDocEntry.canonical && node) {
+                            let suppressedCanonicals =
+                                suppressedImplicitDocCanonicalByNode.get(node);
+                            if (!suppressedCanonicals) {
+                                suppressedCanonicals = new Set();
+                                suppressedImplicitDocCanonicalByNode.set(
+                                    node,
+                                    suppressedCanonicals
+                                );
+                            }
+                            suppressedCanonicals.add(
+                                implicitDocEntry.canonical
+                            );
+                        }
+                        if (canonicalOrdinal) {
+                            implicitDocEntry.canonical = canonicalOrdinal;
+                        }
+                        if (ordinalDocName) {
+                            implicitDocEntry.name = ordinalDocName;
+                            if (node) {
+                                let preferredDocs =
+                                    preferredParamDocNamesByNode.get(node);
+                                if (!preferredDocs) {
+                                    preferredDocs = new Map();
+                                    preferredParamDocNamesByNode.set(
+                                        node,
+                                        preferredDocs
+                                    );
+                                }
+                                preferredDocs.set(paramIndex, ordinalDocName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         const shouldUseImplicitName =
-            implicitName &&
-            implicitName.length > 0 &&
+            effectiveImplicitName &&
+            effectiveImplicitName.length > 0 &&
             (!ordinalDocName ||
                 ordinalDocName.length === 0 ||
                 docCoverageIncomplete ||
@@ -3148,13 +3356,13 @@ function computeSyntheticFunctionDocLines(
         const shouldPreferExistingDocName =
             existingDocName &&
             existingDocName.length > 0 &&
-            (!implicitName ||
+            (!effectiveImplicitName ||
                 (existingCanonical &&
                     fallbackCanonical &&
                     existingCanonical !== fallbackCanonical));
         const baseDocName =
             (shouldPreferExistingDocName && existingDocName) ||
-            (shouldUseImplicitName && implicitName) ||
+            (shouldUseImplicitName && effectiveImplicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
         if (
@@ -3192,7 +3400,7 @@ function computeSyntheticFunctionDocLines(
     }
 
     for (const entry of implicitArgumentDocNames) {
-        if (!entry) {
+        if (!entry || entry._suppressDocLine) {
             continue;
         }
 
@@ -3230,8 +3438,21 @@ function collectImplicitArgumentDocNames(functionNode, options) {
     }
 
     const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+    const entries = buildImplicitArgumentDocEntries(referenceInfo);
+    const suppressedCanonicals =
+        suppressedImplicitDocCanonicalByNode.get(functionNode);
 
-    return buildImplicitArgumentDocEntries(referenceInfo);
+    if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
+        return entries;
+    }
+
+    return entries.filter((entry) => {
+        if (!entry || !entry.canonical) {
+            return true;
+        }
+
+        return !suppressedCanonicals.has(entry.canonical);
+    });
 }
 
 // Collects index/reference bookkeeping for implicit `arguments[index]` usages
@@ -3550,10 +3771,50 @@ function parseDocCommentMetadata(line) {
             const paramMatch = paramSection.match(/^(\S+)/);
             name = paramMatch ? paramMatch[1] : null;
         }
+        if (typeof name === "string") {
+            name = normalizeOptionalParamNameToken(name);
+        }
         return { tag, name };
     }
 
     return { tag, name: remainder };
+}
+
+function normalizeOptionalParamNameToken(name) {
+    if (typeof name !== "string") {
+        return name;
+    }
+
+    const trimmed = name.trim();
+
+    if (/^\[[^\]]+\]$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    let stripped = trimmed;
+    let hadSentinel = false;
+
+    while (stripped.startsWith("*")) {
+        stripped = stripped.slice(1);
+        hadSentinel = true;
+    }
+
+    while (stripped.endsWith("*")) {
+        stripped = stripped.slice(0, - 1);
+        hadSentinel = true;
+    }
+
+    if (!hadSentinel) {
+        return trimmed;
+    }
+
+    const normalized = stripped.trim();
+
+    if (normalized.length === 0) {
+        return stripped.replaceAll('*', "");
+    }
+
+    return `[${normalized}]`;
 }
 
 function getSourceTextForNode(node, options) {
@@ -4306,8 +4567,17 @@ function normalizeDocMetadataName(name) {
         return name;
     }
 
-    const sanitized = stripSyntheticParameterSentinels(name);
-    return sanitized.length > 0 ? sanitized : name;
+    const optionalNormalized = normalizeOptionalParamNameToken(name);
+    if (typeof optionalNormalized === "string") {
+        if (/^\[[^\]]+\]$/.test(optionalNormalized)) {
+            return optionalNormalized;
+        }
+
+        const sanitized = stripSyntheticParameterSentinels(optionalNormalized);
+        return sanitized.length > 0 ? sanitized : optionalNormalized;
+    }
+
+    return name;
 }
 
 function docHasTrailingComment(doc) {
@@ -4613,7 +4883,7 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return isNumericCallExpression(node);
+            return true;
         }
         default: {
             return false;

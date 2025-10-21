@@ -16,19 +16,19 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     ":"
 ]);
 
+const identity = (value) => value;
+
 function createIndexMapper(insertPositions) {
-    if (!Array.isArray(insertPositions)) {
-        return (index) => index;
+    if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
+        return identity;
     }
 
-    const normalizedPositions = Array.from(
-        new Set(
-            insertPositions.filter((position) => typeof position === "number")
-        )
+    const offsets = Array.from(
+        new Set(insertPositions.filter((position) => Number.isFinite(position)))
     ).sort((a, b) => a - b);
 
-    if (normalizedPositions.length === 0) {
-        return (index) => index;
+    if (offsets.length === 0) {
+        return identity;
     }
 
     return (index) => {
@@ -36,17 +36,19 @@ function createIndexMapper(insertPositions) {
             return index;
         }
 
-        let adjustment = 0;
+        let left = 0;
+        let right = offsets.length;
 
-        for (const position of normalizedPositions) {
-            if (index <= position) {
-                break;
+        while (left < right) {
+            const middle = (left + right) >> 1;
+            if (index <= offsets[middle]) {
+                right = middle;
+            } else {
+                left = middle + 1;
             }
-
-            adjustment += 1;
         }
 
-        return index - adjustment;
+        return index - left;
     };
 }
 

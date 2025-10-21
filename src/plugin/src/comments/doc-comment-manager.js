@@ -226,10 +226,14 @@ function collectFunctionNodes(ast) {
             functions.push(node);
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        const keys = Object.keys(node);
+
+        for (const key of keys) {
             if (key === "start" || key === "end" || key === "comments") {
                 continue;
             }
+
+            const value = node[key];
 
             if (Array.isArray(value)) {
                 for (const child of value) {

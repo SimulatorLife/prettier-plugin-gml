@@ -4,10 +4,11 @@ import { fileURLToPath } from "node:url";
 import {
     buildManualRepositoryEndpoints,
     createManualGitHubFileClient,
-    createManualGitHubReferencesClient,
+    createManualGitHubCommitResolver,
+    createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
-} from "./manual-utils.js";
+} from "./manual/utils.js";
 import { assertNonEmptyString } from "./shared-deps.js";
 
 function assertFileUrl(value) {
@@ -52,8 +53,12 @@ export function createManualCommandContext({
     const manualRequests = createManualGitHubRequestDispatcher({
         userAgent: assertUserAgent(userAgent)
     });
-    const manualReferences = createManualGitHubReferencesClient({
+    const manualCommitResolver = createManualGitHubCommitResolver({
         requestDispatcher: manualRequests
+    });
+    const manualRefResolver = createManualGitHubRefResolver({
+        requestDispatcher: manualRequests,
+        commitResolver: manualCommitResolver
     });
     const manualFileFetcher = createManualGitHubFileClient({
         requestDispatcher: manualRequests,
@@ -67,9 +72,11 @@ export function createManualCommandContext({
         defaultManualRawRoot,
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName),
         manualRequests,
-        manualReferences,
+        manualCommitResolver,
+        manualRefResolver,
         manualFileFetcher,
         fetchManualFile: manualFileFetcher.fetchManualFile,
-        resolveManualRef: manualReferences.resolveManualRef
+        resolveManualRef: manualRefResolver.resolveManualRef,
+        resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
     };
 }

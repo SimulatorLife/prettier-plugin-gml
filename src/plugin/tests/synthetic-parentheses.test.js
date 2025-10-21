@@ -69,6 +69,24 @@ test("flattens longer chains of synthetic addition", async () => {
     );
 });
 
+test("flattens additive chains that include call expressions", async () => {
+    const source = [
+        "var expr = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var expr = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);",
+        "Expected additive chains with call expressions to omit redundant synthetic parentheses."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 

@@ -10,8 +10,9 @@ import {
     resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
-    createManualVerboseState
-} from "../lib/manual-utils.js";
+    createManualVerboseState,
+    MANUAL_REPO_REQUIREMENT_SOURCE
+} from "../lib/manual/utils.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
@@ -86,8 +87,29 @@ describe("manual option helpers", () => {
             );
 
             assert.throws(
-                () => resolveManualRepoValue(42, { source: "cli" }),
+                () =>
+                    resolveManualRepoValue(42, {
+                        source: MANUAL_REPO_REQUIREMENT_SOURCE.CLI
+                    }),
                 /Manual repository must be provided in 'owner\/name' format \(received '42'\)\./
+            );
+        });
+
+        it("rejects unknown requirement sources before normalizing values", () => {
+            assert.throws(
+                () =>
+                    resolveManualRepoValue("Example/Manual", {
+                        // Intentionally invalid to verify runtime validation
+                        source: "manual"
+                    }),
+                /Manual repository requirement source must be one of: cli, env\. Received 'manual'\./
+            );
+
+            assert.equal(
+                resolveManualRepoValue("Example/Manual", {
+                    source: MANUAL_REPO_REQUIREMENT_SOURCE.ENV
+                }),
+                "Example/Manual"
             );
         });
     });

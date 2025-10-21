@@ -180,14 +180,9 @@ export function mergeUniqueValues(
         seen.add(getKey(element));
     }
 
-    const iterable =
-        typeof additionalValues?.[Symbol.iterator] === "function"
-            ? additionalValues
-            : [];
-
-    for (const rawValue of iterable) {
+    for (const rawValue of toArrayFromIterable(additionalValues)) {
         const value = normalize(rawValue);
-        if (value == null) {
+        if (value === null || value === undefined) {
             continue;
         }
 
