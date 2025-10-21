@@ -1,3 +1,7 @@
+import {
+    mergeUniqueValues,
+    toArrayFromIterable
+} from "../../../shared/array-utils.js";
 import { getNonEmptyString } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
@@ -24,27 +28,22 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const normalized = mergeUniqueValues(
+        [],
+        toArrayFromIterable(keys),
+        {
+            coerce: (candidate) => {
+                const label = getNonEmptyString(candidate);
+                if (!label) {
+                    return null;
+                }
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
-
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
-        const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
+                const trimmed = label.trim();
+                return trimmed.length > 0 ? trimmed : null;
+            },
+            freeze: false
         }
-
-        seen.add(label);
-        normalized.push(label);
-    }
+    );
 
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
