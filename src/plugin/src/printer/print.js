@@ -3091,6 +3091,10 @@ function computeSyntheticFunctionDocLines(
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
+        const ordinalMetadata =
+            Number.isInteger(paramIndex) && paramIndex >= 0
+                ? (orderedParamMetadata[paramIndex] ?? null)
+                : null;
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
         const implicitName =
             implicitDocEntry &&
@@ -3108,8 +3112,16 @@ function computeSyntheticFunctionDocLines(
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
         const existingDocName = existingMetadata?.name;
+        const ordinalDocName =
+            !implicitName &&
+            (!existingDocName || existingDocName.length === 0) &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? ordinalMetadata.name
+                : null;
         const baseDocName =
             (implicitName && implicitName.length > 0 && implicitName) ||
+            (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
