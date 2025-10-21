@@ -57,3 +57,78 @@ function resolveEnvironmentMap(candidate) {
 
     return null;
 }
+
+/**
+ * Create a stateful value that can be configured imperatively and via
+ * environment overrides.
+ *
+ * The helper centralizes the common pattern of tracking a configurable
+ * default, exposing getters/setters, and wiring an environment variable that
+ * drives the fallback. Callers provide a {@link normalize} function responsible
+ * for validating incoming values and returning the updated state. The function
+ * receives the raw value along with the baseline default and the previous
+ * configured value so normalization logic can make context-aware decisions
+ * without closing over module-level variables.
+ *
+ * @template TValue
+ * @param {object} parameters
+ * @param {TValue} parameters.defaultValue Baseline value returned before any
+ *        overrides are applied.
+ * @param {string | null | undefined} [parameters.envVar] Environment variable
+ *        that triggers the override when defined. When omitted, the
+ *        {@link applyEnvOverride} method becomes a no-op.
+ * @param {(raw: unknown, context: {
+ *     defaultValue: TValue;
+ *     previousValue: TValue;
+ * }) => TValue} parameters.normalize Function that validates the new value and
+ *        returns the configured result.
+ * @param {typeof applyEnvironmentOverride} [parameters.applyOverride]
+ *        Override for the environment override helper, primarily used in
+ *        testing.
+ * @returns {{
+ *     get(): TValue;
+ *     set(value: unknown): TValue;
+ *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
+ * }} Utility methods for interacting with the configurable value.
+ */
+export function createEnvConfiguredValue({
+    defaultValue,
+    envVar,
+    normalize,
+    applyOverride = applyEnvironmentOverride
+} = {}) {
+    assertFunction(normalize, "normalize");
+
+    let currentValue = defaultValue;
+
+    function set(value) {
+        currentValue = normalize(value, {
+            defaultValue,
+            previousValue: currentValue
+        });
+
+        return currentValue;
+    }
+
+    function get() {
+        return currentValue;
+    }
+
+    function applyEnvOverride(env) {
+        if (!envVar) {
+            return currentValue;
+        }
+
+        applyOverride({
+            env,
+            envVar,
+            applyValue: (rawValue) => {
+                set(rawValue);
+            }
+        });
+
+        return currentValue;
+    }
+
+    return { get, set, applyEnvOverride };
+}

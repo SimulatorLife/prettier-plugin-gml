@@ -1,24 +1,19 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import vm from "node:vm";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
 
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { toNormalizedLowerCaseSet, toPosixPath } from "../lib/shared-deps.js";
-import { ensureDir } from "../lib/file-system.js";
+import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
-    resolveManualRepoValue,
     buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
-    resolveProgressBarWidth,
-    getDefaultProgressBarWidth,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
 import {
@@ -30,7 +25,11 @@ import {
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
-import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import {
+    applySharedManualCommandOptions,
+    resolveManualCommandOptions
+} from "../lib/manual-command-options.js";
+import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
@@ -53,64 +52,35 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
             .description(
                 "Generate the gml-identifiers.json artefact from the GameMaker manual."
             )
-    )
-        .option(
-            "-r, --ref <git-ref>",
-            "Manual git ref (tag, branch, or commit)."
-        )
-        .option(
-            "-o, --output <path>",
-            `Output JSON path (default: ${OUTPUT_DEFAULT}).`,
-            (value) => path.resolve(value),
-            OUTPUT_DEFAULT
-        )
-        .option(
-            "--force-refresh",
-            "Ignore cached manual artefacts and re-download."
-        )
-        .option("--quiet", "Suppress progress logging (useful in CI).")
-        .option(
-            "--vm-eval-timeout-ms <ms>",
-            `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${getDefaultVmEvalTimeoutMs()}). Set to 0 to disable the timeout.`,
-            (value) => {
-                try {
-                    return resolveVmEvalTimeout(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultVmEvalTimeoutMs()
-        )
-        .option(
-            "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultProgressBarWidth()
-        )
-        .option(
-            "--manual-repo <owner/name>",
-            `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
-            (value) => {
-                try {
-                    return resolveManualRepoValue(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_MANUAL_REPO
-        )
-        .option(
-            "--cache-root <path>",
-            `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
-            (value) => path.resolve(value),
-            DEFAULT_CACHE_ROOT
-        );
+    ).option("-r, --ref <git-ref>", "Manual git ref (tag, branch, or commit).");
+
+    const defaultVmTimeout = getDefaultVmEvalTimeoutMs();
+
+    applySharedManualCommandOptions(command, {
+        outputPath: { defaultValue: OUTPUT_DEFAULT },
+        cacheRoot: { defaultValue: DEFAULT_CACHE_ROOT },
+        manualRepo: { defaultValue: DEFAULT_MANUAL_REPO },
+        quietDescription: "Suppress progress logging (useful in CI).",
+        optionOrder: [
+            "outputPath",
+            "forceRefresh",
+            "quiet",
+            "vmEvalTimeout",
+            "progressBarWidth",
+            "manualRepo",
+            "cacheRoot"
+        ],
+        customOptions: {
+            vmEvalTimeout(cmd) {
+                cmd.option(
+                    "--vm-eval-timeout-ms <ms>",
+                    `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${defaultVmTimeout}). Set to 0 to disable the timeout.`,
+                    wrapInvalidArgumentResolver(resolveVmEvalTimeout),
+                    defaultVmTimeout
+                );
+            }
+        }
+    });
 
     applyManualEnvOptionOverrides({
         command,
@@ -638,16 +608,15 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             identifiers: Object.fromEntries(sortedIdentifiers)
         };
 
-        await ensureDir(path.dirname(outputPath));
-        await fs.writeFile(
+        await writeManualJsonArtifact({
             outputPath,
-            `${JSON.stringify(payload, undefined, 2)}\n`,
-            "utf8"
-        );
-
-        console.log(
-            `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
-        );
+            payload,
+            onAfterWrite: () => {
+                console.log(
+                    `Wrote ${sortedIdentifiers.length} identifiers to ${outputPath}`
+                );
+            }
+        });
         logCompletion();
         return 0;
     } finally {

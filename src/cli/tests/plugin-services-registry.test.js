@@ -83,6 +83,12 @@ test("CLI plugin service registration", async (t) => {
                 identifierCasePlan: {
                     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
                     clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
+                },
+                identifierCasePlanPreparation: {
+                    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
+                },
+                identifierCasePlanCache: {
+                    clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
                 }
             },
             "aggregated default CLI services should match individual defaults"

@@ -4,7 +4,10 @@ import {
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
-import { setIdentifierCaseOption } from "./option-store.js";
+import {
+    setIdentifierCaseOption,
+    deleteIdentifierCaseOption
+} from "./option-store.js";
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
@@ -97,4 +100,6 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
 export function teardownIdentifierCaseEnvironment(options) {
     const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
     disposeBootstrap(bootstrap, options?.logger ?? null);
+    deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
+    deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
 }

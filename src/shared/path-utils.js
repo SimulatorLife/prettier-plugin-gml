@@ -3,6 +3,7 @@ export {
     collectUniqueAncestorDirectories,
     fromPosixPath,
     isPathInside,
+    resolveProjectPathInfo,
     resolveContainedRelativePath,
     toPosixPath,
     walkAncestorDirectories
