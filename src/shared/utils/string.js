@@ -121,8 +121,14 @@ export function stripStringQuotes(value) {
     return null;
 }
 
+const DOUBLE_QUOTE_CHARACTER = '"';
+const SINGLE_QUOTE_CHARACTER = "'";
+
 function isQuoteCharacter(character) {
-    return character === '"' || character === "'";
+    return (
+        character === DOUBLE_QUOTE_CHARACTER ||
+        character === SINGLE_QUOTE_CHARACTER
+    );
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
