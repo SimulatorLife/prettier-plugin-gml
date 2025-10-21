@@ -31,6 +31,10 @@ import {
 } from "../lib/manual-command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
+import {
+    decodeManualKeywordsPayload,
+    decodeManualTagsPayload
+} from "../lib/manual-payload-validation.js";
 
 const {
     repoRoot: REPO_ROOT,
@@ -572,12 +576,18 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
 
         const manualKeywords = timeSync(
             "Decoding ZeusDocs keywords",
-            () => JSON.parse(keywordsJson),
+            () =>
+                decodeManualKeywordsPayload(keywordsJson, {
+                    source: "ZeusDocs_keywords.json"
+                }),
             { verbose }
         );
         const manualTags = timeSync(
             "Decoding ZeusDocs tags",
-            () => JSON.parse(tagsJsonText),
+            () =>
+                decodeManualTagsPayload(tagsJsonText, {
+                    source: "ZeusDocs_tags.json"
+                }),
             { verbose }
         );
 
