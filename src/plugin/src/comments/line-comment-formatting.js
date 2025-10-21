@@ -267,8 +267,58 @@ function applyJsDocReplacements(text) {
     }
 
     formattedText = stripTrailingFunctionParameters(formattedText);
+    formattedText = normalizeFeatherOptionalParamSyntax(formattedText);
 
     return normalizeDocCommentTypeAnnotations(formattedText);
+}
+
+function normalizeFeatherOptionalParamSyntax(text) {
+    if (typeof text !== "string" || !/@param\b/i.test(text)) {
+        return text;
+    }
+
+    return text.replace(
+        /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
+        (match, prefix, token) =>
+            `${prefix}${normalizeOptionalParamToken(token)}`
+    );
+}
+
+function normalizeOptionalParamToken(token) {
+    if (typeof token !== "string") {
+        return token;
+    }
+
+    const trimmed = token.trim();
+
+    if (/^\[[^\]]+\]$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    let stripped = trimmed;
+    let hadSentinel = false;
+
+    while (stripped.startsWith("*")) {
+        stripped = stripped.slice(1);
+        hadSentinel = true;
+    }
+
+    while (stripped.endsWith("*")) {
+        stripped = stripped.slice(0, - 1);
+        hadSentinel = true;
+    }
+
+    if (!hadSentinel) {
+        return trimmed;
+    }
+
+    const normalized = stripped.trim();
+
+    if (normalized.length === 0) {
+        return stripped.replaceAll('*', "");
+    }
+
+    return `[${normalized}]`;
 }
 
 function stripTrailingFunctionParameters(text) {
