@@ -78,15 +78,15 @@ function getNodeEndIndex(node) {
 }
 
 function cloneLocation(location) {
-    let cloned = location;
-
     if (location && typeof location === "object") {
-        cloned = structuredClone(location);
-    } else if (location === undefined || location === null) {
-        cloned = undefined;
+        return structuredClone(location);
     }
 
-    return cloned;
+    if (location === undefined || location === null) {
+        return undefined;
+    }
+
+    return location;
 }
 
 /**
