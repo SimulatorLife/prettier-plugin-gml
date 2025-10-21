@@ -31,3 +31,26 @@ test("preserves double spaces following doc comment hyphen", async () => {
         "Expected doc comment description spacing to be preserved"
     );
 });
+
+test("normalizes extra spaces before doc parameter names", async () => {
+    const source = [
+        "/// @param    x1",
+        "/// @param    y1",
+        "function draw_line(x1, y1) {",
+        "    return x1 + y1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const [functionLine, firstParamLine, secondParamLine] =
+        formatted.split("\n");
+    assert.equal(functionLine, "/// @function draw_line");
+    assert.equal(firstParamLine, "/// @param x1");
+    assert.equal(secondParamLine, "/// @param y1");
+});
