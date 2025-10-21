@@ -6,10 +6,11 @@ import { normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     coercePositiveInteger,
-    resolveIntegerOption
+    resolveIntegerOption,
+    wrapInvalidArgumentResolver
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
-import { applyEnvironmentOverride } from "./shared-deps.js";
+import { createEnvConfiguredValue } from "./shared-deps.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -21,8 +22,6 @@ import {
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
-
-let configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
 
 const createIterationErrorMessage = (received) =>
     `Iteration count must be a positive integer (received ${received}).`;
@@ -37,21 +36,26 @@ function coerceMemoryIterations(value, { received }) {
     });
 }
 
+const memoryIterationsConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_ITERATIONS,
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    normalize: (value, { defaultValue }) => {
+        if (value === undefined) {
+            return defaultValue;
+        }
+
+        return resolveMemoryIterations(value, {
+            defaultIterations: defaultValue
+        });
+    }
+});
+
 export function getDefaultMemoryIterations() {
-    return configuredDefaultMemoryIterations;
+    return memoryIterationsConfig.get();
 }
 
 export function setDefaultMemoryIterations(iterations) {
-    if (iterations === undefined) {
-        configuredDefaultMemoryIterations = DEFAULT_ITERATIONS;
-        return configuredDefaultMemoryIterations;
-    }
-
-    configuredDefaultMemoryIterations = resolveMemoryIterations(iterations, {
-        defaultIterations: DEFAULT_ITERATIONS
-    });
-
-    return configuredDefaultMemoryIterations;
+    return memoryIterationsConfig.set(iterations);
 }
 
 export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
@@ -68,11 +72,7 @@ export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
 }
 
 export function applyMemoryIterationsEnvOverride(env = process?.env) {
-    applyEnvironmentOverride({
-        env,
-        envVar: MEMORY_ITERATIONS_ENV_VAR,
-        applyValue: setDefaultMemoryIterations
-    });
+    memoryIterationsConfig.applyEnvOverride(env);
 }
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
@@ -120,13 +120,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
         .option(
             "-i, --iterations <count>",
             `Iteration count for suites that support it (default: ${defaultIterations}).`,
-            (value) => {
-                try {
-                    return resolveMemoryIterations(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
+            wrapInvalidArgumentResolver(resolveMemoryIterations),
             defaultIterations
         )
         .option(

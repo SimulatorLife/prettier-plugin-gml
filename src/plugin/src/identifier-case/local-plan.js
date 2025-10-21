@@ -1,11 +1,9 @@
-import path from "node:path";
-
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { buildRenameKey } from "./plan-state.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     toPosixPath,
-    resolveContainedRelativePath
+    resolveProjectPathInfo
 } from "../../../shared/path-utils.js";
 import { createMetricsTracker } from "../../../shared/reporting.js";
 import {
@@ -57,26 +55,16 @@ function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
 }
 
 function resolveRelativeFilePath(projectRoot, absoluteFilePath) {
-    if (!isNonEmptyString(absoluteFilePath)) {
+    const info = resolveProjectPathInfo(absoluteFilePath, projectRoot);
+    if (!info) {
         return null;
     }
 
-    const resolvedFile = path.resolve(absoluteFilePath);
-
-    if (isNonEmptyString(projectRoot)) {
-        const resolvedRoot = path.resolve(projectRoot);
-        const relative = resolveContainedRelativePath(
-            resolvedFile,
-            resolvedRoot
-        );
-        if (relative !== null) {
-            return toPosixPath(relative);
-        }
-
-        return toPosixPath(path.relative(resolvedRoot, resolvedFile));
+    if (!info.hasProjectRoot) {
+        return toPosixPath(info.absolutePath);
     }
 
-    return toPosixPath(resolvedFile);
+    return toPosixPath(info.relativePath);
 }
 
 function createScopeGroupingKey(scopeId, fallback) {

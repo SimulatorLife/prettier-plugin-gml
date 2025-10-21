@@ -3309,7 +3309,7 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts a draw_primitive_begin call when fixing GM2028 and records metadata", () => {
+    it("removes stray draw_primitive_end calls when fixing GM2028 and records metadata", () => {
         const source = ["/// Draw Event", "", "draw_primitive_end();"].join(
             "\n"
         );
@@ -3322,23 +3322,7 @@ describe("applyFeatherFixes transform", () => {
         applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        assert.strictEqual(body.length, 2);
-
-        const [beginCall, endCall] = body;
-        assert.ok(beginCall);
-        assert.strictEqual(beginCall.type, "CallExpression");
-        assert.strictEqual(beginCall.object?.name, "draw_primitive_begin");
-
-        const beginArgs = Array.isArray(beginCall.arguments)
-            ? beginCall.arguments
-            : [];
-        assert.strictEqual(beginArgs.length, 1);
-        assert.strictEqual(beginArgs[0]?.type, "Identifier");
-        assert.strictEqual(beginArgs[0]?.name, "pr_linelist");
-
-        assert.ok(endCall);
-        assert.strictEqual(endCall.type, "CallExpression");
-        assert.strictEqual(endCall.object?.name, "draw_primitive_end");
+        assert.strictEqual(body.length, 0);
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm2028 = appliedDiagnostics.find(
@@ -3350,12 +3334,6 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM2028 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2028.automatic, true);
-
-        const beginDiagnostics = beginCall._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(
-            beginDiagnostics.some((entry) => entry.id === "GM2028"),
-            true
-        );
     });
 
     it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
@@ -3739,7 +3717,8 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } = preprocessSourceForFeatherFixes(source);
+        const { sourceText, metadata } =
+            preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,

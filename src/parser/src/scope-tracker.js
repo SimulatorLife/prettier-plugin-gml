@@ -1,5 +1,5 @@
-import { assignClonedLocation, cloneLocation } from "../../shared/ast.js";
-import { isObjectLike, toArray } from "../../shared/utils.js";
+import { assignClonedLocation, cloneLocation } from "./shared/ast.js";
+import { isObjectLike, toArray } from "./shared/utils.js";
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,
@@ -148,6 +148,23 @@ export default class ScopeTracker {
         return null;
     }
 
+    /**
+     * Annotate {@link node} as the declaration site for {@link name}. The
+     * method persists metadata on the active scope tree so later references can
+     * resolve back to their defining scope.
+     *
+     * When {@link role} includes a `scopeOverride` value, the declaration is
+     * stored against that target instead of the current scope. The helper
+     * tolerates missing identifiers and nodes so callers can guard optional
+     * grammar branches without bespoke checks.
+     *
+     * @param {string | null | undefined} name Identifier being declared.
+     * @param {import("./shared/ast.js").GameMakerAstNode | null | undefined} node
+     *        AST node representing the declaration site. The node is mutated to
+     *        include scope and classification metadata when provided.
+     * @param {{ scopeOverride?: unknown, tags?: Iterable<string>, kind?: string }}
+     *        [role] Classification hints used for semantic tokens.
+     */
     declare(name, node, role = {}) {
         if (!this.enabled || !name || !node) {
             return;

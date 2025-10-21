@@ -1,8 +1,4 @@
-import {
-    assertFunction,
-    hasOwn,
-    isObjectLike
-} from "../../../shared/object-utils.js";
+import { assertFunction, hasOwn, isObjectLike } from "./object.js";
 
 const SHARED_CACHE = new WeakMap();
 
@@ -82,39 +78,4 @@ function getCachedValue(options, cacheKey, fallbackCache, computeValue) {
     return computed;
 }
 
-/**
- * Factory that yields a resolver function wired to a specific cache strategy.
- * Each resolver memoizes the derived value per options object, ensuring we only
- * run the expensive `compute` callback once for any given configuration. This
- * mirrors the caching pattern used throughout the plugin when normalizing user
- * supplied options.
- *
- * @template TValue
- * @param {Object} [options]
- * @param {PropertyKey | null} [options.cacheKey=null] Optional property name to
- *   store the computed value on the options object. When omitted, results are
- *   memoized solely via the fallback cache.
- * @param {{
- *   get(key: unknown): TValue | undefined,
- *   set(key: unknown, value: TValue): unknown
- * } | undefined} [options.cache]
- *   Pre-existing cache store to use instead of creating a new WeakMap.
- * @param {(options: unknown) => TValue} options.compute Function invoked to
- *   compute the memoized value the first time each options object is
- *   encountered.
- * @returns {(options: unknown) => TValue} Resolver that returns a cached value
- *   for the provided options bag.
- */
-function createCachedOptionResolver({ cacheKey = null, cache, compute } = {}) {
-    assertFunction(compute, "compute");
-
-    const fallbackCache = cache ?? new WeakMap();
-
-    return function resolveCachedOption(options) {
-        return getCachedValue(options, cacheKey, fallbackCache, () =>
-            compute(options)
-        );
-    };
-}
-
-export { getCachedValue, createCachedOptionResolver };
+export { getCachedValue };

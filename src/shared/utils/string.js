@@ -97,6 +97,34 @@ export function capitalize(value) {
     return value.at(0).toUpperCase() + value.slice(1);
 }
 
+/**
+ * Remove matching string quotes from {@link value}, returning `null` when the
+ * input is not a quoted string. Supports both single- and double-quoted
+ * literals so call sites can focus on their specific validation logic without
+ * repeating defensive slicing guards.
+ *
+ * @param {unknown} value Candidate string literal.
+ * @returns {string | null} Inner string content when wrapped in matching quotes.
+ */
+export function stripStringQuotes(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return null;
+    }
+
+    const firstChar = value[0];
+    const lastChar = value.at(-1);
+
+    if (isQuoteCharacter(firstChar) && firstChar === lastChar) {
+        return value.slice(1, -1);
+    }
+
+    return null;
+}
+
+function isQuoteCharacter(character) {
+    return character === '"' || character === "'";
+}
+
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
 /**
@@ -109,19 +137,19 @@ const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
  * feedback to callers.
  *
  * @param {string | string[] | null | undefined} value Raw option value provided by a
- *   consumer. Arrays are flattened as-is; strings are split using
- *   `splitPattern`.
+ *        consumer. Arrays are flattened as-is; strings are split using
+ *        `splitPattern`.
  * @param {Object} [options]
  * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
- *   string input. Provide a falsy value (for example `false`) to keep the entire
- *   string as a single entry.
+ *        string input. Provide a falsy value (for example `false`) to keep the entire
+ *        string as a single entry.
  * @param {boolean} [options.allowInvalidType=false] If `true`, invalid types
- *   are treated as "no value" instead of throwing.
+ *        are treated as "no value" instead of throwing.
  * @param {string} [options.errorMessage] Message used when raising a
- *   `TypeError` for invalid types. Defaults to a generic string when omitted.
+ *        `TypeError` for invalid types. Defaults to a generic string when omitted.
  * @returns {string[]} A list of unique, trimmed entries in input order.
  * @throws {TypeError} When `value` is not a string or array and
- *   `allowInvalidType` is `false`.
+ *        `allowInvalidType` is `false`.
  */
 export function normalizeStringList(
     value,
@@ -183,12 +211,12 @@ function collectUniqueTrimmedStrings(entries) {
  * @param {string | string[] | null | undefined} value Raw option value.
  * @param {Object} [options]
  * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
- *   to `normalizeStringList` for string input. Provide a falsy value to keep
- *   entire strings intact.
+ *        to `normalizeStringList` for string input. Provide a falsy value to keep
+ *        entire strings intact.
  * @param {boolean} [options.allowInvalidType=true] Whether to treat invalid
- *   types as empty input.
+ *        types as empty input.
  * @param {string} [options.errorMessage] Message forwarded to
- *   `normalizeStringList` when raising a `TypeError`.
+ *        `normalizeStringList` when raising a `TypeError`.
  * @returns {Set<string>} Lower-cased set of unique entries.
  */
 export function toNormalizedLowerCaseSet(

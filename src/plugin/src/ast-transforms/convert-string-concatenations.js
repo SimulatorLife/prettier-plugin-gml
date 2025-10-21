@@ -3,6 +3,7 @@ import {
     normalizeHasCommentHelpers
 } from "../comments/index.js";
 import { unwrapParenthesizedExpression } from "../../../shared/ast-node-helpers.js";
+import { stripStringQuotes } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -329,5 +330,5 @@ function extractLiteralText(node) {
         return "";
     }
 
-    return raw.slice(1, -1);
+    return stripStringQuotes(raw) ?? "";
 }

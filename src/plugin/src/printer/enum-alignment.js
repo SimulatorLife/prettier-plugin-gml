@@ -50,10 +50,6 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (typeof initializer === "string") {
-        return initializer.trim().length;
-    }
-
     if (initializer == undefined) {
         return 0;
     }
@@ -62,12 +58,28 @@ function getEnumInitializerWidth(initializer) {
         return String(initializer).length;
     }
 
-    if (typeof initializer === "object") {
-        const text = String(initializer.value ?? "").trim();
-        return text.length;
+    const normalized =
+        typeof initializer === "object"
+            ? extractInitializerText(initializer)
+            : initializer;
+
+    if (typeof normalized === "number") {
+        return String(normalized).trim().length;
     }
 
-    return String(initializer).trim().length;
+    if (typeof normalized === "string") {
+        return normalized.trim().length;
+    }
+
+    return String(normalized ?? "").trim().length;
+}
+
+function extractInitializerText(initializer) {
+    if (typeof initializer._enumInitializerText === "string") {
+        return initializer._enumInitializerText;
+    }
+
+    return initializer.value ?? "";
 }
 
 function collectTrailingEnumComments(member) {

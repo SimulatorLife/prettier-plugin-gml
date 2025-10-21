@@ -1,7 +1,5 @@
-import path from "node:path";
-
 import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { resolveContainedRelativePath } from "../../../shared/path-utils.js";
+import { resolveProjectPathInfo } from "../../../shared/path-utils.js";
 
 /**
  * Format parser-originated syntax errors into the structured messages surfaced
@@ -54,16 +52,17 @@ function resolveDisplayPath(filePath, projectRoot) {
         return null;
     }
 
-    if (!path.isAbsolute(normalizedFilePath)) {
+    const info = resolveProjectPathInfo(normalizedFilePath, projectRoot);
+    if (!info) {
+        return null;
+    }
+
+    if (!info.inputWasAbsolute) {
         return normalizedFilePath;
     }
 
-    const normalizedProjectRoot = getNonEmptyString(projectRoot);
-    if (normalizedProjectRoot) {
-        const relative = resolveContainedRelativePath(
-            normalizedFilePath,
-            normalizedProjectRoot
-        );
+    if (info.hasProjectRoot && info.isInsideProjectRoot) {
+        const relative = info.relativePath;
         if (relative) {
             return relative;
         }

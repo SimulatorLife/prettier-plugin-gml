@@ -14,7 +14,8 @@ import {
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet,
     capitalize,
-    getNonEmptyString
+    getNonEmptyString,
+    stripStringQuotes
 } from "../string-utils.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -111,4 +112,18 @@ test("assertNonEmptyString throws when value is not a non-empty string", () => {
     assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
     assert.throws(() => assertNonEmptyString(null), TypeError);
     assert.throws(() => assertNonEmptyString(42), TypeError);
+});
+
+test("stripStringQuotes removes matching single and double quotes", () => {
+    assert.strictEqual(stripStringQuotes('"value"'), "value");
+    assert.strictEqual(stripStringQuotes("'value'"), "value");
+    assert.strictEqual(stripStringQuotes('""'), "");
+});
+
+test("stripStringQuotes returns null for unquoted or mismatched values", () => {
+    assert.strictEqual(stripStringQuotes("value"), null);
+    assert.strictEqual(stripStringQuotes("\"value'"), null);
+    assert.strictEqual(stripStringQuotes("'value\""), null);
+    assert.strictEqual(stripStringQuotes(null), null);
+    assert.strictEqual(stripStringQuotes(42), null);
 });

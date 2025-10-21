@@ -2,8 +2,13 @@ export {
     createDefaultCliPluginServices,
     createDefaultCliProjectIndexService,
     createDefaultCliIdentifierCasePlanService,
+    createDefaultCliIdentifierCasePlanPreparationService,
+    createDefaultCliIdentifierCaseCacheService,
+    resolveCliPluginServices,
     resolveCliProjectIndexService,
     resolveCliIdentifierCasePlanService,
+    resolveCliIdentifierCasePlanPreparationService,
+    resolveCliIdentifierCaseCacheService,
     defaultIdentifierCasePlanPreparer,
     defaultProjectIndexBuilder,
     defaultIdentifierCaseCacheClearer

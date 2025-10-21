@@ -3,14 +3,19 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { isFiniteNumber } from "../../../shared/number-utils.js";
-import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
+import { isObjectLike } from "../../../shared/object-utils.js";
+import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
+import {
+    isFsErrorCode,
+    listDirectory,
+    getFileMtime
+} from "../../../shared/fs-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -19,8 +24,14 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
     "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
-let configuredDefaultProjectIndexCacheMaxSize =
-    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+const projectIndexCacheSizeConfig = createEnvConfiguredValue({
+    defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    normalize: (value, { defaultValue }) => {
+        const normalized = normalizeMaxSizeBytes(value);
+        return normalized ?? defaultValue;
+    }
+});
 
 export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
     PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
@@ -56,24 +67,15 @@ function hasEntries(record) {
 }
 
 function getDefaultProjectIndexCacheMaxSize() {
-    return configuredDefaultProjectIndexCacheMaxSize;
+    return projectIndexCacheSizeConfig.get();
 }
 
 function setDefaultProjectIndexCacheMaxSize(size) {
-    const normalized = normalizeMaxSizeBytes(size);
-
-    configuredDefaultProjectIndexCacheMaxSize =
-        normalized ?? PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
-
-    return configuredDefaultProjectIndexCacheMaxSize;
+    return projectIndexCacheSizeConfig.set(size);
 }
 
 function applyProjectIndexCacheEnvOverride(env = process?.env) {
-    applyEnvironmentOverride({
-        env,
-        envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-        applyValue: setDefaultProjectIndexCacheMaxSize
-    });
+    projectIndexCacheSizeConfig.applyEnvOverride(env);
 }
 
 applyProjectIndexCacheEnvOverride();
@@ -103,7 +105,7 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (typeof source !== "object" || source === null) {
+    if (!isObjectLike(source)) {
         return {};
     }
 
@@ -139,11 +141,11 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return true;
     }
 
-    if (typeof expected !== "object" || expected === null) {
+    if (!isObjectLike(expected)) {
         return false;
     }
 
-    if (typeof actual !== "object" || actual === null) {
+    if (!isObjectLike(actual)) {
         return false;
     }
 
