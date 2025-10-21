@@ -113,7 +113,7 @@ function scr_logic_mixed_reduction(foo, bar, baz) {
 /// @param bar
 /// @param baz
 function logical_example(foo, bar, baz) {
-    return foo && (bar || !baz);
+    return foo && (!baz || bar);
 }
 
 /// @function scr_nearest_power_of_2
