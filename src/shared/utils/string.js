@@ -168,7 +168,15 @@ export function stripStringQuotes(value) {
     return null;
 }
 
+/**
+ * Literal double-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
 const DOUBLE_QUOTE_CHARACTER = '"';
+/**
+ * Literal single-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
 const SINGLE_QUOTE_CHARACTER = "'";
 
 function isQuoteCharacter(character) {
