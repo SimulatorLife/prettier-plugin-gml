@@ -2,10 +2,29 @@ export function isNonEmptyString(value) {
     return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * Determine whether {@link value} is a string containing at least one
+ * non-whitespace character. Mirrors the defensive guards used when parsing
+ * identifiers and option values so callers can accept padded input without
+ * introducing bespoke trimming logic.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is string} `true` when {@link value} is a non-empty string
+ *                             after trimming.
+ */
 export function isNonEmptyTrimmedString(value) {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+/**
+ * Normalize {@link value} into a trimmed string or `null` when it does not
+ * contain visible characters. Keeps option normalization helpers consistent by
+ * collapsing blank or non-string inputs to a single sentinel value instead of
+ * leaking empty strings through call sites.
+ *
+ * @param {unknown} value Candidate value to normalize.
+ * @returns {string | null} Trimmed string when populated, otherwise `null`.
+ */
 export function getNonEmptyTrimmedString(value) {
     if (typeof value !== "string") {
         return null;
