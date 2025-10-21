@@ -189,3 +189,27 @@ test("collectImplicitArgumentDocNames reuses documented names when alias is miss
         "Expected fallback doc line to be skipped when already documented."
     );
 });
+
+const DIRECT_REFERENCE_SOURCE = `/// @function demo
+/// @param foo
+/// @param bar
+function demo(argument0, argument1) {
+    var foo = argument0;
+    return argument1;
+}
+`;
+
+test("collectImplicitArgumentDocNames keeps documented names for direct references", async () => {
+    const formatted = await prettier.format(DIRECT_REFERENCE_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: false
+    });
+
+    const docLines = formatted
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, ["/// @param foo", "/// @param bar"]);
+});
