@@ -5172,7 +5172,7 @@ function printSingleClauseStatement(
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
     const allowSingleLineIfStatements =
-        options?.allowSingleLineIfStatements ?? true;
+        options?.allowSingleLineIfStatements ?? false;
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;
