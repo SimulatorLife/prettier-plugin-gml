@@ -380,6 +380,12 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
+            assert.match(
+                stdout,
+                /Skipped 1 directory ignored by \.prettierignore/,
+                "Expected wrapper output to summarize ignored directories"
+            );
+
             const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
                 skippedMatch,
