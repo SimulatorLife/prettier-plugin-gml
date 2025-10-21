@@ -4,7 +4,8 @@ const SHARED_CACHE = new WeakMap();
 
 function isCacheLike(candidate) {
     return (
-        candidate != undefined &&
+        candidate !== null &&
+        candidate !== undefined &&
         typeof candidate.get === "function" &&
         typeof candidate.set === "function"
     );
