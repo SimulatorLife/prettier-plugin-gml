@@ -5,7 +5,9 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
-    createManualGitHubClient,
+    createManualGitHubFileClient,
+    createManualGitHubReferencesClient,
+    createManualGitHubRequestDispatcher,
     createManualVerboseState
 } from "../lib/manual-utils.js";
 
@@ -19,6 +21,30 @@ function makeResponse({ body, ok = true, statusText = "OK" }) {
         async text() {
             return body;
         }
+    };
+}
+
+function createManualClientBundle({
+    userAgent,
+    defaultCacheRoot,
+    defaultRawRoot
+}) {
+    const requestDispatcher = createManualGitHubRequestDispatcher({
+        userAgent
+    });
+    const references = createManualGitHubReferencesClient({
+        requestDispatcher
+    });
+    const fileFetcher = createManualGitHubFileClient({
+        requestDispatcher,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
+
+    return {
+        requestDispatcher,
+        references,
+        fileFetcher
     };
 }
 
@@ -38,7 +64,7 @@ describe("manual GitHub client validation", () => {
             path.join(os.tmpdir(), "manual-cache-")
         );
 
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: cacheRoot,
             defaultRawRoot: RAW_ROOT
@@ -82,7 +108,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("rejects manual commit payloads without a SHA", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -115,7 +141,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("rejects manual tag entries that omit the tag name", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -152,7 +178,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("returns manual tag details when the payload is valid", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -189,7 +215,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("exposes a focused commit resolver for direct commit lookups", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"

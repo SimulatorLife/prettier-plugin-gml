@@ -127,7 +127,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
+                    "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },
             convertDivisionToMultiplication: {
                 since: "0.0.0",
@@ -135,7 +135,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Replace divisions by constant values with multiplication by their reciprocal (for example, 'value / 2' becomes 'value * 0.5')."
+                    "Reserved toggle for future reciprocal rewrites. Division by two already canonicalizes to '* 0.5'; other divisors remain unchanged."
             },
             convertManualMathToBuiltins: {
                 since: "0.0.0",

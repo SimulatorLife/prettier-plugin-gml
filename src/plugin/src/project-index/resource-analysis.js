@@ -1,6 +1,9 @@
 import path from "node:path";
 
-import { toPosixPath } from "../../../shared/path-utils.js";
+import {
+    toPosixPath,
+    resolveProjectPathInfo
+} from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     isNonEmptyString,
@@ -33,11 +36,6 @@ function deriveScopeId(kind, parts) {
     return `scope:${kind}:${suffix}`;
 }
 
-function toProjectRelativePath(projectRoot, absolutePath) {
-    const relative = path.relative(projectRoot, absolutePath);
-    return toPosixPath(relative);
-}
-
 function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     if (!isNonEmptyString(rawPath)) {
         return null;
@@ -51,7 +49,12 @@ function normalizeResourcePath(rawPath, { projectRoot } = {}) {
     const absoluteCandidate = path.isAbsolute(normalized)
         ? normalized
         : path.join(projectRoot, normalized);
-    return toProjectRelativePath(projectRoot, absoluteCandidate);
+    const info = resolveProjectPathInfo(absoluteCandidate, projectRoot);
+    if (!info) {
+        return null;
+    }
+
+    return toPosixPath(info.relativePath);
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
@@ -216,17 +219,18 @@ function collectAssetReferences(root, callback) {
     while (stack.length > 0) {
         const { value, path } = stack.pop();
 
+        const pushChild = (nextValue, key) => {
+            if (!nextValue || typeof nextValue !== "object") {
+                return;
+            }
+
+            const childPath = path ? `${path}.${key}` : String(key);
+            stack.push({ value: nextValue, path: childPath });
+        };
+
         if (Array.isArray(value)) {
             for (let index = value.length - 1; index >= 0; index -= 1) {
-                const entry = value[index];
-                if (!entry || typeof entry !== "object") {
-                    continue;
-                }
-
-                stack.push({
-                    value: entry,
-                    path: path ? `${path}.${index}` : String(index)
-                });
+                pushChild(value[index], index);
             }
             continue;
         }
@@ -242,14 +246,7 @@ function collectAssetReferences(root, callback) {
         const entries = Object.entries(value);
         for (let i = entries.length - 1; i >= 0; i -= 1) {
             const [key, child] = entries[i];
-            if (!child || typeof child !== "object") {
-                continue;
-            }
-
-            stack.push({
-                value: child,
-                path: path ? `${path}.${key}` : key
-            });
+            pushChild(child, key);
         }
     }
 }

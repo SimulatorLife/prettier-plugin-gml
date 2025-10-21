@@ -345,7 +345,7 @@ enumeratorList
     ;
 
 enumerator
-    : identifier (Assign (IntegerLiteral | HexIntegerLiteral | BinaryLiteral))?
+    : identifier (Assign expression)?
     ;
 
 macroStatement

@@ -1,8 +1,8 @@
 import { SingleBar, Presets } from "cli-progress";
 
 import {
-    applyEnvironmentOverride,
     coercePositiveInteger,
+    createEnvConfiguredValue,
     getOrCreateMapEntry,
     resolveIntegerOption
 } from "./shared-deps.js";
@@ -10,8 +10,6 @@ import {
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
-
-let configuredDefaultProgressBarWidth = DEFAULT_PROGRESS_BAR_WIDTH;
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -26,19 +24,19 @@ function coerceProgressBarWidth(value, { received }) {
     });
 }
 
+const progressBarWidthConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+    envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+    normalize: (value, { defaultValue }) =>
+        resolveProgressBarWidth(value, { defaultWidth: defaultValue })
+});
+
 function getDefaultProgressBarWidth() {
-    return configuredDefaultProgressBarWidth;
+    return progressBarWidthConfig.get();
 }
 
 function setDefaultProgressBarWidth(width) {
-    const normalized = resolveIntegerOption(width, {
-        defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
-        coerce: coerceProgressBarWidth,
-        typeErrorMessage: createTypeErrorMessage
-    });
-
-    configuredDefaultProgressBarWidth = normalized;
-    return configuredDefaultProgressBarWidth;
+    return progressBarWidthConfig.set(width);
 }
 
 function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
@@ -55,11 +53,7 @@ function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
 }
 
 function applyProgressBarWidthEnvOverride(env = process?.env) {
-    applyEnvironmentOverride({
-        env,
-        envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-        applyValue: setDefaultProgressBarWidth
-    });
+    progressBarWidthConfig.applyEnvOverride(env);
 }
 
 applyProgressBarWidthEnvOverride();

@@ -6,10 +6,10 @@ import {
     parseJsonWithContext,
     toTrimmedString
 } from "./shared-deps.js";
-import { ensureDir } from "./file-system.js";
 import { formatDuration } from "./time-utils.js";
 import { formatBytes } from "./byte-format.js";
-import { isNonEmptyArray } from "../../shared/array-utils.js";
+import { isNonEmptyArray } from "./shared/array-utils.js";
+import { writeManualFile } from "./manual-file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -53,13 +53,6 @@ function describeManualRepoInput(value) {
  */
 
 /**
- * The original `ManualGitHubClientSurfaces` interface forced manual commands to
- * depend on request dispatching, reference resolution, and file fetching in one
- * bundle. By splitting the contract we let call sites wire up only the
- * collaborators they actually use, preserving interface segregation.
- */
-
-/**
  * @typedef {object} ManualGitHubReferencesClient
  * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
  *   resolveManualRef
@@ -81,10 +74,12 @@ function describeManualRepoInput(value) {
  */
 
 /**
- * @typedef {object} ManualGitHubClient
- * @property {ManualGitHubRequestDispatcher} requestDispatcher
- * @property {ManualGitHubReferencesClient} references
- * @property {ManualGitHubFileClient} fileFetcher
+ * Manual commands historically used a catch-all `ManualGitHubClient` surface
+ * that bundled request dispatching, reference resolution, and file fetching.
+ * That broad contract violated the Interface Segregation Principle by forcing
+ * collaborators that only needed one behaviour to depend on all of them. The
+ * helpers below expose each concern behind its own focused facade so call sites
+ * can compose only what they require.
  */
 
 function createManualVerboseState({
@@ -92,7 +87,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
+    const state = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -100,14 +95,16 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return baseState;
+        return state;
     }
 
-    const normalizedOverrides = Object.fromEntries(
-        Object.entries(overrides).filter(([, value]) => value !== undefined)
-    );
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
+    }
 
-    return { ...baseState, ...normalizedOverrides };
+    return state;
 }
 
 function validateManualCommitPayload(payload, { ref }) {
@@ -134,25 +131,27 @@ function normalizeManualTagEntry(entry) {
         errorMessage: "Manual tag entry is missing a tag name."
     });
 
-    if (commit == null) {
-        return { name, sha: null };
-    }
+    const commitRecord =
+        commit == null
+            ? null
+            : assertPlainObject(commit, {
+                  errorMessage:
+                      "Manual tag entry commit must be an object when provided."
+              });
 
-    const { sha } = assertPlainObject(commit, {
-        errorMessage: "Manual tag entry commit must be an object when provided."
-    });
+    const sha =
+        commitRecord?.sha == null
+            ? null
+            : assertNonEmptyString(commitRecord.sha, {
+                  name: "Manual tag entry commit SHA",
+                  errorMessage:
+                      "Manual tag entry commit SHA must be a non-empty string when provided."
+              });
 
-    if (sha == null) {
-        return { name, sha: null };
-    }
-
-    const normalizedSha = assertNonEmptyString(sha, {
-        name: "Manual tag entry commit SHA",
-        errorMessage:
-            "Manual tag entry commit SHA must be a non-empty string when provided."
-    });
-
-    return { name, sha: normalizedSha };
+    return {
+        name,
+        sha
+    };
 }
 
 function resolveManualCacheRoot({
@@ -229,34 +228,29 @@ function resolveManualRepoValue(rawValue, { source = "cli" } = {}) {
 /**
  * Provide specialised GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
- *
- * @returns {ManualGitHubClient}
  */
-function createManualGitHubClient({
-    userAgent,
-    defaultCacheRoot,
-    defaultRawRoot
-} = {}) {
-    if (typeof userAgent !== "string" || userAgent.length === 0) {
-        throw new Error("A userAgent string is required.");
-    }
+/**
+ * @param {{ userAgent: string }} options
+ * @returns {ManualGitHubRequestDispatcher}
+ */
+function createManualGitHubRequestDispatcher({ userAgent } = {}) {
+    const normalizedUserAgent = assertNonEmptyString(userAgent, {
+        name: "userAgent",
+        errorMessage: "A userAgent string is required."
+    });
 
-    if (typeof defaultRawRoot !== "string" || defaultRawRoot.length === 0) {
-        throw new Error(
-            "A defaultRawRoot string is required to create the manual client."
-        );
-    }
+    const token = process.env.GITHUB_TOKEN;
+    const baseHeaders = {
+        "User-Agent": normalizedUserAgent,
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
 
-    const baseHeaders = { "User-Agent": userAgent };
-    if (process.env.GITHUB_TOKEN) {
-        baseHeaders.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    }
-
-    async function curlRequest(url, { headers = {}, acceptJson = false } = {}) {
-        const finalHeaders = { ...baseHeaders, ...headers };
-        if (acceptJson) {
-            finalHeaders.Accept = "application/vnd.github+json";
-        }
+    async function execute(url, { headers, acceptJson } = {}) {
+        const finalHeaders = {
+            ...baseHeaders,
+            ...headers,
+            ...(acceptJson ? { Accept: "application/vnd.github+json" } : {})
+        };
 
         const response = await fetch(url, {
             headers: finalHeaders,
@@ -272,33 +266,21 @@ function createManualGitHubClient({
         return bodyText;
     }
 
-    const requestDispatcher = {
-        /** @type {ManualGitHubRequestDispatcher} */
-        execute: curlRequest
-    };
-
-    const references = createManualGitHubReferencesClient({
-        request: requestDispatcher.execute
-    });
-
-    const fileFetcher = createManualGitHubFileClient({
-        request: requestDispatcher.execute,
-        defaultCacheRoot,
-        defaultRawRoot
-    });
-
-    return {
-        requestDispatcher,
-        references,
-        fileFetcher
-    };
+    return Object.freeze({ execute });
 }
 
 /**
- * @param {{ request: ManualGitHubRequestDispatcher["execute"] }} options
+ * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
  * @returns {ManualGitHubReferencesClient}
  */
-function createManualGitHubReferencesClient({ request }) {
+function createManualGitHubReferencesClient({ requestDispatcher }) {
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            "ManualGitHubReferencesClient requires a request dispatcher with an execute function."
+        );
+    }
+
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
         const body = await request(url, { acceptJson: true });
@@ -353,17 +335,24 @@ function createManualGitHubReferencesClient({ request }) {
 
 /**
  * @param {{
- *   request: ManualGitHubRequestDispatcher["execute"],
+ *   requestDispatcher: ManualGitHubRequestDispatcher,
  *   defaultCacheRoot?: string,
  *   defaultRawRoot: string
  * }} options
  * @returns {ManualGitHubFileClient}
  */
 function createManualGitHubFileClient({
-    request,
+    requestDispatcher,
     defaultCacheRoot,
     defaultRawRoot
 }) {
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            "ManualGitHubFileClient requires a request dispatcher with an execute function."
+        );
+    }
+
     async function fetchManualFile(
         sha,
         filePath,
@@ -400,16 +389,22 @@ function createManualGitHubFileClient({
         const url = `${rawRoot}/${sha}/${filePath}`;
         const content = await request(url);
 
-        await ensureDir(path.dirname(cachePath));
-        await fs.writeFile(cachePath, content, "utf8");
+        await writeManualFile({
+            outputPath: cachePath,
+            contents: content,
+            encoding: "utf8",
+            onAfterWrite: () => {
+                if (!shouldLogDetails) {
+                    return;
+                }
 
-        if (shouldLogDetails) {
-            console.log(
-                `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
-                    startTime
-                )})`
-            );
-        }
+                console.log(
+                    `[done] ${filePath} (${formatBytes(content)} in ${formatDuration(
+                        startTime
+                    )})`
+                );
+            }
+        });
 
         return content;
     }
@@ -428,5 +423,7 @@ export {
     normalizeManualRepository,
     resolveManualRepoValue,
     resolveManualCacheRoot,
-    createManualGitHubClient
+    createManualGitHubRequestDispatcher,
+    createManualGitHubReferencesClient,
+    createManualGitHubFileClient
 };

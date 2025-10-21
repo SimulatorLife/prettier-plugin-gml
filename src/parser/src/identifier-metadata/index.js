@@ -1,4 +1,4 @@
-import { isObjectLike } from "../../../shared/utils.js";
+import { isObjectLike } from "../shared/utils.js";
 
 /**
  * The previous IdentifierMetadataManager bundled scope management, role tracking,

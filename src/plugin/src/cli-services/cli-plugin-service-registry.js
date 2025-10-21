@@ -1,197 +1,75 @@
-import { assertPlainObject } from "../../../shared/object-utils.js";
 import { createDefaultCliPluginServiceImplementations } from "./providers/default-cli-plugin-services.js";
 
 /**
- * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
- * @typedef {(options: object) => Promise<void>} CliIdentifierCasePlanPreparer
- * @typedef {() => void} CliIdentifierCaseCacheClearer
+ * The historical identifier case plan "service" bundled the preparation flow
+ * with cache clearing hooks. That wide facade forced callers to depend on both
+ * behaviours even when they only needed one. Narrower contracts let each client
+ * request just the capability it exercises.
  */
 
 /**
- * @typedef {object} CliProjectIndexService
- * @property {CliProjectIndexBuilder} buildProjectIndex
+ * @typedef {object} CliIdentifierCasePlanPreparationService
+ * @property {(options: object | null | undefined) => Promise<void>} prepareIdentifierCasePlan
  */
 
 /**
- * @typedef {object} CliIdentifierCasePlanService
- * @property {CliIdentifierCasePlanPreparer} prepareIdentifierCasePlan
- * @property {CliIdentifierCaseCacheClearer} clearIdentifierCaseCaches
+ * @typedef {object} CliIdentifierCasePlanCacheService
+ * @property {() => void} clearIdentifierCaseCaches
  */
 
-/**
- * @typedef {object} CliPluginServiceSuite
- * @property {CliProjectIndexService} projectIndex
- * @property {CliIdentifierCasePlanService} identifierCasePlan
- */
+const {
+    buildProjectIndex,
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseCaches
+} = createDefaultCliPluginServiceImplementations();
 
-let serviceProviderFactory = createDefaultCliPluginServiceImplementations;
-let cachedServices = null;
+const projectIndexService = Object.freeze({ buildProjectIndex });
 
-function assertServiceProviderFactory(candidate) {
-    if (typeof candidate !== "function") {
-        throw new TypeError(
-            "CLI plugin service provider must be a function that returns service implementations"
-        );
-    }
-}
+const identifierCasePlanPreparationService = Object.freeze({
+    prepareIdentifierCasePlan
+});
 
-function normalizeProjectIndexService(service) {
-    const { buildProjectIndex } = assertPlainObject(service, {
-        errorMessage: "CLI project index service must be provided as an object"
-    });
+const identifierCasePlanCacheService = Object.freeze({
+    clearIdentifierCaseCaches
+});
 
-    if (typeof buildProjectIndex !== "function") {
-        throw new TypeError(
-            "CLI project index service must provide a buildProjectIndex function"
-        );
-    }
+const identifierCasePlanService = Object.freeze({
+    ...identifierCasePlanPreparationService,
+    ...identifierCasePlanCacheService
+});
 
-    return Object.freeze({ buildProjectIndex });
-}
+const defaultCliPluginServices = Object.freeze({
+    buildProjectIndex,
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseCaches,
+    projectIndex: projectIndexService,
+    identifierCasePlan: identifierCasePlanService,
+    identifierCasePlanPreparation: identifierCasePlanPreparationService,
+    identifierCasePlanCache: identifierCasePlanCacheService
+});
 
-function normalizeIdentifierCasePlanService(service) {
-    const { prepareIdentifierCasePlan, clearIdentifierCaseCaches } =
-        assertPlainObject(service, {
-            errorMessage:
-                "CLI identifier case plan service must be provided as an object"
-        });
+export const createDefaultCliPluginServices = () => defaultCliPluginServices;
+export const resolveCliPluginServices = createDefaultCliPluginServices;
 
-    if (typeof prepareIdentifierCasePlan !== "function") {
-        throw new TypeError(
-            "CLI identifier case plan service must provide a prepareIdentifierCasePlan function"
-        );
-    }
+export const resolveCliProjectIndexService = () => projectIndexService;
+export const createDefaultCliProjectIndexService =
+    resolveCliProjectIndexService;
 
-    if (typeof clearIdentifierCaseCaches !== "function") {
-        throw new TypeError(
-            "CLI identifier case plan service must provide a clearIdentifierCaseCaches function"
-        );
-    }
+export const resolveCliIdentifierCasePlanService = () =>
+    identifierCasePlanService;
+export const createDefaultCliIdentifierCasePlanService =
+    resolveCliIdentifierCasePlanService;
 
-    return Object.freeze({
-        prepareIdentifierCasePlan,
-        clearIdentifierCaseCaches
-    });
-}
+export const resolveCliIdentifierCasePlanPreparationService = () =>
+    identifierCasePlanPreparationService;
+export const createDefaultCliIdentifierCasePlanPreparationService =
+    resolveCliIdentifierCasePlanPreparationService;
 
-/**
- * @param {object} services
- * @returns {CliPluginServiceSuite}
- */
-function normalizeCliPluginServices(services) {
-    const {
-        buildProjectIndex,
-        prepareIdentifierCasePlan,
-        clearIdentifierCaseCaches
-    } = assertPlainObject(services, {
-        errorMessage: "CLI plugin services must be provided as an object"
-    });
+export const resolveCliIdentifierCaseCacheService = () =>
+    identifierCasePlanCacheService;
+export const createDefaultCliIdentifierCaseCacheService =
+    resolveCliIdentifierCaseCacheService;
 
-    if (typeof buildProjectIndex !== "function") {
-        throw new TypeError(
-            "CLI plugin services must provide a buildProjectIndex function"
-        );
-    }
-
-    if (typeof prepareIdentifierCasePlan !== "function") {
-        throw new TypeError(
-            "CLI plugin services must provide a prepareIdentifierCasePlan function"
-        );
-    }
-
-    if (typeof clearIdentifierCaseCaches !== "function") {
-        throw new TypeError(
-            "CLI plugin services must provide a clearIdentifierCaseCaches function"
-        );
-    }
-
-    const projectIndexService = normalizeProjectIndexService({
-        buildProjectIndex
-    });
-    const identifierCasePlanService = normalizeIdentifierCasePlanService({
-        prepareIdentifierCasePlan,
-        clearIdentifierCaseCaches
-    });
-
-    return Object.freeze({
-        buildProjectIndex,
-        prepareIdentifierCasePlan,
-        clearIdentifierCaseCaches,
-        projectIndex: projectIndexService,
-        identifierCasePlan: identifierCasePlanService
-    });
-}
-
-export function hasRegisteredCliPluginServiceProvider() {
-    return typeof serviceProviderFactory === "function";
-}
-
-export function registerCliPluginServiceProvider(provider) {
-    assertServiceProviderFactory(provider);
-    serviceProviderFactory = provider;
-    cachedServices = null;
-}
-
-export function resetCliPluginServiceProvider() {
-    serviceProviderFactory = createDefaultCliPluginServiceImplementations;
-    cachedServices = null;
-}
-
-/**
- * @returns {CliPluginServiceSuite}
- */
-export function resolveCliPluginServices() {
-    if (!hasRegisteredCliPluginServiceProvider()) {
-        throw new Error("No CLI plugin service provider has been registered");
-    }
-
-    if (!cachedServices) {
-        cachedServices = normalizeCliPluginServices(serviceProviderFactory());
-    }
-
-    return cachedServices;
-}
-
-/**
- * @returns {CliProjectIndexService}
- */
-export function resolveCliProjectIndexService() {
-    return resolveCliPluginServices().projectIndex;
-}
-
-/**
- * @returns {CliIdentifierCasePlanService}
- */
-export function resolveCliIdentifierCasePlanService() {
-    return resolveCliPluginServices().identifierCasePlan;
-}
-
-/**
- * @returns {CliPluginServiceSuite}
- */
-export function createDefaultCliPluginServices() {
-    return resolveCliPluginServices();
-}
-
-/**
- * @returns {CliProjectIndexService}
- */
-export function createDefaultCliProjectIndexService() {
-    return resolveCliProjectIndexService();
-}
-
-/**
- * @returns {CliIdentifierCasePlanService}
- */
-export function createDefaultCliIdentifierCasePlanService() {
-    return resolveCliIdentifierCasePlanService();
-}
-
-const defaultCliPluginServices = createDefaultCliPluginServices();
-
-export const defaultProjectIndexBuilder =
-    defaultCliPluginServices.projectIndex.buildProjectIndex;
-export const defaultIdentifierCasePlanPreparer =
-    defaultCliPluginServices.identifierCasePlan.prepareIdentifierCasePlan;
-export const defaultIdentifierCaseCacheClearer =
-    defaultCliPluginServices.identifierCasePlan.clearIdentifierCaseCaches;
+export const defaultProjectIndexBuilder = buildProjectIndex;
+export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
+export const defaultIdentifierCaseCacheClearer = clearIdentifierCaseCaches;

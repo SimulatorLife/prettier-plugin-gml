@@ -4,7 +4,7 @@
 
 ## Formatter at a glance
 
-See how the plugin rewrites real GameMaker Language (GML) inputs. Each example links to the corresponding regression fixture used by the automated test suite.
+See how the plugin rewrites real GameMaker Language (GML) inputs. Each example links to the corresponding regression fixture used by the automated test suite so you can diff behaviour without running the formatter locally.
 
 #### Legacy `#define` cleanup
 
@@ -133,9 +133,10 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Documentation index](docs/README.md) &mdash; Jumping-off point for design
   notes, rollout guides, and research references maintained alongside the
   formatter source.
-- [Identifier case & naming convention guide](docs/naming-conventions.md) &mdash;
+- [Quick identifier casing references](docs/naming-conventions.md) &mdash;
   Deep dive into the rename pipeline, supporting datasets, and operational
-  safeguards for enabling `gmlIdentifierCase`.
+  safeguards for enabling `gmlIdentifierCase` with additional links out to
+  troubleshooting checklists and fixture-backed examples.
 - [Identifier-case examples library](docs/examples/naming-convention/tricky-identifiers.md) &mdash;
   Real-world before/after snippets that demonstrate how rename heuristics handle
   edge cases and manual overrides.
@@ -157,12 +158,7 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ## Quick start
 
-Jump in with one of two flows:
-
-- **Install the formatter inside a GameMaker project** so editors and CI can call Prettier directly.
-- **Run the CLI from a local clone** when you want to format a project without checking dependencies into that project.
-
-Both flows share the same requirements and formatter behaviour. Optional commands that mention `node_modules/root/...` apply to Git installs; swap the path for `node_modules/prettier-plugin-gamemaker/...` once releases land on npm.
+Start by confirming your toolchain, then pick the workflow that fits how you want to consume the formatter.
 
 ### Requirements
 
@@ -214,23 +210,24 @@ nvm use
    }
    ```
 
-4. Wire a script or wrapper so team members can format consistently. The workspace exposes a CLI that resolves the plugin entry point automatically, even when you relocate build artifacts or provide custom paths through the environment. Replace the script value with `prettier-plugin-gamemaker` once the package is distributed through npm:
+4. Add a wrapper script so team members reuse the same entry point. The workspace exposes a CLI that resolves the plugin automatically, even when you relocate build artefacts or provide custom paths through the environment. Replace the script value with `prettier-plugin-gamemaker` once the package is distributed through npm:
 
    ```jsonc
    {
      "scripts": {
-       "format:gml": "node ./node_modules/root/src/cli/cli.js"
+       "format:gml": "node ./node_modules/root/src/cli/cli.js format"
      }
    }
    ```
 
    Pass arguments through the script with `npm run format:gml -- <flags>` so every
-   project reuses the same wrapper entry point and inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory, or when you install from a packaged release that exposes a different folder name.
+   project inherits future wrapper updates automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when your CI pipeline builds the plugin into a temporary directory, or when you install from a packaged release that exposes a different folder name.
 
-5. Run the formatter (it defaults to the current working directory when no path is provided). Append `format` to call the explicit sub-command, or omit it for backwards compatibility with existing scripts:
+5. Run the formatter (it defaults to the current working directory when no path is provided). The CLI accepts both the legacy implicit command and the explicit `format` sub-command:
 
    ```bash
    npm run format:gml
+   npm run format:gml -- --path . --extensions=.gml,.yy
    # or call the CLI directly
    node ./node_modules/root/src/cli/cli.js format --path .
    ```
@@ -262,7 +259,7 @@ nvm use
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-  The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`, `npm run cli -- format --help`, or the dedicated [CLI reference](#cli-wrapper-environment-knobs).
+   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`, `npm run cli -- format --help`, or the dedicated [CLI reference](#cli-wrapper-environment-knobs).
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -431,7 +428,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
+| `convertDivisionToMultiplication` | `false` | Reserved toggle for future reciprocal rewrites. Division by two already canonicalizes to `* 0.5`; other divisors remain unchanged for now. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
 | `condenseUnaryBooleanReturns` | `false` | Converts unary boolean returns (such as `return !condition;`) into ternaries so condensed output preserves intent. |
 | `condenseReturnStatements` | `false` | Merges complementary `if` branches that return literal booleans into a single simplified return statement. |
@@ -531,6 +528,16 @@ npm run lint:fix
 `npm run check` chains the formatter audit, lint (CI mode), and full test suite.
 All suites run on [Node.js’s built-in test runner](https://nodejs.org/api/test.html);
 append `-- --watch` to any `npm run test --workspace …` command for watch mode.
+
+#### Checkstyle lint reports
+
+`npm run lint:report` uses the standalone
+[`eslint-formatter-checkstyle`](https://www.npmjs.com/package/eslint-formatter-checkstyle)
+package to emit the XML file that the GitHub automerge workflow parses when it
+builds its warning/error summary table. Keep the dependency in `devDependencies`
+so the CI job continues producing checkstyle output; removing it leaves the
+formatter unavailable at runtime and collapses the summary into the
+"No lint (checkstyle) data found" fallback state.
 
 Fixtures under `src/plugin/tests` and `src/parser/tests/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
