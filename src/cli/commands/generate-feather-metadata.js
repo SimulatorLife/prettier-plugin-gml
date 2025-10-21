@@ -23,6 +23,7 @@ import {
     buildManualRepositoryEndpoints
 } from "../lib/manual/utils.js";
 import {
+    MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
@@ -79,7 +80,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit).",
+            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`,
             `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
         ].join("\n")
     );
