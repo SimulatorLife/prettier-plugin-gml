@@ -28,3 +28,17 @@ test("formats function parameters using documented argument names", async () => 
         "Expected documented parameter names to replace argument indices."
     );
 });
+
+test("replaces argument index references inside function bodies", async () => {
+    const formatted = await prettier.format(SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /return x2 \+ y2;/,
+        "Expected argument index references to reuse documented parameter names."
+    );
+});
