@@ -54,41 +54,27 @@ function resolveManualOptionBaseConfig(
     };
 }
 
-function createOptionOrder({ optionOrder, handlers, customHandlers }) {
-    const defaultOrder = [
-        "outputPath",
-        "forceRefresh",
-        "quiet",
-        "manualRepo",
-        "cacheRoot",
-        "progressBarWidth"
-    ];
+const DEFAULT_OPTION_ORDER = Object.freeze([
+    "outputPath",
+    "forceRefresh",
+    "quiet",
+    "manualRepo",
+    "cacheRoot",
+    "progressBarWidth"
+]);
 
-    const registeredKeys = new Set([
-        ...handlers.keys(),
-        ...customHandlers.keys()
+function createOptionOrder({ optionOrder, handlers, customHandlers }) {
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = Array.from(customHandlers.keys());
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys
     ]);
 
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const orderingCandidates = [
-        ...preferredOrder,
-        ...defaultOrder,
-        ...customHandlers.keys()
-    ];
-
-    const seen = new Set();
-    const sequence = [];
-
-    for (const key of orderingCandidates) {
-        if (seen.has(key) || !registeredKeys.has(key)) {
-            continue;
-        }
-
-        seen.add(key);
-        sequence.push(key);
-    }
-
-    return sequence;
+    return [...ordering].filter(
+        (key) => handlers.has(key) || customHandlers.has(key)
+    );
 }
 
 export function applySharedManualCommandOptions(
