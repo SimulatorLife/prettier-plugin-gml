@@ -57,7 +57,8 @@ export function isErrorLike(value) {
         return false;
     }
 
-    if (value.name != undefined && typeof value.name !== "string") {
+    const { name } = value;
+    if (name !== undefined && name !== null && typeof name !== "string") {
         return false;
     }
 

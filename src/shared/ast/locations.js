@@ -5,7 +5,7 @@
 
 function getLocationIndex(node, key) {
     if (!node) {
-        return;
+        return null;
     }
 
     const location = node[key];
@@ -17,12 +17,12 @@ function getLocationIndex(node, key) {
         return location.index;
     }
 
-    return;
+    return null;
 }
 
 function getStartIndex(node) {
     if (!node) {
-        return;
+        return null;
     }
 
     const isMemberAccess =
@@ -78,15 +78,15 @@ function getNodeEndIndex(node) {
 }
 
 function cloneLocation(location) {
-    if (location == undefined) {
-        return;
+    let cloned = location;
+
+    if (location && typeof location === "object") {
+        cloned = structuredClone(location);
+    } else if (location === undefined || location === null) {
+        cloned = undefined;
     }
 
-    if (typeof location !== "object") {
-        return location;
-    }
-
-    return structuredClone(location);
+    return cloned;
 }
 
 /**
@@ -113,12 +113,18 @@ function assignClonedLocation(target, template) {
         return target;
     }
 
+    const updates = {};
+
     if (Object.hasOwn(template, "start")) {
-        target.start = cloneLocation(template.start);
+        updates.start = cloneLocation(template.start);
     }
 
     if (Object.hasOwn(template, "end")) {
-        target.end = cloneLocation(template.end);
+        updates.end = cloneLocation(template.end);
+    }
+
+    if (Object.keys(updates).length > 0) {
+        Object.assign(target, updates);
     }
 
     return target;
