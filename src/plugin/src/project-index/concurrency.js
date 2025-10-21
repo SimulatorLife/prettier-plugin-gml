@@ -8,42 +8,15 @@ const MAX_CONCURRENCY = 16;
 const projectIndexConcurrencyConfig = createEnvConfiguredValue({
     defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
     envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-    normalize: (value, { defaultValue }) => {
-        const candidate = parseConcurrencyCandidate(value, defaultValue);
-
-        if (candidate === null) {
-            return defaultValue;
-        }
-
-        return clampWithinLimits(candidate);
-    }
+    normalize: (value, { defaultValue }) =>
+        normalizeConcurrencyValue(value, {
+            fallback: defaultValue,
+            onInvalid: defaultValue
+        })
 });
 
 function getDefaultProjectIndexGmlConcurrency() {
     return projectIndexConcurrencyConfig.get();
-}
-
-function parseConcurrencyCandidate(value, fallback) {
-    const source = value ?? fallback;
-    if (source == null) {
-        return null;
-    }
-
-    const normalized = typeof source === "string" ? source.trim() : source;
-    if (normalized === "") {
-        return null;
-    }
-
-    const numeric = Number(normalized);
-    return Number.isFinite(numeric) ? numeric : null;
-}
-
-function clampWithinLimits(
-    value,
-    min = MIN_CONCURRENCY,
-    max = MAX_CONCURRENCY
-) {
-    return Math.min(max, Math.max(min, value));
 }
 
 function clampConcurrency(
@@ -54,12 +27,7 @@ function clampConcurrency(
         fallback = getDefaultProjectIndexGmlConcurrency()
     } = {}
 ) {
-    const candidate = parseConcurrencyCandidate(value, fallback);
-    if (candidate === null) {
-        return min;
-    }
-
-    return clampWithinLimits(candidate, min, max);
+    return normalizeConcurrencyValue(value, { min, max, fallback });
 }
 
 function setDefaultProjectIndexGmlConcurrency(concurrency) {
@@ -74,6 +42,35 @@ applyProjectIndexConcurrencyEnvOverride();
 
 const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY =
     getDefaultProjectIndexGmlConcurrency();
+
+function normalizeConcurrencyValue(
+    value,
+    {
+        min = MIN_CONCURRENCY,
+        max = MAX_CONCURRENCY,
+        fallback,
+        onInvalid = min
+    } = {}
+) {
+    const source = value ?? fallback;
+
+    if (source == null) {
+        return onInvalid;
+    }
+
+    const normalized = typeof source === "string" ? source.trim() : source;
+
+    if (normalized === "") {
+        return onInvalid;
+    }
+
+    const numeric = Number(normalized);
+    if (!Number.isFinite(numeric)) {
+        return onInvalid;
+    }
+
+    return Math.min(max, Math.max(min, numeric));
+}
 
 export {
     DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
