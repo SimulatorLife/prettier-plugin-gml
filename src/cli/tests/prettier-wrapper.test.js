@@ -813,7 +813,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("describes the current directory using '.' when no files match", async () => {
+    it("describes the current directory explicitly when no files match", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -827,23 +827,23 @@ describe("Prettier wrapper CLI", () => {
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.ok(
-                stdout.includes("found in ."),
-                "Expected stdout to describe the current directory as '.'"
+                stdout.includes("found in the current working directory (.)"),
+                "Expected stdout to call out the current working directory"
             );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
 
-    it("describes the invocation directory using '.' when run from the repository root", async () => {
+    it("describes the invocation directory using a clear current-directory label", async () => {
         const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
             cwd: repoRootDirectory
         });
 
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
         assert.ok(
-            stdout.includes("found in ."),
-            "Expected stdout to describe the repository root as '.'"
+            stdout.includes("found in the current working directory (.)"),
+            "Expected stdout to describe the repository root with a clear label"
         );
     });
 
