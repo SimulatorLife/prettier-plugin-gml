@@ -47,6 +47,11 @@ import {
     collectAncestorDirectories,
     isPathInside
 } from "./lib/shared/path-utils.js";
+import {
+    hasIgnoreRuleNegations,
+    markIgnoreRuleNegationsDetected,
+    resetIgnoreRuleNegations
+} from "./lib/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
@@ -436,7 +441,6 @@ function resetSkippedFileSummary() {
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
-let ignoreRulesContainNegations = false;
 const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
@@ -572,6 +576,7 @@ async function resetFormattingSession(onParseError) {
     resetSkippedFileSummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
+    resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
 }
 
@@ -700,7 +705,7 @@ async function registerIgnorePaths(ignoreFiles) {
 
         registerIgnorePath(ignoreFilePath);
 
-        if (ignoreRulesContainNegations) {
+        if (hasIgnoreRuleNegations()) {
             continue;
         }
 
@@ -708,7 +713,7 @@ async function registerIgnorePaths(ignoreFiles) {
             const contents = await readFile(ignoreFilePath, "utf8");
 
             if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                ignoreRulesContainNegations = true;
+                markIgnoreRuleNegationsDetected();
             }
         } catch {
             // Ignore missing or unreadable files.
@@ -733,7 +738,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
-    if (ignoreRulesContainNegations) {
+    if (hasIgnoreRuleNegations()) {
         return false;
     }
 
@@ -1228,6 +1233,10 @@ function logSkippedFileSummary() {
     console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
 }
 
+export const __test__ = Object.freeze({
+    resetFormattingSessionForTests: resetFormattingSession
+});
+
 const formatCommand = createFormatCommand({ name: "format" });
 
 cliCommandRegistry.registerDefaultCommand({
@@ -1280,9 +1289,11 @@ cliCommandRegistry.registerCommand({
         })
 });
 
-cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
-    handleCliError(error, {
-        prefix: "Failed to run prettier-plugin-gml CLI.",
-        exitCode: 1
+if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
+    cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
+        handleCliError(error, {
+            prefix: "Failed to run prettier-plugin-gml CLI.",
+            exitCode: 1
+        });
     });
-});
+}
