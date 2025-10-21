@@ -95,34 +95,28 @@ function createOptionOrder({ optionOrder, handlers, customHandlers }) {
         "progressBarWidth"
     ];
 
+    const registeredKeys = new Set([
+        ...handlers.keys(),
+        ...customHandlers.keys()
+    ]);
+
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const orderingCandidates = [
+        ...preferredOrder,
+        ...defaultOrder,
+        ...customHandlers.keys()
+    ];
+
     const seen = new Set();
     const sequence = [];
 
-    function add(key) {
-        if (seen.has(key)) {
-            return;
-        }
-
-        if (!handlers.has(key) && !customHandlers.has(key)) {
-            return;
+    for (const key of orderingCandidates) {
+        if (seen.has(key) || !registeredKeys.has(key)) {
+            continue;
         }
 
         seen.add(key);
         sequence.push(key);
-    }
-
-    if (Array.isArray(optionOrder)) {
-        for (const key of optionOrder) {
-            add(key);
-        }
-    }
-
-    for (const key of defaultOrder) {
-        add(key);
-    }
-
-    for (const key of customHandlers.keys()) {
-        add(key);
     }
 
     return sequence;
