@@ -15,7 +15,7 @@ import {
     resolveCliIdentifierCaseCacheService,
     resolveCliPluginServices,
     resolveCliProjectIndexService
-} from "../src/cli-services.js";
+} from "../lib/plugin-service-providers/default-plugin-services.js";
 
 test("CLI plugin services expose validated defaults", () => {
     const services = createDefaultCliPluginServices();
