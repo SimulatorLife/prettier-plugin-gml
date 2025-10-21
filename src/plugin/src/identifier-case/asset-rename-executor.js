@@ -1,6 +1,9 @@
 import path from "node:path";
 
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyString,
+    trimStringEntries
+} from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
@@ -63,10 +66,9 @@ function getObjectAtPath(json, propertyPath) {
         return json;
     }
 
-    const segments = propertyPath
-        .split(".")
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
+    const segments = trimStringEntries(propertyPath.split(".")).filter(
+        (segment) => segment.length > 0
+    );
 
     let current = json;
     for (const segment of segments) {
