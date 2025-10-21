@@ -155,13 +155,15 @@ export function stripStringQuotes(value) {
     }
 
     const firstChar = value[0];
-    const lastChar = value.at(-1);
-
-    if (isQuoteCharacter(firstChar) && firstChar === lastChar) {
-        return value.slice(1, -1);
+    if (!isQuoteCharacter(firstChar)) {
+        return null;
     }
 
-    return null;
+    // `String#at(-1)` is convenient but measurably slower in tight loops.
+    // Accessing the last character via an index keeps the hot path lean
+    // while preserving the existing semantics for quoted strings.
+    const lastChar = value[value.length - 1];
+    return firstChar === lastChar ? value.slice(1, -1) : null;
 }
 
 /**
