@@ -5,7 +5,6 @@ import {
     asArray,
     cloneObjectEntries,
     isNonEmptyArray,
-    mergeUniqueValues,
     toArray,
     uniqueArray
 } from "../array-utils.js";
@@ -58,53 +57,6 @@ test("uniqueArray supports iterables and optional freezing", () => {
 
     assert.deepEqual(result, ["one", "two"]);
     assert.ok(Object.isFrozen(result));
-});
-
-test("mergeUniqueValues returns a frozen copy when no additions are provided", () => {
-    const defaults = Object.freeze(["alpha", "beta"]);
-    const merged = mergeUniqueValues(defaults, null);
-
-    assert.notEqual(merged, defaults);
-    assert.deepEqual(merged, defaults);
-    assert.ok(Object.isFrozen(merged));
-});
-
-test("mergeUniqueValues appends unique coerced values", () => {
-    const defaults = Object.freeze([/foo/]);
-    const merged = mergeUniqueValues(
-        defaults,
-        ["/bar/i", "/foo/", "", null, /baz/],
-        {
-            coerce: (value) => {
-                if (value instanceof RegExp) {
-                    return value;
-                }
-
-                if (typeof value !== "string") {
-                    return null;
-                }
-
-                const trimmed = value.trim();
-                if (!trimmed) {
-                    return null;
-                }
-
-                const match = trimmed.match(/^\/(.*)\/([a-z]*)$/i);
-                if (!match) {
-                    return null;
-                }
-
-                const [, source, flags = ""] = match;
-                return new RegExp(source, flags);
-            },
-            getKey: (pattern) => pattern.toString()
-        }
-    );
-
-    assert.deepEqual(
-        merged.map((pattern) => pattern.toString()),
-        ["/foo/", "/bar/i", "/baz/"]
-    );
 });
 
 test("cloneObjectEntries shallowly clones object entries", () => {

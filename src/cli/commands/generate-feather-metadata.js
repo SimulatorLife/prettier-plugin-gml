@@ -105,7 +105,7 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js
+// Manual fetching helpers are provided by manual-cli-helpers.js.
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -159,12 +159,10 @@ function getTagName(element) {
 }
 
 function getDirectChildren(element, selector) {
-    const matches = selector
+    const predicate = selector
         ? (child) => child.matches?.(selector) === true
         : () => true;
-    return Array.from(element?.children ?? []).filter((child) =>
-        matches(child)
-    );
+    return Array.from(element?.children ?? []).filter(predicate);
 }
 
 function replaceBreaksWithNewlines(clone) {

@@ -148,6 +148,27 @@ function createRenamePlanResult(renameOptions) {
     return renamePlan;
 }
 
+function disposeIdentifierCaseBootstrap(renameOptions, logger = null) {
+    const bootstrap =
+        renameOptions?.__identifierCaseProjectIndexBootstrap ?? null;
+    if (!bootstrap || typeof bootstrap.dispose !== "function") {
+        return;
+    }
+
+    try {
+        bootstrap.dispose();
+    } catch (error) {
+        if (logger && typeof logger.warn === "function") {
+            const reason = error?.message ?? error;
+            logger.warn(
+                `[performance] Failed to dispose identifier case resources: ${reason}`
+            );
+        }
+    } finally {
+        delete renameOptions.__identifierCaseProjectIndexBootstrap;
+    }
+}
+
 async function attachRenamePlanIfRequested({
     context,
     file,
@@ -181,6 +202,8 @@ async function attachRenamePlanIfRequested({
         context.results.renamePlan = createRenamePlanResult(renameOptions);
     } catch (error) {
         context.results.renamePlan = { error: formatErrorDetails(error) };
+    } finally {
+        disposeIdentifierCaseBootstrap(renameOptions, logger);
     }
 }
 
@@ -397,6 +420,8 @@ export function createPerformanceCommand() {
             "Enable verbose logging for suites that support it."
         );
 }
+
+export { runIdentifierPipelineBenchmark };
 
 function printHumanReadable(results) {
     const lines = ["Performance benchmark results:"];
