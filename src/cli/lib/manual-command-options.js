@@ -11,7 +11,7 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import { hasOwn } from "../../shared/object-utils.js";
+import { hasOwn } from "./shared/object-utils.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
