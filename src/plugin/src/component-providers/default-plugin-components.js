@@ -127,7 +127,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
+                    "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },
             convertDivisionToMultiplication: {
                 since: "0.0.0",

@@ -2,11 +2,13 @@ import { SingleBar, Presets } from "cli-progress";
 
 import {
     coercePositiveInteger,
+    createEnvConfiguredValue,
     getOrCreateMapEntry,
     resolveIntegerOption
 } from "./shared-deps.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
+const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
 
 const createWidthErrorMessage = (received) =>
@@ -22,12 +24,26 @@ function coerceProgressBarWidth(value, { received }) {
     });
 }
 
+const progressBarWidthConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+    envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+    normalize: (value, { defaultValue }) =>
+        resolveProgressBarWidth(value, { defaultWidth: defaultValue })
+});
+
 function getDefaultProgressBarWidth() {
-    return DEFAULT_PROGRESS_BAR_WIDTH;
+    return progressBarWidthConfig.get();
 }
 
-function resolveProgressBarWidth(rawValue) {
-    const fallback = getDefaultProgressBarWidth();
+function setDefaultProgressBarWidth(width) {
+    return progressBarWidthConfig.set(width);
+}
+
+function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
+    const fallback =
+        defaultWidth === undefined
+            ? getDefaultProgressBarWidth()
+            : defaultWidth;
 
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
@@ -35,6 +51,12 @@ function resolveProgressBarWidth(rawValue) {
         typeErrorMessage: createTypeErrorMessage
     });
 }
+
+function applyProgressBarWidthEnvOverride(env = process?.env) {
+    progressBarWidthConfig.applyEnvOverride(env);
+}
+
+applyProgressBarWidthEnvOverride();
 
 function createDefaultProgressBar(label, width) {
     return new SingleBar(
@@ -85,10 +107,28 @@ function renderProgressBar(label, current, total, width) {
     }
 }
 
+async function withProgressBarCleanup(callback) {
+    if (typeof callback !== "function") {
+        throw new TypeError(
+            "withProgressBarCleanup requires a callback function."
+        );
+    }
+
+    try {
+        return await callback();
+    } finally {
+        disposeProgressBars();
+    }
+}
+
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
+    PROGRESS_BAR_WIDTH_ENV_VAR,
+    applyProgressBarWidthEnvOverride,
     disposeProgressBars,
     getDefaultProgressBarWidth,
+    setDefaultProgressBarWidth,
     renderProgressBar,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    withProgressBarCleanup
 };

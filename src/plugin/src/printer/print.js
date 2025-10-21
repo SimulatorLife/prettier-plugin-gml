@@ -273,7 +273,7 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "TernaryExpression": {
-            return group([
+            const ternaryDoc = group([
                 print("test"),
                 indent([
                     line,
@@ -284,6 +284,10 @@ export function print(path, options, print) {
                     print("alternate")
                 ])
             ]);
+
+            return shouldWrapTernaryExpression(path)
+                ? concat(["(", ternaryDoc, ")"])
+                : ternaryDoc;
         }
         case "ForStatement": {
             const shouldHoistLoopLengths =
@@ -725,7 +729,11 @@ export function print(path, options, print) {
 
                             break;
                         }
-                        // No default
+                        // Intentionally omit a default branch so any operator that is not
+                        // covered above preserves the exact token emitted by the parser.
+                        // Introducing a catch-all would make it easy to "fix" unfamiliar
+                        // operators into something else, which risks corrupting source that
+                        // relies on newly added or editor-specific syntax.
                     }
                 } else {
                     operator = styledOperator;
@@ -742,11 +750,15 @@ export function print(path, options, print) {
                 : concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
-            if (
-                node.preserveOriginalCallText &&
-                options &&
-                typeof options.originalText === "string"
-            ) {
+            if (options && typeof options.originalText === "string") {
+                const hasNestedPreservedArguments = Array.isArray(
+                    node.arguments
+                )
+                    ? node.arguments.some(
+                          (argument) =>
+                              argument?.preserveOriginalCallText === true
+                      )
+                    : false;
                 const startIndex = getNodeStartIndex(node);
                 const endIndex = getNodeEndIndex(node);
 
@@ -755,7 +767,24 @@ export function print(path, options, print) {
                     typeof endIndex === "number" &&
                     endIndex > startIndex
                 ) {
-                    return options.originalText.slice(startIndex, endIndex);
+                    const synthesizedText =
+                        synthesizeMissingCallArgumentSeparators(
+                            node,
+                            options.originalText,
+                            startIndex,
+                            endIndex
+                        );
+
+                    if (typeof synthesizedText === "string") {
+                        return synthesizedText;
+                    }
+
+                    if (
+                        node.preserveOriginalCallText &&
+                        !hasNestedPreservedArguments
+                    ) {
+                        return options.originalText.slice(startIndex, endIndex);
+                    }
                 }
             }
 
@@ -1236,6 +1265,97 @@ function printDelimitedList(
     return forceInline
         ? groupElementsNoBreak
         : group(groupElements, { groupId });
+}
+
+function synthesizeMissingCallArgumentSeparators(
+    node,
+    originalText,
+    startIndex,
+    endIndex
+) {
+    if (
+        !node ||
+        node.type !== "CallExpression" ||
+        !Array.isArray(node.arguments) ||
+        typeof originalText !== "string" ||
+        typeof startIndex !== "number" ||
+        typeof endIndex !== "number" ||
+        endIndex <= startIndex
+    ) {
+        return null;
+    }
+
+    let cursor = startIndex;
+    let normalizedText = "";
+    let insertedSeparator = false;
+
+    for (let index = 0; index < node.arguments.length; index += 1) {
+        const argument = node.arguments[index];
+        const argumentStart = getNodeStartIndex(argument);
+        const argumentEnd = getNodeEndIndex(argument);
+
+        if (
+            typeof argumentStart !== "number" ||
+            typeof argumentEnd !== "number" ||
+            argumentStart < cursor ||
+            argumentEnd > endIndex
+        ) {
+            return null;
+        }
+
+        normalizedText += originalText.slice(cursor, argumentStart);
+        normalizedText += originalText.slice(argumentStart, argumentEnd);
+        cursor = argumentEnd;
+
+        if (index >= node.arguments.length - 1) {
+            continue;
+        }
+
+        const nextArgument = node.arguments[index + 1];
+        const nextStart = getNodeStartIndex(nextArgument);
+
+        if (typeof nextStart !== "number" || nextStart < cursor) {
+            return null;
+        }
+
+        const between = originalText.slice(cursor, nextStart);
+
+        if (between.includes(",")) {
+            normalizedText += between;
+            cursor = nextStart;
+            continue;
+        }
+
+        const trimmedBetween = between.trim();
+
+        if (trimmedBetween.length === 0) {
+            const previousChar =
+                cursor > startIndex ? originalText[cursor - 1] : "";
+            const nextChar =
+                nextStart < originalText.length ? originalText[nextStart] : "";
+
+            if (
+                isNumericLiteralBoundaryCharacter(previousChar) &&
+                isNumericLiteralBoundaryCharacter(nextChar)
+            ) {
+                normalizedText += "," + between;
+                cursor = nextStart;
+                insertedSeparator = true;
+                continue;
+            }
+        }
+
+        normalizedText += between;
+        cursor = nextStart;
+    }
+
+    normalizedText += originalText.slice(cursor, endIndex);
+
+    return insertedSeparator ? normalizedText : null;
+}
+
+function isNumericLiteralBoundaryCharacter(character) {
+    return /[0-9.-]/.test(character ?? "");
 }
 
 function shouldAllowTrailingComma(options) {
@@ -1783,6 +1903,15 @@ export function applyAssignmentAlignment(statements, options) {
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
 
+    const originalText =
+        typeof options?.originalText === "string" ? options.originalText : null;
+    const locStart =
+        typeof options?.locStart === "function" ? options.locStart : null;
+    const locEnd =
+        typeof options?.locEnd === "function" ? options.locEnd : null;
+
+    let previousSimpleAssignment = null;
+
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
@@ -1816,13 +1945,30 @@ export function applyAssignmentAlignment(statements, options) {
 
     for (const statement of statements) {
         if (isSimpleAssignment(statement)) {
+            if (
+                previousSimpleAssignment &&
+                shouldBreakAssignmentAlignment(
+                    previousSimpleAssignment,
+                    statement,
+                    originalText,
+                    locStart,
+                    locEnd
+                )
+            ) {
+                flushGroup();
+                previousSimpleAssignment = null;
+            }
+
             const nameLength = statement.left.name.length;
             currentGroup.push({ node: statement, nameLength });
             if (nameLength > currentGroupMaxLength) {
                 currentGroupMaxLength = nameLength;
             }
+
+            previousSimpleAssignment = statement;
         } else {
             flushGroup();
+            previousSimpleAssignment = null;
         }
     }
 
@@ -1848,6 +1994,91 @@ function isSimpleAssignment(node) {
         node.left.type === "Identifier" &&
         typeof node.left.name === "string"
     );
+}
+
+function shouldBreakAssignmentAlignment(
+    previousNode,
+    nextNode,
+    originalText,
+    locStart,
+    locEnd
+) {
+    if (
+        !originalText ||
+        typeof originalText !== "string" ||
+        !previousNode ||
+        !nextNode
+    ) {
+        return false;
+    }
+
+    const previousEnd = getNodeEndIndexForAlignment(previousNode, locEnd);
+    const nextStart = getNodeStartIndexForAlignment(nextNode, locStart);
+
+    if (
+        !Number.isInteger(previousEnd) ||
+        !Number.isInteger(nextStart) ||
+        previousEnd >= nextStart
+    ) {
+        return false;
+    }
+
+    const between = originalText.slice(previousEnd + 1, nextStart);
+
+    if (/\n[^\S\r\n]*\n/.test(between)) {
+        return true;
+    }
+
+    return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
+}
+
+function getNodeStartIndexForAlignment(node, locStart) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locStart === "function") {
+        const resolved = locStart(node);
+        if (Number.isInteger(resolved)) {
+            return resolved;
+        }
+    }
+
+    const startProp = node.start;
+    if (typeof startProp === "number") {
+        return startProp;
+    }
+
+    if (startProp && typeof startProp.index === "number") {
+        return startProp.index;
+    }
+
+    return null;
+}
+
+function getNodeEndIndexForAlignment(node, locEnd) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locEnd === "function") {
+        const resolved = locEnd(node);
+        if (Number.isInteger(resolved)) {
+            return resolved - 1;
+        }
+    }
+
+    const endProp = node.end;
+    if (typeof endProp === "number") {
+        return endProp;
+    }
+
+    if (endProp && typeof endProp.index === "number") {
+        return endProp.index;
+    }
+
+    const startIndex = getNodeStartIndexForAlignment(node, null);
+    return Number.isInteger(startIndex) ? startIndex : null;
 }
 
 function getSyntheticDocCommentForStaticVariable(node, options) {
@@ -2065,16 +2296,31 @@ function mergeSyntheticDocComments(
         return syntheticLines;
     }
 
+    const docTagMatches = (line, pattern) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            return false;
+        }
+
+        if (pattern.global || pattern.sticky) {
+            pattern.lastIndex = 0;
+        }
+
+        return pattern.test(trimmed);
+    };
+
     const isFunctionLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@function\b/i);
     const isOverrideLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
-    const isParamLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
 
     const isDescriptionLine = (line) =>
-        typeof line === "string" &&
-        /^\/\/\/\s*@description\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
@@ -2407,7 +2653,7 @@ function mergeSyntheticDocComments(
     let insertedParams = false;
 
     for (const line of result) {
-        if (typeof line === "string" && isParamLine(line)) {
+        if (isParamLine(line)) {
             if (!insertedParams && orderedParamDocs.length > 0) {
                 finalDocs.push(...orderedParamDocs);
                 insertedParams = true;
@@ -2448,7 +2694,7 @@ function mergeSyntheticDocComments(
 
         let lastParamIndex = -1;
         for (const [index, element] of docsWithoutDescription.entries()) {
-            if (typeof element === "string" && isParamLine(element)) {
+            if (isParamLine(element)) {
                 lastParamIndex = index;
             }
         }
@@ -2466,12 +2712,12 @@ function mergeSyntheticDocComments(
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
-        if (!isParamLine(line) || typeof line !== "string") {
+        if (!isParamLine(line)) {
             return line;
         }
 
         const match = line.match(
-            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\S+)(.*)$/i
+            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\s*\S+)(.*)$/i
         );
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
@@ -2479,6 +2725,7 @@ function mergeSyntheticDocComments(
 
         const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+        const normalizedPrefix = `${prefix.replace(/\s*$/, "")} `;
         let normalizedTypeSection = rawTypeSection.trim();
         if (
             normalizedTypeSection.startsWith("{") &&
@@ -2523,7 +2770,7 @@ function mergeSyntheticDocComments(
             }
         }
 
-        const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
+        const updatedLine = `${normalizedPrefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
@@ -2604,7 +2851,7 @@ function mergeSyntheticDocComments(
 
     for (let index = 0; index < reorderedDocs.length; index += 1) {
         const line = reorderedDocs[index];
-        if (typeof line === "string" && isDescriptionLine(line)) {
+        if (isDescriptionLine(line)) {
             const blockLines = [line];
             let lookahead = index + 1;
 
@@ -2746,6 +2993,9 @@ function computeSyntheticFunctionDocLines(
     const metadata = Array.isArray(existingDocLines)
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -2807,6 +3057,22 @@ function computeSyntheticFunctionDocLines(
         node,
         options
     );
+    const implicitDocEntryByIndex = new Map();
+
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) {
+            continue;
+        }
+
+        const { index } = entry;
+        if (!Number.isInteger(index) || index < 0) {
+            continue;
+        }
+
+        if (!implicitDocEntryByIndex.has(index)) {
+            implicitDocEntryByIndex.set(index, entry);
+        }
+    }
 
     if (!Array.isArray(node.params)) {
         for (const { name: docName } of implicitArgumentDocNames) {
@@ -2821,20 +3087,43 @@ function computeSyntheticFunctionDocLines(
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
     }
 
-    for (const param of node.params) {
+    for (const [paramIndex, param] of node.params.entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
-        const canonicalParamName = getCanonicalParamNameFromText(
-            paramInfo.name
-        );
-        const existingMetadata =
-            canonicalParamName &&
-            paramMetadataByCanonical.has(canonicalParamName)
-                ? paramMetadataByCanonical.get(canonicalParamName)
+        const ordinalMetadata =
+            Number.isInteger(paramIndex) && paramIndex >= 0
+                ? (orderedParamMetadata[paramIndex] ?? null)
                 : null;
+        const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        const implicitName =
+            implicitDocEntry &&
+            typeof implicitDocEntry.name === "string" &&
+            implicitDocEntry.name &&
+            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+                ? implicitDocEntry.name
+                : null;
+        const canonicalParamName =
+            (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
+            getCanonicalParamNameFromText(paramInfo.name);
+        const existingMetadata =
+            (canonicalParamName &&
+                paramMetadataByCanonical.has(canonicalParamName) &&
+                paramMetadataByCanonical.get(canonicalParamName)) ||
+            null;
         const existingDocName = existingMetadata?.name;
+        const ordinalDocName =
+            !implicitName &&
+            (!existingDocName || existingDocName.length === 0) &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? ordinalMetadata.name
+                : null;
+        const baseDocName =
+            (implicitName && implicitName.length > 0 && implicitName) ||
+            (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
+            paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
@@ -2846,18 +3135,39 @@ function computeSyntheticFunctionDocLines(
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName = shouldMarkOptional
-            ? `[${paramInfo.name}]`
-            : paramInfo.name;
+        const docName =
+            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
         if (documentedParamNames.has(docName)) {
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+            }
             continue;
         }
         documentedParamNames.add(docName);
+        if (implicitDocEntry?.name) {
+            documentedParamNames.add(implicitDocEntry.name);
+        }
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const { name: docName } of implicitArgumentDocNames) {
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) {
+            continue;
+        }
+
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
+        const isFallbackEntry = canonical === fallbackCanonical;
+        if (
+            isFallbackEntry &&
+            Number.isInteger(index) &&
+            orderedParamMetadata[index] &&
+            typeof orderedParamMetadata[index].name === "string" &&
+            orderedParamMetadata[index].name.length > 0
+        ) {
+            continue;
+        }
+
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -2872,14 +3182,20 @@ function computeSyntheticFunctionDocLines(
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
-    if (
-        !functionNode ||
-        functionNode.type !== "FunctionDeclaration" ||
-        options?.applyFeatherFixes !== true
-    ) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
         return [];
     }
 
+    const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+
+    return buildImplicitArgumentDocEntries(referenceInfo);
+}
+
+// Collects index/reference bookkeeping for implicit `arguments[index]` usages
+// within a function. The traversal tracks alias declarations, direct
+// references, and the set of indices that require doc entries so the caller
+// can format them without dipping into low-level mutation logic.
+function gatherImplicitArgumentReferences(functionNode) {
     const referencedIndices = new Set();
     const aliasByIndex = new Map();
     const directReferenceIndices = new Set();
@@ -2949,29 +3265,50 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     visit(functionNode.body, functionNode, "body");
 
-    if (referencedIndices.size === 0) {
+    return { referencedIndices, aliasByIndex, directReferenceIndices };
+}
+
+function buildImplicitArgumentDocEntries({
+    referencedIndices,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    if (!referencedIndices || referencedIndices.size === 0) {
         return [];
     }
 
     const sortedIndices = [...referencedIndices].sort(
         (left, right) => left - right
     );
-    return sortedIndices.map((index) => {
-        const fallbackName = `argument${index}`;
-        const alias = aliasByIndex.get(index);
-        const docName = alias && alias.length > 0 ? alias : fallbackName;
-        const canonical = getCanonicalParamNameFromText(docName) ?? docName;
-        const fallbackCanonical =
-            getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
 
-        return {
-            name: docName,
-            canonical,
-            fallbackCanonical,
+    return sortedIndices.map((index) =>
+        createImplicitArgumentDocEntry({
             index,
-            hasDirectReference: directReferenceIndices.has(index)
-        };
-    });
+            aliasByIndex,
+            directReferenceIndices
+        })
+    );
+}
+
+function createImplicitArgumentDocEntry({
+    index,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    const fallbackName = `argument${index}`;
+    const alias = aliasByIndex?.get(index);
+    const docName = (alias && alias.length > 0 && alias) || fallbackName;
+    const canonical = getCanonicalParamNameFromText(docName) ?? docName;
+    const fallbackCanonical =
+        getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
+
+    return {
+        name: docName,
+        canonical,
+        fallbackCanonical,
+        index,
+        hasDirectReference: directReferenceIndices?.has(index) === true
+    };
 }
 
 function getArgumentIndexFromNode(node) {
@@ -3889,7 +4226,17 @@ function getNodeName(node) {
     }
 
     if (node.id !== undefined) {
-        return getIdentifierText(node.id);
+        const idName = getIdentifierText(node.id);
+        if (idName) {
+            return idName;
+        }
+    }
+
+    if (node.key !== undefined) {
+        const keyName = getIdentifierText(node.key);
+        if (keyName) {
+            return keyName;
+        }
     }
 
     return getIdentifierText(node);
@@ -4025,6 +4372,34 @@ function shouldOmitSyntheticParens(path) {
 
         depth += 1;
     }
+}
+
+function shouldWrapTernaryExpression(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "ParenthesizedExpression") {
+        return false;
+    }
+
+    const parentKey =
+        typeof path.getName === "function" ? path.getName() : undefined;
+
+    if (parent.type === "VariableDeclarator" && parentKey === "init") {
+        return true;
+    }
+
+    if (parent.type === "AssignmentExpression" && parentKey === "right") {
+        return true;
+    }
+
+    return false;
 }
 
 function shouldFlattenSyntheticBinary(parent, expression, path) {

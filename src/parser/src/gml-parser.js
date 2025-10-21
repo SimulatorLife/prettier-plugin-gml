@@ -6,9 +6,9 @@ import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./gml-syntax-error.js";
-import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
-import { isErrorLike } from "../../shared/utils/capability-probes.js";
-import { isObjectLike } from "../../shared/object-utils.js";
+import { getLineBreakCount } from "./shared/utils/line-breaks.js";
+import { isErrorLike } from "./shared/utils/capability-probes.js";
+import { isObjectLike } from "./shared/object-utils.js";
 
 function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
@@ -361,4 +361,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "../../shared/utils/line-breaks.js";
+export { getLineBreakCount } from "./shared/utils/line-breaks.js";

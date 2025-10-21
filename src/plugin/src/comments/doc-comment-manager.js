@@ -2,6 +2,18 @@ import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 import { getNodeStartIndex } from "../../../shared/ast-locations.js";
 import { isNode } from "../../../shared/ast-node-helpers.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+import {
+    toMutableArray,
+    isNonEmptyArray
+} from "../../../shared/array-utils.js";
+
+/**
+ * The legacy doc comment "manager" facade bundled traversal helpers with
+ * mutation operations. That wide surface forced transforms that only needed
+ * read-only inspection to depend on update capabilities as well. Introducing
+ * narrow inspection and update views lets collaborators wire only the
+ * behaviours they actually require.
+ */
 
 const DOC_COMMENT_TARGET_TYPES = new Set([
     "FunctionDeclaration",
@@ -14,6 +26,8 @@ const DOC_COMMENT_TARGET_TYPES = new Set([
 ]);
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
+const DOC_COMMENT_INSPECTION_SERVICES = new WeakMap();
+const DOC_COMMENT_UPDATE_SERVICES = new WeakMap();
 
 const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
     applyUpdates() {},
@@ -49,6 +63,54 @@ export function getDocCommentManager(ast) {
     return prepareDocCommentEnvironment(ast);
 }
 
+/**
+ * @typedef {object} DocCommentInspectionService
+ * @property {(callback: (node: object, comments: Array<object>) => void) => void} forEach
+ * @property {(functionNode: object) => Array<object>} getComments
+ * @property {(functionNode: object) => string | null} extractDescription
+ * @property {(functionNode: object) => boolean} hasDocComment
+ */
+
+/**
+ * @typedef {object} DocCommentUpdateService
+ * @property {(updates: Map<object, {
+ *   description?: string,
+ *   expression?: string,
+ *   hasDocComment?: boolean
+ * }>) => void} applyUpdates
+ */
+
+export function resolveDocCommentInspectionService(ast) {
+    const manager = prepareDocCommentEnvironment(ast);
+    let inspection = DOC_COMMENT_INSPECTION_SERVICES.get(manager);
+
+    if (!inspection) {
+        inspection = Object.freeze({
+            forEach: manager.forEach.bind(manager),
+            getComments: manager.getComments.bind(manager),
+            extractDescription: manager.extractDescription.bind(manager),
+            hasDocComment: manager.hasDocComment.bind(manager)
+        });
+        DOC_COMMENT_INSPECTION_SERVICES.set(manager, inspection);
+    }
+
+    return inspection;
+}
+
+export function resolveDocCommentUpdateService(ast) {
+    const manager = prepareDocCommentEnvironment(ast);
+    let updateService = DOC_COMMENT_UPDATE_SERVICES.get(manager);
+
+    if (!updateService) {
+        updateService = Object.freeze({
+            applyUpdates: manager.applyUpdates.bind(manager)
+        });
+        DOC_COMMENT_UPDATE_SERVICES.set(manager, updateService);
+    }
+
+    return updateService;
+}
+
 function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
 
@@ -69,14 +131,14 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Array.isArray(comments) ? comments : [];
+            return toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
         },
         hasDocComment(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Array.isArray(comments) && comments.length > 0;
+            return isNonEmptyArray(comments);
         }
     };
 }
@@ -183,6 +245,30 @@ function collectFunctionNodes(ast) {
     return functions;
 }
 
+/**
+ * Applies doc comment edits emitted by call-site transforms.
+ *
+ * Each entry in {@link docUpdates} maps a function node to the raw doc comment
+ * metadata discovered before the transform ran. The update payload retains the
+ * pre-existing `description` text alongside a simplified `expression` so the
+ * formatter can rewrite legacy annotations without trampling bespoke wording.
+ *
+ * The routine intentionally ignores:
+ * - functions without doc comments (callers set {@link hasDocComment} to
+ *   `true` when they injected one themselves), and
+ * - updates whose computed description is blank after trimming.
+ *
+ * Those guardrails ensure we only touch original comments that still need to
+ * be reconciled while leaving user-authored phrasing alone.
+ *
+ * @param {Map<object, Array<object>>} commentGroups Indexed doc comment lists
+ *        produced by {@link mapDocCommentsToFunctions}.
+ * @param {Map<object, {
+ *   description?: string,
+ *   expression?: string,
+ *   hasDocComment?: boolean
+ * }>} docUpdates Normalized updates keyed by function node.
+ */
 function applyDocCommentUpdates(commentGroups, docUpdates) {
     if (!docUpdates || docUpdates.size === 0) {
         return;

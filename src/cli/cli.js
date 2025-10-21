@@ -41,12 +41,17 @@ import {
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     uniqueArray
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
+} from "./lib/shared/utils.js";
+import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "../shared/path-utils.js";
+} from "./lib/shared/path-utils.js";
+import {
+    hasIgnoreRuleNegations,
+    markIgnoreRuleNegationsDetected,
+    resetIgnoreRuleNegations
+} from "./lib/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
@@ -187,21 +192,16 @@ function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
 ) {
-    const normalized = [];
-    const seen = new Set();
-
-    for (const candidate of normalizeStringList(rawExtensions, {
-        splitPattern: /,/,
-        allowInvalidType: true
-    })) {
-        const extension = coerceExtensionValue(candidate);
-        if (!extension || seen.has(extension)) {
-            continue;
-        }
-
-        seen.add(extension);
-        normalized.push(extension);
-    }
+    const normalized = Array.from(
+        new Set(
+            normalizeStringList(rawExtensions, {
+                splitPattern: /,/,
+                allowInvalidType: true
+            })
+                .map(coerceExtensionValue)
+                .filter(Boolean)
+        )
+    );
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }
@@ -255,7 +255,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         "--extensions <list>",
         [
             "Comma-separated list of file extensions to format.",
-            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`
+            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`,
+            "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
     )
         .argParser((value) => normalizeExtensions(value, DEFAULT_EXTENSIONS))
@@ -283,7 +284,10 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .addOption(extensionsOption)
         .option(
             "--log-level <level>",
-            "Prettier log level to use (debug, info, warn, error, or silent).",
+            [
+                "Prettier log level to use (debug, info, warn, error, or silent).",
+                "Respects PRETTIER_PLUGIN_GML_LOG_LEVEL when set."
+            ].join(" "),
             (value) => {
                 const normalized = normalizeEnumeratedOption(
                     value,
@@ -301,7 +305,10 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         )
         .option(
             "--on-parse-error <mode>",
-            "How to handle parser failures: revert, skip, or abort.",
+            [
+                "How to handle parser failures: revert, skip, or abort.",
+                "Respects PRETTIER_PLUGIN_GML_ON_PARSE_ERROR when set."
+            ].join(" "),
             (value) => {
                 const normalized = normalizeEnumeratedOption(
                     value,
@@ -420,11 +427,20 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
-let skippedFileCount = 0;
+const skippedFileSummary = {
+    ignored: 0,
+    unsupportedExtension: 0,
+    symbolicLink: 0
+};
+
+function resetSkippedFileSummary() {
+    skippedFileSummary.ignored = 0;
+    skippedFileSummary.unsupportedExtension = 0;
+    skippedFileSummary.symbolicLink = 0;
+}
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
-let ignoreRulesContainNegations = false;
 const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
@@ -557,9 +573,10 @@ async function resetFormattingSession(onParseError) {
     revertTriggered = false;
     await discardFormattedFileOriginalContents();
     clearIdentifierCaseCaches();
-    skippedFileCount = 0;
+    resetSkippedFileSummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
+    resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
 }
 
@@ -664,20 +681,20 @@ async function handleFormattingError(error, filePath) {
         console.error(header);
     }
 
-    if (parseErrorAction === ParseErrorAction.REVERT) {
-        if (revertTriggered) {
-            return;
+    if (parseErrorAction !== ParseErrorAction.REVERT) {
+        if (parseErrorAction === ParseErrorAction.ABORT) {
+            abortRequested = true;
         }
-
-        revertTriggered = true;
-        abortRequested = true;
-        await revertFormattedFiles();
         return;
     }
 
-    if (parseErrorAction === ParseErrorAction.ABORT) {
-        abortRequested = true;
+    if (revertTriggered) {
+        return;
     }
+
+    revertTriggered = true;
+    abortRequested = true;
+    await revertFormattedFiles();
 }
 
 async function registerIgnorePaths(ignoreFiles) {
@@ -688,7 +705,7 @@ async function registerIgnorePaths(ignoreFiles) {
 
         registerIgnorePath(ignoreFilePath);
 
-        if (ignoreRulesContainNegations) {
+        if (hasIgnoreRuleNegations()) {
             continue;
         }
 
@@ -696,7 +713,7 @@ async function registerIgnorePaths(ignoreFiles) {
             const contents = await readFile(ignoreFilePath, "utf8");
 
             if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                ignoreRulesContainNegations = true;
+                markIgnoreRuleNegationsDetected();
             }
         } catch {
             // Ignore missing or unreadable files.
@@ -721,7 +738,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
-    if (ignoreRulesContainNegations) {
+    if (hasIgnoreRuleNegations()) {
         return false;
     }
 
@@ -801,14 +818,13 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details = formatCliError(error) || "Unknown error";
+        const details =
+            getErrorMessage(error, { fallback: "Unknown error" }) ||
+            "Unknown error";
         const cliError = new CliUsageError(
             `Unable to access ${target}: ${details}`,
             { usage }
         );
-        if (isErrorLike(error)) {
-            cliError.cause = error;
-        }
         throw cliError;
     }
 }
@@ -848,7 +864,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
 
     if (stats.isSymbolicLink()) {
         console.log(`Skipping ${filePath} (symbolic link)`);
-        skippedFileCount += 1;
+        skippedFileSummary.symbolicLink += 1;
         return;
     }
 
@@ -866,7 +882,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         return;
     }
 
-    skippedFileCount += 1;
+    skippedFileSummary.unsupportedExtension += 1;
 }
 
 async function processDirectoryEntries(directory, files, currentIgnorePaths) {
@@ -950,6 +966,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         if (fileInfo.ignored) {
             console.log(`Skipping ${filePath} (ignored)`);
+            skippedFileSummary.ignored += 1;
             return;
         }
 
@@ -1051,7 +1068,7 @@ async function processNonDirectoryTarget(targetPath) {
         return;
     }
 
-    skippedFileCount += 1;
+    skippedFileSummary.unsupportedExtension += 1;
 }
 
 /**
@@ -1165,18 +1182,60 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     logSkippedFileSummary();
 }
 
+/**
+ * Build human-readable detail messages describing skipped file categories.
+ *
+ * @param {{ ignored: number, unsupportedExtension: number, symbolicLink: number }} summary
+ * @returns {string[]}
+ */
+function buildSkippedFileDetailEntries({
+    ignored,
+    unsupportedExtension,
+    symbolicLink
+}) {
+    const detailEntries = [];
+
+    if (ignored > 0) {
+        detailEntries.push(`ignored by .prettierignore (${ignored})`);
+    }
+
+    if (unsupportedExtension > 0) {
+        detailEntries.push(`unsupported extensions (${unsupportedExtension})`);
+    }
+
+    if (symbolicLink > 0) {
+        detailEntries.push(`symbolic links (${symbolicLink})`);
+    }
+
+    return detailEntries;
+}
+
 function logSkippedFileSummary() {
+    const skippedFileCount =
+        skippedFileSummary.ignored +
+        skippedFileSummary.unsupportedExtension +
+        skippedFileSummary.symbolicLink;
     const skipLabel = skippedFileCount === 1 ? "file" : "files";
+    const summary = `Skipped ${skippedFileCount} ${skipLabel}.`;
 
     if (skippedFileCount === 0) {
-        console.log(`Skipped 0 ${skipLabel}.`);
+        console.log(summary);
         return;
     }
 
-    console.log(
-        `Skipped ${skippedFileCount} ${skipLabel} because they were ignored or used different extensions.`
-    );
+    const detailEntries = buildSkippedFileDetailEntries(skippedFileSummary);
+
+    if (detailEntries.length === 0) {
+        console.log(summary);
+        return;
+    }
+
+    console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
 }
+
+export const __test__ = Object.freeze({
+    resetFormattingSessionForTests: resetFormattingSession
+});
 
 const formatCommand = createFormatCommand({ name: "format" });
 
@@ -1230,9 +1289,11 @@ cliCommandRegistry.registerCommand({
         })
 });
 
-cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
-    handleCliError(error, {
-        prefix: "Failed to run prettier-plugin-gml CLI.",
-        exitCode: 1
+if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
+    cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
+        handleCliError(error, {
+            prefix: "Failed to run prettier-plugin-gml CLI.",
+            exitCode: 1
+        });
     });
-});
+}

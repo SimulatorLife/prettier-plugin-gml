@@ -1,4 +1,4 @@
-import { isErrorLike } from "../../../shared/utils/capability-probes.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 
 export function isSyntaxErrorWithLocation(value) {
     if (!isErrorLike(value)) {
@@ -12,21 +12,17 @@ export function isSyntaxErrorWithLocation(value) {
         return false;
     }
 
-    if (value.rule != undefined && typeof value.rule !== "string") {
+    const { rule, wrongSymbol, offendingText } = value;
+
+    if (rule != undefined && typeof rule !== "string") {
         return false;
     }
 
-    if (
-        value.wrongSymbol != undefined &&
-        typeof value.wrongSymbol !== "string"
-    ) {
+    if (wrongSymbol != undefined && typeof wrongSymbol !== "string") {
         return false;
     }
 
-    if (
-        value.offendingText != undefined &&
-        typeof value.offendingText !== "string"
-    ) {
+    if (offendingText != undefined && typeof offendingText !== "string") {
         return false;
     }
 

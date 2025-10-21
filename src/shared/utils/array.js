@@ -49,6 +49,36 @@ export function asArray(value) {
 }
 
 /**
+ * Normalize a candidate array so callers can safely mutate the result without
+ * repeating null checks and array guards. When the provided value is already
+ * an array, the original reference is returned to preserve identity. All other
+ * values fall back to a fresh empty array so mutations stay local to the call
+ * site. Callers can opt into shallow cloning when they need to decouple from
+ * the original array instance.
+ *
+ * @template T
+ * @param {Array<T> | null | undefined | unknown} value
+ * @param {Object} [options]
+ * @param {boolean} [options.clone=false]
+ * @returns {Array<T>} Mutably safe array representation of {@link value}.
+ */
+export function toMutableArray(value, { clone = false } = {}) {
+    if (value == null) {
+        return [];
+    }
+
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    if (!clone) {
+        return value;
+    }
+
+    return [...value];
+}
+
+/**
  * Determine whether the provided value is an array containing at least one
  * element. This check mirrors the defensive guard pattern used throughout the
  * printers and parsers when iterating over optional collections.

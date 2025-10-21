@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
-    createManualGitHubClient,
+    createManualGitHubFileClient,
+    createManualGitHubReferencesClient,
+    createManualGitHubRequestDispatcher,
     createManualVerboseState
 } from "../lib/manual-utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
+const RAW_ROOT = "https://raw.github.com/example/manual";
 
 function makeResponse({ body, ok = true, statusText = "OK" }) {
     return {
@@ -15,6 +21,30 @@ function makeResponse({ body, ok = true, statusText = "OK" }) {
         async text() {
             return body;
         }
+    };
+}
+
+function createManualClientBundle({
+    userAgent,
+    defaultCacheRoot,
+    defaultRawRoot
+}) {
+    const requestDispatcher = createManualGitHubRequestDispatcher({
+        userAgent
+    });
+    const references = createManualGitHubReferencesClient({
+        requestDispatcher
+    });
+    const fileFetcher = createManualGitHubFileClient({
+        requestDispatcher,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
+
+    return {
+        requestDispatcher,
+        references,
+        fileFetcher
     };
 }
 
@@ -29,8 +59,56 @@ describe("manual GitHub client validation", () => {
         globalThis.fetch = originalFetch;
     });
 
+    it("fetches manual files while caching results to disk", async () => {
+        const cacheRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "manual-cache-")
+        );
+
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: cacheRoot,
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const responses = [
+            {
+                url: `${RAW_ROOT}/sha/path/to/file`,
+                response: makeResponse({ body: "cached body" })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const cachePath = path.join(cacheRoot, "sha", "path", "to", "file");
+
+        try {
+            const first = await client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file"
+            );
+            assert.equal(first, "cached body");
+            const cachedContent = await fs.readFile(cachePath, "utf8");
+            assert.equal(cachedContent, "cached body");
+
+            // Subsequent reads should reuse the cached artefact without fetching.
+            const second = await client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file"
+            );
+            assert.equal(second, "cached body");
+            assert.equal(responses.length, 0);
+        } finally {
+            await fs.rm(cacheRoot, { recursive: true, force: true });
+        }
+    });
+
     it("rejects manual commit payloads without a SHA", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -63,7 +141,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("rejects manual tag entries that omit the tag name", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -100,7 +178,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("returns manual tag details when the payload is valid", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
@@ -137,7 +215,7 @@ describe("manual GitHub client validation", () => {
     });
 
     it("exposes a focused commit resolver for direct commit lookups", async () => {
-        const client = createManualGitHubClient({
+        const client = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"

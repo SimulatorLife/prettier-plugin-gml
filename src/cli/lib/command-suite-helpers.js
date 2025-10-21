@@ -1,7 +1,10 @@
 import process from "node:process";
 
-import { CliUsageError } from "./cli-errors.js";
+import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
+// Pull array helpers from the shared utils barrel so new call sites avoid the
+// legacy `array-utils` shim slated for removal.
+import { toMutableArray } from "./shared/utils.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -28,12 +31,7 @@ export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
 
 export function resolveSuiteOutputFormatOrThrow(
     value,
-    {
-        fallback,
-        errorConstructor = Error,
-        createErrorMessage = () =>
-            `Format must be one of: ${formatSuiteOutputFormatList()}.`
-    } = {}
+    { fallback, errorConstructor, createErrorMessage } = {}
 ) {
     const normalized = normalizeSuiteOutputFormat(value, { fallback });
 
@@ -41,18 +39,16 @@ export function resolveSuiteOutputFormatOrThrow(
         return normalized;
     }
 
-    const errorMessage =
+    const ErrorConstructor =
+        typeof errorConstructor === "function" ? errorConstructor : Error;
+    const customMessage =
         typeof createErrorMessage === "function"
             ? createErrorMessage(value)
             : createErrorMessage;
-
     const message =
-        typeof errorMessage === "string"
-            ? errorMessage
-            : String(errorMessage ?? "");
-
-    const ErrorConstructor =
-        typeof errorConstructor === "function" ? errorConstructor : Error;
+        customMessage == null
+            ? `Format must be one of: ${formatSuiteOutputFormatList()}.`
+            : String(customMessage);
 
     throw new ErrorConstructor(message);
 }
@@ -65,7 +61,7 @@ export function resolveSuiteOutputFormatOrThrow(
  * @returns {Array<string>}
  */
 export function resolveRequestedSuites(options, availableSuites) {
-    const suiteOption = Array.isArray(options?.suite) ? options.suite : [];
+    const suiteOption = toMutableArray(options?.suite);
     const hasExplicitSuites = suiteOption.length > 0;
     const requested = hasExplicitSuites
         ? suiteOption
@@ -142,7 +138,7 @@ export async function collectSuiteResults({
             results[suiteName] =
                 typeof onError === "function"
                     ? onError(error, { suiteName })
-                    : { error };
+                    : { error: createCliErrorDetails(error) };
         }
     }
 

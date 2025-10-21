@@ -5,7 +5,8 @@ import {
     CliUsageError,
     formatCliError,
     handleCliError,
-    markAsCliUsageError
+    markAsCliUsageError,
+    createCliErrorDetails
 } from "../lib/cli-errors.js";
 
 describe("cli error formatting", () => {
@@ -58,5 +59,31 @@ describe("cli error formatting", () => {
             "Failed.\nMissing project path\n\nUsage: prettier-wrapper [options] <path>"
         ]);
         assert.deepEqual(exitCodes, [1]);
+    });
+});
+
+describe("cli error details", () => {
+    it("normalizes message, name, code, and stack", () => {
+        const error = new Error("kaboom");
+        error.code = "ENOENT";
+
+        const details = createCliErrorDetails(error);
+
+        assert.equal(details.message, "kaboom");
+        assert.equal(details.name, "Error");
+        assert.equal(details.code, "ENOENT");
+        assert.ok(Array.isArray(details.stack));
+        assert.ok(details.stack.length > 0);
+    });
+
+    it("uses fallback metadata for non-error values", () => {
+        const details = createCliErrorDetails(undefined, {
+            fallbackMessage: "Something went wrong"
+        });
+
+        assert.equal(details.message, "Something went wrong");
+        assert.equal(details.name, "Error");
+        assert.equal(details.code, undefined);
+        assert.equal(details.stack, undefined);
     });
 });

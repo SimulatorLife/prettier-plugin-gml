@@ -5,6 +5,7 @@ import process from "node:process";
 import { Command, InvalidArgumentError } from "commander";
 
 import { applyStandardCommandOptions } from "./command-standard-options.js";
+import { createCliErrorDetails } from "./cli-errors.js";
 import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
@@ -27,19 +28,16 @@ function collectSuite(value, previous = []) {
     return previous;
 }
 
-function formatErrorDetails(error) {
-    const message =
-        typeof error?.message === "string"
-            ? error.message
-            : String(error ?? "Unknown error");
-    const stackLines =
-        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
-    const name =
-        typeof error?.name === "string"
-            ? error.name
-            : (error?.constructor?.name ?? "Error");
+function formatErrorDetails(error, { hint, fallbackMessage } = {}) {
+    const details = createCliErrorDetails(error, {
+        fallbackMessage: fallbackMessage ?? "Unknown error"
+    });
 
-    return { name, message, stack: stackLines };
+    if (hint) {
+        details.hint = hint;
+    }
+
+    return details;
 }
 
 function formatMetrics(label, metrics) {
@@ -83,9 +81,9 @@ async function executeProjectIndexAttempt({
             )
         };
     } catch (error) {
-        const formattedError = formatErrorDetails(error);
-        formattedError.hint =
-            "Provide --project <path> to a GameMaker project to run this benchmark against real data.";
+        const formattedError = formatErrorDetails(error, {
+            hint: "Provide --project <path> to a GameMaker project to run this benchmark against real data."
+        });
 
         return {
             index: null,
@@ -113,40 +111,17 @@ async function collectProjectIndexRuns({
             verbose,
             attempt
         });
-        const { shouldStop, nextLatestIndex } = recordProjectIndexAttempt(
-            results,
-            attemptResult
-        );
+        results.index.push(attemptResult.runRecord);
 
-        if (shouldStop) {
+        if (attemptResult.error) {
+            results.error = attemptResult.error;
             return { latestIndex: null };
         }
 
-        latestIndex = nextLatestIndex;
+        latestIndex = attemptResult.index ?? null;
     }
 
     return { latestIndex };
-}
-
-/**
- * Store the outcome of a project index attempt in the aggregated results.
- *
- * @param {{ index: Array<object>, error?: object }} results
- * @param {{ runRecord: object, error?: object, index?: object }} attemptResult
- * @returns {{ shouldStop: boolean, nextLatestIndex: object | null }}
- */
-function recordProjectIndexAttempt(results, attemptResult) {
-    results.index.push(attemptResult.runRecord);
-
-    if (attemptResult.error) {
-        results.error = attemptResult.error;
-        return { shouldStop: true, nextLatestIndex: null };
-    }
-
-    return {
-        shouldStop: false,
-        nextLatestIndex: attemptResult.index ?? null
-    };
 }
 
 function createRenameOptions({ file, latestIndex, logger, verbose }) {

@@ -1,14 +1,12 @@
-import path from "node:path";
-
-import { getNonEmptyString } from "../string-utils.js";
-import { resolveContainedRelativePath } from "../path-utils.js";
+import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { resolveProjectPathInfo } from "../../../shared/path-utils.js";
 
 /**
  * Format parser-originated syntax errors into the structured messages surfaced
- * by the CLI and project index. Centralising the formatter in the shared
- * reporting layer keeps downstream packages from re-implementing the display
- * logic or hard-coding project-index paths when converting absolute file
- * locations into friendly relative references.
+ * by the project-index tooling. Co-locating the formatter with the rest of the
+ * project-index helpers keeps the shared reporting layer focused on generic
+ * metrics utilities while still allowing consumers (like the CLI) to import the
+ * specialised behaviour directly from the project-index module tree.
  */
 export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const { filePath, projectRoot } = context ?? {};
@@ -54,16 +52,17 @@ function resolveDisplayPath(filePath, projectRoot) {
         return null;
     }
 
-    if (!path.isAbsolute(normalizedFilePath)) {
+    const info = resolveProjectPathInfo(normalizedFilePath, projectRoot);
+    if (!info) {
+        return null;
+    }
+
+    if (!info.inputWasAbsolute) {
         return normalizedFilePath;
     }
 
-    const normalizedProjectRoot = getNonEmptyString(projectRoot);
-    if (normalizedProjectRoot) {
-        const relative = resolveContainedRelativePath(
-            normalizedFilePath,
-            normalizedProjectRoot
-        );
+    if (info.hasProjectRoot && info.isInsideProjectRoot) {
+        const relative = info.relativePath;
         if (relative) {
             return relative;
         }

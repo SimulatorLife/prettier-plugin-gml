@@ -1,8 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { parseHTML } from "linkedom";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
 
 import {
     escapeRegExp,
@@ -15,15 +13,13 @@ import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
-    resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    withProgressBarCleanup
 } from "../lib/progress-bar.js";
-import { ensureDir } from "../lib/file-system.js";
+import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    resolveManualRepoValue,
     buildManualRepositoryEndpoints
 } from "../lib/manual-utils.js";
 import {
@@ -31,7 +27,10 @@ import {
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
-import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import {
+    applySharedManualCommandOptions,
+    resolveManualCommandOptions
+} from "../lib/manual-command-options.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
@@ -64,52 +63,14 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             .description(
                 "Generate feather-metadata.json from the GameMaker manual."
             )
-    )
-        .option(
-            "-r, --ref <git-ref>",
-            "Manual git ref (tag, branch, or commit)."
-        )
-        .option(
-            "-o, --output <path>",
-            `Output JSON path (default: ${OUTPUT_DEFAULT}).`,
-            (value) => path.resolve(value),
-            OUTPUT_DEFAULT
-        )
-        .option(
-            "--force-refresh",
-            "Ignore cached manual artefacts and re-download."
-        )
-        .option("--quiet", "Suppress progress output (useful in CI).")
-        .option(
-            "--manual-repo <owner/name>",
-            `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
-            (value) => {
-                try {
-                    return resolveManualRepoValue(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_MANUAL_REPO
-        )
-        .option(
-            "--cache-root <path>",
-            `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
-            (value) => path.resolve(value),
-            DEFAULT_CACHE_ROOT
-        )
-        .option(
-            "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultProgressBarWidth()
-        );
+    ).option("-r, --ref <git-ref>", "Manual git ref (tag, branch, or commit).");
+
+    applySharedManualCommandOptions(command, {
+        outputPath: { defaultValue: OUTPUT_DEFAULT },
+        cacheRoot: { defaultValue: DEFAULT_CACHE_ROOT },
+        manualRepo: { defaultValue: DEFAULT_MANUAL_REPO },
+        quietDescription: "Suppress progress output (useful in CI)."
+    });
 
     command.addHelpText(
         "after",
@@ -1022,37 +983,43 @@ async function fetchFeatherManualPayloads({
     rawRoot,
     progressBarWidth
 }) {
-    const manualEntries = Object.entries(FEATHER_PAGES);
-    const totalManualPages = manualEntries.length;
+    return withProgressBarCleanup(async () => {
+        const manualEntries = Object.entries(FEATHER_PAGES);
+        const totalManualPages = manualEntries.length;
 
-    if (verbose.downloads) {
-        console.log(
-            `Fetching ${totalManualPages} manual page${
-                totalManualPages === 1 ? "" : "s"
-            }…`
-        );
-    }
+        if (verbose.downloads) {
+            console.log(
+                `Fetching ${totalManualPages} manual page${
+                    totalManualPages === 1 ? "" : "s"
+                }…`
+            );
+        }
 
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
-        });
-        fetchedCount += 1;
-        reportManualFetchProgress({
-            manualPath,
-            fetchedCount,
-            totalManualPages,
-            verbose,
-            progressBarWidth
-        });
-    }
+        const htmlPayloads = {};
+        let fetchedCount = 0;
+        for (const [key, manualPath] of manualEntries) {
+            htmlPayloads[key] = await fetchManualFileFn(
+                manualRef.sha,
+                manualPath,
+                {
+                    forceRefresh,
+                    verbose,
+                    cacheRoot,
+                    rawRoot
+                }
+            );
+            fetchedCount += 1;
+            reportManualFetchProgress({
+                manualPath,
+                fetchedCount,
+                totalManualPages,
+                verbose,
+                progressBarWidth
+            });
+        }
 
-    return htmlPayloads;
+        return htmlPayloads;
+    });
 }
 
 function reportManualFetchProgress({
@@ -1150,14 +1117,13 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
             sections
         });
 
-        await ensureDir(path.dirname(outputPath));
-        await fs.writeFile(
+        await writeManualJsonArtifact({
             outputPath,
-            `${JSON.stringify(payload, undefined, 2)}\n`,
-            "utf8"
-        );
-
-        console.log(`Wrote Feather metadata to ${outputPath}`);
+            payload,
+            onAfterWrite: () => {
+                console.log(`Wrote Feather metadata to ${outputPath}`);
+            }
+        });
         logCompletion();
         return 0;
     } finally {

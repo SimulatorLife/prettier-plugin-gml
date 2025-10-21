@@ -5,6 +5,7 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+import { getCommentValue } from "./comment-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
@@ -120,9 +121,8 @@ function formatLineComment(
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const hasStringValue = typeof comment?.value === "string";
-    const rawValue = hasStringValue ? comment.value : "";
-    const trimmedValue = hasStringValue ? comment.value.trim() : "";
+    const rawValue = getCommentValue(comment);
+    const trimmedValue = getCommentValue(comment, { trim: true });
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch

@@ -1,29 +1,49 @@
-import { applyEnvironmentOverride } from "../../../shared/environment-utils.js";
+import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 16;
 
-let configuredDefaultProjectIndexGmlConcurrency =
-    PROJECT_INDEX_GML_CONCURRENCY_BASELINE;
+const projectIndexConcurrencyConfig = createEnvConfiguredValue({
+    defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+    envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    normalize: (value, { defaultValue }) => {
+        const candidate = parseConcurrencyCandidate(value, defaultValue);
+
+        if (candidate === null) {
+            return defaultValue;
+        }
+
+        return clampWithinLimits(candidate);
+    }
+});
 
 function getDefaultProjectIndexGmlConcurrency() {
-    return configuredDefaultProjectIndexGmlConcurrency;
+    return projectIndexConcurrencyConfig.get();
 }
 
-function toFiniteConcurrency(value) {
-    if (value == null) {
+function parseConcurrencyCandidate(value, fallback) {
+    const source = value ?? fallback;
+    if (source == null) {
         return null;
     }
 
-    const candidate = typeof value === "string" ? value.trim() : value;
-    if (candidate === "") {
+    const normalized = typeof source === "string" ? source.trim() : source;
+    if (normalized === "") {
         return null;
     }
 
-    const numeric = Number(candidate);
+    const numeric = Number(normalized);
     return Number.isFinite(numeric) ? numeric : null;
+}
+
+function clampWithinLimits(
+    value,
+    min = MIN_CONCURRENCY,
+    max = MAX_CONCURRENCY
+) {
+    return Math.min(max, Math.max(min, value));
 }
 
 function clampConcurrency(
@@ -34,33 +54,20 @@ function clampConcurrency(
         fallback = getDefaultProjectIndexGmlConcurrency()
     } = {}
 ) {
-    const parsed = toFiniteConcurrency(value ?? fallback);
-    if (parsed === null) {
+    const candidate = parseConcurrencyCandidate(value, fallback);
+    if (candidate === null) {
         return min;
     }
 
-    return Math.min(max, Math.max(min, parsed));
+    return clampWithinLimits(candidate, min, max);
 }
 
 function setDefaultProjectIndexGmlConcurrency(concurrency) {
-    const parsed = toFiniteConcurrency(concurrency);
-
-    configuredDefaultProjectIndexGmlConcurrency =
-        parsed === null
-            ? PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-            : clampConcurrency(parsed, {
-                  fallback: PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-              });
-
-    return configuredDefaultProjectIndexGmlConcurrency;
+    return projectIndexConcurrencyConfig.set(concurrency);
 }
 
 function applyProjectIndexConcurrencyEnvOverride(env = process?.env) {
-    applyEnvironmentOverride({
-        env,
-        envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-        applyValue: setDefaultProjectIndexGmlConcurrency
-    });
+    projectIndexConcurrencyConfig.applyEnvOverride(env);
 }
 
 applyProjectIndexConcurrencyEnvOverride();

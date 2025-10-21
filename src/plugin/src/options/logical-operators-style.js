@@ -1,3 +1,5 @@
+import { normalizeEnumeratedOption } from "../../../shared/enumerated-option-utils.js";
+
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",
     SYMBOLS: "symbols"
@@ -24,15 +26,24 @@ export function normalizeLogicalOperatorsStyle(rawStyle) {
         return DEFAULT_LOGICAL_OPERATORS_STYLE;
     }
 
-    if (typeof rawStyle !== "string") {
-        throw new TypeError(
-            `logicalOperatorsStyle must be provided as a string. Received: ${typeof rawStyle}.`
-        );
-    }
+    const normalized = normalizeEnumeratedOption(
+        rawStyle,
+        null,
+        LOGICAL_OPERATORS_STYLE_SET,
+        {
+            coerce(value) {
+                if (typeof value !== "string") {
+                    throw new TypeError(
+                        `logicalOperatorsStyle must be provided as a string. Received: ${typeof value}.`
+                    );
+                }
 
-    const normalized = rawStyle.trim();
+                return value.trim();
+            }
+        }
+    );
 
-    if (!isLogicalOperatorsStyle(normalized)) {
+    if (normalized === null) {
         throw new RangeError(
             `logicalOperatorsStyle must be one of: ${VALID_STYLES_MESSAGE}. Received: ${JSON.stringify(rawStyle)}.`
         );

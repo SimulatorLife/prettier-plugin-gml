@@ -1,13 +1,16 @@
 import path from "node:path";
 
-import { normalizeNumericOption } from "../../../shared/numeric-option-utils.js";
+import {
+    normalizeNumericOption,
+    coerceNonNegativeInteger,
+    coercePositiveInteger
+} from "../../../shared/numeric-option-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import {
     assertFunction,
     coalesceOption,
     isObjectLike
 } from "../../../shared/object-utils.js";
-import { toNormalizedInteger } from "../../../shared/number-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
@@ -23,33 +26,28 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
-function resolveOptionWithOverride(options, config) {
-    const { onValue, onMissing, internalKey, externalKey } = config ?? {};
+function resolveOptionWithOverride(options, config = {}) {
+    const { onValue, onMissing, internalKey, externalKey } = config;
 
     assertFunction(onValue, "onValue");
 
-    const resolveMissing = () =>
-        typeof onMissing === "function" ? onMissing() : onMissing;
+    const callOnMissing =
+        typeof onMissing === "function" ? onMissing : () => onMissing;
 
     if (!isObjectLike(options)) {
-        return resolveMissing();
+        return callOnMissing();
     }
 
     for (const [key, source] of [
         [internalKey, "internal"],
         [externalKey, "external"]
     ]) {
-        if (key == null) {
-            continue;
-        }
-
-        const value = options[key];
-        if (value !== undefined) {
-            return onValue({ value, source });
+        if (key != null && options[key] !== undefined) {
+            return onValue({ value: options[key], source });
         }
     }
 
-    return resolveMissing();
+    return callOnMissing();
 }
 
 function getFsFacade(options) {
@@ -161,32 +159,37 @@ function coerceCacheMaxSize(
     numericValue,
     { optionName, received, isString, rawType }
 ) {
-    const normalized = toNormalizedInteger(numericValue);
-    if (normalized === null) {
-        const message = isString
-            ? formatCacheMaxSizeValueError(optionName, received)
-            : formatCacheMaxSizeTypeError(optionName, rawType);
-        throw new TypeError(message);
+    if (Number.isFinite(numericValue)) {
+        const truncated = Math.trunc(numericValue);
+
+        if (truncated < 0) {
+            throw new Error(formatCacheMaxSizeValueError(optionName, received));
+        }
     }
 
-    if (normalized < 0) {
-        throw new Error(formatCacheMaxSizeValueError(optionName, received));
+    if (!Number.isFinite(numericValue) && !isString) {
+        throw new TypeError(formatCacheMaxSizeTypeError(optionName, rawType));
     }
+
+    const normalized = coerceNonNegativeInteger(numericValue, {
+        received,
+        createErrorMessage: (value) =>
+            formatCacheMaxSizeValueError(optionName, value)
+    });
 
     return normalized === 0 ? null : normalized;
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    const normalized = toNormalizedInteger(numericValue);
-    if (normalized === null) {
-        throw new TypeError(formatConcurrencyValueError(optionName, received));
-    }
-
-    if (normalized < 1) {
+    if (Number.isFinite(numericValue) && numericValue < 1) {
         throw new Error(formatConcurrencyValueError(optionName, received));
     }
 
-    return normalized;
+    return coercePositiveInteger(numericValue, {
+        received,
+        createErrorMessage: (value) =>
+            formatConcurrencyValueError(optionName, value)
+    });
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
@@ -251,47 +254,39 @@ function resolveProjectRoot(options) {
     });
 }
 
-export async function bootstrapProjectIndex(options = {}, storeOption) {
-    if (!isObjectLike(options)) {
-        return createSkipResult("invalid-options");
+function getCachedBootstrapResult(options) {
+    const bootstrapResult = options.__identifierCaseProjectIndexBootstrap;
+    return bootstrapResult?.status ? bootstrapResult : null;
+}
+
+function resolveProvidedProjectIndex(options, { projectRoot, writeOption }) {
+    if (!options.__identifierCaseProjectIndex) {
+        return null;
     }
 
-    if (options.__identifierCaseProjectIndexBootstrap?.status) {
-        return options.__identifierCaseProjectIndexBootstrap;
-    }
+    const resolvedProjectRoot = projectRoot ?? resolveProjectRoot(options);
 
-    const writeOption = getOptionWriter(storeOption);
+    return storeBootstrapResult(
+        options,
+        {
+            status: "ready",
+            reason: "provided",
+            projectRoot: resolvedProjectRoot,
+            projectIndex: options.__identifierCaseProjectIndex,
+            source: "provided",
+            cache: null,
+            dispose() {}
+        },
+        writeOption
+    );
+}
 
-    if (options.__identifierCaseProjectIndex) {
-        const projectRoot =
-            options.__identifierCaseProjectRoot ?? resolveProjectRoot(options);
-        return storeBootstrapResult(
-            options,
-            {
-                status: "ready",
-                reason: "provided",
-                projectRoot,
-                projectIndex: options.__identifierCaseProjectIndex,
-                source: "provided",
-                cache: null,
-                dispose() {}
-            },
-            writeOption
-        );
-    }
+function shouldSkipProjectDiscovery(options) {
+    return options.gmlIdentifierCaseDiscoverProject === false;
+}
 
-    if (options.gmlIdentifierCaseDiscoverProject === false) {
-        return storeBootstrapResult(
-            options,
-            createSkipResult("discovery-disabled"),
-            writeOption
-        );
-    }
-
+function resolveCoordinatorInputs(options, writeOption) {
     const fsFacade = getFsFacade(options);
-
-    let projectRoot = resolveProjectRoot(options);
-    let rootResolution = projectRoot ? "configured" : null;
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
     if (cacheMaxSizeBytes !== undefined) {
@@ -311,31 +306,54 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         );
     }
 
-    if (!projectRoot) {
-        const filepath = options?.filepath ?? null;
-        if (!isNonEmptyTrimmedString(filepath)) {
-            return storeBootstrapResult(
-                options,
-                createSkipResult("missing-filepath"),
-                writeOption
-            );
-        }
+    return { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency };
+}
 
-        projectRoot = await findProjectRoot(
-            { filepath },
-            fsFacade ?? undefined
-        );
-        if (!projectRoot) {
-            return storeBootstrapResult(
-                options,
-                createSkipResult("project-root-not-found"),
-                writeOption
-            );
-        }
-
-        rootResolution = "discovered";
+async function resolveProjectRootContext(
+    options,
+    { fsFacade, initialProjectRoot }
+) {
+    if (initialProjectRoot) {
+        return {
+            projectRoot: initialProjectRoot,
+            rootResolution: "configured",
+            skipResult: null
+        };
     }
 
+    const filepath = options?.filepath ?? null;
+    if (!isNonEmptyTrimmedString(filepath)) {
+        return {
+            projectRoot: null,
+            rootResolution: null,
+            skipResult: createSkipResult("missing-filepath")
+        };
+    }
+
+    const projectRoot = await findProjectRoot(
+        { filepath },
+        fsFacade ?? undefined
+    );
+
+    if (!projectRoot) {
+        return {
+            projectRoot: null,
+            rootResolution: null,
+            skipResult: createSkipResult("project-root-not-found")
+        };
+    }
+
+    return {
+        projectRoot,
+        rootResolution: "discovered",
+        skipResult: null
+    };
+}
+
+function resolveProjectIndexCoordinator(
+    options,
+    { fsFacade, cacheMaxSizeBytes }
+) {
     const coordinatorOverride =
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
@@ -348,12 +366,19 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         coordinatorOverride ??
         createProjectIndexCoordinator(coordinatorOptions);
 
-    const disposeCoordinator = coordinatorOverride
+    const dispose = coordinatorOverride
         ? () => {}
         : () => {
               coordinator.dispose();
           };
 
+    return { coordinator, dispose };
+}
+
+function createProjectIndexBuildOptions(
+    options,
+    { projectIndexConcurrency, parserOverride }
+) {
     const buildOptions = {
         logger: options?.logger ?? null,
         logMetrics: options?.logIdentifierCaseMetrics === true
@@ -366,7 +391,6 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         };
     }
 
-    const parserOverride = getProjectIndexParserOverride(options);
     if (parserOverride) {
         if (parserOverride.facade) {
             buildOptions.gmlParserFacade = parserOverride.facade;
@@ -374,6 +398,13 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         buildOptions.parseGml = parserOverride.parse;
     }
 
+    return buildOptions;
+}
+
+function createProjectIndexDescriptor(
+    options,
+    { projectRoot, cacheMaxSizeBytes, buildOptions }
+) {
     const descriptor = {
         projectRoot,
         cacheFilePath: options?.identifierCaseProjectIndexCachePath ?? null,
@@ -386,20 +417,15 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
         descriptor.maxSizeBytes = cacheMaxSizeBytes;
     }
 
-    let ready;
-    try {
-        ready = await coordinator.ensureReady(descriptor);
-    } catch (error) {
-        const failureResult = createFailureResult({
-            reason: "build-error",
-            projectRoot,
-            coordinator,
-            dispose: disposeCoordinator,
-            error
-        });
-        return storeBootstrapResult(options, failureResult, writeOption);
-    }
+    return descriptor;
+}
 
+function finalizeBootstrapSuccess(
+    options,
+    ready,
+    { projectRoot, rootResolution, coordinator, dispose },
+    writeOption
+) {
     const result = storeBootstrapResult(
         options,
         {
@@ -410,7 +436,7 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
             source: ready?.source ?? rootResolution,
             cache: ready?.cache ?? null,
             coordinator,
-            dispose: disposeCoordinator
+            dispose
         },
         writeOption
     );
@@ -425,6 +451,92 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     }
 
     return result;
+}
+
+export async function bootstrapProjectIndex(options = {}, storeOption) {
+    if (!isObjectLike(options)) {
+        return createSkipResult("invalid-options");
+    }
+
+    const cachedBootstrap = getCachedBootstrapResult(options);
+    if (cachedBootstrap) {
+        return cachedBootstrap;
+    }
+
+    const writeOption = getOptionWriter(storeOption);
+    const initialProjectRoot = resolveProjectRoot(options);
+
+    const providedProjectIndexResult = resolveProvidedProjectIndex(options, {
+        projectRoot: initialProjectRoot,
+        writeOption
+    });
+    if (providedProjectIndexResult) {
+        return providedProjectIndexResult;
+    }
+
+    if (shouldSkipProjectDiscovery(options)) {
+        return storeBootstrapResult(
+            options,
+            createSkipResult("discovery-disabled"),
+            writeOption
+        );
+    }
+
+    const { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency } =
+        resolveCoordinatorInputs(options, writeOption);
+
+    const { projectRoot, rootResolution, skipResult } =
+        await resolveProjectRootContext(options, {
+            fsFacade,
+            initialProjectRoot
+        });
+
+    if (skipResult) {
+        return storeBootstrapResult(options, skipResult, writeOption);
+    }
+
+    const { coordinator, dispose } = resolveProjectIndexCoordinator(options, {
+        fsFacade,
+        cacheMaxSizeBytes
+    });
+
+    const parserOverride = getProjectIndexParserOverride(options);
+    const buildOptions = createProjectIndexBuildOptions(options, {
+        projectIndexConcurrency,
+        parserOverride
+    });
+
+    const descriptor = createProjectIndexDescriptor(options, {
+        projectRoot,
+        cacheMaxSizeBytes,
+        buildOptions
+    });
+
+    let ready;
+    try {
+        ready = await coordinator.ensureReady(descriptor);
+    } catch (error) {
+        const failureResult = createFailureResult({
+            reason: "build-error",
+            projectRoot,
+            coordinator,
+            dispose,
+            error
+        });
+        return storeBootstrapResult(options, failureResult, writeOption);
+    }
+
+    return finalizeBootstrapSuccess(
+        options,
+        ready,
+        {
+            projectRoot,
+            rootResolution,
+            coordinator,
+            dispose
+        },
+        writeOption
+    );
 }
 
 export function applyBootstrappedProjectIndex(options, storeOption) {
