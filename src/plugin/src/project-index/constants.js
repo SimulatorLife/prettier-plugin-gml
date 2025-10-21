@@ -1,3 +1,6 @@
+export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
+    "Project index build was aborted.";
+
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
 const PROJECT_MANIFEST_EXTENSION_LOWER =
