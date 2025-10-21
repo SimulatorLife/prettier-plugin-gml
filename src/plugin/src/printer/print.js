@@ -1086,10 +1086,22 @@ export function print(path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
+            let identifierName = node.name;
+
+            const preferredParamName = getPreferredFunctionParameterName(
+                path,
+                node,
+                options
+            );
+            if (isNonEmptyString(preferredParamName)) {
+                identifierName = preferredParamName;
+            }
+
             const renamed = getIdentifierCaseRenameForNode(node, options);
-            const identifierName = isNonEmptyString(renamed)
-                ? renamed
-                : node.name;
+            if (isNonEmptyString(renamed)) {
+                identifierName = renamed;
+            }
+
             return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
@@ -3085,6 +3097,145 @@ function getCanonicalParamNameFromText(name) {
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
     return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function getPreferredFunctionParameterName(path, node, options) {
+    const context = findFunctionParameterContext(path);
+    if (!context) {
+        return null;
+    }
+
+    const { functionNode, paramIndex } = context;
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+    if (paramIndex >= params.length) {
+        return null;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[paramIndex]);
+    if (!identifier || typeof identifier.name !== "string") {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(paramIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === paramIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== identifier.name
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === identifier.name) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+}
+
+function findFunctionParameterContext(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let candidate = path.getValue();
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (parent.type === "DefaultParameter") {
+            candidate = parent;
+            continue;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            const params = Array.isArray(parent.params) ? parent.params : [];
+            const index = params.indexOf(candidate);
+            if (index !== -1) {
+                return { functionNode: parent, paramIndex: index };
+            }
+        }
+
+        candidate = parent;
+    }
+
+    return null;
+}
+
+function getIdentifierFromParameterNode(param) {
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (
+        param.type === "DefaultParameter" &&
+        param.left?.type === "Identifier"
+    ) {
+        return param.left;
+    }
+
+    return null;
+}
+
+function normalizePreferredParameterName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const canonical = getCanonicalParamNameFromText(name);
+    if (canonical && canonical.length > 0) {
+        return canonical;
+    }
+
+    const normalized = normalizeDocMetadataName(name);
+    if (typeof normalized !== "string" || normalized.length === 0) {
+        return null;
+    }
+
+    return normalized.trim();
+}
+
+function isValidIdentifierName(name) {
+    return typeof name === "string" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
 function isOptionalParamDocName(name) {
