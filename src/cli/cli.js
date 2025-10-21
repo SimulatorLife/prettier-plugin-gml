@@ -32,11 +32,13 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
+    coerceNonNegativeInteger,
     getErrorMessage,
     isErrorWithCode,
     isObjectLike,
     normalizeEnumeratedOption,
     normalizeStringList,
+    resolveIntegerOption,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
@@ -81,6 +83,7 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -230,6 +233,40 @@ const DEFAULT_PRETTIER_LOG_LEVEL =
         VALID_PRETTIER_LOG_LEVELS
     ) ?? "warn";
 
+const SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV =
+    "PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES";
+
+const DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT = resolveIntegerOption(
+    process.env[SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV],
+    {
+        defaultValue: 5,
+        coerce: (value, { received }) =>
+            coerceNonNegativeInteger(value, {
+                received,
+                createErrorMessage: (receivedValue) =>
+                    `${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV} must be a non-negative integer (received ${receivedValue}).`
+            })
+    }
+);
+
+const resolveIgnoredDirectorySampleLimit = wrapInvalidArgumentResolver(
+    (value) =>
+        resolveIntegerOption(value, {
+            defaultValue: DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
+            coerce: (numericValue, { received }) =>
+                coerceNonNegativeInteger(numericValue, {
+                    received,
+                    createErrorMessage: (receivedValue) =>
+                        `--ignored-directory-sample-limit must be a non-negative integer (received ${receivedValue}).`
+                }),
+            blankStringReturnsDefault: false
+        }),
+    {
+        fallbackMessage:
+            "--ignored-directory-sample-limit must be a non-negative integer."
+    }
+);
+
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
     .usage("[command] [options]")
@@ -287,6 +324,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "Directory or file to format (alias for positional argument)."
         )
         .addOption(extensionsOption)
+        .option(
+            "--ignored-directory-sample-limit <count>",
+            [
+                "Maximum number of ignored directories to include in skip summaries.",
+                `Defaults to ${DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT}.`,
+                "Respects PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES when set."
+            ].join(" "),
+            resolveIgnoredDirectorySampleLimit,
+            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
+        )
         .option(
             "--log-level <level>",
             [
@@ -369,6 +416,9 @@ function collectFormatCommandOptions(command) {
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
+        ignoredDirectorySampleLimit:
+            options.ignoredDirectorySampleLimit ??
+            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
         usage: command.helpInformation()
@@ -432,13 +482,20 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
+function configureSkippedDirectorySampleLimit(limit) {
+    skippedDirectorySampleLimit =
+        typeof limit === "number"
+            ? limit
+            : DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT;
+}
+
 const skippedFileSummary = {
     ignored: 0,
     unsupportedExtension: 0,
     symbolicLink: 0
 };
 
-const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
+let skippedDirectorySampleLimit = DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT;
 
 const skippedDirectorySummary = {
     ignored: 0,
@@ -461,7 +518,7 @@ function recordSkippedDirectory(directory) {
 
     if (
         skippedDirectorySummary.ignoredSamples.length <
-            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+            skippedDirectorySampleLimit &&
         !skippedDirectorySummary.ignoredSamples.includes(directory)
     ) {
         skippedDirectorySummary.ignoredSamples.push(directory);
@@ -1053,11 +1110,13 @@ function resolveTargetPathFromInput(targetPathInput) {
  */
 async function prepareFormattingRun({
     configuredExtensions,
+    ignoredDirectorySampleLimit,
     prettierLogLevel,
     onParseError
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
+    configureSkippedDirectorySampleLimit(ignoredDirectorySampleLimit);
     await resetFormattingSession(onParseError);
 }
 
@@ -1170,6 +1229,7 @@ async function executeFormatCommand(command) {
     const targetPath = resolveTargetPathFromInput(targetPathInput);
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
+        ignoredDirectorySampleLimit: commandOptions.ignoredDirectorySampleLimit,
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError
     });

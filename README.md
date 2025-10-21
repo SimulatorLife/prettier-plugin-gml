@@ -259,7 +259,7 @@ nvm use
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`, `npm run cli -- format --help`, or the dedicated [CLI reference](#cli-wrapper-environment-knobs).
+   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore` files, prints a skipped-file summary, explains when no files match the configured extensions, accepts `--on-parse-error=skip|abort|revert` (or the `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` environment variable), exposes Prettier’s logging knob via `--log-level=debug|info|warn|error|silent` (or `PRETTIER_PLUGIN_GML_LOG_LEVEL`), lets you cap the ignored-directory sample list surfaced in summaries with `--ignored-directory-sample-limit` (or `PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES`), and can pick up a default extension list from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to format only `.gml` files, or override it when you also want to process `.yy` metadata. Explore additional helpers with `npm run cli -- --help`, `npm run cli -- format --help`, or the dedicated [CLI reference](#cli-wrapper-environment-knobs).
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -359,6 +359,10 @@ without editing project scripts:
   `debug`, `info`, `warn`, `error`, or `silent`.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
+- `PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES` &mdash; Caps how many
+  ignored directories appear in the summary when the wrapper honours
+  `.prettierignore` entries. Combine with
+  `--ignored-directory-sample-limit` for per-run overrides.
 - `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
