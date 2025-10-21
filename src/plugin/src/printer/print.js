@@ -2705,9 +2705,9 @@ function mergeSyntheticDocComments(
             for (const [index, param] of node.params.entries()) {
                 const implicitEntry = implicitEntryByIndex.get(index);
                 if (implicitEntry) {
-                    const implicitCanonical = implicitEntry.canonical
-                        ? implicitEntry.canonical
-                        : getCanonicalParamNameFromText(implicitEntry.name);
+                    const implicitCanonical =
+                        implicitEntry.canonical ||
+                        getCanonicalParamNameFromText(implicitEntry.name);
                     if (
                         implicitCanonical &&
                         docsByCanonical.has(implicitCanonical)
