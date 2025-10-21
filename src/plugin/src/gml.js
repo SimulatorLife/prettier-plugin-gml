@@ -5,9 +5,31 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
-import { resolveGmlPluginComponents } from "./plugin-components.js";
+import {
+    addGmlPluginComponentObserver,
+    resolveGmlPluginComponents
+} from "./plugin-components.js";
 
-const { parsers, printers, options } = resolveGmlPluginComponents();
+export let parsers;
+export let printers;
+export let options;
+export let defaultOptions;
+
+function refreshPluginComponentState(componentBundle) {
+    const components = componentBundle ?? resolveGmlPluginComponents();
+
+    parsers = components.parsers;
+    printers = components.printers;
+    options = components.options;
+
+    defaultOptions = {
+        ...BASE_PRETTIER_DEFAULTS,
+        ...extractOptionDefaults(options),
+        ...CORE_OPTION_OVERRIDES
+    };
+
+    return components;
+}
 
 export const languages = [
     {
@@ -17,8 +39,6 @@ export const languages = [
         vscodeLanguageIds: ["gml-gms2", "gml"]
     }
 ];
-
-export { parsers, printers, options };
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would
@@ -59,12 +79,6 @@ function extractOptionDefaults(optionConfigMap) {
     return defaults;
 }
 
-const gmlOptionDefaults = extractOptionDefaults(options);
+refreshPluginComponentState();
 
-export const defaultOptions = {
-    // Merge order:
-    // GML Prettier defaults -> option defaults -> fixed overrides
-    ...BASE_PRETTIER_DEFAULTS,
-    ...gmlOptionDefaults,
-    ...CORE_OPTION_OVERRIDES
-};
+addGmlPluginComponentObserver(refreshPluginComponentState);
