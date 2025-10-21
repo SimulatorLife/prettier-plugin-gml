@@ -152,3 +152,48 @@ export function uniqueArray(values, { freeze = false } = {}) {
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 
+/**
+ * Merge a collection of additional entries into a default array while
+ * preserving order and eliminating duplicates. Callers can optionally supply a
+ * coercion function to normalize raw entries before they are compared and a
+ * key extractor to control how uniqueness is determined.
+ *
+ * @template T
+ * @param {ReadonlyArray<T>} defaultValues
+ * @param {Iterable<unknown> | null | undefined} additionalValues
+ * @param {Object} [options]
+ * @param {(value: unknown) => T | null | undefined} [options.coerce]
+ * @param {(value: T) => unknown} [options.getKey]
+ * @param {boolean} [options.freeze]
+ * @returns {ReadonlyArray<T>}
+ */
+export function mergeUniqueValues(
+    defaultValues,
+    additionalValues,
+    { coerce, getKey = (value) => value, freeze = true } = {}
+) {
+    const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
+    const normalize = typeof coerce === "function" ? coerce : (value) => value;
+    const seen = new Set();
+
+    for (const element of merged) {
+        seen.add(getKey(element));
+    }
+
+    for (const rawValue of toArrayFromIterable(additionalValues)) {
+        const value = normalize(rawValue);
+        if (value === null || value === undefined) {
+            continue;
+        }
+
+        const key = getKey(value);
+        if (seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        merged.push(value);
+    }
+
+    return freeze ? Object.freeze(merged) : merged;
+}

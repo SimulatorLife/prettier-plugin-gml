@@ -62,6 +62,107 @@ function toPlainObject(map) {
     return Object.fromEntries(map);
 }
 
+function createMapIncrementer(store) {
+    return (label, amount = 1) => {
+        const normalized = normalizeLabel(label);
+        const previous = store.get(normalized) ?? 0;
+        store.set(normalized, previous + amount);
+    };
+}
+
+function createCacheStatsEnsurer(caches, cacheKeys) {
+    return (cacheName) => {
+        const normalized = normalizeLabel(cacheName);
+        return getOrCreateMapEntry(
+            caches,
+            normalized,
+            () => new Map(cacheKeys.map((key) => [key, 0]))
+        );
+    };
+}
+
+function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
+    const stats = ensureCacheStats(cacheName);
+    const normalizedKey = normalizeLabel(key);
+    if (!stats.has(normalizedKey)) {
+        stats.set(normalizedKey, 0);
+    }
+
+    const increment = normalizeIncrementAmount(
+        amount,
+        amount === undefined ? 1 : 0
+    );
+    if (increment === 0) {
+        return;
+    }
+
+    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+}
+
+function mergeSummarySections(summary, extra) {
+    for (const key of SUMMARY_SECTIONS) {
+        const additions = extra[key];
+        if (additions && typeof additions === "object") {
+            Object.assign(summary[key], additions);
+        }
+    }
+}
+
+function createSnapshotFactory({
+    category,
+    startTime,
+    timings,
+    counters,
+    caches,
+    metadata
+}) {
+    return (extra = {}) => {
+        const summary = {
+            category,
+            totalTimeMs: nowMs() - startTime,
+            timings: toPlainObject(timings),
+            counters: toPlainObject(counters),
+            caches: Object.fromEntries(
+                Array.from(caches, ([name, stats]) => [
+                    name,
+                    toPlainObject(stats)
+                ])
+            ),
+            metadata: { ...metadata }
+        };
+
+        if (!extra || typeof extra !== "object") {
+            return summary;
+        }
+
+        mergeSummarySections(summary, extra);
+        return summary;
+    };
+}
+
+function createSummaryLogger({ logger, category, snapshot }) {
+    if (!logger || typeof logger.debug !== "function") {
+        return () => {};
+    }
+
+    return (message = "summary", extra = {}) => {
+        logger.debug(`[${category}] ${message}`, snapshot(extra));
+    };
+}
+
+function createFinalizer({ autoLog, logger, category, snapshot }) {
+    const hasDebug = typeof logger?.debug === "function";
+
+    return (extra = {}) => {
+        const report = snapshot(extra);
+        if (autoLog && hasDebug) {
+            logger.debug(`[${category}] summary`, report);
+        }
+
+        return report;
+    };
+}
+
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
@@ -75,23 +176,22 @@ export function createMetricsTracker({
     const metadata = Object.create(null);
     const cacheKeys = normalizeCacheKeys(cacheKeyOption);
 
-    function incrementMapCounter(store, label, amount = 1) {
-        const normalized = normalizeLabel(label);
-        const previous = store.get(normalized) ?? 0;
-        store.set(normalized, previous + amount);
-    }
-
-    function ensureCacheStats(cacheName) {
-        const normalized = normalizeLabel(cacheName);
-        return getOrCreateMapEntry(
-            caches,
-            normalized,
-            () => new Map(cacheKeys.map((key) => [key, 0]))
-        );
-    }
+    const incrementTiming = createMapIncrementer(timings);
+    const incrementCounterBy = createMapIncrementer(counters);
+    const ensureCacheStats = createCacheStatsEnsurer(caches, cacheKeys);
+    const snapshot = createSnapshotFactory({
+        category,
+        startTime,
+        timings,
+        counters,
+        caches,
+        metadata
+    });
+    const logSummary = createSummaryLogger({ logger, category, snapshot });
+    const finalize = createFinalizer({ autoLog, logger, category, snapshot });
 
     function recordTiming(label, durationMs) {
-        incrementMapCounter(timings, label, Math.max(0, durationMs));
+        incrementTiming(label, Math.max(0, durationMs));
     }
 
     function startTimer(label) {
@@ -120,72 +220,11 @@ export function createMetricsTracker({
     }
 
     function incrementCounter(label, amount = 1) {
-        incrementMapCounter(counters, label, amount);
+        incrementCounterBy(label, amount);
     }
 
     function recordCacheEvent(cacheName, key, amount = 1) {
-        const stats = ensureCacheStats(cacheName);
-        const normalizedKey = normalizeLabel(key);
-        if (!stats.has(normalizedKey)) {
-            stats.set(normalizedKey, 0);
-        }
-
-        const increment = normalizeIncrementAmount(
-            amount,
-            amount === undefined ? 1 : 0
-        );
-        if (increment === 0) {
-            return;
-        }
-
-        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
-    }
-
-    function mergeSummarySections(summary, extra) {
-        for (const key of SUMMARY_SECTIONS) {
-            const additions = extra[key];
-            if (additions && typeof additions === "object") {
-                Object.assign(summary[key], additions);
-            }
-        }
-    }
-
-    function snapshot(extra = {}) {
-        const summary = {
-            category,
-            totalTimeMs: nowMs() - startTime,
-            timings: toPlainObject(timings),
-            counters: toPlainObject(counters),
-            caches: Object.fromEntries(
-                Array.from(caches, ([name, stats]) => [
-                    name,
-                    toPlainObject(stats)
-                ])
-            ),
-            metadata: { ...metadata }
-        };
-
-        if (!extra || typeof extra !== "object") {
-            return summary;
-        }
-
-        mergeSummarySections(summary, extra);
-        return summary;
-    }
-
-    function logSummary(message = "summary", extra = {}) {
-        if (!logger || typeof logger.debug !== "function") {
-            return;
-        }
-        logger.debug(`[${category}] ${message}`, snapshot(extra));
-    }
-
-    function finalize(extra = {}) {
-        const report = snapshot(extra);
-        if (autoLog && logger && typeof logger.debug === "function") {
-            logger.debug(`[${category}] summary`, report);
-        }
-        return report;
+        recordCacheIncrement(ensureCacheStats, cacheName, key, amount);
     }
 
     function setMetadata(key, value) {
