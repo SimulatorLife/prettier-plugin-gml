@@ -11,13 +11,12 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
+import { hasOwn } from "../../shared/object-utils.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
 
-    if (hasOwnProperty.call(config, "defaultValue")) {
+    if (hasOwn(config, "defaultValue")) {
         return config.defaultValue;
     }
 
