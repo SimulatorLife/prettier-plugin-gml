@@ -1,8 +1,8 @@
 export {
     assertPlainObject,
     assertNonEmptyString,
-    isNonEmptyArray,
     toArray,
+    createEnvConfiguredValue,
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption,
@@ -19,20 +19,20 @@ export {
     isObjectLike,
     getOrCreateMapEntry,
     applyEnvironmentOverride
-} from "../../shared/utils.js";
+} from "./shared/utils.js";
 
-export { normalizeStringList } from "../../shared/utils/string.js";
+export { normalizeStringList } from "./shared/utils/string.js";
 
 export {
     resolveContainedRelativePath,
     collectUniqueAncestorDirectories
-} from "../../shared/path-utils.js";
+} from "./shared/path-utils.js";
 
-export { escapeRegExp } from "../../shared/regexp.js";
+export { escapeRegExp } from "./shared/regexp.js";
 
-export { getIdentifierText } from "../../shared/ast.js";
+export { getIdentifierText } from "./shared/ast.js";
 
 export {
     isAggregateErrorLike,
     isErrorLike
-} from "../../shared/utils/capability-probes.js";
+} from "./shared/utils/capability-probes.js";

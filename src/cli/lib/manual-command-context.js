@@ -3,7 +3,9 @@ import { fileURLToPath } from "node:url";
 
 import {
     buildManualRepositoryEndpoints,
-    createManualGitHubClient,
+    createManualGitHubFileClient,
+    createManualGitHubReferencesClient,
+    createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
 } from "./manual-utils.js";
 import { assertNonEmptyString } from "./shared-deps.js";
@@ -47,12 +49,14 @@ export function createManualCommandContext({
     const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
-    const {
+    const manualRequests = createManualGitHubRequestDispatcher({
+        userAgent: assertUserAgent(userAgent)
+    });
+    const manualReferences = createManualGitHubReferencesClient({
+        requestDispatcher: manualRequests
+    });
+    const manualFileFetcher = createManualGitHubFileClient({
         requestDispatcher: manualRequests,
-        references: manualReferences,
-        fileFetcher: manualFileFetcher
-    } = createManualGitHubClient({
-        userAgent: assertUserAgent(userAgent),
         defaultCacheRoot,
         defaultRawRoot: defaultManualRawRoot
     });

@@ -9,6 +9,7 @@ export * from "./json.js";
 export * from "./line-breaks.js";
 export * from "./number.js";
 export * from "./numeric-options.js";
+export * from "./options-cache.js";
 export * from "./object.js";
 export * from "./path.js";
 export * from "./regexp.js";
