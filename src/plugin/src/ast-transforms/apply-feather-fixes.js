@@ -17,6 +17,7 @@ import {
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
     isNode,
+    visitChildNodes,
     unwrapParenthesizedExpression
 } from "../../../shared/ast-node-helpers.js";
 import {
@@ -670,9 +671,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
+            visitChildNodes(node, visit);
             return;
         }
 
@@ -2384,9 +2383,7 @@ function sanitizeEnumAssignments({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
+            visitChildNodes(node, visit);
             return;
         }
 
@@ -2402,11 +2399,7 @@ function sanitizeEnumAssignments({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        visitChildNodes(node, visit);
     };
 
     visit(ast);
@@ -6432,11 +6425,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        visitChildNodes(node, visit);
     };
 
     visit(ast);
@@ -6712,9 +6701,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
-                collectFunctions(item);
-            }
+            visitChildNodes(node, collectFunctions);
             return;
         }
 
@@ -6730,11 +6717,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                collectFunctions(value);
-            }
-        }
+        visitChildNodes(node, collectFunctions);
     };
 
     collectFunctions(ast);
