@@ -4796,7 +4796,7 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return isNumericCallExpression(node);
+            return true;
         }
         default: {
             return false;
