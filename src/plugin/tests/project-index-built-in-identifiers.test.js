@@ -81,4 +81,41 @@ describe("loadBuiltInIdentifiers", () => {
             assert.deepStrictEqual([...result.names], ["good"]);
         }
     );
+
+    it(
+        "treats mtimes within tolerance as cache hits",
+        { concurrency: false },
+        async () => {
+            const baseMtime = 1_700_000_000_000.5;
+            const jitter = 0.0004;
+            const statValues = [baseMtime, baseMtime + jitter];
+            let readFileCalls = 0;
+
+            const facade = {
+                async readFile(filePath, encoding) {
+                    assert.equal(encoding, "utf8");
+                    readFileCalls += 1;
+                    return JSON.stringify(
+                        {
+                            identifiers: {
+                                cached: { type: "function" }
+                            }
+                        },
+                        null,
+                        4
+                    );
+                },
+                async stat() {
+                    const next = statValues.shift() ?? baseMtime + jitter;
+                    return { mtimeMs: next };
+                }
+            };
+
+            const firstLoad = await loadBuiltInIdentifiers(facade);
+            const secondLoad = await loadBuiltInIdentifiers(facade);
+
+            assert.equal(readFileCalls, 1);
+            assert.strictEqual(secondLoad, firstLoad);
+        }
+    );
 });

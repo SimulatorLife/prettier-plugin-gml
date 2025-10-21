@@ -11,6 +11,7 @@ import { describe, it } from "node:test";
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const wrapperPath = path.resolve(currentDirectory, "../cli.js");
+const repoRootDirectory = path.resolve(currentDirectory, "../../..");
 
 // These integration tests intentionally rely on the strict assertion helpers
 // (e.g. assert.strictEqual/assert.deepStrictEqual) to avoid the deprecated
@@ -378,6 +379,12 @@ describe("Prettier wrapper CLI", () => {
                 wrapperPath,
                 tempDirectory
             ]);
+
+            assert.match(
+                stdout,
+                /Skipped 1 directory ignored by \.prettierignore/,
+                "Expected wrapper output to summarize ignored directories"
+            );
 
             const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
@@ -804,6 +811,40 @@ describe("Prettier wrapper CLI", () => {
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
+    });
+
+    it("describes the current directory using '.' when no files match", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
+            );
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.ok(
+                stdout.includes("found in ."),
+                "Expected stdout to describe the current directory as '.'"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("describes the invocation directory using '.' when run from the repository root", async () => {
+        const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
+            cwd: repoRootDirectory
+        });
+
+        assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.ok(
+            stdout.includes("found in ."),
+            "Expected stdout to describe the repository root as '.'"
+        );
     });
 
     it("prints CLI version information without triggering error handling", async () => {

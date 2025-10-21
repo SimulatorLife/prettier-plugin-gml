@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
 import { CliUsageError } from "../lib/cli-errors.js";
@@ -21,8 +22,9 @@ import {
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import {
+    MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
@@ -79,7 +81,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit).",
+            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`,
             `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
         ].join("\n")
     );
@@ -103,10 +105,10 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js
+// Manual fetching helpers are provided by manual-cli-helpers.js.
 
 function normalizeMultilineText(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return null;
     }
 
@@ -132,7 +134,7 @@ function getNormalizedTextContent(element, { trim = false } = {}) {
     }
 
     const { textContent } = element;
-    if (typeof textContent !== "string" || textContent.length === 0) {
+    if (!isNonEmptyString(textContent)) {
         return trim ? null : "";
     }
 
@@ -157,12 +159,10 @@ function getTagName(element) {
 }
 
 function getDirectChildren(element, selector) {
-    const matches = selector
+    const predicate = selector
         ? (child) => child.matches?.(selector) === true
         : () => true;
-    return Array.from(element?.children ?? []).filter((child) =>
-        matches(child)
-    );
+    return Array.from(element?.children ?? []).filter(predicate);
 }
 
 function replaceBreaksWithNewlines(clone) {

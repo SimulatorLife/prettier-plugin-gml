@@ -1,31 +1,32 @@
 export {
-    assertPlainObject,
+    applyEnvironmentOverride,
     assertNonEmptyString,
-    toArray,
-    createEnvConfiguredValue,
-    coercePositiveInteger,
+    assertPlainObject,
     coerceNonNegativeInteger,
-    resolveIntegerOption,
-    parseJsonWithContext,
-    toNormalizedLowerCaseSet,
-    toNormalizedLowerCaseString,
-    normalizeEnumeratedOption,
-    toPosixPath,
-    toTrimmedString,
+    coercePositiveInteger,
+    createEnvConfiguredValue,
     getErrorCode,
     getErrorMessage,
     getNonEmptyTrimmedString,
+    getOrCreateMapEntry,
     isNonEmptyString,
     isObjectLike,
-    getOrCreateMapEntry,
-    applyEnvironmentOverride
+    normalizeIdentifierMetadataEntries,
+    normalizeEnumeratedOption,
+    parseJsonWithContext,
+    resolveIntegerOption,
+    toArray,
+    toNormalizedLowerCaseSet,
+    toNormalizedLowerCaseString,
+    toPosixPath,
+    toTrimmedString
 } from "./shared/utils.js";
 
 export { normalizeStringList } from "./shared/utils/string.js";
 
 export {
-    resolveContainedRelativePath,
-    collectUniqueAncestorDirectories
+    collectUniqueAncestorDirectories,
+    resolveContainedRelativePath
 } from "./shared/path-utils.js";
 
 export { escapeRegExp } from "./shared/regexp.js";

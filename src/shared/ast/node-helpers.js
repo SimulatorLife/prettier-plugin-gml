@@ -93,8 +93,44 @@ function isVarVariableDeclaration(node) {
  *     treats unexpected node shapes defensively, which allows callers inside
  *     hot printer paths to skip type checks without risking runtime failures.
  */
+const identifierResolvers = Object.freeze({
+    Identifier: (identifier) =>
+        typeof identifier.name === "string" ? identifier.name : null,
+    Literal: (literal) =>
+        typeof literal.value === "string" ? literal.value : null,
+    MemberDotExpression: (expression) => {
+        const { object, property } = expression;
+        if (!isIdentifierNode(object) || !isIdentifierNode(property)) {
+            return null;
+        }
+
+        return object.name + "_" + property.name;
+    },
+    MemberIndexExpression: (expression) => {
+        const { object, property } = expression;
+        if (!isIdentifierNode(object) || !Array.isArray(property)) {
+            return null;
+        }
+
+        if (property.length !== 1) {
+            return null;
+        }
+
+        const indexText = getMemberIndexText(property[0]);
+        return indexText === null ? null : object.name + "_" + indexText;
+    }
+});
+
+function resolveNodeName(node) {
+    return typeof node?.name === "string" ? node.name : null;
+}
+
+function isIdentifierNode(candidate) {
+    return Boolean(candidate && candidate.type === "Identifier");
+}
+
 function getIdentifierText(node) {
-    if (node == undefined) {
+    if (node === undefined || node === null) {
         return null;
     }
 
@@ -102,57 +138,13 @@ function getIdentifierText(node) {
         return node;
     }
 
-    // Hoist the common type lookup so the switch below can reuse it without
-    // repeatedly touching the same field during hot traversal paths.
     const { type } = node;
-
-    switch (type) {
-        case "Identifier": {
-            const { name } = node;
-            return typeof name === "string" ? name : null;
-        }
-        case "Literal": {
-            const { value } = node;
-            return typeof value === "string" ? value : null;
-        }
-        case "MemberDotExpression": {
-            const { object, property } = node;
-
-            if (
-                !object ||
-                object.type !== "Identifier" ||
-                !property ||
-                property.type !== "Identifier"
-            ) {
-                return null;
-            }
-
-            // String concatenation avoids the template literal machinery in this
-            // hot branch, shaving work inside tight printer loops.
-            return object.name + "_" + property.name;
-        }
-        case "MemberIndexExpression": {
-            const object = node.object;
-
-            if (!object || object.type !== "Identifier") {
-                return null;
-            }
-
-            const property = node.property;
-            if (!Array.isArray(property) || property.length !== 1) {
-                return null;
-            }
-
-            const indexText = getMemberIndexText(property[0]);
-            return indexText == undefined
-                ? null
-                : object.name + "_" + indexText;
-        }
-        default: {
-            const { name } = node;
-            return typeof name === "string" ? name : null;
-        }
+    if (typeof type !== "string") {
+        return resolveNodeName(node);
     }
+
+    const resolver = identifierResolvers[type] ?? resolveNodeName;
+    return resolver(node);
 }
 
 /**
@@ -172,7 +164,7 @@ function getMemberIndexText(indexNode) {
         return indexNode;
     }
 
-    if (indexNode == undefined) {
+    if (indexNode === undefined || indexNode === null) {
         return null;
     }
 
@@ -363,7 +355,47 @@ function isUndefinedLiteral(node) {
 }
 
 function isNode(value) {
-    return value != undefined && typeof value === "object";
+    return value !== undefined && value !== null && typeof value === "object";
+}
+
+/**
+ * Iterate over child nodes nested within {@link node}, invoking
+ * {@link callback} for each descendant that should be inspected.
+ *
+ * Arrays forward every entry (including primitives) so traversal helpers can
+ * reuse their existing guard rails without rebuilding bespoke loops. Plain
+ * objects only forward nested objects to mirror the defensive checks found in
+ * the transform visitors that previously duplicated this logic.
+ *
+ * @param {unknown} node Candidate AST fragment to inspect.
+ * @param {(child: unknown) => void} callback Invoked for each descendant value.
+ */
+function visitChildNodes(node, callback) {
+    if (node === undefined || node === null) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            callback(item);
+        }
+
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (
+            value !== undefined &&
+            value !== null &&
+            typeof value === "object"
+        ) {
+            callback(value);
+        }
+    }
 }
 
 function unwrapParenthesizedExpression(node) {
@@ -400,6 +432,7 @@ export {
     isBooleanLiteral,
     isUndefinedLiteral,
     isNode,
+    visitChildNodes,
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration

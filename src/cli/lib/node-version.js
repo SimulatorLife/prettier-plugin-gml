@@ -22,8 +22,39 @@ function buildUnsupportedVersionError(label) {
     );
 }
 
+/**
+ * @param {string} rawVersion
+ * @returns {string}
+ */
+function normalizeVersionString(rawVersion) {
+    if (typeof rawVersion !== "string") {
+        return "";
+    }
+
+    return rawVersion.startsWith("v") ? rawVersion.slice(1) : rawVersion;
+}
+
+/**
+ * Extracts the major and minor portion of the current Node.js runtime version.
+ *
+ * The runtime only interacts with an explicit version string, which keeps
+ * callers from depending on the nested `process.versions` object.
+ *
+ * @param {{ version?: string, versions?: { node?: string } }} environment
+ * @returns {{ majorPart: string, minorPart: string }}
+ */
+function readNodeVersionParts(environment = process) {
+    const { version, versions } = environment;
+    const normalized = normalizeVersionString(
+        typeof version === "string" ? version : (versions?.node ?? "")
+    );
+
+    const [majorPart = "", minorPart = "0"] = normalized.split(".");
+    return { majorPart, minorPart };
+}
+
 export function assertSupportedNodeVersion() {
-    const [majorPart, minorPart = "0"] = process.versions.node.split(".");
+    const { majorPart, minorPart } = readNodeVersionParts();
     const major = parseVersionPart(majorPart);
     const minor = parseVersionPart(minorPart);
 

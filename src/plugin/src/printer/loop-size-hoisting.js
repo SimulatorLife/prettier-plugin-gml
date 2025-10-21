@@ -7,7 +7,6 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifierName
 } from "../../../shared/ast-node-helpers.js";
-import { getCachedValue } from "../../../shared/options-cache-utils.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
@@ -27,6 +26,67 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
 
 const SIZE_SUFFIX_CACHE = new WeakMap();
 
+function isCacheableOptions(options) {
+    return typeof options === "object" && options !== null;
+}
+
+function readCachedSuffixes(options) {
+    if (!isCacheableOptions(options)) {
+        return null;
+    }
+
+    if (Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
+        return options[LOOP_SIZE_SUFFIX_CACHE];
+    }
+
+    if (SIZE_SUFFIX_CACHE.has(options)) {
+        return SIZE_SUFFIX_CACHE.get(options);
+    }
+
+    return null;
+}
+
+function cacheSuffixes(options, suffixes) {
+    if (!isCacheableOptions(options)) {
+        return;
+    }
+
+    if (Object.isExtensible(options)) {
+        try {
+            Object.defineProperty(options, LOOP_SIZE_SUFFIX_CACHE, {
+                configurable: false,
+                enumerable: false,
+                writable: false,
+                value: suffixes
+            });
+        } catch {
+            // Non-extensible option bags (for example frozen objects or exotic
+            // proxies) should still memoize results via the fallback WeakMap.
+        }
+    }
+
+    SIZE_SUFFIX_CACHE.set(options, suffixes);
+}
+
+function createSizeSuffixMap(options) {
+    const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+        isCacheableOptions(options)
+            ? options.loopLengthHoistFunctionSuffixes
+            : undefined
+    );
+
+    const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+    for (const [functionName, suffix] of overrides) {
+        if (suffix === null) {
+            merged.delete(functionName);
+        } else {
+            merged.set(functionName, suffix);
+        }
+    }
+
+    return merged;
+}
+
 /**
  * Resolve the table describing loop-length helper names to the suffix they
  * contribute when generating cached variable identifiers.
@@ -41,29 +101,14 @@ const SIZE_SUFFIX_CACHE = new WeakMap();
  * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
  */
 function getSizeRetrievalFunctionSuffixes(options) {
-    return getCachedValue(
-        options,
-        LOOP_SIZE_SUFFIX_CACHE,
-        SIZE_SUFFIX_CACHE,
-        () => {
-            const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-                options && typeof options === "object"
-                    ? options.loopLengthHoistFunctionSuffixes
-                    : undefined
-            );
+    const cached = readCachedSuffixes(options);
+    if (cached) {
+        return cached;
+    }
 
-            const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-            for (const [functionName, suffix] of overrides) {
-                if (suffix === null) {
-                    merged.delete(functionName);
-                } else {
-                    merged.set(functionName, suffix);
-                }
-            }
-
-            return merged;
-        }
-    );
+    const suffixes = createSizeSuffixMap(options);
+    cacheSuffixes(options, suffixes);
+    return suffixes;
 }
 
 /**

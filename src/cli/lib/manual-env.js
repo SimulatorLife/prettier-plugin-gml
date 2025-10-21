@@ -1,4 +1,8 @@
-import { MANUAL_REPO_ENV_VAR, resolveManualRepoValue } from "./manual-utils.js";
+import {
+    MANUAL_REPO_ENV_VAR,
+    MANUAL_REPO_REQUIREMENT_SOURCE,
+    resolveManualRepoValue
+} from "./manual/utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     resolveProgressBarWidth
@@ -26,7 +30,9 @@ export function applyManualEnvOptionOverrides({
             envVar: MANUAL_REPO_ENV_VAR,
             optionName: "manualRepo",
             resolveValue(value) {
-                return resolveManualRepoValue(value, { source: "env" });
+                return resolveManualRepoValue(value, {
+                    source: MANUAL_REPO_REQUIREMENT_SOURCE.ENV
+                });
             }
         },
         {

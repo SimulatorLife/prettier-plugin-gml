@@ -85,6 +85,7 @@ import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
+const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
@@ -120,15 +121,19 @@ function formatExtensionListForDisplay(extensions) {
 
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
-    const resolvedCwd = path.resolve(process.cwd());
+    const resolvedCwd = INITIAL_WORKING_DIRECTORY;
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
+    if (resolvedTarget === resolvedCwd) {
+        return ".";
+    }
+
     if (
-        relativePath &&
+        relativePath.length > 0 &&
         !relativePath.startsWith("..") &&
         !path.isAbsolute(relativePath)
     ) {
-        return relativePath || ".";
+        return relativePath;
     }
 
     return resolvedTarget;
@@ -433,10 +438,34 @@ const skippedFileSummary = {
     symbolicLink: 0
 };
 
+const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
+
+const skippedDirectorySummary = {
+    ignored: 0,
+    ignoredSamples: []
+};
+
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
     skippedFileSummary.unsupportedExtension = 0;
     skippedFileSummary.symbolicLink = 0;
+}
+
+function resetSkippedDirectorySummary() {
+    skippedDirectorySummary.ignored = 0;
+    skippedDirectorySummary.ignoredSamples.length = 0;
+}
+
+function recordSkippedDirectory(directory) {
+    skippedDirectorySummary.ignored += 1;
+
+    if (
+        skippedDirectorySummary.ignoredSamples.length <
+            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+        !skippedDirectorySummary.ignoredSamples.includes(directory)
+    ) {
+        skippedDirectorySummary.ignoredSamples.push(directory);
+    }
 }
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
@@ -574,6 +603,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     clearIdentifierCaseCaches();
     resetSkippedFileSummary();
+    resetSkippedDirectorySummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
@@ -762,7 +792,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${directory} (ignored directory)`);
+            recordSkippedDirectory(directory);
             return true;
         }
     } catch (error) {
@@ -1211,6 +1241,12 @@ function buildSkippedFileDetailEntries({
 }
 
 function logSkippedFileSummary() {
+    const directorySummaryMessage = buildSkippedDirectorySummaryMessage();
+
+    if (directorySummaryMessage) {
+        console.log(directorySummaryMessage);
+    }
+
     const skippedFileCount =
         skippedFileSummary.ignored +
         skippedFileSummary.unsupportedExtension +
@@ -1231,6 +1267,27 @@ function logSkippedFileSummary() {
     }
 
     console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
+}
+
+function buildSkippedDirectorySummaryMessage() {
+    const { ignored, ignoredSamples } = skippedDirectorySummary;
+
+    if (ignored === 0) {
+        return null;
+    }
+
+    const label = ignored === 1 ? "directory" : "directories";
+    const formattedSamples = ignoredSamples.map((directory) =>
+        formatPathForDisplay(directory)
+    );
+
+    if (formattedSamples.length === 0) {
+        return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
+    }
+
+    const sampleList = formattedSamples.join(", ");
+    const suffix = ignored > formattedSamples.length ? ", ..." : "";
+    return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
 export const __test__ = Object.freeze({

@@ -57,53 +57,115 @@ const BINARY_OPERATORS = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
-export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor {
+class IdentifierServices {
+    constructor({ options } = {}) {
+        this.scopeTracker = new ScopeTracker({
+            enabled: Boolean(options?.getIdentifierMetadata)
+        });
+        this.roleTracker = new IdentifierRoleTracker();
+        this.scopeCoordinator = new IdentifierScopeCoordinator({
+            scopeTracker: this.scopeTracker,
+            roleTracker: this.roleTracker
+        });
+        this.globalIdentifiers = new Set();
+        this.globalRegistry = new GlobalIdentifierRegistry({
+            globalIdentifiers: this.globalIdentifiers
+        });
+        this.scopeTools = {
+            isEnabled: () => this.scopeCoordinator.isEnabled(),
+            withScope: (kind, callback) =>
+                this.scopeCoordinator.withScope(kind, callback)
+        };
+        this.roleTools = {
+            withIdentifierRole: (role, callback) =>
+                this.roleTracker.withRole(role, callback),
+            cloneRole: (role) => this.roleTracker.cloneRole(role)
+        };
+        this.classifierTools = {
+            applyRoleToIdentifier: (name, node) =>
+                this.scopeCoordinator.applyCurrentRoleToIdentifier(name, node)
+        };
+        this.globalTools = {
+            markGlobalIdentifier: (node) =>
+                this.globalRegistry.markIdentifier(node),
+            applyGlobalFlag: (node) => this.globalRegistry.applyToNode(node)
+        };
+        this.locationTools = {
+            createIdentifierLocation: (token) => buildIdentifierLocation(token)
+        };
+    }
+}
+
+/**
+ * Create a parser visitor instance whose generated `visit*` methods proxy to
+ * the {@link host}'s implementations. The helper walks the prototype chain so
+ * mixins and subclasses can expose custom visit handlers without manually
+ * re-binding each method after construction.
+ *
+ * @param {object} host Instance containing concrete `visit*` methods. Usually a
+ *     {@link GameMakerASTBuilder} but accepts any object that implements the
+ *     visitor contract.
+ * @returns {GameMakerLanguageParserVisitor} Visitor wired to delegate all
+ *     method calls back to {@link host}.
+ */
+function createVisitorDelegate(host) {
+    const visitor = new GameMakerLanguageParserVisitor();
+    const prototypes = [];
+
+    for (
+        let prototype = Object.getPrototypeOf(host);
+        prototype && prototype !== Object.prototype;
+        prototype = Object.getPrototypeOf(prototype)
+    ) {
+        prototypes.push(prototype);
+    }
+
+    for (const prototype of prototypes) {
+        for (const name of Object.getOwnPropertyNames(prototype)) {
+            if (name === "constructor" || !name.startsWith("visit")) {
+                continue;
+            }
+
+            const method = prototype[name];
+            if (typeof method !== "function") {
+                continue;
+            }
+
+            visitor[name] = (...args) => method.apply(host, args);
+        }
+    }
+
+    return visitor;
+}
+
+export default class GameMakerASTBuilder {
     constructor(options = {}, whitespaces = []) {
-        super();
         this.options = options || {};
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
-        this.scopeTracker = new ScopeTracker({
-            enabled: Boolean(this.options.getIdentifierMetadata)
+
+        this.identifierServices = new IdentifierServices({
+            options: this.options
         });
-        this.identifierRoleTracker = new IdentifierRoleTracker();
-        this.identifierScopeCoordinator = new IdentifierScopeCoordinator({
-            scopeTracker: this.scopeTracker,
-            roleTracker: this.identifierRoleTracker
-        });
-        this.globalIdentifiers = new Set();
-        this.globalIdentifierRegistry = new GlobalIdentifierRegistry({
-            globalIdentifiers: this.globalIdentifiers
-        });
-        this.identifierScope = {
-            isEnabled: () => this.identifierScopeCoordinator.isEnabled(),
-            withScope: (kind, callback) =>
-                this.identifierScopeCoordinator.withScope(kind, callback)
-        };
-        this.identifierRoles = {
-            withIdentifierRole: (role, callback) =>
-                this.identifierRoleTracker.withRole(role, callback),
-            cloneRole: (role) => this.identifierRoleTracker.cloneRole(role)
-        };
-        this.identifierClassifier = {
-            applyRoleToIdentifier: (name, node) =>
-                this.identifierScopeCoordinator.applyCurrentRoleToIdentifier(
-                    name,
-                    node
-                )
-        };
-        this.identifierGlobals = {
-            markGlobalIdentifier: (node) =>
-                this.globalIdentifierRegistry.markIdentifier(node),
-            applyGlobalFlag: (node) =>
-                this.globalIdentifierRegistry.applyToNode(node)
-        };
-        this.identifierLocations = {
-            createIdentifierLocation: (token) => buildIdentifierLocation(token)
-        };
+        this.scopeTracker = this.identifierServices.scopeTracker;
+        this.identifierRoleTracker = this.identifierServices.roleTracker;
+        this.identifierScopeCoordinator =
+            this.identifierServices.scopeCoordinator;
+        this.globalIdentifiers = this.identifierServices.globalIdentifiers;
+        this.globalIdentifierRegistry = this.identifierServices.globalRegistry;
+        this.identifierScope = this.identifierServices.scopeTools;
+        this.identifierRoles = this.identifierServices.roleTools;
+        this.identifierClassifier = this.identifierServices.classifierTools;
+        this.identifierGlobals = this.identifierServices.globalTools;
+        this.identifierLocations = this.identifierServices.locationTools;
+
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
         });
+
+        this.visitor = createVisitorDelegate(this);
+        this.visit = (node) => this.visitor.visit(node);
+        this.visitChildren = (node) => this.visitor.visitChildren(node);
     }
 
     isIdentifierMetadataEnabled() {
@@ -122,10 +184,18 @@ export default class GameMakerASTBuilder extends GameMakerLanguageParserVisitor 
         return this.identifierRoles.cloneRole(role);
     }
 
-    // Utility helper that replaces long chains of null checks when visiting
-    // optional child contexts. It walks the provided list in order and visits
-    // the first available child, mirroring the previous conditional logic
-    // without repeating the "if child != null" scaffolding each time.
+    /**
+     * Visit the first non-null child returned by the candidate context
+     * accessors. Acts as a defensive replacement for nested null checks when
+     * parsing optional grammar branches.
+     *
+     * @param {object | null | undefined} ctx Parser context whose children will
+     *     be examined.
+     * @param {Array<string>} methodNames Ordered list of child accessor method
+     *     names to attempt.
+     * @returns {object | null} The visited child node or `null` when no
+     *     candidates are available.
+     */
     visitFirstChild(ctx, methodNames) {
         if (!ctx || !Array.isArray(methodNames)) {
             return null;

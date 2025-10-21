@@ -6,18 +6,18 @@ import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
     resolveManualRepoValue
-} from "./manual-utils.js";
+} from "./manual/utils.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
+import { assertFunction, hasOwn } from "./shared/object-utils.js";
+import { isNonEmptyString } from "./shared/string-utils.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
 
-    if (hasOwnProperty.call(config, "defaultValue")) {
+    if (hasOwn(config, "defaultValue")) {
         return config.defaultValue;
     }
 
@@ -32,33 +32,9 @@ function resolveDefaultValue(option, name, fallback) {
     throw new TypeError(`${name}.defaultValue must be provided.`);
 }
 
-function createPathOption(option, { flag, describe, name, fallbackDefault }) {
-    if (option === false) {
-        return null;
-    }
-
-    const config = option ?? {};
-    const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
-    const description =
-        typeof config.description === "string" && config.description.length > 0
-            ? config.description
-            : describe(defaultValue);
-    const normalize =
-        typeof config.normalize === "function"
-            ? config.normalize
-            : (value) => path.resolve(value);
-
-    return {
-        flag: config.flag ?? flag,
-        description,
-        defaultValue,
-        normalize
-    };
-}
-
-function createWrappedOption(
+function resolveManualOptionBaseConfig(
     option,
-    { flag, describe, name, fallbackDefault, resolver }
+    { flag, describe, name, fallbackDefault }
 ) {
     if (option === false) {
         return null;
@@ -66,60 +42,39 @@ function createWrappedOption(
 
     const config = option ?? {};
     const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
-    const description =
-        typeof config.description === "string" && config.description.length > 0
-            ? config.description
-            : describe(defaultValue);
-    const resolveFn =
-        typeof config.resolve === "function" ? config.resolve : resolver;
-
-    if (typeof resolveFn !== "function") {
-        throw new TypeError(`${name}.resolve must be a function.`);
-    }
+    const description = isNonEmptyString(config.description)
+        ? config.description
+        : describe(defaultValue);
 
     return {
+        config,
         flag: config.flag ?? flag,
-        description,
         defaultValue,
-        mapValue: wrapInvalidArgumentResolver(resolveFn)
+        description
     };
 }
 
-function createOptionOrder({ optionOrder, handlers, customHandlers }) {
-    const defaultOrder = [
-        "outputPath",
-        "forceRefresh",
-        "quiet",
-        "manualRepo",
-        "cacheRoot",
-        "progressBarWidth"
-    ];
+const DEFAULT_OPTION_ORDER = Object.freeze([
+    "outputPath",
+    "forceRefresh",
+    "quiet",
+    "manualRepo",
+    "cacheRoot",
+    "progressBarWidth"
+]);
 
-    const registeredKeys = new Set([
-        ...handlers.keys(),
-        ...customHandlers.keys()
+function createOptionOrder({ optionOrder, handlers, customHandlers }) {
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = Array.from(customHandlers.keys());
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys
     ]);
 
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const orderingCandidates = [
-        ...preferredOrder,
-        ...defaultOrder,
-        ...customHandlers.keys()
-    ];
-
-    const seen = new Set();
-    const sequence = [];
-
-    for (const key of orderingCandidates) {
-        if (seen.has(key) || !registeredKeys.has(key)) {
-            continue;
-        }
-
-        seen.add(key);
-        sequence.push(key);
-    }
-
-    return sequence;
+    return [...ordering].filter(
+        (key) => handlers.has(key) || customHandlers.has(key)
+    );
 }
 
 export function applySharedManualCommandOptions(
@@ -139,45 +94,48 @@ export function applySharedManualCommandOptions(
         throw new TypeError("command must provide an option function");
     }
 
-    const outputOption = createPathOption(outputPath, {
+    const outputOption = resolveManualOptionBaseConfig(outputPath, {
         flag: "-o, --output <path>",
         describe: (value) => `Output JSON path (default: ${value}).`,
         name: "outputPath"
     });
 
-    const cacheOption = createPathOption(cacheRoot, {
+    const cacheOption = resolveManualOptionBaseConfig(cacheRoot, {
         flag: "--cache-root <path>",
         describe: (value) =>
             `Directory to store cached manual artefacts (default: ${value}).`,
         name: "cacheRoot"
     });
 
-    const progressOption = createWrappedOption(progressBarWidth, {
+    const progressOption = resolveManualOptionBaseConfig(progressBarWidth, {
         flag: "--progress-bar-width <columns>",
         describe: (value) =>
             `Width of progress bars rendered in the terminal (default: ${value}).`,
         name: "progressBarWidth",
-        fallbackDefault: () => getDefaultProgressBarWidth(),
-        resolver: resolveProgressBarWidth
+        fallbackDefault: () => getDefaultProgressBarWidth()
     });
 
-    const manualRepoOption = createWrappedOption(manualRepo, {
+    const manualRepoOption = resolveManualOptionBaseConfig(manualRepo, {
         flag: "--manual-repo <owner/name>",
         describe: (value) =>
             `GitHub repository hosting the manual (default: ${value}).`,
         name: "manualRepo",
-        fallbackDefault: () => DEFAULT_MANUAL_REPO,
-        resolver: resolveManualRepoValue
+        fallbackDefault: () => DEFAULT_MANUAL_REPO
     });
 
     const handlers = new Map();
 
     if (outputOption) {
+        const normalize =
+            typeof outputOption.config.normalize === "function"
+                ? outputOption.config.normalize
+                : (value) => path.resolve(value);
+
         handlers.set("outputPath", () =>
             command.option(
                 outputOption.flag,
                 outputOption.description,
-                outputOption.normalize,
+                normalize,
                 outputOption.defaultValue
             )
         );
@@ -196,33 +154,52 @@ export function applySharedManualCommandOptions(
     }
 
     if (progressOption) {
+        const resolveFn =
+            typeof progressOption.config.resolve === "function"
+                ? progressOption.config.resolve
+                : resolveProgressBarWidth;
+
+        assertFunction(resolveFn, "progressBarWidth.resolve");
+
         handlers.set("progressBarWidth", () =>
             command.option(
                 progressOption.flag,
                 progressOption.description,
-                progressOption.mapValue,
+                wrapInvalidArgumentResolver(resolveFn),
                 progressOption.defaultValue
             )
         );
     }
 
     if (manualRepoOption) {
+        const resolveFn =
+            typeof manualRepoOption.config.resolve === "function"
+                ? manualRepoOption.config.resolve
+                : resolveManualRepoValue;
+
+        assertFunction(resolveFn, "manualRepo.resolve");
+
         handlers.set("manualRepo", () =>
             command.option(
                 manualRepoOption.flag,
                 manualRepoOption.description,
-                manualRepoOption.mapValue,
+                wrapInvalidArgumentResolver(resolveFn),
                 manualRepoOption.defaultValue
             )
         );
     }
 
     if (cacheOption) {
+        const normalize =
+            typeof cacheOption.config.normalize === "function"
+                ? cacheOption.config.normalize
+                : (value) => path.resolve(value);
+
         handlers.set("cacheRoot", () =>
             command.option(
                 cacheOption.flag,
                 cacheOption.description,
-                cacheOption.normalize,
+                normalize,
                 cacheOption.defaultValue
             )
         );

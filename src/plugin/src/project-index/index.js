@@ -34,6 +34,7 @@ import {
     listDirectory,
     getFileMtime
 } from "../../../shared/fs-utils.js";
+import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -48,6 +49,7 @@ import {
     throwIfAborted
 } from "../../../shared/abort-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -308,19 +310,11 @@ function extractBuiltInIdentifierNames(payload) {
         );
     }
 
+    const entries = normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
 
-    for (const [name, descriptor] of Object.entries(identifiers)) {
-        if (typeof name !== "string" || name.length === 0) {
-            continue;
-        }
-
-        if (!isPlainObject(descriptor)) {
-            continue;
-        }
-
-        const type = descriptor.type;
-        if (typeof type !== "string" || type.length === 0) {
+    for (const { name, type } of entries) {
+        if (type.length === 0) {
             continue;
         }
 
@@ -359,7 +353,12 @@ async function loadBuiltInIdentifiers(
 
     if (!cached) {
         metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (cachedMtime === currentMtime) {
+    } else if (
+        cachedMtime === currentMtime ||
+        (typeof cachedMtime === "number" &&
+            typeof currentMtime === "number" &&
+            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
+    ) {
         metrics?.recordCacheHit("builtInIdentifiers");
         return cached;
     } else {
@@ -392,6 +391,60 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+function createProjectTreeCollector(metrics = null) {
+    const yyFiles = [];
+    const gmlFiles = [];
+
+    function recordFile(category, record) {
+        if (category === "yy") {
+            yyFiles.push(record);
+            metrics?.incrementCounter("files.yyDiscovered");
+        } else if (category === "gml") {
+            gmlFiles.push(record);
+            metrics?.incrementCounter("files.gmlDiscovered");
+        }
+    }
+
+    function classify(relativePosix) {
+        const lowerPath = relativePosix.toLowerCase();
+        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+            return "yy";
+        }
+        if (lowerPath.endsWith(".gml")) {
+            return "gml";
+        }
+        return null;
+    }
+
+    function createRecord(absolutePath, relativePosix) {
+        return {
+            absolutePath,
+            relativePath: relativePosix
+        };
+    }
+
+    function register(relativePosix, absolutePath) {
+        const category = classify(relativePosix);
+        if (!category) {
+            return;
+        }
+
+        recordFile(category, createRecord(absolutePath, relativePosix));
+    }
+
+    function snapshot() {
+        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+
+        return { yyFiles, gmlFiles };
+    }
+
+    return {
+        register,
+        snapshot
+    };
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -401,9 +454,8 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const yyFiles = [];
-    const gmlFiles = [];
     const pending = ["."];
+    const collector = createProjectTreeCollector(metrics);
 
     while (pending.length > 0) {
         const relativeDir = pending.pop();
@@ -439,30 +491,11 @@ async function scanProjectTree(
             }
 
             const relativePosix = toPosixPath(relativePath);
-            const lowerPath = relativePosix.toLowerCase();
-            if (
-                lowerPath.endsWith(".yy") ||
-                isProjectManifestPath(relativePosix)
-            ) {
-                yyFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.yyDiscovered");
-            } else if (lowerPath.endsWith(".gml")) {
-                gmlFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.gmlDiscovered");
-            }
+            collector.register(relativePosix, absolutePath);
         }
     }
 
-    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-    return { yyFiles, gmlFiles };
+    return collector.snapshot();
 }
 
 function cloneIdentifierDeclaration(declaration) {
@@ -1851,6 +1884,109 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
  * coordinator focused on orchestration. Handles filesystem access, metrics,
  * record preparation, and AST analysis for the provided file.
  */
+async function readProjectGmlFile({ file, fsFacade, metrics }) {
+    try {
+        const contents = await metrics.timeAsync("fs.readGml", () =>
+            fsFacade.readFile(file.absolutePath, "utf8")
+        );
+        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        return contents;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics.incrementCounter("files.missingDuringRead");
+            return null;
+        }
+        throw error;
+    }
+}
+
+function registerFilePathWithScope(scopeRecord, filePath) {
+    if (!scopeRecord?.filePaths) {
+        return;
+    }
+
+    if (!scopeRecord.filePaths.includes(filePath)) {
+        scopeRecord.filePaths.push(filePath);
+    }
+}
+
+function prepareProjectIndexRecords({
+    file,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections
+}) {
+    const scopeDescriptor =
+        resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+        createFileScopeDescriptor(file.relativePath);
+    const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
+    registerFilePathWithScope(scopeRecord, file.relativePath);
+    ensureScriptEntry(identifierCollections, scopeDescriptor);
+
+    const fileRecord = ensureFileRecord(
+        filesMap,
+        file.relativePath,
+        scopeRecord.id
+    );
+
+    ensureSyntheticScriptDeclaration({
+        scopeDescriptor,
+        scopeRecord,
+        fileRecord,
+        identifierCollections,
+        filePath: file.relativePath
+    });
+
+    return { scopeDescriptor, scopeRecord, fileRecord };
+}
+
+function parseProjectGmlSource({
+    contents,
+    file,
+    parseProjectSource,
+    metrics,
+    projectRoot
+}) {
+    return metrics.timeSync("gml.parse", () =>
+        parseProjectSource(contents, {
+            filePath: file.relativePath,
+            projectRoot
+        })
+    );
+}
+
+function analyseProjectGmlAst({
+    ast,
+    builtInNames,
+    scopeRecord,
+    fileRecord,
+    relationships,
+    resourceAnalysis,
+    identifierCollections,
+    scopeDescriptor,
+    metrics,
+    sourceContents,
+    lineOffsets
+}) {
+    metrics.timeSync("gml.analyse", () =>
+        analyseGmlAst({
+            ast,
+            builtInNames,
+            scopeRecord,
+            fileRecord,
+            relationships,
+            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
+            identifierCollections,
+            scopeDescriptor,
+            metrics,
+            sourceContents,
+            lineOffsets
+        })
+    );
+}
+
 async function processProjectGmlFile({
     file,
     fsFacade,
@@ -1868,71 +2004,44 @@ async function processProjectGmlFile({
     ensureNotAborted();
     metrics.incrementCounter("files.gmlProcessed");
 
-    let contents;
-    try {
-        contents = await metrics.timeAsync("fs.readGml", () =>
-            fsFacade.readFile(file.absolutePath, "utf8")
-        );
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            metrics.incrementCounter("files.missingDuringRead");
-            return;
-        }
-        throw error;
+    const contents = await readProjectGmlFile({ file, fsFacade, metrics });
+    if (contents === null) {
+        return;
     }
 
     ensureNotAborted();
 
-    metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
     const lineOffsets = computeLineOffsets(contents);
+    const { scopeDescriptor, scopeRecord, fileRecord } =
+        prepareProjectIndexRecords({
+            file,
+            resourceAnalysis,
+            scopeMap,
+            filesMap,
+            identifierCollections
+        });
 
-    const scopeDescriptor =
-        resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-        createFileScopeDescriptor(file.relativePath);
-
-    const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-    if (!scopeRecord.filePaths.includes(file.relativePath)) {
-        scopeRecord.filePaths.push(file.relativePath);
-    }
-    ensureScriptEntry(identifierCollections, scopeDescriptor);
-
-    const fileRecord = ensureFileRecord(
-        filesMap,
-        file.relativePath,
-        scopeRecord.id
-    );
-
-    ensureSyntheticScriptDeclaration({
-        scopeDescriptor,
-        scopeRecord,
-        fileRecord,
-        identifierCollections,
-        filePath: file.relativePath
+    const ast = parseProjectGmlSource({
+        contents,
+        file,
+        parseProjectSource,
+        metrics,
+        projectRoot
     });
 
-    const ast = metrics.timeSync("gml.parse", () =>
-        parseProjectSource(contents, {
-            filePath: file.relativePath,
-            projectRoot
-        })
-    );
-
-    metrics.timeSync("gml.analyse", () =>
-        analyseGmlAst({
-            ast,
-            builtInNames,
-            scopeRecord,
-            fileRecord,
-            relationships,
-            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
-            identifierCollections,
-            scopeDescriptor,
-            metrics,
-            sourceContents: contents,
-            lineOffsets
-        })
-    );
+    analyseProjectGmlAst({
+        ast,
+        builtInNames,
+        scopeRecord,
+        fileRecord,
+        relationships,
+        resourceAnalysis,
+        identifierCollections,
+        scopeDescriptor,
+        metrics,
+        sourceContents: contents,
+        lineOffsets
+    });
 }
 
 /**
