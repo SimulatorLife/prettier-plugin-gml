@@ -3101,11 +3101,59 @@ function getCanonicalParamNameFromText(name) {
 
 function getPreferredFunctionParameterName(path, node, options) {
     const context = findFunctionParameterContext(path);
-    if (!context) {
+    if (context) {
+        const { functionNode, paramIndex } = context;
+        const preferredName = resolvePreferredParameterName(
+            functionNode,
+            paramIndex,
+            options
+        );
+
+        if (preferredName) {
+            return preferredName;
+        }
+
         return null;
     }
 
-    const { functionNode, paramIndex } = context;
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode || !node || typeof node.name !== "string") {
+        return null;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(node.name);
+    if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
+        return null;
+    }
+
+    const preferredName = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        options
+    );
+    if (preferredName) {
+        return preferredName;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+    if (argumentIndex >= params.length) {
+        return null;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifierName =
+        typeof identifier?.name === "string" ? identifier.name : null;
+
+    if (isValidIdentifierName(identifierName) && identifierName !== node.name) {
+        return identifierName;
+    }
+
+    return null;
+}
+
+function resolvePreferredParameterName(functionNode, paramIndex, options) {
     if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
         return null;
     }
@@ -3118,48 +3166,101 @@ function getPreferredFunctionParameterName(path, node, options) {
     }
 
     const identifier = getIdentifierFromParameterNode(params[paramIndex]);
-    if (!identifier || typeof identifier.name !== "string") {
+    const identifierName =
+        typeof identifier?.name === "string" ? identifier.name : null;
+    if (!identifierName) {
         return null;
     }
 
+    const preferredSource = resolvePreferredParameterSource(
+        functionNode,
+        paramIndex,
+        identifierName,
+        options
+    );
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+
+    if (
+        !normalizedName ||
+        normalizedName === identifierName ||
+        !isValidIdentifierName(normalizedName)
+    ) {
+        return null;
+    }
+
+    return normalizedName;
+}
+
+function resolvePreferredParameterSource(
+    functionNode,
+    paramIndex,
+    identifierName,
+    options
+) {
     const docPreferences = preferredParamDocNamesByNode.get(functionNode);
-    let preferredSource =
-        (docPreferences && docPreferences.get(paramIndex)) || null;
+    if (docPreferences?.has(paramIndex)) {
+        return docPreferences.get(paramIndex) ?? null;
+    }
 
-    if (!preferredSource) {
-        const implicitEntries = collectImplicitArgumentDocNames(
-            functionNode,
-            options
-        );
+    const implicitEntries = collectImplicitArgumentDocNames(
+        functionNode,
+        options
+    );
+    if (!Array.isArray(implicitEntries)) {
+        return null;
+    }
 
-        if (Array.isArray(implicitEntries)) {
-            const implicitEntry = implicitEntries.find(
-                (entry) => entry && entry.index === paramIndex
-            );
+    const implicitEntry = implicitEntries.find(
+        (entry) => entry && entry.index === paramIndex
+    );
+    if (!implicitEntry) {
+        return null;
+    }
 
-            if (implicitEntry) {
-                if (
-                    implicitEntry.canonical &&
-                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
-                ) {
-                    preferredSource =
-                        implicitEntry.name || implicitEntry.canonical;
-                } else if (
-                    implicitEntry.name &&
-                    implicitEntry.name !== identifier.name
-                ) {
-                    preferredSource = implicitEntry.name;
-                }
-            }
+    if (
+        implicitEntry.canonical &&
+        implicitEntry.canonical !== implicitEntry.fallbackCanonical
+    ) {
+        return implicitEntry.name || implicitEntry.canonical;
+    }
+
+    if (implicitEntry.name && implicitEntry.name !== identifierName) {
+        return implicitEntry.name;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (isFunctionLikeNode(parent)) {
+            return parent;
         }
     }
 
-    const normalizedName = normalizePreferredParameterName(preferredSource);
-    if (!normalizedName || normalizedName === identifier.name) {
-        return null;
+    return null;
+}
+
+function isFunctionLikeNode(node) {
+    if (!node || typeof node !== "object") {
+        return false;
     }
 
-    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+    return (
+        node.type === "FunctionDeclaration" ||
+        node.type === "FunctionExpression" ||
+        node.type === "ConstructorDeclaration"
+    );
 }
 
 function findFunctionParameterContext(path) {
@@ -3913,7 +4014,7 @@ function normalizeOptionalParamNameToken(name) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -3924,7 +4025,7 @@ function normalizeOptionalParamNameToken(name) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;
