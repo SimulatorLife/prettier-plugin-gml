@@ -53,11 +53,15 @@ function describeManualRepoInput(value) {
  */
 
 /**
- * @typedef {object} ManualGitHubReferencesClient
- * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
- *   resolveManualRef
+ * @typedef {object} ManualGitHubCommitResolver
  * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
  *   resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualGitHubRefResolver
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
+ *   resolveManualRef
  */
 
 /**
@@ -271,13 +275,13 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 
 /**
  * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
- * @returns {ManualGitHubReferencesClient}
+ * @returns {ManualGitHubCommitResolver}
  */
-function createManualGitHubReferencesClient({ requestDispatcher }) {
+function createManualGitHubCommitResolver({ requestDispatcher }) {
     const request = requestDispatcher?.execute;
     if (typeof request !== "function") {
         throw new TypeError(
-            "ManualGitHubReferencesClient requires a request dispatcher with an execute function."
+            "ManualGitHubCommitResolver requires a request dispatcher with an execute function."
         );
     }
 
@@ -292,6 +296,30 @@ function createManualGitHubReferencesClient({ requestDispatcher }) {
 
         return { ref, sha };
     }
+
+    return Object.freeze({ resolveCommitFromRef });
+}
+
+/**
+ * @param {{
+ *   requestDispatcher: ManualGitHubRequestDispatcher,
+ *   commitResolver?: ManualGitHubCommitResolver
+ * }} options
+ * @returns {ManualGitHubRefResolver}
+ */
+function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
+    const request = requestDispatcher?.execute;
+    if (typeof request !== "function") {
+        throw new TypeError(
+            "ManualGitHubRefResolver requires a request dispatcher with an execute function."
+        );
+    }
+
+    const commitResolution =
+        typeof commitResolver?.resolveCommitFromRef === "function"
+            ? commitResolver
+            : createManualGitHubCommitResolver({ requestDispatcher });
+    const resolveCommitFromRef = commitResolution.resolveCommitFromRef;
 
     async function resolveManualRef(ref, { verbose, apiRoot }) {
         if (verbose.resolveRef) {
@@ -327,10 +355,7 @@ function createManualGitHubReferencesClient({ requestDispatcher }) {
         };
     }
 
-    return {
-        resolveManualRef,
-        resolveCommitFromRef
-    };
+    return Object.freeze({ resolveManualRef });
 }
 
 /**
@@ -424,6 +449,7 @@ export {
     resolveManualRepoValue,
     resolveManualCacheRoot,
     createManualGitHubRequestDispatcher,
-    createManualGitHubReferencesClient,
+    createManualGitHubCommitResolver,
+    createManualGitHubRefResolver,
     createManualGitHubFileClient
 };
