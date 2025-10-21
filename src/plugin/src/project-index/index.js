@@ -1935,60 +1935,13 @@ async function processProjectGmlFile({
     );
 }
 
-export async function buildProjectIndex(
-    projectRoot,
-    fsFacade = defaultFsFacade,
-    options = {}
-) {
-    if (!projectRoot) {
-        throw new Error("projectRoot must be provided to buildProjectIndex");
-    }
-
-    const resolvedRoot = path.resolve(projectRoot);
-    const logger = options?.logger ?? null;
-    const metrics = createProjectIndexMetrics({
-        metrics: options?.metrics,
-        logger,
-        logMetrics: options?.logMetrics
-    });
-
-    const stopTotal = metrics.startTimer("total");
-
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
-
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    const builtInNames = builtInIdentifiers.names ?? new Set();
-
-    const { yyFiles, gmlFiles } = await metrics.timeAsync(
-        "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    metrics.setMetadata("yyFileCount", yyFiles.length);
-    metrics.setMetadata("gmlFileCount", gmlFiles.length);
-
-    const resourceAnalysis = await metrics.timeAsync(
-        "analyseResourceFiles",
-        () =>
-            analyseResourceFiles({
-                projectRoot: resolvedRoot,
-                yyFiles,
-                fsFacade,
-                signal
-            })
-    );
-    ensureNotAborted();
-
-    metrics.incrementCounter(
-        "resources.total",
-        resourceAnalysis.resourcesMap.size
-    );
-
+/**
+ * Centralize the mutable collections used while aggregating project index
+ * details. Keeping the map initialisation and relationship bookkeeping here
+ * lets the main build flow focus on orchestration rather than data structure
+ * wiring.
+ */
+function createProjectIndexAggregationState(resourceAnalysis) {
     const scopeMap = new Map();
     const filesMap = new Map();
     const relationships = {
@@ -1999,41 +1952,28 @@ export async function buildProjectIndex(
     };
     const identifierCollections = createIdentifierCollections();
 
-    const concurrencySettings = options?.concurrency ?? {};
-    const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ?? concurrencySettings.gmlParsing
-    );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
-    const parseProjectSource = resolveProjectIndexParser(options);
-
-    await processWithConcurrency(
-        gmlFiles,
-        gmlConcurrency,
-        async (file) =>
-            processProjectGmlFile({
-                file,
-                fsFacade,
-                metrics,
-                ensureNotAborted,
-                parseProjectSource,
-                resourceAnalysis,
-                scopeMap,
-                filesMap,
-                identifierCollections,
-                relationships,
-                builtInNames,
-                projectRoot: resolvedRoot
-            }),
-        { signal }
-    );
-    ensureNotAborted();
-
-    recordScriptCallMetricsAndReferences({
+    return {
+        scopeMap,
+        filesMap,
         relationships,
-        metrics,
         identifierCollections
-    });
+    };
+}
 
+/**
+ * Derive the final serializable project index payload from the populated
+ * aggregation state. The snapshot clones individual entry collections so the
+ * returned object mirrors the shape produced by the historical inline
+ * implementation without leaking mutable internals.
+ */
+function createProjectIndexResultSnapshot({
+    projectRoot,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections,
+    relationships
+}) {
     const resources = mapToObject(
         resourceAnalysis.resourcesMap,
         (record) => ({
@@ -2166,15 +2106,119 @@ export async function buildProjectIndex(
         )
     };
 
-    stopTotal();
-    const projectIndex = {
-        projectRoot: resolvedRoot,
+    return {
+        projectRoot,
         resources,
         scopes,
         files,
         relationships,
         identifiers
     };
+}
+
+export async function buildProjectIndex(
+    projectRoot,
+    fsFacade = defaultFsFacade,
+    options = {}
+) {
+    if (!projectRoot) {
+        throw new Error("projectRoot must be provided to buildProjectIndex");
+    }
+
+    const resolvedRoot = path.resolve(projectRoot);
+    const logger = options?.logger ?? null;
+    const metrics = createProjectIndexMetrics({
+        metrics: options?.metrics,
+        logger,
+        logMetrics: options?.logMetrics
+    });
+
+    const stopTotal = metrics.startTimer("total");
+
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+
+    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
+        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+    const builtInNames = builtInIdentifiers.names ?? new Set();
+
+    const { yyFiles, gmlFiles } = await metrics.timeAsync(
+        "scanProjectTree",
+        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+    metrics.setMetadata("yyFileCount", yyFiles.length);
+    metrics.setMetadata("gmlFileCount", gmlFiles.length);
+
+    const resourceAnalysis = await metrics.timeAsync(
+        "analyseResourceFiles",
+        () =>
+            analyseResourceFiles({
+                projectRoot: resolvedRoot,
+                yyFiles,
+                fsFacade,
+                signal
+            })
+    );
+    ensureNotAborted();
+
+    metrics.incrementCounter(
+        "resources.total",
+        resourceAnalysis.resourcesMap.size
+    );
+
+    const { scopeMap, filesMap, relationships, identifierCollections } =
+        createProjectIndexAggregationState(resourceAnalysis);
+
+    const concurrencySettings = options?.concurrency ?? {};
+    const gmlConcurrency = clampConcurrency(
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
+    );
+    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    const parseProjectSource = resolveProjectIndexParser(options);
+
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) =>
+            processProjectGmlFile({
+                file,
+                fsFacade,
+                metrics,
+                ensureNotAborted,
+                parseProjectSource,
+                resourceAnalysis,
+                scopeMap,
+                filesMap,
+                identifierCollections,
+                relationships,
+                builtInNames,
+                projectRoot: resolvedRoot
+            }),
+        { signal }
+    );
+    ensureNotAborted();
+
+    recordScriptCallMetricsAndReferences({
+        relationships,
+        metrics,
+        identifierCollections
+    });
+
+    const projectIndexPayload = createProjectIndexResultSnapshot({
+        projectRoot: resolvedRoot,
+        resourceAnalysis,
+        scopeMap,
+        filesMap,
+        identifierCollections,
+        relationships
+    });
+
+    stopTotal();
+    const projectIndex = projectIndexPayload;
 
     const metricsReport = finalizeProjectIndexMetrics(metrics);
     if (metricsReport) {
