@@ -4,10 +4,25 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
-const CARRIAGE_RETURN = "\r".charCodeAt(0);
-const LINE_FEED = "\n".charCodeAt(0);
-const LINE_SEPARATOR = "\u2028".charCodeAt(0);
-const PARAGRAPH_SEPARATOR = "\u2029".charCodeAt(0);
+const CARRIAGE_RETURN = "\r".codePointAt(0);
+const LINE_FEED = "\n".codePointAt(0);
+const LINE_SEPARATOR = "\u2028".codePointAt(0);
+const PARAGRAPH_SEPARATOR = "\u2029".codePointAt(0);
+
+function getCodePointStep(codePoint) {
+    return codePoint > 65_535 ? 2 : 1;
+}
+
+function advancePastCarriageReturn(text, index, step) {
+    const nextIndex = index + step;
+    const nextCode = text.codePointAt(nextIndex);
+
+    if (typeof nextCode === "number" && nextCode === LINE_FEED) {
+        return nextIndex + getCodePointStep(nextCode);
+    }
+
+    return nextIndex;
+}
 
 /**
  * Count the number of line break characters in a string.
@@ -32,14 +47,15 @@ export function getLineBreakCount(text) {
     // parser frequently invokes this helper while iterating over tokens, so we
     // keep the loop tight and operate on character codes directly.
     while (index < length) {
-        const code = text.charCodeAt(index);
+        const code = text.codePointAt(index);
+        if (typeof code !== "number") {
+            break;
+        }
+
+        const step = getCodePointStep(code);
 
         if (code === CARRIAGE_RETURN) {
-            const nextIndex = index + 1;
-            const nextCode = text.charCodeAt(nextIndex);
-
-            index = nextCode === LINE_FEED ? nextIndex + 1 : nextIndex;
-
+            index = advancePastCarriageReturn(text, index, step);
             count += 1;
             continue;
         }
@@ -52,7 +68,7 @@ export function getLineBreakCount(text) {
             count += 1;
         }
 
-        index += 1;
+        index += step;
     }
 
     return count;

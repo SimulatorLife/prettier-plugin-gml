@@ -235,3 +235,25 @@ test("collectImplicitArgumentDocNames preserves documented alias names", async (
 
     assert.deepStrictEqual(docLines, ["/// @param width"]);
 });
+
+const DESCRIPTIVE_DOC_SOURCE = `/// @function preserveDocs
+/// @param width
+function preserveDocs(argument0) {
+    var w = argument0;
+    return argument0;
+}
+`;
+
+test("collectImplicitArgumentDocNames retains descriptive docs when alias is shorter", async () => {
+    const formatted = await prettier.format(DESCRIPTIVE_DOC_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docLines = formatted
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, ["/// @param width"]);
+});

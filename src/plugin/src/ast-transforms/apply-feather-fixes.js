@@ -2288,13 +2288,7 @@ function convertStringLiteralArgumentToIdentifier({
         name: identifierName
     };
 
-    if (Object.hasOwn(argument, "start")) {
-        identifierNode.start = cloneLocation(argument.start);
-    }
-
-    if (Object.hasOwn(argument, "end")) {
-        identifierNode.end = cloneLocation(argument.end);
-    }
+    assignClonedLocation(identifierNode, argument);
 
     copyCommentMetadata(argument, identifierNode);
 
@@ -3521,13 +3515,7 @@ function rewriteRoomNavigationBinaryExpression({
         arguments: [argumentIdentifier]
     };
 
-    if (Object.hasOwn(node, "start")) {
-        callExpression.start = cloneLocation(node.start);
-    }
-
-    if (Object.hasOwn(node, "end")) {
-        callExpression.end = cloneLocation(node.end);
-    }
+    assignClonedLocation(callExpression, node);
 
     copyCommentMetadata(node, callExpression);
 
@@ -7498,13 +7486,7 @@ function createVertexEndCallFromBegin(template) {
         }
     }
 
-    if (hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -11733,13 +11715,7 @@ function createVertexEndCall(template, bufferIdentifier) {
         arguments: [cloneIdentifier(bufferIdentifier)]
     };
 
-    if (hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -11798,13 +11774,7 @@ function createVertexBeginCall({
     }
 
     if (template) {
-        if (hasOwn(template, "start")) {
-            callExpression.start = cloneLocation(template.start);
-        }
-
-        if (hasOwn(template, "end")) {
-            callExpression.end = cloneLocation(template.end);
-        }
+        assignClonedLocation(callExpression, template);
     }
 
     if (!hasOwn(callExpression, "start") || !hasOwn(callExpression, "end")) {
@@ -13635,15 +13605,7 @@ function isTriviallyIgnorableStatement(node) {
 function createEmptyStatementLike(template) {
     const empty = { type: "EmptyStatement" };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            empty.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            empty.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(empty, template);
 
     return empty;
 }
@@ -14168,13 +14130,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             arguments: []
         };
 
-        if (Object.hasOwn(template, "start")) {
-            callExpression.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            callExpression.end = cloneLocation(template.end);
-        }
+        assignClonedLocation(callExpression, template);
 
         return callExpression;
     }
@@ -14193,13 +14149,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             body: [statement]
         };
 
-        if (Object.hasOwn(statement, "start")) {
-            block.start = cloneLocation(statement.start);
-        }
-
-        if (Object.hasOwn(statement, "end")) {
-            block.end = cloneLocation(statement.end);
-        }
+        assignClonedLocation(block, statement);
 
         parent[key] = block;
 
@@ -15120,13 +15070,7 @@ function createVertexFormatEndCall(template) {
         arguments: []
     };
 
-    if (hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -15647,13 +15591,7 @@ function cloneLiteral(node) {
         value: node.value
     };
 
-    if (Object.hasOwn(node, "start")) {
-        cloned.start = cloneLocation(node.start);
-    }
-
-    if (Object.hasOwn(node, "end")) {
-        cloned.end = cloneLocation(node.end);
-    }
+    assignClonedLocation(cloned, node);
 
     return cloned;
 }
@@ -16003,13 +15941,7 @@ function createAlphaTestEnableResetCall(template) {
         arguments: [literalFalse]
     };
 
-    if (hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16033,13 +15965,7 @@ function createAlphaTestRefResetCall(template) {
         arguments: [literalZero]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16070,13 +15996,7 @@ function createBlendModeResetCall(template) {
         arguments: [blendModeIdentifier]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16112,13 +16032,7 @@ function createHalignResetCall(template) {
         arguments: [faLeft]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16149,13 +16063,7 @@ function createCullModeResetCall(template) {
         arguments: [resetArgument]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16189,13 +16097,7 @@ function createColourWriteEnableResetCall(template) {
         arguments: argumentsList
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16275,13 +16177,7 @@ function createTextureRepeatResetCall(template) {
         arguments: [literalFalse]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16341,13 +16237,7 @@ function createShaderResetCall(template) {
         arguments: []
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16384,13 +16274,7 @@ function createFogResetCall(template) {
         arguments: [falseLiteral, colorIdentifier, zeroLiteral, oneLiteral]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16414,13 +16298,7 @@ function createBlendEnableResetCall(template) {
         arguments: [literalTrue]
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16433,15 +16311,7 @@ function createLiteral(value, template) {
         value: literalValue
     };
 
-    if (template && typeof template === "object") {
-        if (Object.hasOwn(template, "start")) {
-            literal.start = cloneLocation(template.start);
-        }
-
-        if (Object.hasOwn(template, "end")) {
-            literal.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(literal, template);
 
     return literal;
 }
@@ -17348,13 +17218,7 @@ function createSurfaceResetTargetCall(template) {
         arguments: []
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        callExpression.end = cloneLocation(template.end);
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -17967,15 +17831,7 @@ function createGpuStateCall(name, template) {
         arguments: []
     };
 
-    if (template && typeof template === "object") {
-        if (hasOwn(template, "start")) {
-            callExpression.start = cloneLocation(template.start);
-        }
-
-        if (hasOwn(template, "end")) {
-            callExpression.end = cloneLocation(template.end);
-        }
-    }
+    assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
