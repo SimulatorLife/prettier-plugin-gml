@@ -2996,6 +2996,8 @@ function computeSyntheticFunctionDocLines(
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
     );
+    const totalParamCount = Array.isArray(node.params) ? node.params.length : 0;
+    const docCoverageIncomplete = orderedParamMetadata.length < totalParamCount;
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -3112,18 +3114,56 @@ function computeSyntheticFunctionDocLines(
                 paramMetadataByCanonical.has(canonicalParamName) &&
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
-        const existingDocName = existingMetadata?.name;
+        const existingDocName =
+            typeof existingMetadata?.name === "string"
+                ? existingMetadata.name
+                : null;
+        const existingCanonical =
+            existingDocName && existingDocName.length > 0
+                ? getCanonicalParamNameFromText(existingDocName)
+                : null;
+        const fallbackCanonical =
+            typeof implicitDocEntry?.fallbackCanonical === "string"
+                ? implicitDocEntry.fallbackCanonical
+                : null;
         const ordinalDocName =
-            !implicitName &&
             (!existingDocName || existingDocName.length === 0) &&
             typeof ordinalMetadata?.name === "string" &&
             ordinalMetadata.name.length > 0
                 ? ordinalMetadata.name
                 : null;
+        const ordinalCanonical =
+            ordinalDocName && ordinalDocName.length > 0
+                ? getCanonicalParamNameFromText(ordinalDocName)
+                : null;
+        const shouldUseImplicitName =
+            implicitName &&
+            implicitName.length > 0 &&
+            (!ordinalDocName ||
+                ordinalDocName.length === 0 ||
+                docCoverageIncomplete ||
+                (ordinalCanonical &&
+                    fallbackCanonical &&
+                    ordinalCanonical === fallbackCanonical));
+        const shouldPreferExistingDocName =
+            existingDocName &&
+            existingDocName.length > 0 &&
+            (!implicitName ||
+                (existingCanonical &&
+                    fallbackCanonical &&
+                    existingCanonical !== fallbackCanonical));
         const baseDocName =
-            (implicitName && implicitName.length > 0 && implicitName) ||
+            (shouldPreferExistingDocName && existingDocName) ||
+            (shouldUseImplicitName && implicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
+        if (
+            shouldPreferExistingDocName &&
+            implicitDocEntry &&
+            typeof implicitDocEntry.name === "string"
+        ) {
+            implicitDocEntry._skipImplicitDoc = true;
+        }
         const shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
@@ -3157,6 +3197,9 @@ function computeSyntheticFunctionDocLines(
         }
 
         const { name: docName, index, canonical, fallbackCanonical } = entry;
+        if (entry?._skipImplicitDoc === true) {
+            continue;
+        }
         const isFallbackEntry = canonical === fallbackCanonical;
         if (
             isFallbackEntry &&
