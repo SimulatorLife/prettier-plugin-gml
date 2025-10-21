@@ -2287,6 +2287,8 @@ function mergeSyntheticDocComments(
         options,
         overrides
     );
+    const preserveParamOrder =
+        syntheticLines && syntheticLines._preserveParamOrder === true;
 
     if (syntheticLines.length === 0) {
         return existingDocLines;
@@ -2621,7 +2623,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const orderedParamDocs = [];
+    let orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
@@ -2645,8 +2647,66 @@ function mergeSyntheticDocComments(
         }
     }
 
-    for (const doc of paramDocsByCanonical.values()) {
-        orderedParamDocs.push(doc);
+    if (preserveParamOrder) {
+        const syntheticParamDocs = syntheticLines.filter(
+            (line) => typeof line === "string" && isParamLine(line)
+        );
+
+        if (syntheticParamDocs.length > 0) {
+            const canonicalToDoc = new Map();
+            for (const doc of orderedParamDocs) {
+                const canonical = getParamCanonicalName(doc);
+                if (canonical && !canonicalToDoc.has(canonical)) {
+                    canonicalToDoc.set(canonical, doc);
+                }
+            }
+
+            const mergedParamDocs = [];
+            const usedDocs = new Set();
+
+            for (const syntheticDoc of syntheticParamDocs) {
+                const syntheticCanonical = getParamCanonicalName(syntheticDoc);
+                const preferredDoc =
+                    (syntheticCanonical &&
+                        canonicalToDoc.has(syntheticCanonical) &&
+                        canonicalToDoc.get(syntheticCanonical)) ||
+                    syntheticDoc;
+
+                mergedParamDocs.push(preferredDoc);
+
+                if (
+                    syntheticCanonical &&
+                    canonicalToDoc.has(syntheticCanonical)
+                ) {
+                    usedDocs.add(preferredDoc);
+                    canonicalToDoc.delete(syntheticCanonical);
+                }
+            }
+
+            for (const doc of orderedParamDocs) {
+                if (!usedDocs.has(doc)) {
+                    mergedParamDocs.push(doc);
+                    usedDocs.add(doc);
+                }
+            }
+
+            for (const doc of paramDocsByCanonical.values()) {
+                if (!usedDocs.has(doc)) {
+                    mergedParamDocs.push(doc);
+                    usedDocs.add(doc);
+                }
+            }
+
+            orderedParamDocs = mergedParamDocs;
+        } else {
+            for (const doc of paramDocsByCanonical.values()) {
+                orderedParamDocs.push(doc);
+            }
+        }
+    } else {
+        for (const doc of paramDocsByCanonical.values()) {
+            orderedParamDocs.push(doc);
+        }
     }
 
     const finalDocs = [];
@@ -2723,8 +2783,9 @@ function mergeSyntheticDocComments(
             return normalizeDocCommentTypeAnnotations(line);
         }
 
-        const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
+        const [, rawPrefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+        const prefix = rawPrefix.replace(/\s*$/u, " ");
         let normalizedTypeSection = rawTypeSection.trim();
         if (
             normalizedTypeSection.startsWith("{") &&
@@ -3357,7 +3418,6 @@ function computeSyntheticFunctionDocLines(
         documentedParamDocLines.add(docName);
         lines.push(`/// @param ${docName}`);
     }
-
     const normalizedLines = maybeAppendReturnsDoc(
         lines,
         node,
@@ -3666,12 +3726,12 @@ function parseDocCommentMetadata(line) {
     const remainder = match[2].trim();
 
     if (tag === "param") {
-        let paramSection = remainder;
+        let paramSection = remainder.trimStart();
 
         if (paramSection.startsWith("{")) {
             const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
             if (typeMatch) {
-                paramSection = typeMatch[1] ?? "";
+                paramSection = (typeMatch[1] ?? "").trimStart();
             }
         }
 
@@ -3693,7 +3753,7 @@ function parseDocCommentMetadata(line) {
         }
 
         if (!name) {
-            const paramMatch = paramSection.match(/^(\S+)/);
+            const paramMatch = paramSection.trimStart().match(/^(\S+)/);
             name = paramMatch ? paramMatch[1] : null;
         }
         return { tag, name };
