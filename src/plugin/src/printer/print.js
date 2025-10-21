@@ -80,6 +80,7 @@ const { willBreak } = utils;
 const preservedUndefinedDefaultParameters = new WeakSet();
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
+const implicitArgumentDocEntriesCache = new WeakMap();
 
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
@@ -635,26 +636,37 @@ export function print(path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
-            let decls = [];
-            decls =
-                node.declarations.length > 1
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "declarations",
-                          "",
-                          "",
-                          options,
-                          {
-                              leadingNewline: false,
-                              trailingNewline: false
-                          }
-                      )
-                    : path.map(print, "declarations");
-            return concat([node.kind, " ", decls]);
+            const printedDeclarations = path
+                .map((childPath) => {
+                    if (shouldOmitRedundantArgumentAlias(childPath, options)) {
+                        return null;
+                    }
+
+                    return childPath.call(print);
+                }, "declarations")
+                .filter(Boolean);
+
+            if (printedDeclarations.length === 0) {
+                return;
+            }
+
+            const declarationsDoc =
+                printedDeclarations.length === 1
+                    ? printedDeclarations[0]
+                    : group(join([",", line], printedDeclarations));
+
+            return concat([node.kind, " ", declarationsDoc]);
         }
         case "VariableDeclarator": {
-            return concat(printSimpleDeclaration(print("id"), print("init")));
+            const declarator = path.getValue();
+            const padding =
+                declarator &&
+                typeof declarator._alignVariablePadding === "number"
+                    ? Math.max(0, declarator._alignVariablePadding)
+                    : 0;
+            return concat(
+                printSimpleDeclaration(print("id"), print("init"), padding)
+            );
         }
         case "ParenthesizedExpression": {
             if (shouldOmitSyntheticParens(path)) {
@@ -1095,6 +1107,15 @@ export function print(path, options, print) {
             );
             if (isNonEmptyString(preferredParamName)) {
                 identifierName = preferredParamName;
+            } else {
+                const preferredArgumentName = getPreferredArgumentReferenceName(
+                    path,
+                    node,
+                    options
+                );
+                if (isNonEmptyString(preferredArgumentName)) {
+                    identifierName = preferredArgumentName;
+                }
             }
 
             const renamed = getIdentifierCaseRenameForNode(node, options);
@@ -1657,6 +1678,12 @@ function printStatements(path, options, print, childrenAttribute) {
             : null;
     if (statements) {
         applyAssignmentAlignment(statements, options);
+        const enclosingFunction = findEnclosingFunctionNode(path);
+        applyVariableDeclarationAlignment(
+            statements,
+            options,
+            enclosingFunction
+        );
     }
 
     const syntheticDocByNode = new Map();
@@ -1685,7 +1712,16 @@ function printStatements(path, options, print, childrenAttribute) {
         const printed = print();
 
         if (printed == undefined) {
+            if (node?._preserveFollowingBlankLine) {
+                previousNodeHadNewlineAddedAfter = true;
+                return [hardline];
+            }
             return [];
+        }
+
+        if (node?._preserveLeadingBlankLine && index !== 0) {
+            parts.push(hardline);
+            previousNodeHadNewlineAddedAfter = true;
         }
 
         let semi = optionalSemicolon(node.type);
@@ -1989,6 +2025,59 @@ export function applyAssignmentAlignment(statements, options) {
     flushGroup();
 }
 
+function applyVariableDeclarationAlignment(statements, options, functionNode) {
+    const minGroupSize = getAssignmentAlignmentMinimum(options);
+    if (!Array.isArray(statements) || minGroupSize <= 0) {
+        return;
+    }
+
+    const currentGroup = [];
+    let currentGroupMaxLength = 0;
+
+    const resetGroup = () => {
+        currentGroup.length = 0;
+        currentGroupMaxLength = 0;
+    };
+
+    const flushGroup = () => {
+        if (currentGroup.length === 0) {
+            resetGroup();
+            return;
+        }
+
+        const meetsThreshold = currentGroup.length >= minGroupSize;
+        for (const { declarator, nameLength } of currentGroup) {
+            declarator._alignVariablePadding = meetsThreshold
+                ? Math.max(0, currentGroupMaxLength - nameLength)
+                : 0;
+        }
+
+        resetGroup();
+    };
+
+    for (const statement of statements) {
+        const declarator = getAlignableVariableDeclarator(
+            statement,
+            functionNode,
+            options
+        );
+
+        if (!declarator) {
+            flushGroup();
+            continue;
+        }
+
+        const nameLength = declarator.id.name.length;
+        declarator._alignVariablePadding = 0;
+        currentGroup.push({ declarator, nameLength });
+        if (nameLength > currentGroupMaxLength) {
+            currentGroupMaxLength = nameLength;
+        }
+    }
+
+    flushGroup();
+}
+
 function getAssignmentAlignmentMinimum(options) {
     return coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
@@ -1997,6 +2086,37 @@ function getAssignmentAlignmentMinimum(options) {
             zeroReplacement: 0
         }
     );
+}
+
+function getAlignableVariableDeclarator(statement, functionNode, options) {
+    if (
+        !statement ||
+        statement.type !== "VariableDeclaration" ||
+        (typeof statement.kind === "string" &&
+            statement.kind.toLowerCase() !== "var")
+    ) {
+        return null;
+    }
+
+    const declarations = Array.isArray(statement.declarations)
+        ? statement.declarations
+        : [];
+    if (declarations.length !== 1) {
+        return null;
+    }
+
+    const [declarator] = declarations;
+    if (
+        !declarator ||
+        declarator.type !== "VariableDeclarator" ||
+        declarator.id?.type !== "Identifier" ||
+        typeof declarator.id.name !== "string" ||
+        !declarator.init
+    ) {
+        return null;
+    }
+
+    return declarator;
 }
 
 function isSimpleAssignment(node) {
@@ -3162,6 +3282,34 @@ function getPreferredFunctionParameterName(path, node, options) {
     return isValidIdentifierName(normalizedName) ? normalizedName : null;
 }
 
+function getPreferredArgumentReferenceName(path, node, options) {
+    const argumentIndex = getArgumentIndexFromIdentifier(node?.name);
+    if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
+        return null;
+    }
+
+    if (findFunctionParameterContext(path)) {
+        return null;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
+        return null;
+    }
+
+    const preferredName = getPreferredArgumentNameForIndex(
+        functionNode,
+        argumentIndex,
+        options
+    );
+
+    if (!preferredName || preferredName === node.name) {
+        return null;
+    }
+
+    return preferredName;
+}
+
 function findFunctionParameterContext(path) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
@@ -3192,6 +3340,30 @@ function findFunctionParameterContext(path) {
         }
 
         candidate = parent;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "FunctionExpression" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            return parent;
+        }
     }
 
     return null;
@@ -3236,6 +3408,259 @@ function normalizePreferredParameterName(name) {
 
 function isValidIdentifierName(name) {
     return typeof name === "string" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
+}
+
+function getPreferredArgumentNameForIndex(
+    functionNode,
+    argumentIndex,
+    options
+) {
+    if (
+        !functionNode ||
+        !Number.isInteger(argumentIndex) ||
+        argumentIndex < 0
+    ) {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+
+    if (argumentIndex >= params.length) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(argumentIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = getImplicitArgumentDocEntries(
+            functionNode,
+            options
+        );
+        const implicitEntry = implicitEntries.find(
+            (entry) => entry && entry.index === argumentIndex
+        );
+
+        if (implicitEntry) {
+            if (
+                implicitEntry.canonical &&
+                implicitEntry.canonical !== implicitEntry.fallbackCanonical
+            ) {
+                preferredSource = implicitEntry.name || implicitEntry.canonical;
+            } else if (implicitEntry.name) {
+                preferredSource = implicitEntry.name;
+            }
+        }
+    }
+
+    if (!preferredSource) {
+        const paramIdentifier = getIdentifierFromParameterNode(
+            params[argumentIndex]
+        );
+        if (
+            paramIdentifier?.type === "Identifier" &&
+            typeof paramIdentifier.name === "string"
+        ) {
+            preferredSource = paramIdentifier.name;
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName.length === 0) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+}
+
+function getImplicitArgumentDocEntries(functionNode, options) {
+    if (!functionNode || typeof functionNode !== "object") {
+        return [];
+    }
+
+    const cached = implicitArgumentDocEntriesCache.get(functionNode);
+    if (cached && cached.options === options) {
+        return cached.entries;
+    }
+
+    const entries = collectImplicitArgumentDocNames(functionNode, options);
+    const normalizedEntries = Array.isArray(entries) ? entries : [];
+    implicitArgumentDocEntriesCache.set(functionNode, {
+        options,
+        entries: normalizedEntries
+    });
+
+    return normalizedEntries;
+}
+
+function isRedundantArgumentAliasDeclarator(declarator, functionNode, options) {
+    if (
+        !declarator ||
+        declarator.type !== "VariableDeclarator" ||
+        !functionNode
+    ) {
+        return false;
+    }
+
+    if (declarator.id?.type !== "Identifier") {
+        return false;
+    }
+
+    if (declarator.init?.type !== "Identifier") {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(declarator.init.name);
+    if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
+        return false;
+    }
+
+    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    if (!normalizedAlias) {
+        return false;
+    }
+
+    const preferredName = getPreferredArgumentNameForIndex(
+        functionNode,
+        argumentIndex,
+        options
+    );
+
+    return !!preferredName && preferredName === normalizedAlias;
+}
+
+function shouldOmitRedundantArgumentAlias(path, options) {
+    const node = path.getValue();
+    if (!node || node.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
+        return false;
+    }
+
+    const isRedundant = isRedundantArgumentAliasDeclarator(
+        node,
+        functionNode,
+        options
+    );
+
+    if (isRedundant) {
+        const declarationNode = path.getParentNode();
+        if (declarationNode && typeof options?.originalText === "string") {
+            const endIndex = getNodeEndIndex(declarationNode);
+            if (typeof endIndex === "number") {
+                const trailingSlice = options.originalText.slice(
+                    endIndex,
+                    endIndex + 4
+                );
+                if (/\r?\n\s*\n/.test(trailingSlice)) {
+                    const nextStatement = findNextSiblingStatementAfterAlias(
+                        path,
+                        declarationNode,
+                        functionNode,
+                        options
+                    );
+                    if (nextStatement?.type === "VariableDeclaration") {
+                        const nextNonVariable =
+                            findNextSiblingStatementAfterAlias(
+                                path,
+                                declarationNode,
+                                functionNode,
+                                options,
+                                { skipVariableDeclarations: true }
+                            );
+                        if (nextNonVariable) {
+                            nextNonVariable._preserveLeadingBlankLine = true;
+                        }
+                    } else {
+                        declarationNode._preserveFollowingBlankLine = true;
+                    }
+                }
+            }
+        }
+    }
+
+    return isRedundant;
+}
+
+function findNextSiblingStatementAfterAlias(
+    path,
+    declarationNode,
+    functionNode,
+    options,
+    { skipVariableDeclarations = false } = {}
+) {
+    if (!path || typeof path.getParentNode !== "function" || !declarationNode) {
+        return null;
+    }
+
+    const container = path.getParentNode(1);
+    const siblings = Array.isArray(container?.body) ? container.body : null;
+    if (!siblings || !siblings.includes(declarationNode)) {
+        return null;
+    }
+
+    const declarationIndex = siblings.indexOf(declarationNode);
+    if (declarationIndex === -1) {
+        return null;
+    }
+
+    for (
+        let index = declarationIndex + 1;
+        index < siblings.length;
+        index += 1
+    ) {
+        const candidate = siblings[index];
+        if (!candidate) {
+            continue;
+        }
+
+        const candidateIsVariableDeclaration =
+            candidate.type === "VariableDeclaration";
+
+        if (
+            candidateIsVariableDeclaration &&
+            isVariableDeclarationCompletelyRedundantAlias(
+                candidate,
+                functionNode,
+                options
+            )
+        ) {
+            continue;
+        }
+
+        if (skipVariableDeclarations && candidateIsVariableDeclaration) {
+            continue;
+        }
+
+        return candidate;
+    }
+
+    return null;
+}
+
+function isVariableDeclarationCompletelyRedundantAlias(
+    declarationNode,
+    functionNode,
+    options
+) {
+    if (
+        !declarationNode ||
+        declarationNode.type !== "VariableDeclaration" ||
+        !Array.isArray(declarationNode.declarations) ||
+        declarationNode.declarations.length === 0
+    ) {
+        return false;
+    }
+
+    return declarationNode.declarations.every((declarator) =>
+        isRedundantArgumentAliasDeclarator(declarator, functionNode, options)
+    );
 }
 
 function isOptionalParamDocName(name) {
@@ -3913,7 +4338,7 @@ function normalizeOptionalParamNameToken(name) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -3924,7 +4349,7 @@ function normalizeOptionalParamNameToken(name) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;
@@ -5242,8 +5667,16 @@ function printSingleClauseStatement(
     ]);
 }
 
-function printSimpleDeclaration(leftDoc, rightDoc) {
-    return rightDoc ? [leftDoc, " = ", rightDoc] : leftDoc;
+function printSimpleDeclaration(leftDoc, rightDoc, padding = 0) {
+    if (!rightDoc) {
+        return leftDoc;
+    }
+
+    const normalizedPadding = Math.max(0, padding);
+    const paddingDoc =
+        normalizedPadding > 0 ? " ".repeat(normalizedPadding) : "";
+
+    return [leftDoc, paddingDoc, " = ", rightDoc];
 }
 
 // prints empty parens with dangling comments
