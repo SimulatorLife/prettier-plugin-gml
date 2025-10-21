@@ -10,16 +10,8 @@ import {
  * The original IdentifierCasePlanService bundled plan preparation, rename
  * lookups, and snapshot orchestration behind one "service" facade. That wide
  * surface made collaborators depend on behaviours they did not always need.
- * We preserve the legacy facade for compatibility while also exposing narrow
- * preparation, rename, and snapshot views to honour interface segregation.
- */
-
-/**
- * @typedef {object} IdentifierCasePlanService
- * @property {(options: object | null | undefined) => Promise<void>} prepareIdentifierCasePlan
- * @property {(node: import("../../../shared/ast.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
- * @property {(options: unknown) => ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} captureIdentifierCasePlanSnapshot
- * @property {(snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>, options: Record<string, unknown> | null | undefined) => void} applyIdentifierCasePlanSnapshot
+ * Providers must now return segregated service views so that consumers only
+ * depend on the behaviours they exercise.
  */
 
 /**
@@ -39,65 +31,110 @@ import {
  */
 
 /**
- * @typedef {() => IdentifierCasePlanService} IdentifierCasePlanServiceProvider
+ * @typedef {object} IdentifierCasePlanServiceBundle
+ * @property {IdentifierCasePlanPreparationService} preparation
+ * @property {IdentifierCaseRenameLookupService} renameLookup
+ * @property {IdentifierCasePlanSnapshotService} snapshot
  */
 
+/**
+ * @typedef {() => IdentifierCasePlanServiceBundle} IdentifierCasePlanServiceProvider
+ */
+
+const defaultPreparationService = Object.freeze({
+    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
+});
+
+const defaultRenameLookupService = Object.freeze({
+    getIdentifierCaseRenameForNode: defaultGetIdentifierCaseRenameForNode
+});
+
+const defaultSnapshotService = Object.freeze({
+    captureIdentifierCasePlanSnapshot: defaultCaptureIdentifierCasePlanSnapshot,
+    applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
+});
+
 let serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
-let cachedService = null;
-let cachedPreparationService = null;
-let cachedRenameLookupService = null;
-let cachedSnapshotService = null;
+let cachedServices = null;
 
 function createDefaultIdentifierCasePlanServiceProvider() {
     return () => ({
-        prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
-        getIdentifierCaseRenameForNode: defaultGetIdentifierCaseRenameForNode,
-        captureIdentifierCasePlanSnapshot:
-            defaultCaptureIdentifierCasePlanSnapshot,
-        applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
+        preparation: defaultPreparationService,
+        renameLookup: defaultRenameLookupService,
+        snapshot: defaultSnapshotService
     });
 }
 
-function normalizeIdentifierCasePlanService(service) {
-    const {
-        prepareIdentifierCasePlan,
-        getIdentifierCaseRenameForNode,
-        captureIdentifierCasePlanSnapshot,
-        applyIdentifierCasePlanSnapshot
-    } = assertPlainObject(service, {
+function normalizeIdentifierCasePlanPreparationService(service) {
+    const { prepareIdentifierCasePlan } = assertPlainObject(service, {
         errorMessage:
-            "Identifier case plan service must be provided as an object"
+            "Identifier case plan preparation service must be provided as an object"
     });
 
     if (typeof prepareIdentifierCasePlan !== "function") {
         throw new TypeError(
-            "Identifier case plan service must provide a prepareIdentifierCasePlan function"
+            "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
         );
     }
+
+    return Object.freeze({ prepareIdentifierCasePlan });
+}
+
+function normalizeIdentifierCaseRenameLookupService(service) {
+    const { getIdentifierCaseRenameForNode } = assertPlainObject(service, {
+        errorMessage:
+            "Identifier case rename lookup service must be provided as an object"
+    });
 
     if (typeof getIdentifierCaseRenameForNode !== "function") {
         throw new TypeError(
-            "Identifier case plan service must provide a getIdentifierCaseRenameForNode function"
+            "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
         );
     }
 
+    return Object.freeze({ getIdentifierCaseRenameForNode });
+}
+
+function normalizeIdentifierCasePlanSnapshotService(service) {
+    const {
+        captureIdentifierCasePlanSnapshot,
+        applyIdentifierCasePlanSnapshot
+    } = assertPlainObject(service, {
+        errorMessage:
+            "Identifier case plan snapshot service must be provided as an object"
+    });
+
     if (typeof captureIdentifierCasePlanSnapshot !== "function") {
         throw new TypeError(
-            "Identifier case plan service must provide a captureIdentifierCasePlanSnapshot function"
+            "Identifier case plan snapshot service must provide a captureIdentifierCasePlanSnapshot function"
         );
     }
 
     if (typeof applyIdentifierCasePlanSnapshot !== "function") {
         throw new TypeError(
-            "Identifier case plan service must provide an applyIdentifierCasePlanSnapshot function"
+            "Identifier case plan snapshot service must provide an applyIdentifierCasePlanSnapshot function"
         );
     }
 
     return Object.freeze({
-        prepareIdentifierCasePlan,
-        getIdentifierCaseRenameForNode,
         captureIdentifierCasePlanSnapshot,
         applyIdentifierCasePlanSnapshot
+    });
+}
+
+function normalizeIdentifierCasePlanServices(services) {
+    const { preparation, renameLookup, snapshot } = assertPlainObject(
+        services,
+        {
+            errorMessage:
+                "Identifier case plan service provider must return an object containing segregated services"
+        }
+    );
+
+    return Object.freeze({
+        preparation: normalizeIdentifierCasePlanPreparationService(preparation),
+        renameLookup: normalizeIdentifierCaseRenameLookupService(renameLookup),
+        snapshot: normalizeIdentifierCasePlanSnapshotService(snapshot)
     });
 }
 
@@ -108,38 +145,15 @@ function resolveIdentifierCasePlanServiceInternal() {
         );
     }
 
-    if (!cachedService) {
-        cachedService = normalizeIdentifierCasePlanService(serviceProvider());
+    if (!cachedServices) {
+        cachedServices = normalizeIdentifierCasePlanServices(serviceProvider());
     }
 
-    return cachedService;
+    return cachedServices;
 }
 
 function invalidateCachedViews() {
-    cachedService = null;
-    cachedPreparationService = null;
-    cachedRenameLookupService = null;
-    cachedSnapshotService = null;
-}
-
-function refreshCachedServiceView(cache, service, propertyNames) {
-    const keys = Array.isArray(propertyNames) ? propertyNames : [propertyNames];
-
-    if (
-        cache &&
-        keys.every(
-            (propertyName) => cache[propertyName] === service[propertyName]
-        )
-    ) {
-        return cache;
-    }
-
-    const nextView = {};
-    for (const propertyName of keys) {
-        nextView[propertyName] = service[propertyName];
-    }
-
-    return Object.freeze(nextView);
+    cachedServices = null;
 }
 
 export function registerIdentifierCasePlanServiceProvider(provider) {
@@ -163,56 +177,38 @@ export function resolveIdentifierCasePlanService() {
 }
 
 export function resolveIdentifierCasePlanPreparationService() {
-    const service = resolveIdentifierCasePlanServiceInternal();
-    cachedPreparationService = refreshCachedServiceView(
-        cachedPreparationService,
-        service,
-        "prepareIdentifierCasePlan"
-    );
-    return cachedPreparationService;
+    return resolveIdentifierCasePlanServiceInternal().preparation;
 }
 
 export function resolveIdentifierCaseRenameLookupService() {
-    const service = resolveIdentifierCasePlanServiceInternal();
-    cachedRenameLookupService = refreshCachedServiceView(
-        cachedRenameLookupService,
-        service,
-        "getIdentifierCaseRenameForNode"
-    );
-    return cachedRenameLookupService;
+    return resolveIdentifierCasePlanServiceInternal().renameLookup;
 }
 
 export function resolveIdentifierCasePlanSnapshotService() {
-    const service = resolveIdentifierCasePlanServiceInternal();
-    cachedSnapshotService = refreshCachedServiceView(
-        cachedSnapshotService,
-        service,
-        ["captureIdentifierCasePlanSnapshot", "applyIdentifierCasePlanSnapshot"]
-    );
-    return cachedSnapshotService;
+    return resolveIdentifierCasePlanServiceInternal().snapshot;
 }
 
 export function prepareIdentifierCasePlan(options) {
-    return resolveIdentifierCasePlanServiceInternal().prepareIdentifierCasePlan(
+    return resolveIdentifierCasePlanPreparationService().prepareIdentifierCasePlan(
         options
     );
 }
 
 export function getIdentifierCaseRenameForNode(node, options) {
-    return resolveIdentifierCasePlanServiceInternal().getIdentifierCaseRenameForNode(
+    return resolveIdentifierCaseRenameLookupService().getIdentifierCaseRenameForNode(
         node,
         options
     );
 }
 
 export function captureIdentifierCasePlanSnapshot(options) {
-    return resolveIdentifierCasePlanServiceInternal().captureIdentifierCasePlanSnapshot(
+    return resolveIdentifierCasePlanSnapshotService().captureIdentifierCasePlanSnapshot(
         options
     );
 }
 
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
-    return resolveIdentifierCasePlanServiceInternal().applyIdentifierCasePlanSnapshot(
+    return resolveIdentifierCasePlanSnapshotService().applyIdentifierCasePlanSnapshot(
         snapshot,
         options
     );
