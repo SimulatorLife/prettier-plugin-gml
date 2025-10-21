@@ -34,6 +34,7 @@ import {
     listDirectory,
     getFileMtime
 } from "../../../shared/fs-utils.js";
+import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -352,7 +353,12 @@ async function loadBuiltInIdentifiers(
 
     if (!cached) {
         metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (cachedMtime === currentMtime) {
+    } else if (
+        cachedMtime === currentMtime ||
+        (typeof cachedMtime === "number" &&
+            typeof currentMtime === "number" &&
+            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
+    ) {
         metrics?.recordCacheHit("builtInIdentifiers");
         return cached;
     } else {
