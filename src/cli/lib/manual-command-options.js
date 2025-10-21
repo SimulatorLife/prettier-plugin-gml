@@ -6,7 +6,7 @@ import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
     resolveManualRepoValue
-} from "./manual-utils.js";
+} from "./manual/utils.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth

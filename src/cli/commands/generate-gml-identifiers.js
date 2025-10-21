@@ -13,7 +13,7 @@ import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
