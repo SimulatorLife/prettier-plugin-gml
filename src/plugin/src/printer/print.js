@@ -1869,6 +1869,21 @@ function resolveNextLineProbeIndex(text, trailingProbeIndex, nodeEndIndex) {
     const closingBraceIndex = text.indexOf("}", index);
 
     if (closingBraceIndex !== -1 && closingBraceIndex < searchEnd) {
+        for (let probe = index; probe < closingBraceIndex; probe += 1) {
+            const charCode = text.charCodeAt(probe);
+            if (charCode === 10 || charCode === 13) {
+                return probe;
+            }
+        }
+
+        const nextTokenAfterBrace = getNextNonWhitespaceCharacter(
+            text,
+            closingBraceIndex + 1
+        );
+        if (nextTokenAfterBrace) {
+            return closingBraceIndex;
+        }
+
         let probe = closingBraceIndex + 1;
         while (probe < length) {
             const charCode = text.charCodeAt(probe);
@@ -2198,16 +2213,52 @@ function printStatements(path, options, print, childrenAttribute) {
                 grandParentNode?.type === "ConstructorParentClause";
             const nodeIsStaticDeclaration =
                 node?.type === "VariableDeclaration" && node.kind === "static";
-            const staticDeclarationHasPadding =
+            let staticDeclarationHasPadding = false;
+            if (
                 isConstructorBody &&
                 nodeIsStaticDeclaration &&
-                typeof options.originalText === "string" &&
-                /\r?\n\s*\n/.test(
-                    options.originalText.slice(
-                        nodeEndIndex + 1,
-                        Math.max(nodeEndIndex + 1, nextLineProbeIndex)
-                    )
+                typeof options.originalText === "string"
+            ) {
+                let constructorPaddingStartIndex = nodeEndIndex + 1;
+                const originalLength = options.originalText.length;
+                while (
+                    constructorPaddingStartIndex < originalLength &&
+                    options.originalText.charCodeAt(
+                        constructorPaddingStartIndex
+                    ) === 59
+                ) {
+                    constructorPaddingStartIndex += 1;
+                }
+
+                const constructorPaddingSegment = options.originalText.slice(
+                    constructorPaddingStartIndex,
+                    Math.max(constructorPaddingStartIndex, nextLineProbeIndex)
                 );
+
+                staticDeclarationHasPadding = /\r?\n\s*\n/.test(
+                    constructorPaddingSegment
+                );
+
+                if (
+                    !staticDeclarationHasPadding &&
+                    constructorPaddingSegment.length === 0
+                ) {
+                    const constructorClosingBraceIndex =
+                        options.originalText.indexOf("}", nodeEndIndex + 1);
+
+                    if (
+                        constructorClosingBraceIndex !== -1 &&
+                        constructorClosingBraceIndex > nodeEndIndex + 1
+                    ) {
+                        staticDeclarationHasPadding = /\r?\n\s*\n/.test(
+                            options.originalText.slice(
+                                constructorPaddingStartIndex,
+                                constructorClosingBraceIndex
+                            )
+                        );
+                    }
+                }
+            }
 
             let shouldPreserveTrailingBlankLine = false;
             if (
