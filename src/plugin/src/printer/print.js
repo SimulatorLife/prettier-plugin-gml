@@ -3407,6 +3407,14 @@ function resolvePreferredParameterName(
         return null;
     }
 
+    const hasRenamableCurrentName =
+        typeof currentName === "string" &&
+        getArgumentIndexFromIdentifier(currentName) !== null;
+
+    if (!hasRenamableCurrentName) {
+        return null;
+    }
+
     const docPreferences = preferredParamDocNamesByNode.get(functionNode);
     let preferredSource =
         (docPreferences && docPreferences.get(paramIndex)) || null;
