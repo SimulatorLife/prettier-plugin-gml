@@ -3765,6 +3765,7 @@ function computeSyntheticFunctionDocLines(
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
+    const orderedExistingParamMetadata = [];
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
     const existingFunctionMetadata = metadata.find(
@@ -3791,6 +3792,7 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
+        orderedExistingParamMetadata.push(meta);
         documentedParamNames.add(rawName);
 
         const canonical = getCanonicalParamNameFromText(rawName);
@@ -3856,26 +3858,47 @@ function computeSyntheticFunctionDocLines(
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
+        const ordinalMetadataIndex =
+            Number.isInteger(paramIndex) && paramIndex >= 0 ? paramIndex : null;
         const ordinalMetadata =
-            Number.isInteger(paramIndex) && paramIndex >= 0
-                ? (orderedParamMetadata[paramIndex] ?? null)
-                : null;
+            ordinalMetadataIndex === null
+                ? null
+                : (orderedExistingParamMetadata[ordinalMetadataIndex] ??
+                  orderedParamMetadata[ordinalMetadataIndex] ??
+                  null);
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
-        const implicitName =
+        let implicitName =
             implicitDocEntry &&
             typeof implicitDocEntry.name === "string" &&
             implicitDocEntry.name &&
             implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
                 ? implicitDocEntry.name
                 : null;
+        if (
+            !implicitName &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+        ) {
+            implicitName = ordinalMetadata.name;
+        }
+        if (
+            implicitDocEntry?.name &&
+            typeof implicitDocEntry.name === "string" &&
+            typeof ordinalMetadata?.name === "string"
+        ) {
+            documentedParamNames.add(implicitDocEntry.name);
+        }
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
-        const existingMetadata =
+        let existingMetadata =
             (canonicalParamName &&
                 paramMetadataByCanonical.has(canonicalParamName) &&
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
+        if (!existingMetadata && ordinalMetadata) {
+            existingMetadata = ordinalMetadata;
+        }
         const existingDocName = existingMetadata?.name;
         const hasCompleteOrdinalDocs =
             Array.isArray(node.params) &&
