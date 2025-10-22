@@ -1740,6 +1740,36 @@ function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
     return false;
 }
 
+function getNextNonWhitespaceCharacter(text, startIndex) {
+    if (typeof text !== "string") {
+        return null;
+    }
+
+    const { length } = text;
+    for (let index = startIndex; index < length; index += 1) {
+        const characterCode = text.charCodeAt(index);
+
+        // Skip standard ASCII whitespace characters so the caller can reason
+        // about the next syntactically meaningful token without repeatedly
+        // slicing the original source text.
+        switch (characterCode) {
+            case 9: // \t
+            case 10: // \n
+            case 11: // vertical tab
+            case 12: // form feed
+            case 13: // \r
+            case 32: { // space
+                continue;
+            }
+            default: {
+                return text.charAt(index);
+            }
+        }
+    }
+
+    return null;
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -1986,11 +2016,21 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
-            const shouldPreserveTrailingBlankLine =
+            let shouldPreserveTrailingBlankLine = false;
+            if (
                 parentNode?.type === "BlockStatement" &&
                 typeof options.originalText === "string" &&
                 isNextLineEmpty(options.originalText, trailingProbeIndex) &&
-                !suppressFollowingEmptyLine;
+                !suppressFollowingEmptyLine
+            ) {
+                const nextCharacter = getNextNonWhitespaceCharacter(
+                    options.originalText,
+                    trailingProbeIndex
+                );
+                shouldPreserveTrailingBlankLine = nextCharacter
+                    ? nextCharacter !== "}"
+                    : false;
+            }
 
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
