@@ -57,7 +57,7 @@ import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "../feather/metadata.js";
+} from "../resources/feather-metadata.js";
 
 function forEachNodeChild(node, callback) {
     if (!node || typeof node !== "object") {

@@ -16,7 +16,7 @@ import {
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "../src/feather/metadata.js";
+} from "../src/resources/feather-metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
