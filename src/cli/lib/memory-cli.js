@@ -2,15 +2,17 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { normalizeStringList } from "./shared-deps.js";
+import { getErrorMessage, normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     coercePositiveInteger,
-    resolveIntegerOption,
     wrapInvalidArgumentResolver
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
-import { createEnvConfiguredValue } from "./shared-deps.js";
+import {
+    createIntegerOptionCoercer,
+    createIntegerOptionState
+} from "./numeric-option-state.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -29,50 +31,35 @@ const createIterationErrorMessage = (received) =>
 const createIterationTypeErrorMessage = (type) =>
     `Iteration count must be provided as a number (received type '${type}').`;
 
-function coerceMemoryIterations(value, { received }) {
-    return coercePositiveInteger(value, {
-        received,
-        createErrorMessage: createIterationErrorMessage
-    });
-}
-
-const memoryIterationsConfig = createEnvConfiguredValue({
-    defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue }) => {
-        if (value === undefined) {
-            return defaultValue;
-        }
-
-        return resolveMemoryIterations(value, {
-            defaultIterations: defaultValue
-        });
-    }
+const coerceMemoryIterations = createIntegerOptionCoercer({
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createIterationErrorMessage
 });
 
-export function getDefaultMemoryIterations() {
-    return memoryIterationsConfig.get();
-}
+const memoryIterationsState = createIntegerOptionState({
+    defaultValue: DEFAULT_ITERATIONS,
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    coerce: coerceMemoryIterations,
+    typeErrorMessage: createIterationTypeErrorMessage
+});
 
-export function setDefaultMemoryIterations(iterations) {
-    return memoryIterationsConfig.set(iterations);
-}
+const {
+    getDefault: getDefaultMemoryIterations,
+    setDefault: setDefaultMemoryIterations,
+    resolve: resolveMemoryIterationsState,
+    applyEnvOverride: applyMemoryIterationsEnvOverride
+} = memoryIterationsState;
+
+export {
+    getDefaultMemoryIterations,
+    setDefaultMemoryIterations,
+    applyMemoryIterationsEnvOverride
+};
 
 export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
-    const fallback =
-        defaultIterations === undefined
-            ? getDefaultMemoryIterations()
-            : defaultIterations;
-
-    return resolveIntegerOption(rawValue, {
-        defaultValue: fallback,
-        coerce: coerceMemoryIterations,
-        typeErrorMessage: createIterationTypeErrorMessage
+    return resolveMemoryIterationsState(rawValue, {
+        defaultValue: defaultIterations
     });
-}
-
-export function applyMemoryIterationsEnvOverride(env = process?.env) {
-    memoryIterationsConfig.applyEnvOverride(env);
 }
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
@@ -205,14 +192,15 @@ function runNormalizeStringListSuite({ iterations }) {
 AVAILABLE_SUITES.set("normalize-string-list", runNormalizeStringListSuite);
 
 function formatSuiteError(error) {
+    const name = error?.name ?? error?.constructor?.name ?? "Error";
+    const message = getErrorMessage(error, { fallback: "" }) || "Unknown error";
+    const stackLines =
+        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
+
     return {
-        name: error?.name ?? error?.constructor?.name ?? "Error",
-        message:
-            typeof error?.message === "string" ? error.message : String(error),
-        stack:
-            typeof error?.stack === "string"
-                ? error.stack.split("\n")
-                : undefined
+        name,
+        message,
+        stack: stackLines
     };
 }
 
@@ -222,7 +210,7 @@ function printHumanReadable(results) {
         lines.push(`\n• ${suite}`);
         if (payload?.error) {
             lines.push(
-                `  - error: ${payload.error.message ?? "Unknown error"}`
+                `  - error: ${payload.error.message || "Unknown error"}`
             );
             continue;
         }

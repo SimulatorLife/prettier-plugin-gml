@@ -13,8 +13,23 @@ import {
 
 const BINARY_OPERATORS = {
     // Highest Precedence
-    "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
-    "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+    // TODO: Track whether `++` is parsed as a prefix or suffix operator. The
+    // parser currently funnels both variants through the same precedence entry,
+    // which keeps the visitor traversals simple but hides whether the operand
+    // should be evaluated before or after the increment. Downstream
+    // transformations such as the identifier role tracker and the
+    // apply-feather-fixes pipeline depend on that nuance to distinguish between
+    // pure reads and reads-with-writeback. The GameMaker manual spells out the
+    // differing semantics (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FOperators%2FIncrement_and_Decrement.htm),
+    // so once the builder exposes the mode we should emit richer AST nodes
+    // instead of treating them as interchangeable unary operators.
+    "++": { prec: 15, assoc: "right", type: "unary" },
+    // TODO: Mirror the prefix/suffix tracking described above for the
+    // decrement operator so optimisations do not assume `value--` is
+    // side-effect free. GameMaker emits different bytecode for the two forms,
+    // and losing that distinction risks mis-scheduling hoists or duplicate
+    // writes when formatters rewrite identifier usages.
+    "--": { prec: 15, assoc: "right", type: "unary" },
     "~": { prec: 14, assoc: "right", type: "unary" },
     "!": { prec: 14, assoc: "right", type: "unary" },
     // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
@@ -57,43 +72,96 @@ const BINARY_OPERATORS = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
-class IdentifierServices {
-    constructor({ options } = {}) {
-        this.scopeTracker = new ScopeTracker({
-            enabled: Boolean(options?.getIdentifierMetadata)
-        });
-        this.roleTracker = new IdentifierRoleTracker();
-        this.scopeCoordinator = new IdentifierScopeCoordinator({
-            scopeTracker: this.scopeTracker,
-            roleTracker: this.roleTracker
-        });
-        this.globalIdentifiers = new Set();
-        this.globalRegistry = new GlobalIdentifierRegistry({
-            globalIdentifiers: this.globalIdentifiers
-        });
-        this.scopeTools = {
-            isEnabled: () => this.scopeCoordinator.isEnabled(),
-            withScope: (kind, callback) =>
-                this.scopeCoordinator.withScope(kind, callback)
-        };
-        this.roleTools = {
-            withIdentifierRole: (role, callback) =>
-                this.roleTracker.withRole(role, callback),
-            cloneRole: (role) => this.roleTracker.cloneRole(role)
-        };
-        this.classifierTools = {
-            applyRoleToIdentifier: (name, node) =>
-                this.scopeCoordinator.applyCurrentRoleToIdentifier(name, node)
-        };
-        this.globalTools = {
-            markGlobalIdentifier: (node) =>
-                this.globalRegistry.markIdentifier(node),
-            applyGlobalFlag: (node) => this.globalRegistry.applyToNode(node)
-        };
-        this.locationTools = {
-            createIdentifierLocation: (token) => buildIdentifierLocation(token)
-        };
-    }
+/**
+ * Identifier metadata helpers previously leaked behind a single catch-all
+ * `IdentifierServices` interface that exposed scope, role, global, and location
+ * utilities. That wide surface coerced consumers like the AST builder into
+ * depending on many behaviours simultaneously, even when they only needed a
+ * subset. The helpers below split that contract into cohesive views so callers
+ * can wire only the collaborators they require.
+ */
+
+/**
+ * @typedef {object} IdentifierScopeTools
+ * @property {() => boolean} isEnabled
+ * @property {(kind: unknown, callback: () => any) => any} withScope
+ */
+
+/**
+ * @typedef {object} IdentifierRoleTools
+ * @property {(role: object | null | undefined, callback: () => any) => any} withIdentifierRole
+ * @property {(role: object | null | undefined) => object} cloneRole
+ */
+
+/**
+ * @typedef {object} IdentifierClassifierTools
+ * @property {(name: string | null | undefined, node: unknown) => void} applyRoleToIdentifier
+ */
+
+/**
+ * @typedef {object} IdentifierGlobalTools
+ * @property {(node: unknown) => void} markGlobalIdentifier
+ * @property {(node: unknown) => void} applyGlobalFlag
+ */
+
+/**
+ * @typedef {object} IdentifierLocationTools
+ * @property {(token: unknown) => ReturnType<typeof buildIdentifierLocation>} createIdentifierLocation
+ */
+
+/**
+ * @param {IdentifierScopeCoordinator} scopeCoordinator
+ * @returns {IdentifierScopeTools}
+ */
+function createIdentifierScopeTools(scopeCoordinator) {
+    return {
+        isEnabled: () => scopeCoordinator.isEnabled(),
+        withScope: (kind, callback) =>
+            scopeCoordinator.withScope(kind, callback)
+    };
+}
+
+/**
+ * @param {IdentifierRoleTracker} roleTracker
+ * @returns {IdentifierRoleTools}
+ */
+function createIdentifierRoleTools(roleTracker) {
+    return {
+        withIdentifierRole: (role, callback) =>
+            roleTracker.withRole(role, callback),
+        cloneRole: (role) => roleTracker.cloneRole(role)
+    };
+}
+
+/**
+ * @param {IdentifierScopeCoordinator} scopeCoordinator
+ * @returns {IdentifierClassifierTools}
+ */
+function createIdentifierClassifierTools(scopeCoordinator) {
+    return {
+        applyRoleToIdentifier: (name, node) =>
+            scopeCoordinator.applyCurrentRoleToIdentifier(name, node)
+    };
+}
+
+/**
+ * @param {GlobalIdentifierRegistry} globalRegistry
+ * @returns {IdentifierGlobalTools}
+ */
+function createIdentifierGlobalTools(globalRegistry) {
+    return {
+        markGlobalIdentifier: (node) => globalRegistry.markIdentifier(node),
+        applyGlobalFlag: (node) => globalRegistry.applyToNode(node)
+    };
+}
+
+/**
+ * @returns {IdentifierLocationTools}
+ */
+function createIdentifierLocationTools() {
+    return {
+        createIdentifierLocation: (token) => buildIdentifierLocation(token)
+    };
 }
 
 /**
@@ -144,20 +212,30 @@ export default class GameMakerASTBuilder {
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
 
-        this.identifierServices = new IdentifierServices({
-            options: this.options
+        const scopeTracker = new ScopeTracker({
+            enabled: Boolean(this.options?.getIdentifierMetadata)
         });
-        this.scopeTracker = this.identifierServices.scopeTracker;
-        this.identifierRoleTracker = this.identifierServices.roleTracker;
-        this.identifierScopeCoordinator =
-            this.identifierServices.scopeCoordinator;
-        this.globalIdentifiers = this.identifierServices.globalIdentifiers;
-        this.globalIdentifierRegistry = this.identifierServices.globalRegistry;
-        this.identifierScope = this.identifierServices.scopeTools;
-        this.identifierRoles = this.identifierServices.roleTools;
-        this.identifierClassifier = this.identifierServices.classifierTools;
-        this.identifierGlobals = this.identifierServices.globalTools;
-        this.identifierLocations = this.identifierServices.locationTools;
+        const roleTracker = new IdentifierRoleTracker();
+        const scopeCoordinator = new IdentifierScopeCoordinator({
+            scopeTracker,
+            roleTracker
+        });
+        const globalIdentifiers = new Set();
+        const globalRegistry = new GlobalIdentifierRegistry({
+            globalIdentifiers
+        });
+
+        this.scopeTracker = scopeTracker;
+        this.identifierRoleTracker = roleTracker;
+        this.identifierScopeCoordinator = scopeCoordinator;
+        this.globalIdentifiers = globalIdentifiers;
+        this.globalIdentifierRegistry = globalRegistry;
+        this.identifierScope = createIdentifierScopeTools(scopeCoordinator);
+        this.identifierRoles = createIdentifierRoleTools(roleTracker);
+        this.identifierClassifier =
+            createIdentifierClassifierTools(scopeCoordinator);
+        this.identifierGlobals = createIdentifierGlobalTools(globalRegistry);
+        this.identifierLocations = createIdentifierLocationTools();
 
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
