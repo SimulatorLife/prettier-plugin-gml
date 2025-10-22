@@ -128,7 +128,7 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
     );
 });
 
-test("omits synthetic comparison parentheses inside logical expressions", async () => {
+test("preserves synthetic comparison parentheses inside logical expressions", async () => {
     const source = [
         "function check(value) {",
         "    if (value > 0 and value < 1) {",
@@ -147,7 +147,7 @@ test("omits synthetic comparison parentheses inside logical expressions", async 
         "/// @function check",
         "/// @param value",
         "function check(value) {",
-        "    if (value > 0 and value < 1) {",
+        "    if ((value > 0) and (value < 1)) {",
         "        return true;",
         "    }",
         "}",
@@ -157,6 +157,6 @@ test("omits synthetic comparison parentheses inside logical expressions", async 
     assert.strictEqual(
         formatted.trim(),
         expectedLines.trim(),
-        "Expected redundant comparison grouping parentheses inside logical expressions to be removed."
+        "Expected comparison grouping parentheses inside logical expressions to remain for readability."
     );
 });

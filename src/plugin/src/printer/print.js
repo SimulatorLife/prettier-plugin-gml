@@ -130,6 +130,16 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
+const SYNTHETIC_LOGICAL_COMPARISON_OPERATORS = new Set([
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "==",
+    "!=",
+    "<>"
+]);
+
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
@@ -5297,6 +5307,14 @@ function shouldOmitSyntheticParens(path) {
                 parentOperator === "||" ||
                 parentOperator === "or"
             ) {
+                if (
+                    SYNTHETIC_LOGICAL_COMPARISON_OPERATORS.has(
+                        expression.operator
+                    )
+                ) {
+                    return false;
+                }
+
                 return true;
             }
         }
