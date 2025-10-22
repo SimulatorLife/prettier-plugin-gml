@@ -507,19 +507,19 @@ function collectDiagnosticTrailingContent(blocks) {
         }
 
         if (block.type === "code") {
-            if (badExample) {
-                goodExampleParts.push(text);
-            } else {
+            if (!badExample) {
                 badExample = text;
+                continue;
             }
+
+            goodExampleParts.push(text);
             continue;
         }
 
-        if (badExample) {
-            correctionParts.push(text);
-        } else {
-            additionalDescriptionParts.push(text);
-        }
+        const targetParts = badExample
+            ? correctionParts
+            : additionalDescriptionParts;
+        targetParts.push(text);
     }
 
     const goodExample =
