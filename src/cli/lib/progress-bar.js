@@ -43,22 +43,17 @@ const progressBarWidthState = createIntegerOptionState({
     typeErrorMessage: createTypeErrorMessage
 });
 
-function getDefaultProgressBarWidth() {
-    return progressBarWidthState.getDefault();
-}
-
-function setDefaultProgressBarWidth(width) {
-    return progressBarWidthState.setDefault(width);
-}
+const {
+    getDefault: getDefaultProgressBarWidth,
+    setDefault: setDefaultProgressBarWidth,
+    resolve: resolveProgressBarWidthState,
+    applyEnvOverride: applyProgressBarWidthEnvOverride
+} = progressBarWidthState;
 
 function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    return progressBarWidthState.resolve(rawValue, {
+    return resolveProgressBarWidthState(rawValue, {
         defaultValue: defaultWidth
     });
-}
-
-function applyProgressBarWidthEnvOverride(env = process?.env) {
-    progressBarWidthState.applyEnvOverride(env);
 }
 
 applyProgressBarWidthEnvOverride();

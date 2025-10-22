@@ -43,22 +43,23 @@ const memoryIterationsState = createIntegerOptionState({
     typeErrorMessage: createIterationTypeErrorMessage
 });
 
-export function getDefaultMemoryIterations() {
-    return memoryIterationsState.getDefault();
-}
+const {
+    getDefault: getDefaultMemoryIterations,
+    setDefault: setDefaultMemoryIterations,
+    resolve: resolveMemoryIterationsState,
+    applyEnvOverride: applyMemoryIterationsEnvOverride
+} = memoryIterationsState;
 
-export function setDefaultMemoryIterations(iterations) {
-    return memoryIterationsState.setDefault(iterations);
-}
+export {
+    getDefaultMemoryIterations,
+    setDefaultMemoryIterations,
+    applyMemoryIterationsEnvOverride
+};
 
 export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
-    return memoryIterationsState.resolve(rawValue, {
+    return resolveMemoryIterationsState(rawValue, {
         defaultValue: defaultIterations
     });
-}
-
-export function applyMemoryIterationsEnvOverride(env = process?.env) {
-    memoryIterationsState.applyEnvOverride(env);
 }
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
