@@ -107,6 +107,18 @@ function walkAstNodes(root, visitor) {
     visit(root, null, null);
 }
 
+function hasArrayParentWithNumericIndex(parent, property) {
+    if (!Array.isArray(parent)) {
+        return false;
+    }
+
+    if (typeof property !== "number") {
+        return false;
+    }
+
+    return true;
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -2581,7 +2593,7 @@ function splitGlobalVarStatementInitializers({
         return [];
     }
 
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return [];
     }
 
@@ -3019,7 +3031,7 @@ function convertReadOnlyAssignment(
     diagnostic,
     nameRegistry
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -4794,7 +4806,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 }
 
 function rewritePostfixStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -6839,7 +6851,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return [];
         }
 
-        if (!Array.isArray(parent) || typeof property !== "number") {
+        if (!hasArrayParentWithNumericIndex(parent, property)) {
             return [];
         }
 
@@ -7481,7 +7493,7 @@ function convertAssignmentToLocalVariable({
     sourceText,
     programAst
 }) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8455,7 +8467,7 @@ function isStatementArray(entry) {
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
