@@ -477,6 +477,22 @@ Line comments automatically drop YoYo Games' generated banner message (`Script a
 
 > **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
 
+Bare struct literals now respect Prettier's [`objectWrap`](https://prettier.io/docs/en/options.html#object-wrap) option introduced in v3.5.0. When formatting GML, the plugin maps the behaviour directly onto struct literals:
+
+- `objectWrap: "preserve"` (default) keeps the literal multi-line when the original source placed a newline immediately after `{`.
+- `objectWrap: "collapse"` inlines eligible literals onto a single line when they fit within the configured `printWidth`.
+
+```gml
+// objectWrap: "preserve"
+var enemy = {
+    name: "Slime",
+    hp: 5
+};
+
+// objectWrap: "collapse"
+var enemy = {name: "Slime", hp: 5};
+```
+
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
 Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.

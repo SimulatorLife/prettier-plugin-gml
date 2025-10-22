@@ -77,6 +77,17 @@ const {
 } = builders;
 const { willBreak } = utils;
 
+const ObjectWrapOption = Object.freeze({
+    PRESERVE: "preserve",
+    COLLAPSE: "collapse"
+});
+
+function resolveObjectWrapOption(options) {
+    return options?.objectWrap === ObjectWrapOption.COLLAPSE
+        ? ObjectWrapOption.COLLAPSE
+        : ObjectWrapOption.PRESERVE;
+}
+
 const preservedUndefinedDefaultParameters = new WeakSet();
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
@@ -992,6 +1003,10 @@ export function print(path, options, print) {
             }
 
             const shouldForceBreakStruct = forcedStructArgumentBreaks.has(node);
+            const objectWrapOption = resolveObjectWrapOption(options);
+            const shouldPreserveStructWrap =
+                objectWrapOption === ObjectWrapOption.PRESERVE &&
+                structLiteralHasLeadingLineBreak(node, options);
 
             return concat(
                 printCommaSeparatedList(
@@ -1003,7 +1018,9 @@ export function print(path, options, print) {
                     options,
                     {
                         forceBreak:
-                            node.hasTrailingComma || shouldForceBreakStruct,
+                            node.hasTrailingComma ||
+                            shouldForceBreakStruct ||
+                            shouldPreserveStructWrap,
                         // TODO: Keep struct literals flush with their braces for
                         // now. GameMaker's runtime formatter and the examples in
                         // the manual (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FVariable_Functions%2FStructs.htm)
@@ -4638,6 +4655,103 @@ function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
     return true;
 }
 
+function structLiteralHasLeadingLineBreak(node, options) {
+    if (!node || !options || typeof options.originalText !== "string") {
+        return false;
+    }
+
+    if (!Array.isArray(node.properties) || node.properties.length === 0) {
+        return false;
+    }
+
+    const { start, end } = getNodeRangeIndices(node);
+    if (start == null || end == null || end <= start) {
+        return false;
+    }
+
+    const source = options.originalText.slice(start, end);
+    const openBraceIndex = source.indexOf("{");
+    if (openBraceIndex === -1) {
+        return false;
+    }
+
+    for (let index = openBraceIndex + 1; index < source.length; index += 1) {
+        const character = source[index];
+
+        if (character === "\n") {
+            return true;
+        }
+
+        if (character === "\r") {
+            if (source[index + 1] === "\n") {
+                return true;
+            }
+            return true;
+        }
+
+        if (character.trim() === "") {
+            continue;
+        }
+
+        if (character === "/") {
+            const lookahead = source[index + 1];
+
+            if (lookahead === "/") {
+                index += 2;
+                while (index < source.length) {
+                    const commentChar = source[index];
+                    if (commentChar === "\n") {
+                        return true;
+                    }
+                    if (commentChar === "\r") {
+                        if (source[index + 1] === "\n") {
+                            return true;
+                        }
+                        return true;
+                    }
+
+                    index += 1;
+                }
+
+                return false;
+            }
+
+            if (lookahead === "*") {
+                index += 2;
+                while (index < source.length - 1) {
+                    const commentChar = source[index];
+                    if (commentChar === "\n") {
+                        return true;
+                    }
+                    if (commentChar === "\r") {
+                        if (source[index + 1] === "\n") {
+                            return true;
+                        }
+                        return true;
+                    }
+
+                    if (commentChar === "*" && source[index + 1] === "/") {
+                        index += 1;
+                        break;
+                    }
+
+                    index += 1;
+                }
+
+                continue;
+            }
+        }
+
+        if (character === "}") {
+            return false;
+        }
+
+        return false;
+    }
+
+    return false;
+}
+
 function getStructPropertyPrefix(node, options) {
     if (!node || !options || typeof options.originalText !== "string") {
         return null;
@@ -5649,6 +5763,20 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
+    if (isAdditivePair) {
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+                expressionReferencesSanitizedMacro(
+                    expression,
+                    sanitizedMacroNames
+                ))
+        ) {
+            return false;
+        }
+    }
+
     const operandName =
         typeof path.getName === "function" ? path.getName() : undefined;
     const isLeftOperand = operandName === "left";
@@ -5728,6 +5856,103 @@ function isSyntheticParenFlatteningEnabled(path) {
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
 const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+
+function getSanitizedMacroNames(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let depth = 1;
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return null;
+        }
+
+        if (ancestor.type === "Program") {
+            const { _featherSanitizedMacroNames: names } = ancestor;
+
+            if (!names) {
+                return null;
+            }
+
+            if (names instanceof Set) {
+                return names.size > 0 ? names : null;
+            }
+
+            if (Array.isArray(names)) {
+                if (names.length === 0) {
+                    return null;
+                }
+
+                const registry = new Set(names);
+                ancestor._featherSanitizedMacroNames = registry;
+                return registry;
+            }
+
+            return null;
+        }
+
+        depth += 1;
+    }
+}
+
+function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
+    if (!sanitizedMacroNames || sanitizedMacroNames.size === 0) {
+        return false;
+    }
+
+    const stack = [node];
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (
+            current.type === "Identifier" &&
+            typeof current.name === "string" &&
+            sanitizedMacroNames.has(current.name)
+        ) {
+            return true;
+        }
+
+        if (current.type === "CallExpression") {
+            const calleeName = getIdentifierText(current.object);
+            if (
+                typeof calleeName === "string" &&
+                sanitizedMacroNames.has(calleeName)
+            ) {
+                return true;
+            }
+        }
+
+        for (const value of Object.values(current)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (const entry of value) {
+                    if (entry && typeof entry === "object") {
+                        stack.push(entry);
+                    }
+                }
+                continue;
+            }
+
+            if (value.type) {
+                stack.push(value);
+            }
+        }
+    }
+
+    return false;
+}
 
 function isNumericCallExpression(node) {
     if (!node || node.type !== "CallExpression") {
