@@ -2005,6 +2005,7 @@ export function applyAssignmentAlignment(
     // the nodes and spreading into Math.max during every flush. This helper
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
+    let currentGroupHasAlias = false;
 
     const originalText =
         typeof options?.originalText === "string" ? options.originalText : null;
@@ -2017,12 +2018,16 @@ export function applyAssignmentAlignment(
         path,
         childrenAttribute
     );
+    const functionParameterNames = insideFunctionBody
+        ? getFunctionParameterNameSetFromPath(path)
+        : null;
 
     let previousEntry = null;
 
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
+        currentGroupHasAlias = false;
     };
 
     const flushGroup = () => {
@@ -2034,8 +2039,9 @@ export function applyAssignmentAlignment(
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
             minGroupSize > 0 && groupEntries.length >= minGroupSize;
+        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
-        if (!meetsAlignmentThreshold) {
+        if (!canAlign) {
             for (const { node } of groupEntries) {
                 node._alignAssignmentPadding = 0;
             }
@@ -2054,7 +2060,8 @@ export function applyAssignmentAlignment(
     for (const statement of statements) {
         const entry = getSimpleAssignmentLikeEntry(
             statement,
-            insideFunctionBody
+            insideFunctionBody,
+            functionParameterNames
         );
 
         if (entry) {
@@ -2078,6 +2085,9 @@ export function applyAssignmentAlignment(
             });
             if (entry.nameLength > currentGroupMaxLength) {
                 currentGroupMaxLength = entry.nameLength;
+            }
+            if (entry.enablesAlignment) {
+                currentGroupHasAlias = true;
             }
 
             previousEntry = entry;
@@ -2124,7 +2134,11 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
     return false;
 }
 
-function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
+function getSimpleAssignmentLikeEntry(
+    statement,
+    insideFunctionBody,
+    functionParameterNames
+) {
     if (isSimpleAssignment(statement)) {
         const identifier = statement.left;
         if (!identifier || typeof identifier.name !== "string") {
@@ -2134,7 +2148,8 @@ function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
         return {
             locationNode: statement,
             paddingTarget: statement,
-            nameLength: identifier.name.length
+            nameLength: identifier.name.length,
+            enablesAlignment: true
         };
     }
 
@@ -2153,20 +2168,58 @@ function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
     }
 
     const init = declarator.init;
-    if (!init || init.type !== "Identifier" || typeof init.name !== "string") {
+    if (!init) {
         return null;
     }
 
-    const argumentIndex = getArgumentIndexFromIdentifier(init.name);
-    if (argumentIndex === null) {
-        return null;
+    let enablesAlignment = false;
+    if (init.type === "Identifier" && typeof init.name === "string") {
+        const argumentIndex = getArgumentIndexFromIdentifier(init.name);
+        if (argumentIndex !== null) {
+            enablesAlignment = true;
+        } else if (functionParameterNames?.has(init.name)) {
+            enablesAlignment = true;
+        }
     }
 
     return {
         locationNode: statement,
         paddingTarget: declarator,
-        nameLength: id.name.length
+        nameLength: id.name.length,
+        enablesAlignment
     };
+}
+
+function getFunctionParameterNameSetFromPath(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    const functionNode = path.getParentNode();
+    if (!functionNode || typeof functionNode !== "object") {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : null;
+    if (!params || params.length === 0) {
+        return null;
+    }
+
+    const names = new Set();
+    for (const param of params) {
+        const identifier = getIdentifierFromParameterNode(param);
+        if (
+            identifier &&
+            typeof identifier.name === "string" &&
+            identifier.name.length > 0
+        ) {
+            names.add(identifier.name);
+        }
+    }
+
+    return names.size > 0 ? names : null;
 }
 
 function getAssignmentAlignmentMinimum(options) {
