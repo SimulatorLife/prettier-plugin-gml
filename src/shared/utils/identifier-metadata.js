@@ -2,7 +2,7 @@ import { isObjectLike } from "./object.js";
 import { isNonEmptyString } from "./string.js";
 
 /**
- * Normalise identifier metadata entries into a consistent shape that callers can
+ * Normalize identifier metadata entries into a consistent shape callers can
  * safely consume. Invalid or malformed entries are discarded so downstream
  * modules can focus on business logic instead of defensive checks.
  *

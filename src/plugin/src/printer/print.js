@@ -635,6 +635,44 @@ export function print(path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
+            const functionNode = findEnclosingFunctionNode(path);
+            const declarators = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+            const keptDeclarators = declarators.filter(
+                (declarator) =>
+                    !shouldOmitParameterAlias(declarator, functionNode, options)
+            );
+
+            if (keptDeclarators.length === 0) {
+                return;
+            }
+
+            if (keptDeclarators.length !== declarators.length) {
+                const original = node.declarations;
+                node.declarations = keptDeclarators;
+                try {
+                    const decls =
+                        keptDeclarators.length > 1
+                            ? printCommaSeparatedList(
+                                  path,
+                                  print,
+                                  "declarations",
+                                  "",
+                                  "",
+                                  options,
+                                  {
+                                      leadingNewline: false,
+                                      trailingNewline: false
+                                  }
+                              )
+                            : path.map(print, "declarations");
+                    return concat([node.kind, " ", decls]);
+                } finally {
+                    node.declarations = original;
+                }
+            }
+
             let decls = [];
             decls =
                 node.declarations.length > 1
@@ -1774,9 +1812,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
-                // Normalised legacy `#define` directives used to omit trailing
+                // Normalized legacy `#define` directives used to omit trailing
                 // semicolons when rewriting to function expressions. The
-                // formatter now standardises those assignments so they always
+                // formatter now standardizes those assignments so they always
                 // emit an explicit semicolon, matching the golden fixtures and
                 // keeping the output consistent regardless of the original
                 // source style.
@@ -2705,9 +2743,9 @@ function mergeSyntheticDocComments(
             for (const [index, param] of node.params.entries()) {
                 const implicitEntry = implicitEntryByIndex.get(index);
                 if (implicitEntry) {
-                    const implicitCanonical = implicitEntry.canonical
-                        ? implicitEntry.canonical
-                        : getCanonicalParamNameFromText(implicitEntry.name);
+                    const implicitCanonical =
+                        implicitEntry.canonical ||
+                        getCanonicalParamNameFromText(implicitEntry.name);
                     if (
                         implicitCanonical &&
                         docsByCanonical.has(implicitCanonical)
@@ -3101,65 +3139,82 @@ function getCanonicalParamNameFromText(name) {
 
 function getPreferredFunctionParameterName(path, node, options) {
     const context = findFunctionParameterContext(path);
-    if (!context) {
+    if (context) {
+        const { functionNode, paramIndex } = context;
+        if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+            return null;
+        }
+
+        const params = Array.isArray(functionNode.params)
+            ? functionNode.params
+            : [];
+        if (paramIndex >= params.length) {
+            return null;
+        }
+
+        const identifier = getIdentifierFromParameterNode(params[paramIndex]);
+        const currentName =
+            (identifier && typeof identifier.name === "string"
+                ? identifier.name
+                : null) ??
+            node?.name ??
+            null;
+
+        return resolvePreferredParameterName(
+            functionNode,
+            paramIndex,
+            currentName,
+            options
+        );
+    }
+
+    if (!node || typeof node.name !== "string") {
         return null;
     }
 
-    const { functionNode, paramIndex } = context;
-    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+    const argumentIndex = getArgumentIndexFromIdentifier(node.name);
+    if (argumentIndex === null) {
         return null;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
+        return null;
+    }
+
+    const preferredName = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        node.name,
+        options
+    );
+
+    if (isNonEmptyString(preferredName)) {
+        return preferredName;
     }
 
     const params = Array.isArray(functionNode.params)
         ? functionNode.params
         : [];
-    if (paramIndex >= params.length) {
-        return null;
-    }
-
-    const identifier = getIdentifierFromParameterNode(params[paramIndex]);
-    if (!identifier || typeof identifier.name !== "string") {
-        return null;
-    }
-
-    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
-    let preferredSource =
-        (docPreferences && docPreferences.get(paramIndex)) || null;
-
-    if (!preferredSource) {
-        const implicitEntries = collectImplicitArgumentDocNames(
-            functionNode,
-            options
+    if (argumentIndex >= 0 && argumentIndex < params.length) {
+        const identifier = getIdentifierFromParameterNode(
+            params[argumentIndex]
         );
-
-        if (Array.isArray(implicitEntries)) {
-            const implicitEntry = implicitEntries.find(
-                (entry) => entry && entry.index === paramIndex
+        if (identifier && typeof identifier.name === "string") {
+            const normalizedIdentifier = normalizePreferredParameterName(
+                identifier.name
             );
-
-            if (implicitEntry) {
-                if (
-                    implicitEntry.canonical &&
-                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
-                ) {
-                    preferredSource =
-                        implicitEntry.name || implicitEntry.canonical;
-                } else if (
-                    implicitEntry.name &&
-                    implicitEntry.name !== identifier.name
-                ) {
-                    preferredSource = implicitEntry.name;
-                }
+            if (
+                normalizedIdentifier &&
+                normalizedIdentifier !== node.name &&
+                isValidIdentifierName(normalizedIdentifier)
+            ) {
+                return normalizedIdentifier;
             }
         }
     }
 
-    const normalizedName = normalizePreferredParameterName(preferredSource);
-    if (!normalizedName || normalizedName === identifier.name) {
-        return null;
-    }
-
-    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+    return null;
 }
 
 function findFunctionParameterContext(path) {
@@ -3195,6 +3250,144 @@ function findFunctionParameterContext(path) {
     }
 
     return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let depth = 0;
+    while (true) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            return parent;
+        }
+
+        depth += 1;
+    }
+
+    return null;
+}
+
+function resolvePreferredParameterName(
+    functionNode,
+    paramIndex,
+    currentName,
+    options
+) {
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(paramIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === paramIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== currentName
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === currentName) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+}
+
+function shouldOmitParameterAlias(declarator, functionNode, options) {
+    if (
+        !declarator ||
+        declarator.type !== "VariableDeclarator" ||
+        !declarator.id ||
+        declarator.id.type !== "Identifier" ||
+        !declarator.init ||
+        declarator.init.type !== "Identifier"
+    ) {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(declarator.init.name);
+    if (argumentIndex === null) {
+        return false;
+    }
+
+    const preferredName = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        declarator.init.name,
+        options
+    );
+
+    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    if (!normalizedAlias) {
+        return false;
+    }
+
+    const normalizedPreferred = preferredName
+        ? normalizePreferredParameterName(preferredName)
+        : null;
+
+    if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
+        return true;
+    }
+
+    if (!functionNode || !Array.isArray(functionNode.params)) {
+        return false;
+    }
+
+    const params = functionNode.params;
+    if (argumentIndex < 0 || argumentIndex >= params.length) {
+        return false;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[argumentIndex]);
+    if (!identifier || typeof identifier.name !== "string") {
+        return false;
+    }
+
+    const normalizedParamName = normalizePreferredParameterName(
+        identifier.name
+    );
+
+    return (
+        typeof normalizedParamName === "string" &&
+        normalizedParamName.length > 0 &&
+        normalizedParamName === normalizedAlias
+    );
 }
 
 function getIdentifierFromParameterNode(param) {
@@ -3438,8 +3631,8 @@ function computeSyntheticFunctionDocLines(
             ) {
                 const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
-                    (canonicalImplicit && canonicalImplicit.length) ||
-                    effectiveImplicitName.trim().length;
+                    (canonicalImplicit && canonicalImplicit.length > 0) ||
+                    effectiveImplicitName.trim().length > 0;
 
                 if (ordinalLength > implicitLength) {
                     effectiveImplicitName = null;
@@ -3913,7 +4106,7 @@ function normalizeOptionalParamNameToken(name) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -3924,7 +4117,7 @@ function normalizeOptionalParamNameToken(name) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;
