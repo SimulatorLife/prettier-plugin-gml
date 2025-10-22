@@ -3,7 +3,7 @@ export default class BinaryExpressionDelegate {
         this.operators = operators;
     }
 
-    handle(ctx, { visit, astNode }, isEmbeddedExpression = false) {
+    handle(ctx, { visit, astNode }, parentBinary = null) {
         if (!ctx || !Object.hasOwn(ctx, "expression")) {
             return visit(ctx);
         }
@@ -17,6 +17,12 @@ export default class BinaryExpressionDelegate {
         let leftNode;
         let rightNode;
 
+        const operatorToken = ctx?.children?.[1];
+        const operator =
+            typeof operatorToken?.getText === "function"
+                ? operatorToken.getText()
+                : undefined;
+
         if (childExpressions.length === 1) {
             leftNode = visit(childExpressions[0]);
         } else {
@@ -28,16 +34,31 @@ export default class BinaryExpressionDelegate {
                 Object.hasOwn(rightCtx, "expression") &&
                 typeof rightCtx.expression === "function";
 
+            const childParentMetadata =
+                typeof operator === "string"
+                    ? { operator, position: null }
+                    : null;
+
             leftNode = leftIsBinary
-                ? this.handle(leftCtx, { visit, astNode }, true)
+                ? this.handle(
+                      leftCtx,
+                      { visit, astNode },
+                      childParentMetadata
+                          ? { ...childParentMetadata, position: "left" }
+                          : null
+                  )
                 : visit(leftCtx);
 
             rightNode = rightIsBinary
-                ? this.handle(rightCtx, { visit, astNode }, true)
+                ? this.handle(
+                      rightCtx,
+                      { visit, astNode },
+                      childParentMetadata
+                          ? { ...childParentMetadata, position: "right" }
+                          : null
+                  )
                 : visit(rightCtx);
         }
-
-        const operator = ctx.children[1].getText();
 
         let node = astNode(ctx, {
             type: "BinaryExpression",
@@ -46,44 +67,64 @@ export default class BinaryExpressionDelegate {
             right: rightNode
         });
 
-        if (
-            isEmbeddedExpression &&
-            this.needsParentheses(operator, leftNode, rightNode)
-        ) {
-            node = this.wrapInParentheses(ctx, node, astNode);
+        if (parentBinary && this.needsParentheses(operator, parentBinary)) {
+            node = this.wrapInParentheses(
+                ctx,
+                node,
+                astNode,
+                parentBinary.position
+            );
         }
 
         return node;
     }
 
-    needsParentheses(operator, leftNode, rightNode) {
-        if (!operator || !leftNode || !rightNode) {
+    needsParentheses(operator, parentBinary) {
+        if (!operator || !parentBinary || !parentBinary.operator) {
             return false;
         }
 
-        const leftOp =
-            leftNode.type === "BinaryExpression"
-                ? this.operators[leftNode.operator]
-                : { prec: 0, assoc: "left" };
-        const rightOp =
-            rightNode.type === "BinaryExpression"
-                ? this.operators[rightNode.operator]
-                : { prec: 0, assoc: "left" };
-        const currOp = this.operators[operator];
+        const currentOp = this.operators[operator];
+        const parentOp = this.operators[parentBinary.operator];
 
-        if (currOp.assoc === "left") {
-            return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;
+        if (!currentOp || !parentOp) {
+            return false;
         }
 
-        // For right-associative operators
-        return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
+        if (currentOp.prec < parentOp.prec) {
+            return true;
+        }
+
+        if (currentOp.prec > parentOp.prec) {
+            return false;
+        }
+
+        if (currentOp.assoc === parentOp.assoc) {
+            return false;
+        }
+
+        if (parentBinary.position === "left") {
+            return parentOp.assoc === "right";
+        }
+
+        if (parentBinary.position === "right") {
+            return parentOp.assoc === "left";
+        }
+
+        return false;
     }
 
-    wrapInParentheses(ctx, node, astNode) {
-        return astNode(ctx, {
+    wrapInParentheses(ctx, node, astNode, position) {
+        const wrapped = astNode(ctx, {
             type: "ParenthesizedExpression",
             expression: node,
             synthetic: true
         });
+
+        if (position != undefined) {
+            wrapped.position = position;
+        }
+
+        return wrapped;
     }
 }

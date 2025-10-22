@@ -426,6 +426,57 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("does not synthesize parentheses for nested logical comparisons", () => {
+        const source = [
+            "if (a <= 1 or b <= 2 or c <= 3) {",
+            "    return;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = parseFixture(source, {
+            options: { getLocations: true, simplifyLocations: false }
+        });
+
+        assert.ok(ast, "Parser returned no AST when parsing logical source.");
+        const [statement] = ast.body;
+        assert.ok(statement, "Expected an if statement to be present.");
+        assert.strictEqual(
+            statement.type,
+            "IfStatement",
+            "Expected the first statement to be an if statement."
+        );
+
+        const syntheticParens = [];
+        const visited = new Set();
+        (function collect(node) {
+            if (!node || typeof node !== "object") {
+                return;
+            }
+
+            if (visited.has(node)) {
+                return;
+            }
+            visited.add(node);
+
+            if (node.type === "ParenthesizedExpression" && node.synthetic) {
+                syntheticParens.push(node);
+            }
+
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    collect(value);
+                }
+            }
+        })(statement.test);
+
+        assert.deepStrictEqual(
+            syntheticParens,
+            [],
+            "Expected parser to avoid adding synthetic parentheses to logical comparisons."
+        );
+    });
+
     it("retains 'globalvar' declarations in the AST", () => {
         const source = "globalvar foo, bar;\nfoo = 1;\n";
         const ast = parseFixture(source, { options: { getLocations: true } });
