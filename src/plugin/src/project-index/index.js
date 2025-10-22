@@ -445,6 +445,133 @@ function createProjectTreeCollector(metrics = null) {
     };
 }
 
+/**
+ * Manage pending directory traversal state so scanProjectTree can delegate the
+ * raw stack bookkeeping. Keeps the orchestrator focused on the high-level
+ * traversal lifecycle.
+ */
+function createDirectoryTraversal(projectRoot) {
+    const pending = ["."];
+
+    return {
+        hasPending() {
+            return pending.length > 0;
+        },
+        next() {
+            if (pending.length === 0) {
+                return null;
+            }
+
+            const relativePath = pending.pop();
+            return {
+                relativePath,
+                absolutePath: path.join(projectRoot, relativePath)
+            };
+        },
+        enqueue(relativePath) {
+            pending.push(relativePath);
+        }
+    };
+}
+
+function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
+    const relativePath = path.join(directoryContext.relativePath, entry);
+    const absolutePath = path.join(projectRoot, relativePath);
+
+    return {
+        relativePath,
+        absolutePath,
+        relativePosix: toPosixPath(relativePath)
+    };
+}
+
+/**
+ * Load a directory listing while updating traversal metrics and respecting the
+ * configured abort signal.
+ */
+async function resolveDirectoryListing({
+    directoryContext,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    signal
+}) {
+    ensureNotAborted();
+    const entries = await listDirectory(fsFacade, directoryContext.absolutePath, {
+        signal
+    });
+    ensureNotAborted();
+    metrics?.incrementCounter("io.directoriesScanned");
+    return entries;
+}
+
+function isDirectoryStat(stats) {
+    return typeof stats?.isDirectory === "function" && stats.isDirectory();
+}
+
+async function resolveEntryStats({
+    absolutePath,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    try {
+        const stats = await fsFacade.stat(absolutePath);
+        ensureNotAborted();
+        return stats;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics?.incrementCounter("io.skippedMissingEntries");
+            return null;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Walk each entry discovered in a directory, routing directories back onto the
+ * traversal queue and registering leaf files with the collector.
+ */
+async function processDirectoryEntries({
+    entries,
+    directoryContext,
+    traversal,
+    collector,
+    projectRoot,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    for (const entry of entries) {
+        ensureNotAborted();
+        const descriptor = createDirectoryEntryDescriptor(
+            directoryContext,
+            entry,
+            projectRoot
+        );
+        const stats = await resolveEntryStats({
+            absolutePath: descriptor.absolutePath,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
+
+        if (!stats) {
+            continue;
+        }
+
+        if (isDirectoryStat(stats)) {
+            traversal.enqueue(descriptor.relativePath);
+            continue;
+        }
+
+        collector.register(descriptor.relativePosix, descriptor.absolutePath);
+    }
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -454,45 +581,34 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const pending = ["."];
+    const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
-        const absoluteDir = path.join(projectRoot, relativeDir);
-        ensureNotAborted();
-        const entries = await listDirectory(fsFacade, absoluteDir, {
+    while (traversal.hasPending()) {
+        const directoryContext = traversal.next();
+        if (!directoryContext) {
+            continue;
+        }
+
+        const entries = await resolveDirectoryListing({
+            directoryContext,
+            fsFacade,
+            metrics,
+            ensureNotAborted,
             signal
         });
-        ensureNotAborted();
-        metrics?.incrementCounter("io.directoriesScanned");
 
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-                ensureNotAborted();
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
-
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            collector.register(relativePosix, absolutePath);
-        }
+        await processDirectoryEntries({
+            entries,
+            directoryContext,
+            traversal,
+            collector,
+            projectRoot,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
     }
 
     return collector.snapshot();
