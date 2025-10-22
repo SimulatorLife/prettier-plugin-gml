@@ -14,6 +14,10 @@ import {
 
 import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import {
+    isJsonParseError,
+    parseJsonWithContext
+} from "../../../shared/json-utils.js";
+import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
@@ -277,9 +281,15 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
     ensureNotAborted();
 
     try {
-        return JSON.parse(rawContents);
-    } catch {
-        return null;
+        return parseJsonWithContext(rawContents, {
+            source: file.absolutePath ?? file.relativePath,
+            description: "resource document"
+        });
+    } catch (error) {
+        if (isJsonParseError(error)) {
+            return null;
+        }
+        throw error;
     }
 }
 
