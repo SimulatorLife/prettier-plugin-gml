@@ -6,22 +6,38 @@ import {
 } from "prettier-plugin-gamemaker/identifier-case";
 
 /**
- * The legacy `identifierCasePlanService` facade coupled plan preparation with
- * cache clearing behind one "service" surface. That wide contract forced CLI
- * collaborators that only needed to warm caches or only needed to clear them
- * to depend on both behaviours. The typedefs below capture the narrower
- * preparation and cache responsibilities so consumers can opt into the precise
- * collaborator they require.
+ * @typedef {import("../plugin-services.js").CliProjectIndexBuilder} CliProjectIndexBuilder
+ * @typedef {import("../plugin-services.js").CliIdentifierCasePlanPreparer} CliIdentifierCasePlanPreparer
+ * @typedef {import("../plugin-services.js").CliIdentifierCaseCacheClearer} CliIdentifierCaseCacheClearer
+ */
+
+/**
+ * Historically the CLI exposed a wide `identifierCasePlan` service surface that
+ * mixed cache maintenance with plan preparation helpers. Downstream consumers
+ * that only needed one capability still depended on both. The narrower
+ * contracts below capture each responsibility so call sites can depend on the
+ * precise collaborator they require.
+ */
+
+/**
+ * @typedef {object} CliProjectIndexService
+ * @property {CliProjectIndexBuilder} buildProjectIndex
  */
 
 /**
  * @typedef {object} CliIdentifierCasePlanPreparationService
- * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
+ * @property {CliIdentifierCasePlanPreparer} prepareIdentifierCasePlan
  */
 
 /**
  * @typedef {object} CliIdentifierCasePlanCacheService
- * @property {() => void} clearIdentifierCaseCaches
+ * @property {CliIdentifierCaseCacheClearer} clearIdentifierCaseCaches
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanServices
+ * @property {CliIdentifierCasePlanPreparationService} preparation
+ * @property {CliIdentifierCasePlanCacheService} cache
  */
 
 function clearIdentifierCaseCaches() {
@@ -33,27 +49,33 @@ export const defaultProjectIndexBuilder = buildProjectIndex;
 export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
 export const defaultIdentifierCaseCacheClearer = clearIdentifierCaseCaches;
 
+/** @type {CliProjectIndexService} */
 const projectIndexService = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder
 });
 
-const identifierCasePlanPreparationService = Object.freeze(
-    /** @type {CliIdentifierCasePlanPreparationService} */ ({
-        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
-    })
-);
+/** @type {CliIdentifierCasePlanPreparationService} */
+const identifierCasePlanPreparationService = Object.freeze({
+    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+});
 
-const identifierCasePlanCacheService = Object.freeze(
-    /** @type {CliIdentifierCasePlanCacheService} */ ({
-        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
-    })
-);
+/** @type {CliIdentifierCasePlanCacheService} */
+const identifierCasePlanCacheService = Object.freeze({
+    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
+});
+
+/** @type {CliIdentifierCasePlanServices} */
+const identifierCasePlanServices = Object.freeze({
+    preparation: identifierCasePlanPreparationService,
+    cache: identifierCasePlanCacheService
+});
 
 const defaultCliPluginServices = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder,
     prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
     clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
     projectIndex: projectIndexService,
+    identifierCasePlan: identifierCasePlanServices,
     identifierCasePlanPreparation: identifierCasePlanPreparationService,
     identifierCasePlanCache: identifierCasePlanCacheService
 });
@@ -65,6 +87,10 @@ export const resolveCliProjectIndexService = () => projectIndexService;
 export const createDefaultCliProjectIndexService =
     resolveCliProjectIndexService;
 
+export const resolveCliIdentifierCasePlanService = () =>
+    identifierCasePlanServices;
+export const createDefaultCliIdentifierCasePlanService =
+    resolveCliIdentifierCasePlanService;
 export const resolveCliIdentifierCasePlanPreparationService = () =>
     identifierCasePlanPreparationService;
 export const createDefaultCliIdentifierCasePlanPreparationService =

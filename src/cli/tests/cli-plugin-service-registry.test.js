@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    createDefaultCliIdentifierCasePlanService,
     createDefaultCliIdentifierCasePlanPreparationService,
     createDefaultCliIdentifierCaseCacheService,
     createDefaultCliPluginServices,
@@ -9,6 +10,7 @@ import {
     defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
     defaultProjectIndexBuilder,
+    resolveCliIdentifierCasePlanService,
     resolveCliIdentifierCasePlanPreparationService,
     resolveCliIdentifierCaseCacheService,
     resolveCliPluginServices,
@@ -28,6 +30,21 @@ test("CLI plugin services expose validated defaults", () => {
         typeof services.prepareIdentifierCasePlan,
         "function",
         "default identifier case planner should be provided"
+    );
+    assert.strictEqual(
+        services.projectIndex.buildProjectIndex,
+        defaultProjectIndexBuilder,
+        "project index service should expose the default builder"
+    );
+    assert.strictEqual(
+        services.identifierCasePlan.preparation.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "identifier case plan preparation facade should expose the default helper"
+    );
+    assert.strictEqual(
+        services.identifierCasePlan.cache.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "identifier case plan cache facade should expose the default helper"
     );
     assert.strictEqual(
         services.buildProjectIndex,
@@ -74,6 +91,42 @@ test("CLI plugin services expose validated defaults", () => {
         services.projectIndex,
         projectIndexService,
         "root registry should expose the same project index service"
+    );
+
+    const identifierCasePlanServices = resolveCliIdentifierCasePlanService();
+    assert.ok(
+        Object.isFrozen(identifierCasePlanServices),
+        "identifier case plan services should be frozen"
+    );
+    assert.strictEqual(
+        identifierCasePlanServices.preparation,
+        services.identifierCasePlanPreparation,
+        "identifier case plan services should expose the preparation facade"
+    );
+    assert.strictEqual(
+        identifierCasePlanServices.cache,
+        services.identifierCasePlanCache,
+        "identifier case plan services should expose the cache facade"
+    );
+    assert.strictEqual(
+        identifierCasePlanServices.preparation.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "preparation facade should expose the default preparer"
+    );
+    assert.strictEqual(
+        identifierCasePlanServices.cache.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "cache facade should expose the default clearer"
+    );
+    assert.strictEqual(
+        createDefaultCliIdentifierCasePlanService(),
+        identifierCasePlanServices,
+        "default identifier case plan services helper should reuse singleton"
+    );
+    assert.strictEqual(
+        services.identifierCasePlan,
+        identifierCasePlanServices,
+        "root registry should expose the same identifier case plan services"
     );
 
     const identifierCasePlanPreparationService =

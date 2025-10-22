@@ -14,6 +14,7 @@ const resolvedDefaultCliPluginServices = createDefaultCliPluginServices();
 
 export const defaultCliPluginServices = Object.freeze({
     projectIndex: resolvedDefaultCliPluginServices.projectIndex,
+    identifierCasePlan: resolvedDefaultCliPluginServices.identifierCasePlan,
     identifierCasePlanPreparation:
         resolvedDefaultCliPluginServices.identifierCasePlanPreparation,
     identifierCasePlanCache:
@@ -63,13 +64,14 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 export function resetRegisteredCliPluginServices() {
     const {
         projectIndex,
+        identifierCasePlan,
         identifierCasePlanPreparation,
         identifierCasePlanCache
     } = defaultCliPluginServices;
 
     projectIndexBuilder = projectIndex.buildProjectIndex;
     identifierCasePlanPreparer =
-        identifierCasePlanPreparation.prepareIdentifierCasePlan;
+        identifierCasePlan.preparation.prepareIdentifierCasePlan;
     identifierCaseCacheClearer =
-        identifierCasePlanCache.clearIdentifierCaseCaches;
+        identifierCasePlan.cache.clearIdentifierCaseCaches;
 }
