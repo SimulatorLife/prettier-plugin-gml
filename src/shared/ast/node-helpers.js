@@ -333,17 +333,20 @@ function getBooleanLiteralValue(node, options = {}) {
             : !!options?.acceptBooleanPrimitives;
 
     const { value } = node;
+    const isBooleanPrimitive = value === true || value === false;
 
-    if (value === true || value === false) {
-        if (!acceptBooleanPrimitives) {
-            return null;
-        }
-
-        return value ? "true" : "false";
+    if (!isBooleanPrimitive) {
+        const normalized = getLiteralStringValue(node);
+        return normalized === "true" || normalized === "false"
+            ? normalized
+            : null;
     }
 
-    const normalized = getLiteralStringValue(node);
-    return normalized === "true" || normalized === "false" ? normalized : null;
+    if (!acceptBooleanPrimitives) {
+        return null;
+    }
+
+    return value ? "true" : "false";
 }
 
 function isBooleanLiteral(node, options) {
@@ -356,6 +359,46 @@ function isUndefinedLiteral(node) {
 
 function isNode(value) {
     return value !== undefined && value !== null && typeof value === "object";
+}
+
+/**
+ * Iterate over child nodes nested within {@link node}, invoking
+ * {@link callback} for each descendant that should be inspected.
+ *
+ * Arrays forward every entry (including primitives) so traversal helpers can
+ * reuse their existing guard rails without rebuilding bespoke loops. Plain
+ * objects only forward nested objects to mirror the defensive checks found in
+ * the transform visitors that previously duplicated this logic.
+ *
+ * @param {unknown} node Candidate AST fragment to inspect.
+ * @param {(child: unknown) => void} callback Invoked for each descendant value.
+ */
+function visitChildNodes(node, callback) {
+    if (node === undefined || node === null) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            callback(item);
+        }
+
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (
+            value !== undefined &&
+            value !== null &&
+            typeof value === "object"
+        ) {
+            callback(value);
+        }
+    }
 }
 
 function unwrapParenthesizedExpression(node) {
@@ -392,6 +435,7 @@ export {
     isBooleanLiteral,
     isUndefinedLiteral,
     isNode,
+    visitChildNodes,
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration

@@ -2,17 +2,17 @@ const DEFAULT_CONTEXT_KEY = "<default>";
 const contextMap = new Map();
 
 /**
- * Normalises optional file path inputs into a consistent map key.
+ * Normalizes optional file path inputs into a consistent map key.
  *
  * @param {string | null | undefined} filePath
  * @returns {string}
  */
-function normaliseKey(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
+function normalizeKey(filepath) {
+    if (typeof filepath !== "string" || filepath.length === 0) {
         return DEFAULT_CONTEXT_KEY;
     }
 
-    return filePath;
+    return filepath;
 }
 
 /**
@@ -33,7 +33,7 @@ export function setIdentifierCaseDryRunContext({
     now = null,
     projectIndex = null
 } = {}) {
-    const key = normaliseKey(filepath);
+    const key = normalizeKey(filepath);
     contextMap.set(key, {
         renamePlan,
         conflicts,
@@ -54,7 +54,7 @@ export function setIdentifierCaseDryRunContext({
  * @returns {object | null}
  */
 export function consumeIdentifierCaseDryRunContext(filepath = null) {
-    const key = normaliseKey(filepath);
+    const key = normalizeKey(filepath);
     if (!contextMap.has(key)) {
         return null;
     }
@@ -72,7 +72,7 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
  * @returns {object | null}
  */
 export function peekIdentifierCaseDryRunContext(filepath = null) {
-    const key = normaliseKey(filepath);
+    const key = normalizeKey(filepath);
     if (!contextMap.has(key)) {
         return null;
     }

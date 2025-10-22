@@ -22,17 +22,42 @@ test("CLI plugin services expose validated defaults", () => {
 
     assert.ok(Object.isFrozen(services), "service registry should be frozen");
     assert.strictEqual(
+        typeof services.buildProjectIndex,
+        "function",
+        "default project index builder should be provided"
+    );
+    assert.strictEqual(
+        typeof services.prepareIdentifierCasePlan,
+        "function",
+        "default identifier case planner should be provided"
+    );
+    assert.strictEqual(
         services.projectIndex.buildProjectIndex,
         defaultProjectIndexBuilder,
-        "default project index builder should match exported helper"
+        "project index service should expose the default builder"
     );
     assert.strictEqual(
         services.identifierCasePlan.preparation.prepareIdentifierCasePlan,
         defaultIdentifierCasePlanPreparer,
-        "default identifier case planner should match exported helper"
+        "identifier case plan preparation facade should expose the default helper"
     );
     assert.strictEqual(
         services.identifierCasePlan.cache.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "identifier case plan cache facade should expose the default helper"
+    );
+    assert.strictEqual(
+        services.buildProjectIndex,
+        defaultProjectIndexBuilder,
+        "default project index builder should match exported helper"
+    );
+    assert.strictEqual(
+        services.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "default identifier case planner should match exported helper"
+    );
+    assert.strictEqual(
+        services.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
         "default identifier case cache clearer should match exported helper"
     );
@@ -170,9 +195,17 @@ test("CLI plugin services cannot be mutated", () => {
 
     assert.throws(
         () => {
-            services.identifierCasePlan.extra = {};
+            services.identifierCasePlanPreparation.extra = {};
         },
         TypeError,
-        "nested identifier case plan service should be frozen"
+        "identifier case plan preparation service should be frozen"
+    );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlanCache.extra = {};
+        },
+        TypeError,
+        "identifier case plan cache service should be frozen"
     );
 });

@@ -14,9 +14,9 @@ import {
 /**
  * Historically the CLI exposed a wide `identifierCasePlan` service surface that
  * mixed cache maintenance with plan preparation helpers. Downstream consumers
- * that only needed one capability still depended on both. The narrow contracts
- * below isolate each concern so call sites can opt into the specific behaviour
- * they require.
+ * that only needed one capability still depended on both. The narrower
+ * contracts below capture each responsibility so call sites can depend on the
+ * precise collaborator they require.
  */
 
 /**
@@ -71,6 +71,9 @@ const identifierCasePlanServices = Object.freeze({
 });
 
 const defaultCliPluginServices = Object.freeze({
+    buildProjectIndex: defaultProjectIndexBuilder,
+    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
+    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
     projectIndex: projectIndexService,
     identifierCasePlan: identifierCasePlanServices,
     identifierCasePlanPreparation: identifierCasePlanPreparationService,
@@ -88,7 +91,6 @@ export const resolveCliIdentifierCasePlanService = () =>
     identifierCasePlanServices;
 export const createDefaultCliIdentifierCasePlanService =
     resolveCliIdentifierCasePlanService;
-
 export const resolveCliIdentifierCasePlanPreparationService = () =>
     identifierCasePlanPreparationService;
 export const createDefaultCliIdentifierCasePlanPreparationService =

@@ -253,7 +253,28 @@ function removeDuplicateCondensedFunctions(context) {
         return;
     }
 
-    context.ast.body = context.ast.body.filter((node) => !toRemove.has(node));
+    pruneContextRootBody(context, (node) => !toRemove.has(node));
+}
+
+/**
+ * Centralizes updates to the root body so call sites do not need to reach
+ * through the transformation context to manipulate nested collections.
+ *
+ * @param {object} context - Active transformation context produced by
+ * `condenseLogicalExpressions`.
+ * @param {(node: object) => boolean} predicate - Predicate describing which
+ * nodes should be retained in the root body.
+ */
+function pruneContextRootBody(context, predicate) {
+    const ast = context?.ast;
+    if (!ast || !Array.isArray(ast.body)) {
+        return;
+    }
+
+    const currentBody = ast.body;
+    const filteredBody = currentBody.filter(predicate);
+
+    ast.body = filteredBody;
 }
 
 function renderExpressionForDocComment(expressionAst) {
@@ -412,7 +433,7 @@ function condenseWithinStatements(
     containerNode,
     parentNode
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -1710,7 +1731,7 @@ function computeExpressionMetrics(expression) {
 }
 
 function chooseBestCandidate(candidates) {
-    if (!Array.isArray(candidates) || candidates.length === 0) {
+    if (!isNonEmptyArray(candidates)) {
         return null;
     }
 

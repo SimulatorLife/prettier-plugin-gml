@@ -14,6 +14,7 @@
  * editor integrations directly.
  */
 
+import { randomUUID } from "node:crypto";
 import {
     lstat,
     mkdtemp,
@@ -23,10 +24,9 @@ import {
     stat,
     writeFile
 } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import os from "node:os";
-import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
@@ -34,19 +34,19 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import {
     getErrorMessage,
     isErrorWithCode,
-    isObjectLike,
     normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    uniqueArray
-} from "./lib/shared/utils.js";
-import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
+    uniqueArray,
+    withObjectLike
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "./lib/shared/path-utils.js";
+} from "../shared/utils/path.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -438,10 +438,34 @@ const skippedFileSummary = {
     symbolicLink: 0
 };
 
+const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
+
+const skippedDirectorySummary = {
+    ignored: 0,
+    ignoredSamples: []
+};
+
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
     skippedFileSummary.unsupportedExtension = 0;
     skippedFileSummary.symbolicLink = 0;
+}
+
+function resetSkippedDirectorySummary() {
+    skippedDirectorySummary.ignored = 0;
+    skippedDirectorySummary.ignoredSamples.length = 0;
+}
+
+function recordSkippedDirectory(directory) {
+    skippedDirectorySummary.ignored += 1;
+
+    if (
+        skippedDirectorySummary.ignoredSamples.length <
+            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+        !skippedDirectorySummary.ignoredSamples.includes(directory)
+    ) {
+        skippedDirectorySummary.ignoredSamples.push(directory);
+    }
 }
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
@@ -507,25 +531,23 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return;
-    }
-
-    const snapshotPath = snapshot.snapshotPath;
-    if (!snapshotPath) {
-        return;
-    }
-
-    try {
-        await rm(snapshotPath, { force: true });
-    } catch {
-        // Ignore individual file cleanup failures to avoid masking the
-        // original error that triggered the revert.
-    } finally {
-        if (revertSnapshotFileCount > 0) {
-            revertSnapshotFileCount -= 1;
+    await withObjectLike(snapshot, async (snapshotObject) => {
+        const { snapshotPath } = snapshotObject;
+        if (!snapshotPath) {
+            return;
         }
-    }
+
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
+            }
+        }
+    });
 }
 
 async function discardFormattedFileOriginalContents() {
@@ -548,23 +570,26 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return "";
-    }
+    return withObjectLike(
+        snapshot,
+        async (snapshotObject) => {
+            if (snapshotObject.inlineContents != null) {
+                return snapshotObject.inlineContents;
+            }
 
-    if (snapshot.inlineContents != null) {
-        return snapshot.inlineContents;
-    }
+            const { snapshotPath } = snapshotObject;
+            if (!snapshotPath) {
+                return "";
+            }
 
-    if (!snapshot.snapshotPath) {
-        return "";
-    }
-
-    try {
-        return await readFile(snapshot.snapshotPath, "utf8");
-    } catch {
-        return null;
-    }
+            try {
+                return await readFile(snapshotPath, "utf8");
+            } catch {
+                return null;
+            }
+        },
+        () => ""
+    );
 }
 
 /**
@@ -579,6 +604,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     clearIdentifierCaseCaches();
     resetSkippedFileSummary();
+    resetSkippedDirectorySummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
@@ -661,7 +687,7 @@ async function revertFormattedFiles() {
             // decide whether the temporary directory is still needed. Skipping
             // this step after a failed write would leak backups, block future
             // revert attempts from creating fresh snapshots, and leave the
-            // `revertSnapshotFileCount` counter desynchronised from reality.
+            // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
     }
@@ -767,7 +793,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${directory} (ignored directory)`);
+            recordSkippedDirectory(directory);
             return true;
         }
     } catch (error) {
@@ -1159,9 +1185,11 @@ async function executeFormatCommand(command) {
 
 function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
-    const locationDescription = targetIsDirectory
-        ? `in ${formatPathForDisplay(targetPath)}`
-        : formatPathForDisplay(targetPath);
+    const formattedTarget = formatPathForDisplay(targetPath);
+    const directoryDescription =
+        targetIsDirectory && formattedTarget === "."
+            ? "the current directory"
+            : formattedTarget;
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
@@ -1169,7 +1197,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     if (targetIsDirectory) {
         console.log(
             [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                `No files matching ${formattedExtensions} were found in ${directoryDescription}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1177,7 +1205,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     } else {
         console.log(
             [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                `${formattedTarget} does not match the configured extensions ${formattedExtensions}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1216,6 +1244,12 @@ function buildSkippedFileDetailEntries({
 }
 
 function logSkippedFileSummary() {
+    const directorySummaryMessage = buildSkippedDirectorySummaryMessage();
+
+    if (directorySummaryMessage) {
+        console.log(directorySummaryMessage);
+    }
+
     const skippedFileCount =
         skippedFileSummary.ignored +
         skippedFileSummary.unsupportedExtension +
@@ -1236,6 +1270,27 @@ function logSkippedFileSummary() {
     }
 
     console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
+}
+
+function buildSkippedDirectorySummaryMessage() {
+    const { ignored, ignoredSamples } = skippedDirectorySummary;
+
+    if (ignored === 0) {
+        return null;
+    }
+
+    const label = ignored === 1 ? "directory" : "directories";
+    const formattedSamples = ignoredSamples.map((directory) =>
+        formatPathForDisplay(directory)
+    );
+
+    if (formattedSamples.length === 0) {
+        return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
+    }
+
+    const sampleList = formattedSamples.join(", ");
+    const suffix = ignored > formattedSamples.length ? ", ..." : "";
+    return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
 export const __test__ = Object.freeze({

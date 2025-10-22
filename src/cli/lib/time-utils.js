@@ -19,7 +19,7 @@ export function formatDuration(startTime, now = Date.now) {
 /**
  * Create a logger that reports how long an operation took when verbose parsing
  * output is enabled. Callers can provide either a static string or a factory to
- * customise the final message while reusing the module's duration formatting.
+ * customize the final message while reusing the module's duration formatting.
  *
  * @param {{
  *   verbose?: { parsing?: boolean },
