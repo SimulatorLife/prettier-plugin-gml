@@ -111,7 +111,9 @@ export default class BinaryExpressionDelegate {
             return parentOp.assoc === "left";
         }
 
-        return false;
+        throw new TypeError(
+            `Unknown parent binary position: ${String(parentBinary.position)}`
+        );
     }
 
     wrapInParentheses(ctx, node, astNode, position) {
