@@ -5,6 +5,7 @@ import {
     gmlPluginComponents,
     resolveGmlPluginComponents
 } from "../src/plugin-components.js";
+import { createDefaultGmlPluginComponents } from "../src/component-providers/default-plugin-components.js";
 
 test("GML plugin components expose validated defaults", () => {
     const resolved = resolveGmlPluginComponents();
@@ -80,5 +81,23 @@ test("GML plugin components cannot be mutated", () => {
         },
         TypeError,
         "frozen option map should reject new entries"
+    );
+});
+
+test("default component factory defers to provided resolver", () => {
+    const sentinels = {
+        parsers: Object.freeze({ foo: { parse() {} } }),
+        printers: Object.freeze({ bar: { print() {} } }),
+        options: Object.freeze({ baz: { since: "0.0.0" } })
+    };
+
+    const resolved = createDefaultGmlPluginComponents({
+        resolveComponentDefinitions: () => sentinels
+    });
+
+    assert.strictEqual(
+        resolved,
+        sentinels,
+        "factory should return the components provided by the resolver"
     );
 });
