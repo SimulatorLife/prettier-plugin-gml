@@ -1185,9 +1185,11 @@ async function executeFormatCommand(command) {
 
 function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
-    const locationDescription = targetIsDirectory
-        ? `in ${formatPathForDisplay(targetPath)}`
-        : formatPathForDisplay(targetPath);
+    const formattedTarget = formatPathForDisplay(targetPath);
+    const directoryDescription =
+        targetIsDirectory && formattedTarget === "."
+            ? "the current directory"
+            : formattedTarget;
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
@@ -1195,7 +1197,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     if (targetIsDirectory) {
         console.log(
             [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                `No files matching ${formattedExtensions} were found in ${directoryDescription}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1203,7 +1205,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     } else {
         console.log(
             [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                `${formattedTarget} does not match the configured extensions ${formattedExtensions}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
