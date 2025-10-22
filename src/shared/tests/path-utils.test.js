@@ -111,6 +111,24 @@ describe("path-utils", () => {
             assert.strictEqual(result.includes(expectedRoot), true);
             assert.strictEqual(result.includes(path.resolve(second)), true);
         });
+
+        it("accepts a single string without iterating characters", () => {
+            const base = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils",
+                "single-string"
+            );
+            const nested = path.join(base, "src", "index.gml");
+
+            const result = collectUniqueAncestorDirectories(nested);
+
+            const resolved = path.resolve(nested);
+            const expectedRoot = path.parse(resolved).root;
+
+            assert.strictEqual(result[0], resolved);
+            assert.strictEqual(result.includes(expectedRoot), true);
+        });
     });
 
     describe("collectAncestorDirectories", () => {
