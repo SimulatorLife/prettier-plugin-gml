@@ -152,6 +152,46 @@ function createFinalizer({ autoLog, logger, category, snapshot }) {
     };
 }
 
+/**
+ * Build a metrics collector tailored to a specific reporting category.
+ *
+ * The tracker records timing samples, counter increments, cache hit/miss
+ * metrics, and arbitrary metadata. Callers can optionally provide a
+ * `logger.debug` implementation to receive structured summary logs either
+ * on-demand (via the returned `logSummary` helper) or automatically when
+ * `finalize` runs and the `autoLog` option is enabled.
+ *
+ * Cache statistics default to tracking `hits`, `misses`, and `stale` entries.
+ * Supplying `options.cacheKeys` expands that schema while still ensuring each
+ * cache starts with zeroed counters for the configured labels.
+ *
+ * @param {object} [options]
+ * @param {string} [options.category="metrics"] Identifier included in emitted
+ *        summaries and log messages.
+ * @param {{ debug?: (message: string, payload: object) => void } | null}
+ *        [options.logger] Logger receiving summary output. When omitted or
+ *        lacking a `debug` method, logging helpers become no-ops.
+ * @param {boolean} [options.autoLog=false] When `true`, the tracker emits a
+ *        summary through `logger.debug` when `finalize` is invoked.
+ * @param {Iterable<string> | Array<string> | null | undefined}
+ *        [options.cacheKeys] Custom cache metric labels to initialize for each
+ *        cache. Falsy values fall back to the default trio.
+ * @returns {{
+ *     category: string;
+ *     timeSync: (label: string, callback: () => unknown) => unknown;
+ *     timeAsync: (label: string, callback: () => Promise<unknown>) => Promise<unknown>;
+ *     startTimer: (label: string) => () => void;
+ *     incrementCounter: (label: string, amount?: number) => void;
+ *     recordCacheHit: (cacheName: string) => void;
+ *     recordCacheMiss: (cacheName: string) => void;
+ *     recordCacheStale: (cacheName: string) => void;
+ *     recordCacheMetric: (cacheName: string, key: string, amount?: number) => void;
+ *     snapshot: (extra?: object) => object;
+ *     finalize: (extra?: object) => object;
+ *     logSummary: (message?: string, extra?: object) => void;
+ *     setMetadata: (key: string, value: unknown) => void;
+ * }} Interface for recording and retrieving metrics.
+ */
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
