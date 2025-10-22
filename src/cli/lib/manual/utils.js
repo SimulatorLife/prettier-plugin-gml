@@ -27,32 +27,22 @@ const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
         "Manual repository must be provided in 'owner/name' format"
 });
 
-/**
- * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
- */
-
-const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
-    Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
-);
-
-function formatManualRequirementSource(value) {
-    return value === undefined ? "undefined" : `'${String(value)}'`;
-}
-
-function assertManualRepoRequirementSource(value) {
-    if (Object.hasOwn(MANUAL_REPO_REQUIREMENT_MESSAGES, value)) {
-        return /** @type {ManualRepoRequirementSource} */ (value);
+function formatManualRepoRequirement(
+    source = MANUAL_REPO_REQUIREMENT_SOURCE.CLI
+) {
+    const message = MANUAL_REPO_REQUIREMENT_MESSAGES[source];
+    if (message) {
+        return message;
     }
 
-    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
-    throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatManualRequirementSource(value)}.`
+    const allowedValues = Object.values(MANUAL_REPO_REQUIREMENT_SOURCE).join(
+        ", "
     );
-}
+    const received = source === undefined ? "undefined" : `'${String(source)}'`;
 
-function formatManualRepoRequirement(source) {
-    const normalizedSource = assertManualRepoRequirementSource(source);
-    return MANUAL_REPO_REQUIREMENT_MESSAGES[normalizedSource];
+    throw new TypeError(
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${received}.`
+    );
 }
 
 function describeManualRepoInput(value) {
