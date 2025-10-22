@@ -5,7 +5,7 @@ import {
     getNodeStartIndex,
     cloneLocation,
     assignClonedLocation
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getArrayProperty,
     getBodyStatements,
@@ -19,7 +19,7 @@ import {
     isNode,
     visitChildNodes,
     unwrapParenthesizedExpression
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
@@ -27,25 +27,25 @@ import {
     stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
+} from "../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { isFiniteNumber } from "../shared/number-utils.js";
 import {
     asArray,
     isArrayIndex,
     isNonEmptyArray
-} from "../../../shared/array-utils.js";
+} from "../shared/array-utils.js";
 import {
     getOrCreateMapEntry,
     hasOwn,
     isObjectLike
-} from "../../../shared/object-utils.js";
-import { escapeRegExp } from "../../../shared/regexp.js";
+} from "../shared/object-utils.js";
+import { escapeRegExp } from "../shared/regexp.js";
 import {
     hasIterableItems,
     isMapLike,
     isSetLike
-} from "../../../shared/utils/capability-probes.js";
+} from "../shared/utils/capability-probes.js";
 import {
     collectCommentNodes,
     getCommentArray,

@@ -16,12 +16,9 @@
  * @property {Array<FeatherDiagnostic>} [diagnostics]
  */
 
-import { createRequire } from "node:module";
-
-import { asArray } from "../../../shared/array-utils.js";
-import { toTrimmedString } from "../../../shared/string-utils.js";
-
-const require = createRequire(import.meta.url);
+import { asArray } from "../shared/array-utils.js";
+import { toTrimmedString } from "../shared/string-utils.js";
+import { loadFeatherMetadata as loadBundledFeatherMetadata } from "../resources/feather-metadata.js";
 
 /** @type {FeatherMetadata | null} */
 let cachedMetadata = null;
@@ -32,7 +29,7 @@ function loadFeatherMetadata() {
     }
 
     /** @type {FeatherMetadata} */
-    const metadata = require("../../../../resources/feather-metadata.json");
+    const metadata = loadBundledFeatherMetadata();
     cachedMetadata = metadata;
     return metadata;
 }

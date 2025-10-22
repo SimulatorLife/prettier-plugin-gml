@@ -3,7 +3,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { withObjectLike } from "../../../shared/object-utils.js";
+import { withObjectLike } from "../shared/object-utils.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption

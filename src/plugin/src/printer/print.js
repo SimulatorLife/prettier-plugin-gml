@@ -28,20 +28,20 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
+import { getCommentArray, isCommentNode } from "../shared/comments.js";
+import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+} from "../shared/string-utils.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
     getNodeRangeIndices
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getBodyStatements,
     getCallExpressionArguments,
@@ -50,7 +50,7 @@ import {
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,

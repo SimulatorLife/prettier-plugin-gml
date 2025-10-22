@@ -1,21 +1,15 @@
 import path from "node:path";
 
-import {
-    toPosixPath,
-    resolveProjectPathInfo
-} from "../../../shared/path-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { toPosixPath, resolveProjectPathInfo } from "../shared/path-utils.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
 import {
     isNonEmptyString,
     isNonEmptyTrimmedString
-} from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+} from "../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../shared/object-utils.js";
+import { createAbortGuard, throwIfAborted } from "../shared/abort-utils.js";
 
-import { isFsErrorCode } from "../../../shared/fs-utils.js";
+import { isFsErrorCode } from "../shared/fs-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath

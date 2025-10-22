@@ -1,8 +1,5 @@
-import { isNonEmptyString } from "../../../shared/string-utils.js";
-import {
-    getOrCreateMapEntry,
-    isObjectLike
-} from "../../../shared/object-utils.js";
+import { isNonEmptyString } from "../shared/string-utils.js";
+import { getOrCreateMapEntry, isObjectLike } from "../shared/object-utils.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME

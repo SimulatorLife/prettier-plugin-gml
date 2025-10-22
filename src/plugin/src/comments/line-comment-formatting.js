@@ -6,8 +6,8 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
-import { trimStringEntries } from "../../../shared/string-utils.js";
-import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
+import { trimStringEntries } from "../shared/string-utils.js";
+import { isRegExpLike } from "../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",

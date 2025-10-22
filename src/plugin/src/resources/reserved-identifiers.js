@@ -1,20 +1,8 @@
-import { createRequire } from "node:module";
-
-import { toNormalizedLowerCaseSet } from "../../../shared/string-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
-
-const require = createRequire(import.meta.url);
+import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import { loadGmlIdentifierMetadata } from "./gml-identifiers-metadata.js";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
-
-function loadIdentifierMetadata() {
-    try {
-        const metadata = require("../../../../resources/gml-identifiers.json");
-        return metadata && typeof metadata === "object" ? metadata : null;
-    } catch {
-        return null;
-    }
-}
 
 function resolveExcludedTypes(types) {
     if (!Array.isArray(types)) {
@@ -25,7 +13,7 @@ function resolveExcludedTypes(types) {
 }
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
-    const metadata = loadIdentifierMetadata();
+    const metadata = loadGmlIdentifierMetadata();
     const entries = normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {

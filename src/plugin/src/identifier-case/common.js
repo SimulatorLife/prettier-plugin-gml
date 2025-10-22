@@ -1,8 +1,8 @@
 import { constants as fsConstants } from "node:fs";
 
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { escapeRegExp } from "../../../shared/regexp.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
+import { escapeRegExp } from "../shared/regexp.js";
+import { isNonEmptyString } from "../shared/string-utils.js";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";

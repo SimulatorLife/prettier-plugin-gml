@@ -1,29 +1,27 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
+import { cloneLocation } from "../shared/ast-locations.js";
+import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
+import { toPosixPath, walkAncestorDirectories } from "../shared/path-utils.js";
 import {
     asArray,
     cloneObjectEntries,
     isNonEmptyArray
-} from "../../../shared/array-utils.js";
+} from "../shared/array-utils.js";
 import {
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
     isPlainObject
-} from "../../../shared/object-utils.js";
+} from "../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
-} from "../../../shared/location-keys.js";
+} from "../shared/location-keys.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 import { clampConcurrency } from "./concurrency.js";
+import { GML_IDENTIFIER_METADATA_URL } from "../resources/gml-identifiers-metadata.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
@@ -33,8 +31,8 @@ import {
     isFsErrorCode,
     listDirectory,
     getFileMtime
-} from "../../../shared/fs-utils.js";
-import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
+} from "../shared/fs-utils.js";
+import { areNumbersApproximatelyEqual } from "../shared/number-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -44,12 +42,9 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
+import { createAbortGuard, throwIfAborted } from "../shared/abort-utils.js";
+import { parseJsonWithContext } from "../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -290,9 +285,7 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
 
-const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
-);
+const GML_IDENTIFIER_FILE_PATH = fileURLToPath(GML_IDENTIFIER_METADATA_URL);
 
 let cachedBuiltInIdentifiers = null;
 

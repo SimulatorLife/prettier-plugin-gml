@@ -6,11 +6,11 @@ import {
     getIdentifierText,
     getCallExpressionArguments,
     getCallExpressionIdentifierName
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
-} from "../../../shared/string-utils.js";
+} from "../shared/string-utils.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],

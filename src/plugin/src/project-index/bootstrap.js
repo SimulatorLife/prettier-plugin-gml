@@ -4,13 +4,13 @@ import {
     normalizeNumericOption,
     coerceNonNegativeInteger,
     coercePositiveInteger
-} from "../../../shared/numeric-option-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+} from "../shared/numeric-option-utils.js";
+import { isNonEmptyTrimmedString } from "../shared/string-utils.js";
 import {
     assertFunction,
     coalesceOption,
     isObjectLike
-} from "../../../shared/object-utils.js";
+} from "../shared/object-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,

@@ -1,12 +1,9 @@
 import path from "node:path";
 
-import {
-    isNonEmptyString,
-    trimStringEntries
-} from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { fromPosixPath } from "../../../shared/path-utils.js";
+import { isNonEmptyString, trimStringEntries } from "../shared/string-utils.js";
+import { isObjectLike } from "../shared/object-utils.js";
+import { parseJsonWithContext } from "../shared/json-utils.js";
+import { fromPosixPath } from "../shared/path-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 

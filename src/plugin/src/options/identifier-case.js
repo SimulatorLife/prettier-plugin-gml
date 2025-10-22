@@ -4,10 +4,7 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import {
-    capitalize,
-    normalizeStringList
-} from "../../../shared/string-utils.js";
+import { capitalize, normalizeStringList } from "../shared/string-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 
