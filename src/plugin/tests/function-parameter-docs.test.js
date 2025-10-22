@@ -29,6 +29,20 @@ test("formats function parameters using documented argument names", async () => 
     );
 });
 
+test("replaces argument index references inside function bodies", async () => {
+    const formatted = await prettier.format(SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /return x2 \+ y2;/,
+        "Expected argument index references to reuse documented parameter names."
+    );
+});
+
 const SOURCE_WITH_ALIAS = `/// @param value
 function example(argument0) {
     var value = argument0;

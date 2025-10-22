@@ -1134,6 +1134,21 @@ export function print(path, options, print) {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
             let identifierName = node.name;
 
+            const argumentIndex =
+                getArgumentIndexFromIdentifier(identifierName);
+            if (argumentIndex !== null) {
+                const functionNode = findEnclosingFunctionDeclaration(path);
+                const preferredArgumentName = resolvePreferredParameterName(
+                    functionNode,
+                    argumentIndex,
+                    node.name,
+                    options
+                );
+                if (isNonEmptyString(preferredArgumentName)) {
+                    identifierName = preferredArgumentName;
+                }
+            }
+
             const preferredParamName = getPreferredFunctionParameterName(
                 path,
                 node,
@@ -3539,6 +3554,26 @@ function getIdentifierFromParameterNode(param) {
         param.left?.type === "Identifier"
     ) {
         return param.left;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionDeclaration(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (parent.type === "FunctionDeclaration") {
+            return parent;
+        }
     }
 
     return null;
