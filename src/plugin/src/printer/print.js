@@ -3147,8 +3147,12 @@ function mergeSyntheticDocComments(
 
         segments.push(current);
 
-        if (segments.length >= 3) {
-            const lastSegment = segments.at(-1);
+        const lastIndex = segments.length - 1;
+        if (lastIndex >= 2) {
+            // `Array#at` handles negative indices but introduces an extra bounds
+            // check on every call. This helper runs for every doc comment we
+            // wrap, so prefer direct index math to keep the hot path lean.
+            const lastSegment = segments[lastIndex];
             const isSingleWord =
                 typeof lastSegment === "string" && !/\s/.test(lastSegment);
 
@@ -3159,7 +3163,7 @@ function mergeSyntheticDocComments(
                 );
 
                 if (lastSegment.length <= maxSingleWordLength) {
-                    const penultimateIndex = segments.length - 2;
+                    const penultimateIndex = lastIndex - 1;
                     const mergedSegment =
                         segments[penultimateIndex] + ` ${lastSegment}`;
 
