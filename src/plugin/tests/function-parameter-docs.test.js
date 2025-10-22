@@ -58,3 +58,23 @@ test("omits redundant argument aliases after parameter renaming", async () => {
         "Expected argument indices to be replaced throughout the body."
     );
 });
+
+const SOURCE_WITH_NAMED_PARAMS = `/// @param {boolean} b - Second
+/// @param {boolean} a - First
+function bool_negated(a, b) {
+    return !(a && b);
+}`;
+
+test("retains existing parameter names when docs reference other names", async () => {
+    const formatted = await prettier.format(SOURCE_WITH_NAMED_PARAMS, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /function bool_negated\(a, b\)/,
+        "Expected formatter to preserve the declared parameter order."
+    );
+});
