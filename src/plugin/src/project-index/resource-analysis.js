@@ -103,29 +103,30 @@ function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
     };
 }
 
+function getNumericEventField(event, keys) {
+    for (const key of keys) {
+        const value = event?.[key];
+        if (typeof value === "number") {
+            return value;
+        }
+    }
+
+    return null;
+}
+
 function resolveEventMetadata(event) {
-    const eventType =
-        typeof event?.eventType === "number"
-            ? event.eventType
-            : typeof event?.eventtype === "number"
-              ? event.eventtype
-              : null;
-    const eventNum =
-        typeof event?.eventNum === "number"
-            ? event.eventNum
-            : typeof event?.enumb === "number"
-              ? event.enumb
-              : null;
+    const eventType = getNumericEventField(event, ["eventType", "eventtype"]);
+    const eventNum = getNumericEventField(event, ["eventNum", "enumb"]);
 
     if (isNonEmptyTrimmedString(event?.name)) {
         return { eventType, eventNum, displayName: event.name };
     }
 
-    if (eventType == undefined && eventNum == undefined) {
+    if (eventType == null && eventNum == null) {
         return { eventType, eventNum, displayName: "event" };
     }
 
-    if (eventNum == undefined) {
+    if (eventNum == null) {
         return { eventType, eventNum, displayName: String(eventType) };
     }
 
