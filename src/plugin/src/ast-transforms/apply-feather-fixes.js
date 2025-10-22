@@ -17642,7 +17642,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (isProgramOrBlockStatement(node)) {
             const statements = getBodyStatements(node);
 
-            if (statements.length > 0) {
+            if (statements.length > 0 && node.type !== "Program") {
                 const blockFixes = balanceGpuStateCallsInStatements(
                     statements,
                     diagnostic,
@@ -17726,10 +17726,10 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
 
     const unmatchedPushes = [];
     const fixes = [];
+    const indicesToRemove = new Set();
+    let hasPopCall = false;
 
-    for (let index = 0; index < statements.length; index += 1) {
-        const statement = statements[index];
-
+    for (const [index, statement] of statements.entries()) {
         if (!statement || typeof statement !== "object") {
             continue;
         }
@@ -17740,6 +17740,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
 
         if (isGpuPopStateCall(statement)) {
+            hasPopCall = true;
+
             if (unmatchedPushes.length > 0) {
                 unmatchedPushes.pop();
                 continue;
@@ -17753,8 +17755,7 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
                 }
             });
 
-            statements.splice(index, 1);
-            index -= 1;
+            indicesToRemove.add(index);
 
             if (!fixDetail) {
                 continue;
@@ -17764,14 +17765,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
     }
 
-    if (unmatchedPushes.length > 0) {
+    if (unmatchedPushes.length > 0 && hasPopCall) {
         for (const entry of unmatchedPushes) {
-            const popCall = createGpuStateCall("gpu_pop_state", entry.node);
-
-            if (!popCall) {
-                continue;
-            }
-
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: entry.node?.object?.name ?? "gpu_push_state",
                 range: {
@@ -17780,13 +17775,21 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
                 }
             });
 
+            indicesToRemove.add(entry.index);
+
             if (!fixDetail) {
                 continue;
             }
 
-            statements.push(popCall);
-            attachFeatherFixMetadata(popCall, [fixDetail]);
             fixes.push(fixDetail);
+        }
+    }
+
+    if (indicesToRemove.size > 0) {
+        for (let i = statements.length - 1; i >= 0; i -= 1) {
+            if (indicesToRemove.has(i)) {
+                statements.splice(i, 1);
+            }
         }
     }
 
