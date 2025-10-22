@@ -597,7 +597,14 @@ export function print(path, options, print) {
                 typeof node._alignAssignmentPadding === "number"
                     ? Math.max(0, node._alignAssignmentPadding)
                     : 0;
-            const spacing = " ".repeat(padding + 1);
+            let spacing = " ".repeat(padding + 1);
+
+            if (
+                spacing.length === 1 &&
+                shouldPreserveCompactUpdateAssignmentSpacing(path, options)
+            ) {
+                spacing = "";
+            }
 
             return group([
                 group(print("left")),
@@ -4389,6 +4396,56 @@ function getSourceTextForNode(node, options) {
     }
 
     return options.originalText.slice(startIndex, endIndex).trim();
+}
+
+function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
+    if (
+        !path ||
+        typeof path.getValue !== "function" ||
+        typeof path.getParentNode !== "function"
+    ) {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "AssignmentExpression") {
+        return false;
+    }
+
+    if (node.operator === "=") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (parent?.type !== "ForStatement") {
+        return false;
+    }
+
+    if (typeof path.getName !== "function" || path.getName() !== "update") {
+        return false;
+    }
+
+    const source = getSourceTextForNode(node, options);
+    if (typeof source !== "string" || source.length === 0) {
+        return false;
+    }
+
+    const operatorIndex = source.indexOf(node.operator);
+    if (operatorIndex <= 0) {
+        return false;
+    }
+
+    const beforeChar = source[operatorIndex - 1] ?? "";
+    if (/\s/.test(beforeChar)) {
+        return false;
+    }
+
+    const afterChar = source[operatorIndex + node.operator.length] ?? "";
+    if (!/\s/.test(afterChar)) {
+        return false;
+    }
+
+    return true;
 }
 
 function getStructPropertyPrefix(node, options) {
