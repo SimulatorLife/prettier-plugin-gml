@@ -24,29 +24,21 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const candidates =
+        Array.isArray(keys) || typeof keys?.[Symbol.iterator] === "function"
+            ? keys
+            : DEFAULT_CACHE_KEYS;
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
-
-    const seen = new Set();
-    const normalized = [];
+    const labels = new Set();
 
     for (const candidate of candidates) {
         const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
+        if (label) {
+            labels.add(label);
         }
-
-        seen.add(label);
-        normalized.push(label);
     }
 
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return labels.size > 0 ? Array.from(labels) : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
