@@ -28,3 +28,33 @@ test("formats function parameters using documented argument names", async () => 
         "Expected documented parameter names to replace argument indices."
     );
 });
+
+const SOURCE_WITH_ALIAS = `/// @param value
+function example(argument0) {
+    var value = argument0;
+    return argument0;
+}`;
+
+test("omits redundant argument aliases after parameter renaming", async () => {
+    const formatted = await prettier.format(SOURCE_WITH_ALIAS, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /function example\(value\)/,
+        "Expected parameter name to reflect documented alias."
+    );
+
+    assert.ok(
+        !formatted.includes("var value = value;"),
+        "Expected redundant argument alias to be removed."
+    );
+
+    assert.ok(
+        !formatted.includes("argument0"),
+        "Expected argument indices to be replaced throughout the body."
+    );
+});
