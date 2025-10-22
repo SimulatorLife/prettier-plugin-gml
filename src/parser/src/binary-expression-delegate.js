@@ -123,7 +123,7 @@ export default class BinaryExpressionDelegate {
             synthetic: true
         });
 
-        if (position != undefined) {
+        if (position !== undefined) {
             wrapped.position = position;
         }
 
