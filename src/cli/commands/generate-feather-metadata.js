@@ -36,6 +36,8 @@ import {
 } from "../lib/manual-command-options.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
+/** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
+
 const {
     repoRoot: REPO_ROOT,
     defaultCacheRoot: DEFAULT_CACHE_ROOT,
@@ -58,6 +60,12 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
+/**
+ * Create the CLI command for generating Feather metadata.
+ *
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @returns {import("commander").Command}
+ */
 export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -95,6 +103,13 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
 
     return command;
 }
+
+/**
+ * Resolve normalized CLI options for the Feather metadata command.
+ *
+ * @param {import("commander").Command} command
+ * @returns {ManualCommandOptions}
+ */
 function resolveFeatherMetadataOptions(command) {
     return resolveManualCommandOptions(command, {
         defaults: {
@@ -106,7 +121,7 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js.
+// Manual fetching helpers are wired via the shared manual command context.
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -1111,6 +1126,12 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     };
 }
 
+/**
+ * Execute the Feather metadata generation workflow.
+ *
+ * @param {{ command?: import("commander").Command }} [context]
+ * @returns {Promise<number>}
+ */
 export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();
