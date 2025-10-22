@@ -165,8 +165,8 @@ jobs:
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          node <<'EOF'
-          const fs = require('node:fs');
+          node --input-type=module <<'EOF'
+          import fs from 'node:fs';
 
           const comparisonPath = process.env.COMPARISON_PATH;
           const outputPath = process.env.GITHUB_OUTPUT;
