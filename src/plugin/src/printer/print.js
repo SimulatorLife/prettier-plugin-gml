@@ -3860,7 +3860,23 @@ function computeSyntheticFunctionDocLines(
             Number.isInteger(paramIndex) && paramIndex >= 0
                 ? (orderedParamMetadata[paramIndex] ?? null)
                 : null;
+        const rawOrdinalName =
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? ordinalMetadata.name
+                : null;
+        const canonicalOrdinal = rawOrdinalName
+            ? getCanonicalParamNameFromText(rawOrdinalName)
+            : null;
         const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        const paramIdentifier = getIdentifierFromParameterNode(param);
+        const paramIdentifierName =
+            typeof paramIdentifier?.name === "string"
+                ? paramIdentifier.name
+                : null;
+        const isGenericArgumentName =
+            typeof paramIdentifierName === "string" &&
+            getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
         const implicitName =
             implicitDocEntry &&
             typeof implicitDocEntry.name === "string" &&
@@ -3880,12 +3896,18 @@ function computeSyntheticFunctionDocLines(
         const hasCompleteOrdinalDocs =
             Array.isArray(node.params) &&
             orderedParamMetadata.length === node.params.length;
+        const shouldAdoptOrdinalName =
+            Boolean(rawOrdinalName) &&
+            ((Boolean(canonicalOrdinal) &&
+                Boolean(canonicalParamName) &&
+                canonicalOrdinal === canonicalParamName) ||
+                isGenericArgumentName);
+
         if (
             hasCompleteOrdinalDocs &&
             node &&
             typeof paramIndex === "number" &&
-            typeof ordinalMetadata?.name === "string" &&
-            ordinalMetadata.name.length > 0
+            shouldAdoptOrdinalName
         ) {
             let preferredDocs = preferredParamDocNamesByNode.get(node);
             if (!preferredDocs) {
@@ -3893,20 +3915,35 @@ function computeSyntheticFunctionDocLines(
                 preferredParamDocNamesByNode.set(node, preferredDocs);
             }
             if (!preferredDocs.has(paramIndex)) {
-                preferredDocs.set(paramIndex, ordinalMetadata.name);
+                preferredDocs.set(paramIndex, rawOrdinalName);
             }
+        }
+        if (
+            !shouldAdoptOrdinalName &&
+            canonicalOrdinal &&
+            canonicalParamName &&
+            canonicalOrdinal !== canonicalParamName &&
+            node
+        ) {
+            let suppressedCanonicals =
+                suppressedImplicitDocCanonicalByNode.get(node);
+            if (!suppressedCanonicals) {
+                suppressedCanonicals = new Set();
+                suppressedImplicitDocCanonicalByNode.set(
+                    node,
+                    suppressedCanonicals
+                );
+            }
+            suppressedCanonicals.add(canonicalOrdinal);
         }
         const ordinalDocName =
             hasCompleteOrdinalDocs &&
             (!existingDocName || existingDocName.length === 0) &&
-            typeof ordinalMetadata?.name === "string" &&
-            ordinalMetadata.name.length > 0
-                ? ordinalMetadata.name
+            shouldAdoptOrdinalName
+                ? rawOrdinalName
                 : null;
         let effectiveImplicitName = implicitName;
         if (effectiveImplicitName && ordinalDocName) {
-            const canonicalOrdinal =
-                getCanonicalParamNameFromText(ordinalDocName) ?? null;
             const canonicalImplicit =
                 getCanonicalParamNameFromText(effectiveImplicitName) ?? null;
             const fallbackCanonical =
