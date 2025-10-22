@@ -32,7 +32,7 @@
   ],
   "author": "Two Scoop Studio",
   "engines": {
-    "node": "^18.20.0 || ^20.18.1 || >=21.1.0"
+    "node": "^20.18.1 || >=21.1.0"
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache test-results",
