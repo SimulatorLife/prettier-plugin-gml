@@ -65,3 +65,15 @@ no code changes were required.
   `CliIdentifierCasePlanCacheService` contracts. Updated the default registry
   and tests to rely on the focused services so each consumer depends only on
   the collaborator it actually uses.
+
+## Follow-up audit (2025-03-05)
+
+- Investigated the manual tooling pipeline and found `createManualCommandContext`
+  in `src/cli/lib/manual-command-context.js`. The context returned repository
+  paths, raw GitHub client adapters, and high-level operations as a single
+  object, which forced commands that only needed one facet (for example,
+  `fetchManualFile`) to depend on all of the manual wiring details.
+- Split the contract into `environment`, `clients`, and `operations` views so
+  callers can depend solely on the slice they require. Updated the manual CLI
+  commands and associated tests to destructure the focused views instead of the
+  wide context.

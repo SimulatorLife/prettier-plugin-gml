@@ -107,6 +107,18 @@ function walkAstNodes(root, visitor) {
     visit(root, null, null);
 }
 
+function hasArrayParentWithNumericIndex(parent, property) {
+    if (!Array.isArray(parent)) {
+        return false;
+    }
+
+    if (typeof property !== "number") {
+        return false;
+    }
+
+    return true;
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -2561,11 +2573,9 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -2583,7 +2593,7 @@ function splitGlobalVarStatementInitializers({
         return [];
     }
 
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return [];
     }
 
@@ -3004,11 +3014,9 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -3023,7 +3031,7 @@ function convertReadOnlyAssignment(
     diagnostic,
     nameRegistry
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -3164,16 +3172,14 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         const nextAncestors = ancestors.concat({ node, parent, property });
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                stack.push({
-                    node: value,
-                    parent: node,
-                    property: key,
-                    ancestors: nextAncestors
-                });
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            stack.push({
+                node: value,
+                parent: node,
+                property: key,
+                ancestors: nextAncestors
+            });
+        });
     }
 }
 
@@ -4470,11 +4476,9 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
 
         return false;
     };
@@ -4528,11 +4532,9 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key, node, key);
+        });
     };
 
     visit(ast, null, null, null, null);
@@ -4793,11 +4795,9 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -4806,7 +4806,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 }
 
 function rewritePostfixStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -6851,7 +6851,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return [];
         }
 
-        if (!Array.isArray(parent) || typeof property !== "number") {
+        if (!hasArrayParentWithNumericIndex(parent, property)) {
             return [];
         }
 
@@ -7493,7 +7493,7 @@ function convertAssignmentToLocalVariable({
     sourceText,
     programAst
 }) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8467,7 +8467,7 @@ function isStatementArray(entry) {
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10561,6 +10561,19 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         typeof insertionInfo.index === "number"
             ? insertionInfo.index
             : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);

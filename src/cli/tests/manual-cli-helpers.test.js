@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 import {
     disposeProgressBars,
@@ -7,34 +7,35 @@ import {
     setProgressBarFactoryForTesting
 } from "../lib/progress-bar.js";
 
+function createMockStdout() {
+    return {
+        isTTY: true,
+        clearLine: () => {},
+        cursorTo: () => {},
+        moveCursor: () => {},
+        on: () => {},
+        removeListener: () => {},
+        write: () => {}
+    };
+}
+
 describe("manual CLI helpers", () => {
     it("disposes active progress bars", { concurrency: false }, () => {
         const createdBars = new Set();
         const stopCounts = new Map();
-
-        const originalIsTTY = process.stdout.isTTY;
-        process.stdout.isTTY = true;
-
-        setProgressBarFactoryForTesting(() => {
+        const stdout = createMockStdout();
+        const createBar = mock.fn(() => {
             const bar = {
-                total: 0,
-                current: 0,
-                stopCalls: 0,
-                start(total, current) {
-                    this.total = total;
-                    this.current = current;
-                    createdBars.add(this);
-                },
-                setTotal(total) {
-                    this.total = total;
-                },
-                update(current) {
-                    this.current = current;
-                },
-                stop() {
-                    this.stopCalls += 1;
-                    stopCounts.set(this, this.stopCalls);
-                }
+                setTotal: () => {},
+                update: () => {}
+            };
+
+            bar.start = () => {
+                createdBars.add(bar);
+            };
+
+            bar.stop = () => {
+                stopCounts.set(bar, (stopCounts.get(bar) ?? 0) + 1);
             };
 
             return bar;
@@ -42,8 +43,8 @@ describe("manual CLI helpers", () => {
 
         try {
             disposeProgressBars();
-            renderProgressBar("Task", 1, 4, 10);
-            renderProgressBar("Task", 2, 4, 10);
+            renderProgressBar("Task", 1, 4, 10, { stdout, createBar });
+            renderProgressBar("Task", 2, 4, 10, { stdout, createBar });
 
             assert.equal(createdBars.size, 1);
             const [firstBar] = createdBars;
@@ -55,11 +56,10 @@ describe("manual CLI helpers", () => {
             disposeProgressBars();
             assert.equal(stopCounts.get(firstBar), 1);
 
-            renderProgressBar("Task", 3, 4, 10);
+            renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
             assert.equal(createdBars.size, 2);
         } finally {
             setProgressBarFactoryForTesting();
-            process.stdout.isTTY = originalIsTTY;
             disposeProgressBars();
         }
     });
