@@ -5585,10 +5585,20 @@ function hasLineBreak(text) {
 }
 
 function isInLValueChain(path) {
-    const { node, parent } = path;
-    if (parent.type === "CallExpression" && parent.arguments.includes(node)) {
+    const { node, parent } = path ?? {};
+
+    if (!parent || typeof parent.type !== "string") {
         return false;
     }
+
+    if (
+        parent.type === "CallExpression" &&
+        Array.isArray(parent.arguments) &&
+        parent.arguments.includes(node)
+    ) {
+        return false;
+    }
+
     return isLValueExpression(parent.type);
 }
 
