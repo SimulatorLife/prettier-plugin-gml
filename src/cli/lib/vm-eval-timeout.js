@@ -24,16 +24,16 @@ const vmEvalTimeoutState = createIntegerOptionState({
     finalizeResolved: (value) => (value === 0 ? null : value)
 });
 
-export function getDefaultVmEvalTimeoutMs() {
-    return vmEvalTimeoutState.getDefault();
-}
+const {
+    getDefault: getDefaultVmEvalTimeoutMs,
+    setDefault: setDefaultVmEvalTimeoutMs,
+    resolve: resolveVmEvalTimeoutState
+} = vmEvalTimeoutState;
 
-export function setDefaultVmEvalTimeoutMs(timeout) {
-    return vmEvalTimeoutState.setDefault(timeout);
-}
+export { getDefaultVmEvalTimeoutMs, setDefaultVmEvalTimeoutMs };
 
 export function resolveVmEvalTimeout(rawValue, { defaultTimeout } = {}) {
-    return vmEvalTimeoutState.resolve(rawValue, {
+    return resolveVmEvalTimeoutState(rawValue, {
         defaultValue: defaultTimeout
     });
 }
