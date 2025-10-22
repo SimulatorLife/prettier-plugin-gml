@@ -436,8 +436,8 @@ Keep overrides scoped to `.gml` files so other languages remain unaffected.
     {
       "files": "*.gml",
       "options": {
-        "printWidth": 100,
-        "tabWidth": 2,
+        "printWidth": 120,
+        "tabWidth": 4,
         "semi": true
       }
     }
