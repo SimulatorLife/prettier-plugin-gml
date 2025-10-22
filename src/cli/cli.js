@@ -14,6 +14,7 @@
  * editor integrations directly.
  */
 
+import { randomUUID } from "node:crypto";
 import {
     lstat,
     mkdtemp,
@@ -23,10 +24,9 @@ import {
     stat,
     writeFile
 } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import os from "node:os";
-import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
