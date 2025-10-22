@@ -35,9 +35,7 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getIterableSize } from "../../../shared/utils/capability-probes.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
-import { createIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
-
-const identifierCaseAssetRenamePolicy = createIdentifierCaseAssetRenamePolicy();
+import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
     if (!scopeRecord || typeof scopeRecord !== "object") {
@@ -132,7 +130,7 @@ function applyAssetRenamesIfEligible({
     assetConflicts,
     metrics
 }) {
-    const evaluation = identifierCaseAssetRenamePolicy.evaluate({
+    const evaluation = evaluateIdentifierCaseAssetRenamePolicy({
         options,
         projectIndex,
         assetRenames,
