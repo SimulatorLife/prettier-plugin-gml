@@ -35,30 +35,32 @@ const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
+function formatManualRequirementSource(value) {
+    return value === undefined ? "undefined" : `'${String(value)}'`;
+}
+
+function assertManualRepoRequirementSource(value) {
+    if (Object.hasOwn(MANUAL_REPO_REQUIREMENT_MESSAGES, value)) {
+        return /** @type {ManualRepoRequirementSource} */ (value);
+    }
+
+    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
+    throw new TypeError(
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatManualRequirementSource(value)}.`
+    );
+}
+
+function formatManualRepoRequirement(source) {
+    const normalizedSource = assertManualRepoRequirementSource(source);
+    return MANUAL_REPO_REQUIREMENT_MESSAGES[normalizedSource];
+}
+
 function describeManualRepoInput(value) {
     if (value == null) {
         return String(value);
     }
 
     return `'${String(value)}'`;
-}
-
-/**
- * @param {ManualRepoRequirementSource | string | undefined} source
- * @returns {string}
- */
-function getManualRepoRequirementMessage(source) {
-    const requirement = MANUAL_REPO_REQUIREMENT_MESSAGES[source];
-    if (requirement) {
-        return requirement;
-    }
-
-    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
-    const received = source === undefined ? "undefined" : `'${String(source)}'`;
-
-    throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${received}.`
-    );
 }
 
 /**
@@ -252,7 +254,7 @@ function resolveManualRepoValue(
     rawValue,
     { source = MANUAL_REPO_REQUIREMENT_SOURCE.CLI } = {}
 ) {
-    const requirement = getManualRepoRequirementMessage(source);
+    const requirement = formatManualRepoRequirement(source);
     const normalized = normalizeManualRepository(rawValue);
     if (normalized) {
         return normalized;
