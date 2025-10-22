@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { isPathInside } from "../../shared/utils/path.js";
+import { isPathInside } from "../lib/shared-deps.js";
 
 // Node deprecated the legacy assert.equal helper; prefer assert.strictEqual so
 // the tests lock in both value and type. This mirrors how callers rely on
