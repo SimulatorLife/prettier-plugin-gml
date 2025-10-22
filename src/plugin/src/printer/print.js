@@ -2123,12 +2123,12 @@ function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
         };
     }
 
-    if (!insideFunctionBody) {
+    const declarator = getSingleVariableDeclarator(statement);
+    if (!declarator) {
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(statement);
-    if (!declarator) {
+    if (!insideFunctionBody) {
         return null;
     }
 
@@ -2138,13 +2138,20 @@ function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
     }
 
     const init = declarator.init;
-    if (!init || init.type !== "Identifier" || typeof init.name !== "string") {
+    if (!init) {
         return null;
     }
 
-    const argumentIndex = getArgumentIndexFromIdentifier(init.name);
-    if (argumentIndex === null) {
-        return null;
+    if (
+        init.type === "Identifier" &&
+        typeof init.name === "string" &&
+        getArgumentIndexFromIdentifier(init.name) !== null
+    ) {
+        return {
+            locationNode: statement,
+            paddingTarget: declarator,
+            nameLength: id.name.length
+        };
     }
 
     return {
