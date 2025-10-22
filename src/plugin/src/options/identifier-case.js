@@ -8,6 +8,7 @@ import {
     capitalize,
     normalizeStringList
 } from "../../../shared/string-utils.js";
+import { getIdentifierCaseStyleMetadata } from "../identifier-case/identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 
@@ -99,41 +100,9 @@ function createChoice(value, description) {
 
 export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
     (style) => {
-        switch (style) {
-            case "off": {
-                return createChoice(
-                    style,
-                    "Disable automatic identifier case rewriting."
-                );
-            }
-            case "camel": {
-                return createChoice(
-                    style,
-                    "Convert identifiers to lower camelCase (e.g. `exampleName`)."
-                );
-            }
-            case "pascal": {
-                return createChoice(
-                    style,
-                    "Convert identifiers to Upper PascalCase (e.g. `ExampleName`)."
-                );
-            }
-            case "snake-lower": {
-                return createChoice(
-                    style,
-                    "Convert identifiers to lower snake_case (e.g. `example_name`)."
-                );
-            }
-            case "snake-upper": {
-                return createChoice(
-                    style,
-                    "Convert identifiers to UPPER_SNAKE_CASE (e.g. `EXAMPLE_NAME`)."
-                );
-            }
-            default: {
-                return createChoice(style, IDENTIFIER_CASE_DESCRIPTION);
-            }
-        }
+        const { description = IDENTIFIER_CASE_DESCRIPTION } =
+            getIdentifierCaseStyleMetadata(style);
+        return createChoice(style, description);
     }
 );
 

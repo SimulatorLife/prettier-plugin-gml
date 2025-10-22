@@ -73,6 +73,40 @@ function forEachNodeChild(node, callback) {
     }
 }
 
+function walkAstNodes(root, visitor) {
+    const visit = (node, parent, key) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        const shouldDescend = visitor(node, parent, key);
+
+        if (shouldDescend === false) {
+            return;
+        }
+
+        for (const [childKey, childValue] of Object.entries(node)) {
+            if (childValue && typeof childValue === "object") {
+                visit(childValue, node, childKey);
+            }
+        }
+    };
+
+    visit(root, null, null);
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -1099,27 +1133,6 @@ function buildFeatherFixImplementations(diagnostics) {
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
-            continue;
-        }
-
-        if (diagnosticId === "GM2016") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = localizeInstanceVariableAssignments({
-                            ast,
-                            diagnostic,
-                            sourceText
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
             continue;
         }
 
@@ -3250,34 +3263,11 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
 function collectAllIdentifierNames(root) {
     const names = new Set();
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const value of node) {
-                visit(value);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    walkAstNodes(root, (node) => {
         if (node.type === "Identifier" && typeof node.name === "string") {
             names.add(node.name);
         }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(root);
+    });
 
     return names;
 }
@@ -3289,39 +3279,21 @@ function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
+    walkAstNodes(ast, (node) => {
+        if (node.type !== "BinaryExpression") {
             return;
         }
 
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
+        const fix = normalizeFileAttributeAddition(node, diagnostic);
+
+        if (!fix) {
             return;
         }
 
-        if (typeof node !== "object") {
-            return;
-        }
+        fixes.push(fix);
 
-        if (node.type === "BinaryExpression") {
-            const fix = normalizeFileAttributeAddition(node, diagnostic);
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+        return false;
+    });
 
     return fixes;
 }
@@ -3416,22 +3388,7 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    walkAstNodes(ast, (node, parent, property) => {
         if (node.type === "CallExpression") {
             const fix = rewriteRoomGotoCall({
                 node,
@@ -3444,29 +3401,26 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
             }
         }
 
-        if (node.type === "BinaryExpression") {
-            const fix = rewriteRoomNavigationBinaryExpression({
-                node,
-                parent,
-                property,
-                diagnostic,
-                sourceText
-            });
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
+        if (node.type !== "BinaryExpression") {
+            return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
-    };
+        const fix = rewriteRoomNavigationBinaryExpression({
+            node,
+            parent,
+            property,
+            diagnostic,
+            sourceText
+        });
 
-    visit(ast, null, null);
+        if (!fix) {
+            return;
+        }
+
+        fixes.push(fix);
+
+        return false;
+    });
 
     return fixes;
 }
@@ -17642,7 +17596,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (isProgramOrBlockStatement(node)) {
             const statements = getBodyStatements(node);
 
-            if (statements.length > 0) {
+            if (statements.length > 0 && node.type !== "Program") {
                 const blockFixes = balanceGpuStateCallsInStatements(
                     statements,
                     diagnostic,
@@ -17726,10 +17680,10 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
 
     const unmatchedPushes = [];
     const fixes = [];
+    const indicesToRemove = new Set();
+    let hasPopCall = false;
 
-    for (let index = 0; index < statements.length; index += 1) {
-        const statement = statements[index];
-
+    for (const [index, statement] of statements.entries()) {
         if (!statement || typeof statement !== "object") {
             continue;
         }
@@ -17740,6 +17694,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
 
         if (isGpuPopStateCall(statement)) {
+            hasPopCall = true;
+
             if (unmatchedPushes.length > 0) {
                 unmatchedPushes.pop();
                 continue;
@@ -17753,8 +17709,7 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
                 }
             });
 
-            statements.splice(index, 1);
-            index -= 1;
+            indicesToRemove.add(index);
 
             if (!fixDetail) {
                 continue;
@@ -17764,14 +17719,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
     }
 
-    if (unmatchedPushes.length > 0) {
+    if (unmatchedPushes.length > 0 && hasPopCall) {
         for (const entry of unmatchedPushes) {
-            const popCall = createGpuStateCall("gpu_pop_state", entry.node);
-
-            if (!popCall) {
-                continue;
-            }
-
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: entry.node?.object?.name ?? "gpu_push_state",
                 range: {
@@ -17780,13 +17729,21 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
                 }
             });
 
+            indicesToRemove.add(entry.index);
+
             if (!fixDetail) {
                 continue;
             }
 
-            statements.push(popCall);
-            attachFeatherFixMetadata(popCall, [fixDetail]);
             fixes.push(fixDetail);
+        }
+    }
+
+    if (indicesToRemove.size > 0) {
+        for (let i = statements.length - 1; i >= 0; i -= 1) {
+            if (indicesToRemove.has(i)) {
+                statements.splice(i, 1);
+            }
         }
     }
 
