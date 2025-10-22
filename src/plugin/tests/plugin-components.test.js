@@ -7,6 +7,7 @@ import {
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
+import * as gmlPlugin from "../src/gml.js";
 
 test("GML plugin component registry", { concurrency: false }, async (t) => {
     await t.test("exposes validated defaults", () => {
@@ -140,6 +141,89 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
         } finally {
             restoreDefaultGmlPluginComponents();
         }
+    });
+
+    await t.test("plugin exports track provider overrides", () => {
+        const customComponents = {
+            parsers: {
+                "custom-parse": {
+                    parse: () => ({ type: "Program", body: [] })
+                }
+            },
+            printers: {
+                "custom-ast": {
+                    print: () => "",
+                    canAttachComment: () => false,
+                    isBlockComment: () => false,
+                    printComment: () => "",
+                    handleComments: () => {}
+                }
+            },
+            options: {
+                customToggle: {
+                    since: "0.0.0",
+                    type: "boolean",
+                    category: "gml",
+                    default: false,
+                    description: "Custom toggle for testing"
+                }
+            }
+        };
+
+        try {
+            setGmlPluginComponentProvider(() => customComponents);
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.parsers),
+                ["custom-parse"],
+                "parsers proxy should surface custom parser entries"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.printers),
+                ["custom-ast"],
+                "printers proxy should surface custom printer entries"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.options),
+                ["customToggle"],
+                "options proxy should surface custom option entries"
+            );
+
+            const defaults = { ...gmlPlugin.defaultOptions };
+
+            assert.strictEqual(
+                defaults.customToggle,
+                false,
+                "default options proxy should surface custom option defaults"
+            );
+            assert.strictEqual(
+                defaults.trailingComma,
+                "none",
+                "core option overrides should remain in effect"
+            );
+        } finally {
+            restoreDefaultGmlPluginComponents();
+        }
+
+        assert.ok(
+            Object.hasOwn(gmlPlugin.parsers, "gml-parse"),
+            "parsers proxy should expose default parser after restore"
+        );
+        assert.ok(
+            Object.hasOwn(gmlPlugin.printers, "gml-ast"),
+            "printers proxy should expose default printer after restore"
+        );
+        assert.ok(
+            Object.hasOwn(gmlPlugin.options, "optimizeLoopLengthHoisting"),
+            "options proxy should expose default option entries after restore"
+        );
+        assert.strictEqual(
+            gmlPlugin.defaultOptions.trailingComma,
+            "none",
+            "default options proxy should expose overrides after restore"
+        );
     });
 
     await t.test("restoring defaults reuses the baseline components", () => {
