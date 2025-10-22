@@ -1758,7 +1758,8 @@ function getNextNonWhitespaceCharacter(text, startIndex) {
             case 11: // vertical tab
             case 12: // form feed
             case 13: // \r
-            case 32: { // space
+            case 32: {
+                // space
                 continue;
             }
             default: {
@@ -2752,16 +2753,20 @@ function mergeSyntheticDocComments(
     }
 
     const paramLineIndices = new Map();
+    const orderedParamLineIndices = [];
     for (const [index, line] of mergedLines.entries()) {
         if (!isParamLine(line)) {
             continue;
         }
+
+        orderedParamLineIndices.push(index);
 
         const canonical = getParamCanonicalName(line);
         if (canonical) {
             paramLineIndices.set(canonical, index);
         }
     }
+    const usedParamLineIndices = new Set();
 
     if (otherLines.length > 0) {
         const normalizedOtherLines = [];
@@ -2786,7 +2791,38 @@ function mergeSyntheticDocComments(
                     mergedLines[lineIndex] = updatedLine;
                     removedAnyLine = true;
                 }
+                usedParamLineIndices.add(lineIndex);
                 continue;
+            }
+
+            if (
+                metadata?.tag === "param" &&
+                typeof metadata?.name === "string" &&
+                metadata.name.length > 0
+            ) {
+                let fallbackLineIndex = null;
+
+                for (const candidateIndex of orderedParamLineIndices) {
+                    if (!usedParamLineIndices.has(candidateIndex)) {
+                        fallbackLineIndex = candidateIndex;
+                        break;
+                    }
+                }
+
+                if (fallbackLineIndex !== null) {
+                    const existingLine = mergedLines[fallbackLineIndex];
+                    const updatedLine = updateParamLineWithDocName(
+                        existingLine,
+                        metadata.name
+                    );
+
+                    if (updatedLine !== existingLine) {
+                        mergedLines[fallbackLineIndex] = updatedLine;
+                        removedAnyLine = true;
+                    }
+                    usedParamLineIndices.add(fallbackLineIndex);
+                    continue;
+                }
             }
 
             normalizedOtherLines.push(line);
@@ -3895,11 +3931,18 @@ function computeSyntheticFunctionDocLines(
                 preferredDocs.set(paramIndex, ordinalMetadata.name);
             }
         }
+        const ordinalCanonical =
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? getCanonicalParamNameFromText(ordinalMetadata.name)
+                : null;
         const ordinalDocName =
             hasCompleteOrdinalDocs &&
             (!existingDocName || existingDocName.length === 0) &&
             typeof ordinalMetadata?.name === "string" &&
-            ordinalMetadata.name.length > 0
+            ordinalMetadata.name.length > 0 &&
+            (canonicalParamName === null ||
+                (ordinalCanonical && ordinalCanonical === canonicalParamName))
                 ? ordinalMetadata.name
                 : null;
         let effectiveImplicitName = implicitName;
