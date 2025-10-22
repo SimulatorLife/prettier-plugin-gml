@@ -2561,11 +2561,9 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -3004,11 +3002,9 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -3164,16 +3160,14 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         const nextAncestors = ancestors.concat({ node, parent, property });
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                stack.push({
-                    node: value,
-                    parent: node,
-                    property: key,
-                    ancestors: nextAncestors
-                });
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            stack.push({
+                node: value,
+                parent: node,
+                property: key,
+                ancestors: nextAncestors
+            });
+        });
     }
 }
 
@@ -4470,11 +4464,9 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
 
         return false;
     };
@@ -4528,11 +4520,9 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key, node, key);
+        });
     };
 
     visit(ast, null, null, null, null);
@@ -4793,11 +4783,9 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
