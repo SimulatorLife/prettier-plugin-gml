@@ -497,9 +497,13 @@ async function resolveDirectoryListing({
     signal
 }) {
     ensureNotAborted();
-    const entries = await listDirectory(fsFacade, directoryContext.absolutePath, {
-        signal
-    });
+    const entries = await listDirectory(
+        fsFacade,
+        directoryContext.absolutePath,
+        {
+            signal
+        }
+    );
     ensureNotAborted();
     metrics?.incrementCounter("io.directoriesScanned");
     return entries;
