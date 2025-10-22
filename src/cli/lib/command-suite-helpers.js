@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
 // Pull array helpers from the shared utils barrel so new call sites avoid the
 // legacy `array-utils` shim slated for removal.
-import { toMutableArray } from "./shared/utils.js";
+import { isNonEmptyArray, toMutableArray } from "../../shared/utils.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -98,40 +98,6 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
 }
 
 /**
- * @param {Map<string, unknown>} availableSuites
- * @param {string} suiteName
- * @returns {((options: unknown) => unknown) | null}
- */
-function getSuiteRunner(availableSuites, suiteName) {
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
-}
-
-/**
- * @param {(options: unknown) => unknown} runner
- * @param {{
- *   suiteName: string,
- *   runnerOptions: unknown,
- *   onError?: (error: unknown, context: { suiteName: string }) => unknown
- * }} context
- * @returns {Promise<unknown>}
- */
-async function executeSuiteRunner(
-    runner,
-    { suiteName, runnerOptions, onError }
-) {
-    try {
-        return await runner(runnerOptions);
-    } catch (error) {
-        if (typeof onError === "function") {
-            return onError(error, { suiteName });
-        }
-
-        return { error: createCliErrorDetails(error) };
-    }
-}
-
-/**
  * Execute the provided suite runners and collect their results.
  *
  * @param {{
@@ -154,23 +120,26 @@ export async function collectSuiteResults({
         );
     }
 
-    if (!Array.isArray(suiteNames) || suiteNames.length === 0) {
+    if (!isNonEmptyArray(suiteNames)) {
         return {};
     }
 
     const results = {};
 
     for (const suiteName of suiteNames) {
-        const runner = getSuiteRunner(availableSuites, suiteName);
-        if (!runner) {
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
             continue;
         }
 
-        results[suiteName] = await executeSuiteRunner(runner, {
-            suiteName,
-            runnerOptions,
-            onError
-        });
+        try {
+            results[suiteName] = await runner(runnerOptions);
+        } catch (error) {
+            results[suiteName] =
+                typeof onError === "function"
+                    ? onError(error, { suiteName })
+                    : { error: createCliErrorDetails(error) };
+        }
     }
 
     return results;

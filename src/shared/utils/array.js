@@ -63,19 +63,11 @@ export function asArray(value) {
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
 export function toMutableArray(value, { clone = false } = {}) {
-    if (value == null) {
-        return [];
-    }
-
     if (!Array.isArray(value)) {
         return [];
     }
 
-    if (!clone) {
-        return value;
-    }
-
-    return [...value];
+    return clone ? [...value] : value;
 }
 
 /**

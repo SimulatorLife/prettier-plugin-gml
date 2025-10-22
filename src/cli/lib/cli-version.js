@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { getNonEmptyTrimmedString } from "../../shared/string-utils.js";
+import { getNonEmptyTrimmedString } from "../../shared/utils.js";
 
 const require = createRequire(import.meta.url);
 
