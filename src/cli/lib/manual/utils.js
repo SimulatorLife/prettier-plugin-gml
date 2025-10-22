@@ -117,7 +117,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const state = {
+    const baseState = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -125,16 +125,21 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return state;
+        return baseState;
     }
 
-    for (const [key, value] of Object.entries(overrides)) {
-        if (value !== undefined) {
-            state[key] = value;
-        }
+    const overrideEntries = Object.entries(overrides).filter(
+        ([, value]) => value !== undefined
+    );
+
+    if (overrideEntries.length === 0) {
+        return baseState;
     }
 
-    return state;
+    return {
+        ...baseState,
+        ...Object.fromEntries(overrideEntries)
+    };
 }
 
 function validateManualCommitPayload(payload, { ref }) {
