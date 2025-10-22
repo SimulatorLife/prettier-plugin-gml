@@ -2563,6 +2563,6 @@ export async function buildProjectIndex(
         projectIndex
     });
 }
-export { getDefaultFsFacade } from "./fs-facade.js";
+export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
 export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
