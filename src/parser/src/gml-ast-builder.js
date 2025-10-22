@@ -13,8 +13,23 @@ import {
 
 const BINARY_OPERATORS = {
     // Highest Precedence
-    "++": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
-    "--": { prec: 15, assoc: "right", type: "unary" }, // TODO: Handle prefix/suffix distinction.
+    // TODO: Track whether `++` is parsed as a prefix or suffix operator. The
+    // parser currently funnels both variants through the same precedence entry,
+    // which keeps the visitor traversals simple but hides whether the operand
+    // should be evaluated before or after the increment. Downstream
+    // transformations such as the identifier role tracker and the
+    // apply-feather-fixes pipeline depend on that nuance to distinguish between
+    // pure reads and reads-with-writeback. The GameMaker manual spells out the
+    // differing semantics (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FOperators%2FIncrement_and_Decrement.htm),
+    // so once the builder exposes the mode we should emit richer AST nodes
+    // instead of treating them as interchangeable unary operators.
+    "++": { prec: 15, assoc: "right", type: "unary" },
+    // TODO: Mirror the prefix/suffix tracking described above for the
+    // decrement operator so optimisations do not assume `value--` is
+    // side-effect free. GameMaker emits different bytecode for the two forms,
+    // and losing that distinction risks mis-scheduling hoists or duplicate
+    // writes when formatters rewrite identifier usages.
+    "--": { prec: 15, assoc: "right", type: "unary" },
     "~": { prec: 14, assoc: "right", type: "unary" },
     "!": { prec: 14, assoc: "right", type: "unary" },
     // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate

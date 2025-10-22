@@ -8,7 +8,7 @@ import {
 } from "../shared-deps.js";
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
-import { isNonEmptyArray } from "../shared/array-utils.js";
+import { isNonEmptyArray } from "../../../shared/utils.js";
 import { writeManualFile } from "../manual-file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
@@ -16,21 +16,23 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
-const MANUAL_REPO_REQUIREMENTS = {
-    env: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
-    cli: "Manual repository must be provided in 'owner/name' format"
-};
-
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
     ENV: "env"
 });
 
+const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
+    [MANUAL_REPO_REQUIREMENT_SOURCE.ENV]: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
+    [MANUAL_REPO_REQUIREMENT_SOURCE.CLI]:
+        "Manual repository must be provided in 'owner/name' format"
+});
+
 /**
  * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
  */
-const ALLOWED_REQUIREMENT_SOURCES = Object.values(
-    MANUAL_REPO_REQUIREMENT_SOURCE
+
+const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
+    Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
 function describeManualRepoInput(value) {
@@ -46,12 +48,12 @@ function describeManualRepoInput(value) {
  * @returns {string}
  */
 function getManualRepoRequirementMessage(source) {
-    const requirement = MANUAL_REPO_REQUIREMENTS[source];
+    const requirement = MANUAL_REPO_REQUIREMENT_MESSAGES[source];
     if (requirement) {
         return requirement;
     }
 
-    const allowedValues = ALLOWED_REQUIREMENT_SOURCES.join(", ");
+    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
     const received = source === undefined ? "undefined" : `'${String(source)}'`;
 
     throw new TypeError(
