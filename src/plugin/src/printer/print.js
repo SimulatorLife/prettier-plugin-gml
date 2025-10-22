@@ -969,7 +969,15 @@ export function print(path, options, print) {
                     options,
                     {
                         forceBreak: node.hasTrailingComma,
-                        // TODO: Decide whether to add bracket spacing for struct expressions.
+                        // TODO: Keep struct literals flush with their braces for
+                        // now. GameMaker's runtime formatter and the examples in
+                        // the manual (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FVariable_Functions%2FStructs.htm)
+                        // render `{foo: 1}` without internal padding, and our
+                        // documentation screenshots rely on matching that
+                        // output. If we decide to adopt spaced braces we need to
+                        // coordinate fixture updates and call out the style
+                        // shift in the changelog so downstream format-on-save
+                        // hooks do not surprise teams mid-upgrade.
                         padding: ""
                     }
                 )
