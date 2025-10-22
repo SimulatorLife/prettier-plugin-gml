@@ -84,6 +84,15 @@ function create_fx(sprite) {
     return sprite;
 }`;
 
+const SOURCE_WITH_IMPLICIT_ARGUMENTS = `/// @function sample
+/// @param first
+/// @param second
+function sample() {
+    var first = argument0;
+    var second = argument1;
+    return argument0 + argument1;
+}`;
+
 test("retains existing parameter names when docs reference other names", async () => {
     const formatted = await prettier.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
@@ -117,5 +126,24 @@ test("normalizes doc comments that reference renamed parameters", async () => {
     assert.ok(
         !formatted.includes("sprite_index"),
         "Expected stale doc comment names to be replaced."
+    );
+});
+
+test("retains argument aliases for undocumented parameters", async () => {
+    const formatted = await prettier.format(SOURCE_WITH_IMPLICIT_ARGUMENTS, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /var first = argument0;/,
+        "Expected formatter to preserve the first documented alias."
+    );
+    assert.match(
+        formatted,
+        /var second = argument1;/,
+        "Expected formatter to preserve the second documented alias."
     );
 });

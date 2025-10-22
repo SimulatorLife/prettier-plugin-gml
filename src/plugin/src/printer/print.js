@@ -1190,7 +1190,7 @@ export function print(path, options, print) {
 
             const argumentIndex =
                 getArgumentIndexFromIdentifier(identifierName);
-            if (argumentIndex !== null) {
+            if (argumentIndex !== null && !isArgumentAliasInitializer(path)) {
                 const functionNode = findEnclosingFunctionDeclaration(path);
                 const preferredArgumentName = resolvePreferredParameterName(
                     functionNode,
@@ -3512,6 +3512,10 @@ function getCanonicalParamNameFromText(name) {
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
+    if (isArgumentAliasInitializer(path)) {
+        return null;
+    }
+
     const context = findFunctionParameterContext(path);
     if (context) {
         const { functionNode, paramIndex } = context;
@@ -3652,6 +3656,32 @@ function findEnclosingFunctionNode(path) {
     return null;
 }
 
+function isArgumentAliasInitializer(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    if (getArgumentIndexFromIdentifier(node.name) === null) {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent || parent.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    if (parent.init !== node) {
+        return false;
+    }
+
+    return parent.id?.type === "Identifier";
+}
+
 function resolvePreferredParameterName(
     functionNode,
     paramIndex,
@@ -3727,6 +3757,12 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
+    const params = Array.isArray(functionNode?.params)
+        ? functionNode.params
+        : [];
+    const hasParameterAtIndex =
+        argumentIndex >= 0 && argumentIndex < params.length;
+
     const preferredName = resolvePreferredParameterName(
         functionNode,
         argumentIndex,
@@ -3743,16 +3779,15 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         ? normalizePreferredParameterName(preferredName)
         : null;
 
-    if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
+    if (
+        normalizedPreferred &&
+        normalizedPreferred === normalizedAlias &&
+        hasParameterAtIndex
+    ) {
         return true;
     }
 
-    if (!functionNode || !Array.isArray(functionNode.params)) {
-        return false;
-    }
-
-    const params = functionNode.params;
-    if (argumentIndex < 0 || argumentIndex >= params.length) {
+    if (!hasParameterAtIndex) {
         return false;
     }
 
