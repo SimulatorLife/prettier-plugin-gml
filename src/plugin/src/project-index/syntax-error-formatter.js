@@ -1,6 +1,6 @@
 import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { resolveProjectPathInfo } from "../../../shared/path-utils.js";
 import { splitLines } from "../../../shared/line-breaks.js";
+import { resolveProjectPathInfo } from "./path-info.js";
 
 /**
  * Format parser-originated syntax errors into the structured messages surfaced

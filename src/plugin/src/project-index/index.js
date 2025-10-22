@@ -281,29 +281,56 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
 
+const ProjectFileCategory = Object.freeze({
+    RESOURCE_METADATA: "yy",
+    SOURCE: "gml"
+});
+
+const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
+
+const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
+    [...PROJECT_FILE_CATEGORIES].sort().join(", ")
+);
+
+export function normalizeProjectFileCategory(value) {
+    if (PROJECT_FILE_CATEGORIES.has(value)) {
+        return value;
+    }
+
+    const received = value === undefined ? "undefined" : `'${String(value)}'`;
+    throw new RangeError(
+        `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
+    );
+}
+
+export function resolveProjectFileCategory(relativePosix) {
+    const lowerPath = relativePosix.toLowerCase();
+    if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+        return ProjectFileCategory.RESOURCE_METADATA;
+    }
+    if (lowerPath.endsWith(".gml")) {
+        return ProjectFileCategory.SOURCE;
+    }
+    return null;
+}
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
 
     function recordFile(category, record) {
-        if (category === "yy") {
+        const normalizedCategory = normalizeProjectFileCategory(category);
+
+        if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
             yyFiles.push(record);
             metrics?.incrementCounter("files.yyDiscovered");
-        } else if (category === "gml") {
+            return;
+        }
+
+        if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
             metrics?.incrementCounter("files.gmlDiscovered");
+            return;
         }
-    }
-
-    function classify(relativePosix) {
-        const lowerPath = relativePosix.toLowerCase();
-        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
-            return "yy";
-        }
-        if (lowerPath.endsWith(".gml")) {
-            return "gml";
-        }
-        return null;
     }
 
     function createRecord(absolutePath, relativePosix) {
@@ -314,7 +341,7 @@ function createProjectTreeCollector(metrics = null) {
     }
 
     function register(relativePosix, absolutePath) {
-        const category = classify(relativePosix);
+        const category = resolveProjectFileCategory(relativePosix);
         if (!category) {
             return;
         }
@@ -335,6 +362,137 @@ function createProjectTreeCollector(metrics = null) {
     };
 }
 
+/**
+ * Manage pending directory traversal state so scanProjectTree can delegate the
+ * raw stack bookkeeping. Keeps the orchestrator focused on the high-level
+ * traversal lifecycle.
+ */
+function createDirectoryTraversal(projectRoot) {
+    const pending = ["."];
+
+    return {
+        hasPending() {
+            return pending.length > 0;
+        },
+        next() {
+            if (pending.length === 0) {
+                return null;
+            }
+
+            const relativePath = pending.pop();
+            return {
+                relativePath,
+                absolutePath: path.join(projectRoot, relativePath)
+            };
+        },
+        enqueue(relativePath) {
+            pending.push(relativePath);
+        }
+    };
+}
+
+function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
+    const relativePath = path.join(directoryContext.relativePath, entry);
+    const absolutePath = path.join(projectRoot, relativePath);
+
+    return {
+        relativePath,
+        absolutePath,
+        relativePosix: toPosixPath(relativePath)
+    };
+}
+
+/**
+ * Load a directory listing while updating traversal metrics and respecting the
+ * configured abort signal.
+ */
+async function resolveDirectoryListing({
+    directoryContext,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    signal
+}) {
+    ensureNotAborted();
+    const entries = await listDirectory(
+        fsFacade,
+        directoryContext.absolutePath,
+        {
+            signal
+        }
+    );
+    ensureNotAborted();
+    metrics?.incrementCounter("io.directoriesScanned");
+    return entries;
+}
+
+function isDirectoryStat(stats) {
+    return typeof stats?.isDirectory === "function" && stats.isDirectory();
+}
+
+async function resolveEntryStats({
+    absolutePath,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    try {
+        const stats = await fsFacade.stat(absolutePath);
+        ensureNotAborted();
+        return stats;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics?.incrementCounter("io.skippedMissingEntries");
+            return null;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Walk each entry discovered in a directory, routing directories back onto the
+ * traversal queue and registering leaf files with the collector.
+ */
+async function processDirectoryEntries({
+    entries,
+    directoryContext,
+    traversal,
+    collector,
+    projectRoot,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    for (const entry of entries) {
+        ensureNotAborted();
+        const descriptor = createDirectoryEntryDescriptor(
+            directoryContext,
+            entry,
+            projectRoot
+        );
+        const stats = await resolveEntryStats({
+            absolutePath: descriptor.absolutePath,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
+
+        if (!stats) {
+            continue;
+        }
+
+        if (isDirectoryStat(stats)) {
+            traversal.enqueue(descriptor.relativePath);
+            continue;
+        }
+
+        collector.register(descriptor.relativePosix, descriptor.absolutePath);
+    }
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -344,45 +502,34 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const pending = ["."];
+    const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
-        const absoluteDir = path.join(projectRoot, relativeDir);
-        ensureNotAborted();
-        const entries = await listDirectory(fsFacade, absoluteDir, {
+    while (traversal.hasPending()) {
+        const directoryContext = traversal.next();
+        if (!directoryContext) {
+            continue;
+        }
+
+        const entries = await resolveDirectoryListing({
+            directoryContext,
+            fsFacade,
+            metrics,
+            ensureNotAborted,
             signal
         });
-        ensureNotAborted();
-        metrics?.incrementCounter("io.directoriesScanned");
 
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-                ensureNotAborted();
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
-
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            collector.register(relativePosix, absolutePath);
-        }
+        await processDirectoryEntries({
+            entries,
+            directoryContext,
+            traversal,
+            collector,
+            projectRoot,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
     }
 
     return collector.snapshot();
@@ -2115,6 +2262,128 @@ function createProjectIndexResultSnapshot({
     };
 }
 
+async function loadBuiltInNamesForProjectIndex({
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
+        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+
+    return builtInIdentifiers.names ?? new Set();
+}
+
+async function discoverProjectFilesForIndex({
+    projectRoot,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const projectFiles = await metrics.timeAsync("scanProjectTree", () =>
+        scanProjectTree(projectRoot, fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+
+    metrics.setMetadata("yyFileCount", projectFiles.yyFiles.length);
+    metrics.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+
+    return projectFiles;
+}
+
+async function analyseProjectResourcesForIndex({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const resourceAnalysis = await metrics.timeAsync(
+        "analyseResourceFiles",
+        () =>
+            analyseResourceFiles({
+                projectRoot,
+                yyFiles,
+                fsFacade,
+                signal
+            })
+    );
+    ensureNotAborted();
+
+    metrics.incrementCounter(
+        "resources.total",
+        resourceAnalysis.resourcesMap.size
+    );
+
+    return resourceAnalysis;
+}
+
+function configureGmlProcessing({ options, metrics }) {
+    const concurrencySettings = options?.concurrency ?? {};
+    const gmlConcurrency = clampConcurrency(
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
+    );
+    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+
+    const parseProjectSource = resolveProjectIndexParser(options);
+
+    return { gmlConcurrency, parseProjectSource };
+}
+
+async function processProjectGmlFilesForIndex({
+    gmlFiles,
+    gmlConcurrency,
+    parseProjectSource,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections,
+    relationships,
+    builtInNames,
+    projectRoot,
+    signal
+}) {
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) =>
+            processProjectGmlFile({
+                file,
+                fsFacade,
+                metrics,
+                ensureNotAborted,
+                parseProjectSource,
+                resourceAnalysis,
+                scopeMap,
+                filesMap,
+                identifierCollections,
+                relationships,
+                builtInNames,
+                projectRoot
+            }),
+        { signal }
+    );
+
+    ensureNotAborted();
+}
+
+function finalizeProjectIndexResult({ metrics, options, projectIndex }) {
+    const metricsReport = finalizeProjectIndexMetrics(metrics);
+    if (metricsReport) {
+        projectIndex.metrics = metricsReport;
+        options?.onMetrics?.(metricsReport, projectIndex);
+    }
+
+    return projectIndex;
+}
+
 export async function buildProjectIndex(
     projectRoot,
     fsFacade = defaultFsFacade,
@@ -2138,68 +2407,54 @@ export async function buildProjectIndex(
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
 
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    const builtInNames = builtInIdentifiers.names ?? new Set();
+    const builtInNames = await loadBuiltInNamesForProjectIndex({
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
-    const { yyFiles, gmlFiles } = await metrics.timeAsync(
-        "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    metrics.setMetadata("yyFileCount", yyFiles.length);
-    metrics.setMetadata("gmlFileCount", gmlFiles.length);
+    const { yyFiles, gmlFiles } = await discoverProjectFilesForIndex({
+        projectRoot: resolvedRoot,
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
-    const resourceAnalysis = await metrics.timeAsync(
-        "analyseResourceFiles",
-        () =>
-            analyseResourceFiles({
-                projectRoot: resolvedRoot,
-                yyFiles,
-                fsFacade,
-                signal
-            })
-    );
-    ensureNotAborted();
-
-    metrics.incrementCounter(
-        "resources.total",
-        resourceAnalysis.resourcesMap.size
-    );
+    const resourceAnalysis = await analyseProjectResourcesForIndex({
+        projectRoot: resolvedRoot,
+        yyFiles,
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
     const { scopeMap, filesMap, relationships, identifierCollections } =
         createProjectIndexAggregationState(resourceAnalysis);
 
-    const concurrencySettings = options?.concurrency ?? {};
-    const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ?? concurrencySettings.gmlParsing
-    );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
-    const parseProjectSource = resolveProjectIndexParser(options);
+    const { gmlConcurrency, parseProjectSource } = configureGmlProcessing({
+        options,
+        metrics
+    });
 
-    await processWithConcurrency(
+    await processProjectGmlFilesForIndex({
         gmlFiles,
         gmlConcurrency,
-        async (file) =>
-            processProjectGmlFile({
-                file,
-                fsFacade,
-                metrics,
-                ensureNotAborted,
-                parseProjectSource,
-                resourceAnalysis,
-                scopeMap,
-                filesMap,
-                identifierCollections,
-                relationships,
-                builtInNames,
-                projectRoot: resolvedRoot
-            }),
-        { signal }
-    );
-    ensureNotAborted();
+        parseProjectSource,
+        fsFacade,
+        metrics,
+        ensureNotAborted,
+        resourceAnalysis,
+        scopeMap,
+        filesMap,
+        identifierCollections,
+        relationships,
+        builtInNames,
+        projectRoot: resolvedRoot,
+        signal
+    });
 
     recordScriptCallMetricsAndReferences({
         relationships,
@@ -2219,14 +2474,13 @@ export async function buildProjectIndex(
     stopTotal();
     const projectIndex = projectIndexPayload;
 
-    const metricsReport = finalizeProjectIndexMetrics(metrics);
-    if (metricsReport) {
-        projectIndex.metrics = metricsReport;
-        options?.onMetrics?.(metricsReport, projectIndex);
-    }
-
-    return projectIndex;
+    return finalizeProjectIndexResult({
+        metrics,
+        options,
+        projectIndex
+    });
 }
-export { getDefaultFsFacade } from "./fs-facade.js";
+export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
+export { ProjectFileCategory };
 export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";

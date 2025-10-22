@@ -1,5 +1,6 @@
-import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
+import { toArrayFromIterable } from "../array-utils.js";
+import { getOrCreateMapEntry } from "../object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -24,27 +25,16 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const entries = toArrayFromIterable(keys ?? DEFAULT_CACHE_KEYS);
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
+    if (entries.length === 0) {
         return [...DEFAULT_CACHE_KEYS];
     }
 
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
-        const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
-        }
-
-        seen.add(label);
-        normalized.push(label);
-    }
+    const normalized = normalizeStringList(entries, {
+        splitPattern: null,
+        allowInvalidType: true
+    });
 
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
@@ -108,38 +98,6 @@ function mergeSummarySections(summary, extra) {
     }
 }
 
-function createSnapshotFactory({
-    category,
-    startTime,
-    timings,
-    counters,
-    caches,
-    metadata
-}) {
-    return (extra = {}) => {
-        const summary = {
-            category,
-            totalTimeMs: nowMs() - startTime,
-            timings: toPlainObject(timings),
-            counters: toPlainObject(counters),
-            caches: Object.fromEntries(
-                Array.from(caches, ([name, stats]) => [
-                    name,
-                    toPlainObject(stats)
-                ])
-            ),
-            metadata: { ...metadata }
-        };
-
-        if (!extra || typeof extra !== "object") {
-            return summary;
-        }
-
-        mergeSummarySections(summary, extra);
-        return summary;
-    };
-}
-
 function createSummaryLogger({ logger, category, snapshot }) {
     if (!logger || typeof logger.debug !== "function") {
         return () => {};
@@ -179,14 +137,28 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const ensureCacheStats = createCacheStatsEnsurer(caches, cacheKeys);
-    const snapshot = createSnapshotFactory({
-        category,
-        startTime,
-        timings,
-        counters,
-        caches,
-        metadata
-    });
+    function snapshot(extra = {}) {
+        const summary = {
+            category,
+            totalTimeMs: nowMs() - startTime,
+            timings: toPlainObject(timings),
+            counters: toPlainObject(counters),
+            caches: Object.fromEntries(
+                Array.from(caches, ([name, stats]) => [
+                    name,
+                    toPlainObject(stats)
+                ])
+            ),
+            metadata: { ...metadata }
+        };
+
+        if (!extra || typeof extra !== "object") {
+            return summary;
+        }
+
+        mergeSummarySections(summary, extra);
+        return summary;
+    }
     const logSummary = createSummaryLogger({ logger, category, snapshot });
     const finalize = createFinalizer({ autoLog, logger, category, snapshot });
 

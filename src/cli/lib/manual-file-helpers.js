@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { ensureDir } from "./shared/fs-utils.js";
-import { isNonEmptyString } from "./shared/utils.js";
+import { ensureDir, isNonEmptyString } from "../../shared/utils.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories

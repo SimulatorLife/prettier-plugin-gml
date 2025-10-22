@@ -13,6 +13,36 @@ const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
+function nullifyProjectIndex(target) {
+    if (
+        target &&
+        typeof target === "object" &&
+        Object.hasOwn(target, "projectIndex")
+    ) {
+        target.projectIndex = null;
+    }
+}
+
+function sanitizeBootstrapResult(bootstrap) {
+    if (!bootstrap || typeof bootstrap !== "object") {
+        return;
+    }
+
+    nullifyProjectIndex(bootstrap);
+
+    if (Object.hasOwn(bootstrap, "coordinator")) {
+        bootstrap.coordinator = null;
+    }
+
+    if (typeof bootstrap.dispose === "function") {
+        bootstrap.dispose = () => {};
+    }
+
+    const { cache } = bootstrap;
+    nullifyProjectIndex(cache);
+    nullifyProjectIndex(cache?.payload);
+}
+
 function registerBootstrapCleanup(bootstrapResult) {
     if (typeof bootstrapResult?.dispose !== "function") {
         return null;
@@ -100,6 +130,8 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
 export function teardownIdentifierCaseEnvironment(options) {
     const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
     disposeBootstrap(bootstrap, options?.logger ?? null);
+    sanitizeBootstrapResult(bootstrap);
+    deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
     deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
 }
