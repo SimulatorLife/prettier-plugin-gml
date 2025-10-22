@@ -6,7 +6,9 @@ import {
     captureIdentifierCasePlanSnapshot,
     getIdentifierCaseRenameForNode,
     prepareIdentifierCasePlan,
-    registerIdentifierCasePlanServiceProvider,
+    registerIdentifierCasePlanPreparationProvider,
+    registerIdentifierCasePlanSnapshotProvider,
+    registerIdentifierCaseRenameLookupProvider,
     resetIdentifierCasePlanServiceProvider,
     resolveIdentifierCasePlanService,
     resolveIdentifierCasePlanPreparationService,
@@ -68,38 +70,38 @@ test(
 
         const defaultServices = resolveIdentifierCasePlanService();
 
-        registerIdentifierCasePlanServiceProvider(() => ({
-            preparation: {
-                async prepareIdentifierCasePlan(options) {
-                    calls.push({ type: "prepare", options });
-                    return defaultServices.preparation.prepareIdentifierCasePlan(
-                        options
-                    );
-                }
+        registerIdentifierCasePlanPreparationProvider(() => ({
+            async prepareIdentifierCasePlan(options) {
+                calls.push({ type: "prepare", options });
+                return defaultServices.preparation.prepareIdentifierCasePlan(
+                    options
+                );
+            }
+        }));
+
+        registerIdentifierCaseRenameLookupProvider(() => ({
+            getIdentifierCaseRenameForNode(node, options) {
+                calls.push({ type: "rename", node, options });
+                return defaultServices.renameLookup.getIdentifierCaseRenameForNode(
+                    node,
+                    options
+                );
+            }
+        }));
+
+        registerIdentifierCasePlanSnapshotProvider(() => ({
+            captureIdentifierCasePlanSnapshot(options) {
+                calls.push({ type: "capture", options });
+                return defaultServices.snapshot.captureIdentifierCasePlanSnapshot(
+                    options
+                );
             },
-            renameLookup: {
-                getIdentifierCaseRenameForNode(node, options) {
-                    calls.push({ type: "rename", node, options });
-                    return defaultServices.renameLookup.getIdentifierCaseRenameForNode(
-                        node,
-                        options
-                    );
-                }
-            },
-            snapshot: {
-                captureIdentifierCasePlanSnapshot(options) {
-                    calls.push({ type: "capture", options });
-                    return defaultServices.snapshot.captureIdentifierCasePlanSnapshot(
-                        options
-                    );
-                },
-                applyIdentifierCasePlanSnapshot(snapshot, options) {
-                    calls.push({ type: "apply", snapshot, options });
-                    defaultServices.snapshot.applyIdentifierCasePlanSnapshot(
-                        snapshot,
-                        options
-                    );
-                }
+            applyIdentifierCasePlanSnapshot(snapshot, options) {
+                calls.push({ type: "apply", snapshot, options });
+                defaultServices.snapshot.applyIdentifierCasePlanSnapshot(
+                    snapshot,
+                    options
+                );
             }
         }));
 
