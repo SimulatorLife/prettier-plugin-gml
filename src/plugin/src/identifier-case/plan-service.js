@@ -10,8 +10,8 @@ import {
  * The original IdentifierCasePlanService bundled plan preparation, rename
  * lookups, and snapshot orchestration behind one "service" facade. That wide
  * surface made collaborators depend on behaviours they did not always need.
- * Providers must now return segregated service views so that consumers only
- * depend on the behaviours they exercise.
+ * Providers now register role-specific collaborators so consumers can opt into
+ * only the behaviour they require.
  */
 
 /**
@@ -31,14 +31,15 @@ import {
  */
 
 /**
- * @typedef {object} IdentifierCasePlanServiceBundle
- * @property {IdentifierCasePlanPreparationService} preparation
- * @property {IdentifierCaseRenameLookupService} renameLookup
- * @property {IdentifierCasePlanSnapshotService} snapshot
+ * @typedef {() => IdentifierCasePlanPreparationService} IdentifierCasePlanPreparationProvider
  */
 
 /**
- * @typedef {() => IdentifierCasePlanServiceBundle} IdentifierCasePlanServiceProvider
+ * @typedef {() => IdentifierCaseRenameLookupService} IdentifierCaseRenameLookupProvider
+ */
+
+/**
+ * @typedef {() => IdentifierCasePlanSnapshotService} IdentifierCasePlanSnapshotProvider
  */
 
 const defaultPreparationService = Object.freeze({
@@ -54,15 +55,23 @@ const defaultSnapshotService = Object.freeze({
     applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
 });
 
-let serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
-let cachedServices = null;
+let preparationProvider = createDefaultIdentifierCasePlanPreparationProvider();
+let renameLookupProvider = createDefaultIdentifierCaseRenameLookupProvider();
+let snapshotProvider = createDefaultIdentifierCasePlanSnapshotProvider();
 
-function createDefaultIdentifierCasePlanServiceProvider() {
-    return () => ({
-        preparation: defaultPreparationService,
-        renameLookup: defaultRenameLookupService,
-        snapshot: defaultSnapshotService
-    });
+let cachedPreparationService = null;
+let cachedRenameLookupService = null;
+let cachedSnapshotService = null;
+function createDefaultIdentifierCasePlanPreparationProvider() {
+    return () => defaultPreparationService;
+}
+
+function createDefaultIdentifierCaseRenameLookupProvider() {
+    return () => defaultRenameLookupService;
+}
+
+function createDefaultIdentifierCasePlanSnapshotProvider() {
+    return () => defaultSnapshotService;
 }
 
 function normalizeIdentifierCasePlanPreparationService(service) {
@@ -122,70 +131,110 @@ function normalizeIdentifierCasePlanSnapshotService(service) {
     });
 }
 
-function normalizeIdentifierCasePlanServices(services) {
-    const { preparation, renameLookup, snapshot } = assertPlainObject(
-        services,
-        {
-            errorMessage:
-                "Identifier case plan service provider must return an object containing segregated services"
-        }
-    );
-
-    return Object.freeze({
-        preparation: normalizeIdentifierCasePlanPreparationService(preparation),
-        renameLookup: normalizeIdentifierCaseRenameLookupService(renameLookup),
-        snapshot: normalizeIdentifierCasePlanSnapshotService(snapshot)
-    });
-}
-
-function resolveIdentifierCasePlanServiceInternal() {
-    if (!serviceProvider) {
+function resolveIdentifierCasePlanPreparationServiceInternal() {
+    if (!preparationProvider) {
         throw new Error(
-            "No identifier case plan service provider has been registered"
+            "No identifier case plan preparation provider has been registered"
         );
     }
 
-    if (!cachedServices) {
-        cachedServices = normalizeIdentifierCasePlanServices(serviceProvider());
+    if (!cachedPreparationService) {
+        cachedPreparationService =
+            normalizeIdentifierCasePlanPreparationService(
+                preparationProvider()
+            );
     }
 
-    return cachedServices;
+    return cachedPreparationService;
+}
+
+function resolveIdentifierCaseRenameLookupServiceInternal() {
+    if (!renameLookupProvider) {
+        throw new Error(
+            "No identifier case rename lookup provider has been registered"
+        );
+    }
+
+    if (!cachedRenameLookupService) {
+        cachedRenameLookupService = normalizeIdentifierCaseRenameLookupService(
+            renameLookupProvider()
+        );
+    }
+
+    return cachedRenameLookupService;
+}
+
+function resolveIdentifierCasePlanSnapshotServiceInternal() {
+    if (!snapshotProvider) {
+        throw new Error(
+            "No identifier case plan snapshot provider has been registered"
+        );
+    }
+
+    if (!cachedSnapshotService) {
+        cachedSnapshotService =
+            normalizeIdentifierCasePlanSnapshotService(snapshotProvider());
+    }
+
+    return cachedSnapshotService;
 }
 
 function invalidateCachedViews() {
-    cachedServices = null;
+    cachedPreparationService = null;
+    cachedRenameLookupService = null;
+    cachedSnapshotService = null;
 }
 
-export function registerIdentifierCasePlanServiceProvider(provider) {
+export function registerIdentifierCasePlanPreparationProvider(provider) {
     if (typeof provider !== "function") {
         throw new TypeError(
-            "Identifier case plan service provider must be a function"
+            "Identifier case plan preparation provider must be a function"
         );
     }
 
-    serviceProvider = () => provider();
+    preparationProvider = () => provider();
+    invalidateCachedViews();
+}
+
+export function registerIdentifierCaseRenameLookupProvider(provider) {
+    if (typeof provider !== "function") {
+        throw new TypeError(
+            "Identifier case rename lookup provider must be a function"
+        );
+    }
+
+    renameLookupProvider = () => provider();
+    invalidateCachedViews();
+}
+
+export function registerIdentifierCasePlanSnapshotProvider(provider) {
+    if (typeof provider !== "function") {
+        throw new TypeError(
+            "Identifier case plan snapshot provider must be a function"
+        );
+    }
+
+    snapshotProvider = () => provider();
     invalidateCachedViews();
 }
 
 export function resetIdentifierCasePlanServiceProvider() {
-    serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
+    preparationProvider = createDefaultIdentifierCasePlanPreparationProvider();
+    renameLookupProvider = createDefaultIdentifierCaseRenameLookupProvider();
+    snapshotProvider = createDefaultIdentifierCasePlanSnapshotProvider();
     invalidateCachedViews();
 }
 
-export function resolveIdentifierCasePlanService() {
-    return resolveIdentifierCasePlanServiceInternal();
-}
-
 export function resolveIdentifierCasePlanPreparationService() {
-    return resolveIdentifierCasePlanServiceInternal().preparation;
+    return resolveIdentifierCasePlanPreparationServiceInternal();
 }
 
 export function resolveIdentifierCaseRenameLookupService() {
-    return resolveIdentifierCasePlanServiceInternal().renameLookup;
+    return resolveIdentifierCaseRenameLookupServiceInternal();
 }
 
 export function resolveIdentifierCasePlanSnapshotService() {
-    return resolveIdentifierCasePlanServiceInternal().snapshot;
+    return resolveIdentifierCasePlanSnapshotServiceInternal();
 }
 
 export function prepareIdentifierCasePlan(options) {
