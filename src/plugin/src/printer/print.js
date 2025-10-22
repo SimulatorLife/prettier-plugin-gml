@@ -3923,7 +3923,8 @@ function computeSyntheticFunctionDocLines(
             canonicalOrdinal &&
             canonicalParamName &&
             canonicalOrdinal !== canonicalParamName &&
-            node
+            node &&
+            !paramMetadataByCanonical.has(canonicalParamName)
         ) {
             let suppressedCanonicals =
                 suppressedImplicitDocCanonicalByNode.get(node);
