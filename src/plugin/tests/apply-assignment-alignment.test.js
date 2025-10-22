@@ -3,6 +3,55 @@ import { describe, it } from "node:test";
 
 import { applyAssignmentAlignment } from "../src/printer/print.js";
 
+function createFunctionBodyPath(statements, params = []) {
+    const block = { type: "BlockStatement", body: statements };
+    const functionNode = {
+        type: "FunctionDeclaration",
+        body: block,
+        params
+    };
+
+    return {
+        getValue() {
+            return block;
+        },
+        getParentNode(depth) {
+            if (depth === undefined || depth === 0) {
+                return functionNode;
+            }
+
+            return null;
+        }
+    };
+}
+
+function createProgramPath(statements) {
+    const program = { type: "Program", body: statements };
+
+    return {
+        getValue() {
+            return program;
+        },
+        getParentNode() {
+            return null;
+        }
+    };
+}
+
+function createArgumentAliasDeclaration(name, argumentName) {
+    const declarator = {
+        type: "VariableDeclarator",
+        id: { type: "Identifier", name },
+        init: { type: "Identifier", name: argumentName }
+    };
+
+    return {
+        type: "VariableDeclaration",
+        kind: "var",
+        declarations: [declarator]
+    };
+}
+
 describe("applyAssignmentAlignment", () => {
     it("iterates safely when the active group is mutated during traversal", () => {
         const statements = [];
@@ -121,6 +170,120 @@ describe("applyAssignmentAlignment", () => {
             statements.map((node) => node._alignAssignmentPadding),
             [0, 0, "longIdentifier".length - "third".length],
             "Assignments separated by comments should not align with following groups."
+        );
+    });
+
+    it("aligns argument aliases inside function bodies", () => {
+        const statements = [
+            createArgumentAliasDeclaration("w", "argument0"),
+            createArgumentAliasDeclaration("widthAlias", "argument1"),
+            createArgumentAliasDeclaration("height", "argument2")
+        ];
+        const path = createFunctionBodyPath(statements);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 2
+            },
+            path,
+            "body"
+        );
+
+        assert.deepStrictEqual(
+            statements.map(
+                (node) => node.declarations[0]._alignAssignmentPadding
+            ),
+            [
+                "widthAlias".length - "w".length,
+                0,
+                "widthAlias".length - "height".length
+            ],
+            "Aliases declared inside function bodies should align using declarator padding."
+        );
+    });
+
+    it("does not align argument aliases at the program level", () => {
+        const statements = [
+            createArgumentAliasDeclaration("alpha", "argument0"),
+            createArgumentAliasDeclaration("betaAlias", "argument1")
+        ];
+        const programPath = createProgramPath(statements);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 1
+            },
+            programPath,
+            "body"
+        );
+
+        assert.deepStrictEqual(
+            statements.map(
+                (node) => node.declarations[0]._alignAssignmentPadding
+            ),
+            [undefined, undefined],
+            "Aliases outside of function bodies should not receive alignment padding."
+        );
+    });
+
+    it("aligns alias groups that reference named parameters and subsequent declarations", () => {
+        const statements = [
+            createArgumentAliasDeclaration("w", "width"),
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "step_size" },
+                        init: {
+                            type: "BinaryExpression",
+                            operator: "/",
+                            left: { type: "Literal", value: 1 },
+                            right: { type: "Identifier", name: "steps" }
+                        }
+                    }
+                ]
+            },
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "xnet" },
+                        init: { type: "Literal", value: -1 }
+                    }
+                ]
+            }
+        ];
+        const params = [
+            { type: "Identifier", name: "width" },
+            { type: "Identifier", name: "steps" }
+        ];
+        const path = createFunctionBodyPath(statements, params);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 3
+            },
+            path,
+            "body"
+        );
+
+        assert.deepStrictEqual(
+            statements.map(
+                (node) => node.declarations[0]._alignAssignmentPadding
+            ),
+            [
+                "step_size".length - "w".length,
+                0,
+                "step_size".length - "xnet".length
+            ],
+            "Expected alias groups tied to named parameters to align all contiguous declarations."
         );
     });
 });

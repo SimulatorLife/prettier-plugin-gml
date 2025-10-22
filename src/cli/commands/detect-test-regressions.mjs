@@ -12,7 +12,7 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared/utils.js";
+} from "../../shared/utils.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
@@ -411,52 +411,92 @@ function normalizeResultDirectories(candidateDirs, workspaceRoot) {
         });
 }
 
-function scanResultDirectory({ resolved, display }) {
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+function scanResultDirectory(directory) {
+    if (!isExistingDirectory(directory.resolved)) {
         return { status: "missing", notes: [], cases: [] };
     }
 
-    const xmlFiles = fs
-        .readdirSync(resolved)
-        .filter((file) => file.endsWith(".xml"));
+    const xmlFiles = listXmlFiles(directory.resolved);
     if (xmlFiles.length === 0) {
         return { status: "empty", notes: [], cases: [] };
     }
 
-    const notes = [];
-    const cases = [];
-
-    for (const file of xmlFiles) {
-        const filePath = path.join(resolved, file);
-        let xml = "";
-        try {
-            xml = fs.readFileSync(filePath, "utf8");
-        } catch (error) {
-            notes.push(
-                `Failed to read ${path.join(display, file)}: ${error?.message}`
-            );
-            continue;
-        }
-
-        if (!xml.trim()) {
-            continue;
-        }
-
-        try {
-            const data = parser.parse(xml);
-            cases.push(...collectTestCases(data));
-        } catch (error) {
-            notes.push(
-                `Failed to parse ${path.join(display, file)}: ${error?.message}`
-            );
-        }
-    }
+    const { cases, notes } = collectDirectoryTestCases(directory, xmlFiles);
 
     if (cases.length === 0) {
         return { status: "empty", notes, cases: [] };
     }
 
     return { status: "found", notes, cases };
+}
+
+function isExistingDirectory(resolvedPath) {
+    return (
+        fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()
+    );
+}
+
+function listXmlFiles(resolvedPath) {
+    return fs.readdirSync(resolvedPath).filter((file) => file.endsWith(".xml"));
+}
+
+function collectDirectoryTestCases(directory, xmlFiles) {
+    const aggregate = { cases: [], notes: [] };
+
+    for (const file of xmlFiles) {
+        const displayPath = path.join(directory.display, file);
+        const filePath = path.join(directory.resolved, file);
+        const { cases, notes } = collectTestCasesFromXmlFile(
+            filePath,
+            displayPath
+        );
+        aggregate.cases.push(...cases);
+        aggregate.notes.push(...notes);
+    }
+
+    return aggregate;
+}
+
+function collectTestCasesFromXmlFile(filePath, displayPath) {
+    const readResult = readXmlFile(filePath, displayPath);
+    if (readResult.status === "error") {
+        return { cases: [], notes: [readResult.note] };
+    }
+
+    const xml = readResult.contents;
+    if (!xml.trim()) {
+        return { cases: [], notes: [] };
+    }
+
+    const parseResult = parseXmlTestCases(xml, displayPath);
+    if (parseResult.status === "error") {
+        return { cases: [], notes: [parseResult.note] };
+    }
+
+    return { cases: parseResult.cases, notes: [] };
+}
+
+function readXmlFile(filePath, displayPath) {
+    try {
+        return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
+    } catch (error) {
+        return {
+            status: "error",
+            note: `Failed to read ${displayPath}: ${error?.message}`
+        };
+    }
+}
+
+function parseXmlTestCases(xml, displayPath) {
+    try {
+        const data = parser.parse(xml);
+        return { status: "ok", cases: collectTestCases(data) };
+    } catch (error) {
+        return {
+            status: "error",
+            note: `Failed to parse ${displayPath}: ${error?.message}`
+        };
+    }
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -530,20 +570,33 @@ function applyScanOutcome(context, directory, scan) {
     return buildSuccessfulReadResult(context, directory);
 }
 
+function pushAvailabilityNote(notes, entries, { single, multiple }) {
+    const count = entries.length;
+
+    if (count === 0) {
+        return;
+    }
+
+    if (count === 1) {
+        notes.push(single(entries[0]));
+        return;
+    }
+
+    notes.push(multiple(entries));
+}
+
 function appendAvailabilityNotes(context) {
     const { missingDirs, emptyDirs, notes } = context;
 
-    if (missingDirs.length === 1) {
-        notes.push(`No directory found at ${missingDirs[0]}.`);
-    } else if (missingDirs.length > 1) {
-        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, missingDirs, {
+        single: (dir) => `No directory found at ${dir}.`,
+        multiple: (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
+    });
 
-    if (emptyDirs.length === 1) {
-        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
-    } else if (emptyDirs.length > 1) {
-        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, emptyDirs, {
+        single: (dir) => `No JUnit XML files found in ${dir}.`,
+        multiple: (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
+    });
 }
 
 function buildUnavailableResult(context) {

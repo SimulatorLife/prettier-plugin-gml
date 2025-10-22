@@ -1,5 +1,6 @@
-import { getNonEmptyString } from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
+import { toArrayFromIterable } from "../array-utils.js";
+import { getOrCreateMapEntry } from "../object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -24,27 +25,16 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const entries = toArrayFromIterable(keys ?? DEFAULT_CACHE_KEYS);
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
+    if (entries.length === 0) {
         return [...DEFAULT_CACHE_KEYS];
     }
 
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
-        const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
-        }
-
-        seen.add(label);
-        normalized.push(label);
-    }
+    const normalized = normalizeStringList(entries, {
+        splitPattern: null,
+        allowInvalidType: true
+    });
 
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
