@@ -1,11 +1,10 @@
+import { coerceNonNegativeInteger } from "./shared-deps.js";
 import {
-    coerceNonNegativeInteger,
-    resolveIntegerOption
-} from "./shared-deps.js";
+    createIntegerOptionCoercer,
+    createIntegerOptionState
+} from "./numeric-option-state.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
-
-let configuredDefaultVmEvalTimeoutMs = DEFAULT_VM_EVAL_TIMEOUT_MS;
 
 const createTimeoutErrorMessage = (received) =>
     `VM evaluation timeout must be a non-negative integer (received ${received}). Provide 0 to disable the timeout.`;
@@ -13,34 +12,28 @@ const createTimeoutErrorMessage = (received) =>
 const createTimeoutTypeErrorMessage = (type) =>
     `VM evaluation timeout must be provided as a number (received type '${type}'). Provide 0 to disable the timeout.`;
 
-function coerceVmTimeout(value, { received }) {
-    return coerceNonNegativeInteger(value, {
-        received,
-        createErrorMessage: createTimeoutErrorMessage
-    });
-}
+const coerceVmTimeout = createIntegerOptionCoercer({
+    baseCoerce: coerceNonNegativeInteger,
+    createErrorMessage: createTimeoutErrorMessage
+});
+
+const vmEvalTimeoutState = createIntegerOptionState({
+    defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
+    coerce: coerceVmTimeout,
+    typeErrorMessage: createTimeoutTypeErrorMessage,
+    finalizeResolved: (value) => (value === 0 ? null : value)
+});
 
 export function getDefaultVmEvalTimeoutMs() {
-    return configuredDefaultVmEvalTimeoutMs;
+    return vmEvalTimeoutState.getDefault();
 }
 
 export function setDefaultVmEvalTimeoutMs(timeout) {
-    configuredDefaultVmEvalTimeoutMs = coerceVmTimeout(timeout, {
-        received: timeout
-    });
+    return vmEvalTimeoutState.setDefault(timeout);
 }
 
 export function resolveVmEvalTimeout(rawValue, { defaultTimeout } = {}) {
-    const fallback =
-        defaultTimeout === undefined
-            ? getDefaultVmEvalTimeoutMs()
-            : defaultTimeout;
-
-    const normalized = resolveIntegerOption(rawValue, {
-        defaultValue: fallback,
-        coerce: coerceVmTimeout,
-        typeErrorMessage: createTimeoutTypeErrorMessage
+    return vmEvalTimeoutState.resolve(rawValue, {
+        defaultValue: defaultTimeout
     });
-
-    return normalized === 0 ? null : normalized;
 }

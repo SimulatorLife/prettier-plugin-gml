@@ -54,6 +54,30 @@ function resolveManualOptionBaseConfig(
     };
 }
 
+function resolveOptionFunction(
+    optionConfig,
+    property,
+    fallback,
+    { assertName } = {}
+) {
+    const candidate =
+        optionConfig && typeof optionConfig === "object"
+            ? optionConfig[property]
+            : undefined;
+    const resolved =
+        typeof candidate === "function"
+            ? candidate
+            : typeof fallback === "function"
+              ? fallback
+              : undefined;
+
+    if (assertName) {
+        assertFunction(resolved, assertName);
+    }
+
+    return resolved;
+}
+
 const DEFAULT_OPTION_ORDER = Object.freeze([
     "outputPath",
     "forceRefresh",

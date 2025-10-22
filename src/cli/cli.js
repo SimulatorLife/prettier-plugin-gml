@@ -34,13 +34,13 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import {
     getErrorMessage,
     isErrorWithCode,
-    isObjectLike,
     normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    uniqueArray
+    uniqueArray,
+    withObjectLike
 } from "./lib/shared/utils.js";
 import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
 import {
@@ -438,10 +438,34 @@ const skippedFileSummary = {
     symbolicLink: 0
 };
 
+const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
+
+const skippedDirectorySummary = {
+    ignored: 0,
+    ignoredSamples: []
+};
+
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
     skippedFileSummary.unsupportedExtension = 0;
     skippedFileSummary.symbolicLink = 0;
+}
+
+function resetSkippedDirectorySummary() {
+    skippedDirectorySummary.ignored = 0;
+    skippedDirectorySummary.ignoredSamples.length = 0;
+}
+
+function recordSkippedDirectory(directory) {
+    skippedDirectorySummary.ignored += 1;
+
+    if (
+        skippedDirectorySummary.ignoredSamples.length <
+            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+        !skippedDirectorySummary.ignoredSamples.includes(directory)
+    ) {
+        skippedDirectorySummary.ignoredSamples.push(directory);
+    }
 }
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
@@ -507,25 +531,23 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return;
-    }
-
-    const snapshotPath = snapshot.snapshotPath;
-    if (!snapshotPath) {
-        return;
-    }
-
-    try {
-        await rm(snapshotPath, { force: true });
-    } catch {
-        // Ignore individual file cleanup failures to avoid masking the
-        // original error that triggered the revert.
-    } finally {
-        if (revertSnapshotFileCount > 0) {
-            revertSnapshotFileCount -= 1;
+    await withObjectLike(snapshot, async (snapshotObject) => {
+        const { snapshotPath } = snapshotObject;
+        if (!snapshotPath) {
+            return;
         }
-    }
+
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
+            }
+        }
+    });
 }
 
 async function discardFormattedFileOriginalContents() {
@@ -548,23 +570,26 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return "";
-    }
+    return withObjectLike(
+        snapshot,
+        async (snapshotObject) => {
+            if (snapshotObject.inlineContents != null) {
+                return snapshotObject.inlineContents;
+            }
 
-    if (snapshot.inlineContents != null) {
-        return snapshot.inlineContents;
-    }
+            const { snapshotPath } = snapshotObject;
+            if (!snapshotPath) {
+                return "";
+            }
 
-    if (!snapshot.snapshotPath) {
-        return "";
-    }
-
-    try {
-        return await readFile(snapshot.snapshotPath, "utf8");
-    } catch {
-        return null;
-    }
+            try {
+                return await readFile(snapshotPath, "utf8");
+            } catch {
+                return null;
+            }
+        },
+        () => ""
+    );
 }
 
 /**
@@ -579,6 +604,7 @@ async function resetFormattingSession(onParseError) {
     await discardFormattedFileOriginalContents();
     clearIdentifierCaseCaches();
     resetSkippedFileSummary();
+    resetSkippedDirectorySummary();
     encounteredFormattingError = false;
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
@@ -767,7 +793,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${directory} (ignored directory)`);
+            recordSkippedDirectory(directory);
             return true;
         }
     } catch (error) {
@@ -1216,6 +1242,12 @@ function buildSkippedFileDetailEntries({
 }
 
 function logSkippedFileSummary() {
+    const directorySummaryMessage = buildSkippedDirectorySummaryMessage();
+
+    if (directorySummaryMessage) {
+        console.log(directorySummaryMessage);
+    }
+
     const skippedFileCount =
         skippedFileSummary.ignored +
         skippedFileSummary.unsupportedExtension +
@@ -1236,6 +1268,27 @@ function logSkippedFileSummary() {
     }
 
     console.log(`${summary} Breakdown: ${detailEntries.join("; ")}.`);
+}
+
+function buildSkippedDirectorySummaryMessage() {
+    const { ignored, ignoredSamples } = skippedDirectorySummary;
+
+    if (ignored === 0) {
+        return null;
+    }
+
+    const label = ignored === 1 ? "directory" : "directories";
+    const formattedSamples = ignoredSamples.map((directory) =>
+        formatPathForDisplay(directory)
+    );
+
+    if (formattedSamples.length === 0) {
+        return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
+    }
+
+    const sampleList = formattedSamples.join(", ");
+    const suffix = ignored > formattedSamples.length ? ", ..." : "";
+    return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
 export const __test__ = Object.freeze({

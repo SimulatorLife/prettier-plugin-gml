@@ -1,5 +1,8 @@
-import { getNonEmptyString } from "../utils/string.js";
-import { getOrCreateMapEntry } from "../utils/object.js";
+import {
+    getNonEmptyString,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -33,18 +36,13 @@ function normalizeCacheKeys(keys) {
         return [...DEFAULT_CACHE_KEYS];
     }
 
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
-        const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
+    const normalized = normalizeStringList(
+        Array.isArray(candidates) ? candidates : Array.from(candidates),
+        {
+            splitPattern: null,
+            allowInvalidType: true
         }
-
-        seen.add(label);
-        normalized.push(label);
-    }
+    );
 
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
