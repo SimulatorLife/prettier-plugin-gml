@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
@@ -430,7 +431,7 @@ function normalizeContent(blocks) {
 }
 
 function joinSections(parts) {
-    if (!Array.isArray(parts) || parts.length === 0) {
+    if (!isNonEmptyArray(parts)) {
         return null;
     }
 
@@ -438,7 +439,7 @@ function joinSections(parts) {
         .map((part) => getNonEmptyTrimmedString(part))
         .filter(Boolean);
 
-    if (normalizedParts.length === 0) {
+    if (!isNonEmptyArray(normalizedParts)) {
         return null;
     }
 

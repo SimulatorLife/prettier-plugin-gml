@@ -1,4 +1,9 @@
-import { hasOwn, isNonEmptyTrimmedString, isWordChar } from "./shared/utils.js";
+import {
+    hasOwn,
+    isNonEmptyArray,
+    isNonEmptyTrimmedString,
+    isWordChar
+} from "./shared/utils.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -32,7 +37,7 @@ const identity = (value) => value;
  *     to their original offsets.
  */
 function createIndexMapper(insertPositions) {
-    if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
+    if (!isNonEmptyArray(insertPositions)) {
         return identity;
     }
 

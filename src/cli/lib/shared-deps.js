@@ -10,6 +10,7 @@ export {
     getErrorMessage,
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
+    isNonEmptyArray,
     isNonEmptyString,
     isObjectLike,
     normalizeIdentifierMetadataEntries,
