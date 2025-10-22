@@ -127,3 +127,36 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
         "Expected multiplication grouping parentheses to be preserved when comparing values."
     );
 });
+
+test("omits synthetic comparison parentheses inside logical expressions", async () => {
+    const source = [
+        "function check(value) {",
+        "    if (value > 0 and value < 1) {",
+        "        return true;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function check",
+        "/// @param value",
+        "function check(value) {",
+        "    if (value > 0 and value < 1) {",
+        "        return true;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected redundant comparison grouping parentheses inside logical expressions to be removed."
+    );
+});

@@ -5268,7 +5268,8 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
-    const parentInfo = getBinaryOperatorInfo(parent.operator);
+    const parentOperator = parent.operator;
+    const parentInfo = getBinaryOperatorInfo(parentOperator);
     if (
         expression?.type === "BinaryExpression" &&
         shouldFlattenSyntheticBinary(parent, expression, path)
@@ -5281,15 +5282,27 @@ function shouldOmitSyntheticParens(path) {
 
         if (
             childInfo != undefined &&
-            childInfo.precedence > parentInfo.precedence &&
-            expression.operator === "*" &&
-            isNumericComputationNode(expression)
+            childInfo.precedence > parentInfo.precedence
         ) {
-            return false;
+            if (
+                expression.operator === "*" &&
+                isNumericComputationNode(expression)
+            ) {
+                return false;
+            }
+
+            if (
+                parentOperator === "&&" ||
+                parentOperator === "and" ||
+                parentOperator === "||" ||
+                parentOperator === "or"
+            ) {
+                return true;
+            }
         }
     }
 
-    if (parent.operator !== "+") {
+    if (parentOperator !== "+") {
         return false;
     }
 
