@@ -80,11 +80,15 @@ test("CLI plugin service registration", async (t) => {
                 projectIndex: {
                     buildProjectIndex: defaultBuildProjectIndex
                 },
-                identifierCasePlanPreparation: {
-                    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
-                },
-                identifierCasePlanCache: {
-                    clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
+                identifierCase: {
+                    preparation: {
+                        prepareIdentifierCasePlan:
+                            defaultPrepareIdentifierCasePlan
+                    },
+                    cache: {
+                        clearIdentifierCaseCaches:
+                            defaultClearIdentifierCaseCaches
+                    }
                 }
             },
             "default CLI services should expose dedicated identifier case collaborators"
