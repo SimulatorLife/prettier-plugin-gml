@@ -114,6 +114,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       all_green: ${{ steps.regress.outputs.all_green }}
+    env:
+      GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
     steps:
       - name: Checkout repo (for scripts)
         uses: actions/checkout@v4
@@ -402,6 +404,37 @@ jobs:
               return fragments.join('; ');
             }
 
+            function summarizeRegressedTests(regressions, limit = 5) {
+              if (!Array.isArray(regressions) || regressions.length === 0) {
+                return '';
+              }
+
+              const descriptors = [];
+              for (const item of regressions) {
+                const descriptor = (item?.detail?.displayName || item?.key || '').trim();
+                if (descriptor) {
+                  descriptors.push(descriptor);
+                }
+              }
+
+              if (descriptors.length === 0) {
+                return '';
+              }
+
+              const normalizedLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5;
+              const maxItems = Math.max(1, normalizedLimit);
+              const visible = descriptors.slice(0, maxItems);
+              const remaining = descriptors.length - visible.length;
+              const label = descriptors.length === 1 ? 'Impacted test' : 'Impacted tests';
+              const formatted = visible.map(name => `\`${name}\``).join(', ');
+
+              if (remaining > 0) {
+                return `${label} (showing ${visible.length} of ${descriptors.length}): ${formatted}`;
+              }
+
+              return `${label}: ${formatted}`;
+            }
+
             for (const tgt of targets) {
               const dir = path.join(process.cwd(), `junit-${tgt}`);
               const files = listFilesRecursive(dir);
@@ -493,19 +526,33 @@ jobs:
               statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
             } else if (statusFlag === 'regressions') {
               let causeDetails = '';
+              let regressions = [];
               if (testResults.base?.usedDir) {
                 const targetKey = testResults.merge?.usedDir ? 'merge' : 'head';
                 const targetResults = testResults[targetKey];
                 if (targetResults?.usedDir && typeof detectRegressions === 'function') {
-                  const regressions = detectRegressions(testResults.base, targetResults);
+                  const computed = detectRegressions(testResults.base, targetResults);
+                  if (Array.isArray(computed)) {
+                    regressions = computed;
+                  }
                   const description = describeRegressionCause(regressions, diffStats[targetKey]);
                   causeDetails = description || '';
                 }
               }
+              const regressionSummary = summarizeRegressedTests(regressions, 5);
+              const summaryPart = regressionSummary ? `${regressionSummary}.` : '';
               if (causeDetails) {
-                statusLine = `❌ Test regressions detected — auto-merge is disabled (${causeDetails}).`;
+                statusLine = [
+                  '❌ Test regressions detected — auto-merge is disabled.',
+                  summaryPart,
+                  `Cause: ${causeDetails}.`
+                ].filter(Boolean).join(' ');
               } else {
-                statusLine = '❌ Test regressions detected — auto-merge is disabled (cause could not be determined from available data).';
+                statusLine = [
+                  '❌ Test regressions detected — auto-merge is disabled.',
+                  summaryPart,
+                  'Cause could not be determined from available data.'
+                ].filter(Boolean).join(' ');
               }
             } else if (statusFlag === 'error') {
               statusLine = '⚠️ Regression checks did not complete — auto-merge is blocked.';
@@ -528,10 +575,10 @@ jobs:
             }
 
       - name: Request Codex help for regressions
-        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && secrets.GH_USER_TOKEN != '' }}
+        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN != '' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GH_USER_TOKEN }}
+          github-token: ${{ env.GH_USER_TOKEN }}
           script: |
             const marker = '<!-- automerge-pr-regression-codex -->';
             const { owner, repo } = context.repo;
@@ -593,7 +640,7 @@ jobs:
             core.notice(`Requested Codex assistance for regressions on PR #${number}.`);
 
       - name: Warn when Codex user token missing
-        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && secrets.GH_USER_TOKEN == '' }}
+        if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN == '' }}
         run: |
           echo "::warning::GH_USER_TOKEN secret is not configured; skipping Codex regression comment."
 

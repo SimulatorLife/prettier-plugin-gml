@@ -41,3 +41,15 @@ no code changes were required.
   each call site, then updated `cli.js` to rely on the specialized views.
 - The CLI now imports the registry to wire up commands and the runner to launch
   the program, so each call site depends only on the capability it needs.
+
+## Follow-up audit (2025-02-20)
+
+- Located the `IdentifierCasePlanServices` bundle in
+  `src/plugin/src/identifier-case/plan-service.js`. The wide "service" facade
+  forced providers to manufacture preparation, rename lookup, and snapshot
+  collaborators together even when a consumer only required one capability.
+- Removed the bundle contract in favour of the existing
+  `IdentifierCasePlanPreparationService`, `IdentifierCaseRenameLookupService`,
+  and `IdentifierCasePlanSnapshotService` roles. Call sites now request and
+  override the specific collaborator they need without depending on an
+  aggregated service container.
