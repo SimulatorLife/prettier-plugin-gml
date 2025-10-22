@@ -420,7 +420,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
 | `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
-| `allowSingleLineIfStatements` | `true` | Keeps trivial `if` statements on one line; set to `false` to always expand blocks. |
+| `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line; leave at `false` to always expand blocks. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
