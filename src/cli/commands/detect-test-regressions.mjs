@@ -530,40 +530,33 @@ function applyScanOutcome(context, directory, scan) {
     return buildSuccessfulReadResult(context, directory);
 }
 
-function appendDirectorySummary(
-    notes,
-    directories,
-    makeSingleMessage,
-    makePluralMessage
-) {
-    if (directories.length === 0) {
+function pushAvailabilityNote(notes, entries, { single, multiple }) {
+    const count = entries.length;
+
+    if (count === 0) {
         return;
     }
 
-    const message =
-        directories.length === 1
-            ? makeSingleMessage(directories[0])
-            : makePluralMessage(directories);
+    if (count === 1) {
+        notes.push(single(entries[0]));
+        return;
+    }
 
-    notes.push(message);
+    notes.push(multiple(entries));
 }
 
 function appendAvailabilityNotes(context) {
     const { missingDirs, emptyDirs, notes } = context;
 
-    appendDirectorySummary(
-        notes,
-        missingDirs,
-        (dir) => `No directory found at ${dir}.`,
-        (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
-    );
+    pushAvailabilityNote(notes, missingDirs, {
+        single: (dir) => `No directory found at ${dir}.`,
+        multiple: (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
+    });
 
-    appendDirectorySummary(
-        notes,
-        emptyDirs,
-        (dir) => `No JUnit XML files found in ${dir}.`,
-        (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
-    );
+    pushAvailabilityNote(notes, emptyDirs, {
+        single: (dir) => `No JUnit XML files found in ${dir}.`,
+        multiple: (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
+    });
 }
 
 function buildUnavailableResult(context) {

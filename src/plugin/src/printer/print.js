@@ -1140,7 +1140,30 @@ export function print(path, options, print) {
                 identifierName = renamed;
             }
 
-            return concat([prefix, identifierName]);
+            let extraPadding = 0;
+            if (
+                typeof path?.getParentNode === "function" &&
+                typeof path?.getName === "function" &&
+                path.getName() === "id"
+            ) {
+                const parentNode = path.getParentNode();
+                if (
+                    parentNode?.type === "VariableDeclarator" &&
+                    typeof parentNode._alignAssignmentPadding === "number"
+                ) {
+                    extraPadding = Math.max(
+                        0,
+                        parentNode._alignAssignmentPadding
+                    );
+                }
+            }
+
+            const docs = [prefix, identifierName];
+            if (extraPadding > 0) {
+                docs.push(" ".repeat(extraPadding));
+            }
+
+            return concat(docs);
         }
         case "TemplateStringText": {
             return concat(node.value);
@@ -1694,7 +1717,7 @@ function printStatements(path, options, print, childrenAttribute) {
             ? parentNode[childrenAttribute]
             : null;
     if (statements) {
-        applyAssignmentAlignment(statements, options);
+        applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
 
     const syntheticDocByNode = new Map();
@@ -1946,7 +1969,12 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-export function applyAssignmentAlignment(statements, options) {
+export function applyAssignmentAlignment(
+    statements,
+    options,
+    path = null,
+    childrenAttribute = null
+) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
     /** @type {Array<{ node: any, nameLength: number }>} */
     const currentGroup = [];
@@ -1962,7 +1990,12 @@ export function applyAssignmentAlignment(statements, options) {
     const locEnd =
         typeof options?.locEnd === "function" ? options.locEnd : null;
 
-    let previousSimpleAssignment = null;
+    const insideFunctionBody = isPathInsideFunctionBody(
+        path,
+        childrenAttribute
+    );
+
+    let previousEntry = null;
 
     const resetGroup = () => {
         currentGroup.length = 0;
@@ -1996,35 +2029,121 @@ export function applyAssignmentAlignment(statements, options) {
     };
 
     for (const statement of statements) {
-        if (isSimpleAssignment(statement)) {
+        const entry = getSimpleAssignmentLikeEntry(
+            statement,
+            insideFunctionBody
+        );
+
+        if (entry) {
             if (
-                previousSimpleAssignment &&
+                previousEntry &&
                 shouldBreakAssignmentAlignment(
-                    previousSimpleAssignment,
-                    statement,
+                    previousEntry.locationNode,
+                    entry.locationNode,
                     originalText,
                     locStart,
                     locEnd
                 )
             ) {
                 flushGroup();
-                previousSimpleAssignment = null;
+                previousEntry = null;
             }
 
-            const nameLength = statement.left.name.length;
-            currentGroup.push({ node: statement, nameLength });
-            if (nameLength > currentGroupMaxLength) {
-                currentGroupMaxLength = nameLength;
+            currentGroup.push({
+                node: entry.paddingTarget,
+                nameLength: entry.nameLength
+            });
+            if (entry.nameLength > currentGroupMaxLength) {
+                currentGroupMaxLength = entry.nameLength;
             }
 
-            previousSimpleAssignment = statement;
+            previousEntry = entry;
         } else {
             flushGroup();
-            previousSimpleAssignment = null;
+            previousEntry = null;
         }
     }
 
     flushGroup();
+}
+
+function isPathInsideFunctionBody(path, childrenAttribute) {
+    if (
+        !path ||
+        typeof path.getParentNode !== "function" ||
+        typeof path.getValue !== "function"
+    ) {
+        return false;
+    }
+
+    if (childrenAttribute !== "body") {
+        return false;
+    }
+
+    const containerNode = path.getValue();
+    if (!containerNode || containerNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (!parentNode || typeof parentNode.type !== "string") {
+        return false;
+    }
+
+    if (
+        parentNode.type === "FunctionDeclaration" ||
+        parentNode.type === "FunctionExpression" ||
+        parentNode.type === "ConstructorDeclaration"
+    ) {
+        return parentNode.body === containerNode;
+    }
+
+    return false;
+}
+
+function getSimpleAssignmentLikeEntry(statement, insideFunctionBody) {
+    if (isSimpleAssignment(statement)) {
+        const identifier = statement.left;
+        if (!identifier || typeof identifier.name !== "string") {
+            return null;
+        }
+
+        return {
+            locationNode: statement,
+            paddingTarget: statement,
+            nameLength: identifier.name.length
+        };
+    }
+
+    if (!insideFunctionBody) {
+        return null;
+    }
+
+    const declarator = getSingleVariableDeclarator(statement);
+    if (!declarator) {
+        return null;
+    }
+
+    const id = declarator.id;
+    if (!id || id.type !== "Identifier" || typeof id.name !== "string") {
+        return null;
+    }
+
+    const init = declarator.init;
+    if (!init || init.type !== "Identifier" || typeof init.name !== "string") {
+        return null;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(init.name);
+    if (argumentIndex === null) {
+        return null;
+    }
+
+    return {
+        locationNode: statement,
+        paddingTarget: declarator,
+        nameLength: id.name.length
+    };
 }
 
 function getAssignmentAlignmentMinimum(options) {
@@ -5612,10 +5731,20 @@ function hasLineBreak(text) {
 }
 
 function isInLValueChain(path) {
-    const { node, parent } = path;
-    if (parent.type === "CallExpression" && parent.arguments.includes(node)) {
+    const { node, parent } = path ?? {};
+
+    if (!parent || typeof parent.type !== "string") {
         return false;
     }
+
+    if (
+        parent.type === "CallExpression" &&
+        Array.isArray(parent.arguments) &&
+        parent.arguments.includes(node)
+    ) {
+        return false;
+    }
+
     return isLValueExpression(parent.type);
 }
 
