@@ -480,9 +480,11 @@ function readXmlFile(filePath, displayPath) {
     try {
         return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
     } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
         return {
             status: "error",
-            note: `Failed to read ${displayPath}: ${error?.message}`
+            note: `Failed to read ${displayPath}: ${message}`
         };
     }
 }
@@ -492,9 +494,11 @@ function parseXmlTestCases(xml, displayPath) {
         const data = parser.parse(xml);
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
         return {
             status: "error",
-            note: `Failed to parse ${displayPath}: ${error?.message}`
+            note: `Failed to parse ${displayPath}: ${message}`
         };
     }
 }
