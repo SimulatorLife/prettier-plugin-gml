@@ -129,7 +129,7 @@ function readJUnitSuites(xmlFiles) {
         for (const match of xml.matchAll(/<testsuite\b([^>]*)>/g)) {
             const attrs = match[1] || "";
             const pick = (name) =>
-                (attrs.match(new RegExp(`${escapeRegExp(name)}="([^"]*)"`, "g")) || [])[1] ?? null;
+                (attrs.match(new RegExp(`${escapeRegExp(name)}="([^"]*)"`)) || [])[1] ?? null;
             const asNumber = (value) =>
                 (value === null ? 0 : Number.parseFloat(value)) || 0;
             totals.tests += asNumber(pick("tests"));
