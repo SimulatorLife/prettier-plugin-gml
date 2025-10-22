@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
@@ -15,8 +14,7 @@ import {
 import {
     assertFunction,
     getOrCreateMapEntry,
-    hasOwn,
-    isPlainObject
+    hasOwn
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -29,12 +27,7 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import {
-    isFsErrorCode,
-    listDirectory,
-    getFileMtime
-} from "../../../shared/fs-utils.js";
-import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
+import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -44,16 +37,17 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import {
+    PROJECT_INDEX_BUILD_ABORT_MESSAGE,
+    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
+    createProjectIndexAbortGuard
+} from "./abort-guard.js";
+import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -62,24 +56,6 @@ const PARSER_FACADE_OPTION_KEYS = [
     "gmlParserFacade",
     "parserFacade"
 ];
-
-const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
-    "Project root discovery was aborted.";
-const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
-
-function createProjectIndexAbortGuard(options, config = {}) {
-    const { message, fallbackMessage, key } = config;
-    const guardOptions = {};
-
-    if (key != null) {
-        guardOptions.key = key;
-    }
-
-    guardOptions.fallbackMessage =
-        fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
-
-    return createAbortGuard(options, guardOptions);
-}
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -303,105 +279,6 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
-
-const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
-);
-
-let cachedBuiltInIdentifiers = null;
-
-function extractBuiltInIdentifierNames(payload) {
-    if (!isPlainObject(payload)) {
-        throw new TypeError(
-            "Built-in identifier metadata must be an object payload."
-        );
-    }
-
-    const { identifiers } = payload;
-    if (!isPlainObject(identifiers)) {
-        throw new TypeError(
-            "Built-in identifier metadata must expose an identifiers object."
-        );
-    }
-
-    const entries = normalizeIdentifierMetadataEntries(payload);
-    const names = new Set();
-
-    for (const { name, type } of entries) {
-        if (type.length === 0) {
-            continue;
-        }
-
-        names.add(name);
-    }
-
-    return names;
-}
-
-function parseBuiltInIdentifierNames(rawContents) {
-    const payload = parseJsonWithContext(rawContents, {
-        source: GML_IDENTIFIER_FILE_PATH,
-        description: "built-in identifier metadata"
-    });
-
-    return extractBuiltInIdentifierNames(payload);
-}
-
-async function loadBuiltInIdentifiers(
-    fsFacade = defaultFsFacade,
-    metrics = null,
-    options = {}
-) {
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
-
-    const currentMtime = await getFileMtime(
-        fsFacade,
-        GML_IDENTIFIER_FILE_PATH,
-        { signal }
-    );
-    ensureNotAborted();
-    const cached = cachedBuiltInIdentifiers;
-    const cachedMtime = cached?.metadata?.mtimeMs ?? null;
-
-    if (!cached) {
-        metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (
-        cachedMtime === currentMtime ||
-        (typeof cachedMtime === "number" &&
-            typeof currentMtime === "number" &&
-            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
-    ) {
-        metrics?.recordCacheHit("builtInIdentifiers");
-        return cached;
-    } else {
-        metrics?.recordCacheStale("builtInIdentifiers");
-    }
-
-    let names = new Set();
-
-    try {
-        const rawContents = await fsFacade.readFile(
-            GML_IDENTIFIER_FILE_PATH,
-            "utf8"
-        );
-        ensureNotAborted();
-        names = parseBuiltInIdentifierNames(rawContents);
-    } catch {
-        // Built-in identifier metadata ships with the formatter bundle; if the
-        // file is missing or unreadable we intentionally degrade to an empty
-        // set rather than aborting project indexing. That keeps the CLI usable
-        // when installations are partially upgraded or when read permissions
-        // are restricted, and the metrics recorder above still notes the cache
-        // miss for observability.
-    }
-
-    cachedBuiltInIdentifiers = {
-        metadata: { mtimeMs: currentMtime },
-        names
-    };
-
-    return cachedBuiltInIdentifiers;
-}
 
 const ProjectFileCategory = Object.freeze({
     RESOURCE_METADATA: "yy",
@@ -2600,4 +2477,4 @@ export async function buildProjectIndex(
 export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
 export { ProjectFileCategory };
-export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
+export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
