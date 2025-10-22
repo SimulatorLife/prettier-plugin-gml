@@ -3,7 +3,6 @@ import {
     normalizeStringList
 } from "../../../shared/string-utils.js";
 import { toArrayFromIterable } from "../../../shared/array-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -55,75 +54,6 @@ function toPlainObject(map) {
     return Object.fromEntries(map);
 }
 
-function createMapIncrementer(store) {
-    return (label, amount = 1) => {
-        const normalized = normalizeLabel(label);
-        const previous = store.get(normalized) ?? 0;
-        store.set(normalized, previous + amount);
-    };
-}
-
-function createCacheStatsEnsurer(caches, cacheKeys) {
-    return (cacheName) => {
-        const normalized = normalizeLabel(cacheName);
-        return getOrCreateMapEntry(
-            caches,
-            normalized,
-            () => new Map(cacheKeys.map((key) => [key, 0]))
-        );
-    };
-}
-
-function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
-    const stats = ensureCacheStats(cacheName);
-    const normalizedKey = normalizeLabel(key);
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
-
-    const increment = normalizeIncrementAmount(
-        amount,
-        amount === undefined ? 1 : 0
-    );
-    if (increment === 0) {
-        return;
-    }
-
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
-}
-
-function mergeSummarySections(summary, extra) {
-    for (const key of SUMMARY_SECTIONS) {
-        const additions = extra[key];
-        if (additions && typeof additions === "object") {
-            Object.assign(summary[key], additions);
-        }
-    }
-}
-
-function createSummaryLogger({ logger, category, snapshot }) {
-    if (!logger || typeof logger.debug !== "function") {
-        return () => {};
-    }
-
-    return (message = "summary", extra = {}) => {
-        logger.debug(`[${category}] ${message}`, snapshot(extra));
-    };
-}
-
-function createFinalizer({ autoLog, logger, category, snapshot }) {
-    const hasDebug = typeof logger?.debug === "function";
-
-    return (extra = {}) => {
-        const report = snapshot(extra);
-        if (autoLog && hasDebug) {
-            logger.debug(`[${category}] summary`, report);
-        }
-
-        return report;
-    };
-}
-
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
@@ -137,9 +67,43 @@ export function createMetricsTracker({
     const metadata = Object.create(null);
     const cacheKeys = normalizeCacheKeys(cacheKeyOption);
 
-    const incrementTiming = createMapIncrementer(timings);
-    const incrementCounterBy = createMapIncrementer(counters);
-    const ensureCacheStats = createCacheStatsEnsurer(caches, cacheKeys);
+    const debug =
+        typeof logger?.debug === "function" ? logger.debug.bind(logger) : null;
+
+    function incrementMap(store, label, amount = 1) {
+        const normalized = normalizeLabel(label);
+        const previous = store.get(normalized) ?? 0;
+        store.set(normalized, previous + amount);
+    }
+
+    function ensureCacheStats(cacheName) {
+        const normalized = normalizeLabel(cacheName);
+        let stats = caches.get(normalized);
+        if (!stats) {
+            stats = new Map(cacheKeys.map((key) => [key, 0]));
+            caches.set(normalized, stats);
+        }
+        return stats;
+    }
+
+    function adjustCacheMetric(cacheName, key, amount) {
+        const stats = ensureCacheStats(cacheName);
+        const normalizedKey = normalizeLabel(key);
+        if (!stats.has(normalizedKey)) {
+            stats.set(normalizedKey, 0);
+        }
+
+        const increment = normalizeIncrementAmount(
+            amount,
+            amount === undefined ? 1 : 0
+        );
+        if (increment === 0) {
+            return;
+        }
+
+        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    }
+
     function snapshot(extra = {}) {
         const summary = {
             category,
@@ -155,18 +119,36 @@ export function createMetricsTracker({
             metadata: { ...metadata }
         };
 
-        if (!extra || typeof extra !== "object") {
-            return summary;
+        if (extra && typeof extra === "object") {
+            for (const key of SUMMARY_SECTIONS) {
+                const additions = extra[key];
+                if (additions && typeof additions === "object") {
+                    summary[key] = { ...summary[key], ...additions };
+                }
+            }
         }
 
-        mergeSummarySections(summary, extra);
         return summary;
     }
-    const logSummary = createSummaryLogger({ logger, category, snapshot });
-    const finalize = createFinalizer({ autoLog, logger, category, snapshot });
+
+    function logSummary(message = "summary", extra = {}) {
+        if (!debug) {
+            return;
+        }
+
+        debug(`[${category}] ${message}`, snapshot(extra));
+    }
+
+    function finalize(extra = {}) {
+        const report = snapshot(extra);
+        if (autoLog && debug) {
+            debug(`[${category}] summary`, report);
+        }
+        return report;
+    }
 
     function recordTiming(label, durationMs) {
-        incrementTiming(label, Math.max(0, durationMs));
+        incrementMap(timings, label, Math.max(0, durationMs));
     }
 
     function startTimer(label) {
@@ -195,11 +177,7 @@ export function createMetricsTracker({
     }
 
     function incrementCounter(label, amount = 1) {
-        incrementCounterBy(label, amount);
-    }
-
-    function recordCacheEvent(cacheName, key, amount = 1) {
-        recordCacheIncrement(ensureCacheStats, cacheName, key, amount);
+        incrementMap(counters, label, amount);
     }
 
     function setMetadata(key, value) {
@@ -217,16 +195,16 @@ export function createMetricsTracker({
         startTimer,
         incrementCounter,
         recordCacheHit(cacheName) {
-            recordCacheEvent(cacheName, "hits");
+            adjustCacheMetric(cacheName, "hits");
         },
         recordCacheMiss(cacheName) {
-            recordCacheEvent(cacheName, "misses");
+            adjustCacheMetric(cacheName, "misses");
         },
         recordCacheStale(cacheName) {
-            recordCacheEvent(cacheName, "stale");
+            adjustCacheMetric(cacheName, "stale");
         },
         recordCacheMetric(cacheName, key, amount = 1) {
-            recordCacheEvent(cacheName, key, amount);
+            adjustCacheMetric(cacheName, key, amount);
         },
         snapshot,
         finalize,
