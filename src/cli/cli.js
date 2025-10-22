@@ -41,12 +41,12 @@ import {
     toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
-} from "./lib/shared/utils.js";
-import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "./lib/shared/path-utils.js";
+} from "../shared/utils/path.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
