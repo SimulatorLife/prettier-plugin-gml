@@ -84,10 +84,7 @@ function createCacheStatsEnsurer(caches, cacheKeys) {
 function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(cacheName);
     const normalizedKey = normalizeLabel(key);
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
-
+    const previous = getOrCreateMapEntry(stats, normalizedKey, () => 0);
     const increment = normalizeIncrementAmount(
         amount,
         amount === undefined ? 1 : 0
@@ -96,7 +93,7 @@ function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    stats.set(normalizedKey, previous + increment);
 }
 
 function mergeSummarySections(summary, extra) {
