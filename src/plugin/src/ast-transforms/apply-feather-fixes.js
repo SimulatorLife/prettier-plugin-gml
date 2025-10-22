@@ -10550,6 +10550,19 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
             ? insertionInfo.index
             : siblings.length;
 
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
+
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
 
