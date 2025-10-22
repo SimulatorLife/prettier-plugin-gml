@@ -2560,11 +2560,7 @@ function mergeSyntheticDocComments(
     }
 
     const docTagMatches = (line, pattern) => {
-        if (typeof line !== "string") {
-            return false;
-        }
-
-        const trimmed = line.trim();
+        const trimmed = toTrimmedString(line);
         if (trimmed.length === 0) {
             return false;
         }

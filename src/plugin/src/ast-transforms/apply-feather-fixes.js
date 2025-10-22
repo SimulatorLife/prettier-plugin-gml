@@ -225,7 +225,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     const processLine = (line) => {
         const indentationMatch = line.match(/^\s*/);
         const indentation = indentationMatch ? indentationMatch[0] : "";
-        const trimmed = line.trim();
+        const trimmed = toTrimmedString(line);
 
         if (trimmed.length === 0) {
             return { line, context: pendingGM1100Context };
@@ -13094,7 +13094,7 @@ function isCoercibleStringLiteral(node) {
         return false;
     }
 
-    const trimmed = literalText.trim();
+    const trimmed = toTrimmedString(literalText);
 
     if (trimmed.length === 0) {
         return false;
