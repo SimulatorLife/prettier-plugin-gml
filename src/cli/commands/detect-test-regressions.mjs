@@ -12,7 +12,7 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared/utils.js";
+} from "../../shared/utils.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
