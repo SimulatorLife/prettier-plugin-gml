@@ -18,6 +18,19 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
 
 const identity = (value) => value;
 
+/**
+ * Create a function that remaps parser indices back to the original source
+ * coordinates by subtracting how many guard characters were injected before a
+ * given position.
+ *
+ * Invalid entries (non-numeric or duplicate offsets) are ignored so callers can
+ * record adjustments opportunistically without sanitizing the array first.
+ *
+ * @param {Array<number> | null | undefined} insertPositions Raw indices where
+ *     guard characters were inserted.
+ * @returns {(index: number) => number} A lookup that translates parser indices
+ *     to their original offsets.
+ */
 function createIndexMapper(insertPositions) {
     if (!Array.isArray(insertPositions) || insertPositions.length === 0) {
         return identity;
@@ -56,6 +69,18 @@ function isQuoteCharacter(character) {
     return character === '"' || character === "'" || character === "`";
 }
 
+/**
+ * Mutate an AST node's location metadata so it continues to point at the
+ * correct source region after sanitization inserts additional characters.
+ *
+ * The parser may encode positions either as plain numbers or as objects with an
+ * `index` field; both shapes are supported.
+ *
+ * @param {object} node AST node that may carry parser position metadata.
+ * @param {string} propertyName Name of the property that should be remapped.
+ * @param {(index: number) => number} mapIndex Function returned by
+ *     {@link createIndexMapper} that translates parser indices.
+ */
 function adjustLocationProperty(node, propertyName, mapIndex) {
     if (!hasOwn(node, propertyName)) {
         return;

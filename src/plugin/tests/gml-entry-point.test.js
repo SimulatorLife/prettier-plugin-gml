@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
     resetGmlPluginComponentProvider,
+    restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
 import * as gmlPlugin from "../src/gml.js";
@@ -36,68 +37,66 @@ test(
     "GML entry point mirrors plugin component overrides",
     { concurrency: false },
     () => {
-        resetGmlPluginComponentProvider();
+        restoreDefaultGmlPluginComponents();
 
-        const originalParsers = gmlPlugin.parsers;
-        const originalDefaultOptions = gmlPlugin.defaultOptions;
+        const originalParserKeys = Object.keys(gmlPlugin.parsers);
+        const originalPrinterKeys = Object.keys(gmlPlugin.printers);
+        const originalOptionKeys = Object.keys(gmlPlugin.options);
+        const originalDefaultOptions = { ...gmlPlugin.defaultOptions };
 
-        const overriddenBundle = setGmlPluginComponentProvider(
-            createCustomComponentBundle
-        );
+        try {
+            setGmlPluginComponentProvider(createCustomComponentBundle);
 
-        assert.strictEqual(
-            gmlPlugin.parsers,
-            overriddenBundle.parsers,
-            "parsers export should track overridden components"
-        );
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.parsers),
+                ["custom-parser"],
+                "parsers export should surface overridden components"
+            );
 
-        assert.strictEqual(
-            gmlPlugin.printers,
-            overriddenBundle.printers,
-            "printers export should track overridden components"
-        );
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.printers),
+                ["custom-printer"],
+                "printers export should surface overridden components"
+            );
 
-        assert.strictEqual(
-            gmlPlugin.options,
-            overriddenBundle.options,
-            "options export should track overridden components"
-        );
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.options),
+                ["custom-option"],
+                "options export should surface overridden components"
+            );
 
-        assert.ok(
-            Object.hasOwn(gmlPlugin.defaultOptions, "custom-option"),
-            "default options should include overrides"
-        );
+            assert.ok(
+                Object.hasOwn(gmlPlugin.defaultOptions, "custom-option"),
+                "default options should include overrides"
+            );
 
-        assert.notStrictEqual(
-            gmlPlugin.defaultOptions,
-            originalDefaultOptions,
-            "default options should refresh when overrides apply"
-        );
+            const overriddenDefaults = { ...gmlPlugin.defaultOptions };
 
-        const resetBundle = resetGmlPluginComponentProvider();
+            assert.notDeepStrictEqual(
+                overriddenDefaults,
+                originalDefaultOptions,
+                "default options should refresh when overrides apply"
+            );
+        } finally {
+            resetGmlPluginComponentProvider();
+        }
 
-        assert.strictEqual(
-            gmlPlugin.parsers,
-            resetBundle.parsers,
+        assert.deepStrictEqual(
+            Object.keys(gmlPlugin.parsers),
+            originalParserKeys,
             "parsers export should reset to default components"
         );
 
-        assert.strictEqual(
-            gmlPlugin.printers,
-            resetBundle.printers,
+        assert.deepStrictEqual(
+            Object.keys(gmlPlugin.printers),
+            originalPrinterKeys,
             "printers export should reset to default components"
         );
 
-        assert.strictEqual(
-            gmlPlugin.options,
-            resetBundle.options,
+        assert.deepStrictEqual(
+            Object.keys(gmlPlugin.options),
+            originalOptionKeys,
             "options export should reset to default components"
-        );
-
-        assert.strictEqual(
-            gmlPlugin.parsers,
-            originalParsers,
-            "reset should restore original parser map"
         );
 
         assert.deepStrictEqual(

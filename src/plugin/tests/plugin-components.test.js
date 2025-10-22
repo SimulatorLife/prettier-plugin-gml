@@ -6,220 +6,259 @@ import {
     gmlPluginComponents,
     resolveGmlPluginComponents,
     resetGmlPluginComponentProvider,
+    restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
+import * as gmlPlugin from "../src/gml.js";
 
-test("GML plugin components expose validated defaults", () => {
-    const resolved = resolveGmlPluginComponents();
-
-    assert.strictEqual(
-        resolved,
-        gmlPluginComponents,
-        "resolver should return the shared component bundle"
-    );
-
-    assert.ok(Object.isFrozen(resolved), "component bundle should be frozen");
-    assert.ok(
-        Object.isFrozen(resolved.parsers),
-        "parsers map should be frozen"
-    );
-    assert.ok(
-        Object.isFrozen(resolved.printers),
-        "printers map should be frozen"
-    );
-    assert.ok(
-        Object.isFrozen(resolved.options),
-        "options map should be frozen"
-    );
-
-    assert.ok(
-        resolved.parsers["gml-parse"],
-        "default parser should be registered"
-    );
-    assert.ok(
-        resolved.printers["gml-ast"],
-        "default printer should be registered"
-    );
-    assert.ok(
-        Object.hasOwn(resolved.options, "optimizeLoopLengthHoisting"),
-        "default options should be registered"
-    );
-
-    // The formatter is intentionally opinionated—legacy indentation toggles must stay removed.
-    for (const removedOption of [
-        "preserveLineBreaks",
-        "maintainArrayIndentation",
-        "maintainStructIndentation",
-        "maintainWithIndentation",
-        "maintainSwitchIndentation"
-    ]) {
-        assert.ok(
-            !Object.hasOwn(resolved.options, removedOption),
-            `${removedOption} should stay unregistered`
-        );
-    }
-
-    assert.strictEqual(
-        resolveGmlPluginComponents(),
-        resolved,
-        "resolver should reuse the same object reference"
-    );
-});
-
-test("GML plugin components cannot be mutated", () => {
-    const resolved = resolveGmlPluginComponents();
-
-    assert.throws(
-        () => {
-            resolved.parsers.custom = { parse: () => ({}) };
-        },
-        TypeError,
-        "frozen parser map should reject new entries"
-    );
-
-    assert.throws(
-        () => {
-            resolved.options.extra = { default: true };
-        },
-        TypeError,
-        "frozen option map should reject new entries"
-    );
-});
-
-test(
-    "GML plugin component providers can be overridden and reset",
-    { concurrency: false },
-    () => {
-        const original = resolveGmlPluginComponents();
-
-        const customComponents = {
-            parsers: {
-                "custom-parser": {
-                    parse: (text) => ({ text })
-                }
-            },
-            printers: {
-                "custom-printer": {
-                    print() {
-                        return "";
-                    }
-                }
-            },
-            options: {
-                "custom-option": {
-                    since: "test",
-                    category: "test",
-                    type: "boolean",
-                    default: false
-                }
+function createCustomComponents() {
+    return {
+        parsers: {
+            "custom-parse": {
+                parse: () => ({ type: "Program", body: [] })
             }
-        };
+        },
+        printers: {
+            "custom-ast": {
+                print: () => "",
+                canAttachComment: () => false,
+                isBlockComment: () => false,
+                printComment: () => "",
+                handleComments: () => {}
+            }
+        },
+        options: {
+            customToggle: {
+                since: "0.0.0",
+                type: "boolean",
+                category: "gml",
+                default: false,
+                description: "Custom toggle for testing"
+            }
+        }
+    };
+}
 
-        const overridden = setGmlPluginComponentProvider(
-            () => customComponents
+test("GML plugin component registry", { concurrency: false }, async (t) => {
+    await t.test("exposes validated defaults", () => {
+        const resolved = resolveGmlPluginComponents();
+
+        assert.strictEqual(
+            resolved,
+            gmlPluginComponents,
+            "resolver should return the shared default bundle"
         );
 
-        assert.notStrictEqual(
-            overridden,
-            original,
-            "overrides should replace the default bundle"
+        assert.ok(
+            Object.isFrozen(resolved),
+            "component bundle should be frozen"
+        );
+        assert.ok(
+            Object.isFrozen(resolved.parsers),
+            "parsers map should be frozen"
+        );
+        assert.ok(
+            Object.isFrozen(resolved.printers),
+            "printers map should be frozen"
+        );
+        assert.ok(
+            Object.isFrozen(resolved.options),
+            "options map should be frozen"
+        );
+
+        assert.ok(
+            resolved.parsers["gml-parse"],
+            "default parser should be registered"
+        );
+        assert.ok(
+            resolved.printers["gml-ast"],
+            "default printer should be registered"
+        );
+        assert.ok(
+            Object.hasOwn(resolved.options, "optimizeLoopLengthHoisting"),
+            "default options should be registered"
+        );
+
+        for (const removedOption of [
+            "preserveLineBreaks",
+            "maintainArrayIndentation",
+            "maintainStructIndentation",
+            "maintainWithIndentation",
+            "maintainSwitchIndentation"
+        ]) {
+            assert.ok(
+                !Object.hasOwn(resolved.options, removedOption),
+                `${removedOption} should stay unregistered`
+            );
+        }
+
+        assert.strictEqual(
+            resolveGmlPluginComponents(),
+            resolved,
+            "resolver should reuse the same object reference"
+        );
+    });
+
+    await t.test("allows overriding the active provider", () => {
+        const customComponents = createCustomComponents();
+
+        try {
+            const resolved = setGmlPluginComponentProvider(
+                () => customComponents
+            );
+
+            assert.notStrictEqual(
+                resolved,
+                gmlPluginComponents,
+                "custom provider should replace the default bundle"
+            );
+
+            assert.ok(
+                Object.isFrozen(resolved),
+                "custom bundle should be frozen"
+            );
+            assert.ok(
+                Object.isFrozen(resolved.parsers),
+                "custom parsers map should be frozen"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(resolved.parsers),
+                ["custom-parse"],
+                "custom parser should be exposed"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(resolved.printers),
+                ["custom-ast"],
+                "custom printer should be exposed"
+            );
+
+            assert.ok(
+                Object.hasOwn(resolved.options, "customToggle"),
+                "custom options should be exposed"
+            );
+
+            assert.strictEqual(
+                resolveGmlPluginComponents(),
+                resolved,
+                "resolver should cache the custom bundle"
+            );
+        } finally {
+            restoreDefaultGmlPluginComponents();
+        }
+    });
+
+    await t.test("plugin exports track provider overrides", () => {
+        const customComponents = createCustomComponents();
+
+        try {
+            setGmlPluginComponentProvider(() => customComponents);
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.parsers),
+                ["custom-parse"],
+                "parsers proxy should surface custom parser entries"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.printers),
+                ["custom-ast"],
+                "printers proxy should surface custom printer entries"
+            );
+
+            assert.deepStrictEqual(
+                Object.keys(gmlPlugin.options),
+                ["customToggle"],
+                "options proxy should surface custom option entries"
+            );
+
+            const defaults = { ...gmlPlugin.defaultOptions };
+
+            assert.strictEqual(
+                defaults.customToggle,
+                false,
+                "default options proxy should surface custom option defaults"
+            );
+            assert.strictEqual(
+                defaults.trailingComma,
+                "none",
+                "core option overrides should remain in effect"
+            );
+        } finally {
+            restoreDefaultGmlPluginComponents();
+        }
+
+        assert.ok(
+            Object.hasOwn(gmlPlugin.parsers, "gml-parse"),
+            "parsers proxy should expose default parser after restore"
+        );
+        assert.ok(
+            Object.hasOwn(gmlPlugin.printers, "gml-ast"),
+            "printers proxy should expose default printer after restore"
+        );
+        assert.ok(
+            Object.hasOwn(gmlPlugin.options, "optimizeLoopLengthHoisting"),
+            "options proxy should expose default option entries after restore"
         );
         assert.strictEqual(
-            overridden,
+            gmlPlugin.defaultOptions.trailingComma,
+            "none",
+            "default options proxy should expose overrides after restore"
+        );
+    });
+
+    await t.test("restoring defaults reuses the baseline components", () => {
+        const resolved = restoreDefaultGmlPluginComponents();
+
+        assert.strictEqual(
+            resolved,
             gmlPluginComponents,
-            "module export should mirror the overridden bundle"
-        );
-        assert.ok(
-            Object.isFrozen(overridden),
-            "overridden bundle should be normalized and frozen"
-        );
-        assert.ok(
-            overridden.parsers["custom-parser"],
-            "custom parser should be registered"
+            "restore should return the default bundle"
         );
 
         assert.strictEqual(
             resolveGmlPluginComponents(),
-            overridden,
-            "resolver should reuse the overridden bundle"
-        );
-
-        const reset = resetGmlPluginComponentProvider();
-
-        assert.notStrictEqual(
-            reset,
-            overridden,
-            "reset should restore the default bundle"
-        );
-        assert.strictEqual(
-            reset,
             gmlPluginComponents,
-            "module export should mirror the reset default bundle"
+            "resolver should fall back to the default bundle"
         );
-        assert.ok(
-            reset.parsers["gml-parse"],
-            "default parser should be restored after reset"
-        );
-    }
-);
+    });
 
-test(
-    "GML plugin component observers receive change notifications",
-    { concurrency: false },
-    () => {
+    await t.test("observers are notified when providers change", () => {
         const notifications = [];
         const unsubscribe = addGmlPluginComponentObserver((components) => {
             notifications.push(components);
         });
 
-        const customComponents = {
-            parsers: {
-                "observer-parser": {
-                    parse: (text) => ({ text })
-                }
-            },
-            printers: {
-                "observer-printer": {
-                    print() {
-                        return "";
-                    }
-                }
-            },
-            options: {
-                "observer-option": {
-                    since: "test",
-                    category: "test",
-                    type: "boolean",
-                    default: true
-                }
-            }
-        };
+        try {
+            const customComponents = createCustomComponents();
+            const overridden = setGmlPluginComponentProvider(
+                () => customComponents
+            );
 
-        const overridden = setGmlPluginComponentProvider(
-            () => customComponents
-        );
+            assert.strictEqual(
+                notifications.at(-1),
+                overridden,
+                "observers should receive overridden bundle notifications"
+            );
 
-        assert.strictEqual(
-            notifications.at(-1),
-            overridden,
-            "observers should be notified when the provider changes"
-        );
+            notifications.length = 0;
+            unsubscribe();
 
-        notifications.length = 0;
-        unsubscribe();
+            const reset = resetGmlPluginComponentProvider();
 
-        const reset = resetGmlPluginComponentProvider();
-
-        assert.strictEqual(
-            notifications.length,
-            0,
-            "unsubscribed observers should not receive notifications"
-        );
-
-        assert.strictEqual(
-            reset,
-            gmlPluginComponents,
-            "reset should still restore the default bundle"
-        );
-    }
-);
+            assert.strictEqual(
+                notifications.length,
+                0,
+                "unsubscribed observers should not receive reset notifications"
+            );
+            assert.strictEqual(
+                reset,
+                gmlPluginComponents,
+                "reset should still restore the default bundle"
+            );
+        } finally {
+            restoreDefaultGmlPluginComponents();
+        }
+    });
+});

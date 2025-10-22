@@ -5,31 +5,93 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
-import {
-    addGmlPluginComponentObserver,
-    resolveGmlPluginComponents
-} from "./plugin-components.js";
+import { resolveGmlPluginComponents } from "./plugin-components.js";
 
-export let parsers;
-export let printers;
-export let options;
-export let defaultOptions;
-
-function refreshPluginComponentState(componentBundle) {
-    const components = componentBundle ?? resolveGmlPluginComponents();
-
-    parsers = components.parsers;
-    printers = components.printers;
-    options = components.options;
-
-    defaultOptions = {
-        ...BASE_PRETTIER_DEFAULTS,
-        ...extractOptionDefaults(options),
-        ...CORE_OPTION_OVERRIDES
-    };
-
-    return components;
+function selectPluginComponents() {
+    return resolveGmlPluginComponents();
 }
+
+function createReadOnlyView(selector, description) {
+    const target = Object.create(null);
+    const readOnlyError = new TypeError(
+        `${description} cannot be modified once resolved.`
+    );
+
+    function selectSource() {
+        const source = selector();
+        if (!source || typeof source !== "object") {
+            throw new TypeError(`${description} must resolve to an object.`);
+        }
+        return source;
+    }
+
+    return new Proxy(target, {
+        get(_target, property, receiver) {
+            if (property === Symbol.toStringTag) {
+                return "Object";
+            }
+
+            const source = selectSource();
+            return Reflect.get(source, property, receiver);
+        },
+        has(_target, property) {
+            const source = selectSource();
+            return Reflect.has(source, property);
+        },
+        ownKeys() {
+            const source = selectSource();
+            return Reflect.ownKeys(source);
+        },
+        getOwnPropertyDescriptor(_target, property) {
+            const source = selectSource();
+            const descriptor = Reflect.getOwnPropertyDescriptor(
+                source,
+                property
+            );
+
+            if (!descriptor) {
+                return;
+            }
+
+            return {
+                configurable: true,
+                enumerable:
+                    descriptor.enumerable === undefined
+                        ? true
+                        : descriptor.enumerable,
+                value: descriptor.value,
+                writable: false
+            };
+        },
+        getPrototypeOf() {
+            return Object.prototype;
+        },
+        set() {
+            throw readOnlyError;
+        },
+        defineProperty() {
+            throw readOnlyError;
+        },
+        deleteProperty() {
+            throw readOnlyError;
+        }
+    });
+}
+
+const parsers = createReadOnlyView(
+    () => selectPluginComponents().parsers,
+    "GML plugin parsers"
+);
+
+const printers = createReadOnlyView(
+    () => selectPluginComponents().printers,
+    "GML plugin printers"
+);
+
+const options = createReadOnlyView(
+    () => selectPluginComponents().options,
+    "GML plugin options"
+);
 
 export const languages = [
     {
@@ -79,6 +141,24 @@ function extractOptionDefaults(optionConfigMap) {
     return defaults;
 }
 
-refreshPluginComponentState();
+function computeOptionDefaults() {
+    const components = selectPluginComponents();
+    return extractOptionDefaults(components.options);
+}
 
-addGmlPluginComponentObserver(refreshPluginComponentState);
+function createDefaultOptionsSnapshot() {
+    return {
+        // Merge order:
+        // GML Prettier defaults -> option defaults -> fixed overrides
+        ...BASE_PRETTIER_DEFAULTS,
+        ...computeOptionDefaults(),
+        ...CORE_OPTION_OVERRIDES
+    };
+}
+
+const defaultOptions = createReadOnlyView(
+    () => createDefaultOptionsSnapshot(),
+    "GML default options"
+);
+
+export { parsers, printers, options, defaultOptions };

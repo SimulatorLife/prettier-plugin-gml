@@ -6,8 +6,9 @@ const DEFAULT_COMPONENTS = normalizeGmlPluginComponents(
 );
 
 let currentProvider = () => DEFAULT_COMPONENTS;
+let activeGmlPluginComponents = DEFAULT_COMPONENTS;
 
-export let gmlPluginComponents = DEFAULT_COMPONENTS;
+export const gmlPluginComponents = DEFAULT_COMPONENTS;
 
 const componentObservers = new Set();
 
@@ -19,18 +20,18 @@ function notifyComponentObservers() {
     const snapshot = Array.from(componentObservers);
 
     for (const observer of snapshot) {
-        observer(gmlPluginComponents);
+        observer(activeGmlPluginComponents);
     }
 }
 
 function assignComponents(components) {
-    gmlPluginComponents = normalizeGmlPluginComponents(components);
+    activeGmlPluginComponents = normalizeGmlPluginComponents(components);
     notifyComponentObservers();
-    return gmlPluginComponents;
+    return activeGmlPluginComponents;
 }
 
 export function resolveGmlPluginComponents() {
-    return gmlPluginComponents;
+    return activeGmlPluginComponents;
 }
 
 export function setGmlPluginComponentProvider(provider) {
@@ -44,11 +45,15 @@ export function setGmlPluginComponentProvider(provider) {
     return assignComponents(provider());
 }
 
-export function resetGmlPluginComponentProvider() {
+export function restoreDefaultGmlPluginComponents() {
     currentProvider = () => DEFAULT_COMPONENTS;
-    gmlPluginComponents = DEFAULT_COMPONENTS;
+    activeGmlPluginComponents = DEFAULT_COMPONENTS;
     notifyComponentObservers();
-    return gmlPluginComponents;
+    return activeGmlPluginComponents;
+}
+
+export function resetGmlPluginComponentProvider() {
+    return restoreDefaultGmlPluginComponents();
 }
 
 export function getGmlPluginComponentProvider() {
