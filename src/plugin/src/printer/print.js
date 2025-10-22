@@ -132,6 +132,8 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
+const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
+
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
@@ -599,7 +601,14 @@ export function print(path, options, print) {
                 typeof node._alignAssignmentPadding === "number"
                     ? Math.max(0, node._alignAssignmentPadding)
                     : 0;
-            const spacing = " ".repeat(padding + 1);
+            let spacing = " ".repeat(padding + 1);
+
+            if (
+                spacing.length === 1 &&
+                shouldPreserveCompactUpdateAssignmentSpacing(path, options)
+            ) {
+                spacing = "";
+            }
 
             return group([
                 group(print("left")),
@@ -637,8 +646,42 @@ export function print(path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
-            if (shouldOmitArgumentAliasDeclaration(path, options)) {
-                return concat("");
+            const functionNode = findEnclosingFunctionNode(path);
+            const declarators = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+            const keptDeclarators = declarators.filter(
+                (declarator) =>
+                    !shouldOmitParameterAlias(declarator, functionNode, options)
+            );
+
+            if (keptDeclarators.length === 0) {
+                return;
+            }
+
+            if (keptDeclarators.length !== declarators.length) {
+                const original = node.declarations;
+                node.declarations = keptDeclarators;
+                try {
+                    const decls =
+                        keptDeclarators.length > 1
+                            ? printCommaSeparatedList(
+                                  path,
+                                  print,
+                                  "declarations",
+                                  "",
+                                  "",
+                                  options,
+                                  {
+                                      leadingNewline: false,
+                                      trailingNewline: false
+                                  }
+                              )
+                            : path.map(print, "declarations");
+                    return concat([node.kind, " ", decls]);
+                } finally {
+                    node.declarations = original;
+                }
             }
 
             let decls = [];
@@ -937,7 +980,15 @@ export function print(path, options, print) {
                     options,
                     {
                         forceBreak: node.hasTrailingComma,
-                        // TODO: Decide whether to add bracket spacing for struct expressions.
+                        // TODO: Keep struct literals flush with their braces for
+                        // now. GameMaker's runtime formatter and the examples in
+                        // the manual (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FVariable_Functions%2FStructs.htm)
+                        // render `{foo: 1}` without internal padding, and our
+                        // documentation screenshots rely on matching that
+                        // output. If we decide to adopt spaced braces we need to
+                        // coordinate fixture updates and call out the style
+                        // shift in the changelog so downstream format-on-save
+                        // hooks do not surprise teams mid-upgrade.
                         padding: ""
                     }
                 )
@@ -1094,6 +1145,21 @@ export function print(path, options, print) {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
             let identifierName = node.name;
 
+            const argumentIndex =
+                getArgumentIndexFromIdentifier(identifierName);
+            if (argumentIndex !== null) {
+                const functionNode = findEnclosingFunctionDeclaration(path);
+                const preferredArgumentName = resolvePreferredParameterName(
+                    functionNode,
+                    argumentIndex,
+                    node.name,
+                    options
+                );
+                if (isNonEmptyString(preferredArgumentName)) {
+                    identifierName = preferredArgumentName;
+                }
+            }
+
             const preferredParamName = getPreferredFunctionParameterName(
                 path,
                 node,
@@ -1108,7 +1174,30 @@ export function print(path, options, print) {
                 identifierName = renamed;
             }
 
-            return concat([prefix, identifierName]);
+            let extraPadding = 0;
+            if (
+                typeof path?.getParentNode === "function" &&
+                typeof path?.getName === "function" &&
+                path.getName() === "id"
+            ) {
+                const parentNode = path.getParentNode();
+                if (
+                    parentNode?.type === "VariableDeclarator" &&
+                    typeof parentNode._alignAssignmentPadding === "number"
+                ) {
+                    extraPadding = Math.max(
+                        0,
+                        parentNode._alignAssignmentPadding
+                    );
+                }
+            }
+
+            const docs = [prefix, identifierName];
+            if (extraPadding > 0) {
+                docs.push(" ".repeat(extraPadding));
+            }
+
+            return concat(docs);
         }
         case "TemplateStringText": {
             return concat(node.value);
@@ -1653,6 +1742,37 @@ function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
     return false;
 }
 
+function getNextNonWhitespaceCharacter(text, startIndex) {
+    if (typeof text !== "string") {
+        return null;
+    }
+
+    const { length } = text;
+    for (let index = startIndex; index < length; index += 1) {
+        const characterCode = text.charCodeAt(index);
+
+        // Skip standard ASCII whitespace characters so the caller can reason
+        // about the next syntactically meaningful token without repeatedly
+        // slicing the original source text.
+        switch (characterCode) {
+            case 9: // \t
+            case 10: // \n
+            case 11: // vertical tab
+            case 12: // form feed
+            case 13: // \r
+            case 32: {
+                // space
+                continue;
+            }
+            default: {
+                return text.charAt(index);
+            }
+        }
+    }
+
+    return null;
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -1662,7 +1782,7 @@ function printStatements(path, options, print, childrenAttribute) {
             ? parentNode[childrenAttribute]
             : null;
     if (statements) {
-        applyAssignmentAlignment(statements, options);
+        applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
 
     const syntheticDocByNode = new Map();
@@ -1780,9 +1900,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
-                // Normalised legacy `#define` directives used to omit trailing
+                // Normalized legacy `#define` directives used to omit trailing
                 // semicolons when rewriting to function expressions. The
-                // formatter now standardises those assignments so they always
+                // formatter now standardizes those assignments so they always
                 // emit an explicit semicolon, matching the golden fixtures and
                 // keeping the output consistent regardless of the original
                 // source style.
@@ -1842,7 +1962,8 @@ function printStatements(path, options, print, childrenAttribute) {
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
             const forceFollowingEmptyLine =
-                node?._featherForceFollowingEmptyLine === true;
+                node?._featherForceFollowingEmptyLine === true ||
+                node?._gmlForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
@@ -1898,11 +2019,21 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
-            const shouldPreserveTrailingBlankLine =
+            let shouldPreserveTrailingBlankLine = false;
+            if (
                 parentNode?.type === "BlockStatement" &&
                 typeof options.originalText === "string" &&
                 isNextLineEmpty(options.originalText, trailingProbeIndex) &&
-                !suppressFollowingEmptyLine;
+                !suppressFollowingEmptyLine
+            ) {
+                const nextCharacter = getNextNonWhitespaceCharacter(
+                    options.originalText,
+                    trailingProbeIndex
+                );
+                shouldPreserveTrailingBlankLine = nextCharacter
+                    ? nextCharacter !== "}"
+                    : false;
+            }
 
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
@@ -1914,7 +2045,12 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-export function applyAssignmentAlignment(statements, options) {
+export function applyAssignmentAlignment(
+    statements,
+    options,
+    path = null,
+    childrenAttribute = null
+) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
     /** @type {Array<{ node: any, nameLength: number }>} */
     const currentGroup = [];
@@ -1922,6 +2058,7 @@ export function applyAssignmentAlignment(statements, options) {
     // the nodes and spreading into Math.max during every flush. This helper
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
+    let currentGroupHasAlias = false;
 
     const originalText =
         typeof options?.originalText === "string" ? options.originalText : null;
@@ -1930,11 +2067,23 @@ export function applyAssignmentAlignment(statements, options) {
     const locEnd =
         typeof options?.locEnd === "function" ? options.locEnd : null;
 
-    let previousSimpleAssignment = null;
+    const insideFunctionBody = isPathInsideFunctionBody(
+        path,
+        childrenAttribute
+    );
+    const functionNode = insideFunctionBody
+        ? findEnclosingFunctionNode(path)
+        : null;
+    const functionParameterNames = insideFunctionBody
+        ? getFunctionParameterNameSetFromPath(path)
+        : null;
+
+    let previousEntry = null;
 
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
+        currentGroupHasAlias = false;
     };
 
     const flushGroup = () => {
@@ -1946,8 +2095,9 @@ export function applyAssignmentAlignment(statements, options) {
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
             minGroupSize > 0 && groupEntries.length >= minGroupSize;
+        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
-        if (!meetsAlignmentThreshold) {
+        if (!canAlign) {
             for (const { node } of groupEntries) {
                 node._alignAssignmentPadding = 0;
             }
@@ -1964,35 +2114,180 @@ export function applyAssignmentAlignment(statements, options) {
     };
 
     for (const statement of statements) {
-        if (isSimpleAssignment(statement)) {
+        const entry = getSimpleAssignmentLikeEntry(
+            statement,
+            insideFunctionBody,
+            functionParameterNames,
+            functionNode,
+            options
+        );
+
+        if (entry) {
             if (
-                previousSimpleAssignment &&
+                previousEntry &&
+                previousEntry.skipBreakAfter !== true &&
                 shouldBreakAssignmentAlignment(
-                    previousSimpleAssignment,
-                    statement,
+                    previousEntry.locationNode,
+                    entry.locationNode,
                     originalText,
                     locStart,
                     locEnd
                 )
             ) {
                 flushGroup();
-                previousSimpleAssignment = null;
+                previousEntry = null;
             }
 
-            const nameLength = statement.left.name.length;
-            currentGroup.push({ node: statement, nameLength });
-            if (nameLength > currentGroupMaxLength) {
-                currentGroupMaxLength = nameLength;
+            currentGroup.push({
+                node: entry.paddingTarget,
+                nameLength: entry.nameLength
+            });
+            if (entry.nameLength > currentGroupMaxLength) {
+                currentGroupMaxLength = entry.nameLength;
+            }
+            if (entry.enablesAlignment) {
+                currentGroupHasAlias = true;
             }
 
-            previousSimpleAssignment = statement;
+            previousEntry = entry;
         } else {
             flushGroup();
-            previousSimpleAssignment = null;
+            previousEntry = null;
         }
     }
 
     flushGroup();
+}
+
+function isPathInsideFunctionBody(path, childrenAttribute) {
+    if (
+        !path ||
+        typeof path.getParentNode !== "function" ||
+        typeof path.getValue !== "function"
+    ) {
+        return false;
+    }
+
+    if (childrenAttribute !== "body") {
+        return false;
+    }
+
+    const containerNode = path.getValue();
+    if (!containerNode || containerNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (!parentNode || typeof parentNode.type !== "string") {
+        return false;
+    }
+
+    if (
+        parentNode.type === "FunctionDeclaration" ||
+        parentNode.type === "FunctionExpression" ||
+        parentNode.type === "ConstructorDeclaration"
+    ) {
+        return parentNode.body === containerNode;
+    }
+
+    return false;
+}
+
+function getSimpleAssignmentLikeEntry(
+    statement,
+    insideFunctionBody,
+    functionParameterNames,
+    functionNode,
+    options
+) {
+    if (isSimpleAssignment(statement)) {
+        const identifier = statement.left;
+        if (!identifier || typeof identifier.name !== "string") {
+            return null;
+        }
+
+        return {
+            locationNode: statement,
+            paddingTarget: statement,
+            nameLength: identifier.name.length,
+            enablesAlignment: true
+        };
+    }
+
+    if (!insideFunctionBody) {
+        return null;
+    }
+
+    const declarator = getSingleVariableDeclarator(statement);
+    if (!declarator) {
+        return null;
+    }
+
+    const id = declarator.id;
+    if (!id || id.type !== "Identifier" || typeof id.name !== "string") {
+        return null;
+    }
+
+    const init = declarator.init;
+    if (!init) {
+        return null;
+    }
+
+    let enablesAlignment = false;
+    if (init.type === "Identifier" && typeof init.name === "string") {
+        const argumentIndex = getArgumentIndexFromIdentifier(init.name);
+        if (argumentIndex !== null) {
+            enablesAlignment = true;
+        } else if (functionParameterNames?.has(init.name)) {
+            enablesAlignment = true;
+        }
+    }
+
+    const skipBreakAfter = shouldOmitParameterAlias(
+        declarator,
+        functionNode,
+        options
+    );
+
+    return {
+        locationNode: statement,
+        paddingTarget: declarator,
+        nameLength: id.name.length,
+        enablesAlignment,
+        skipBreakAfter
+    };
+}
+
+function getFunctionParameterNameSetFromPath(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    const functionNode = path.getParentNode();
+    if (!functionNode || typeof functionNode !== "object") {
+        return null;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : null;
+    if (!params || params.length === 0) {
+        return null;
+    }
+
+    const names = new Set();
+    for (const param of params) {
+        const identifier = getIdentifierFromParameterNode(param);
+        if (
+            identifier &&
+            typeof identifier.name === "string" &&
+            identifier.name.length > 0
+        ) {
+            names.add(identifier.name);
+        }
+    }
+
+    return names.size > 0 ? names : null;
 }
 
 function getAssignmentAlignmentMinimum(options) {
@@ -2317,11 +2612,7 @@ function mergeSyntheticDocComments(
     }
 
     const docTagMatches = (line, pattern) => {
-        if (typeof line !== "string") {
-            return false;
-        }
-
-        const trimmed = line.trim();
+        const trimmed = toTrimmedString(line);
         if (trimmed.length === 0) {
             return false;
         }
@@ -2711,9 +3002,9 @@ function mergeSyntheticDocComments(
             for (const [index, param] of node.params.entries()) {
                 const implicitEntry = implicitEntryByIndex.get(index);
                 if (implicitEntry) {
-                    const implicitCanonical = implicitEntry.canonical
-                        ? implicitEntry.canonical
-                        : getCanonicalParamNameFromText(implicitEntry.name);
+                    const implicitCanonical =
+                        implicitEntry.canonical ||
+                        getCanonicalParamNameFromText(implicitEntry.name);
                     if (
                         implicitCanonical &&
                         docsByCanonical.has(implicitCanonical)
@@ -2973,8 +3264,12 @@ function mergeSyntheticDocComments(
 
         segments.push(current);
 
-        if (segments.length >= 3) {
-            const lastSegment = segments.at(-1);
+        const lastIndex = segments.length - 1;
+        if (lastIndex >= 2) {
+            // `Array#at` handles negative indices but introduces an extra bounds
+            // check on every call. This helper runs for every doc comment we
+            // wrap, so prefer direct index math to keep the hot path lean.
+            const lastSegment = segments[lastIndex];
             const isSingleWord =
                 typeof lastSegment === "string" && !/\s/.test(lastSegment);
 
@@ -2985,7 +3280,7 @@ function mergeSyntheticDocComments(
                 );
 
                 if (lastSegment.length <= maxSingleWordLength) {
-                    const penultimateIndex = segments.length - 2;
+                    const penultimateIndex = lastIndex - 1;
                     const mergedSegment =
                         segments[penultimateIndex] + ` ${lastSegment}`;
 
@@ -3201,88 +3496,6 @@ function getPreferredParameterNameForIndex(functionNode, paramIndex, options) {
     return isValidIdentifierName(normalizedName) ? normalizedName : null;
 }
 
-function shouldOmitArgumentAliasDeclaration(path, options) {
-    const node = path.getValue();
-    if (
-        !node ||
-        node.type !== "VariableDeclaration" ||
-        !Array.isArray(node.declarations) ||
-        node.declarations.length !== 1
-    ) {
-        return false;
-    }
-
-    const [declarator] = node.declarations;
-    if (
-        !declarator ||
-        declarator.type !== "VariableDeclarator" ||
-        declarator.id?.type !== "Identifier" ||
-        !declarator.init
-    ) {
-        return false;
-    }
-
-    let paramIndex = null;
-    if (declarator.init.type === "Identifier") {
-        const match = declarator.init.name?.match(ARGUMENT_IDENTIFIER_PATTERN);
-        if (match) {
-            paramIndex = Number.parseInt(match[1], 10);
-        }
-    } else if (declarator.init.type === "MemberIndexExpression") {
-        const objectName = declarator.init.object?.name;
-        const property = Array.isArray(declarator.init.property)
-            ? declarator.init.property[0]
-            : null;
-        if (
-            objectName === "argument" &&
-            property?.type === "Literal" &&
-            typeof property.value === "string"
-        ) {
-            const parsed = Number.parseInt(property.value, 10);
-            if (Number.isInteger(parsed)) {
-                paramIndex = parsed;
-            }
-        }
-    }
-
-    if (!Number.isInteger(paramIndex) || paramIndex < 0) {
-        return false;
-    }
-
-    const functionNode = findEnclosingFunctionNode(path);
-    if (!functionNode) {
-        return false;
-    }
-
-    const preferredName = getPreferredParameterNameForIndex(
-        functionNode,
-        paramIndex,
-        options
-    );
-    if (!preferredName) {
-        return false;
-    }
-
-    const canonicalPreferred =
-        getCanonicalParamNameFromText(preferredName) ?? preferredName;
-    const canonicalAlias =
-        getCanonicalParamNameFromText(declarator.id.name) ?? declarator.id.name;
-
-    const shouldOmit =
-        typeof canonicalPreferred === "string" &&
-        typeof canonicalAlias === "string" &&
-        canonicalPreferred.length > 0 &&
-        canonicalAlias.length > 0 &&
-        canonicalPreferred === canonicalAlias;
-    if (!shouldOmit) {
-        return false;
-    }
-
-    node.declarations = [];
-    node.type = "EmptyStatement";
-    return true;
-}
-
 function findFunctionParameterContext(path) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
@@ -3341,6 +3554,146 @@ function findEnclosingFunctionNode(path) {
     return null;
 }
 
+function resolvePreferredParameterName(
+    functionNode,
+    paramIndex,
+    currentName,
+    options
+) {
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const hasRenamableCurrentName =
+        typeof currentName === "string" &&
+        getArgumentIndexFromIdentifier(currentName) !== null;
+
+    if (!hasRenamableCurrentName) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(paramIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === paramIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== currentName
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === currentName) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+}
+
+function shouldOmitParameterAlias(declarator, functionNode, options) {
+    if (
+        !declarator ||
+        declarator.type !== "VariableDeclarator" ||
+        !declarator.id ||
+        declarator.id.type !== "Identifier" ||
+        !declarator.init
+    ) {
+        return false;
+    }
+
+    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    if (!normalizedAlias) {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromNode(declarator.init);
+    if (argumentIndex === null) {
+        return false;
+    }
+
+    const currentArgumentName =
+        declarator.init.type === "Identifier" &&
+        typeof declarator.init.name === "string"
+            ? declarator.init.name
+            : `argument${argumentIndex}`;
+
+    const preferredFromResolver = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        currentArgumentName,
+        options
+    );
+    const normalizedPreferredFromResolver = preferredFromResolver
+        ? normalizePreferredParameterName(preferredFromResolver)
+        : null;
+
+    if (
+        normalizedPreferredFromResolver &&
+        normalizedPreferredFromResolver === normalizedAlias
+    ) {
+        return true;
+    }
+
+    const fallbackPreferred = getPreferredParameterNameForIndex(
+        functionNode,
+        argumentIndex,
+        options
+    );
+    const normalizedFallback = fallbackPreferred
+        ? normalizePreferredParameterName(fallbackPreferred)
+        : null;
+
+    if (normalizedFallback && normalizedFallback === normalizedAlias) {
+        return true;
+    }
+
+    if (!functionNode || !Array.isArray(functionNode.params)) {
+        return false;
+    }
+
+    const params = functionNode.params;
+    if (argumentIndex < 0 || argumentIndex >= params.length) {
+        return false;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[argumentIndex]);
+    if (!identifier || typeof identifier.name !== "string") {
+        return false;
+    }
+
+    const normalizedParamName = normalizePreferredParameterName(
+        identifier.name
+    );
+
+    return (
+        typeof normalizedParamName === "string" &&
+        normalizedParamName.length > 0 &&
+        normalizedParamName === normalizedAlias
+    );
+}
+
 function getIdentifierFromParameterNode(param) {
     if (!param || typeof param !== "object") {
         return null;
@@ -3355,6 +3708,26 @@ function getIdentifierFromParameterNode(param) {
         param.left?.type === "Identifier"
     ) {
         return param.left;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionDeclaration(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (parent.type === "FunctionDeclaration") {
+            return parent;
+        }
     }
 
     return null;
@@ -3582,8 +3955,8 @@ function computeSyntheticFunctionDocLines(
             ) {
                 const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
-                    (canonicalImplicit && canonicalImplicit.length) ||
-                    effectiveImplicitName.trim().length;
+                    (canonicalImplicit && canonicalImplicit.length > 0) ||
+                    effectiveImplicitName.trim().length > 0;
 
                 if (ordinalLength > implicitLength) {
                     effectiveImplicitName = null;
@@ -4097,6 +4470,56 @@ function getSourceTextForNode(node, options) {
     }
 
     return options.originalText.slice(startIndex, endIndex).trim();
+}
+
+function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
+    if (
+        !path ||
+        typeof path.getValue !== "function" ||
+        typeof path.getParentNode !== "function"
+    ) {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "AssignmentExpression") {
+        return false;
+    }
+
+    if (node.operator === "=") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (parent?.type !== "ForStatement") {
+        return false;
+    }
+
+    if (typeof path.getName !== "function" || path.getName() !== "update") {
+        return false;
+    }
+
+    const source = getSourceTextForNode(node, options);
+    if (typeof source !== "string" || source.length === 0) {
+        return false;
+    }
+
+    const operatorIndex = source.indexOf(node.operator);
+    if (operatorIndex <= 0) {
+        return false;
+    }
+
+    const beforeChar = source[operatorIndex - 1] ?? "";
+    if (/\s/.test(beforeChar)) {
+        return false;
+    }
+
+    const afterChar = source[operatorIndex + node.operator.length] ?? "";
+    if (!/\s/.test(afterChar)) {
+        return false;
+    }
+
+    return true;
 }
 
 function getStructPropertyPrefix(node, options) {
@@ -4874,20 +5297,47 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const node = path.getValue();
-    if (
-        !node ||
-        node.type !== "ParenthesizedExpression" ||
-        node.synthetic !== true
-    ) {
+    if (!node || node.type !== "ParenthesizedExpression") {
         return false;
     }
+
+    // Only process synthetic parentheses for most cases
+    const isSynthetic = node.synthetic === true;
 
     if (typeof path.getParentNode !== "function") {
         return false;
     }
 
     const parent = path.getParentNode();
-    if (!parent || parent.type !== "BinaryExpression") {
+    if (!parent) {
+        return false;
+    }
+
+    // For ternary expressions, omit unnecessary parentheses around simple
+    // identifiers or member expressions in the test position
+    if (parent.type === "TernaryExpression") {
+        const parentKey =
+            typeof path.getName === "function" ? path.getName() : undefined;
+        if (parentKey === "test") {
+            const expression = node.expression;
+            // Remove parens around simple expressions that don't need them
+            if (
+                expression?.type === "Identifier" ||
+                expression?.type === "MemberDotExpression" ||
+                expression?.type === "MemberIndexExpression"
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // For non-ternary cases, only process synthetic parentheses
+    if (!isSynthetic) {
+        return false;
+    }
+
+    if (parent.type !== "BinaryExpression") {
         return false;
     }
 
@@ -4909,11 +5359,25 @@ function shouldOmitSyntheticParens(path) {
 
         if (
             childInfo != undefined &&
-            childInfo.precedence > parentInfo.precedence &&
-            expression.operator === "*" &&
-            isNumericComputationNode(expression)
+            childInfo.precedence > parentInfo.precedence
         ) {
-            return false;
+            if (
+                (parent.operator === "&&" ||
+                    parent.operator === "and" ||
+                    parent.operator === "||" ||
+                    parent.operator === "or") &&
+                COMPARISON_OPERATORS.has(expression.operator) &&
+                isControlFlowLogicalTest(path)
+            ) {
+                return true;
+            }
+
+            if (
+                expression.operator === "*" &&
+                isNumericComputationNode(expression)
+            ) {
+                return false;
+            }
         }
     }
 
@@ -4941,6 +5405,51 @@ function shouldOmitSyntheticParens(path) {
         }
 
         depth += 1;
+    }
+}
+
+function isControlFlowLogicalTest(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode = path.getValue();
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            ancestor.type === "ParenthesizedExpression" ||
+            ancestor.type === "BinaryExpression"
+        ) {
+            currentNode = ancestor;
+            depth += 1;
+            continue;
+        }
+
+        if (
+            (ancestor.type === "IfStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "WhileStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "DoUntilStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "RepeatStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "WithStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "ForStatement" && ancestor.test === currentNode)
+        ) {
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -4991,14 +5500,27 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         (childOperator === "+" || childOperator === "-");
     const isMultiplicativePair =
         parentOperator === "*" && childOperator === "*";
+    const isLogicalAndPair =
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and");
+    const isLogicalOrPair =
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or");
 
-    if (!isAdditivePair && !isMultiplicativePair) {
+    if (
+        !isAdditivePair &&
+        !isMultiplicativePair &&
+        !isLogicalAndPair &&
+        !isLogicalOrPair
+    ) {
         return false;
     }
 
     if (
-        !isNumericComputationNode(parent) ||
-        !isNumericComputationNode(expression)
+        !isLogicalAndPair &&
+        !isLogicalOrPair &&
+        (!isNumericComputationNode(parent) ||
+            !isNumericComputationNode(expression))
     ) {
         return false;
     }
@@ -5036,6 +5558,20 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     }
 
     if (parentOperator === "*" && childOperator === "*") {
+        return true;
+    }
+
+    if (
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and")
+    ) {
+        return true;
+    }
+
+    if (
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or")
+    ) {
         return true;
     }
 
@@ -5536,10 +6072,20 @@ function hasLineBreak(text) {
 }
 
 function isInLValueChain(path) {
-    const { node, parent } = path;
-    if (parent.type === "CallExpression" && parent.arguments.includes(node)) {
+    const { node, parent } = path ?? {};
+
+    if (!parent || typeof parent.type !== "string") {
         return false;
     }
+
+    if (
+        parent.type === "CallExpression" &&
+        Array.isArray(parent.arguments) &&
+        parent.arguments.includes(node)
+    ) {
+        return false;
+    }
+
     return isLValueExpression(parent.type);
 }
 
