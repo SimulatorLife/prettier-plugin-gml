@@ -1853,6 +1853,55 @@ function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
     return false;
 }
 
+function resolveNextLineProbeIndex(text, trailingProbeIndex, nodeEndIndex) {
+    if (typeof text !== "string" || text.length === 0) {
+        return trailingProbeIndex;
+    }
+
+    const length = text.length;
+    let index = Math.min(Math.max(trailingProbeIndex, 0), length);
+
+    while (index < length && text.charCodeAt(index) === 59) {
+        index += 1;
+    }
+
+    const searchEnd = Math.min(length, nodeEndIndex + 200);
+    const closingBraceIndex = text.indexOf("}", index);
+
+    if (closingBraceIndex !== -1 && closingBraceIndex < searchEnd) {
+        let probe = closingBraceIndex + 1;
+        while (probe < length) {
+            const charCode = text.charCodeAt(probe);
+            if (charCode === 10 || charCode === 13) {
+                return probe;
+            }
+
+            if (
+                charCode === 32 ||
+                charCode === 9 ||
+                charCode === 11 ||
+                charCode === 12 ||
+                charCode === 59
+            ) {
+                probe += 1;
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    const scanStart = Math.min(length, Math.max(nodeEndIndex + 1, index));
+    for (let scan = scanStart; scan < length; scan += 1) {
+        const charCode = text.charCodeAt(scan);
+        if (charCode === 10 || charCode === 13) {
+            return scan;
+        }
+    }
+
+    return index;
+}
+
 function getNextNonWhitespaceCharacter(text, startIndex) {
     if (typeof text !== "string") {
         return null;
@@ -2064,11 +2113,16 @@ function printStatements(path, options, print, childrenAttribute) {
             const nextHasSyntheticDoc = nextNode
                 ? syntheticDocByNode.has(nextNode)
                 : false;
-            const nextLineProbeIndex =
+            const trailingNextLineProbeIndex =
                 node?.type === "DefineStatement" ||
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
+            const nextLineProbeIndex = resolveNextLineProbeIndex(
+                options.originalText,
+                trailingNextLineProbeIndex,
+                nodeEndIndex
+            );
 
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
@@ -2125,25 +2179,63 @@ function printStatements(path, options, print, childrenAttribute) {
             parts.push(hardline);
         } else {
             const parentNode = childPath.parent;
+            const grandParentNode =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode(1)
+                    : null;
             const trailingProbeIndex =
                 node?.type === "DefineStatement" ||
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
+            const nextLineProbeIndex = resolveNextLineProbeIndex(
+                options.originalText,
+                trailingProbeIndex,
+                nodeEndIndex
+            );
+            const isConstructorBody =
+                grandParentNode?.type === "ConstructorDeclaration" ||
+                grandParentNode?.type === "ConstructorParentClause";
+            const nodeIsStaticDeclaration =
+                node?.type === "VariableDeclaration" && node.kind === "static";
+            const staticDeclarationHasPadding =
+                isConstructorBody &&
+                nodeIsStaticDeclaration &&
+                typeof options.originalText === "string" &&
+                /\r?\n\s*\n/.test(
+                    options.originalText.slice(
+                        nodeEndIndex + 1,
+                        Math.max(nodeEndIndex + 1, nextLineProbeIndex)
+                    )
+                );
+
             let shouldPreserveTrailingBlankLine = false;
             if (
-                parentNode?.type === "BlockStatement" &&
-                typeof options.originalText === "string" &&
-                isNextLineEmpty(options.originalText, trailingProbeIndex) &&
-                !suppressFollowingEmptyLine
+                staticDeclarationHasPadding ||
+                (parentNode?.type === "BlockStatement" &&
+                    typeof options.originalText === "string" &&
+                    isNextLineEmpty(options.originalText, nextLineProbeIndex) &&
+                    !suppressFollowingEmptyLine)
             ) {
+                let lookaheadIndex = nextLineProbeIndex;
+                const textLength = options.originalText.length;
+                while (
+                    lookaheadIndex < textLength &&
+                    options.originalText.charCodeAt(lookaheadIndex) === 59
+                ) {
+                    lookaheadIndex += 1;
+                }
+
                 const nextCharacter = getNextNonWhitespaceCharacter(
                     options.originalText,
-                    trailingProbeIndex
+                    lookaheadIndex
                 );
-                shouldPreserveTrailingBlankLine = nextCharacter
-                    ? nextCharacter !== "}"
-                    : false;
+
+                shouldPreserveTrailingBlankLine = staticDeclarationHasPadding
+                    ? true
+                    : nextCharacter
+                      ? nextCharacter !== "}"
+                      : false;
             }
 
             if (shouldPreserveTrailingBlankLine) {
