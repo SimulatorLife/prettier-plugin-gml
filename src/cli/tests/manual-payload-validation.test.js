@@ -5,7 +5,7 @@ import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../lib/manual-payload-validation.js";
-import { isJsonParseError } from "../lib/shared/json-utils.js";
+import { isJsonParseError } from "../lib/shared-deps.js";
 
 test("decodeManualKeywordsPayload validates keyword mappings", () => {
     const payload = decodeManualKeywordsPayload('{"foo": "bar"}');

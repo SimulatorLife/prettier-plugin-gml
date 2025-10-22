@@ -11,8 +11,7 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import { assertFunction, hasOwn } from "./shared/object-utils.js";
-import { isNonEmptyString } from "./shared/string-utils.js";
+import { assertFunction, hasOwn, isNonEmptyString } from "./shared-deps.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
@@ -54,6 +53,30 @@ function resolveManualOptionBaseConfig(
     };
 }
 
+function resolveOptionFunction(
+    optionConfig,
+    property,
+    fallback,
+    { assertName } = {}
+) {
+    const candidate =
+        optionConfig && typeof optionConfig === "object"
+            ? optionConfig[property]
+            : undefined;
+    const resolved =
+        typeof candidate === "function"
+            ? candidate
+            : typeof fallback === "function"
+              ? fallback
+              : undefined;
+
+    if (assertName) {
+        assertFunction(resolved, assertName);
+    }
+
+    return resolved;
+}
+
 const DEFAULT_OPTION_ORDER = Object.freeze([
     "outputPath",
     "forceRefresh",
@@ -74,6 +97,52 @@ function createOptionOrder({ optionOrder, handlers, customHandlers }) {
 
     return [...ordering].filter(
         (key) => handlers.has(key) || customHandlers.has(key)
+    );
+}
+
+const DEFAULT_PATH_NORMALIZER = (value) => path.resolve(value);
+
+function registerManualOption({ handlers, key, option, configure }) {
+    if (!option) {
+        return;
+    }
+
+    assertFunction(configure, "configure");
+    handlers.set(key, () => configure(option));
+}
+
+function configurePathOption(command, option) {
+    const normalize =
+        typeof option.config.normalize === "function"
+            ? option.config.normalize
+            : DEFAULT_PATH_NORMALIZER;
+
+    command.option(
+        option.flag,
+        option.description,
+        normalize,
+        option.defaultValue
+    );
+}
+
+function configureResolvedOption({
+    command,
+    option,
+    fallbackResolve,
+    resolverName
+}) {
+    const resolveFn =
+        typeof option.config.resolve === "function"
+            ? option.config.resolve
+            : fallbackResolve;
+
+    assertFunction(resolveFn, resolverName);
+
+    command.option(
+        option.flag,
+        option.description,
+        wrapInvalidArgumentResolver(resolveFn),
+        option.defaultValue
     );
 }
 
@@ -125,21 +194,12 @@ export function applySharedManualCommandOptions(
 
     const handlers = new Map();
 
-    if (outputOption) {
-        const normalize =
-            typeof outputOption.config.normalize === "function"
-                ? outputOption.config.normalize
-                : (value) => path.resolve(value);
-
-        handlers.set("outputPath", () =>
-            command.option(
-                outputOption.flag,
-                outputOption.description,
-                normalize,
-                outputOption.defaultValue
-            )
-        );
-    }
+    registerManualOption({
+        handlers,
+        key: "outputPath",
+        option: outputOption,
+        configure: (option) => configurePathOption(command, option)
+    });
 
     if (forceRefreshDescription !== false) {
         handlers.set("forceRefresh", () =>
@@ -153,57 +213,38 @@ export function applySharedManualCommandOptions(
         );
     }
 
-    if (progressOption) {
-        const resolveFn =
-            typeof progressOption.config.resolve === "function"
-                ? progressOption.config.resolve
-                : resolveProgressBarWidth;
+    registerManualOption({
+        handlers,
+        key: "progressBarWidth",
+        option: progressOption,
+        configure: (option) =>
+            configureResolvedOption({
+                command,
+                option,
+                fallbackResolve: resolveProgressBarWidth,
+                resolverName: "progressBarWidth.resolve"
+            })
+    });
 
-        assertFunction(resolveFn, "progressBarWidth.resolve");
+    registerManualOption({
+        handlers,
+        key: "manualRepo",
+        option: manualRepoOption,
+        configure: (option) =>
+            configureResolvedOption({
+                command,
+                option,
+                fallbackResolve: resolveManualRepoValue,
+                resolverName: "manualRepo.resolve"
+            })
+    });
 
-        handlers.set("progressBarWidth", () =>
-            command.option(
-                progressOption.flag,
-                progressOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                progressOption.defaultValue
-            )
-        );
-    }
-
-    if (manualRepoOption) {
-        const resolveFn =
-            typeof manualRepoOption.config.resolve === "function"
-                ? manualRepoOption.config.resolve
-                : resolveManualRepoValue;
-
-        assertFunction(resolveFn, "manualRepo.resolve");
-
-        handlers.set("manualRepo", () =>
-            command.option(
-                manualRepoOption.flag,
-                manualRepoOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                manualRepoOption.defaultValue
-            )
-        );
-    }
-
-    if (cacheOption) {
-        const normalize =
-            typeof cacheOption.config.normalize === "function"
-                ? cacheOption.config.normalize
-                : (value) => path.resolve(value);
-
-        handlers.set("cacheRoot", () =>
-            command.option(
-                cacheOption.flag,
-                cacheOption.description,
-                normalize,
-                cacheOption.defaultValue
-            )
-        );
-    }
+    registerManualOption({
+        handlers,
+        key: "cacheRoot",
+        option: cacheOption,
+        configure: (option) => configurePathOption(command, option)
+    });
 
     const customHandlers = new Map();
     if (customOptions && typeof customOptions === "object") {
