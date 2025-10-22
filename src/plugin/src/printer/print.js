@@ -1836,7 +1836,8 @@ function printStatements(path, options, print, childrenAttribute) {
             const suppressLeadingEmptyLine =
                 nextNode?._featherSuppressLeadingEmptyLine === true;
             const forceFollowingEmptyLine =
-                node?._featherForceFollowingEmptyLine === true;
+                node?._featherForceFollowingEmptyLine === true ||
+                node?._gmlForceFollowingEmptyLine === true;
 
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
