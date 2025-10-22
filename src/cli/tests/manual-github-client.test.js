@@ -113,6 +113,61 @@ describe("manual GitHub client validation", () => {
         }
     });
 
+    it("aborts manual file fetches when a signal is triggered", async () => {
+        const cacheRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "manual-cache-")
+        );
+
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: cacheRoot,
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const controller = new AbortController();
+        let abortHandlerRegistered = false;
+
+        globalThis.fetch = async (url, options = {}) => {
+            const { signal } = options;
+            assert.equal(url, `${RAW_ROOT}/sha/path/to/file`);
+            assert.ok(
+                signal instanceof AbortSignal,
+                "Expected fetch to receive an abort signal"
+            );
+            abortHandlerRegistered = true;
+
+            return new Promise((_resolve, reject) => {
+                signal.addEventListener(
+                    "abort",
+                    () => {
+                        reject(signal.reason ?? new Error("aborted"));
+                    },
+                    { once: true }
+                );
+            });
+        };
+
+        try {
+            const pending = client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file",
+                {
+                    signal: controller.signal,
+                    cacheRoot,
+                    rawRoot: RAW_ROOT,
+                    forceRefresh: true
+                }
+            );
+
+            controller.abort(new Error("stop"));
+
+            await assert.rejects(pending, /stop/);
+            assert.equal(abortHandlerRegistered, true);
+        } finally {
+            await fs.rm(cacheRoot, { recursive: true, force: true });
+        }
+    });
+
     it("rejects manual commit payloads without a SHA", async () => {
         const client = createManualClientBundle({
             userAgent: "test-agent",
