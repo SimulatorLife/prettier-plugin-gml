@@ -54,6 +54,30 @@ function resolveManualOptionBaseConfig(
     };
 }
 
+function resolveOptionFunction(
+    optionConfig,
+    property,
+    fallback,
+    { assertName } = {}
+) {
+    const candidate =
+        optionConfig && typeof optionConfig === "object"
+            ? optionConfig[property]
+            : undefined;
+    const resolved =
+        typeof candidate === "function"
+            ? candidate
+            : typeof fallback === "function"
+              ? fallback
+              : undefined;
+
+    if (assertName) {
+        assertFunction(resolved, assertName);
+    }
+
+    return resolved;
+}
+
 const DEFAULT_OPTION_ORDER = Object.freeze([
     "outputPath",
     "forceRefresh",
@@ -126,10 +150,11 @@ export function applySharedManualCommandOptions(
     const handlers = new Map();
 
     if (outputOption) {
-        const normalize =
-            typeof outputOption.config.normalize === "function"
-                ? outputOption.config.normalize
-                : (value) => path.resolve(value);
+        const normalize = resolveOptionFunction(
+            outputOption.config,
+            "normalize",
+            (value) => path.resolve(value)
+        );
 
         handlers.set("outputPath", () =>
             command.option(
@@ -154,12 +179,12 @@ export function applySharedManualCommandOptions(
     }
 
     if (progressOption) {
-        const resolveFn =
-            typeof progressOption.config.resolve === "function"
-                ? progressOption.config.resolve
-                : resolveProgressBarWidth;
-
-        assertFunction(resolveFn, "progressBarWidth.resolve");
+        const resolveFn = resolveOptionFunction(
+            progressOption.config,
+            "resolve",
+            resolveProgressBarWidth,
+            { assertName: "progressBarWidth.resolve" }
+        );
 
         handlers.set("progressBarWidth", () =>
             command.option(
@@ -172,12 +197,12 @@ export function applySharedManualCommandOptions(
     }
 
     if (manualRepoOption) {
-        const resolveFn =
-            typeof manualRepoOption.config.resolve === "function"
-                ? manualRepoOption.config.resolve
-                : resolveManualRepoValue;
-
-        assertFunction(resolveFn, "manualRepo.resolve");
+        const resolveFn = resolveOptionFunction(
+            manualRepoOption.config,
+            "resolve",
+            resolveManualRepoValue,
+            { assertName: "manualRepo.resolve" }
+        );
 
         handlers.set("manualRepo", () =>
             command.option(
@@ -190,10 +215,11 @@ export function applySharedManualCommandOptions(
     }
 
     if (cacheOption) {
-        const normalize =
-            typeof cacheOption.config.normalize === "function"
-                ? cacheOption.config.normalize
-                : (value) => path.resolve(value);
+        const normalize = resolveOptionFunction(
+            cacheOption.config,
+            "normalize",
+            (value) => path.resolve(value)
+        );
 
         handlers.set("cacheRoot", () =>
             command.option(
