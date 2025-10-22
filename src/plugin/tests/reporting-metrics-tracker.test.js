@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../src/reporting/metrics-tracker.js";
+import { createMetricsTracker } from "../src/reporting/index.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
@@ -83,4 +83,18 @@ test("cache keys are configurable and support custom metrics", () => {
         evictions: 2,
         misses: 3
     });
+});
+
+test("snapshot returns fresh copies of accumulated metrics", () => {
+    const tracker = createMetricsTracker({ category: "clone" });
+    tracker.incrementCounter("runs");
+    tracker.recordCacheHit("cache");
+
+    const first = tracker.snapshot();
+    first.counters.runs = 99;
+    first.caches.cache.hits = 42;
+
+    const second = tracker.snapshot();
+    assert.deepEqual(second.counters, { runs: 1 });
+    assert.deepEqual(second.caches.cache, { hits: 1, misses: 0, stale: 0 });
 });

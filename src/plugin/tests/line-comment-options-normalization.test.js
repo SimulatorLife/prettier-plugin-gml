@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     formatLineComment,
     resolveLineCommentOptions
@@ -21,6 +22,15 @@ describe("resolveLineCommentOptions", () => {
         const resolved = resolveLineCommentOptions();
 
         assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+    });
+
+    it("exposes the shared code detection patterns", () => {
+        const resolved = resolveLineCommentOptions();
+
+        assert.strictEqual(
+            resolved.codeDetectionPatterns,
+            DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+        );
     });
 
     it("ignores attempt to supply legacy overrides", () => {
