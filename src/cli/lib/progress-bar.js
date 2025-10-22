@@ -9,6 +9,7 @@ import {
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
+let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -48,8 +49,15 @@ function applyProgressBarWidthEnvOverride(env = process?.env) {
 
 applyProgressBarWidthEnvOverride();
 
+function setProgressBarFactoryForTesting(factory) {
+    progressBarFactory =
+        typeof factory === "function"
+            ? factory
+            : (options, preset) => new SingleBar(options, preset);
+}
+
 function createDefaultProgressBar(label, width) {
-    return new SingleBar(
+    return progressBarFactory(
         {
             format: `${label} [{bar}] {value}/{total}`,
             barsize: width,
@@ -57,7 +65,8 @@ function createDefaultProgressBar(label, width) {
             clearOnComplete: true,
             linewrap: true
         },
-        Presets.shades_classic
+        Presets.shades_classic,
+        label
     );
 }
 
@@ -117,6 +126,7 @@ export {
     disposeProgressBars,
     getDefaultProgressBarWidth,
     setDefaultProgressBarWidth,
+    setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
     withProgressBarCleanup

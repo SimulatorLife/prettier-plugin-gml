@@ -1,27 +1,44 @@
 import assert from "node:assert/strict";
-import { describe, it, mock } from "node:test";
+import { describe, it } from "node:test";
 
-import { SingleBar } from "cli-progress";
-
-import { disposeProgressBars, renderProgressBar } from "../lib/progress-bar.js";
+import {
+    disposeProgressBars,
+    renderProgressBar,
+    setProgressBarFactoryForTesting
+} from "../lib/progress-bar.js";
 
 describe("manual CLI helpers", () => {
-    it("disposes active progress bars", () => {
+    it("disposes active progress bars", { concurrency: false }, () => {
         const createdBars = new Set();
         const stopCounts = new Map();
-        const startMock = mock.method(
-            SingleBar.prototype,
-            "start",
-            function () {
-                createdBars.add(this);
-            }
-        );
-        const stopMock = mock.method(SingleBar.prototype, "stop", function () {
-            stopCounts.set(this, (stopCounts.get(this) ?? 0) + 1);
-        });
 
         const originalIsTTY = process.stdout.isTTY;
         process.stdout.isTTY = true;
+
+        setProgressBarFactoryForTesting(() => {
+            const bar = {
+                total: 0,
+                current: 0,
+                stopCalls: 0,
+                start(total, current) {
+                    this.total = total;
+                    this.current = current;
+                    createdBars.add(this);
+                },
+                setTotal(total) {
+                    this.total = total;
+                },
+                update(current) {
+                    this.current = current;
+                },
+                stop() {
+                    this.stopCalls += 1;
+                    stopCounts.set(this, this.stopCalls);
+                }
+            };
+
+            return bar;
+        });
 
         try {
             disposeProgressBars();
@@ -41,8 +58,7 @@ describe("manual CLI helpers", () => {
             renderProgressBar("Task", 3, 4, 10);
             assert.equal(createdBars.size, 2);
         } finally {
-            stopMock.mock.restore();
-            startMock.mock.restore();
+            setProgressBarFactoryForTesting();
             process.stdout.isTTY = originalIsTTY;
             disposeProgressBars();
         }
