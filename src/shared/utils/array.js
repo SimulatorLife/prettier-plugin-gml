@@ -58,7 +58,7 @@ export function asArray(value) {
  *
  * @template T
  * @param {Array<T> | null | undefined | unknown} value
- * @param {Object} [options]
+ * @param {{ clone?: boolean }} [options]
  * @param {boolean} [options.clone=false]
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
@@ -135,7 +135,7 @@ export function cloneObjectEntries(entries) {
  *
  * @template T
  * @param {Iterable<T> | Array<T> | null | undefined} values
- * @param {Object} [options]
+ * @param {{ freeze?: boolean }} [options]
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
@@ -153,7 +153,11 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @template T
  * @param {ReadonlyArray<T>} defaultValues
  * @param {Iterable<unknown> | null | undefined} additionalValues
- * @param {Object} [options]
+ * @param {{
+ *   coerce?: (value: unknown) => T | null | undefined,
+ *   getKey?: (value: T) => unknown,
+ *   freeze?: boolean
+ * }} [options]
  * @param {(value: unknown) => T | null | undefined} [options.coerce]
  * @param {(value: T) => unknown} [options.getKey]
  * @param {boolean} [options.freeze]
