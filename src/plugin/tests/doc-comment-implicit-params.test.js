@@ -190,6 +190,37 @@ test("collectImplicitArgumentDocNames reuses documented names when alias is miss
     );
 });
 
+const ALIAS_WITH_EXISTING_DOC_SOURCE = `/// @function aliasDoc
+/// @param width
+function aliasDoc(argument0) {
+    var w = argument0;
+    return argument0;
+}
+`;
+
+test("collectImplicitArgumentDocNames prefers documented names over aliases", async () => {
+    const formatted = await prettier.format(ALIAS_WITH_EXISTING_DOC_SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docEnd = formatted.indexOf("\nfunction aliasDoc");
+    const docLines = new Set(formatted
+        .slice(0, docEnd === -1 ? undefined : docEnd)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("/// @param")));
+
+    assert.ok(
+        docLines.has("/// @param width"),
+        "Expected formatter to reuse documented parameter name."
+    );
+    assert.ok(
+        !docLines.has("/// @param w"),
+        "Expected alias name to be ignored when documentation already exists."
+    );
+});
+
 const DIRECT_REFERENCE_SOURCE = `/// @function demo
 /// @param foo
 /// @param bar
