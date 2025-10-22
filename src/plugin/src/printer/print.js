@@ -5040,14 +5040,27 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         (childOperator === "+" || childOperator === "-");
     const isMultiplicativePair =
         parentOperator === "*" && childOperator === "*";
+    const isLogicalAndPair =
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and");
+    const isLogicalOrPair =
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or");
 
-    if (!isAdditivePair && !isMultiplicativePair) {
+    if (
+        !isAdditivePair &&
+        !isMultiplicativePair &&
+        !isLogicalAndPair &&
+        !isLogicalOrPair
+    ) {
         return false;
     }
 
     if (
-        !isNumericComputationNode(parent) ||
-        !isNumericComputationNode(expression)
+        !isLogicalAndPair &&
+        !isLogicalOrPair &&
+        (!isNumericComputationNode(parent) ||
+            !isNumericComputationNode(expression))
     ) {
         return false;
     }
@@ -5085,6 +5098,20 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     }
 
     if (parentOperator === "*" && childOperator === "*") {
+        return true;
+    }
+
+    if (
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and")
+    ) {
+        return true;
+    }
+
+    if (
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or")
+    ) {
         return true;
     }
 
