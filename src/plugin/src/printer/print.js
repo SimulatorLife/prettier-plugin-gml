@@ -2018,6 +2018,9 @@ export function applyAssignmentAlignment(
         path,
         childrenAttribute
     );
+    const functionNode = insideFunctionBody
+        ? findEnclosingFunctionNode(path)
+        : null;
     const functionParameterNames = insideFunctionBody
         ? getFunctionParameterNameSetFromPath(path)
         : null;
@@ -2061,12 +2064,15 @@ export function applyAssignmentAlignment(
         const entry = getSimpleAssignmentLikeEntry(
             statement,
             insideFunctionBody,
-            functionParameterNames
+            functionParameterNames,
+            functionNode,
+            options
         );
 
         if (entry) {
             if (
                 previousEntry &&
+                previousEntry.skipBreakAfter !== true &&
                 shouldBreakAssignmentAlignment(
                     previousEntry.locationNode,
                     entry.locationNode,
@@ -2137,7 +2143,9 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
 function getSimpleAssignmentLikeEntry(
     statement,
     insideFunctionBody,
-    functionParameterNames
+    functionParameterNames,
+    functionNode,
+    options
 ) {
     if (isSimpleAssignment(statement)) {
         const identifier = statement.left;
@@ -2182,11 +2190,18 @@ function getSimpleAssignmentLikeEntry(
         }
     }
 
+    const skipBreakAfter = shouldOmitParameterAlias(
+        declarator,
+        functionNode,
+        options
+    );
+
     return {
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: id.name.length,
-        enablesAlignment
+        enablesAlignment,
+        skipBreakAfter
     };
 }
 
