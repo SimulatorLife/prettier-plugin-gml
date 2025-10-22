@@ -5,7 +5,7 @@
  *
  * @param {unknown} value Candidate value to inspect.
  * @param {{ allowNullPrototype?: boolean }} [options]
- * @returns {value is object}
+ * @returns {value is object} `true` when {@link value} is a plain object.
  */
 export function isPlainObject(value, { allowNullPrototype = true } = {}) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
