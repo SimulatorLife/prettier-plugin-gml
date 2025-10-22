@@ -14,7 +14,6 @@ const resolvedDefaultCliPluginServices = createDefaultCliPluginServices();
 
 export const defaultCliPluginServices = Object.freeze({
     projectIndex: resolvedDefaultCliPluginServices.projectIndex,
-    identifierCasePlan: resolvedDefaultCliPluginServices.identifierCasePlan,
     identifierCasePlanPreparation:
         resolvedDefaultCliPluginServices.identifierCasePlanPreparation,
     identifierCasePlanCache:

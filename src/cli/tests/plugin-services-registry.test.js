@@ -80,10 +80,6 @@ test("CLI plugin service registration", async (t) => {
                 projectIndex: {
                     buildProjectIndex: defaultBuildProjectIndex
                 },
-                identifierCasePlan: {
-                    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
-                    clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
-                },
                 identifierCasePlanPreparation: {
                     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
                 },
