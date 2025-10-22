@@ -21,3 +21,10 @@ test("reformats logical comparisons without introducing synthetic parentheses", 
         "if (i > 0 and i < 1) {\n    do_thing();\n}\n"
     );
 });
+
+test("preserves explicit comparator grouping inside logical expressions", async () => {
+    const source = "var myVal = (h < 0) or (h > 1);\n";
+    const formatted = await format(source);
+
+    assert.strictEqual(formatted, source);
+});

@@ -130,6 +130,8 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
+const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
+
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
 }
@@ -5284,10 +5286,12 @@ function shouldOmitSyntheticParens(path) {
             childInfo.precedence > parentInfo.precedence
         ) {
             if (
-                parent.operator === "&&" ||
-                parent.operator === "and" ||
-                parent.operator === "||" ||
-                parent.operator === "or"
+                (parent.operator === "&&" ||
+                    parent.operator === "and" ||
+                    parent.operator === "||" ||
+                    parent.operator === "or") &&
+                COMPARISON_OPERATORS.has(expression.operator) &&
+                isControlFlowLogicalTest(path)
             ) {
                 return true;
             }
@@ -5325,6 +5329,51 @@ function shouldOmitSyntheticParens(path) {
         }
 
         depth += 1;
+    }
+}
+
+function isControlFlowLogicalTest(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode = path.getValue();
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            ancestor.type === "ParenthesizedExpression" ||
+            ancestor.type === "BinaryExpression"
+        ) {
+            currentNode = ancestor;
+            depth += 1;
+            continue;
+        }
+
+        if (
+            (ancestor.type === "IfStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "WhileStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "DoUntilStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "RepeatStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "WithStatement" &&
+                ancestor.test === currentNode) ||
+            (ancestor.type === "ForStatement" && ancestor.test === currentNode)
+        ) {
+            return true;
+        }
+
+        return false;
     }
 }
 
