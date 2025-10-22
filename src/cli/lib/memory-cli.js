@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { normalizeStringList } from "./shared-deps.js";
+import { getErrorMessage, normalizeStringList } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     coercePositiveInteger,
@@ -191,14 +191,15 @@ function runNormalizeStringListSuite({ iterations }) {
 AVAILABLE_SUITES.set("normalize-string-list", runNormalizeStringListSuite);
 
 function formatSuiteError(error) {
+    const name = error?.name ?? error?.constructor?.name ?? "Error";
+    const message = getErrorMessage(error, { fallback: "" }) || "Unknown error";
+    const stackLines =
+        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
+
     return {
-        name: error?.name ?? error?.constructor?.name ?? "Error",
-        message:
-            typeof error?.message === "string" ? error.message : String(error),
-        stack:
-            typeof error?.stack === "string"
-                ? error.stack.split("\n")
-                : undefined
+        name,
+        message,
+        stack: stackLines
     };
 }
 
@@ -208,7 +209,7 @@ function printHumanReadable(results) {
         lines.push(`\n• ${suite}`);
         if (payload?.error) {
             lines.push(
-                `  - error: ${payload.error.message ?? "Unknown error"}`
+                `  - error: ${payload.error.message || "Unknown error"}`
             );
             continue;
         }
