@@ -168,7 +168,7 @@ export function stripStringQuotes(value) {
  * Literal double-quote character shared by quote normalization helpers.
  * @type {string}
  */
-const DOUBLE_QUOTE_CHARACTER = '"';
+const DOUBLE_QUOTE_CHARACTER = `"`;
 /**
  * Literal single-quote character shared by quote normalization helpers.
  * @type {string}
