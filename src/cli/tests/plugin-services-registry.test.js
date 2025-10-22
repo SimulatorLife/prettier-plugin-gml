@@ -80,10 +80,6 @@ test("CLI plugin service registration", async (t) => {
                 projectIndex: {
                     buildProjectIndex: defaultBuildProjectIndex
                 },
-                identifierCasePlan: {
-                    prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan,
-                    clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
-                },
                 identifierCasePlanPreparation: {
                     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
                 },
@@ -91,7 +87,7 @@ test("CLI plugin service registration", async (t) => {
                     clearIdentifierCaseCaches: defaultClearIdentifierCaseCaches
                 }
             },
-            "aggregated default CLI services should match individual defaults"
+            "default CLI services should expose dedicated identifier case collaborators"
         );
     });
 

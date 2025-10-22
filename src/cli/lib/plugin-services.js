@@ -1,6 +1,5 @@
 import {
     defaultCliProjectIndexService,
-    defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService
 } from "./plugin-service-providers/default-plugin-services.js";
@@ -17,7 +16,6 @@ let identifierCaseCacheClearer;
 
 export const defaultCliPluginServices = Object.freeze({
     projectIndex: defaultCliProjectIndexService,
-    identifierCasePlan: defaultCliIdentifierCasePlanService,
     identifierCasePlanPreparation:
         defaultCliIdentifierCasePlanPreparationService,
     identifierCasePlanCache: defaultCliIdentifierCaseCacheService

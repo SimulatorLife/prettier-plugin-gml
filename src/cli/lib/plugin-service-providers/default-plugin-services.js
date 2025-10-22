@@ -49,17 +49,11 @@ export const defaultCliIdentifierCaseCacheService = Object.freeze(
     })
 );
 
-export const defaultCliIdentifierCasePlanService = Object.freeze({
-    ...defaultCliIdentifierCasePlanPreparationService,
-    ...defaultCliIdentifierCaseCacheService
-});
-
 export const defaultCliPluginServices = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder,
     prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
     clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
     projectIndex: defaultCliProjectIndexService,
-    identifierCasePlan: defaultCliIdentifierCasePlanService,
     identifierCasePlanPreparation:
         defaultCliIdentifierCasePlanPreparationService,
     identifierCasePlanCache: defaultCliIdentifierCaseCacheService

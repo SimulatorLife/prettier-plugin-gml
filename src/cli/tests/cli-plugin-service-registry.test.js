@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
     defaultCliPluginServices,
@@ -58,27 +57,6 @@ test("CLI plugin services expose validated defaults", () => {
         "root registry should expose the same project index service"
     );
 
-    const identifierCasePlanService = defaultCliIdentifierCasePlanService;
-    assert.ok(
-        Object.isFrozen(identifierCasePlanService),
-        "identifier case plan service should be frozen"
-    );
-    assert.strictEqual(
-        identifierCasePlanService.prepareIdentifierCasePlan,
-        defaultIdentifierCasePlanPreparer,
-        "identifier case plan service should expose the default preparer"
-    );
-    assert.strictEqual(
-        identifierCasePlanService.clearIdentifierCaseCaches,
-        defaultIdentifierCaseCacheClearer,
-        "identifier case plan service should expose the default cache clearer"
-    );
-    assert.strictEqual(
-        services.identifierCasePlan,
-        identifierCasePlanService,
-        "root registry should expose the same identifier case plan service"
-    );
-
     const identifierCasePlanPreparationService =
         defaultCliIdentifierCasePlanPreparationService;
     assert.ok(
@@ -130,14 +108,6 @@ test("CLI plugin services cannot be mutated", () => {
         },
         TypeError,
         "nested project index service should be frozen"
-    );
-
-    assert.throws(
-        () => {
-            services.identifierCasePlan.extra = {};
-        },
-        TypeError,
-        "nested identifier case plan service should be frozen"
     );
 
     assert.throws(
