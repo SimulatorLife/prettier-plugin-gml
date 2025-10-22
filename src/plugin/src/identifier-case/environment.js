@@ -13,6 +13,50 @@ const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
+function sanitizeCachePayload(payload) {
+    if (!payload || typeof payload !== "object") {
+        return;
+    }
+
+    if (Object.hasOwn(payload, "projectIndex")) {
+        payload.projectIndex = null;
+    }
+}
+
+function sanitizeBootstrapCache(cache) {
+    if (!cache || typeof cache !== "object") {
+        return;
+    }
+
+    if (Object.hasOwn(cache, "projectIndex")) {
+        cache.projectIndex = null;
+    }
+
+    if (cache.payload && typeof cache.payload === "object") {
+        sanitizeCachePayload(cache.payload);
+    }
+}
+
+function sanitizeBootstrapResult(bootstrap) {
+    if (!bootstrap || typeof bootstrap !== "object") {
+        return;
+    }
+
+    if (Object.hasOwn(bootstrap, "projectIndex")) {
+        bootstrap.projectIndex = null;
+    }
+
+    if (Object.hasOwn(bootstrap, "coordinator")) {
+        bootstrap.coordinator = null;
+    }
+
+    if (typeof bootstrap.dispose === "function") {
+        bootstrap.dispose = () => {};
+    }
+
+    sanitizeBootstrapCache(bootstrap.cache);
+}
+
 function registerBootstrapCleanup(bootstrapResult) {
     if (typeof bootstrapResult?.dispose !== "function") {
         return null;
@@ -100,6 +144,8 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
 export function teardownIdentifierCaseEnvironment(options) {
     const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
     disposeBootstrap(bootstrap, options?.logger ?? null);
+    sanitizeBootstrapResult(bootstrap);
+    deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
     deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
 }
