@@ -1,6 +1,9 @@
-import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
-import { toArrayFromIterable } from "../array-utils.js";
-import { getOrCreateMapEntry } from "../object-utils.js";
+import {
+    getNonEmptyString,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
+import { toArrayFromIterable } from "../../../shared/array-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
