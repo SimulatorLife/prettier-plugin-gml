@@ -203,7 +203,7 @@ jobs:
             const fs = require('node:fs');
             const path = require('node:path');
 
-            const pull = event?.pull_request;
+            const pull = context.payload.pull_request;
             const baseRef = pull?.base?.ref || 'base';
             const baseSha = (pull?.base?.sha || '').slice(0, 7) || '???????';
             const headRef = pull?.head?.ref || 'head';
