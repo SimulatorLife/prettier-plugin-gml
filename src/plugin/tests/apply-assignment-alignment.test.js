@@ -3,9 +3,13 @@ import { describe, it } from "node:test";
 
 import { applyAssignmentAlignment } from "../src/printer/print.js";
 
-function createFunctionBodyPath(statements) {
+function createFunctionBodyPath(statements, params = []) {
     const block = { type: "BlockStatement", body: statements };
-    const functionNode = { type: "FunctionDeclaration", body: block };
+    const functionNode = {
+        type: "FunctionDeclaration",
+        body: block,
+        params
+    };
 
     return {
         getValue() {
@@ -221,6 +225,65 @@ describe("applyAssignmentAlignment", () => {
             ),
             [undefined, undefined],
             "Aliases outside of function bodies should not receive alignment padding."
+        );
+    });
+
+    it("aligns alias groups that reference named parameters and subsequent declarations", () => {
+        const statements = [
+            createArgumentAliasDeclaration("w", "width"),
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "step_size" },
+                        init: {
+                            type: "BinaryExpression",
+                            operator: "/",
+                            left: { type: "Literal", value: 1 },
+                            right: { type: "Identifier", name: "steps" }
+                        }
+                    }
+                ]
+            },
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "xnet" },
+                        init: { type: "Literal", value: -1 }
+                    }
+                ]
+            }
+        ];
+        const params = [
+            { type: "Identifier", name: "width" },
+            { type: "Identifier", name: "steps" }
+        ];
+        const path = createFunctionBodyPath(statements, params);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 3
+            },
+            path,
+            "body"
+        );
+
+        assert.deepStrictEqual(
+            statements.map(
+                (node) => node.declarations[0]._alignAssignmentPadding
+            ),
+            [
+                "step_size".length - "w".length,
+                0,
+                "step_size".length - "xnet".length
+            ],
+            "Expected alias groups tied to named parameters to align all contiguous declarations."
         );
     });
 });
