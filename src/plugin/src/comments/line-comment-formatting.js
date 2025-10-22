@@ -6,7 +6,10 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
-import { trimStringEntries } from "../../../shared/string-utils.js";
+import {
+    trimStringEntries,
+    toTrimmedString
+} from "../../../shared/string-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
@@ -304,7 +307,7 @@ function normalizeOptionalParamToken(token) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -315,7 +318,7 @@ function normalizeOptionalParamToken(token) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;
@@ -459,11 +462,7 @@ function normalizeGameMakerType(typeText) {
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
-    if (typeof text !== "string") {
-        return false;
-    }
-
-    const trimmed = text.trim();
+    const trimmed = toTrimmedString(text);
     if (trimmed.length === 0) {
         return false;
     }

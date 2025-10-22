@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { disposeProgressBars, renderProgressBar } from "../lib/progress-bar.js";
+import {
+    disposeProgressBars,
+    renderProgressBar,
+    setProgressBarFactoryForTesting
+} from "../lib/progress-bar.js";
 
 function createMockStdout() {
     return {
@@ -16,7 +20,7 @@ function createMockStdout() {
 }
 
 describe("manual CLI helpers", () => {
-    it("disposes active progress bars", () => {
+    it("disposes active progress bars", { concurrency: false }, () => {
         const createdBars = new Set();
         const stopCounts = new Map();
         const stdout = createMockStdout();
@@ -55,6 +59,7 @@ describe("manual CLI helpers", () => {
             renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
             assert.equal(createdBars.size, 2);
         } finally {
+            setProgressBarFactoryForTesting();
             disposeProgressBars();
         }
     });

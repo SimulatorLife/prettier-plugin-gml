@@ -4,6 +4,7 @@ import { describe, it, mock } from "node:test";
 import {
     disposeProgressBars,
     renderProgressBar,
+    setProgressBarFactoryForTesting,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
 
@@ -20,32 +21,38 @@ function createMockStdout() {
 }
 
 describe("progress bar cleanup", () => {
-    it("disposes active progress bars when callbacks fail", async () => {
-        const stdout = createMockStdout();
-        const stopMock = mock.fn();
-        const createBar = mock.fn(() => ({
-            setTotal: () => {},
-            update: () => {},
-            start: () => {},
-            stop: (...args) => {
-                stopMock(...args);
-            }
-        }));
-        try {
-            await assert.rejects(
-                withProgressBarCleanup(async () => {
-                    renderProgressBar("Task", 0, 2, 10, {
-                        stdout,
-                        createBar
-                    });
-                    throw new Error("boom");
-                }),
-                /boom/
-            );
+    it(
+        "disposes active progress bars when callbacks fail",
+        { concurrency: false },
+        async () => {
+            const stdout = createMockStdout();
+            const stopMock = mock.fn();
+            const createBar = mock.fn(() => ({
+                setTotal: () => {},
+                update: () => {},
+                start: () => {},
+                stop: (...args) => {
+                    stopMock(...args);
+                }
+            }));
 
-            assert.equal(stopMock.mock.callCount(), 1);
-        } finally {
-            disposeProgressBars();
+            try {
+                await assert.rejects(
+                    withProgressBarCleanup(async () => {
+                        renderProgressBar("Task", 0, 2, 10, {
+                            stdout,
+                            createBar
+                        });
+                        throw new Error("boom");
+                    }),
+                    /boom/
+                );
+
+                assert.equal(stopMock.mock.callCount(), 1);
+            } finally {
+                setProgressBarFactoryForTesting();
+                disposeProgressBars();
+            }
         }
-    });
+    );
 });

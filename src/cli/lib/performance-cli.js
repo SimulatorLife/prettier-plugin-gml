@@ -10,7 +10,7 @@ import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
 } from "./plugin-services.js";
-import { getIdentifierText } from "./shared-deps.js";
+import { getErrorMessage, getIdentifierText } from "./shared-deps.js";
 import { formatByteSize } from "./byte-format.js";
 import {
     SuiteOutputFormat,
@@ -159,7 +159,8 @@ function disposeIdentifierCaseBootstrap(renameOptions, logger = null) {
         bootstrap.dispose();
     } catch (error) {
         if (logger && typeof logger.warn === "function") {
-            const reason = error?.message ?? error;
+            const reason =
+                getErrorMessage(error, { fallback: "" }) || "Unknown error";
             logger.warn(
                 `[performance] Failed to dispose identifier case resources: ${reason}`
             );
