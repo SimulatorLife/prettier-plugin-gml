@@ -7,22 +7,25 @@ export function enforceVariableBlockSpacing(ast) {
         return;
     }
 
-    visitNode(ast);
+    const visitedNodes = new WeakSet();
+    visitNode(ast, visitedNodes);
 }
 
-function visitNode(node) {
-    if (!node) {
+function visitNode(node, visitedNodes) {
+    if (!node || typeof node !== "object") {
         return;
     }
+
+    if (visitedNodes.has(node)) {
+        return;
+    }
+
+    visitedNodes.add(node);
 
     if (Array.isArray(node)) {
         for (const entry of node) {
-            visitNode(entry);
+            visitNode(entry, visitedNodes);
         }
-        return;
-    }
-
-    if (typeof node !== "object") {
         return;
     }
 
@@ -32,7 +35,7 @@ function visitNode(node) {
 
     for (const value of Object.values(node)) {
         if (value && typeof value === "object") {
-            visitNode(value);
+            visitNode(value, visitedNodes);
         }
     }
 }
