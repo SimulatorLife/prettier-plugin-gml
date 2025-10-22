@@ -1,9 +1,5 @@
-import { isErrorLike } from "./capability-probes.js";
+import { hasFunction, isErrorLike } from "./capability-probes.js";
 import { isObjectLike } from "../object-utils.js";
-
-function hasFunction(value, property) {
-    return typeof value?.[property] === "function";
-}
 
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {
