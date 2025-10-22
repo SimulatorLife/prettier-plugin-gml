@@ -5281,11 +5281,16 @@ function shouldOmitSyntheticParens(path) {
 
         if (
             childInfo != undefined &&
-            childInfo.precedence > parentInfo.precedence &&
-            expression.operator === "*" &&
-            isNumericComputationNode(expression)
+            childInfo.precedence > parentInfo.precedence
         ) {
-            return false;
+            if (
+                expression.operator === "*" &&
+                isNumericComputationNode(expression)
+            ) {
+                return false;
+            }
+
+            return true;
         }
     }
 
