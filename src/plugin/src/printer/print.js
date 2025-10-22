@@ -3631,8 +3631,8 @@ function computeSyntheticFunctionDocLines(
             ) {
                 const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
-                    (canonicalImplicit && canonicalImplicit.length) ||
-                    effectiveImplicitName.trim().length;
+                    (canonicalImplicit && canonicalImplicit.length > 0) ||
+                    effectiveImplicitName.trim().length > 0;
 
                 if (ordinalLength > implicitLength) {
                     effectiveImplicitName = null;
