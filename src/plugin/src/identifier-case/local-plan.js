@@ -5,7 +5,7 @@ import {
     toPosixPath,
     resolveProjectPathInfo
 } from "../../../shared/path-utils.js";
-import { createMetricsTracker } from "../reporting/index.js";
+import { createMetricsTracker } from "../../../shared/metrics.js";
 import {
     isNonEmptyString,
     getNonEmptyString,
