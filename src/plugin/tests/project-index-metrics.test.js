@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
-import { createMetricsTracker } from "../src/reporting/index.js";
+import { createMetricsTracker } from "../../shared/metrics.js";
 
 async function writeProjectFile(rootDir, relativePath, contents) {
     const absolutePath = path.join(rootDir, relativePath);
