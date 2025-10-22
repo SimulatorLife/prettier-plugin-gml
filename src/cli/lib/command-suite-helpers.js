@@ -123,13 +123,19 @@ export async function collectSuiteResults({
     const results = {};
 
     for (const suiteName of suiteNames) {
-        await runSuiteAndStoreResult({
-            suiteName,
-            availableSuites,
-            runnerOptions,
-            onError,
-            results
-        });
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
+            continue;
+        }
+
+        try {
+            results[suiteName] = await runner(runnerOptions);
+        } catch (error) {
+            results[suiteName] =
+                typeof onError === "function"
+                    ? onError(error, { suiteName })
+                    : { error: createCliErrorDetails(error) };
+        }
     }
 
     return results;
@@ -140,46 +146,6 @@ function assertSuiteRegistryContract(availableSuites) {
         throw new TypeError(
             "availableSuites must provide a get function returning suite runners"
         );
-    }
-}
-
-async function runSuiteAndStoreResult({
-    suiteName,
-    availableSuites,
-    runnerOptions,
-    onError,
-    results
-}) {
-    const runner = resolveSuiteRunner(availableSuites, suiteName);
-    if (!runner) {
-        return;
-    }
-
-    results[suiteName] = await executeSuiteRunner({
-        suiteName,
-        runner,
-        runnerOptions,
-        onError
-    });
-}
-
-function resolveSuiteRunner(availableSuites, suiteName) {
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
-}
-
-async function executeSuiteRunner({
-    runner,
-    suiteName,
-    runnerOptions,
-    onError
-}) {
-    try {
-        return await runner(runnerOptions);
-    } catch (error) {
-        return typeof onError === "function"
-            ? onError(error, { suiteName })
-            : { error: createCliErrorDetails(error) };
     }
 }
 
