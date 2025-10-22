@@ -125,8 +125,11 @@ function readJUnitSuites(xmlFiles) {
         const xml = fs.readFileSync(file, "utf8");
         for (const match of xml.matchAll(/<testsuite\b([^>]*)>/g)) {
             const attrs = match[1] || "";
+            function escapeRegExp(str) {
+                return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
             const pick = (name) =>
-                (attrs.match(new RegExp(`${name}="([^"]*)"`)) || [])[1] ?? null;
+                (attrs.match(new RegExp(`${escapeRegExp(name)}="([^"]*)"`, "g")) || [])[1] ?? null;
             const asNumber = (value) =>
                 (value === null ? 0 : Number.parseFloat(value)) || 0;
             totals.tests += asNumber(pick("tests"));
