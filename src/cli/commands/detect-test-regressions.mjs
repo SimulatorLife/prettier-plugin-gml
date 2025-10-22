@@ -639,61 +639,122 @@ function readTestResults(candidateDirs, { workspace } = {}) {
     return buildUnavailableResult(context);
 }
 
-function detectRegressions(baseResults, targetResults) {
-    const baseStats = baseResults?.stats;
-    const targetStats = targetResults?.stats;
-
-    if (
+function shouldSkipRegressionDetection(baseStats, targetStats) {
+    return (
         baseStats &&
         targetStats &&
         baseStats.total === targetStats.total &&
         targetStats.failed <= baseStats.failed
+    );
+}
+
+/**
+ * Normalize result-set inputs so downstream helpers can rely on Map semantics.
+ */
+function resolveResultsMap(resultSet) {
+    const { results } = resultSet ?? {};
+    return results instanceof Map ? results : new Map();
+}
+
+function createRegressionRecord({ baseResults, key, targetRecord }) {
+    if (!targetRecord || targetRecord.status !== "failed") {
+        return null;
+    }
+
+    const baseRecord = baseResults.get(key);
+    const baseStatus = baseRecord?.status;
+    if (baseStatus === "failed") {
+        return null;
+    }
+
+    return {
+        key,
+        from: baseStatus ?? "missing",
+        to: targetRecord.status,
+        detail: targetRecord
+    };
+}
+
+/**
+ * Derive regression summaries for each failed target test case.
+ */
+function collectRegressions({ baseResults, targetResults }) {
+    const regressions = [];
+
+    for (const [key, targetRecord] of targetResults.entries()) {
+        const regression = createRegressionRecord({
+            baseResults,
+            key,
+            targetRecord
+        });
+
+        if (regression) {
+            regressions.push(regression);
+        }
+    }
+
+    return regressions;
+}
+
+function createResolvedFailureRecord({ baseResults, key, targetResults }) {
+    const baseRecord = baseResults.get(key);
+    if (!baseRecord || baseRecord.status !== "failed") {
+        return null;
+    }
+
+    const targetRecord = targetResults.get(key);
+    const targetStatus = targetRecord?.status;
+    if (targetStatus === "failed") {
+        return null;
+    }
+
+    return {
+        key,
+        from: baseRecord.status,
+        to: targetStatus ?? "missing",
+        detail: baseRecord
+    };
+}
+
+/**
+ * Derive records for historical failures that are no longer failing.
+ */
+function collectResolvedFailures({ baseResults, targetResults }) {
+    const resolved = [];
+
+    for (const key of baseResults.keys()) {
+        const record = createResolvedFailureRecord({
+            baseResults,
+            key,
+            targetResults
+        });
+
+        if (record) {
+            resolved.push(record);
+        }
+    }
+
+    return resolved;
+}
+
+function detectRegressions(baseResults, targetResults) {
+    if (
+        shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)
     ) {
         return [];
     }
 
-    const regressions = [];
-    for (const [key, targetRecord] of targetResults.results.entries()) {
-        if (!targetRecord || targetRecord.status !== "failed") {
-            continue;
-        }
-        const baseRecord = baseResults.results.get(key);
-        const baseStatus = baseRecord?.status;
-        if (baseStatus === "failed") {
-            continue;
-        }
-        regressions.push({
-            key,
-            from: baseStatus ?? "missing",
-            to: targetRecord.status,
-            detail: targetRecord
-        });
-    }
-    return regressions;
+    return collectRegressions({
+        baseResults: resolveResultsMap(baseResults),
+        targetResults: resolveResultsMap(targetResults)
+    });
 }
 
 function detectResolvedFailures(baseResults, targetResults) {
-    const resolved = [];
-    for (const [key, baseRecord] of baseResults.results.entries()) {
-        if (!baseRecord || baseRecord.status !== "failed") {
-            continue;
-        }
-
-        const targetRecord = targetResults.results.get(key);
-        const targetStatus = targetRecord?.status;
-        if (targetStatus === "failed") {
-            continue;
-        }
-
-        resolved.push({
-            key,
-            from: baseRecord.status,
-            to: targetStatus ?? "missing",
-            detail: baseRecord
-        });
-    }
-
-    return resolved;
+    return collectResolvedFailures({
+        baseResults: resolveResultsMap(baseResults),
+        targetResults: resolveResultsMap(targetResults)
+    });
 }
 
 function formatRegression(regression) {
