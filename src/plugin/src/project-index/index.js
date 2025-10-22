@@ -391,29 +391,57 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+const ProjectFileCategory = Object.freeze({
+    RESOURCE_METADATA: "yy",
+    SOURCE: "gml"
+});
+
+const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
+
+const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
+    [...PROJECT_FILE_CATEGORIES].sort().join(", ")
+);
+
+export function normalizeProjectFileCategory(value) {
+    if (PROJECT_FILE_CATEGORIES.has(value)) {
+        return value;
+    }
+
+    const received = value === undefined ? "undefined" : `'${String(value)}'`;
+    throw new RangeError(
+        `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
+    );
+}
+
+export function resolveProjectFileCategory(relativePosix) {
+    const lowerPath = relativePosix.toLowerCase();
+    if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+        return ProjectFileCategory.RESOURCE_METADATA;
+    }
+    if (lowerPath.endsWith(".gml")) {
+        return ProjectFileCategory.SOURCE;
+    }
+    return null;
+}
+
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
 
     function recordFile(category, record) {
-        if (category === "yy") {
+        const normalizedCategory = normalizeProjectFileCategory(category);
+
+        if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
             yyFiles.push(record);
             metrics?.incrementCounter("files.yyDiscovered");
-        } else if (category === "gml") {
+            return;
+        }
+
+        if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
             metrics?.incrementCounter("files.gmlDiscovered");
+            return;
         }
-    }
-
-    function classify(relativePosix) {
-        const lowerPath = relativePosix.toLowerCase();
-        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
-            return "yy";
-        }
-        if (lowerPath.endsWith(".gml")) {
-            return "gml";
-        }
-        return null;
     }
 
     function createRecord(absolutePath, relativePosix) {
@@ -424,7 +452,7 @@ function createProjectTreeCollector(metrics = null) {
     }
 
     function register(relativePosix, absolutePath) {
-        const category = classify(relativePosix);
+        const category = resolveProjectFileCategory(relativePosix);
         if (!category) {
             return;
         }
@@ -2565,4 +2593,5 @@ export async function buildProjectIndex(
 }
 export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
+export { ProjectFileCategory };
 export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
