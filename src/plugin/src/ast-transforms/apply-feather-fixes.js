@@ -1102,27 +1102,6 @@ function buildFeatherFixImplementations(diagnostics) {
             continue;
         }
 
-        if (diagnosticId === "GM2016") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = localizeInstanceVariableAssignments({
-                            ast,
-                            diagnostic,
-                            sourceText
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
         if (diagnosticId === "GM2028") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = ensurePrimitiveBeginPrecedesEnd({
