@@ -34,13 +34,13 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import {
     getErrorMessage,
     isErrorWithCode,
-    isObjectLike,
     normalizeEnumeratedOption,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    uniqueArray
+    uniqueArray,
+    withObjectLike
 } from "./lib/shared/utils.js";
 import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
 import {
@@ -531,25 +531,23 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return;
-    }
-
-    const snapshotPath = snapshot.snapshotPath;
-    if (!snapshotPath) {
-        return;
-    }
-
-    try {
-        await rm(snapshotPath, { force: true });
-    } catch {
-        // Ignore individual file cleanup failures to avoid masking the
-        // original error that triggered the revert.
-    } finally {
-        if (revertSnapshotFileCount > 0) {
-            revertSnapshotFileCount -= 1;
+    await withObjectLike(snapshot, async (snapshotObject) => {
+        const { snapshotPath } = snapshotObject;
+        if (!snapshotPath) {
+            return;
         }
-    }
+
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
+            }
+        }
+    });
 }
 
 async function discardFormattedFileOriginalContents() {
@@ -572,23 +570,26 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return "";
-    }
+    return withObjectLike(
+        snapshot,
+        async (snapshotObject) => {
+            if (snapshotObject.inlineContents != null) {
+                return snapshotObject.inlineContents;
+            }
 
-    if (snapshot.inlineContents != null) {
-        return snapshot.inlineContents;
-    }
+            const { snapshotPath } = snapshotObject;
+            if (!snapshotPath) {
+                return "";
+            }
 
-    if (!snapshot.snapshotPath) {
-        return "";
-    }
-
-    try {
-        return await readFile(snapshot.snapshotPath, "utf8");
-    } catch {
-        return null;
-    }
+            try {
+                return await readFile(snapshotPath, "utf8");
+            } catch {
+                return null;
+            }
+        },
+        () => ""
+    );
 }
 
 /**
