@@ -73,6 +73,40 @@ function forEachNodeChild(node, callback) {
     }
 }
 
+function walkAstNodes(root, visitor) {
+    const visit = (node, parent, key) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                visit(node[index], node, index);
+            }
+
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        const shouldDescend = visitor(node, parent, key);
+
+        if (shouldDescend === false) {
+            return;
+        }
+
+        for (const [childKey, childValue] of Object.entries(node)) {
+            if (childValue && typeof childValue === "object") {
+                visit(childValue, node, childKey);
+            }
+        }
+    };
+
+    visit(root, null, null);
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -3229,34 +3263,11 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
 function collectAllIdentifierNames(root) {
     const names = new Set();
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const value of node) {
-                visit(value);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    walkAstNodes(root, (node) => {
         if (node.type === "Identifier" && typeof node.name === "string") {
             names.add(node.name);
         }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(root);
+    });
 
     return names;
 }
@@ -3268,39 +3279,21 @@ function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
+    walkAstNodes(ast, (node) => {
+        if (node.type !== "BinaryExpression") {
             return;
         }
 
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
+        const fix = normalizeFileAttributeAddition(node, diagnostic);
+
+        if (!fix) {
             return;
         }
 
-        if (typeof node !== "object") {
-            return;
-        }
+        fixes.push(fix);
 
-        if (node.type === "BinaryExpression") {
-            const fix = normalizeFileAttributeAddition(node, diagnostic);
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
+        return false;
+    });
 
     return fixes;
 }
@@ -3395,22 +3388,7 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    walkAstNodes(ast, (node, parent, property) => {
         if (node.type === "CallExpression") {
             const fix = rewriteRoomGotoCall({
                 node,
@@ -3423,29 +3401,26 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
             }
         }
 
-        if (node.type === "BinaryExpression") {
-            const fix = rewriteRoomNavigationBinaryExpression({
-                node,
-                parent,
-                property,
-                diagnostic,
-                sourceText
-            });
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
+        if (node.type !== "BinaryExpression") {
+            return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
-    };
+        const fix = rewriteRoomNavigationBinaryExpression({
+            node,
+            parent,
+            property,
+            diagnostic,
+            sourceText
+        });
 
-    visit(ast, null, null);
+        if (!fix) {
+            return;
+        }
+
+        fixes.push(fix);
+
+        return false;
+    });
 
     return fixes;
 }
