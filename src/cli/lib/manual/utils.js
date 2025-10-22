@@ -16,58 +16,49 @@ const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
-const MANUAL_REPO_REQUIREMENTS = {
-    env: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
-    cli: "Manual repository must be provided in 'owner/name' format"
-};
-
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
     ENV: "env"
+});
+
+const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
+    [MANUAL_REPO_REQUIREMENT_SOURCE.ENV]: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
+    [MANUAL_REPO_REQUIREMENT_SOURCE.CLI]:
+        "Manual repository must be provided in 'owner/name' format"
 });
 
 /**
  * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
  */
 
-const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = new Set(
+const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
-function describeManualRepoRequirementSource(value) {
+const VALID_MANUAL_REPO_REQUIREMENT_SOURCES = new Set(
+    MANUAL_REPO_REQUIREMENT_SOURCE_VALUES
+);
+
+function formatUnknownRequirementSource(value) {
     return value === undefined ? "undefined" : `'${String(value)}'`;
 }
 
-function throwManualRepoRequirementSourceError(value) {
-    const allowedValues = Array.from(
-        MANUAL_REPO_REQUIREMENT_SOURCE_VALUES
-    ).join(", ");
+function assertManualRepoRequirementSource(value) {
+    if (VALID_MANUAL_REPO_REQUIREMENT_SOURCES.has(value)) {
+        return /** @type {ManualRepoRequirementSource} */ (value);
+    }
 
+    const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
     throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${describeManualRepoRequirementSource(
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatUnknownRequirementSource(
             value
         )}.`
     );
 }
 
-function assertManualRepoRequirementSource(value) {
-    if (!MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.has(value)) {
-        throwManualRepoRequirementSourceError(value);
-    }
-
-    return /** @type {ManualRepoRequirementSource} */ (value);
-}
-
 function formatManualRepoRequirement(source) {
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.ENV) {
-        return MANUAL_REPO_REQUIREMENTS.env;
-    }
-
-    if (source === MANUAL_REPO_REQUIREMENT_SOURCE.CLI) {
-        return MANUAL_REPO_REQUIREMENTS.cli;
-    }
-
-    throwManualRepoRequirementSourceError(source);
+    const key = assertManualRepoRequirementSource(source);
+    return MANUAL_REPO_REQUIREMENT_MESSAGES[key];
 }
 
 function describeManualRepoInput(value) {
