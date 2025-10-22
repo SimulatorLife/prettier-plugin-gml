@@ -275,14 +275,28 @@ function normalizeSuiteName(name) {
     return toTrimmedString(name);
 }
 
+function pushNormalizedSuiteSegments(target, segments) {
+    if (!Array.isArray(target)) {
+        throw new TypeError("target must be an array");
+    }
+
+    const sourceSegments = Array.isArray(segments) ? segments : [segments];
+
+    for (const segment of sourceSegments) {
+        const normalized = normalizeSuiteName(segment);
+        if (!normalized) {
+            continue;
+        }
+
+        target.push(normalized);
+    }
+
+    return target;
+}
+
 function buildTestKey(testNode, suitePath) {
     const parts = [];
-    const normalizedSuitePath = suitePath
-        .map(normalizeSuiteName)
-        .filter(Boolean);
-    if (normalizedSuitePath.length > 0) {
-        parts.push(...normalizedSuitePath);
-    }
+    pushNormalizedSuiteSegments(parts, suitePath);
     const className = toTrimmedString(testNode.classname);
     if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
@@ -294,12 +308,7 @@ function buildTestKey(testNode, suitePath) {
 
 function describeTestCase(testNode, suitePath) {
     const parts = [];
-    const normalizedSuitePath = suitePath
-        .map(normalizeSuiteName)
-        .filter(Boolean);
-    if (normalizedSuitePath.length > 0) {
-        parts.push(...normalizedSuitePath);
-    }
+    pushNormalizedSuiteSegments(parts, suitePath);
     const testName = toTrimmedString(testNode.name);
     if (testName) {
         parts.push(testName);
@@ -353,7 +362,7 @@ function collectTestCases(root) {
         const shouldExtendSuitePath =
             normalizedSuiteName && (hasTestcase || hasTestsuite);
         const nextSuitePath = shouldExtendSuitePath
-            ? [...suitePath, normalizedSuiteName]
+            ? pushNormalizedSuiteSegments([...suitePath], normalizedSuiteName)
             : suitePath;
 
         if (looksLikeTestCase(node)) {
