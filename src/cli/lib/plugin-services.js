@@ -1,4 +1,9 @@
-import { createDefaultCliPluginServices } from "./plugin-service-providers/default-plugin-services.js";
+import {
+    defaultCliProjectIndexService,
+    defaultCliIdentifierCasePlanService,
+    defaultCliIdentifierCasePlanPreparationService,
+    defaultCliIdentifierCaseCacheService
+} from "./plugin-service-providers/default-plugin-services.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
@@ -10,14 +15,12 @@ let projectIndexBuilder;
 let identifierCasePlanPreparer;
 let identifierCaseCacheClearer;
 
-const resolvedDefaultCliPluginServices = createDefaultCliPluginServices();
-
 export const defaultCliPluginServices = Object.freeze({
-    projectIndex: resolvedDefaultCliPluginServices.projectIndex,
+    projectIndex: defaultCliProjectIndexService,
+    identifierCasePlan: defaultCliIdentifierCasePlanService,
     identifierCasePlanPreparation:
-        resolvedDefaultCliPluginServices.identifierCasePlanPreparation,
-    identifierCasePlanCache:
-        resolvedDefaultCliPluginServices.identifierCasePlanCache
+        defaultCliIdentifierCasePlanPreparationService,
+    identifierCasePlanCache: defaultCliIdentifierCaseCacheService
 });
 
 resetRegisteredCliPluginServices();
