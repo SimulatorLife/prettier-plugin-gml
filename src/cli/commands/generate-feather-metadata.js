@@ -987,38 +987,31 @@ async function fetchFeatherManualPayloads({
         const manualEntries = Object.entries(FEATHER_PAGES);
         const totalManualPages = manualEntries.length;
 
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${totalManualPages} manual page${
-                    totalManualPages === 1 ? "" : "s"
-                }…`
-            );
-        }
+        announceManualDownloadStart(totalManualPages, verbose);
 
-        const htmlPayloads = {};
-        let fetchedCount = 0;
-        for (const [key, manualPath] of manualEntries) {
-            htmlPayloads[key] = await fetchManualFileFn(
-                manualRef.sha,
-                manualPath,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-            fetchedCount += 1;
-            reportManualFetchProgress({
+        return downloadManualEntries({
+            manualEntries,
+            manualRefSha: manualRef.sha,
+            fetchManualFile: fetchManualFileFn,
+            requestOptions: {
+                forceRefresh,
+                verbose,
+                cacheRoot,
+                rawRoot
+            },
+            onProgress: ({
                 manualPath,
                 fetchedCount,
-                totalManualPages,
-                verbose,
-                progressBarWidth
-            });
-        }
-
-        return htmlPayloads;
+                totalManualPages: total
+            }) =>
+                reportManualFetchProgress({
+                    manualPath,
+                    fetchedCount,
+                    totalManualPages: total,
+                    verbose,
+                    progressBarWidth
+                })
+        });
     });
 }
 
@@ -1044,6 +1037,48 @@ function reportManualFetchProgress({
     }
 
     console.log(`✓ ${manualPath}`);
+}
+
+function announceManualDownloadStart(totalManualPages, verbose) {
+    if (!verbose?.downloads) {
+        return;
+    }
+
+    console.log(
+        `Fetching ${totalManualPages} manual page${
+            totalManualPages === 1 ? "" : "s"
+        }…`
+    );
+}
+
+/**
+ * Download each requested manual page while reporting progress.
+ * The helper returns a map from feather page keys to their HTML payloads,
+ * mirroring the structure previously built inline inside
+ * fetchFeatherManualPayloads.
+ */
+async function downloadManualEntries({
+    manualEntries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    onProgress
+}) {
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    const totalManualPages = manualEntries.length;
+
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFile(
+            manualRefSha,
+            manualPath,
+            requestOptions
+        );
+        fetchedCount += 1;
+        onProgress?.({ manualPath, fetchedCount, totalManualPages });
+    }
+
+    return htmlPayloads;
 }
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {

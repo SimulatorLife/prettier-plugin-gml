@@ -304,7 +304,7 @@ function normalizeOptionalParamToken(token) {
     }
 
     while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, - 1);
+        stripped = stripped.slice(0, -1);
         hadSentinel = true;
     }
 
@@ -315,7 +315,7 @@ function normalizeOptionalParamToken(token) {
     const normalized = stripped.trim();
 
     if (normalized.length === 0) {
-        return stripped.replaceAll('*', "");
+        return stripped.replaceAll("*", "");
     }
 
     return `[${normalized}]`;

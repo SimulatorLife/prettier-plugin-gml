@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { toArrayFromIterable } from "./array.js";
 import { isNonEmptyString } from "./string.js";
 
 const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
@@ -137,8 +138,12 @@ export function collectUniqueAncestorDirectories(
     { includeSelf = true } = {}
 ) {
     const directories = new Set();
+    const entries =
+        typeof startingDirectories === "string"
+            ? [startingDirectories]
+            : toArrayFromIterable(startingDirectories);
 
-    for (const start of startingDirectories ?? []) {
+    for (const start of entries) {
         if (!isNonEmptyString(start)) {
             continue;
         }
