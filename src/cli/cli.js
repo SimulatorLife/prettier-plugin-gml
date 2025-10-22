@@ -687,7 +687,7 @@ async function revertFormattedFiles() {
             // decide whether the temporary directory is still needed. Skipping
             // this step after a failed write would leak backups, block future
             // revert attempts from creating fresh snapshots, and leave the
-            // `revertSnapshotFileCount` counter desynchronised from reality.
+            // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
     }
