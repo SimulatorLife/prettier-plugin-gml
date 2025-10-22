@@ -5763,6 +5763,20 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
+    if (isAdditivePair) {
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+                expressionReferencesSanitizedMacro(
+                    expression,
+                    sanitizedMacroNames
+                ))
+        ) {
+            return false;
+        }
+    }
+
     const operandName =
         typeof path.getName === "function" ? path.getName() : undefined;
     const isLeftOperand = operandName === "left";
@@ -5842,6 +5856,103 @@ function isSyntheticParenFlatteningEnabled(path) {
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
 const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+
+function getSanitizedMacroNames(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let depth = 1;
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return null;
+        }
+
+        if (ancestor.type === "Program") {
+            const { _featherSanitizedMacroNames: names } = ancestor;
+
+            if (!names) {
+                return null;
+            }
+
+            if (names instanceof Set) {
+                return names.size > 0 ? names : null;
+            }
+
+            if (Array.isArray(names)) {
+                if (names.length === 0) {
+                    return null;
+                }
+
+                const registry = new Set(names);
+                ancestor._featherSanitizedMacroNames = registry;
+                return registry;
+            }
+
+            return null;
+        }
+
+        depth += 1;
+    }
+}
+
+function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
+    if (!sanitizedMacroNames || sanitizedMacroNames.size === 0) {
+        return false;
+    }
+
+    const stack = [node];
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (
+            current.type === "Identifier" &&
+            typeof current.name === "string" &&
+            sanitizedMacroNames.has(current.name)
+        ) {
+            return true;
+        }
+
+        if (current.type === "CallExpression") {
+            const calleeName = getIdentifierText(current.object);
+            if (
+                typeof calleeName === "string" &&
+                sanitizedMacroNames.has(calleeName)
+            ) {
+                return true;
+            }
+        }
+
+        for (const value of Object.values(current)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (const entry of value) {
+                    if (entry && typeof entry === "object") {
+                        stack.push(entry);
+                    }
+                }
+                continue;
+            }
+
+            if (value.type) {
+                stack.push(value);
+            }
+        }
+    }
+
+    return false;
+}
 
 function isNumericCallExpression(node) {
     if (!node || node.type !== "CallExpression") {

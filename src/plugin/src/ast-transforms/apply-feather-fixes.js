@@ -5484,6 +5484,7 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
                 diagnostic
             );
             if (fixInfo) {
+                registerSanitizedMacroName(ast, node?.name?.name);
                 fixes.push(fixInfo);
             }
         }
@@ -5991,6 +5992,28 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function registerSanitizedMacroName(ast, macroName) {
+    if (!ast || typeof ast !== "object" || ast.type !== "Program") {
+        return;
+    }
+
+    if (typeof macroName !== "string" || macroName.length === 0) {
+        return;
+    }
+
+    let registry = ast._featherSanitizedMacroNames;
+
+    if (registry instanceof Set) {
+        registry.add(macroName);
+        return;
+    }
+
+    registry = Array.isArray(registry) ? new Set(registry) : new Set();
+
+    registry.add(macroName);
+    ast._featherSanitizedMacroNames = registry;
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
