@@ -219,6 +219,14 @@ function formatLineComment(
         );
     }
 
+    if (comment?._gmlDocComment === true) {
+        return applyInlinePadding(comment, `/// ${trimmedValue}`);
+    }
+
+    if (trimmedValue.startsWith("/")) {
+        return applyInlinePadding(comment, `//${trimmedValue}`);
+    }
+
     return applyInlinePadding(comment, "// " + trimmedValue);
 }
 

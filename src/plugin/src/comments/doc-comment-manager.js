@@ -153,6 +153,15 @@ function normalizeDocCommentWhitespace(ast) {
     for (const comment of comments) {
         if (
             comment?.type === "CommentLine" &&
+            typeof comment.value === "string" &&
+            comment.value.startsWith("/")
+        ) {
+            comment.value = comment.value.slice(1);
+            comment._gmlDocComment = true;
+        }
+
+        if (
+            comment?.type === "CommentLine" &&
             typeof comment.leadingWS === "string" &&
             /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
                 comment.leadingWS
