@@ -412,7 +412,7 @@ function condenseWithinStatements(
     containerNode,
     parentNode
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -1710,7 +1710,7 @@ function computeExpressionMetrics(expression) {
 }
 
 function chooseBestCandidate(candidates) {
-    if (!Array.isArray(candidates) || candidates.length === 0) {
+    if (!isNonEmptyArray(candidates)) {
         return null;
     }
 

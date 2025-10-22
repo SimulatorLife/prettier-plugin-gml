@@ -235,19 +235,15 @@ export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
 ]);
 
 function normalizeReservedPrefixOverrides(overrides) {
-    if (
-        !overrides ||
-        typeof overrides === "string" ||
-        typeof overrides[Symbol.iterator] !== "function"
-    ) {
+    if (typeof overrides === "string") {
         return [];
     }
 
-    const entries = normalizeStringList(Array.from(overrides));
-
-    if (entries.length === 0) {
-        return [];
-    }
+    const iterable =
+        overrides && typeof overrides[Symbol.iterator] === "function"
+            ? overrides
+            : [];
+    const entries = normalizeStringList([...iterable]);
 
     return entries.sort((a, b) => {
         const lengthDifference = b.length - a.length;
