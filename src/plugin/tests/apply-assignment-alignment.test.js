@@ -286,4 +286,75 @@ describe("applyAssignmentAlignment", () => {
             "Expected alias groups tied to named parameters to align all contiguous declarations."
         );
     });
+
+    it("continues alignment when parameter alias declarations are omitted", () => {
+        const statements = [
+            createArgumentAliasDeclaration("w", "argument0"),
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "step_size" },
+                        init: {
+                            type: "BinaryExpression",
+                            operator: "/",
+                            left: { type: "Literal", value: 1 },
+                            right: { type: "Identifier", name: "steps" }
+                        }
+                    }
+                ]
+            },
+            createArgumentAliasDeclaration("colour", "argument1"),
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "xnet" },
+                        init: { type: "Literal", value: -1 }
+                    }
+                ]
+            }
+        ];
+        const params = [
+            { type: "Identifier", name: "width" },
+            { type: "Identifier", name: "colour" },
+            { type: "Identifier", name: "steps" }
+        ];
+        const path = createFunctionBodyPath(statements, params);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 3
+            },
+            path,
+            "body"
+        );
+
+        const paddings = statements.map((node) => {
+            const declarator = node.declarations[0];
+            return declarator?._alignAssignmentPadding;
+        });
+
+        assert.deepStrictEqual(
+            paddings,
+            [
+                "step_size".length - "w".length,
+                0,
+                "step_size".length - "colour".length,
+                "step_size".length - "xnet".length
+            ],
+            "Declarations following removable aliases should still align with the active group."
+        );
+
+        assert.strictEqual(
+            paddings[2],
+            "step_size".length - "colour".length,
+            "Removable aliases should not disrupt alignment padding calculations."
+        );
+    });
 });
