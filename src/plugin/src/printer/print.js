@@ -1758,7 +1758,8 @@ function getNextNonWhitespaceCharacter(text, startIndex) {
             case 11: // vertical tab
             case 12: // form feed
             case 13: // \r
-            case 32: { // space
+            case 32: {
+                // space
                 continue;
             }
             default: {
