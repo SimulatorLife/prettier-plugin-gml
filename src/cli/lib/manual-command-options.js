@@ -11,11 +11,7 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import {
-    assertFunction,
-    hasOwn,
-    isNonEmptyString
-} from "../../shared/utils.js";
+import { assertFunction, hasOwn, isNonEmptyString } from "./shared-deps.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
