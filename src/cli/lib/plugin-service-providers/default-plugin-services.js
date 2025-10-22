@@ -5,6 +5,25 @@ import {
     clearIdentifierCaseDryRunContexts
 } from "prettier-plugin-gamemaker/identifier-case";
 
+/**
+ * The legacy `identifierCasePlanService` facade coupled plan preparation with
+ * cache clearing behind one "service" surface. That wide contract forced CLI
+ * collaborators that only needed to warm caches or only needed to clear them
+ * to depend on both behaviours. The typedefs below capture the narrower
+ * preparation and cache responsibilities so consumers can opt into the precise
+ * collaborator they require.
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanPreparationService
+ * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanCacheService
+ * @property {() => void} clearIdentifierCaseCaches
+ */
+
 function clearIdentifierCaseCaches() {
     clearIdentifierCaseOptionStore(null);
     clearIdentifierCaseDryRunContexts();
@@ -18,25 +37,23 @@ const projectIndexService = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder
 });
 
-const identifierCasePlanPreparationService = Object.freeze({
-    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
-});
+const identifierCasePlanPreparationService = Object.freeze(
+    /** @type {CliIdentifierCasePlanPreparationService} */ ({
+        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+    })
+);
 
-const identifierCasePlanCacheService = Object.freeze({
-    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
-});
-
-const identifierCasePlanService = Object.freeze({
-    ...identifierCasePlanPreparationService,
-    ...identifierCasePlanCacheService
-});
+const identifierCasePlanCacheService = Object.freeze(
+    /** @type {CliIdentifierCasePlanCacheService} */ ({
+        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
+    })
+);
 
 const defaultCliPluginServices = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder,
     prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
     clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
     projectIndex: projectIndexService,
-    identifierCasePlan: identifierCasePlanService,
     identifierCasePlanPreparation: identifierCasePlanPreparationService,
     identifierCasePlanCache: identifierCasePlanCacheService
 });
@@ -47,11 +64,6 @@ export const resolveCliPluginServices = createDefaultCliPluginServices;
 export const resolveCliProjectIndexService = () => projectIndexService;
 export const createDefaultCliProjectIndexService =
     resolveCliProjectIndexService;
-
-export const resolveCliIdentifierCasePlanService = () =>
-    identifierCasePlanService;
-export const createDefaultCliIdentifierCasePlanService =
-    resolveCliIdentifierCasePlanService;
 
 export const resolveCliIdentifierCasePlanPreparationService = () =>
     identifierCasePlanPreparationService;

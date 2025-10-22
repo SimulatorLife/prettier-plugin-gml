@@ -53,3 +53,15 @@ no code changes were required.
   and `IdentifierCasePlanSnapshotService` roles. Call sites now request and
   override the specific collaborator they need without depending on an
   aggregated service container.
+
+## Follow-up audit (2025-02-27)
+
+- Audited the CLI service registry and found `identifierCasePlanService` in
+  `src/cli/lib/plugin-service-providers/default-plugin-services.js`. The facade
+  merged plan preparation and cache clearing, so callers that only needed one
+  capability depended on both.
+- Removed the combined service in favour of explicit
+  `CliIdentifierCasePlanPreparationService` and
+  `CliIdentifierCasePlanCacheService` contracts. Updated the default registry
+  and tests to rely on the focused services so each consumer depends only on
+  the collaborator it actually uses.
