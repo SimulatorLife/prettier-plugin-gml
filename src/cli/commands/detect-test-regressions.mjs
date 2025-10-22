@@ -120,14 +120,14 @@ function listFilesRecursive(root) {
 }
 
 function readJUnitSuites(xmlFiles) {
+    function escapeRegExp(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
     const totals = { tests: 0, failures: 0, errors: 0, skipped: 0, time: 0 };
     for (const file of xmlFiles) {
         const xml = fs.readFileSync(file, "utf8");
         for (const match of xml.matchAll(/<testsuite\b([^>]*)>/g)) {
             const attrs = match[1] || "";
-            function escapeRegExp(str) {
-                return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            }
             const pick = (name) =>
                 (attrs.match(new RegExp(`${escapeRegExp(name)}="([^"]*)"`, "g")) || [])[1] ?? null;
             const asNumber = (value) =>
