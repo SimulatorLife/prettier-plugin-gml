@@ -125,23 +125,19 @@ export function capitalize(value) {
  * @returns {Array<string>} New array containing the trimmed entries.
  */
 export function trimStringEntries(values) {
+    const errorMessage = "values must be provided as an array of strings.";
+
     if (!Array.isArray(values)) {
-        throw new TypeError("values must be provided as an array of strings.");
+        throw new TypeError(errorMessage);
     }
 
-    const trimmed = Array.from({ length: values.length });
-
-    for (const [index, value] of values.entries()) {
+    return values.map((value) => {
         if (typeof value !== "string") {
-            throw new TypeError(
-                "values must be provided as an array of strings."
-            );
+            throw new TypeError(errorMessage);
         }
 
-        trimmed[index] = value.trim();
-    }
-
-    return trimmed;
+        return value.trim();
+    });
 }
 
 /**
