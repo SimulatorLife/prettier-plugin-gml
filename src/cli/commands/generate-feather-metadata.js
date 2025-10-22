@@ -1,12 +1,11 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { parseHTML } from "linkedom";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command } from "commander";
 
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
 import { CliUsageError } from "../lib/cli-errors.js";
@@ -15,23 +14,25 @@ import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
-    resolveProgressBarWidth,
-    getDefaultProgressBarWidth
+    withProgressBarCleanup
 } from "../lib/progress-bar.js";
-import { ensureDir } from "../lib/file-system.js";
+import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    resolveManualRepoValue,
     buildManualRepositoryEndpoints
-} from "../lib/manual-utils.js";
+} from "../lib/manual/utils.js";
 import {
+    MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
 } from "../lib/manual-env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
-import { resolveManualCommandOptions } from "../lib/manual-command-options.js";
+import {
+    applySharedManualCommandOptions,
+    resolveManualCommandOptions
+} from "../lib/manual-command-options.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
 const {
@@ -64,52 +65,14 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             .description(
                 "Generate feather-metadata.json from the GameMaker manual."
             )
-    )
-        .option(
-            "-r, --ref <git-ref>",
-            "Manual git ref (tag, branch, or commit)."
-        )
-        .option(
-            "-o, --output <path>",
-            `Output JSON path (default: ${OUTPUT_DEFAULT}).`,
-            (value) => path.resolve(value),
-            OUTPUT_DEFAULT
-        )
-        .option(
-            "--force-refresh",
-            "Ignore cached manual artefacts and re-download."
-        )
-        .option("--quiet", "Suppress progress output (useful in CI).")
-        .option(
-            "--manual-repo <owner/name>",
-            `GitHub repository hosting the manual (default: ${DEFAULT_MANUAL_REPO}).`,
-            (value) => {
-                try {
-                    return resolveManualRepoValue(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            DEFAULT_MANUAL_REPO
-        )
-        .option(
-            "--cache-root <path>",
-            `Directory to store cached manual artefacts (default: ${DEFAULT_CACHE_ROOT}).`,
-            (value) => path.resolve(value),
-            DEFAULT_CACHE_ROOT
-        )
-        .option(
-            "--progress-bar-width <columns>",
-            `Width of progress bars rendered in the terminal (default: ${getDefaultProgressBarWidth()}).`,
-            (value) => {
-                try {
-                    return resolveProgressBarWidth(value);
-                } catch (error) {
-                    throw new InvalidArgumentError(error.message);
-                }
-            },
-            getDefaultProgressBarWidth()
-        );
+    ).option("-r, --ref <git-ref>", "Manual git ref (tag, branch, or commit).");
+
+    applySharedManualCommandOptions(command, {
+        outputPath: { defaultValue: OUTPUT_DEFAULT },
+        cacheRoot: { defaultValue: DEFAULT_CACHE_ROOT },
+        manualRepo: { defaultValue: DEFAULT_MANUAL_REPO },
+        quietDescription: "Suppress progress output (useful in CI)."
+    });
 
     command.addHelpText(
         "after",
@@ -118,7 +81,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             "Environment variables:",
             `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
             `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            "  GML_MANUAL_REF          Set the default manual ref (tag, branch, or commit).",
+            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`,
             `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
         ].join("\n")
     );
@@ -142,10 +105,10 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js
+// Manual fetching helpers are provided by manual-cli-helpers.js.
 
 function normalizeMultilineText(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return null;
     }
 
@@ -171,7 +134,7 @@ function getNormalizedTextContent(element, { trim = false } = {}) {
     }
 
     const { textContent } = element;
-    if (typeof textContent !== "string" || textContent.length === 0) {
+    if (!isNonEmptyString(textContent)) {
         return trim ? null : "";
     }
 
@@ -196,12 +159,10 @@ function getTagName(element) {
 }
 
 function getDirectChildren(element, selector) {
-    const matches = selector
+    const predicate = selector
         ? (child) => child.matches?.(selector) === true
         : () => true;
-    return Array.from(element?.children ?? []).filter((child) =>
-        matches(child)
-    );
+    return Array.from(element?.children ?? []).filter(predicate);
 }
 
 function replaceBreaksWithNewlines(clone) {
@@ -1022,37 +983,36 @@ async function fetchFeatherManualPayloads({
     rawRoot,
     progressBarWidth
 }) {
-    const manualEntries = Object.entries(FEATHER_PAGES);
-    const totalManualPages = manualEntries.length;
+    return withProgressBarCleanup(async () => {
+        const manualEntries = Object.entries(FEATHER_PAGES);
+        const totalManualPages = manualEntries.length;
 
-    if (verbose.downloads) {
-        console.log(
-            `Fetching ${totalManualPages} manual page${
-                totalManualPages === 1 ? "" : "s"
-            }…`
-        );
-    }
+        announceManualDownloadStart(totalManualPages, verbose);
 
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFileFn(manualRef.sha, manualPath, {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
+        return downloadManualEntries({
+            manualEntries,
+            manualRefSha: manualRef.sha,
+            fetchManualFile: fetchManualFileFn,
+            requestOptions: {
+                forceRefresh,
+                verbose,
+                cacheRoot,
+                rawRoot
+            },
+            onProgress: ({
+                manualPath,
+                fetchedCount,
+                totalManualPages: total
+            }) =>
+                reportManualFetchProgress({
+                    manualPath,
+                    fetchedCount,
+                    totalManualPages: total,
+                    verbose,
+                    progressBarWidth
+                })
         });
-        fetchedCount += 1;
-        reportManualFetchProgress({
-            manualPath,
-            fetchedCount,
-            totalManualPages,
-            verbose,
-            progressBarWidth
-        });
-    }
-
-    return htmlPayloads;
+    });
 }
 
 function reportManualFetchProgress({
@@ -1077,6 +1037,48 @@ function reportManualFetchProgress({
     }
 
     console.log(`✓ ${manualPath}`);
+}
+
+function announceManualDownloadStart(totalManualPages, verbose) {
+    if (!verbose?.downloads) {
+        return;
+    }
+
+    console.log(
+        `Fetching ${totalManualPages} manual page${
+            totalManualPages === 1 ? "" : "s"
+        }…`
+    );
+}
+
+/**
+ * Download each requested manual page while reporting progress.
+ * The helper returns a map from feather page keys to their HTML payloads,
+ * mirroring the structure previously built inline inside
+ * fetchFeatherManualPayloads.
+ */
+async function downloadManualEntries({
+    manualEntries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    onProgress
+}) {
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    const totalManualPages = manualEntries.length;
+
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFile(
+            manualRefSha,
+            manualPath,
+            requestOptions
+        );
+        fetchedCount += 1;
+        onProgress?.({ manualPath, fetchedCount, totalManualPages });
+    }
+
+    return htmlPayloads;
 }
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
@@ -1150,14 +1152,13 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
             sections
         });
 
-        await ensureDir(path.dirname(outputPath));
-        await fs.writeFile(
+        await writeManualJsonArtifact({
             outputPath,
-            `${JSON.stringify(payload, undefined, 2)}\n`,
-            "utf8"
-        );
-
-        console.log(`Wrote Feather metadata to ${outputPath}`);
+            payload,
+            onAfterWrite: () => {
+                console.log(`Wrote Feather metadata to ${outputPath}`);
+            }
+        });
         logCompletion();
         return 0;
     } finally {

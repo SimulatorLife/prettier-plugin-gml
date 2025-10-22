@@ -3,9 +3,10 @@
 Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
 can pick the right level of detail for your task. Looking for installation or
-contributor setup steps? The [repository README](../README.md) captures the
-quick-start flow, formatter configuration, CLI wrapper options, and day-to-day
-development commands.
+contributor setup steps? Start with the [repository README](../README.md) for
+the quick-start checklist, formatter configuration matrix, CLI wrapper options,
+and day-to-day development commands, then return here when you need deeper
+context.
 
 ## Reference guides
 
@@ -31,6 +32,9 @@ development commands.
 - [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
   file tuned for common GameMaker metadata folders when rolling the formatter
   into an existing repository.
+- [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
+  lookup for environment variables and wrapper behaviour when scripting
+  formatter runs in CI or editor tooling.
 
 ## Planning notes
 
@@ -59,12 +63,17 @@ development commands.
   — Research notes that detail why the CLI and plugin expose separate entry
   points, how shared utilities are packaged, and where the CLI wrapper inserts
   additional behaviour such as `.prettierignore` discovery.
+- [Project index cache design](project-index-cache-design.md) — Background on
+  the cache lifecycle, invalidation triggers, and concurrency controls that
+  back identifier-case rollouts. Pairs with the [Identifier case rollout
+  playbook](identifier-case-rollout.md) when you are tuning bootstrap behaviour
+  for CI.
 
 ## Metadata tooling
 
 - [Architecture overview](../README.md#architecture-overview) — The repository
-  README explains how the workspace packages relate, where generated assets live,
-  and which scripts refresh them. Pair it with
+  README explains how the workspace packages relate, where generated assets
+  live, and which scripts refresh them. Pair it with the
   [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
   in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
-  when updating the scrapers.
+  when updating the scrapers or running metadata rebuilds through the CLI.

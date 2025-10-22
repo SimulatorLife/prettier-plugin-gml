@@ -78,6 +78,8 @@ const {
 const { willBreak } = utils;
 
 const preservedUndefinedDefaultParameters = new WeakSet();
+const suppressedImplicitDocCanonicalByNode = new WeakMap();
+const preferredParamDocNamesByNode = new WeakMap();
 
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
@@ -273,7 +275,7 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "TernaryExpression": {
-            return group([
+            const ternaryDoc = group([
                 print("test"),
                 indent([
                     line,
@@ -284,6 +286,10 @@ export function print(path, options, print) {
                     print("alternate")
                 ])
             ]);
+
+            return shouldWrapTernaryExpression(path)
+                ? concat(["(", ternaryDoc, ")"])
+                : ternaryDoc;
         }
         case "ForStatement": {
             const shouldHoistLoopLengths =
@@ -629,6 +635,44 @@ export function print(path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
+            const functionNode = findEnclosingFunctionNode(path);
+            const declarators = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+            const keptDeclarators = declarators.filter(
+                (declarator) =>
+                    !shouldOmitParameterAlias(declarator, functionNode, options)
+            );
+
+            if (keptDeclarators.length === 0) {
+                return;
+            }
+
+            if (keptDeclarators.length !== declarators.length) {
+                const original = node.declarations;
+                node.declarations = keptDeclarators;
+                try {
+                    const decls =
+                        keptDeclarators.length > 1
+                            ? printCommaSeparatedList(
+                                  path,
+                                  print,
+                                  "declarations",
+                                  "",
+                                  "",
+                                  options,
+                                  {
+                                      leadingNewline: false,
+                                      trailingNewline: false
+                                  }
+                              )
+                            : path.map(print, "declarations");
+                    return concat([node.kind, " ", decls]);
+                } finally {
+                    node.declarations = original;
+                }
+            }
+
             let decls = [];
             decls =
                 node.declarations.length > 1
@@ -725,7 +769,11 @@ export function print(path, options, print) {
 
                             break;
                         }
-                        // No default
+                        // Intentionally omit a default branch so any operator that is not
+                        // covered above preserves the exact token emitted by the parser.
+                        // Introducing a catch-all would make it easy to "fix" unfamiliar
+                        // operators into something else, which risks corrupting source that
+                        // relies on newly added or editor-specific syntax.
                     }
                 } else {
                     operator = styledOperator;
@@ -742,11 +790,15 @@ export function print(path, options, print) {
                 : concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
-            if (
-                node.preserveOriginalCallText &&
-                options &&
-                typeof options.originalText === "string"
-            ) {
+            if (options && typeof options.originalText === "string") {
+                const hasNestedPreservedArguments = Array.isArray(
+                    node.arguments
+                )
+                    ? node.arguments.some(
+                          (argument) =>
+                              argument?.preserveOriginalCallText === true
+                      )
+                    : false;
                 const startIndex = getNodeStartIndex(node);
                 const endIndex = getNodeEndIndex(node);
 
@@ -755,7 +807,24 @@ export function print(path, options, print) {
                     typeof endIndex === "number" &&
                     endIndex > startIndex
                 ) {
-                    return options.originalText.slice(startIndex, endIndex);
+                    const synthesizedText =
+                        synthesizeMissingCallArgumentSeparators(
+                            node,
+                            options.originalText,
+                            startIndex,
+                            endIndex
+                        );
+
+                    if (typeof synthesizedText === "string") {
+                        return synthesizedText;
+                    }
+
+                    if (
+                        node.preserveOriginalCallText &&
+                        !hasNestedPreservedArguments
+                    ) {
+                        return options.originalText.slice(startIndex, endIndex);
+                    }
                 }
             }
 
@@ -1055,10 +1124,22 @@ export function print(path, options, print) {
         }
         case "Identifier": {
             const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
+            let identifierName = node.name;
+
+            const preferredParamName = getPreferredFunctionParameterName(
+                path,
+                node,
+                options
+            );
+            if (isNonEmptyString(preferredParamName)) {
+                identifierName = preferredParamName;
+            }
+
             const renamed = getIdentifierCaseRenameForNode(node, options);
-            const identifierName = isNonEmptyString(renamed)
-                ? renamed
-                : node.name;
+            if (isNonEmptyString(renamed)) {
+                identifierName = renamed;
+            }
+
             return concat([prefix, identifierName]);
         }
         case "TemplateStringText": {
@@ -1236,6 +1317,97 @@ function printDelimitedList(
     return forceInline
         ? groupElementsNoBreak
         : group(groupElements, { groupId });
+}
+
+function synthesizeMissingCallArgumentSeparators(
+    node,
+    originalText,
+    startIndex,
+    endIndex
+) {
+    if (
+        !node ||
+        node.type !== "CallExpression" ||
+        !Array.isArray(node.arguments) ||
+        typeof originalText !== "string" ||
+        typeof startIndex !== "number" ||
+        typeof endIndex !== "number" ||
+        endIndex <= startIndex
+    ) {
+        return null;
+    }
+
+    let cursor = startIndex;
+    let normalizedText = "";
+    let insertedSeparator = false;
+
+    for (let index = 0; index < node.arguments.length; index += 1) {
+        const argument = node.arguments[index];
+        const argumentStart = getNodeStartIndex(argument);
+        const argumentEnd = getNodeEndIndex(argument);
+
+        if (
+            typeof argumentStart !== "number" ||
+            typeof argumentEnd !== "number" ||
+            argumentStart < cursor ||
+            argumentEnd > endIndex
+        ) {
+            return null;
+        }
+
+        normalizedText += originalText.slice(cursor, argumentStart);
+        normalizedText += originalText.slice(argumentStart, argumentEnd);
+        cursor = argumentEnd;
+
+        if (index >= node.arguments.length - 1) {
+            continue;
+        }
+
+        const nextArgument = node.arguments[index + 1];
+        const nextStart = getNodeStartIndex(nextArgument);
+
+        if (typeof nextStart !== "number" || nextStart < cursor) {
+            return null;
+        }
+
+        const between = originalText.slice(cursor, nextStart);
+
+        if (between.includes(",")) {
+            normalizedText += between;
+            cursor = nextStart;
+            continue;
+        }
+
+        const trimmedBetween = between.trim();
+
+        if (trimmedBetween.length === 0) {
+            const previousChar =
+                cursor > startIndex ? originalText[cursor - 1] : "";
+            const nextChar =
+                nextStart < originalText.length ? originalText[nextStart] : "";
+
+            if (
+                isNumericLiteralBoundaryCharacter(previousChar) &&
+                isNumericLiteralBoundaryCharacter(nextChar)
+            ) {
+                normalizedText += "," + between;
+                cursor = nextStart;
+                insertedSeparator = true;
+                continue;
+            }
+        }
+
+        normalizedText += between;
+        cursor = nextStart;
+    }
+
+    normalizedText += originalText.slice(cursor, endIndex);
+
+    return insertedSeparator ? normalizedText : null;
+}
+
+function isNumericLiteralBoundaryCharacter(character) {
+    return /[0-9.-]/.test(character ?? "");
 }
 
 function shouldAllowTrailingComma(options) {
@@ -1640,9 +1812,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     node.declarations[0]?.init?.type === "FunctionDeclaration");
 
             if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
-                // Normalised legacy `#define` directives used to omit trailing
+                // Normalized legacy `#define` directives used to omit trailing
                 // semicolons when rewriting to function expressions. The
-                // formatter now standardises those assignments so they always
+                // formatter now standardizes those assignments so they always
                 // emit an explicit semicolon, matching the golden fixtures and
                 // keeping the output consistent regardless of the original
                 // source style.
@@ -1783,6 +1955,15 @@ export function applyAssignmentAlignment(statements, options) {
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
 
+    const originalText =
+        typeof options?.originalText === "string" ? options.originalText : null;
+    const locStart =
+        typeof options?.locStart === "function" ? options.locStart : null;
+    const locEnd =
+        typeof options?.locEnd === "function" ? options.locEnd : null;
+
+    let previousSimpleAssignment = null;
+
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
@@ -1816,13 +1997,30 @@ export function applyAssignmentAlignment(statements, options) {
 
     for (const statement of statements) {
         if (isSimpleAssignment(statement)) {
+            if (
+                previousSimpleAssignment &&
+                shouldBreakAssignmentAlignment(
+                    previousSimpleAssignment,
+                    statement,
+                    originalText,
+                    locStart,
+                    locEnd
+                )
+            ) {
+                flushGroup();
+                previousSimpleAssignment = null;
+            }
+
             const nameLength = statement.left.name.length;
             currentGroup.push({ node: statement, nameLength });
             if (nameLength > currentGroupMaxLength) {
                 currentGroupMaxLength = nameLength;
             }
+
+            previousSimpleAssignment = statement;
         } else {
             flushGroup();
+            previousSimpleAssignment = null;
         }
     }
 
@@ -1848,6 +2046,91 @@ function isSimpleAssignment(node) {
         node.left.type === "Identifier" &&
         typeof node.left.name === "string"
     );
+}
+
+function shouldBreakAssignmentAlignment(
+    previousNode,
+    nextNode,
+    originalText,
+    locStart,
+    locEnd
+) {
+    if (
+        !originalText ||
+        typeof originalText !== "string" ||
+        !previousNode ||
+        !nextNode
+    ) {
+        return false;
+    }
+
+    const previousEnd = getNodeEndIndexForAlignment(previousNode, locEnd);
+    const nextStart = getNodeStartIndexForAlignment(nextNode, locStart);
+
+    if (
+        !Number.isInteger(previousEnd) ||
+        !Number.isInteger(nextStart) ||
+        previousEnd >= nextStart
+    ) {
+        return false;
+    }
+
+    const between = originalText.slice(previousEnd + 1, nextStart);
+
+    if (/\n[^\S\r\n]*\n/.test(between)) {
+        return true;
+    }
+
+    return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
+}
+
+function getNodeStartIndexForAlignment(node, locStart) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locStart === "function") {
+        const resolved = locStart(node);
+        if (Number.isInteger(resolved)) {
+            return resolved;
+        }
+    }
+
+    const startProp = node.start;
+    if (typeof startProp === "number") {
+        return startProp;
+    }
+
+    if (startProp && typeof startProp.index === "number") {
+        return startProp.index;
+    }
+
+    return null;
+}
+
+function getNodeEndIndexForAlignment(node, locEnd) {
+    if (!node) {
+        return null;
+    }
+
+    if (typeof locEnd === "function") {
+        const resolved = locEnd(node);
+        if (Number.isInteger(resolved)) {
+            return resolved - 1;
+        }
+    }
+
+    const endProp = node.end;
+    if (typeof endProp === "number") {
+        return endProp;
+    }
+
+    if (endProp && typeof endProp.index === "number") {
+        return endProp.index;
+    }
+
+    const startIndex = getNodeStartIndexForAlignment(node, null);
+    return Number.isInteger(startIndex) ? startIndex : null;
 }
 
 function getSyntheticDocCommentForStaticVariable(node, options) {
@@ -2065,18 +2348,42 @@ function mergeSyntheticDocComments(
         return syntheticLines;
     }
 
+    const docTagMatches = (line, pattern) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            return false;
+        }
+
+        if (pattern.global || pattern.sticky) {
+            pattern.lastIndex = 0;
+        }
+
+        return pattern.test(trimmed);
+    };
+
     const isFunctionLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@function\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@function\b/i);
     const isOverrideLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@override\b/i.test(line.trim());
-    const isParamLine = (line) =>
-        typeof line === "string" && /^\/\/\/\s*@param\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
 
     const isDescriptionLine = (line) =>
-        typeof line === "string" &&
-        /^\/\/\/\s*@description\b/i.test(line.trim());
+        docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
+    const syntheticFunctionMetadata = functionLines
+        .map((line) => parseDocCommentMetadata(line))
+        .find(
+            (meta) => meta?.tag === "function" && typeof meta.name === "string"
+        );
+    const syntheticFunctionName =
+        typeof syntheticFunctionMetadata?.name === "string"
+            ? syntheticFunctionMetadata.name.trim()
+            : null;
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
@@ -2349,6 +2656,13 @@ function mergeSyntheticDocComments(
     }
 
     const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
+    const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
+
+    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        for (const canonical of suppressedCanonicals) {
+            paramDocsByCanonical.delete(canonical);
+        }
+    }
 
     if (implicitDocEntries.length > 0) {
         const canonicalNames = new Set();
@@ -2375,7 +2689,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const orderedParamDocs = [];
+    let orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
@@ -2403,11 +2717,82 @@ function mergeSyntheticDocComments(
         orderedParamDocs.push(doc);
     }
 
+    if (orderedParamDocs.length > 0) {
+        const docsByCanonical = new Map();
+        for (const docLine of orderedParamDocs) {
+            if (typeof docLine !== "string") {
+                continue;
+            }
+
+            const canonical = getParamCanonicalName(docLine);
+            if (canonical) {
+                docsByCanonical.set(canonical, docLine);
+            }
+        }
+
+        const preferredDocs = preferredParamDocNamesByNode.get(node);
+        const implicitEntryByIndex = new Map();
+        for (const entry of implicitDocEntries) {
+            if (entry && Number.isInteger(entry.index)) {
+                implicitEntryByIndex.set(entry.index, entry);
+            }
+        }
+        const reordered = [];
+
+        if (Array.isArray(node.params)) {
+            for (const [index, param] of node.params.entries()) {
+                const implicitEntry = implicitEntryByIndex.get(index);
+                if (implicitEntry) {
+                    const implicitCanonical =
+                        implicitEntry.canonical ||
+                        getCanonicalParamNameFromText(implicitEntry.name);
+                    if (
+                        implicitCanonical &&
+                        docsByCanonical.has(implicitCanonical)
+                    ) {
+                        reordered.push(docsByCanonical.get(implicitCanonical));
+                        docsByCanonical.delete(implicitCanonical);
+                        continue;
+                    }
+                }
+
+                const preferredName = preferredDocs?.get(index);
+                if (preferredName) {
+                    const preferredCanonical =
+                        getCanonicalParamNameFromText(preferredName);
+                    if (
+                        preferredCanonical &&
+                        docsByCanonical.has(preferredCanonical)
+                    ) {
+                        reordered.push(docsByCanonical.get(preferredCanonical));
+                        docsByCanonical.delete(preferredCanonical);
+                        continue;
+                    }
+                }
+
+                const paramInfo = getParameterDocInfo(param, node, options);
+                const paramCanonical = paramInfo?.name
+                    ? getCanonicalParamNameFromText(paramInfo.name)
+                    : null;
+                if (paramCanonical && docsByCanonical.has(paramCanonical)) {
+                    reordered.push(docsByCanonical.get(paramCanonical));
+                    docsByCanonical.delete(paramCanonical);
+                }
+            }
+        }
+
+        for (const docLine of docsByCanonical.values()) {
+            reordered.push(docLine);
+        }
+
+        orderedParamDocs = reordered;
+    }
+
     const finalDocs = [];
     let insertedParams = false;
 
     for (const line of result) {
-        if (typeof line === "string" && isParamLine(line)) {
+        if (isParamLine(line)) {
             if (!insertedParams && orderedParamDocs.length > 0) {
                 finalDocs.push(...orderedParamDocs);
                 insertedParams = true;
@@ -2446,32 +2831,74 @@ function mergeSyntheticDocComments(
             ...reorderedDocs.slice(descriptionEndIndex)
         ];
 
-        let lastParamIndex = -1;
-        for (const [index, element] of docsWithoutDescription.entries()) {
-            if (typeof element === "string" && isParamLine(element)) {
-                lastParamIndex = index;
+        let shouldOmitDescriptionBlock = false;
+        if (syntheticFunctionName && descriptionBlock.length === 1) {
+            const descriptionMetadata = parseDocCommentMetadata(
+                descriptionBlock[0]
+            );
+            const descriptionText =
+                typeof descriptionMetadata?.name === "string"
+                    ? descriptionMetadata.name.trim()
+                    : null;
+
+            if (
+                descriptionText &&
+                descriptionText.startsWith(syntheticFunctionName)
+            ) {
+                const remainder = descriptionText.slice(
+                    syntheticFunctionName.length
+                );
+                const trimmedRemainder = remainder.trim();
+                if (
+                    trimmedRemainder.startsWith("(") &&
+                    trimmedRemainder.endsWith(")")
+                ) {
+                    shouldOmitDescriptionBlock = true;
+                }
             }
         }
 
-        const insertionAfterParams =
-            lastParamIndex === -1
-                ? docsWithoutDescription.length
-                : lastParamIndex + 1;
+        if (shouldOmitDescriptionBlock) {
+            reorderedDocs = docsWithoutDescription;
+        } else {
+            let lastParamIndex = -1;
+            for (const [index, element] of docsWithoutDescription.entries()) {
+                if (isParamLine(element)) {
+                    lastParamIndex = index;
+                }
+            }
 
-        reorderedDocs = [
-            ...docsWithoutDescription.slice(0, insertionAfterParams),
-            ...descriptionBlock,
-            ...docsWithoutDescription.slice(insertionAfterParams)
-        ];
+            const insertionAfterParams =
+                lastParamIndex === -1
+                    ? docsWithoutDescription.length
+                    : lastParamIndex + 1;
+
+            reorderedDocs = [
+                ...docsWithoutDescription.slice(0, insertionAfterParams),
+                ...descriptionBlock,
+                ...docsWithoutDescription.slice(insertionAfterParams)
+            ];
+        }
+    }
+
+    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        reorderedDocs = reorderedDocs.filter((line) => {
+            if (!isParamLine(line)) {
+                return true;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            return !canonical || !suppressedCanonicals.has(canonical);
+        });
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
-        if (!isParamLine(line) || typeof line !== "string") {
+        if (!isParamLine(line)) {
             return line;
         }
 
         const match = line.match(
-            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\S+)(.*)$/i
+            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\s*\S+)(.*)$/i
         );
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
@@ -2479,6 +2906,7 @@ function mergeSyntheticDocComments(
 
         const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+        const normalizedPrefix = `${prefix.replace(/\s*$/, "")} `;
         let normalizedTypeSection = rawTypeSection.trim();
         if (
             normalizedTypeSection.startsWith("{") &&
@@ -2523,7 +2951,7 @@ function mergeSyntheticDocComments(
             }
         }
 
-        const updatedLine = `${prefix}${typePart}${normalizedName}${descriptionPart}`;
+        const updatedLine = `${normalizedPrefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
@@ -2604,7 +3032,7 @@ function mergeSyntheticDocComments(
 
     for (let index = 0; index < reorderedDocs.length; index += 1) {
         const line = reorderedDocs[index];
-        if (typeof line === "string" && isDescriptionLine(line)) {
+        if (isDescriptionLine(line)) {
             const blockLines = [line];
             let lookahead = index + 1;
 
@@ -2709,6 +3137,300 @@ function getCanonicalParamNameFromText(name) {
     return normalized && normalized.length > 0 ? normalized : null;
 }
 
+function getPreferredFunctionParameterName(path, node, options) {
+    const context = findFunctionParameterContext(path);
+    if (context) {
+        const { functionNode, paramIndex } = context;
+        if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+            return null;
+        }
+
+        const params = Array.isArray(functionNode.params)
+            ? functionNode.params
+            : [];
+        if (paramIndex >= params.length) {
+            return null;
+        }
+
+        const identifier = getIdentifierFromParameterNode(params[paramIndex]);
+        const currentName =
+            (identifier && typeof identifier.name === "string"
+                ? identifier.name
+                : null) ??
+            node?.name ??
+            null;
+
+        return resolvePreferredParameterName(
+            functionNode,
+            paramIndex,
+            currentName,
+            options
+        );
+    }
+
+    if (!node || typeof node.name !== "string") {
+        return null;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(node.name);
+    if (argumentIndex === null) {
+        return null;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
+        return null;
+    }
+
+    const preferredName = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        node.name,
+        options
+    );
+
+    if (isNonEmptyString(preferredName)) {
+        return preferredName;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+    if (argumentIndex >= 0 && argumentIndex < params.length) {
+        const identifier = getIdentifierFromParameterNode(
+            params[argumentIndex]
+        );
+        if (identifier && typeof identifier.name === "string") {
+            const normalizedIdentifier = normalizePreferredParameterName(
+                identifier.name
+            );
+            if (
+                normalizedIdentifier &&
+                normalizedIdentifier !== node.name &&
+                isValidIdentifierName(normalizedIdentifier)
+            ) {
+                return normalizedIdentifier;
+            }
+        }
+    }
+
+    return null;
+}
+
+function findFunctionParameterContext(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let candidate = path.getValue();
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (parent.type === "DefaultParameter") {
+            candidate = parent;
+            continue;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            const params = Array.isArray(parent.params) ? parent.params : [];
+            const index = params.indexOf(candidate);
+            if (index !== -1) {
+                return { functionNode: parent, paramIndex: index };
+            }
+        }
+
+        candidate = parent;
+    }
+
+    return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let depth = 0;
+    while (true) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            return parent;
+        }
+
+        depth += 1;
+    }
+
+    return null;
+}
+
+function resolvePreferredParameterName(
+    functionNode,
+    paramIndex,
+    currentName,
+    options
+) {
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(paramIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === paramIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== currentName
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === currentName) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
+}
+
+function shouldOmitParameterAlias(declarator, functionNode, options) {
+    if (
+        !declarator ||
+        declarator.type !== "VariableDeclarator" ||
+        !declarator.id ||
+        declarator.id.type !== "Identifier" ||
+        !declarator.init ||
+        declarator.init.type !== "Identifier"
+    ) {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(declarator.init.name);
+    if (argumentIndex === null) {
+        return false;
+    }
+
+    const preferredName = resolvePreferredParameterName(
+        functionNode,
+        argumentIndex,
+        declarator.init.name,
+        options
+    );
+
+    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    if (!normalizedAlias) {
+        return false;
+    }
+
+    const normalizedPreferred = preferredName
+        ? normalizePreferredParameterName(preferredName)
+        : null;
+
+    if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
+        return true;
+    }
+
+    if (!functionNode || !Array.isArray(functionNode.params)) {
+        return false;
+    }
+
+    const params = functionNode.params;
+    if (argumentIndex < 0 || argumentIndex >= params.length) {
+        return false;
+    }
+
+    const identifier = getIdentifierFromParameterNode(params[argumentIndex]);
+    if (!identifier || typeof identifier.name !== "string") {
+        return false;
+    }
+
+    const normalizedParamName = normalizePreferredParameterName(
+        identifier.name
+    );
+
+    return (
+        typeof normalizedParamName === "string" &&
+        normalizedParamName.length > 0 &&
+        normalizedParamName === normalizedAlias
+    );
+}
+
+function getIdentifierFromParameterNode(param) {
+    if (!param || typeof param !== "object") {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (
+        param.type === "DefaultParameter" &&
+        param.left?.type === "Identifier"
+    ) {
+        return param.left;
+    }
+
+    return null;
+}
+
+function normalizePreferredParameterName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return null;
+    }
+
+    const canonical = getCanonicalParamNameFromText(name);
+    if (canonical && canonical.length > 0) {
+        return canonical;
+    }
+
+    const normalized = normalizeDocMetadataName(name);
+    if (typeof normalized !== "string" || normalized.length === 0) {
+        return null;
+    }
+
+    return normalized.trim();
+}
+
+function isValidIdentifierName(name) {
+    return typeof name === "string" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
+}
+
 function isOptionalParamDocName(name) {
     return typeof name === "string" && /^\s*\[[^\]]+\]\s*$/.test(name);
 }
@@ -2746,6 +3468,9 @@ function computeSyntheticFunctionDocLines(
     const metadata = Array.isArray(existingDocLines)
         ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
         : [];
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -2807,6 +3532,22 @@ function computeSyntheticFunctionDocLines(
         node,
         options
     );
+    const implicitDocEntryByIndex = new Map();
+
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) {
+            continue;
+        }
+
+        const { index } = entry;
+        if (!Number.isInteger(index) || index < 0) {
+            continue;
+        }
+
+        if (!implicitDocEntryByIndex.has(index)) {
+            implicitDocEntryByIndex.set(index, entry);
+        }
+    }
 
     if (!Array.isArray(node.params)) {
         for (const { name: docName } of implicitArgumentDocNames) {
@@ -2821,20 +3562,125 @@ function computeSyntheticFunctionDocLines(
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
     }
 
-    for (const param of node.params) {
+    for (const [paramIndex, param] of node.params.entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
-        const canonicalParamName = getCanonicalParamNameFromText(
-            paramInfo.name
-        );
-        const existingMetadata =
-            canonicalParamName &&
-            paramMetadataByCanonical.has(canonicalParamName)
-                ? paramMetadataByCanonical.get(canonicalParamName)
+        const ordinalMetadata =
+            Number.isInteger(paramIndex) && paramIndex >= 0
+                ? (orderedParamMetadata[paramIndex] ?? null)
                 : null;
+        const implicitDocEntry = implicitDocEntryByIndex.get(paramIndex);
+        const implicitName =
+            implicitDocEntry &&
+            typeof implicitDocEntry.name === "string" &&
+            implicitDocEntry.name &&
+            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+                ? implicitDocEntry.name
+                : null;
+        const canonicalParamName =
+            (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
+            getCanonicalParamNameFromText(paramInfo.name);
+        const existingMetadata =
+            (canonicalParamName &&
+                paramMetadataByCanonical.has(canonicalParamName) &&
+                paramMetadataByCanonical.get(canonicalParamName)) ||
+            null;
         const existingDocName = existingMetadata?.name;
+        const hasCompleteOrdinalDocs =
+            Array.isArray(node.params) &&
+            orderedParamMetadata.length === node.params.length;
+        if (
+            hasCompleteOrdinalDocs &&
+            node &&
+            typeof paramIndex === "number" &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+        ) {
+            let preferredDocs = preferredParamDocNamesByNode.get(node);
+            if (!preferredDocs) {
+                preferredDocs = new Map();
+                preferredParamDocNamesByNode.set(node, preferredDocs);
+            }
+            if (!preferredDocs.has(paramIndex)) {
+                preferredDocs.set(paramIndex, ordinalMetadata.name);
+            }
+        }
+        const ordinalDocName =
+            hasCompleteOrdinalDocs &&
+            (!existingDocName || existingDocName.length === 0) &&
+            typeof ordinalMetadata?.name === "string" &&
+            ordinalMetadata.name.length > 0
+                ? ordinalMetadata.name
+                : null;
+        let effectiveImplicitName = implicitName;
+        if (effectiveImplicitName && ordinalDocName) {
+            const canonicalOrdinal =
+                getCanonicalParamNameFromText(ordinalDocName) ?? null;
+            const canonicalImplicit =
+                getCanonicalParamNameFromText(effectiveImplicitName) ?? null;
+            const fallbackCanonical =
+                implicitDocEntry?.fallbackCanonical ??
+                getCanonicalParamNameFromText(paramInfo.name);
+
+            if (
+                canonicalOrdinal &&
+                canonicalOrdinal !== fallbackCanonical &&
+                canonicalOrdinal !== canonicalImplicit
+            ) {
+                const ordinalLength = canonicalOrdinal.length;
+                const implicitLength =
+                    (canonicalImplicit && canonicalImplicit.length > 0) ||
+                    effectiveImplicitName.trim().length > 0;
+
+                if (ordinalLength > implicitLength) {
+                    effectiveImplicitName = null;
+                    if (implicitDocEntry) {
+                        implicitDocEntry._suppressDocLine = true;
+                        if (implicitDocEntry.canonical && node) {
+                            let suppressedCanonicals =
+                                suppressedImplicitDocCanonicalByNode.get(node);
+                            if (!suppressedCanonicals) {
+                                suppressedCanonicals = new Set();
+                                suppressedImplicitDocCanonicalByNode.set(
+                                    node,
+                                    suppressedCanonicals
+                                );
+                            }
+                            suppressedCanonicals.add(
+                                implicitDocEntry.canonical
+                            );
+                        }
+                        if (canonicalOrdinal) {
+                            implicitDocEntry.canonical = canonicalOrdinal;
+                        }
+                        if (ordinalDocName) {
+                            implicitDocEntry.name = ordinalDocName;
+                            if (node) {
+                                let preferredDocs =
+                                    preferredParamDocNamesByNode.get(node);
+                                if (!preferredDocs) {
+                                    preferredDocs = new Map();
+                                    preferredParamDocNamesByNode.set(
+                                        node,
+                                        preferredDocs
+                                    );
+                                }
+                                preferredDocs.set(paramIndex, ordinalDocName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        const baseDocName =
+            (effectiveImplicitName &&
+                effectiveImplicitName.length > 0 &&
+                effectiveImplicitName) ||
+            (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
+            paramInfo.name;
         const shouldMarkOptional =
             paramInfo.optional ||
             (param?.type === "DefaultParameter" &&
@@ -2846,18 +3692,39 @@ function computeSyntheticFunctionDocLines(
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName = shouldMarkOptional
-            ? `[${paramInfo.name}]`
-            : paramInfo.name;
+        const docName =
+            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
         if (documentedParamNames.has(docName)) {
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+            }
             continue;
         }
         documentedParamNames.add(docName);
+        if (implicitDocEntry?.name) {
+            documentedParamNames.add(implicitDocEntry.name);
+        }
         lines.push(`/// @param ${docName}`);
     }
 
-    for (const { name: docName } of implicitArgumentDocNames) {
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry || entry._suppressDocLine) {
+            continue;
+        }
+
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
+        const isFallbackEntry = canonical === fallbackCanonical;
+        if (
+            isFallbackEntry &&
+            Number.isInteger(index) &&
+            orderedParamMetadata[index] &&
+            typeof orderedParamMetadata[index].name === "string" &&
+            orderedParamMetadata[index].name.length > 0
+        ) {
+            continue;
+        }
+
         if (documentedParamNames.has(docName)) {
             continue;
         }
@@ -2872,14 +3739,33 @@ function computeSyntheticFunctionDocLines(
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
-    if (
-        !functionNode ||
-        functionNode.type !== "FunctionDeclaration" ||
-        options?.applyFeatherFixes !== true
-    ) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
         return [];
     }
 
+    const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+    const entries = buildImplicitArgumentDocEntries(referenceInfo);
+    const suppressedCanonicals =
+        suppressedImplicitDocCanonicalByNode.get(functionNode);
+
+    if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
+        return entries;
+    }
+
+    return entries.filter((entry) => {
+        if (!entry || !entry.canonical) {
+            return true;
+        }
+
+        return !suppressedCanonicals.has(entry.canonical);
+    });
+}
+
+// Collects index/reference bookkeeping for implicit `arguments[index]` usages
+// within a function. The traversal tracks alias declarations, direct
+// references, and the set of indices that require doc entries so the caller
+// can format them without dipping into low-level mutation logic.
+function gatherImplicitArgumentReferences(functionNode) {
     const referencedIndices = new Set();
     const aliasByIndex = new Map();
     const directReferenceIndices = new Set();
@@ -2949,29 +3835,50 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     visit(functionNode.body, functionNode, "body");
 
-    if (referencedIndices.size === 0) {
+    return { referencedIndices, aliasByIndex, directReferenceIndices };
+}
+
+function buildImplicitArgumentDocEntries({
+    referencedIndices,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    if (!referencedIndices || referencedIndices.size === 0) {
         return [];
     }
 
     const sortedIndices = [...referencedIndices].sort(
         (left, right) => left - right
     );
-    return sortedIndices.map((index) => {
-        const fallbackName = `argument${index}`;
-        const alias = aliasByIndex.get(index);
-        const docName = alias && alias.length > 0 ? alias : fallbackName;
-        const canonical = getCanonicalParamNameFromText(docName) ?? docName;
-        const fallbackCanonical =
-            getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
 
-        return {
-            name: docName,
-            canonical,
-            fallbackCanonical,
+    return sortedIndices.map((index) =>
+        createImplicitArgumentDocEntry({
             index,
-            hasDirectReference: directReferenceIndices.has(index)
-        };
-    });
+            aliasByIndex,
+            directReferenceIndices
+        })
+    );
+}
+
+function createImplicitArgumentDocEntry({
+    index,
+    aliasByIndex,
+    directReferenceIndices
+}) {
+    const fallbackName = `argument${index}`;
+    const alias = aliasByIndex?.get(index);
+    const docName = (alias && alias.length > 0 && alias) || fallbackName;
+    const canonical = getCanonicalParamNameFromText(docName) ?? docName;
+    const fallbackCanonical =
+        getCanonicalParamNameFromText(fallbackName) ?? fallbackName;
+
+    return {
+        name: docName,
+        canonical,
+        fallbackCanonical,
+        index,
+        hasDirectReference: directReferenceIndices?.has(index) === true
+    };
 }
 
 function getArgumentIndexFromNode(node) {
@@ -3170,10 +4077,50 @@ function parseDocCommentMetadata(line) {
             const paramMatch = paramSection.match(/^(\S+)/);
             name = paramMatch ? paramMatch[1] : null;
         }
+        if (typeof name === "string") {
+            name = normalizeOptionalParamNameToken(name);
+        }
         return { tag, name };
     }
 
     return { tag, name: remainder };
+}
+
+function normalizeOptionalParamNameToken(name) {
+    if (typeof name !== "string") {
+        return name;
+    }
+
+    const trimmed = name.trim();
+
+    if (/^\[[^\]]+\]$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    let stripped = trimmed;
+    let hadSentinel = false;
+
+    while (stripped.startsWith("*")) {
+        stripped = stripped.slice(1);
+        hadSentinel = true;
+    }
+
+    while (stripped.endsWith("*")) {
+        stripped = stripped.slice(0, -1);
+        hadSentinel = true;
+    }
+
+    if (!hadSentinel) {
+        return trimmed;
+    }
+
+    const normalized = stripped.trim();
+
+    if (normalized.length === 0) {
+        return stripped.replaceAll("*", "");
+    }
+
+    return `[${normalized}]`;
 }
 
 function getSourceTextForNode(node, options) {
@@ -3889,7 +4836,17 @@ function getNodeName(node) {
     }
 
     if (node.id !== undefined) {
-        return getIdentifierText(node.id);
+        const idName = getIdentifierText(node.id);
+        if (idName) {
+            return idName;
+        }
+    }
+
+    if (node.key !== undefined) {
+        const keyName = getIdentifierText(node.key);
+        if (keyName) {
+            return keyName;
+        }
     }
 
     return getIdentifierText(node);
@@ -3916,8 +4873,17 @@ function normalizeDocMetadataName(name) {
         return name;
     }
 
-    const sanitized = stripSyntheticParameterSentinels(name);
-    return sanitized.length > 0 ? sanitized : name;
+    const optionalNormalized = normalizeOptionalParamNameToken(name);
+    if (typeof optionalNormalized === "string") {
+        if (/^\[[^\]]+\]$/.test(optionalNormalized)) {
+            return optionalNormalized;
+        }
+
+        const sanitized = stripSyntheticParameterSentinels(optionalNormalized);
+        return sanitized.length > 0 ? sanitized : optionalNormalized;
+    }
+
+    return name;
 }
 
 function docHasTrailingComment(doc) {
@@ -4025,6 +4991,34 @@ function shouldOmitSyntheticParens(path) {
 
         depth += 1;
     }
+}
+
+function shouldWrapTernaryExpression(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "ParenthesizedExpression") {
+        return false;
+    }
+
+    const parentKey =
+        typeof path.getName === "function" ? path.getName() : undefined;
+
+    if (parent.type === "VariableDeclarator" && parentKey === "init") {
+        return true;
+    }
+
+    if (parent.type === "AssignmentExpression" && parentKey === "right") {
+        return true;
+    }
+
+    return false;
 }
 
 function shouldFlattenSyntheticBinary(parent, expression, path) {
@@ -4195,7 +5189,7 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return isNumericCallExpression(node);
+            return true;
         }
         default: {
             return false;
@@ -4371,7 +5365,7 @@ function printSingleClauseStatement(
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
     const allowSingleLineIfStatements =
-        options?.allowSingleLineIfStatements ?? true;
+        options?.allowSingleLineIfStatements ?? false;
     const clauseIsPreservedCall =
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;

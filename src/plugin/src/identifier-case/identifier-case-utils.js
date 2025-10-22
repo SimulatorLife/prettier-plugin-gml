@@ -1,6 +1,7 @@
 import {
     capitalize,
-    normalizeStringList
+    normalizeStringList,
+    trimStringEntries
 } from "../../../shared/string-utils.js";
 
 const RESERVED_PREFIX_PATTERN =
@@ -71,10 +72,9 @@ function tokenizeCore(core) {
         return [];
     }
 
-    const rawSegments = core
-        .split(CORE_SEGMENT_DELIMITER_PATTERN)
-        .map((segment) => segment.trim())
-        .filter(Boolean);
+    const rawSegments = trimStringEntries(
+        core.split(CORE_SEGMENT_DELIMITER_PATTERN)
+    ).filter(Boolean);
 
     const tokens = [];
     for (const segment of rawSegments) {
@@ -235,19 +235,15 @@ export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
 ]);
 
 function normalizeReservedPrefixOverrides(overrides) {
-    if (
-        !overrides ||
-        typeof overrides === "string" ||
-        typeof overrides[Symbol.iterator] !== "function"
-    ) {
+    if (typeof overrides === "string") {
         return [];
     }
 
-    const entries = normalizeStringList(Array.from(overrides));
-
-    if (entries.length === 0) {
-        return [];
-    }
+    const iterable =
+        overrides && typeof overrides[Symbol.iterator] === "function"
+            ? overrides
+            : [];
+    const entries = normalizeStringList([...iterable]);
 
     return entries.sort((a, b) => {
         const lengthDifference = b.length - a.length;

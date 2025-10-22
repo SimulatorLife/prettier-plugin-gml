@@ -7,11 +7,12 @@ import {
     getErrorMessage,
     hasOwn,
     isErrorWithCode,
+    isNonEmptyString,
     isNonEmptyTrimmedString,
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../../shared/utils.js";
+} from "../lib/shared/utils.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
@@ -61,7 +62,7 @@ function looksLikeTestCase(node) {
 }
 
 function decodeEntities(value) {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isNonEmptyString(value)) {
         return value ?? "";
     }
     return value

@@ -32,5 +32,8 @@ export {
 } from "./has-comment-helpers.js";
 export {
     getDocCommentManager,
-    prepareDocCommentEnvironment
+    prepareDocCommentEnvironment,
+    resolveDocCommentInspectionService,
+    resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
+export { getCommentValue } from "./comment-utils.js";

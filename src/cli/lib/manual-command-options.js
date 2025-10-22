@@ -1,7 +1,265 @@
+import path from "node:path";
 import process from "node:process";
 
-import { createManualVerboseState } from "./manual-utils.js";
-import { getDefaultProgressBarWidth } from "./progress-bar.js";
+import { wrapInvalidArgumentResolver } from "./command-parsing.js";
+import {
+    DEFAULT_MANUAL_REPO,
+    createManualVerboseState,
+    resolveManualRepoValue
+} from "./manual/utils.js";
+import {
+    getDefaultProgressBarWidth,
+    resolveProgressBarWidth
+} from "./progress-bar.js";
+import { assertFunction, hasOwn } from "./shared/object-utils.js";
+import { isNonEmptyString } from "./shared/string-utils.js";
+
+function resolveDefaultValue(option, name, fallback) {
+    const config = option ?? {};
+
+    if (hasOwn(config, "defaultValue")) {
+        return config.defaultValue;
+    }
+
+    if (typeof fallback === "function") {
+        return fallback();
+    }
+
+    if (fallback !== undefined) {
+        return fallback;
+    }
+
+    throw new TypeError(`${name}.defaultValue must be provided.`);
+}
+
+function resolveManualOptionBaseConfig(
+    option,
+    { flag, describe, name, fallbackDefault }
+) {
+    if (option === false) {
+        return null;
+    }
+
+    const config = option ?? {};
+    const defaultValue = resolveDefaultValue(config, name, fallbackDefault);
+    const description = isNonEmptyString(config.description)
+        ? config.description
+        : describe(defaultValue);
+
+    return {
+        config,
+        flag: config.flag ?? flag,
+        defaultValue,
+        description
+    };
+}
+
+function resolveOptionFunction(
+    optionConfig,
+    property,
+    fallback,
+    { assertName } = {}
+) {
+    const candidate =
+        optionConfig && typeof optionConfig === "object"
+            ? optionConfig[property]
+            : undefined;
+    const resolved =
+        typeof candidate === "function"
+            ? candidate
+            : typeof fallback === "function"
+              ? fallback
+              : undefined;
+
+    if (assertName) {
+        assertFunction(resolved, assertName);
+    }
+
+    return resolved;
+}
+
+const DEFAULT_OPTION_ORDER = Object.freeze([
+    "outputPath",
+    "forceRefresh",
+    "quiet",
+    "manualRepo",
+    "cacheRoot",
+    "progressBarWidth"
+]);
+
+function createOptionOrder({ optionOrder, handlers, customHandlers }) {
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = Array.from(customHandlers.keys());
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys
+    ]);
+
+    return [...ordering].filter(
+        (key) => handlers.has(key) || customHandlers.has(key)
+    );
+}
+
+export function applySharedManualCommandOptions(
+    command,
+    {
+        outputPath,
+        cacheRoot,
+        manualRepo,
+        progressBarWidth,
+        quietDescription = "Suppress progress output (useful in CI).",
+        forceRefreshDescription = "Ignore cached manual artefacts and re-download.",
+        optionOrder,
+        customOptions
+    } = {}
+) {
+    if (!command || typeof command.option !== "function") {
+        throw new TypeError("command must provide an option function");
+    }
+
+    const outputOption = resolveManualOptionBaseConfig(outputPath, {
+        flag: "-o, --output <path>",
+        describe: (value) => `Output JSON path (default: ${value}).`,
+        name: "outputPath"
+    });
+
+    const cacheOption = resolveManualOptionBaseConfig(cacheRoot, {
+        flag: "--cache-root <path>",
+        describe: (value) =>
+            `Directory to store cached manual artefacts (default: ${value}).`,
+        name: "cacheRoot"
+    });
+
+    const progressOption = resolveManualOptionBaseConfig(progressBarWidth, {
+        flag: "--progress-bar-width <columns>",
+        describe: (value) =>
+            `Width of progress bars rendered in the terminal (default: ${value}).`,
+        name: "progressBarWidth",
+        fallbackDefault: () => getDefaultProgressBarWidth()
+    });
+
+    const manualRepoOption = resolveManualOptionBaseConfig(manualRepo, {
+        flag: "--manual-repo <owner/name>",
+        describe: (value) =>
+            `GitHub repository hosting the manual (default: ${value}).`,
+        name: "manualRepo",
+        fallbackDefault: () => DEFAULT_MANUAL_REPO
+    });
+
+    const handlers = new Map();
+
+    if (outputOption) {
+        const normalize = resolveOptionFunction(
+            outputOption.config,
+            "normalize",
+            (value) => path.resolve(value)
+        );
+
+        handlers.set("outputPath", () =>
+            command.option(
+                outputOption.flag,
+                outputOption.description,
+                normalize,
+                outputOption.defaultValue
+            )
+        );
+    }
+
+    if (forceRefreshDescription !== false) {
+        handlers.set("forceRefresh", () =>
+            command.option("--force-refresh", forceRefreshDescription)
+        );
+    }
+
+    if (quietDescription !== false) {
+        handlers.set("quiet", () =>
+            command.option("--quiet", quietDescription)
+        );
+    }
+
+    if (progressOption) {
+        const resolveFn = resolveOptionFunction(
+            progressOption.config,
+            "resolve",
+            resolveProgressBarWidth,
+            { assertName: "progressBarWidth.resolve" }
+        );
+
+        handlers.set("progressBarWidth", () =>
+            command.option(
+                progressOption.flag,
+                progressOption.description,
+                wrapInvalidArgumentResolver(resolveFn),
+                progressOption.defaultValue
+            )
+        );
+    }
+
+    if (manualRepoOption) {
+        const resolveFn = resolveOptionFunction(
+            manualRepoOption.config,
+            "resolve",
+            resolveManualRepoValue,
+            { assertName: "manualRepo.resolve" }
+        );
+
+        handlers.set("manualRepo", () =>
+            command.option(
+                manualRepoOption.flag,
+                manualRepoOption.description,
+                wrapInvalidArgumentResolver(resolveFn),
+                manualRepoOption.defaultValue
+            )
+        );
+    }
+
+    if (cacheOption) {
+        const normalize = resolveOptionFunction(
+            cacheOption.config,
+            "normalize",
+            (value) => path.resolve(value)
+        );
+
+        handlers.set("cacheRoot", () =>
+            command.option(
+                cacheOption.flag,
+                cacheOption.description,
+                normalize,
+                cacheOption.defaultValue
+            )
+        );
+    }
+
+    const customHandlers = new Map();
+    if (customOptions && typeof customOptions === "object") {
+        for (const [key, handler] of Object.entries(customOptions)) {
+            if (typeof handler === "function") {
+                customHandlers.set(key, () => handler(command));
+            }
+        }
+    }
+
+    const sequence = createOptionOrder({
+        optionOrder,
+        handlers,
+        customHandlers
+    });
+
+    for (const key of sequence) {
+        if (handlers.has(key)) {
+            handlers.get(key)();
+            continue;
+        }
+
+        const customHandler = customHandlers.get(key);
+        if (customHandler) {
+            customHandler();
+        }
+    }
+
+    return command;
+}
 
 /**
  * Normalize shared manual command options and merge command-specific extras.

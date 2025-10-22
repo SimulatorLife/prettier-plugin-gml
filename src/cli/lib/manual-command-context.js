@@ -3,9 +3,12 @@ import { fileURLToPath } from "node:url";
 
 import {
     buildManualRepositoryEndpoints,
-    createManualGitHubClient,
+    createManualGitHubFileClient,
+    createManualGitHubCommitResolver,
+    createManualGitHubRefResolver,
+    createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
-} from "./manual-utils.js";
+} from "./manual/utils.js";
 import { assertNonEmptyString } from "./shared-deps.js";
 
 function assertFileUrl(value) {
@@ -30,7 +33,7 @@ function resolveOutputPath(repoRoot, fileName) {
 /**
  * Normalize shared defaults used by manual-powered CLI commands.
  *
- * Centralises bootstrap logic so each command can focus on its own behaviour
+ * Centralizes bootstrap logic so each command can focus on its own behavior
  * while reusing consistent repository discovery, cache directories, and manual
  * client wiring.
  */
@@ -47,12 +50,18 @@ export function createManualCommandContext({
     const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
-    const {
+    const manualRequests = createManualGitHubRequestDispatcher({
+        userAgent: assertUserAgent(userAgent)
+    });
+    const manualCommitResolver = createManualGitHubCommitResolver({
+        requestDispatcher: manualRequests
+    });
+    const manualRefResolver = createManualGitHubRefResolver({
         requestDispatcher: manualRequests,
-        references: manualReferences,
-        fileFetcher: manualFileFetcher
-    } = createManualGitHubClient({
-        userAgent: assertUserAgent(userAgent),
+        commitResolver: manualCommitResolver
+    });
+    const manualFileFetcher = createManualGitHubFileClient({
+        requestDispatcher: manualRequests,
         defaultCacheRoot,
         defaultRawRoot: defaultManualRawRoot
     });
@@ -63,9 +72,11 @@ export function createManualCommandContext({
         defaultManualRawRoot,
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName),
         manualRequests,
-        manualReferences,
+        manualCommitResolver,
+        manualRefResolver,
         manualFileFetcher,
         fetchManualFile: manualFileFetcher.fetchManualFile,
-        resolveManualRef: manualReferences.resolveManualRef
+        resolveManualRef: manualRefResolver.resolveManualRef,
+        resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
     };
 }

@@ -14,8 +14,12 @@
  * @property {number} [end]
  */
 
-import { asArray } from "../utils/array.js";
-import { hasOwn, isObjectLike } from "../utils/object.js";
+import { isObjectLike } from "../utils/object.js";
+
+// Reuse a frozen empty array so repeated `getCommentArray` calls do not
+// allocate. This mirrors the strategy used by the shared array utilities while
+// letting the hot comment path avoid the extra helper indirection.
+const EMPTY_COMMENT_ARRAY = Object.freeze([]);
 
 export function isCommentNode(node) {
     return (
@@ -85,11 +89,11 @@ export function hasComment(node) {
  */
 export function getCommentArray(owner) {
     if (!isObjectLike(owner)) {
-        return [];
+        return EMPTY_COMMENT_ARRAY;
     }
 
-    const { comments } = owner;
-    return asArray(comments);
+    const comments = owner.comments;
+    return Array.isArray(comments) ? comments : EMPTY_COMMENT_ARRAY;
 }
 
 /**
@@ -125,21 +129,11 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        if (Array.isArray(current)) {
-            for (const child of current) {
-                if (isObjectLike(child)) {
-                    stack.push(child);
-                }
-            }
-            continue;
-        }
+        const children = Array.isArray(current)
+            ? current
+            : Object.values(current);
 
-        for (const key in current) {
-            if (!hasOwn(current, key)) {
-                continue;
-            }
-
-            const child = current[key];
+        for (const child of children) {
             if (isObjectLike(child)) {
                 stack.push(child);
             }

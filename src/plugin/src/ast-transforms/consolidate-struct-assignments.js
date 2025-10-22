@@ -9,6 +9,8 @@ import {
     getSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
 import { getCommentArray, isLineComment } from "../../../shared/comments.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { stripStringQuotes } from "../../../shared/string-utils.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -80,7 +82,7 @@ function visit(node, tracker, commentTools) {
 }
 
 function consolidateBlock(statements, tracker, commentTools) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -586,20 +588,6 @@ function isAttachableTrailingComment(comment, statement) {
     }
 
     return true;
-}
-
-function stripStringQuotes(value) {
-    if (typeof value !== "string" || value.length < 2) {
-        return null;
-    }
-
-    const firstChar = value[0];
-    const lastChar = value.at(-1);
-    if ((firstChar === '"' || firstChar === "'") && firstChar === lastChar) {
-        return value.slice(1, -1);
-    }
-
-    return null;
 }
 
 const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;

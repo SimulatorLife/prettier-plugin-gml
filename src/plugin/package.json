@@ -3,7 +3,8 @@
   "type": "module",
   "exports": {
     ".": "./src/gml.js",
-    "./cli-services": "./src/cli-services.js"
+    "./project-index": "./src/project-index.js",
+    "./identifier-case": "./src/identifier-case.js"
   },
   "config": {
     "root_path": "."
@@ -16,9 +17,6 @@
   },
   "dependencies": {
     "gamemaker-language-parser": "file:../parser"
-  },
-  "devDependencies": {
-    "prettier": "^3.6.2"
   },
   "engines": {
     "node": "^18.20.0 || ^20.18.1 || >=21.1.0"

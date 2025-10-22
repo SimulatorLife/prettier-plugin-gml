@@ -7,7 +7,6 @@ import {
     getCallExpressionArguments,
     getCallExpressionIdentifierName
 } from "../../../shared/ast-node-helpers.js";
-import { createCachedOptionResolver } from "../options/options-cache.js";
 import {
     normalizeStringList,
     toNormalizedLowerCaseString
@@ -25,30 +24,105 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
     "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
 
-const getSizeRetrievalFunctionSuffixesCached = createCachedOptionResolver({
-    cacheKey: LOOP_SIZE_SUFFIX_CACHE,
-    compute: (options = {}) => {
-        const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-            options.loopLengthHoistFunctionSuffixes
-        );
+const SIZE_SUFFIX_CACHE = new WeakMap();
 
-        const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
-        for (const [functionName, suffix] of overrides) {
-            if (suffix === null) {
-                merged.delete(functionName);
-            } else {
-                merged.set(functionName, suffix);
-            }
-        }
-
-        return merged;
-    }
-});
-
-function getSizeRetrievalFunctionSuffixes(options) {
-    return getSizeRetrievalFunctionSuffixesCached(options);
+function isCacheableOptions(options) {
+    return typeof options === "object" && options !== null;
 }
 
+function readCachedSuffixes(options) {
+    if (!isCacheableOptions(options)) {
+        return null;
+    }
+
+    if (Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
+        return options[LOOP_SIZE_SUFFIX_CACHE];
+    }
+
+    if (SIZE_SUFFIX_CACHE.has(options)) {
+        return SIZE_SUFFIX_CACHE.get(options);
+    }
+
+    return null;
+}
+
+function cacheSuffixes(options, suffixes) {
+    if (!isCacheableOptions(options)) {
+        return;
+    }
+
+    if (Object.isExtensible(options)) {
+        try {
+            Object.defineProperty(options, LOOP_SIZE_SUFFIX_CACHE, {
+                configurable: false,
+                enumerable: false,
+                writable: false,
+                value: suffixes
+            });
+        } catch {
+            // Non-extensible option bags (for example frozen objects or exotic
+            // proxies) should still memoize results via the fallback WeakMap.
+        }
+    }
+
+    SIZE_SUFFIX_CACHE.set(options, suffixes);
+}
+
+function createSizeSuffixMap(options) {
+    const overrides = parseSizeRetrievalFunctionSuffixOverrides(
+        isCacheableOptions(options)
+            ? options.loopLengthHoistFunctionSuffixes
+            : undefined
+    );
+
+    const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
+    for (const [functionName, suffix] of overrides) {
+        if (suffix === null) {
+            merged.delete(functionName);
+        } else {
+            merged.set(functionName, suffix);
+        }
+    }
+
+    return merged;
+}
+
+/**
+ * Resolve the table describing loop-length helper names to the suffix they
+ * contribute when generating cached variable identifiers.
+ *
+ * The formatter allows users to override the default suffix map via the
+ * `loopLengthHoistFunctionSuffixes` option, where entries are provided as a
+ * comma- or newline-delimited list of `functionName:suffix` pairs. A suffix of
+ * `-` removes the function from consideration. Results are cached per options
+ * bag so repeated printer runs avoid re-parsing configuration values.
+ *
+ * @param {unknown} options Prettier option bag passed to the printer.
+ * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
+ */
+function getSizeRetrievalFunctionSuffixes(options) {
+    const cached = readCachedSuffixes(options);
+    if (cached) {
+        return cached;
+    }
+
+    const suffixes = createSizeSuffixMap(options);
+    cacheSuffixes(options, suffixes);
+    return suffixes;
+}
+
+/**
+ * Normalize `loopLengthHoistFunctionSuffixes` override strings into
+ * `[functionName, suffix]` tuples. Entries can be supplied as either
+ * comma/newline-delimited strings or arrays. When the suffix is omitted the
+ * helper falls back to `"len"`; specifying `-` drops the function entirely.
+ *
+ * @param {string | string[] | null | undefined} rawValue Raw override value from
+ *        user options.
+ * @returns {Map<string, string | null>} Canonical override map keyed by
+ *          lower-cased function names. `null` indicates the entry should be
+ *          removed from the default table.
+ */
 function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
     const entries = normalizeStringList(rawValue, {
         allowInvalidType: true
@@ -77,6 +151,21 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
     return new Map(overrides);
 }
 
+/**
+ * Inspect a `ForStatement` node to determine whether its bounds match the
+ * canonical cached-length pattern (`i < fn(array)`), returning the identifiers
+ * involved when a match is found.
+ *
+ * @param {unknown} node AST node to examine.
+ * @param {Map<string, string>} [sizeFunctionSuffixes=DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES]
+ *        Lookup of normalized function names to cached suffixes.
+ * @returns {{
+ *     iteratorName: string,
+ *     sizeIdentifierName: string,
+ *     cachedLengthSuffix: string
+ * } | null} Metadata describing the cached variable or `null` when the pattern
+ *           does not match.
+ */
 function getLoopLengthHoistInfo(
     node,
     sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
@@ -136,6 +225,17 @@ function getLoopLengthHoistInfo(
     };
 }
 
+/**
+ * Construct the cached length variable name derived from the array identifier.
+ *
+ * Ensures the suffix is present exactly once and defaults to `len` when none is
+ * provided so callers can defer that normalization here rather than repeating
+ * checks alongside string concatenation.
+ *
+ * @param {string} baseName Identifier forming the prefix of the cached name.
+ * @param {string | null | undefined} suffix Desired suffix to append.
+ * @returns {string} Normalized cached variable identifier.
+ */
 function buildCachedSizeVariableName(baseName, suffix) {
     const normalizedSuffix = suffix || "len";
 
@@ -150,6 +250,19 @@ function buildCachedSizeVariableName(baseName, suffix) {
     return `${baseName}_${normalizedSuffix}`;
 }
 
+/**
+ * Verify that the loop update step mutates the iterator referenced in the test
+ * expression.
+ *
+ * Supports both `i++`/`++i` style increments (represented as
+ * `IncDecStatement`) and assignment expressions such as `i += 1`. Any other
+ * update forms cause loop-length hoisting to bail out so the printer never
+ * misidentifies unrelated iterators.
+ *
+ * @param {unknown} update `ForStatement#update` node.
+ * @param {string} iteratorName Name of the iterator variable.
+ * @returns {boolean} `true` when the update mutates {@link iteratorName}.
+ */
 function isIteratorUpdateMatching(update, iteratorName) {
     if (!update) {
         return false;

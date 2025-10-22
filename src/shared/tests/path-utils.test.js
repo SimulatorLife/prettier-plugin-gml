@@ -8,6 +8,7 @@ import {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories,
     isPathInside,
+    resolveProjectPathInfo,
     resolveContainedRelativePath,
     walkAncestorDirectories
 } from "../path-utils.js";
@@ -110,6 +111,24 @@ describe("path-utils", () => {
             assert.strictEqual(result.includes(expectedRoot), true);
             assert.strictEqual(result.includes(path.resolve(second)), true);
         });
+
+        it("accepts a single string without iterating characters", () => {
+            const base = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils",
+                "single-string"
+            );
+            const nested = path.join(base, "src", "index.gml");
+
+            const result = collectUniqueAncestorDirectories(nested);
+
+            const resolved = path.resolve(nested);
+            const expectedRoot = path.parse(resolved).root;
+
+            assert.strictEqual(result[0], resolved);
+            assert.strictEqual(result.includes(expectedRoot), true);
+        });
     });
 
     describe("collectAncestorDirectories", () => {
@@ -152,6 +171,62 @@ describe("path-utils", () => {
             );
 
             assert.strictEqual(result[0], path.resolve(projectRoot));
+        });
+    });
+
+    describe("resolveProjectPathInfo", () => {
+        it("returns null for empty inputs", () => {
+            assert.strictEqual(resolveProjectPathInfo(null, "/tmp"), null);
+            assert.strictEqual(resolveProjectPathInfo("", "/tmp"), null);
+        });
+
+        it("normalizes absolute paths without a project root", () => {
+            const samplePath = path.join(process.cwd(), "src", "file.gml");
+            const info = resolveProjectPathInfo(samplePath);
+
+            assert.ok(info);
+            assert.strictEqual(info.absolutePath, path.resolve(samplePath));
+            assert.strictEqual(info.relativePath, path.resolve(samplePath));
+            assert.strictEqual(info.hasProjectRoot, false);
+            assert.strictEqual(info.isInsideProjectRoot, false);
+        });
+
+        it("computes relative paths and containment when a root is provided", () => {
+            const projectRoot = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils"
+            );
+            const nested = path.join(projectRoot, "src", "index.gml");
+
+            const info = resolveProjectPathInfo(nested, projectRoot);
+
+            assert.ok(info);
+            assert.strictEqual(info.hasProjectRoot, true);
+            assert.strictEqual(info.isInsideProjectRoot, true);
+            assert.strictEqual(
+                info.relativePath,
+                path.join("src", "index.gml")
+            );
+        });
+
+        it("tracks when a file escapes the project root", () => {
+            const projectRoot = path.join(
+                process.cwd(),
+                "tmp",
+                "shared-path-utils"
+            );
+            const sibling = path.join(projectRoot, "..", "other", "file.gml");
+
+            const info = resolveProjectPathInfo(sibling, projectRoot);
+
+            assert.ok(info);
+            assert.strictEqual(info.hasProjectRoot, true);
+            assert.strictEqual(info.isInsideProjectRoot, false);
+            assert.strictEqual(
+                info.relativePath,
+                path.relative(path.resolve(projectRoot), path.resolve(sibling))
+            );
         });
     });
 

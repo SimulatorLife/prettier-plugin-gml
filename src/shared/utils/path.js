@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { toArrayFromIterable } from "./array.js";
 import { isNonEmptyString } from "./string.js";
 
 const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
@@ -137,8 +138,12 @@ export function collectUniqueAncestorDirectories(
     { includeSelf = true } = {}
 ) {
     const directories = new Set();
+    const entries =
+        typeof startingDirectories === "string"
+            ? [startingDirectories]
+            : toArrayFromIterable(startingDirectories);
 
-    for (const start of startingDirectories ?? []) {
+    for (const start of entries) {
         if (!isNonEmptyString(start)) {
             continue;
         }
@@ -189,4 +194,69 @@ export function isPathInside(childPath, parentPath) {
  */
 export function collectAncestorDirectories(...startingDirectories) {
     return collectUniqueAncestorDirectories(startingDirectories);
+}
+
+/**
+ * Resolve high-level metadata about how {@link filePath} relates to
+ * {@link projectRoot}. Consolidates the repeated pattern of normalizing input
+ * paths, resolving absolute equivalents, and determining whether the file sits
+ * within the provided project root.
+ *
+ * The helper always returns an absolute version of {@link filePath}. When a
+ * project root is supplied, callers also receive a relative path (which may
+ * include `..` segments when the file lives outside the root) alongside a flag
+ * that indicates containment. Normalized metadata keeps downstream consumers in
+ * sync while avoiding the drift that previously arose from hand-rolled
+ * conditionals spread across the identifier-case planner, resource analysis,
+ * and syntax error formatter.
+ *
+ * @param {string | null | undefined} filePath Candidate file path to
+ *        normalize.
+ * @param {string | null | undefined} projectRoot Optional project root used
+ *        when computing relative paths.
+ * @returns {{
+ *   absolutePath: string,
+ *   hasProjectRoot: boolean,
+ *   inputWasAbsolute: boolean,
+ *   isInsideProjectRoot: boolean,
+ *   projectRoot: string | null,
+ *   relativePath: string
+ * } | null}
+ */
+export function resolveProjectPathInfo(filePath, projectRoot) {
+    if (!isNonEmptyString(filePath)) {
+        return null;
+    }
+
+    const absolutePath = path.resolve(filePath);
+    const inputWasAbsolute = path.isAbsolute(filePath);
+
+    if (!isNonEmptyString(projectRoot)) {
+        return {
+            absolutePath,
+            hasProjectRoot: false,
+            inputWasAbsolute,
+            isInsideProjectRoot: false,
+            projectRoot: null,
+            relativePath: absolutePath
+        };
+    }
+
+    const absoluteProjectRoot = path.resolve(projectRoot);
+    const containedRelative = resolveContainedRelativePath(
+        absolutePath,
+        absoluteProjectRoot
+    );
+    const isInsideProjectRoot = containedRelative !== null;
+
+    return {
+        absolutePath,
+        hasProjectRoot: true,
+        inputWasAbsolute,
+        isInsideProjectRoot,
+        projectRoot: absoluteProjectRoot,
+        relativePath: isInsideProjectRoot
+            ? containedRelative
+            : path.relative(absoluteProjectRoot, absolutePath)
+    };
 }

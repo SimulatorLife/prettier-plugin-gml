@@ -15,7 +15,8 @@ import {
 import {
     assertFunction,
     getOrCreateMapEntry,
-    hasOwn
+    hasOwn,
+    isPlainObject
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -28,7 +29,12 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory, getFileMtime } from "./fs-utils.js";
+import {
+    isFsErrorCode,
+    listDirectory,
+    getFileMtime
+} from "../../../shared/fs-utils.js";
+import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -43,6 +49,7 @@ import {
     throwIfAborted
 } from "../../../shared/abort-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -289,10 +296,6 @@ const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
 
 let cachedBuiltInIdentifiers = null;
 
-function isPlainObject(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function extractBuiltInIdentifierNames(payload) {
     if (!isPlainObject(payload)) {
         throw new TypeError(
@@ -307,19 +310,11 @@ function extractBuiltInIdentifierNames(payload) {
         );
     }
 
+    const entries = normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
 
-    for (const [name, descriptor] of Object.entries(identifiers)) {
-        if (typeof name !== "string" || name.length === 0) {
-            continue;
-        }
-
-        if (!isPlainObject(descriptor)) {
-            continue;
-        }
-
-        const type = descriptor.type;
-        if (typeof type !== "string" || type.length === 0) {
+    for (const { name, type } of entries) {
+        if (type.length === 0) {
             continue;
         }
 
@@ -358,7 +353,12 @@ async function loadBuiltInIdentifiers(
 
     if (!cached) {
         metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (cachedMtime === currentMtime) {
+    } else if (
+        cachedMtime === currentMtime ||
+        (typeof cachedMtime === "number" &&
+            typeof currentMtime === "number" &&
+            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
+    ) {
         metrics?.recordCacheHit("builtInIdentifiers");
         return cached;
     } else {
@@ -391,6 +391,191 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+function createProjectTreeCollector(metrics = null) {
+    const yyFiles = [];
+    const gmlFiles = [];
+
+    function recordFile(category, record) {
+        if (category === "yy") {
+            yyFiles.push(record);
+            metrics?.incrementCounter("files.yyDiscovered");
+        } else if (category === "gml") {
+            gmlFiles.push(record);
+            metrics?.incrementCounter("files.gmlDiscovered");
+        }
+    }
+
+    function classify(relativePosix) {
+        const lowerPath = relativePosix.toLowerCase();
+        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+            return "yy";
+        }
+        if (lowerPath.endsWith(".gml")) {
+            return "gml";
+        }
+        return null;
+    }
+
+    function createRecord(absolutePath, relativePosix) {
+        return {
+            absolutePath,
+            relativePath: relativePosix
+        };
+    }
+
+    function register(relativePosix, absolutePath) {
+        const category = classify(relativePosix);
+        if (!category) {
+            return;
+        }
+
+        recordFile(category, createRecord(absolutePath, relativePosix));
+    }
+
+    function snapshot() {
+        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+
+        return { yyFiles, gmlFiles };
+    }
+
+    return {
+        register,
+        snapshot
+    };
+}
+
+/**
+ * Manage pending directory traversal state so scanProjectTree can delegate the
+ * raw stack bookkeeping. Keeps the orchestrator focused on the high-level
+ * traversal lifecycle.
+ */
+function createDirectoryTraversal(projectRoot) {
+    const pending = ["."];
+
+    return {
+        hasPending() {
+            return pending.length > 0;
+        },
+        next() {
+            if (pending.length === 0) {
+                return null;
+            }
+
+            const relativePath = pending.pop();
+            return {
+                relativePath,
+                absolutePath: path.join(projectRoot, relativePath)
+            };
+        },
+        enqueue(relativePath) {
+            pending.push(relativePath);
+        }
+    };
+}
+
+function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
+    const relativePath = path.join(directoryContext.relativePath, entry);
+    const absolutePath = path.join(projectRoot, relativePath);
+
+    return {
+        relativePath,
+        absolutePath,
+        relativePosix: toPosixPath(relativePath)
+    };
+}
+
+/**
+ * Load a directory listing while updating traversal metrics and respecting the
+ * configured abort signal.
+ */
+async function resolveDirectoryListing({
+    directoryContext,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    signal
+}) {
+    ensureNotAborted();
+    const entries = await listDirectory(
+        fsFacade,
+        directoryContext.absolutePath,
+        {
+            signal
+        }
+    );
+    ensureNotAborted();
+    metrics?.incrementCounter("io.directoriesScanned");
+    return entries;
+}
+
+function isDirectoryStat(stats) {
+    return typeof stats?.isDirectory === "function" && stats.isDirectory();
+}
+
+async function resolveEntryStats({
+    absolutePath,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    try {
+        const stats = await fsFacade.stat(absolutePath);
+        ensureNotAborted();
+        return stats;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics?.incrementCounter("io.skippedMissingEntries");
+            return null;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Walk each entry discovered in a directory, routing directories back onto the
+ * traversal queue and registering leaf files with the collector.
+ */
+async function processDirectoryEntries({
+    entries,
+    directoryContext,
+    traversal,
+    collector,
+    projectRoot,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
+    for (const entry of entries) {
+        ensureNotAborted();
+        const descriptor = createDirectoryEntryDescriptor(
+            directoryContext,
+            entry,
+            projectRoot
+        );
+        const stats = await resolveEntryStats({
+            absolutePath: descriptor.absolutePath,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
+
+        if (!stats) {
+            continue;
+        }
+
+        if (isDirectoryStat(stats)) {
+            traversal.enqueue(descriptor.relativePath);
+            continue;
+        }
+
+        collector.register(descriptor.relativePosix, descriptor.absolutePath);
+    }
+}
+
 async function scanProjectTree(
     projectRoot,
     fsFacade,
@@ -400,68 +585,37 @@ async function scanProjectTree(
     const { signal, ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
-    const yyFiles = [];
-    const gmlFiles = [];
-    const pending = ["."];
+    const traversal = createDirectoryTraversal(projectRoot);
+    const collector = createProjectTreeCollector(metrics);
 
-    while (pending.length > 0) {
-        const relativeDir = pending.pop();
-        const absoluteDir = path.join(projectRoot, relativeDir);
-        ensureNotAborted();
-        const entries = await listDirectory(fsFacade, absoluteDir, {
+    while (traversal.hasPending()) {
+        const directoryContext = traversal.next();
+        if (!directoryContext) {
+            continue;
+        }
+
+        const entries = await resolveDirectoryListing({
+            directoryContext,
+            fsFacade,
+            metrics,
+            ensureNotAborted,
             signal
         });
-        ensureNotAborted();
-        metrics?.incrementCounter("io.directoriesScanned");
 
-        for (const entry of entries) {
-            const relativePath = path.join(relativeDir, entry);
-            const absolutePath = path.join(projectRoot, relativePath);
-            let stats;
-            try {
-                stats = await fsFacade.stat(absolutePath);
-                ensureNotAborted();
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics?.incrementCounter("io.skippedMissingEntries");
-                    continue;
-                }
-                throw error;
-            }
-
-            if (
-                typeof stats?.isDirectory === "function" &&
-                stats.isDirectory()
-            ) {
-                pending.push(relativePath);
-                continue;
-            }
-
-            const relativePosix = toPosixPath(relativePath);
-            const lowerPath = relativePosix.toLowerCase();
-            if (
-                lowerPath.endsWith(".yy") ||
-                isProjectManifestPath(relativePosix)
-            ) {
-                yyFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.yyDiscovered");
-            } else if (lowerPath.endsWith(".gml")) {
-                gmlFiles.push({
-                    absolutePath,
-                    relativePath: relativePosix
-                });
-                metrics?.incrementCounter("files.gmlDiscovered");
-            }
-        }
+        await processDirectoryEntries({
+            entries,
+            directoryContext,
+            traversal,
+            collector,
+            projectRoot,
+            fsFacade,
+            ensureNotAborted,
+            metrics,
+            signal
+        });
     }
 
-    yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-    gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-    return { yyFiles, gmlFiles };
+    return collector.snapshot();
 }
 
 function cloneIdentifierDeclaration(declaration) {
@@ -1845,60 +1999,178 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
     await Promise.all(Array.from({ length: workerCount }, runWorker));
 }
 
-export async function buildProjectIndex(
-    projectRoot,
-    fsFacade = defaultFsFacade,
-    options = {}
-) {
-    if (!projectRoot) {
-        throw new Error("projectRoot must be provided to buildProjectIndex");
+/**
+ * Process a single GML source file while keeping the high-level project index
+ * coordinator focused on orchestration. Handles filesystem access, metrics,
+ * record preparation, and AST analysis for the provided file.
+ */
+async function readProjectGmlFile({ file, fsFacade, metrics }) {
+    try {
+        const contents = await metrics.timeAsync("fs.readGml", () =>
+            fsFacade.readFile(file.absolutePath, "utf8")
+        );
+        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        return contents;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            metrics.incrementCounter("files.missingDuringRead");
+            return null;
+        }
+        throw error;
+    }
+}
+
+function registerFilePathWithScope(scopeRecord, filePath) {
+    if (!scopeRecord?.filePaths) {
+        return;
     }
 
-    const resolvedRoot = path.resolve(projectRoot);
-    const logger = options?.logger ?? null;
-    const metrics = createProjectIndexMetrics({
-        metrics: options?.metrics,
-        logger,
-        logMetrics: options?.logMetrics
+    if (!scopeRecord.filePaths.includes(filePath)) {
+        scopeRecord.filePaths.push(filePath);
+    }
+}
+
+function prepareProjectIndexRecords({
+    file,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections
+}) {
+    const scopeDescriptor =
+        resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
+        createFileScopeDescriptor(file.relativePath);
+    const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
+    registerFilePathWithScope(scopeRecord, file.relativePath);
+    ensureScriptEntry(identifierCollections, scopeDescriptor);
+
+    const fileRecord = ensureFileRecord(
+        filesMap,
+        file.relativePath,
+        scopeRecord.id
+    );
+
+    ensureSyntheticScriptDeclaration({
+        scopeDescriptor,
+        scopeRecord,
+        fileRecord,
+        identifierCollections,
+        filePath: file.relativePath
     });
 
-    const stopTotal = metrics.startTimer("total");
+    return { scopeDescriptor, scopeRecord, fileRecord };
+}
 
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+function parseProjectGmlSource({
+    contents,
+    file,
+    parseProjectSource,
+    metrics,
+    projectRoot
+}) {
+    return metrics.timeSync("gml.parse", () =>
+        parseProjectSource(contents, {
+            filePath: file.relativePath,
+            projectRoot
+        })
+    );
+}
+
+function analyseProjectGmlAst({
+    ast,
+    builtInNames,
+    scopeRecord,
+    fileRecord,
+    relationships,
+    resourceAnalysis,
+    identifierCollections,
+    scopeDescriptor,
+    metrics,
+    sourceContents,
+    lineOffsets
+}) {
+    metrics.timeSync("gml.analyse", () =>
+        analyseGmlAst({
+            ast,
+            builtInNames,
+            scopeRecord,
+            fileRecord,
+            relationships,
+            scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
+            scriptNameToResourcePath: resourceAnalysis.scriptNameToResourcePath,
+            identifierCollections,
+            scopeDescriptor,
+            metrics,
+            sourceContents,
+            lineOffsets
+        })
+    );
+}
+
+async function processProjectGmlFile({
+    file,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    parseProjectSource,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections,
+    relationships,
+    builtInNames,
+    projectRoot
+}) {
+    ensureNotAborted();
+    metrics.incrementCounter("files.gmlProcessed");
+
+    const contents = await readProjectGmlFile({ file, fsFacade, metrics });
+    if (contents === null) {
+        return;
+    }
+
+    ensureNotAborted();
+
+    const lineOffsets = computeLineOffsets(contents);
+    const { scopeDescriptor, scopeRecord, fileRecord } =
+        prepareProjectIndexRecords({
+            file,
+            resourceAnalysis,
+            scopeMap,
+            filesMap,
+            identifierCollections
+        });
+
+    const ast = parseProjectGmlSource({
+        contents,
+        file,
+        parseProjectSource,
+        metrics,
+        projectRoot
     });
 
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    const builtInNames = builtInIdentifiers.names ?? new Set();
+    analyseProjectGmlAst({
+        ast,
+        builtInNames,
+        scopeRecord,
+        fileRecord,
+        relationships,
+        resourceAnalysis,
+        identifierCollections,
+        scopeDescriptor,
+        metrics,
+        sourceContents: contents,
+        lineOffsets
+    });
+}
 
-    const { yyFiles, gmlFiles } = await metrics.timeAsync(
-        "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    metrics.setMetadata("yyFileCount", yyFiles.length);
-    metrics.setMetadata("gmlFileCount", gmlFiles.length);
-
-    const resourceAnalysis = await metrics.timeAsync(
-        "analyseResourceFiles",
-        () =>
-            analyseResourceFiles({
-                projectRoot: resolvedRoot,
-                yyFiles,
-                fsFacade,
-                signal
-            })
-    );
-    ensureNotAborted();
-
-    metrics.incrementCounter(
-        "resources.total",
-        resourceAnalysis.resourcesMap.size
-    );
-
+/**
+ * Centralize the mutable collections used while aggregating project index
+ * details. Keeping the map initialisation and relationship bookkeeping here
+ * lets the main build flow focus on orchestration rather than data structure
+ * wiring.
+ */
+function createProjectIndexAggregationState(resourceAnalysis) {
     const scopeMap = new Map();
     const filesMap = new Map();
     const relationships = {
@@ -1909,98 +2181,28 @@ export async function buildProjectIndex(
     };
     const identifierCollections = createIdentifierCollections();
 
-    const concurrencySettings = options?.concurrency ?? {};
-    const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ?? concurrencySettings.gmlParsing
-    );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
-    const parseProjectSource = resolveProjectIndexParser(options);
-
-    await processWithConcurrency(
-        gmlFiles,
-        gmlConcurrency,
-        async (file) => {
-            ensureNotAborted();
-            metrics.incrementCounter("files.gmlProcessed");
-            let contents;
-            try {
-                contents = await metrics.timeAsync("fs.readGml", () =>
-                    fsFacade.readFile(file.absolutePath, "utf8")
-                );
-            } catch (error) {
-                if (isFsErrorCode(error, "ENOENT")) {
-                    metrics.incrementCounter("files.missingDuringRead");
-                    return;
-                }
-                throw error;
-            }
-
-            ensureNotAborted();
-
-            metrics.incrementCounter(
-                "io.gmlBytes",
-                Buffer.byteLength(contents)
-            );
-            const lineOffsets = computeLineOffsets(contents);
-
-            const scopeDescriptor =
-                resourceAnalysis.gmlScopeMap.get(file.relativePath) ??
-                createFileScopeDescriptor(file.relativePath);
-
-            const scopeRecord = ensureScopeRecord(scopeMap, scopeDescriptor);
-            if (!scopeRecord.filePaths.includes(file.relativePath)) {
-                scopeRecord.filePaths.push(file.relativePath);
-            }
-            ensureScriptEntry(identifierCollections, scopeDescriptor);
-
-            const fileRecord = ensureFileRecord(
-                filesMap,
-                file.relativePath,
-                scopeRecord.id
-            );
-
-            ensureSyntheticScriptDeclaration({
-                scopeDescriptor,
-                scopeRecord,
-                fileRecord,
-                identifierCollections,
-                filePath: file.relativePath
-            });
-            const ast = metrics.timeSync("gml.parse", () =>
-                parseProjectSource(contents, {
-                    filePath: file.relativePath,
-                    projectRoot: resolvedRoot
-                })
-            );
-
-            metrics.timeSync("gml.analyse", () =>
-                analyseGmlAst({
-                    ast,
-                    builtInNames,
-                    scopeRecord,
-                    fileRecord,
-                    relationships,
-                    scriptNameToScopeId: resourceAnalysis.scriptNameToScopeId,
-                    scriptNameToResourcePath:
-                        resourceAnalysis.scriptNameToResourcePath,
-                    identifierCollections,
-                    scopeDescriptor,
-                    metrics,
-                    sourceContents: contents,
-                    lineOffsets
-                })
-            );
-        },
-        { signal }
-    );
-    ensureNotAborted();
-
-    recordScriptCallMetricsAndReferences({
+    return {
+        scopeMap,
+        filesMap,
         relationships,
-        metrics,
         identifierCollections
-    });
+    };
+}
 
+/**
+ * Derive the final serializable project index payload from the populated
+ * aggregation state. The snapshot clones individual entry collections so the
+ * returned object mirrors the shape produced by the historical inline
+ * implementation without leaking mutable internals.
+ */
+function createProjectIndexResultSnapshot({
+    projectRoot,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections,
+    relationships
+}) {
     const resources = mapToObject(
         resourceAnalysis.resourcesMap,
         (record) => ({
@@ -2133,15 +2335,119 @@ export async function buildProjectIndex(
         )
     };
 
-    stopTotal();
-    const projectIndex = {
-        projectRoot: resolvedRoot,
+    return {
+        projectRoot,
         resources,
         scopes,
         files,
         relationships,
         identifiers
     };
+}
+
+export async function buildProjectIndex(
+    projectRoot,
+    fsFacade = defaultFsFacade,
+    options = {}
+) {
+    if (!projectRoot) {
+        throw new Error("projectRoot must be provided to buildProjectIndex");
+    }
+
+    const resolvedRoot = path.resolve(projectRoot);
+    const logger = options?.logger ?? null;
+    const metrics = createProjectIndexMetrics({
+        metrics: options?.metrics,
+        logger,
+        logMetrics: options?.logMetrics
+    });
+
+    const stopTotal = metrics.startTimer("total");
+
+    const { signal, ensureNotAborted } = createAbortGuard(options, {
+        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+    });
+
+    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
+        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+    const builtInNames = builtInIdentifiers.names ?? new Set();
+
+    const { yyFiles, gmlFiles } = await metrics.timeAsync(
+        "scanProjectTree",
+        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+    metrics.setMetadata("yyFileCount", yyFiles.length);
+    metrics.setMetadata("gmlFileCount", gmlFiles.length);
+
+    const resourceAnalysis = await metrics.timeAsync(
+        "analyseResourceFiles",
+        () =>
+            analyseResourceFiles({
+                projectRoot: resolvedRoot,
+                yyFiles,
+                fsFacade,
+                signal
+            })
+    );
+    ensureNotAborted();
+
+    metrics.incrementCounter(
+        "resources.total",
+        resourceAnalysis.resourcesMap.size
+    );
+
+    const { scopeMap, filesMap, relationships, identifierCollections } =
+        createProjectIndexAggregationState(resourceAnalysis);
+
+    const concurrencySettings = options?.concurrency ?? {};
+    const gmlConcurrency = clampConcurrency(
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
+    );
+    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    const parseProjectSource = resolveProjectIndexParser(options);
+
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) =>
+            processProjectGmlFile({
+                file,
+                fsFacade,
+                metrics,
+                ensureNotAborted,
+                parseProjectSource,
+                resourceAnalysis,
+                scopeMap,
+                filesMap,
+                identifierCollections,
+                relationships,
+                builtInNames,
+                projectRoot: resolvedRoot
+            }),
+        { signal }
+    );
+    ensureNotAborted();
+
+    recordScriptCallMetricsAndReferences({
+        relationships,
+        metrics,
+        identifierCollections
+    });
+
+    const projectIndexPayload = createProjectIndexResultSnapshot({
+        projectRoot: resolvedRoot,
+        resourceAnalysis,
+        scopeMap,
+        filesMap,
+        identifierCollections,
+        relationships
+    });
+
+    stopTotal();
+    const projectIndex = projectIndexPayload;
 
     const metricsReport = finalizeProjectIndexMetrics(metrics);
     if (metricsReport) {

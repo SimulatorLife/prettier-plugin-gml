@@ -1,4 +1,23 @@
-const hasOwnProperty = Object.prototype.hasOwnProperty;
+/**
+ * Determine whether a value is a plain object (non-null object without an
+ * Array instance). Some callers additionally require objects with prototypes
+ * so the helper accepts an option mirroring that constraint.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @param {{ allowNullPrototype?: boolean }} [options]
+ * @returns {value is object}
+ */
+export function isPlainObject(value, { allowNullPrototype = true } = {}) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return false;
+    }
+
+    if (!allowNullPrototype && Object.getPrototypeOf(value) === null) {
+        return false;
+    }
+
+    return true;
+}
 
 /**
  * Ensure the provided value is callable. Centralizing this guard keeps
@@ -27,6 +46,33 @@ export function assertFunction(value, name) {
  */
 export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
+}
+
+/**
+ * Validate that {@link value} is a plain object, throwing a descriptive
+ * `TypeError` otherwise. Returns the original value to keep call sites terse
+ * when destructuring or chaining normalization helpers.
+ *
+ * @template T extends object
+ * @param {T | unknown} value Candidate value to validate.
+ * @param {{
+ *   name?: string,
+ *   errorMessage?: string,
+ *   allowNullPrototype?: boolean
+ * }} [options]
+ * @returns {T}
+ */
+export function assertPlainObject(
+    value,
+    { name = "value", errorMessage, allowNullPrototype = true } = {}
+) {
+    const defaultMessage = `${name} must be a plain object`;
+
+    if (!isPlainObject(value, { allowNullPrototype })) {
+        throw new TypeError(errorMessage ?? defaultMessage);
+    }
+
+    return value;
 }
 
 /**
@@ -86,14 +132,22 @@ export function coalesceOption(
         return fallback;
     }
 
-    const keyList = Array.isArray(keys) ? keys : [keys];
+    if (Array.isArray(keys)) {
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of keyList) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
+    }
+
+    // Avoid allocating a throwaway array when callers supply a single key.
+    const value = object[keys];
+    if (value !== undefined && (acceptNull || value !== null)) {
+        return value;
     }
 
     return fallback;
@@ -109,7 +163,7 @@ export function coalesceOption(
  * @returns {boolean} `true` when the property exists directly on `object`.
  */
 export function hasOwn(object, key) {
-    return hasOwnProperty.call(object, key);
+    return Object.hasOwn(object, key);
 }
 
 /**

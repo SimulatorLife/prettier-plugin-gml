@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { createManualCommandContext } from "../lib/manual-command-context.js";
-import { resolveManualCacheRoot } from "../lib/manual-utils.js";
+import { resolveManualCacheRoot } from "../lib/manual/utils.js";
 
 test("createManualCommandContext centralizes manual command defaults", () => {
     const commandUrl = pathToFileURL(
@@ -28,10 +28,15 @@ test("createManualCommandContext centralizes manual command defaults", () => {
         path.join(expectedRepoRoot, "resources", "example.json")
     );
     assert.equal(typeof context.manualRequests.execute, "function");
-    assert.equal(typeof context.manualReferences.resolveManualRef, "function");
+    assert.equal(typeof context.manualRefResolver.resolveManualRef, "function");
+    assert.equal(
+        typeof context.manualCommitResolver.resolveCommitFromRef,
+        "function"
+    );
     assert.equal(typeof context.manualFileFetcher.fetchManualFile, "function");
     assert.equal(typeof context.fetchManualFile, "function");
     assert.equal(typeof context.resolveManualRef, "function");
+    assert.equal(typeof context.resolveCommitFromRef, "function");
 });
 
 test("createManualCommandContext validates required arguments", () => {

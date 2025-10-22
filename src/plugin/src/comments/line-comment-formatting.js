@@ -5,6 +5,8 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+import { getCommentValue } from "./comment-utils.js";
+import { trimStringEntries } from "../../../shared/string-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
@@ -120,9 +122,8 @@ function formatLineComment(
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const hasStringValue = typeof comment?.value === "string";
-    const rawValue = hasStringValue ? comment.value : "";
-    const trimmedValue = hasStringValue ? comment.value.trim() : "";
+    const rawValue = getCommentValue(comment);
+    const trimmedValue = getCommentValue(comment, { trim: true });
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -266,8 +267,58 @@ function applyJsDocReplacements(text) {
     }
 
     formattedText = stripTrailingFunctionParameters(formattedText);
+    formattedText = normalizeFeatherOptionalParamSyntax(formattedText);
 
     return normalizeDocCommentTypeAnnotations(formattedText);
+}
+
+function normalizeFeatherOptionalParamSyntax(text) {
+    if (typeof text !== "string" || !/@param\b/i.test(text)) {
+        return text;
+    }
+
+    return text.replace(
+        /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
+        (match, prefix, token) =>
+            `${prefix}${normalizeOptionalParamToken(token)}`
+    );
+}
+
+function normalizeOptionalParamToken(token) {
+    if (typeof token !== "string") {
+        return token;
+    }
+
+    const trimmed = token.trim();
+
+    if (/^\[[^\]]+\]$/.test(trimmed)) {
+        return trimmed;
+    }
+
+    let stripped = trimmed;
+    let hadSentinel = false;
+
+    while (stripped.startsWith("*")) {
+        stripped = stripped.slice(1);
+        hadSentinel = true;
+    }
+
+    while (stripped.endsWith("*")) {
+        stripped = stripped.slice(0, -1);
+        hadSentinel = true;
+    }
+
+    if (!hadSentinel) {
+        return trimmed;
+    }
+
+    const normalized = stripped.trim();
+
+    if (normalized.length === 0) {
+        return stripped.replaceAll("*", "");
+    }
+
+    return `[${normalized}]`;
 }
 
 function stripTrailingFunctionParameters(text) {
@@ -444,10 +495,9 @@ function splitCommentIntoSentences(text) {
     }
 
     const splitPattern = /(?<=\.)\s+(?=[A-Z])/g;
-    const segments = text
-        .split(splitPattern)
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
+    const segments = trimStringEntries(text.split(splitPattern)).filter(
+        (segment) => segment.length > 0
+    );
 
     return segments.length > 0 ? segments : [text];
 }

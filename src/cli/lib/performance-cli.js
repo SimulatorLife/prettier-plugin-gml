@@ -5,6 +5,7 @@ import process from "node:process";
 import { Command, InvalidArgumentError } from "commander";
 
 import { applyStandardCommandOptions } from "./command-standard-options.js";
+import { createCliErrorDetails } from "./cli-errors.js";
 import {
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer
@@ -27,19 +28,16 @@ function collectSuite(value, previous = []) {
     return previous;
 }
 
-function formatErrorDetails(error) {
-    const message =
-        typeof error?.message === "string"
-            ? error.message
-            : String(error ?? "Unknown error");
-    const stackLines =
-        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
-    const name =
-        typeof error?.name === "string"
-            ? error.name
-            : (error?.constructor?.name ?? "Error");
+function formatErrorDetails(error, { hint, fallbackMessage } = {}) {
+    const details = createCliErrorDetails(error, {
+        fallbackMessage: fallbackMessage ?? "Unknown error"
+    });
 
-    return { name, message, stack: stackLines };
+    if (hint) {
+        details.hint = hint;
+    }
+
+    return details;
 }
 
 function formatMetrics(label, metrics) {
@@ -83,9 +81,9 @@ async function executeProjectIndexAttempt({
             )
         };
     } catch (error) {
-        const formattedError = formatErrorDetails(error);
-        formattedError.hint =
-            "Provide --project <path> to a GameMaker project to run this benchmark against real data.";
+        const formattedError = formatErrorDetails(error, {
+            hint: "Provide --project <path> to a GameMaker project to run this benchmark against real data."
+        });
 
         return {
             index: null,
@@ -150,6 +148,27 @@ function createRenamePlanResult(renameOptions) {
     return renamePlan;
 }
 
+function disposeIdentifierCaseBootstrap(renameOptions, logger = null) {
+    const bootstrap =
+        renameOptions?.__identifierCaseProjectIndexBootstrap ?? null;
+    if (!bootstrap || typeof bootstrap.dispose !== "function") {
+        return;
+    }
+
+    try {
+        bootstrap.dispose();
+    } catch (error) {
+        if (logger && typeof logger.warn === "function") {
+            const reason = error?.message ?? error;
+            logger.warn(
+                `[performance] Failed to dispose identifier case resources: ${reason}`
+            );
+        }
+    } finally {
+        delete renameOptions.__identifierCaseProjectIndexBootstrap;
+    }
+}
+
 async function attachRenamePlanIfRequested({
     context,
     file,
@@ -183,6 +202,8 @@ async function attachRenamePlanIfRequested({
         context.results.renamePlan = createRenamePlanResult(renameOptions);
     } catch (error) {
         context.results.renamePlan = { error: formatErrorDetails(error) };
+    } finally {
+        disposeIdentifierCaseBootstrap(renameOptions, logger);
     }
 }
 
@@ -399,6 +420,8 @@ export function createPerformanceCommand() {
             "Enable verbose logging for suites that support it."
         );
 }
+
+export { runIdentifierPipelineBenchmark };
 
 function printHumanReadable(results) {
     const lines = ["Performance benchmark results:"];

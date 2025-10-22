@@ -55,7 +55,7 @@ export function createDefaultGmlPluginComponents() {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
-                default: true,
+                default: false,
                 description:
                     "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines."
             },
@@ -127,7 +127,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    'Rewrite string concatenations like "Hello " + name + "!" into template strings such as $"Hello {name}!" when all parts are safely composable.'
+                    "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },
             convertDivisionToMultiplication: {
                 since: "0.0.0",

@@ -1,7 +1,8 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    getDocCommentManager
+    resolveDocCommentInspectionService,
+    resolveDocCommentUpdateService
 } from "../comments/index.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
@@ -47,18 +48,20 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = getDocCommentManager(ast);
+    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
         docCommentManager,
+        docCommentUpdateService,
         expressionSignatures: new Map()
     };
     activeTransformationContext = context;
     visit(ast, normalizedHelpers, null);
-    docCommentManager.applyUpdates(context.docUpdates);
+    docCommentUpdateService.applyUpdates(context.docUpdates);
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
@@ -147,6 +150,42 @@ function removeDuplicateCondensedFunctions(context) {
         return;
     }
 
+    function getCondensedFunctionName(node) {
+        if (!node || typeof node !== "object") {
+            return null;
+        }
+
+        const { type } = node;
+
+        if (
+            type === "FunctionDeclaration" ||
+            type === "FunctionExpression" ||
+            type === "ConstructorDeclaration" ||
+            type === "MethodDeclaration"
+        ) {
+            const identifier = node.id;
+            return typeof identifier?.name === "string"
+                ? identifier.name
+                : null;
+        }
+
+        if (type === "StructFunctionDeclaration") {
+            const key = node.key;
+            if (typeof key === "string") {
+                return key;
+            }
+            if (typeof key?.name === "string") {
+                return key.name;
+            }
+            if (typeof key?.value === "string") {
+                return key.value;
+            }
+            return null;
+        }
+
+        return null;
+    }
+
     const docCommentManager = context.docCommentManager;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
@@ -167,6 +206,18 @@ function removeDuplicateCondensedFunctions(context) {
 
     for (const functions of signatureToFunctions.values()) {
         if (functions.length < 2) {
+            continue;
+        }
+
+        const normalizedNames = functions.map((fn) => {
+            const name = getCondensedFunctionName(fn);
+            return typeof name === "string" && name.trim() ? name : null;
+        });
+
+        if (
+            normalizedNames.includes(null) ||
+            new Set(normalizedNames).size !== 1
+        ) {
             continue;
         }
 
@@ -361,7 +412,7 @@ function condenseWithinStatements(
     containerNode,
     parentNode
 ) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -1659,7 +1710,7 @@ function computeExpressionMetrics(expression) {
 }
 
 function chooseBestCandidate(candidates) {
-    if (!Array.isArray(candidates) || candidates.length === 0) {
+    if (!isNonEmptyArray(candidates)) {
         return null;
     }
 
@@ -1720,9 +1771,52 @@ function buildBinaryAst(operator, terms, context) {
         return booleanExpressionToAst(terms[0], context);
     }
 
-    let current = booleanExpressionToAst(terms[0], context);
-    for (let index = 1; index < terms.length; index++) {
-        const right = booleanExpressionToAst(terms[index], context);
+    let originalOrOrder = null;
+    if (operator === "||") {
+        originalOrOrder = new WeakMap();
+        for (const [index, term] of terms.entries()) {
+            if (term && typeof term === "object") {
+                originalOrOrder.set(term, index);
+            }
+        }
+    }
+
+    const orderedTerms =
+        operator === "||"
+            ? [...terms].sort((left, right) => {
+                  const leftPriority = getBooleanOrTermPriority(left);
+                  const rightPriority = getBooleanOrTermPriority(right);
+                  if (leftPriority !== rightPriority) {
+                      return leftPriority - rightPriority;
+                  }
+
+                  const leftStart = getBooleanExpressionSourceStart(
+                      left,
+                      context
+                  );
+                  const rightStart = getBooleanExpressionSourceStart(
+                      right,
+                      context
+                  );
+                  if (leftStart !== rightStart) {
+                      return leftStart - rightStart;
+                  }
+
+                  const leftIndex = getOriginalBooleanTermIndex(
+                      originalOrOrder,
+                      left
+                  );
+                  const rightIndex = getOriginalBooleanTermIndex(
+                      originalOrOrder,
+                      right
+                  );
+                  return leftIndex - rightIndex;
+              })
+            : terms;
+
+    let current = booleanExpressionToAst(orderedTerms[0], context);
+    for (let index = 1; index < orderedTerms.length; index++) {
+        const right = booleanExpressionToAst(orderedTerms[index], context);
         if (!current || !right) {
             return null;
         }
@@ -1737,6 +1831,84 @@ function buildBinaryAst(operator, terms, context) {
     }
 
     return current;
+}
+
+function getBooleanOrTermPriority(expression) {
+    if (!expression || typeof expression !== "object") {
+        return 1;
+    }
+
+    return expression.type === BOOLEAN_NODE_TYPES.NOT ? 0 : 1;
+}
+
+function getOriginalBooleanTermIndex(orderMap, term) {
+    if (!orderMap || !term || typeof term !== "object") {
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    const index = orderMap.get(term);
+    return typeof index === "number" ? index : Number.MAX_SAFE_INTEGER;
+}
+
+function getBooleanExpressionSourceStart(expression, context) {
+    if (!expression || typeof expression !== "object") {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    switch (expression.type) {
+        case BOOLEAN_NODE_TYPES.VAR: {
+            if (!context || !Array.isArray(context.variables)) {
+                return Number.POSITIVE_INFINITY;
+            }
+
+            const variableRecord =
+                context.variables[expression.variable?.index];
+            return getNodeLocationIndex(variableRecord?.node);
+        }
+        case BOOLEAN_NODE_TYPES.NOT: {
+            return getBooleanExpressionSourceStart(
+                expression.argument,
+                context
+            );
+        }
+        case BOOLEAN_NODE_TYPES.AND:
+        case BOOLEAN_NODE_TYPES.OR: {
+            let earliest = Number.POSITIVE_INFINITY;
+            for (const term of expression.terms ?? []) {
+                const termStart = getBooleanExpressionSourceStart(
+                    term,
+                    context
+                );
+                if (termStart < earliest) {
+                    earliest = termStart;
+                }
+            }
+            return earliest;
+        }
+        case BOOLEAN_NODE_TYPES.CONST: {
+            return getNodeLocationIndex(expression.node);
+        }
+        default: {
+            return Number.POSITIVE_INFINITY;
+        }
+    }
+}
+
+function getNodeLocationIndex(node) {
+    if (!node || typeof node !== "object") {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    const start = node.start;
+    if (typeof start === "number") {
+        return start;
+    }
+
+    if (start && typeof start.index === "number") {
+        return start.index;
+    }
+
+    return Number.POSITIVE_INFINITY;
 }
 
 function wrapBinaryOperand(node, parentOperator, position) {
@@ -1885,8 +2057,8 @@ function transformMixedReductionPattern(expression) {
                 );
                 const notBase = createBooleanNot(baseAnd);
                 return createBooleanOr([
-                    notBase,
-                    cloneBooleanExpression(positiveVarTerm)
+                    cloneBooleanExpression(positiveVarTerm),
+                    notBase
                 ]);
             }
         }
@@ -1967,7 +2139,7 @@ function transformMixedReductionPattern(expression) {
         node: positiveVarNode
     });
 
-    return createBooleanOr([notBase, positiveVar]);
+    return createBooleanOr([positiveVar, notBase]);
 }
 
 function isPlainOrOfVariables(expression) {

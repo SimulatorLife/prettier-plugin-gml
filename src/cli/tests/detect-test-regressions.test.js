@@ -10,7 +10,7 @@ import {
     ensureResultsAvailability,
     reportRegressionSummary
 } from "../commands/detect-test-regressions.mjs";
-import { CliUsageError } from "../lib/cli-errors.js";
+import { isCliUsageError } from "../lib/cli-errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -220,7 +220,7 @@ test("ensureResultsAvailability throws when base results are unavailable", () =>
     assert.throws(
         () => ensureResultsAvailability(base, target),
         (error) => {
-            assert.equal(error instanceof CliUsageError, true);
+            assert.equal(isCliUsageError(error), true);
             assert.match(error.message, /Unable to locate base test results/i);
             return true;
         }

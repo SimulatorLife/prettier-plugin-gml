@@ -15,6 +15,100 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
 
     const resolveName =
         typeof getNodeName === "function" ? getNodeName : undefined;
+    const { memberStats, maxInitializerNameLength } = collectEnumMemberStats(
+        members,
+        resolveName
+    );
+
+    const shouldAlignInitializers = maxInitializerNameLength > 0;
+
+    const maxMemberWidth = applyEnumMemberAlignment({
+        memberStats,
+        shouldAlignInitializers,
+        maxInitializerNameLength
+    });
+
+    if (maxMemberWidth === 0) {
+        return;
+    }
+
+    const hasTrailingComma = enumNode?.hasTrailingComma === true;
+    applyTrailingCommentPadding({
+        memberStats,
+        maxMemberWidth,
+        hasTrailingComma
+    });
+}
+
+export function getEnumNameAlignmentPadding(member) {
+    if (!member) {
+        return 0;
+    }
+
+    const padding = member._enumNameAlignmentPadding;
+    return typeof padding === "number" && padding > 0 ? padding : 0;
+}
+
+function getEnumInitializerWidth(initializer) {
+    if (initializer == undefined) {
+        return 0;
+    }
+
+    if (typeof initializer === "number") {
+        return String(initializer).length;
+    }
+
+    const normalized =
+        typeof initializer === "object"
+            ? extractInitializerText(initializer)
+            : initializer;
+
+    if (typeof normalized === "number") {
+        return String(normalized).trim().length;
+    }
+
+    if (typeof normalized === "string") {
+        return normalized.trim().length;
+    }
+
+    return String(normalized ?? "").trim().length;
+}
+
+function extractInitializerText(initializer) {
+    if (typeof initializer._enumInitializerText === "string") {
+        return initializer._enumInitializerText;
+    }
+
+    return initializer.value ?? "";
+}
+
+function collectTrailingEnumComments(member) {
+    const comments = getCommentArray(member);
+    const { length } = comments;
+    if (length === 0) {
+        return [];
+    }
+
+    // Manual iteration avoids creating a new callback per invocation while the
+    // printer walks enum members, which keeps the micro-hot path allocation
+    // free.
+    const trailingComments = [];
+
+    for (let index = 0; index < length; index += 1) {
+        const comment = comments[index];
+        if (comment === null || typeof comment !== "object") {
+            continue;
+        }
+
+        if (comment.trailing === true || comment.placement === "endOfLine") {
+            trailingComments.push(comment);
+        }
+    }
+
+    return trailingComments;
+}
+
+function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = new Array(memberCount);
     let maxInitializerNameLength = 0;
@@ -43,9 +137,16 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         };
     }
 
-    const shouldAlignInitializers = maxInitializerNameLength > 0;
+    return { memberStats, maxInitializerNameLength };
+}
 
+function applyEnumMemberAlignment({
+    memberStats,
+    shouldAlignInitializers,
+    maxInitializerNameLength
+}) {
     let maxMemberWidth = 0;
+
     for (const entry of memberStats) {
         const alignmentPadding =
             shouldAlignInitializers && entry.hasInitializer
@@ -67,11 +168,14 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         }
     }
 
-    if (maxMemberWidth === 0) {
-        return;
-    }
+    return maxMemberWidth;
+}
 
-    const hasTrailingComma = enumNode?.hasTrailingComma === true;
+function applyTrailingCommentPadding({
+    memberStats,
+    maxMemberWidth,
+    hasTrailingComma
+}) {
     const lastIndex = memberStats.length - 1;
 
     // Manual index iteration avoids allocating iterator tuples from
@@ -113,60 +217,4 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
             }
         }
     }
-}
-
-export function getEnumNameAlignmentPadding(member) {
-    if (!member) {
-        return 0;
-    }
-
-    const padding = member._enumNameAlignmentPadding;
-    return typeof padding === "number" && padding > 0 ? padding : 0;
-}
-
-function getEnumInitializerWidth(initializer) {
-    if (typeof initializer === "string") {
-        return initializer.trim().length;
-    }
-
-    if (initializer == undefined) {
-        return 0;
-    }
-
-    if (typeof initializer === "number") {
-        return String(initializer).length;
-    }
-
-    if (typeof initializer === "object") {
-        const text = String(initializer.value ?? "").trim();
-        return text.length;
-    }
-
-    return String(initializer).trim().length;
-}
-
-function collectTrailingEnumComments(member) {
-    const comments = getCommentArray(member);
-    const { length } = comments;
-    if (length === 0) {
-        return [];
-    }
-
-    // Manual iteration avoids creating a new callback per invocation while the
-    // printer walks enum members, which keeps the micro-hot path allocation
-    // free.
-    const trailingComments = [];
-
-    for (let index = 0; index < length; index += 1) {
-        const comment = comments[index];
-        if (comment === null || typeof comment !== "object") {
-            continue;
-        }
-
-        if (comment.trailing === true || comment.placement === "endOfLine") {
-            trailingComments.push(comment);
-        }
-    }
-
-    return trailingComments;
 }

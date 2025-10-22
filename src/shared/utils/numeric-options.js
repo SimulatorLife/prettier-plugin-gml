@@ -1,6 +1,45 @@
 import { toNormalizedInteger } from "./number.js";
 
-const DEFAULT_PARSE_STRING = (text) => Number.parseInt(text, 10);
+const DECIMAL_INTEGER_PATTERN = /^[-+]?\d+/u;
+const DECIMAL_RADIX = 10;
+
+const DEFAULT_PARSE_STRING = (text) => {
+    const match = DECIMAL_INTEGER_PATTERN.exec(String(text));
+    return match ? Number(match[0]) : Number.NaN;
+};
+
+function missingOptionValue() {
+    return void 0;
+}
+
+function parseStringOption(
+    rawValue,
+    { defaultValue, coerce, parseString, blankStringReturnsDefault }
+) {
+    const trimmed = rawValue.trim();
+    if (trimmed === "" && blankStringReturnsDefault) {
+        return defaultValue;
+    }
+
+    const parsed =
+        parseString.length >= 2
+            ? parseString(trimmed, DECIMAL_RADIX)
+            : parseString(trimmed);
+
+    return coerce(parsed, { received: `'${rawValue}'` });
+}
+
+function createTypeErrorMessage(typeErrorMessage, type) {
+    if (typeof typeErrorMessage === "function") {
+        return typeErrorMessage(type);
+    }
+
+    if (typeof typeErrorMessage === "string") {
+        return typeErrorMessage;
+    }
+
+    return `Value must be provided as a number (received type '${type}').`;
+}
 
 function coerceInteger(value, { min, received, createErrorMessage }) {
     const normalized = toNormalizedInteger(value);
@@ -93,9 +132,9 @@ export function coercePositiveIntegerOption(
  * @param {(value: number, options: object) => number} options.coerce Function
  *        invoked with the parsed number and context to validate range or
  *        return alternate values.
- * @param {(text: string) => number} [options.parseString=DEFAULT_PARSE_STRING]
- *        Custom parser for string inputs, e.g. to support hex or binary
- *        notation.
+ * @param {(text: string) => number} [options.parseString] Custom parser for
+ *        string inputs, e.g. to support hex or binary notation. Defaults to
+ *        {@link DEFAULT_PARSE_STRING}.
  * @param {string | ((type: string) => string)} [options.typeErrorMessage]
  *        Overrides the error message when a non-number, non-string value is
  *        provided.
@@ -122,24 +161,16 @@ export function resolveIntegerOption(
     }
 
     if (typeof rawValue === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "" && blankStringReturnsDefault) {
-            return defaultValue;
-        }
-
-        const parsed = parseString(trimmed, 10);
-        return coerce(parsed, { received: `'${rawValue}'` });
+        return parseStringOption(rawValue, {
+            defaultValue,
+            coerce,
+            parseString,
+            blankStringReturnsDefault
+        });
     }
 
     const type = typeof rawValue;
-    const fallbackMessage = `Value must be provided as a number (received type '${type}').`;
-
-    const message =
-        typeof typeErrorMessage === "function"
-            ? typeErrorMessage(type)
-            : (typeErrorMessage ?? fallbackMessage);
-
-    throw new TypeError(message);
+    throw new TypeError(createTypeErrorMessage(typeErrorMessage, type));
 }
 
 /**
@@ -169,8 +200,8 @@ export function normalizeNumericOption(
     rawValue,
     { optionName, coerce, formatTypeError }
 ) {
-    if (rawValue == null) {
-        return;
+    if (rawValue === undefined || rawValue === null) {
+        return missingOptionValue();
     }
 
     const rawType = typeof rawValue;
@@ -182,7 +213,7 @@ export function normalizeNumericOption(
 
     const normalized = isString ? rawValue.trim() : rawValue;
     if (isString && normalized === "") {
-        return;
+        return missingOptionValue();
     }
 
     const received = isString ? `'${rawValue}'` : normalized;
