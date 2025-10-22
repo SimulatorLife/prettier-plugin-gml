@@ -108,7 +108,7 @@ export const languages = [
 // fixtures showcased in README.md#formatter-at-a-glance and the
 // docs/examples/* snapshots all assume "no trailing commas" plus
 // "always-parenthesised arrow parameters", so letting user configs flip those
-// bits would desynchronise the documented contract from the code we ship. We
+// bits would desynchronize the documented contract from the code we ship. We
 // therefore clamp the values here to advertise a single canonical style and to
 // prevent project-level `.prettierrc` files from surfacing ineffective or
 // misleading toggles.
