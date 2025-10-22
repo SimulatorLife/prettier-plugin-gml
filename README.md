@@ -462,6 +462,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (`0` keeps the original layout). |
+| `lineCommentBannerLength` | `60` | Normalizes detected banner comments to the provided slash width (`0` preserves the original banner length). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
@@ -475,7 +476,7 @@ Line comments automatically drop YoYo Games' generated banner message (`Script a
 
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
-Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
+Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to the configured `lineCommentBannerLength` (defaulting to 60 slashes) so mixed-width comment markers settle on a single, readable standard.
 
 #### Identifier-case rollout
 

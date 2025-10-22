@@ -12,7 +12,7 @@ import {
 } from "./line-comment-formatting.js";
 import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
-    LINE_COMMENT_BANNER_STANDARD_LENGTH,
+    resolveLineCommentBannerLength,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 
@@ -170,6 +170,7 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
+            const bannerLength = resolveLineCommentBannerLength(options);
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/{2,})/);
 
@@ -195,9 +196,7 @@ function printComment(commentPath, options) {
             }
 
             const normalizedSlashRun =
-                LINE_COMMENT_BANNER_STANDARD_LENGTH <= 0
-                    ? slashRun
-                    : "".padStart(LINE_COMMENT_BANNER_STANDARD_LENGTH, "/");
+                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
             const normalizedBanner =
                 `${normalizedSlashRun}${remainder}`.trimEnd();
 

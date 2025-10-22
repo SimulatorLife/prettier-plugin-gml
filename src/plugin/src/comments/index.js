@@ -11,7 +11,10 @@ export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     getLineCommentCodeDetectionPatterns,
     DEFAULT_LINE_COMMENT_OPTIONS,
+    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
+    LINE_COMMENT_BANNER_LENGTH_OPTION_NAME,
     resolveLineCommentOptions,
+    resolveLineCommentBannerLength,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 export {

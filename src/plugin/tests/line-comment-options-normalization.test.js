@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 
 import {
     DEFAULT_LINE_COMMENT_OPTIONS,
+    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     formatLineComment,
+    printComment,
+    resolveLineCommentBannerLength,
     resolveLineCommentOptions
 } from "../src/comments/index.js";
 
@@ -30,6 +33,46 @@ describe("resolveLineCommentOptions", () => {
         });
 
         assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+    });
+});
+
+describe("resolveLineCommentBannerLength", () => {
+    it("returns the default when options are missing", () => {
+        const resolved = resolveLineCommentBannerLength();
+
+        assert.equal(resolved, DEFAULT_LINE_COMMENT_BANNER_LENGTH);
+    });
+
+    it("coerces numeric overrides", () => {
+        const resolved = resolveLineCommentBannerLength({
+            lineCommentBannerLength: 42
+        });
+
+        assert.equal(resolved, 42);
+    });
+
+    it("coerces string overrides", () => {
+        const resolved = resolveLineCommentBannerLength({
+            lineCommentBannerLength: "12"
+        });
+
+        assert.equal(resolved, 12);
+    });
+
+    it("throws for negative overrides", () => {
+        assert.throws(() =>
+            resolveLineCommentBannerLength({
+                lineCommentBannerLength: -1
+            })
+        );
+    });
+
+    it("throws for non-numeric overrides", () => {
+        assert.throws(() =>
+            resolveLineCommentBannerLength({
+                lineCommentBannerLength: true
+            })
+        );
     });
 });
 
@@ -63,5 +106,27 @@ describe("formatLineComment", () => {
         });
 
         assert.equal(formatted, baseline);
+    });
+});
+
+describe("printComment", () => {
+    it("respects the configured banner length", () => {
+        const comment = {
+            type: "CommentLine",
+            value: "//////// Banner",
+            leadingText: "//////// Banner",
+            raw: "//////// Banner"
+        };
+
+        const printed = printComment(
+            {
+                getValue() {
+                    return comment;
+                }
+            },
+            { lineCommentBannerLength: 10 }
+        );
+
+        assert.equal(printed, "////////// Banner");
     });
 });

@@ -3,6 +3,10 @@ import { print } from "../printer/print.js";
 import { handleComments, printComment } from "../comments/comment-printer.js";
 import { identifierCaseOptions } from "../options/identifier-case.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import {
+    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
+    LINE_COMMENT_BANNER_LENGTH_OPTION_NAME
+} from "../options/line-comment-options.js";
 
 export function createDefaultGmlPluginComponents() {
     return {
@@ -112,6 +116,15 @@ export function createDefaultGmlPluginComponents() {
                 range: { start: 0, end: Infinity },
                 description:
                     "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
+            },
+            [LINE_COMMENT_BANNER_LENGTH_OPTION_NAME]: {
+                since: "0.0.0",
+                type: "int",
+                category: "gml",
+                default: DEFAULT_LINE_COMMENT_BANNER_LENGTH,
+                range: { start: 0, end: Infinity },
+                description:
+                    "Normalizes detected banner comments to the specified slash width. Set to 0 to preserve the original banner length."
             },
             applyFeatherFixes: {
                 since: "0.0.0",
