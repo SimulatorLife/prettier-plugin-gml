@@ -522,20 +522,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (!badExample) {
-                badExample = text;
-                continue;
-            }
-
-            goodExampleParts.push(text);
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        const targetParts = badExample
-            ? correctionParts
-            : additionalDescriptionParts;
-        targetParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
+        }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =
