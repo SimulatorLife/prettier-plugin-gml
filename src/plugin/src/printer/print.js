@@ -5042,20 +5042,47 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const node = path.getValue();
-    if (
-        !node ||
-        node.type !== "ParenthesizedExpression" ||
-        node.synthetic !== true
-    ) {
+    if (!node || node.type !== "ParenthesizedExpression") {
         return false;
     }
+
+    // Only process synthetic parentheses for most cases
+    const isSynthetic = node.synthetic === true;
 
     if (typeof path.getParentNode !== "function") {
         return false;
     }
 
     const parent = path.getParentNode();
-    if (!parent || parent.type !== "BinaryExpression") {
+    if (!parent) {
+        return false;
+    }
+
+    // For ternary expressions, omit unnecessary parentheses around simple
+    // identifiers or member expressions in the test position
+    if (parent.type === "TernaryExpression") {
+        const parentKey =
+            typeof path.getName === "function" ? path.getName() : undefined;
+        if (parentKey === "test") {
+            const expression = node.expression;
+            // Remove parens around simple expressions that don't need them
+            if (
+                expression?.type === "Identifier" ||
+                expression?.type === "MemberDotExpression" ||
+                expression?.type === "MemberIndexExpression"
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // For non-ternary cases, only process synthetic parentheses
+    if (!isSynthetic) {
+        return false;
+    }
+
+    if (parent.type !== "BinaryExpression") {
         return false;
     }
 
@@ -5159,14 +5186,27 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         (childOperator === "+" || childOperator === "-");
     const isMultiplicativePair =
         parentOperator === "*" && childOperator === "*";
+    const isLogicalAndPair =
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and");
+    const isLogicalOrPair =
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or");
 
-    if (!isAdditivePair && !isMultiplicativePair) {
+    if (
+        !isAdditivePair &&
+        !isMultiplicativePair &&
+        !isLogicalAndPair &&
+        !isLogicalOrPair
+    ) {
         return false;
     }
 
     if (
-        !isNumericComputationNode(parent) ||
-        !isNumericComputationNode(expression)
+        !isLogicalAndPair &&
+        !isLogicalOrPair &&
+        (!isNumericComputationNode(parent) ||
+            !isNumericComputationNode(expression))
     ) {
         return false;
     }
@@ -5204,6 +5244,20 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     }
 
     if (parentOperator === "*" && childOperator === "*") {
+        return true;
+    }
+
+    if (
+        (parentOperator === "&&" || parentOperator === "and") &&
+        (childOperator === "&&" || childOperator === "and")
+    ) {
+        return true;
+    }
+
+    if (
+        (parentOperator === "||" || parentOperator === "or") &&
+        (childOperator === "||" || childOperator === "or")
+    ) {
         return true;
     }
 
