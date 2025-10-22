@@ -1,9 +1,6 @@
 import path from "node:path";
 
-import {
-    toPosixPath,
-    resolveProjectPathInfo
-} from "../../../shared/path-utils.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import {
     isNonEmptyString,
@@ -20,6 +17,7 @@ import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
+import { resolveProjectPathInfo } from "./path-info.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
