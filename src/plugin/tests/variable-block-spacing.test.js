@@ -38,3 +38,22 @@ test("inserts a blank line between large variable blocks and following loops", a
         "Expected a blank line to separate the variable declarations from the loop body."
     );
 });
+
+test("formats struct static functions without infinite recursion", async () => {
+    const source = [
+        "function child_struct(_foo, _value) constructor {",
+        "    static remove_ellipse = function() {",
+        "        for (var i = 0; i < array_length(nodes); i += 1) {",
+        "            if (!collision_ellipse(0, 0, width, height, nodes[i], false, true)) {",
+        "                instance_destroy(nodes[i]);",
+        "            }",
+        "        }",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.equal(typeof formatted, "string");
+});
