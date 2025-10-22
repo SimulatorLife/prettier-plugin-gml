@@ -55,7 +55,7 @@ export function createDefaultGmlPluginComponents() {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
-                default: true,
+                default: false,
                 description:
                     "Collapse single-statement 'if' bodies to a single line (for example, 'if (condition) { return; }'). Disable to always expand the consequent across multiple lines."
             },
@@ -111,7 +111,7 @@ export function createDefaultGmlPluginComponents() {
                 default: 0,
                 range: { start: 0, end: Infinity },
                 description:
-                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
+                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
             },
             applyFeatherFixes: {
                 since: "0.0.0",

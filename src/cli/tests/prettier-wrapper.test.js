@@ -380,6 +380,12 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
+            assert.match(
+                stdout,
+                /Skipped 1 directory ignored by \.prettierignore/,
+                "Expected wrapper output to summarize ignored directories"
+            );
+
             const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
             assert.ok(
                 skippedMatch,
@@ -807,7 +813,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("describes the current directory using '.' when no files match", async () => {
+    it("describes the current directory explicitly when no files match", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -820,24 +826,34 @@ describe("Prettier wrapper CLI", () => {
             );
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /found in the current directory\./,
+                "Expected stdout to describe the current directory explicitly"
+            );
             assert.ok(
-                stdout.includes("found in ."),
-                "Expected stdout to describe the current directory as '.'"
+                !stdout.includes("found in .."),
+                "Expected stdout not to include duplicate punctuation when describing the current directory"
             );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
     });
 
-    it("describes the invocation directory using '.' when run from the repository root", async () => {
+    it("describes the invocation directory explicitly when run from the repository root", async () => {
         const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
             cwd: repoRootDirectory
         });
 
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.match(
+            stdout,
+            /found in the current directory\./,
+            "Expected stdout to describe the repository root using the current directory phrasing"
+        );
         assert.ok(
-            stdout.includes("found in ."),
-            "Expected stdout to describe the repository root as '.'"
+            !stdout.includes("found in .."),
+            "Expected stdout not to include duplicate punctuation when describing the repository root"
         );
     });
 

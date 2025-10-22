@@ -4,6 +4,8 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
+const LINE_SPLIT_PATTERN = /\r\n|\n|\r|\u2028|\u2029|\u0085/;
+
 const CARRIAGE_RETURN = "\r".codePointAt(0);
 const LINE_FEED = "\n".codePointAt(0);
 const LINE_SEPARATOR = "\u2028".codePointAt(0);
@@ -72,4 +74,26 @@ export function getLineBreakCount(text) {
     }
 
     return count;
+}
+
+/**
+ * Split {@link text} into individual lines while recognising the newline
+ * sequences produced by Windows, Unix, and Unicode line separators.
+ *
+ * Normalizes the ad-hoc `String#split` logic previously embedded in the
+ * project-index syntax error formatter so that future call sites can reuse the
+ * same cross-platform handling without re-implementing the regular expression.
+ * Non-string inputs return an empty array, mirroring the defensive guards used
+ * by other shared helpers that accept optional metadata.
+ *
+ * @param {unknown} text Text that may contain newline characters.
+ * @returns {Array<string>} Ordered list of lines. Blank input yields a single
+ *          empty string to mirror native `String#split` semantics.
+ */
+export function splitLines(text) {
+    if (typeof text !== "string") {
+        return [];
+    }
+
+    return text.split(LINE_SPLIT_PATTERN);
 }

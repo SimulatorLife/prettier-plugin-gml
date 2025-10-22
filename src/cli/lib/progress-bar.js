@@ -1,14 +1,15 @@
 import { SingleBar, Presets } from "cli-progress";
 
+import { coercePositiveInteger } from "./shared-deps.js";
 import {
-    coercePositiveInteger,
-    createEnvConfiguredValue,
-    resolveIntegerOption
-} from "./shared-deps.js";
+    createIntegerOptionCoercer,
+    createIntegerOptionState
+} from "./numeric-option-state.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
+let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -16,49 +17,47 @@ const createWidthErrorMessage = (received) =>
 const createTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
 
-function coerceProgressBarWidth(value, { received }) {
-    return coercePositiveInteger(value, {
-        received,
-        createErrorMessage: createWidthErrorMessage
-    });
-}
+const coerceProgressBarWidth = createIntegerOptionCoercer({
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createWidthErrorMessage
+});
 
-const progressBarWidthConfig = createEnvConfiguredValue({
+const progressBarWidthState = createIntegerOptionState({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-    normalize: (value, { defaultValue }) =>
-        resolveProgressBarWidth(value, { defaultWidth: defaultValue })
+    coerce: coerceProgressBarWidth,
+    typeErrorMessage: createTypeErrorMessage
 });
 
 function getDefaultProgressBarWidth() {
-    return progressBarWidthConfig.get();
+    return progressBarWidthState.getDefault();
 }
 
 function setDefaultProgressBarWidth(width) {
-    return progressBarWidthConfig.set(width);
+    return progressBarWidthState.setDefault(width);
 }
 
 function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    const fallback =
-        defaultWidth === undefined
-            ? getDefaultProgressBarWidth()
-            : defaultWidth;
-
-    return resolveIntegerOption(rawValue, {
-        defaultValue: fallback,
-        coerce: coerceProgressBarWidth,
-        typeErrorMessage: createTypeErrorMessage
+    return progressBarWidthState.resolve(rawValue, {
+        defaultValue: defaultWidth
     });
 }
 
 function applyProgressBarWidthEnvOverride(env = process?.env) {
-    progressBarWidthConfig.applyEnvOverride(env);
+    progressBarWidthState.applyEnvOverride(env);
 }
 
 applyProgressBarWidthEnvOverride();
 
+function setProgressBarFactoryForTesting(factory) {
+    progressBarFactory =
+        typeof factory === "function"
+            ? factory
+            : (options, preset) => new SingleBar(options, preset);
+}
+
 function createDefaultProgressBar(label, width) {
-    return new SingleBar(
+    return progressBarFactory(
         {
             format: `${label} [{bar}] {value}/{total}`,
             barsize: width,
@@ -66,7 +65,8 @@ function createDefaultProgressBar(label, width) {
             clearOnComplete: true,
             linewrap: true
         },
-        Presets.shades_classic
+        Presets.shades_classic,
+        label
     );
 }
 
@@ -126,6 +126,7 @@ export {
     disposeProgressBars,
     getDefaultProgressBarWidth,
     setDefaultProgressBarWidth,
+    setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
     withProgressBarCleanup

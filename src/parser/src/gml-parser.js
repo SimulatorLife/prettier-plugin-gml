@@ -1,5 +1,4 @@
-import antlr4 from "antlr4";
-import { PredictionMode } from "antlr4";
+import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
@@ -190,8 +189,8 @@ export default class GMLParser {
         }
     }
 
-    // populates the comments array and whitespaces array.
-    // comments are annotated with surrounding whitespace and characters
+    // Populates the comments array and whitespaces array.
+    // Comments are annotated with surrounding whitespace and characters.
     getHiddenNodes(lexer) {
         let reachedEOF = false;
         let prevComment = null;

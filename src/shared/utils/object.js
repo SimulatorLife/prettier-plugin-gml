@@ -132,9 +132,9 @@ export function coalesceOption(
         return fallback;
     }
 
-    const keyList = Array.isArray(keys) ? keys : [keys];
+    const searchKeys = Array.isArray(keys) ? keys : [keys];
 
-    for (const key of keyList) {
+    for (const key of searchKeys) {
         const value = object[key];
 
         if (value !== undefined && (acceptNull || value !== null)) {

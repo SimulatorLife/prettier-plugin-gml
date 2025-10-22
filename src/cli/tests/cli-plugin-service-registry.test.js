@@ -5,7 +5,7 @@ import {
     defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
-    defaultCliPluginServices as defaultProviderServices,
+    defaultCliPluginServices,
     defaultCliProjectIndexService,
     defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
@@ -13,7 +13,7 @@ import {
 } from "../lib/plugin-service-providers/default-plugin-services.js";
 
 test("CLI plugin services expose validated defaults", () => {
-    const services = defaultProviderServices;
+    const services = defaultCliPluginServices;
 
     assert.ok(Object.isFrozen(services), "service registry should be frozen");
     assert.strictEqual(
@@ -114,7 +114,7 @@ test("CLI plugin services expose validated defaults", () => {
 });
 
 test("CLI plugin services cannot be mutated", () => {
-    const services = defaultProviderServices;
+    const services = defaultCliPluginServices;
 
     assert.throws(
         () => {
@@ -138,5 +138,21 @@ test("CLI plugin services cannot be mutated", () => {
         },
         TypeError,
         "nested identifier case plan service should be frozen"
+    );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlanPreparation.extra = {};
+        },
+        TypeError,
+        "identifier case plan preparation service should be frozen"
+    );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlanCache.extra = {};
+        },
+        TypeError,
+        "identifier case plan cache service should be frozen"
     );
 });
