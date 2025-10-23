@@ -8,6 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import {
     assertPlainObject,
+    createEnvConfiguredValue,
     ensureDir,
     getErrorMessage,
     normalizeStringList,
@@ -16,6 +17,7 @@ import {
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     coercePositiveInteger,
+    resolveIntegerOption,
     wrapInvalidArgumentResolver
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
@@ -47,8 +49,20 @@ const FORMAT_OPTIONS_RELATIVE_PATH =
     "src/plugin/tests/testFormatting.options.json";
 const PLUGIN_ENTRY_RELATIVE_PATH = "src/plugin/src/gml.js";
 
-const MAX_PARSER_ITERATIONS = 25;
+export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR =
+    "GML_MEMORY_PARSER_MAX_ITERATIONS";
+export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
 const MAX_FORMAT_ITERATIONS = 25;
+
+const parserIterationLimitConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
+    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+    normalize: (value, { defaultValue, previousValue }) =>
+        normalizeParserIterationLimit(value, {
+            fallback:
+                previousValue ?? defaultValue ?? DEFAULT_MAX_PARSER_ITERATIONS
+        })
+});
 
 const sampleCache = new Map();
 
@@ -380,10 +394,41 @@ const {
     applyEnvOverride: applyMemoryIterationsEnvOverride
 } = memoryIterationsState;
 
+function normalizeParserIterationLimit(value, { fallback }) {
+    const baseline = fallback ?? DEFAULT_MAX_PARSER_ITERATIONS;
+
+    try {
+        const normalized = resolveIntegerOption(value, {
+            defaultValue: baseline,
+            coerce: coerceMemoryIterations,
+            typeErrorMessage: createIterationTypeErrorMessage
+        });
+
+        return normalized ?? baseline;
+    } catch {
+        return baseline;
+    }
+}
+
+function getMaxParserIterations() {
+    return parserIterationLimitConfig.get();
+}
+
+function setMaxParserIterations(value) {
+    return parserIterationLimitConfig.set(value);
+}
+
+function applyParserMaxIterationsEnvOverride(env) {
+    return parserIterationLimitConfig.applyEnvOverride(env);
+}
+
 export {
     getDefaultMemoryIterations,
     setDefaultMemoryIterations,
-    applyMemoryIterationsEnvOverride
+    applyMemoryIterationsEnvOverride,
+    getMaxParserIterations,
+    setMaxParserIterations,
+    applyParserMaxIterationsEnvOverride
 };
 
 export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
@@ -411,6 +456,7 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
 }
 
 applyMemoryIterationsEnvOverride();
+applyParserMaxIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -528,7 +574,7 @@ async function runParserAstSuite({ iterations }) {
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
     const effectiveIterations = Math.max(
         1,
-        Math.min(requestedIterations, MAX_PARSER_ITERATIONS)
+        Math.min(requestedIterations, getMaxParserIterations())
     );
 
     const { contents: source, path: samplePath } = await loadSampleText(
