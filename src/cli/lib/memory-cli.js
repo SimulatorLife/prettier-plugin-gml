@@ -52,15 +52,29 @@ const FORMAT_OPTIONS_RELATIVE_PATH =
 export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
-const MAX_FORMAT_ITERATIONS = 25;
+export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
+    "GML_MEMORY_FORMAT_MAX_ITERATIONS";
+export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 
 const parserIterationLimitConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
     envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
     normalize: (value, { defaultValue, previousValue }) =>
-        normalizeParserIterationLimit(value, {
+        normalizeIterationLimit(value, {
             fallback:
-                previousValue ?? defaultValue ?? DEFAULT_MAX_PARSER_ITERATIONS
+                previousValue ?? defaultValue ?? DEFAULT_MAX_PARSER_ITERATIONS,
+            baseline: DEFAULT_MAX_PARSER_ITERATIONS
+        })
+});
+
+const formatIterationLimitConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+    normalize: (value, { defaultValue, previousValue }) =>
+        normalizeIterationLimit(value, {
+            fallback:
+                previousValue ?? defaultValue ?? DEFAULT_MAX_FORMAT_ITERATIONS,
+            baseline: DEFAULT_MAX_FORMAT_ITERATIONS
         })
 });
 
@@ -394,19 +408,26 @@ const {
     applyEnvOverride: applyMemoryIterationsEnvOverride
 } = memoryIterationsState;
 
-function normalizeParserIterationLimit(value, { fallback }) {
-    const baseline = fallback ?? DEFAULT_MAX_PARSER_ITERATIONS;
+const {
+    get: getMaxFormatIterations,
+    set: setMaxFormatIterations,
+    applyEnvOverride: applyFormatMaxIterationsEnvOverride
+} = formatIterationLimitConfig;
+
+function normalizeIterationLimit(value, { fallback, baseline }) {
+    const effectiveBaseline =
+        fallback ?? baseline ?? DEFAULT_MAX_PARSER_ITERATIONS;
 
     try {
         const normalized = resolveIntegerOption(value, {
-            defaultValue: baseline,
+            defaultValue: effectiveBaseline,
             coerce: coerceMemoryIterations,
             typeErrorMessage: createIterationTypeErrorMessage
         });
 
-        return normalized ?? baseline;
+        return normalized ?? effectiveBaseline;
     } catch {
-        return baseline;
+        return effectiveBaseline;
     }
 }
 
@@ -428,7 +449,10 @@ export {
     applyMemoryIterationsEnvOverride,
     getMaxParserIterations,
     setMaxParserIterations,
-    applyParserMaxIterationsEnvOverride
+    applyParserMaxIterationsEnvOverride,
+    getMaxFormatIterations,
+    setMaxFormatIterations,
+    applyFormatMaxIterationsEnvOverride
 };
 
 export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
@@ -457,6 +481,7 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
 
 applyMemoryIterationsEnvOverride();
 applyParserMaxIterationsEnvOverride();
+applyFormatMaxIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -625,9 +650,10 @@ AVAILABLE_SUITES.set("parser-ast", runParserAstSuite);
 async function runPluginFormatSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
+    const maxIterations = getMaxFormatIterations();
     const effectiveIterations = Math.max(
         1,
-        Math.min(requestedIterations, MAX_FORMAT_ITERATIONS)
+        Math.min(requestedIterations, maxIterations)
     );
 
     const notes = [];
