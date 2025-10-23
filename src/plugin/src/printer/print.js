@@ -1686,7 +1686,18 @@ function printCommaSeparatedList(
     });
 }
 
-// wrap a statement in a block if it's not already a block
+// Force statement-shaped children into explicit `{}` blocks so every call site
+// that relies on this helper inherits the same guard rails. The printer uses it
+// for `if`, loop, and struct bodies where we always emit braces regardless of
+// how the source was written. Centralising the wrapping ensures semicolon
+// bookkeeping stays wired through `optionalSemicolon`, keeps synthetic doc
+// comments anchored to the block node they describe, and prevents individual
+// callers from drifting in how they indent or collapse single-statement bodies.
+// When we experimented with open-coding the wrapping logic in each printer, it
+// was easy to miss one of those responsibilities and regress either the
+// formatter's brace guarantees or the doc comment synthesis covered by the
+// synthetic doc comment integration tests
+// (`src/plugin/tests/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
     const node = path.getValue()[expressionKey];
     return node.type === "BlockStatement"
@@ -2071,7 +2082,15 @@ function printStatements(path, options, print, childrenAttribute) {
             semi = "";
         }
 
-        // Print the statement
+        // Preserve the `statement; // trailing comment` shape that GameMaker
+        // authors rely on. When the child doc ends with a trailing comment token
+        // we cannot blindly append the semicolon because Prettier would render
+        // `statement // comment;`, effectively moving the comment past the
+        // terminator. Inserting the semicolon right before the comment keeps the
+        // formatter's "always add the final `;`" guarantee intact without
+        // rewriting author comments or dropping the semicolon entirely—a
+        // regression we previously hit when normalising legacy `#define`
+        // assignments.
         if (docHasTrailingComment(printed)) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
