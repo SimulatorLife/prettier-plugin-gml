@@ -13,11 +13,12 @@ import {
 import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
-    buildManualRepositoryEndpoints
+    buildManualRepositoryEndpoints,
+    createManualDownloadReporter,
+    downloadManualFileEntries
 } from "../lib/manual/utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
-    renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
@@ -425,82 +426,33 @@ const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
  * The helper centralizes console/progress-bar branching so callers can simply
  * forward status snapshots.
  */
-function reportManualAssetFetchProgress({
-    asset,
-    fetchedCount,
-    totalAssets,
-    verbose,
-    progressBarWidth
-}) {
-    if (!verbose.downloads) {
-        return;
-    }
-
-    if (verbose.progressBar) {
-        renderProgressBar(
-            DOWNLOAD_PROGRESS_LABEL,
-            fetchedCount,
-            totalAssets,
-            progressBarWidth
-        );
-        return;
-    }
-
-    console.log(`✓ ${asset.path}`);
-}
-
-/**
- * Download each manual asset and return a map of payloads keyed by the asset
- * descriptor's {@link key}. Progress callbacks receive the raw asset metadata
- * along with the running totals so orchestrators can surface meaningful status
- * updates without duplicating counter bookkeeping.
- */
-async function downloadManualAssetPayloads({
-    manualRefSha,
-    manualAssets,
-    requestOptions,
-    onProgress
-}) {
-    const payloads = {};
-    let fetchedCount = 0;
-    const totalAssets = manualAssets.length;
-
-    for (const asset of manualAssets) {
-        payloads[asset.key] = await fetchManualFile(
-            manualRefSha,
-            asset.path,
-            requestOptions
-        );
-
-        fetchedCount += 1;
-        onProgress?.({ asset, fetchedCount, totalAssets });
-    }
-
-    return payloads;
-}
-
 async function fetchManualAssets(
     manualRefSha,
     manualAssets,
     { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
 ) {
     return withProgressBarCleanup(async () => {
-        return downloadManualAssetPayloads({
+        const reportProgress = createManualDownloadReporter({
+            label: DOWNLOAD_PROGRESS_LABEL,
+            verbose,
+            progressBarWidth
+        });
+
+        return downloadManualFileEntries({
+            entries: manualAssets.map((asset) => [asset.key, asset.path]),
             manualRefSha,
-            manualAssets,
+            fetchManualFile,
             requestOptions: {
                 forceRefresh,
                 verbose,
                 cacheRoot,
                 rawRoot
             },
-            onProgress: ({ asset, fetchedCount, totalAssets }) =>
-                reportManualAssetFetchProgress({
-                    asset,
+            onProgress: ({ path, fetchedCount, totalEntries }) =>
+                reportProgress({
+                    path,
                     fetchedCount,
-                    totalAssets,
-                    verbose,
-                    progressBarWidth
+                    totalEntries
                 })
         });
     });
