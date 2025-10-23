@@ -253,7 +253,28 @@ function removeDuplicateCondensedFunctions(context) {
         return;
     }
 
-    context.ast.body = context.ast.body.filter((node) => !toRemove.has(node));
+    pruneContextRootBody(context, (node) => !toRemove.has(node));
+}
+
+/**
+ * Centralizes updates to the root body so call sites do not need to reach
+ * through the transformation context to manipulate nested collections.
+ *
+ * @param {object} context - Active transformation context produced by
+ * `condenseLogicalExpressions`.
+ * @param {(node: object) => boolean} predicate - Predicate describing which
+ * nodes should be retained in the root body.
+ */
+function pruneContextRootBody(context, predicate) {
+    const ast = context?.ast;
+    if (!ast || !Array.isArray(ast.body)) {
+        return;
+    }
+
+    const currentBody = ast.body;
+    const filteredBody = currentBody.filter(predicate);
+
+    ast.body = filteredBody;
 }
 
 function renderExpressionForDocComment(expressionAst) {
@@ -715,15 +736,11 @@ function createBooleanContext() {
 
 function registerVariable(node, context) {
     const key = getAstNodeKey(node);
-    if (!context.variableMap.has(key)) {
-        const index = context.variables.length;
-        const record = { index, node };
-        context.variableMap.set(key, record);
+    return getOrCreateMapEntry(context.variableMap, key, () => {
+        const record = { index: context.variables.length, node };
         context.variables.push(record);
         return record;
-    }
-
-    return context.variableMap.get(key);
+    });
 }
 
 function toBooleanExpression(node, context) {

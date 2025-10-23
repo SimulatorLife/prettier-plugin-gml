@@ -21,7 +21,7 @@ function normalizeByteCount(value) {
  * backwards-compatible behaviour for command modules.
  *
  * @param {number | bigint | unknown} bytes Amount of data to format.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {number} [options.decimals=1] Decimal places for non-byte units.
  * @param {number} [options.decimalsForBytes=0] Decimal places when the value is below 1 KB.
  * @param {string} [options.separator=""] String inserted between the value and unit.

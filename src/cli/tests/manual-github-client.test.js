@@ -136,14 +136,21 @@ describe("manual GitHub client validation", () => {
             );
             abortHandlerRegistered = true;
 
-            return new Promise((_resolve, reject) => {
-                signal.addEventListener(
-                    "abort",
-                    () => {
-                        reject(signal.reason ?? new Error("aborted"));
-                    },
-                    { once: true }
-                );
+            return new Promise((resolve, reject) => {
+                const onAbort = () => {
+                    clearTimeout(timeoutId);
+                    signal.removeEventListener("abort", onAbort);
+                    reject(signal.reason ?? new Error("aborted"));
+                };
+                const timeoutId = setTimeout(() => {
+                    signal.removeEventListener("abort", onAbort);
+                    resolve(makeResponse({ body: "late body" }));
+                }, 25);
+
+                signal.addEventListener("abort", onAbort, { once: true });
+                if (signal.aborted) {
+                    onAbort();
+                }
             });
         };
 
@@ -272,6 +279,40 @@ describe("manual GitHub client validation", () => {
         });
 
         assert.deepEqual(result, { ref: "v1.2.3", sha: "def456" });
+        assert.equal(responses.length, 0);
+    });
+
+    it("resolves manual refs when verbose state is omitted", async () => {
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: "https://raw.github.com/example/manual"
+        });
+        const { refResolver } = client;
+
+        const responses = [
+            {
+                url: `${API_ROOT}/tags?per_page=1`,
+                response: makeResponse({
+                    body: JSON.stringify([
+                        { name: "v9.9.9", commit: { sha: "cafeba" } }
+                    ])
+                })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const result = await refResolver.resolveManualRef(undefined, {
+            apiRoot: API_ROOT
+        });
+
+        assert.deepEqual(result, { ref: "v9.9.9", sha: "cafeba" });
         assert.equal(responses.length, 0);
     });
 

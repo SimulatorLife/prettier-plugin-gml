@@ -9,7 +9,6 @@ export {
 } from "./comment-boundary.js";
 export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    getLineCommentCodeDetectionPatterns,
     DEFAULT_LINE_COMMENT_OPTIONS,
     resolveLineCommentOptions,
     normalizeLineCommentOptions

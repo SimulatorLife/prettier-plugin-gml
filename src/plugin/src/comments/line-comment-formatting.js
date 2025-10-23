@@ -6,7 +6,10 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
-import { trimStringEntries } from "../../../shared/string-utils.js";
+import {
+    trimStringEntries,
+    toTrimmedString
+} from "../../../shared/string-utils.js";
 import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
@@ -51,6 +54,7 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
         pointer: "pointer",
         method: "method",
         asset: "asset",
+        constant: "constant",
         any: "any",
         var: "var",
         int64: "int64",
@@ -75,7 +79,7 @@ const TYPE_SPECIFIER_PREFIXES = new Set([
 const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
     Object.entries({
         asset: "Asset",
-        constant: "Constant",
+        constant: "constant",
         enum: "Enum",
         id: "Id",
         struct: "Struct"
@@ -459,11 +463,7 @@ function normalizeGameMakerType(typeText) {
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
-    if (typeof text !== "string") {
-        return false;
-    }
-
-    const trimmed = text.trim();
+    const trimmed = toTrimmedString(text);
     if (trimmed.length === 0) {
         return false;
     }
