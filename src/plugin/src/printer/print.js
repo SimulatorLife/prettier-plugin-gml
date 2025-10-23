@@ -78,6 +78,13 @@ const {
 } = builders;
 const { willBreak } = utils;
 
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentOut"
+);
+const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentText"
+);
+
 const ObjectWrapOption = Object.freeze({
     PRESERVE: "preserve",
     COLLAPSE: "collapse"
@@ -839,6 +846,21 @@ export function print(path, options, print) {
                 : concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
+            if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
+                const commentText = getFeatherCommentCallText(node);
+                const renderedText =
+                    typeof node[FEATHER_COMMENT_TEXT_SYMBOL] === "string" &&
+                    node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
+                        ? node[FEATHER_COMMENT_TEXT_SYMBOL]
+                        : commentText;
+
+                if (renderedText) {
+                    return concat(["// ", renderedText]);
+                }
+
+                return "//";
+            }
+
             if (options && typeof options.originalText === "string") {
                 const hasNestedPreservedArguments = Array.isArray(
                     node.arguments
@@ -1385,6 +1407,27 @@ export function print(path, options, print) {
             );
         }
     }
+}
+
+function getFeatherCommentCallText(node) {
+    if (!node || node.type !== "CallExpression") {
+        return "";
+    }
+
+    const calleeName = getIdentifierText(node.object);
+
+    if (!calleeName) {
+        return "";
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (!Array.isArray(args) || args.length === 0) {
+        return `${calleeName}()`;
+    }
+
+    const placeholderArgs = args.map(() => "...").join(", ");
+    return `${calleeName}(${placeholderArgs})`;
 }
 
 function buildTemplateStringParts(atoms, path, print) {
