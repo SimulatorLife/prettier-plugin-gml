@@ -111,7 +111,7 @@ export function createDefaultGmlPluginComponents() {
                 default: 0,
                 range: { start: 0, end: Infinity },
                 description:
-                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
+                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
             },
             applyFeatherFixes: {
                 since: "0.0.0",

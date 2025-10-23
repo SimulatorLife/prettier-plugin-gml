@@ -10,7 +10,6 @@ import {
     registerIdentifierCasePlanSnapshotProvider,
     registerIdentifierCaseRenameLookupProvider,
     resetIdentifierCasePlanServiceProvider,
-    resolveIdentifierCasePlanService,
     resolveIdentifierCasePlanPreparationService,
     resolveIdentifierCasePlanSnapshotService,
     resolveIdentifierCaseRenameLookupService
@@ -68,21 +67,22 @@ test(
     async () => {
         const calls = [];
 
-        const defaultServices = resolveIdentifierCasePlanService();
+        const defaultPreparation =
+            resolveIdentifierCasePlanPreparationService();
+        const defaultRenameLookup = resolveIdentifierCaseRenameLookupService();
+        const defaultSnapshot = resolveIdentifierCasePlanSnapshotService();
 
         registerIdentifierCasePlanPreparationProvider(() => ({
             async prepareIdentifierCasePlan(options) {
                 calls.push({ type: "prepare", options });
-                return defaultServices.preparation.prepareIdentifierCasePlan(
-                    options
-                );
+                return defaultPreparation.prepareIdentifierCasePlan(options);
             }
         }));
 
         registerIdentifierCaseRenameLookupProvider(() => ({
             getIdentifierCaseRenameForNode(node, options) {
                 calls.push({ type: "rename", node, options });
-                return defaultServices.renameLookup.getIdentifierCaseRenameForNode(
+                return defaultRenameLookup.getIdentifierCaseRenameForNode(
                     node,
                     options
                 );
@@ -92,13 +92,13 @@ test(
         registerIdentifierCasePlanSnapshotProvider(() => ({
             captureIdentifierCasePlanSnapshot(options) {
                 calls.push({ type: "capture", options });
-                return defaultServices.snapshot.captureIdentifierCasePlanSnapshot(
+                return defaultSnapshot.captureIdentifierCasePlanSnapshot(
                     options
                 );
             },
             applyIdentifierCasePlanSnapshot(snapshot, options) {
                 calls.push({ type: "apply", snapshot, options });
-                defaultServices.snapshot.applyIdentifierCasePlanSnapshot(
+                defaultSnapshot.applyIdentifierCasePlanSnapshot(
                     snapshot,
                     options
                 );

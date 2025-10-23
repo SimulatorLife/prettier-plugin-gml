@@ -42,13 +42,6 @@ import {
  * @typedef {() => IdentifierCasePlanSnapshotService} IdentifierCasePlanSnapshotProvider
  */
 
-/**
- * @typedef {object} IdentifierCasePlanServices
- * @property {IdentifierCasePlanPreparationService} preparation
- * @property {IdentifierCaseRenameLookupService} renameLookup
- * @property {IdentifierCasePlanSnapshotService} snapshot
- */
-
 const defaultPreparationService = Object.freeze({
     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
 });
@@ -69,8 +62,6 @@ let snapshotProvider = createDefaultIdentifierCasePlanSnapshotProvider();
 let cachedPreparationService = null;
 let cachedRenameLookupService = null;
 let cachedSnapshotService = null;
-let cachedServiceBundle = null;
-
 function createDefaultIdentifierCasePlanPreparationProvider() {
     return () => defaultPreparationService;
 }
@@ -140,22 +131,6 @@ function normalizeIdentifierCasePlanSnapshotService(service) {
     });
 }
 
-function normalizeIdentifierCasePlanServices(services) {
-    const { preparation, renameLookup, snapshot } = assertPlainObject(
-        services,
-        {
-            errorMessage:
-                "Identifier case plan service provider must return an object containing segregated services"
-        }
-    );
-
-    return Object.freeze({
-        preparation: normalizeIdentifierCasePlanPreparationService(preparation),
-        renameLookup: normalizeIdentifierCaseRenameLookupService(renameLookup),
-        snapshot: normalizeIdentifierCasePlanSnapshotService(snapshot)
-    });
-}
-
 function resolveIdentifierCasePlanPreparationServiceInternal() {
     if (!preparationProvider) {
         throw new Error(
@@ -204,23 +179,10 @@ function resolveIdentifierCasePlanSnapshotServiceInternal() {
     return cachedSnapshotService;
 }
 
-function resolveIdentifierCasePlanServiceInternal() {
-    if (!cachedServiceBundle) {
-        cachedServiceBundle = Object.freeze({
-            preparation: resolveIdentifierCasePlanPreparationServiceInternal(),
-            renameLookup: resolveIdentifierCaseRenameLookupServiceInternal(),
-            snapshot: resolveIdentifierCasePlanSnapshotServiceInternal()
-        });
-    }
-
-    return cachedServiceBundle;
-}
-
 function invalidateCachedViews() {
     cachedPreparationService = null;
     cachedRenameLookupService = null;
     cachedSnapshotService = null;
-    cachedServiceBundle = null;
 }
 
 export function registerIdentifierCasePlanPreparationProvider(provider) {
@@ -256,46 +218,11 @@ export function registerIdentifierCasePlanSnapshotProvider(provider) {
     invalidateCachedViews();
 }
 
-export function registerIdentifierCasePlanServiceProvider(provider) {
-    if (typeof provider !== "function") {
-        throw new TypeError(
-            "Identifier case plan service provider must be a function"
-        );
-    }
-
-    const resolveBundle = (() => {
-        let bundle = null;
-        return () => {
-            if (!bundle) {
-                bundle = normalizeIdentifierCasePlanServices(provider());
-            }
-            return bundle;
-        };
-    })();
-
-    registerIdentifierCasePlanPreparationProvider(() => {
-        return resolveBundle().preparation;
-    });
-    registerIdentifierCaseRenameLookupProvider(() => {
-        return resolveBundle().renameLookup;
-    });
-    registerIdentifierCasePlanSnapshotProvider(() => {
-        return resolveBundle().snapshot;
-    });
-}
-
 export function resetIdentifierCasePlanServiceProvider() {
     preparationProvider = createDefaultIdentifierCasePlanPreparationProvider();
     renameLookupProvider = createDefaultIdentifierCaseRenameLookupProvider();
     snapshotProvider = createDefaultIdentifierCasePlanSnapshotProvider();
     invalidateCachedViews();
-}
-
-/**
- * @returns {IdentifierCasePlanServices}
- */
-export function resolveIdentifierCasePlanService() {
-    return resolveIdentifierCasePlanServiceInternal();
 }
 
 export function resolveIdentifierCasePlanPreparationService() {

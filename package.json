@@ -32,7 +32,7 @@
   ],
   "author": "Two Scoop Studio",
   "engines": {
-    "node": "^18.20.0 || ^20.18.1 || >=21.1.0"
+    "node": "^20.18.1 || >=21.1.0"
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache test-results",
@@ -42,10 +42,11 @@
     "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "lint:report": "eslint . --format checkstyle --output-file test-results/eslint-checkstyle.xml",
+    "report": "npm run lint:report && npm run test:report && npm run test:coverage",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "node --test",
     "test:report": "rm -f test-results/tests.xml && mkdir -p test-results && node --test --test-reporter=junit --test-reporter-destination=./test-results/tests.xml",
-    "test:coverage": "rm -f test-results/lcov.info && mkdir -p test-results && node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=./test-results/lcov.info",
+    "test:coverage": "bash -lc 'rm -f test-results/lcov.info && mkdir -p test-results && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=test-results node --test; status=$?; rm -rf .nyc_output test-results/tmp test-results/lcov-report; exit $status'",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./test-results/shared.xml src/shared/tests/*.test.js",
     "test:parser": "node --test src/parser/tests/*.test.js",
@@ -62,13 +63,14 @@
     "build:antlr": "cd src/parser && npm run antlr",
     "build:gml-identifiers": "node ./src/cli/commands/generate-gml-identifiers.js",
     "build:feather-metadata": "node ./src/cli/commands/generate-feather-metadata.js",
-    "memory": "node ./src/cli/commands/memory.mjs",
+    "memory": "node --expose-gc ./src/cli/commands/memory.mjs",
     "example:plugin": "cd src/plugin && npm run example",
     "prepare": "husky",
     "cli": "node ./src/cli/cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "c8": "^9.1.0",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-formatter-checkstyle": "^8.40.0",
