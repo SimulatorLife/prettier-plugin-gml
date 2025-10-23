@@ -449,6 +449,53 @@ async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
+let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
+
+function getProjectIndexSourceExtensions() {
+    return projectSourceExtensions;
+}
+
+function resetProjectIndexSourceExtensions() {
+    projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
+    return projectSourceExtensions;
+}
+
+function normalizeProjectSourceExtensions(extensions) {
+    if (!Array.isArray(extensions)) {
+        throw new TypeError(
+            "Project source extensions must be provided as an array of strings."
+        );
+    }
+
+    const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
+
+    for (const extension of extensions) {
+        if (typeof extension !== "string") {
+            throw new TypeError(
+                "Project source extensions must be strings (for example '.gml')."
+            );
+        }
+
+        const trimmed = extension.trim();
+        if (trimmed.length === 0) {
+            throw new TypeError(
+                "Project source extensions cannot be empty strings."
+            );
+        }
+
+        const candidate = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+        normalized.add(candidate.toLowerCase());
+    }
+
+    return Object.freeze([...normalized]);
+}
+
+function setProjectIndexSourceExtensions(extensions) {
+    projectSourceExtensions = normalizeProjectSourceExtensions(extensions);
+    return projectSourceExtensions;
+}
+
 const ProjectFileCategory = Object.freeze({
     RESOURCE_METADATA: "yy",
     SOURCE: "gml"
@@ -476,7 +523,8 @@ export function resolveProjectFileCategory(relativePosix) {
     if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
         return ProjectFileCategory.RESOURCE_METADATA;
     }
-    if (lowerPath.endsWith(".gml")) {
+    const sourceExtensions = getProjectIndexSourceExtensions();
+    if (sourceExtensions.some((extension) => lowerPath.endsWith(extension))) {
         return ProjectFileCategory.SOURCE;
     }
     return null;
@@ -2652,4 +2700,9 @@ export async function buildProjectIndex(
 export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
 export { ProjectFileCategory };
+export {
+    getProjectIndexSourceExtensions,
+    resetProjectIndexSourceExtensions,
+    setProjectIndexSourceExtensions
+};
 export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
