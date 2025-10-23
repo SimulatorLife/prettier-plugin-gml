@@ -2002,8 +2002,19 @@ function printStatements(path, options, print, childrenAttribute) {
             hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
         }
 
+        const isVariableDeclaration = node.type === "VariableDeclaration";
         const isStaticDeclaration =
-            node.type === "VariableDeclaration" && node.kind === "static";
+            isVariableDeclaration && node.kind === "static";
+        const hasFunctionInitializer =
+            isVariableDeclaration &&
+            Array.isArray(node.declarations) &&
+            node.declarations.some((declaration) => {
+                const initType = declaration?.init?.type;
+                return (
+                    initType === "FunctionExpression" ||
+                    initType === "FunctionDeclaration"
+                );
+            });
 
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
@@ -2154,10 +2165,34 @@ function printStatements(path, options, print, childrenAttribute) {
                 isNextLineEmpty(options.originalText, trailingProbeIndex) &&
                 !suppressFollowingEmptyLine
             ) {
-                const nextCharacter = getNextNonWhitespaceCharacter(
-                    options.originalText,
-                    trailingProbeIndex
-                );
+                const text = options.originalText;
+                const textLength = text.length;
+                let scanIndex = trailingProbeIndex;
+                let nextCharacter = null;
+
+                while (scanIndex < textLength) {
+                    nextCharacter = getNextNonWhitespaceCharacter(
+                        text,
+                        scanIndex
+                    );
+
+                    if (nextCharacter === ";") {
+                        if (hasFunctionInitializer) {
+                            break;
+                        }
+
+                        const semicolonIndex = text.indexOf(";", scanIndex);
+                        if (semicolonIndex === -1) {
+                            nextCharacter = null;
+                            break;
+                        }
+                        scanIndex = semicolonIndex + 1;
+                        continue;
+                    }
+
+                    break;
+                }
+
                 shouldPreserveTrailingBlankLine = nextCharacter
                     ? nextCharacter !== "}"
                     : false;

@@ -181,6 +181,13 @@ function assertSuiteRegistryContract(availableSuites) {
     }
 }
 
+export function createSuiteResultsPayload(results, { generatedAt } = {}) {
+    return {
+        generatedAt: generatedAt ?? new Date().toISOString(),
+        suites: results
+    };
+}
+
 /**
  * Emit suite results using the preferred output format.
  *
@@ -188,7 +195,11 @@ function assertSuiteRegistryContract(availableSuites) {
  * @param {{ format?: string, pretty?: boolean }} options
  * @returns {boolean} `true` when JSON output was emitted.
  */
-export function emitSuiteResults(results, { format, pretty } = {}) {
+export function emitSuiteResults(
+    results,
+    { format, pretty } = {},
+    extras = {}
+) {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,
@@ -200,10 +211,10 @@ export function emitSuiteResults(results, { format, pretty } = {}) {
         return false;
     }
 
-    const payload = {
-        generatedAt: new Date().toISOString(),
-        suites: results
-    };
+    const payload =
+        extras && typeof extras === "object" && extras.payload
+            ? extras.payload
+            : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
     process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
     return true;

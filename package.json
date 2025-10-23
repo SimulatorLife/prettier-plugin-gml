@@ -63,7 +63,7 @@
     "build:antlr": "cd src/parser && npm run antlr",
     "build:gml-identifiers": "node ./src/cli/commands/generate-gml-identifiers.js",
     "build:feather-metadata": "node ./src/cli/commands/generate-feather-metadata.js",
-    "memory": "node ./src/cli/commands/memory.mjs",
+    "memory": "node --expose-gc ./src/cli/commands/memory.mjs",
     "example:plugin": "cd src/plugin && npm run example",
     "prepare": "husky",
     "cli": "node ./src/cli/cli.js"

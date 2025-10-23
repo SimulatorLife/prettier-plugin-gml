@@ -1,8 +1,14 @@
+import path from "node:path";
 import process from "node:process";
+import { writeFile as writeFileAsync } from "node:fs/promises";
 
 import { Command, InvalidArgumentError } from "commander";
 
-import { getErrorMessage, normalizeStringList } from "./shared-deps.js";
+import {
+    getErrorMessage,
+    normalizeStringList,
+    ensureDir
+} from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
     coercePositiveInteger,
@@ -19,11 +25,15 @@ import {
     emitSuiteResults as emitSuiteResultsJson,
     collectSuiteResults,
     ensureSuitesAreKnown,
-    resolveRequestedSuites
+    resolveRequestedSuites,
+    createSuiteResultsPayload
 } from "./command-suite-helpers.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
+
+const DEFAULT_MEMORY_REPORT_DIR = "test-results";
+const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 
 const createIterationErrorMessage = (received) =>
     `Iteration count must be a positive integer (received ${received}).`;
@@ -141,15 +151,16 @@ function createCountingSet(originalSet, allocationCounter) {
 }
 
 function runNormalizeStringListSuite({ iterations }) {
-    if (typeof globalThis.gc !== "function") {
-        throw new TypeError(
-            "Run with --expose-gc to enable precise heap measurements."
-        );
-    }
-
     const originalSet = globalThis.Set;
     const allocationCounter = { count: 0 };
     const CountingSet = createCountingSet(originalSet, allocationCounter);
+    const gc = typeof globalThis.gc === "function" ? globalThis.gc : null;
+
+    const runGc = () => {
+        if (gc) {
+            gc();
+        }
+    };
 
     globalThis.Set = CountingSet;
 
@@ -160,7 +171,7 @@ function runNormalizeStringListSuite({ iterations }) {
         );
         const sampleString = sampleValues.join(", ");
 
-        globalThis.gc();
+        runGc();
         const before = process.memoryUsage().heapUsed;
 
         let totalLength = 0;
@@ -171,19 +182,35 @@ function runNormalizeStringListSuite({ iterations }) {
 
         const after = process.memoryUsage().heapUsed;
 
-        globalThis.gc();
-        const afterGc = process.memoryUsage().heapUsed;
+        let afterGc = null;
+        if (gc) {
+            runGc();
+            afterGc = process.memoryUsage().heapUsed;
+        }
 
-        return {
+        const warnings = [];
+        if (!gc) {
+            warnings.push(
+                "Precise heap measurements require Node to be launched with --expose-gc."
+            );
+        }
+
+        const result = {
             iterations,
             totalLength,
             heapUsedBefore: before,
             heapUsedAfter: after,
             heapDelta: after - before,
             heapUsedAfterGc: afterGc,
-            heapDeltaAfterGc: afterGc - before,
+            heapDeltaAfterGc:
+                typeof afterGc === "number" ? afterGc - before : null,
             setAllocations: allocationCounter.count
         };
+        if (warnings.length > 0) {
+            result.warnings = warnings;
+        }
+
+        return result;
     } finally {
         globalThis.Set = originalSet;
     }
@@ -221,7 +248,7 @@ function printHumanReadable(results) {
     console.log(lines.join("\n"));
 }
 
-export async function runMemoryCommand({ command } = {}) {
+export async function runMemoryCommand({ command, onResults } = {}) {
     const options = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
@@ -234,10 +261,57 @@ export async function runMemoryCommand({ command } = {}) {
         onError: (error) => ({ error: formatSuiteError(error) })
     });
 
-    const emittedJson = emitSuiteResultsJson(suiteResults, options);
+    const payload = createSuiteResultsPayload(suiteResults);
+
+    if (typeof onResults === "function") {
+        await onResults({
+            payload,
+            suites: suiteResults,
+            options
+        });
+    }
+
+    const emittedJson = emitSuiteResultsJson(suiteResults, options, {
+        payload
+    });
     if (!emittedJson) {
         printHumanReadable(suiteResults);
     }
+
+    return 0;
+}
+
+export async function runMemoryCli({
+    argv = process.argv.slice(2),
+    env = process.env,
+    cwd = process.cwd(),
+    reportDir = DEFAULT_MEMORY_REPORT_DIR,
+    reportFileName = DEFAULT_MEMORY_REPORT_FILENAME,
+    writeFile: customWriteFile
+} = {}) {
+    const command = createMemoryCommand({ env });
+
+    await command.parseAsync(argv, { from: "user" });
+
+    const resolvedReportDir = path.resolve(
+        cwd,
+        reportDir ?? DEFAULT_MEMORY_REPORT_DIR
+    );
+    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
+    const reportPath = path.join(resolvedReportDir, resolvedReportName);
+    const effectiveWriteFile =
+        typeof customWriteFile === "function"
+            ? customWriteFile
+            : writeFileAsync;
+
+    await runMemoryCommand({
+        command,
+        onResults: async ({ payload }) => {
+            await ensureDir(resolvedReportDir);
+            const reportContents = `${JSON.stringify(payload, null, 2)}\n`;
+            await effectiveWriteFile(reportPath, reportContents, "utf8");
+        }
+    });
 
     return 0;
 }
