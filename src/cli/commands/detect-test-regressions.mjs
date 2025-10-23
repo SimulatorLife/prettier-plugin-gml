@@ -467,7 +467,7 @@ function listXmlFiles(resolvedPath) {
             (file) =>
                 file.endsWith(".xml") &&
                 !/checkstyle/i.test(file) &&
-                !file.toLowerCase().endsWith("-summary.xml")
+                !/-summary\.xml$/i.test(file)
         );
 }
 
