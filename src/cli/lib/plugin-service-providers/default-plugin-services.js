@@ -4,6 +4,7 @@ import {
     clearIdentifierCaseOptionStore,
     clearIdentifierCaseDryRunContexts
 } from "prettier-plugin-gamemaker/identifier-case";
+import { assertFunction } from "../shared-deps.js";
 
 /**
  * @typedef {object} CliIdentifierCasePlanPreparationService
@@ -39,11 +40,9 @@ function resolveDescriptorSource(descriptorSource) {
 }
 
 function assertDescriptorValue(value, description) {
-    if (typeof value !== "function") {
-        throw new TypeError(
-            `CLI plugin service descriptors must include a ${description} function.`
-        );
-    }
+    assertFunction(value, description, {
+        errorMessage: `CLI plugin service descriptors must include a ${description} function.`
+    });
 }
 
 export function createDefaultCliPluginServices(descriptorSource) {
