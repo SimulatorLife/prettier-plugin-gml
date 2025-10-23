@@ -124,20 +124,25 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
     return changed;
 }
 
-function ensureWritableDirectory(fsFacade, directoryPath) {
-    if (!directoryPath) {
-        return;
-    }
-
+function hasWriteAccess(fsFacade, targetPath, probeMethod) {
     const accessArgs =
         DEFAULT_WRITE_ACCESS_MODE == undefined
             ? []
             : [DEFAULT_WRITE_ACCESS_MODE];
 
-    if (
-        tryAccess(fsFacade, "accessSync", directoryPath, ...accessArgs) ||
-        tryAccess(fsFacade, "existsSync", directoryPath)
-    ) {
+    if (tryAccess(fsFacade, "accessSync", targetPath, ...accessArgs)) {
+        return true;
+    }
+
+    return tryAccess(fsFacade, probeMethod, targetPath);
+}
+
+function ensureWritableDirectory(fsFacade, directoryPath) {
+    if (!directoryPath) {
+        return;
+    }
+
+    if (hasWriteAccess(fsFacade, directoryPath, "existsSync")) {
         return;
     }
 
@@ -147,15 +152,7 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
 }
 
 function ensureWritableFile(fsFacade, filePath) {
-    const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE == undefined
-            ? []
-            : [DEFAULT_WRITE_ACCESS_MODE];
-
-    if (
-        tryAccess(fsFacade, "accessSync", filePath, ...accessArgs) ||
-        tryAccess(fsFacade, "statSync", filePath)
-    ) {
+    if (hasWriteAccess(fsFacade, filePath, "statSync")) {
         return;
     }
 

@@ -19,7 +19,7 @@
     "gamemaker-language-parser": "file:../parser"
   },
   "engines": {
-    "node": "^20.18.1 || >=21.1.0"
+    "node": ">=25.0.0"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"

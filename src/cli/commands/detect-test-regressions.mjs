@@ -467,7 +467,7 @@ function listXmlFiles(resolvedPath) {
             (file) =>
                 file.endsWith(".xml") &&
                 !/checkstyle/i.test(file) &&
-                !file.toLowerCase().endsWith("-summary.xml")
+                !/-summary\.xml$/i.test(file)
         );
 }
 
@@ -1806,8 +1806,7 @@ function buildLegacySummaryComment({
     const lines = [];
     if (summaries.length > 0) {
         lines.push(
-            "| Target | Total | Passed | Failed | Skipped | Lint warnings | Lint errors | Coverage | Duration |"
-        , 
+            "| Target | Total | Passed | Failed | Skipped | Lint warnings | Lint errors | Coverage | Duration |",
             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
         );
 
