@@ -881,6 +881,622 @@ export function __resolve_with_targets(exprVal: any, self: any, other: any): any
 
 Semantic analysis produces the annotated IR, the emitter converts those annotations into runnable JavaScript that respects the identifier policy, and the runtime shims supply the minimal host APIs the generated code expects. Storing the same IR in SQLite keeps downstream tooling and dependency checks fast without sacrificing portability.
 
+## Canonical Symbol Index (SCIP)
+Use the Sourcegraph Code Intelligence Protocol (SCIP) as the single, canonical representation of symbol definitions and references. SCIP is standardized, compact, and expressive enough to power hot-reload dependency analysis without bespoke formats.
+
+### Why SCIP?
+- **Standardized:** actively used within the Sourcegraph ecosystem with stable protobuf definitions and tooling.
+- **Compact:** `.scip` protobuf binaries are significantly leaner than LSIF JSON, ideal for rapid reload cycles.
+- **Complete for hot reload:** documents, symbols, and occurrences (definition vs. reference) answer “what changed?” and “who depends on it?” instantly.
+- **Extensible:** hover text, docstrings, diagnostics, and relationships can be added later without rethinking storage.
+
+### Core Concepts
+- **Document:** one source unit (for example, a `.gml` file or embedded event script).
+- **Symbol:** fully qualified identifier (script, object, event, macro, enum member, resolved variable).
+- **Occurrence:** a range in a document where a symbol appears, tagged as definition or reference.
+
+This structure answers:
+- “Changed file → which symbols were defined here?”
+- “For each changed symbol → where are its references?” (impacted call sites and owning objects).
+- “For each reference → what symbol defines that document?” (maps back to patch targets).
+
+### Deterministic Symbol Naming
+Adopt a URI-like scheme: `gml/<kind>/<qualified-name>`. Keep identifiers ASCII and stable.
+
+Examples:
+- `gml/script/scr_damage_enemy`
+- `gml/object/obj_enemy`
+- `gml/event/obj_enemy#Step`
+- `gml/macro/MAX_HP`
+- `gml/enum/eState::Idle`
+- `gml/var/obj_enemy::hp`
+
+### Minimal Hot-Reload Queries
+1. **Definitions in file `F`:** read definition occurrences for `F` → `S = {s1, s2, …}`.
+2. **Direct dependents:** for each `s ∈ S`, collect reference occurrences; the documents housing those references are impacted.
+3. **Patch targets:** always recompile symbols in `S`; optionally recompile direct dependents if closures or cached delegates require rebinding.
+
+Events map cleanly: `gml/event/obj_enemy#Step` ↔ `object:obj_enemy#Step`.
+
+### Performance Guidance
+- Load `project.scip` once at dev-server start (typically a few megabytes).
+- Maintain in-memory maps:
+  - `docPath → occurrences[]`.
+  - `symbol → {defs[], refs[]}`.
+- On change, update just the affected document’s occurrences and recompute deltas in microseconds—no external database required.
+
+### Workflow Integration
+1. Watch `.gml` and embedded `.yy` code.
+2. Re-parse on change, run semantics, produce SCIP occurrences for that document.
+3. Upsert the document in the in-memory index, gather changed symbols, and query dependents.
+4. Emit GML → JS patches for each target symbol and push them through the WebSocket pipeline.
+
+## SCIP Implementation Blueprint
+Pragmatic TypeScript snippets below show how to emit and query SCIP using `protobufjs`. Wire them to your grammar and semantic analyzer.
+
+### Install Dependencies
+```
+npm i protobufjs
+# fetch scip.proto from https://github.com/sourcegraph/scip
+# then generate TS or load at runtime with protobufjs
+```
+
+### Emit a SCIP Index
+```typescript
+// scip-writer.ts (sketch)
+import protobuf from "protobufjs";
+// load scip descriptor at init
+const root = await protobuf.load("scip.proto");
+const Index = root.lookupType("scip.Index");
+const Document = root.lookupType("scip.Document");
+const Occurrence = root.lookupType("scip.Occurrence");
+
+export type Range = [number, number, number, number]; // [startLine, startCol, endLine, endCol]
+export type Role = 0 | 1; // 0=Unspecified, 1=Definition; use Occurrence.Role enum in real code
+
+export interface ScipDocInput {
+  relativePath: string;
+  occurrences: Array<{
+    range: Range;
+    symbol: string;
+    role: Role;           // Occurrence.Role.DEFINITION or .REFERENCE
+  }>;
+  // plus: symbolInformation[] if you want docs/hover (optional)
+}
+
+export function makeIndex(docs: ScipDocInput[]) {
+  const index = Index.create({
+    metadata: { toolInfo: { name: "gml-scip", version: "0.1.0" } },
+    documents: docs.map(d => Document.create({
+      language: "gml",
+      relativePath: d.relativePath.replace(/\\/g, "/"),
+      occurrences: d.occurrences.map(o => Occurrence.create({
+        range: o.range,
+        symbol: o.symbol,
+        symbolRoles: o.role // 1 = DEF, else REF
+      }))
+    }))
+  });
+  return Index.encode(index).finish(); // Uint8Array → write to .scip
+}
+```
+
+### In-Memory Query Index
+```typescript
+// scip-index.ts
+import protobuf from "protobufjs";
+const root = await protobuf.load("scip.proto");
+const Index = root.lookupType("scip.Index");
+
+export type Occ = {
+  docPath: string;
+  range: [number, number, number, number];
+  symbol: string;
+  isDef: boolean;
+};
+
+export class ScipMemoryIndex {
+  private byDoc = new Map<string, Occ[]>();
+  private defs = new Map<string, Occ[]>(); // symbol -> DEF occurrences
+  private refs = new Map<string, Occ[]>(); // symbol -> REF occurrences
+
+  static fromBytes(bytes: Uint8Array) {
+    const idx = Index.decode(bytes) as any;
+    const m = new ScipMemoryIndex();
+    for (const d of idx.documents ?? []) {
+      const path = d.relativePath as string;
+      const occs: Occ[] = [];
+      for (const o of d.occurrences ?? []) {
+        const occ: Occ = {
+          docPath: path,
+          range: o.range as any,
+          symbol: o.symbol as string,
+          isDef: (o.symbolRoles & 1) === 1 // Role.DEFINITION bit
+        };
+        occs.push(occ);
+        const map = occ.isDef ? m.defs : m.refs;
+        const arr = map.get(occ.symbol) ?? [];
+        arr.push(occ); map.set(occ.symbol, arr);
+      }
+      m.byDoc.set(path, occs);
+    }
+    return m;
+  }
+
+  /** Replace (or insert) one document’s occurrences after a re-parse. */
+  upsertDocument(path: string, occs: Occ[]) {
+    // remove previous
+    const prev = this.byDoc.get(path) ?? [];
+    for (const p of prev) {
+      const map = p.isDef ? this.defs : this.refs;
+      const list = map.get(p.symbol);
+      if (list) map.set(p.symbol, list.filter(x => !(x.docPath === p.docPath && x.range === p.range)));
+    }
+    // add new
+    this.byDoc.set(path, occs);
+    for (const o of occs) {
+      const map = o.isDef ? this.defs : this.refs;
+      const list = map.get(o.symbol) ?? [];
+      list.push(o); map.set(o.symbol, list);
+    }
+  }
+
+  /** Hot-reload query #1: which symbols are defined in this file? */
+  defsInFile(path: string): string[] {
+    const occs = this.byDoc.get(path) ?? [];
+    const set = new Set<string>();
+    for (const o of occs) if (o.isDef) set.add(o.symbol);
+    return [...set];
+  }
+
+  /** Hot-reload query #2: where are references to a symbol? */
+  refsOf(symbol: string): Occ[] {
+    return this.refs.get(symbol) ?? [];
+  }
+
+  /** Helper: for a ref occurrence, find the defining symbol(s) in that document. */
+  defsInDoc(path: string): Occ[] {
+    return (this.byDoc.get(path) ?? []).filter(o => o.isDef);
+  }
+}
+```
+
+### Dev-Server Integration
+```typescript
+// hotdev-pipeline.ts (simplified)
+import { ScipMemoryIndex } from "./scip-index";
+
+let scipIndex = ScipMemoryIndex.fromBytes(await fs.readFile("project.scip"));
+
+async function onFileChanged(filePath: string) {
+  // 1) Re-parse + semantics → produce occurrences for this doc:
+  const docOccs = analyzeToScipOccurrences(filePath); // your analyzer → {range, symbol, role}
+  scipIndex.upsertDocument(rel(filePath), docOccs);
+
+  // 2) Changed symbols:
+  const changed = scipIndex.defsInFile(rel(filePath));
+
+  // 3) Direct dependents:
+  const impactedDocs = new Set<string>();
+  for (const sym of changed) {
+    for (const ref of scipIndex.refsOf(sym)) impactedDocs.add(ref.docPath);
+  }
+
+  // 4) Emit patches:
+  const targets = new Set<string>(changed);
+  // Optionally also add the defs in impacted docs (if runtime caches closures)
+  for (const doc of impactedDocs) {
+    for (const def of scipIndex.defsInDoc(doc)) targets.add(def.symbol);
+  }
+
+  // 5) For each target symbol, run your GML→JS emitter and push WS patch
+  for (const sym of targets) {
+    const patch = await emitPatchForSymbol(sym);
+    wsBroadcast(patch);
+  }
+}
+```
+
+You can begin with scripts and events, then extend to macros, enums, and variables. Visualization or CI tooling can reuse the same `.scip` file, and if you later mirror data into SQLite you still preserve SCIP as the canonical source.
+
+### Symbol Helpers
+```typescript
+// scip-symbols.ts
+export type GmlSymbolKind = "script" | "event" | "object" | "macro" | "enum" | "var";
+
+export function sym(kind: GmlSymbolKind, name: string): string {
+  // Keep ASCII + stable; consumers rely on this for diffs
+  return `gml/${kind}/${name}`;
+}
+
+// Examples:
+// sym("script", "scr_damage_enemy")  -> "gml/script/scr_damage_enemy"
+// sym("event", "obj_enemy#Step")     -> "gml/event/obj_enemy#Step"
+// sym("var",   "obj_enemy::hp")      -> "gml/var/obj_enemy::hp"
+```
+
+### Occurrence Types
+```typescript
+// scip-types.ts
+export type Range4 = [number, number, number, number]; // [startLine, startCol, endLine, endCol]
+// Role bitmask per SCIP spec: DEFINITION bit is 1 << 0
+export const ROLE_DEF = 1 as const;
+export const ROLE_REF = 0 as const;
+
+export interface ScipOccurrence {
+  range: Range4;
+  symbol: string;
+  symbolRoles: typeof ROLE_DEF | typeof ROLE_REF;
+}
+
+export interface ScipDocInput {
+  relativePath: string;
+  occurrences: ScipOccurrence[];
+}
+```
+
+### Semantic Oracle Interface
+```typescript
+// sem-oracle.ts
+export type SemKind = "local" | "self_field" | "other_field" | "global_field" | "builtin" | "script";
+
+export interface SemOracle {
+  // identifier node → kind + resolved fully-qualified name (for scripts/vars)
+  kindOfIdent(node: any): SemKind;
+  nameOfIdent(node: any): string;         // raw text (e.g., "hp", "scr_damage_enemy")
+  qualifiedSymbol(node: any): string | null; // e.g., "gml/script/scr_damage_enemy" or null if non-symbol
+
+  // call node → is this a script call or builtin?
+  callTargetKind(node: any): "script" | "builtin" | "unknown";
+  callTargetSymbol(node: any): string | null; // symbol if known (e.g., gml/script/xxx)
+}
+```
+
+### SCIP Occurrence Visitor
+```typescript
+// analyze-to-scip.ts
+import antlr4 from "antlr4";
+import { ROLE_DEF, ROLE_REF, ScipDocInput, ScipOccurrence, Range4 } from "./scip-types";
+import { SemOracle } from "./sem-oracle";
+// generated by ANTLR (adjust import paths to your build layout)
+const { GMLLexer } = require("../generated/GMLLexer.js");
+const { GMLParser } = require("../generated/GMLParser.js");
+const { GMLParserVisitor } = require("../generated/GMLParserVisitor.js");
+
+/** Utilities to build 0-based LSP-like ranges from tokens */
+function tokRange(ctx: any): Range4 {
+  // ANTLR tokens use 1-based lines, 0-based columns
+  const s = ctx.start, e = ctx.stop ?? ctx.start;
+  const sl = Math.max(0, (s?.line ?? 1) - 1);
+  const sc = Math.max(0, s?.column ?? 0);
+  const el = Math.max(sl, (e?.line ?? (s?.line ?? 1)) - 1);
+  const ec = Math.max(0, (e?.column ?? sc) + (e?.text?.length ?? 1));
+  return [sl, sc, el, ec];
+}
+
+export class ScipOccVisitor extends GMLParserVisitor {
+  public occs: ScipOccurrence[] = [];
+  constructor(private sem: SemOracle) { super(); }
+
+  private push(range: Range4, symbol: string, isDef: boolean) {
+    this.occs.push({ range, symbol, symbolRoles: isDef ? ROLE_DEF : ROLE_REF });
+  }
+
+  // === Wire these methods to your grammar rules ===
+
+  /** Script/function declaration: mark the identifier token as a DEF */
+  // GML 2.x often: function scr_name(...) block
+  visitFuncDecl(ctx: any) {
+    const idTok = ctx.Identifier?.();                 // adjust to your rule
+    if (idTok) {
+      const sym = this.sem.qualifiedSymbol(idTok) ?? null;
+      if (sym) this.push(tokRange(idTok.symbol ?? idTok), sym, true);
+    }
+    // Visit children so we record references in the body
+    return this.visitChildren(ctx);
+  }
+
+  /** Variable declarations (locals): you can skip adding DEF symbols for locals in SCIP */
+  visitVarDecl(ctx: any) {
+    // If you *do* want locals indexed, invent a var symbol scheme, e.g., gml/var/file::func::name
+    return this.visitChildren(ctx);
+  }
+
+  /** Identifier use sites: add REFs for script names or global/instance fields you model as symbols */
+  visitPrimaryIdentifier(ctx: any) {                  // rename to your identifier rule
+    const kind = this.sem.kindOfIdent(ctx);
+    // Only record global instance fields or scripts/macros/enums as symbols (skip locals)
+    if (kind === "script" || kind === "global_field") {
+      const sym = this.sem.qualifiedSymbol(ctx);
+      if (sym) this.push(tokRange(ctx), sym, false);
+    }
+    return null; // don't double-visit children
+  }
+
+  /** Calls: add a REF to the target script symbol (builtins usually don't get symbols) */
+  visitCallExpr(ctx: any) {                           // rename to your call expr rule
+    const k = this.sem.callTargetKind(ctx);
+    if (k === "script") {
+      const sym = this.sem.callTargetSymbol(ctx);
+      if (sym) this.push(tokRange(ctx.Identifier?.() ?? ctx), sym, false);
+    }
+    // still visit args
+    if (ctx.argList) this.visit(ctx.argList);
+    return null;
+  }
+
+  // Default: visit kids
+  visitChildren(node: any) {
+    if (!node || !node.children) return null;
+    for (const ch of node.children) { if (ch.accept) ch.accept(this); }
+    return null;
+  }
+}
+
+/** Main entry: parse one file, run semantic pass (you provide the oracle), return SCIP doc input */
+export function analyzeToScipOccurrences(source: string, relativePath: string, oracle: SemOracle): ScipDocInput {
+  const chars = new antlr4.InputStream(source);
+  const lexer = new GMLLexer(chars);
+  const tokens = new antlr4.CommonTokenStream(lexer as any);
+  const parser = new GMLParser(tokens);
+  parser.buildParseTrees = true;
+
+  // Root rule: replace with your start nonterminal (e.g., codeUnit / program)
+  const tree = parser.codeUnit();
+
+  // Walk & collect occurrences
+  const v = new ScipOccVisitor(oracle);
+  v.visit(tree);
+
+  return { relativePath: relativePath.replace(/\\/g, "/"), occurrences: v.occs };
+}
+```
+
+### Dummy Semantic Oracle
+```typescript
+// sem-oracle-dummy.ts
+import { sym } from "./scip-symbols";
+import type { SemOracle } from "./sem-oracle";
+
+export function makeDummyOracle(userScripts: Set<string>): SemOracle {
+  return {
+    kindOfIdent(node: any) {
+      const name = node.getText?.() ?? "";
+      if (userScripts.has(name)) return "script";
+      if (name.startsWith("global_")) return "global_field";
+      return "local";
+    },
+    nameOfIdent(node: any) { return node.getText?.() ?? ""; },
+    qualifiedSymbol(node: any) {
+      const name = node.getText?.() ?? "";
+      if (userScripts.has(name)) return sym("script", name);
+      if (name.startsWith("global_")) return sym("var", `global::${name}`);
+      return null;
+    },
+    callTargetKind(node: any) {
+      const callee = node.Identifier?.().getText?.() ?? "";
+      return userScripts.has(callee) ? "script" : "unknown";
+    },
+    callTargetSymbol(node: any) {
+      const callee = node.Identifier?.().getText?.() ?? "";
+      return userScripts.has(callee) ? sym("script", callee) : null;
+    }
+  };
+}
+```
+
+### Dev-Server Wiring
+```typescript
+// hotdev-wire.ts
+import fs from "node:fs/promises";
+import path from "node:path";
+import { analyzeToScipOccurrences } from "./analyze-to-scip";
+import { makeDummyOracle } from "./sem-oracle-dummy";
+import { ScipMemoryIndex } from "./scip-index";  // from earlier message
+import { emitPatchForSymbol, wsBroadcast } from "./your-patch-pipeline"; // your implementation
+
+const scip = new ScipMemoryIndex(); // start empty; or load from file if you persisted one
+
+export async function onFileChanged(absPath: string) {
+  const rel = path.relative(process.cwd(), absPath).replace(/\\/g, "/");
+  const source = await fs.readFile(absPath, "utf8");
+
+  // TODO: query your symbol table to know which names are scripts. For now, stub:
+  const userScripts = new Set<string>(["scr_damage_enemy", "scr_apply_knockback"]);
+  const oracle = makeDummyOracle(userScripts);
+
+  // 1) Analyze -> occurrences for this doc
+  const doc = analyzeToScipOccurrences(source, rel, oracle);
+
+  // 2) Update in-memory SCIP
+  const occs = doc.occurrences.map(o => ({ docPath: doc.relativePath, range: o.range, symbol: o.symbol, isDef: (o.symbolRoles & 1) === 1 }));
+  scip.upsertDocument(doc.relativePath, occs);
+
+  // 3) Changed symbols (DEFs in this file)
+  const changed = scip.defsInFile(doc.relativePath);
+
+  // 4) Direct dependents (REFs to changed symbols)
+  const targets = new Set<string>(changed);
+  for (const s of changed) for (const ref of scip.refsOf(s)) {
+    for (const def of scip.defsInDoc(ref.docPath)) targets.add(def.symbol);
+  }
+
+  // 5) Emit patches
+  for (const sym of targets) {
+    const patch = await emitPatchForSymbol(sym); // run your GML->JS emitter here
+    if (patch) wsBroadcast(patch);
+  }
+}
+```
+
+## Scope-Aware Refactors
+Sharing the SCIP index and semantic analyzer across refactoring and formatting enables capture-avoiding renames and scope-aware edits without introducing bespoke formats.
+
+### Architecture Overview
+- **Canonical index:** `.scip` file in memory (`ScipMemoryIndex`) plus the semantic analyzer’s scope model.
+- **Bidirectional maps:** symbol → occurrences, `docPath` → CST/token stream, and occurrence ↔ CST node locators.
+- **Refactor engine:** consumes scopes and occurrences to produce conflict-free workspace edits.
+- **Formatter integration:** the Prettier plugin reads CST nodes with semantic hints to preserve qualifiers and trivia.
+- **Validation loop:** apply edits in memory, reparse, recompute semantics, verify resolution, format, persist, and hot-reload.
+
+Semantic data flowing back into parser/formatter steps includes symbol identities (`gml/script/...`, `gml/var/...`), occurrence ranges, and binding classifications (local, self, global, script). The formatter looks up these hints while emitting tokens.
+
+### Capture-Avoiding Rename Workflow
+Inputs:
+
+- `targetSymbol`: canonical identifier (e.g., `gml/var/obj_enemy::hp`).
+- `newName`: desired name.
+- `index`: `ScipMemoryIndex`.
+- `sem`: semantic oracle providing scope resolution.
+- `cstProvider(docPath)`: returns the parsed CST with node locators.
+
+Steps:
+
+1. **Collect sites:** union of definition and reference occurrences for `targetSymbol`.
+2. **Determine binding scope:** use the semantic model to locate the definition’s scope node.
+3. **Per-file simulation:** locate identifier tokens, build lexical scope chains, and run conflict checks (shadowing, capture, same-scope clashes, resolution drift).
+4. **Auto-avoidance strategies:**
+   - Alpha-rename conflicting locals within minimal scopes (`name`, `name_1`, …).
+   - Qualify instance fields or globals (inject `self.` or `global.`) when locals would capture.
+   - Treat `with` bodies in the lowered environment (`self := withTarget`, `other := previousSelf`); block renames there until fully supported.
+5. **Workspace edits:** create `TextEdit` entries for primary renames and qualifier/alpha edits; sort edits descending by offset per file.
+6. **Dry-run validation:** apply edits in memory, reparse changed files, regenerate SCIP occurrences, remap the symbol to `newName`, and verify references still resolve to the same entity.
+7. **Finalize:** format changed files, write to disk, and emit hot-reload patches.
+
+### Workspace Edit Utilities
+```typescript
+type TextEdit = { path: string; start: number; end: number; newText: string };
+type FileEdits = { path: string; edits: TextEdit[] };
+type WorkspaceEdit = FileEdits[];
+
+function applyEditsToText(src: string, edits: TextEdit[]): string {
+  // edits must be sorted by start DESC
+  let out = src;
+  for (const e of edits) {
+    out = out.slice(0, e.start) + e.newText + out.slice(e.end);
+  }
+  return out;
+}
+```
+
+### Rename Planner Skeleton
+```typescript
+async function planRename(
+  targetSymbol: string,
+  newName: string,
+  scip: ScipMemoryIndex,
+  sem: SemanticOracle,
+  cstProvider: (path: string) => Promise<CST>
+): Promise<WorkspaceEdit> {
+  const defs = scip.defsOf(targetSymbol);   // implement: list of Occ
+  if (defs.length !== 1) throw new Error("Ambiguous rename target; need exactly one DEF.");
+  const sites = [...defs, ...scip.refsOf(targetSymbol)];
+
+  const byFile = new Map<string, TextEdit[]>();
+
+  for (const site of sites) {
+    const cst = await cstProvider(site.docPath);
+    const node = cst.locate(site.range);  // your node locator returning token node
+    if (!node || node.kind !== "Identifier") continue;
+
+    // 1) Compute scope chain at node
+    const chain = sem.scopeChain(site.docPath, node.start); // closest → outer
+
+    // 2) Conflict checks
+    const conflicts = detectConflicts(chain, newName, sem, site, targetSymbol);
+
+    // 3) Auto-avoidance & extra edits
+    const extraEdits: TextEdit[] = [];
+    for (const c of conflicts) {
+      if (c.kind === "capture") {
+        // alpha-rename the inner local that would capture
+        const newLocal = suggestSafeVariant(c.localName, sem, c.scope);
+        extraEdits.push(...renameLocalInScope(c.scope, c.localName, newLocal, cst, sem));
+      } else if (c.kind === "shadow_local_uses") {
+        // qualify uses as self.newName or global.newName
+        extraEdits.push(...qualifyUses(site.docPath, c.uses, c.qualifier)); // inject "self." or "global."
+      } else if (c.kind === "same_scope_clash") {
+        throw new Error(`Name '${newName}' already declared in the same scope at ${c.at.path}:${c.at.startLine}`);
+      }
+    }
+
+    // 4) Primary edit: rename token
+    const primary: TextEdit = { path: site.docPath, start: node.start, end: node.end, newText: newName };
+
+    const arr = byFile.get(site.docPath) ?? [];
+    arr.push(primary, ...extraEdits);
+    byFile.set(site.docPath, arr);
+  }
+
+  // Sort edits per file (descending by start)
+  const ws: WorkspaceEdit = [];
+  for (const [path, edits] of byFile) {
+    edits.sort((a, b) => b.start - a.start);
+    ws.push({ path, edits });
+  }
+  return ws;
+}
+```
+
+Helpers such as `detectConflicts`, `renameLocalInScope`, `qualifyUses`, and `suggestSafeVariant` draw on the scope tree and can expand over time.
+
+### Apply, Validate, and Format
+```typescript
+async function applyRenameWithValidation(ws: WorkspaceEdit, read: (p:string)=>Promise<string>, write:(p:string,s:string)=>Promise<void>) {
+  // In-memory apply + reparse changed docs
+  const changed: string[] = [];
+  for (const fe of ws) {
+    const src = await read(fe.path);
+    const text = applyEditsToText(src, fe.edits);
+    await write(fe.path + ".tmp", text); // or keep in memory if your parser takes strings
+    changed.push(fe.path);
+  }
+
+  // Reparse + recompute semantics for changed docs only
+  await reindexScipForDocuments(changed); // updates your ScipMemoryIndex in RAM
+
+  // Verify: all reference occurrences for the *entity* still resolve to the new symbol id
+  // You’ll remap the symbol id: e.g., gml/var/obj_enemy::hp -> gml/var/obj_enemy::newName
+  const ok = await verifyResolutionStability(changed);
+  if (!ok) throw new Error("Post-rename semantic verification failed.");
+
+  // Replace physical files, run Prettier on them
+  for (const fe of ws) {
+    const tmp = await read(fe.path + ".tmp");
+    await write(fe.path, prettierFormat(tmp, fe.path));
+  }
+}
+```
+
+### Formatter Semantic Hints
+```typescript
+type SemHints = {
+  // by (docPath, offset) → resolved symbol (‘self_field’, ‘global_field’, etc.)
+  identifiers: Record<number, { kind: "local"|"self_field"|"global_field"|"script", symbol?: string }>;
+};
+
+format(source, { semHints: SemHints });
+```
+
+Semantic hints let the formatter decide when to emit qualifiers (`self.`, `global.`), enforce enum/macro casing, and maintain wrapping after refactors.
+
+### GML-Specific Policies
+- **`with(...)`:** plan renames in the lowered environment; initially block renames there until the scope simulation is complete.
+- **Collision events:** remember `other` flips context; prefer qualifying identifiers.
+- **Macros/enums:** treat as global constants; prevent collisions unless declarations are updated.
+- **Generated IDs:** if resource IDs depend on names, add migration hooks to update metadata alongside code edits.
+
+### Refactor Checklist
+1. Provide occurrence ↔ CST node locators.
+2. Implement conflict detection for locals and instance fields.
+3. Auto-qualify uses when locals would shadow renamed fields.
+4. Validate by reparsing and verifying definition/reference stability.
+5. Feed semantic hints into the formatter to preserve qualifiers.
+6. Expose a CLI (for example, `gm refactor rename --symbol gml/var/obj_enemy::hp --to health`).
+7. Emit hot-reload patches for affected scripts/events after writes.
+
+
+
 ## Recommended Starting Approach
 Adopt the **bootstrap wrapper** model first. It introduces minimal overhead, operates in the same JavaScript realm as the runner, and avoids cross-frame messaging or Service Worker cache management. The wrapper runs immediately after the upstream runtime, discovers dispatchers, and injects hot indirection. With the runtime pinned as a dependency, updates involve replacing the upstream bundle and re-running hook checks.
 
@@ -1730,6 +2346,7 @@ function compile_gml_to_js_stub(_src: string, file: string): string {
 - [antlr4-c3 Code Completion Toolkit](https://github.com/mike-lischke/antlr4-c3)
 - [antlr4-symboltable Scope Utilities](https://github.com/mike-lischke/antlr4-cpp-tool-runtime/tree/master/runtime/src/support)
 - [OpenGML Interpreter Reference](https://github.com/opengml/opengml)
+- [SCIP Specification and Tooling](https://github.com/sourcegraph/scip)
 
 ## Long-Term Vision
 Create a persistent development session for GameMaker where:
