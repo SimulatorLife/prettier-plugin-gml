@@ -123,22 +123,54 @@ export async function collectSuiteResults({
     const results = {};
 
     for (const suiteName of suiteNames) {
-        const runner = availableSuites.get(suiteName);
-        if (typeof runner !== "function") {
+        const runner = resolveSuiteRunner(availableSuites, suiteName);
+        if (!runner) {
             continue;
         }
 
-        try {
-            results[suiteName] = await runner(runnerOptions);
-        } catch (error) {
-            results[suiteName] =
-                typeof onError === "function"
-                    ? onError(error, { suiteName })
-                    : { error: createCliErrorDetails(error) };
-        }
+        const result = await executeSuiteRunner(runner, {
+            suiteName,
+            runnerOptions,
+            onError
+        });
+
+        recordSuiteResult(results, suiteName, result);
     }
 
     return results;
+}
+
+function resolveSuiteRunner(availableSuites, suiteName) {
+    const runner = availableSuites.get(suiteName);
+    return typeof runner === "function" ? runner : null;
+}
+
+async function executeSuiteRunner(
+    runner,
+    { suiteName, runnerOptions, onError }
+) {
+    try {
+        return await runner(runnerOptions);
+    } catch (error) {
+        return handleSuiteRunnerError(error, { suiteName, onError });
+    }
+}
+
+function handleSuiteRunnerError(error, { suiteName, onError }) {
+    if (typeof onError === "function") {
+        return onError(error, { suiteName });
+    }
+
+    return { error: createCliErrorDetails(error) };
+}
+
+/**
+ * Record the resolved suite result on the shared accumulator. Keeping the
+ * mutation here makes the orchestrator's control flow read as a series of
+ * delegations rather than direct property writes.
+ */
+function recordSuiteResult(results, suiteName, result) {
+    results[suiteName] = result;
 }
 
 function assertSuiteRegistryContract(availableSuites) {
@@ -149,6 +181,20 @@ function assertSuiteRegistryContract(availableSuites) {
     }
 }
 
+export function createSuiteResultsPayload(results, { generatedAt } = {}) {
+    return {
+        generatedAt: generatedAt ?? new Date().toISOString(),
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
+            cwd: process.cwd()
+        },
+        suites: results
+    };
+}
+
 /**
  * Emit suite results using the preferred output format.
  *
@@ -156,7 +202,11 @@ function assertSuiteRegistryContract(availableSuites) {
  * @param {{ format?: string, pretty?: boolean }} options
  * @returns {boolean} `true` when JSON output was emitted.
  */
-export function emitSuiteResults(results, { format, pretty } = {}) {
+export function emitSuiteResults(
+    results,
+    { format, pretty } = {},
+    extras = {}
+) {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,
@@ -168,10 +218,10 @@ export function emitSuiteResults(results, { format, pretty } = {}) {
         return false;
     }
 
-    const payload = {
-        generatedAt: new Date().toISOString(),
-        suites: results
-    };
+    const payload =
+        extras && typeof extras === "object" && extras.payload
+            ? extras.payload
+            : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
     process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
     return true;

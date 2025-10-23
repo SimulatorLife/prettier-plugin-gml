@@ -132,17 +132,10 @@ export function coalesceOption(
         return fallback;
     }
 
-    // Avoid allocating a throwaway array when the caller passes a single key.
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const lookupKeys = Array.isArray(keys) ? keys : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
-        }
-    } else {
-        const value = object[keys];
+    for (const key of lookupKeys) {
+        const value = object[key];
 
         if (value !== undefined && (acceptNull || value !== null)) {
             return value;

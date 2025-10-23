@@ -155,17 +155,14 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ## Quick start
 
-Pick the workflow that matches how you want to consume the formatter, then keep
-a regular eye on the verification commands at the end of this section.
+Start by confirming your toolchain, then pick the workflow that fits how you want to consume the formatter.
 
-### 1. Confirm prerequisites
+### Requirements
 
-- Node.js **18.20.0+** (20.18.1+ recommended). Run `nvm use` against the
-  bundled `.nvmrc` before installing dependencies so local tooling matches CI.
+- Node.js **25.0.0+**. Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
   The formatter targets the same engine matrix as the packages under `src/`
   and fails fast when an older runtime slips through.
-- npm (bundled with Node.js). Double-check your versions with `node -v` and
-  `npm -v`.
+- npm (installed with Node.js). Verify availability with `node -v` and `npm -v`.
 
 <details>
 <summary><strong>Install Node.js with nvm</strong></summary>
@@ -180,7 +177,7 @@ nvm use
 
 </details>
 
-### 2. Install inside a GameMaker project
+### Install in a GameMaker project
 
 1. Change into the folder that contains your `.yyp` file.
 2. Install Prettier v3, the plugin, and the ANTLR runtime alongside the
@@ -439,8 +436,8 @@ Keep overrides scoped to `.gml` files so other languages remain unaffected.
     {
       "files": "*.gml",
       "options": {
-        "printWidth": 100,
-        "tabWidth": 2,
+        "printWidth": 120,
+        "tabWidth": 4,
         "semi": true
       }
     }
@@ -479,6 +476,22 @@ Template strings that never interpolate expressions automatically collapse back 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 
 > **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
+
+Bare struct literals now respect Prettier's [`objectWrap`](https://prettier.io/docs/en/options.html#object-wrap) option introduced in v3.5.0. When formatting GML, the plugin maps the behaviour directly onto struct literals:
+
+- `objectWrap: "preserve"` (default) keeps the literal multi-line when the original source placed a newline immediately after `{`.
+- `objectWrap: "collapse"` inlines eligible literals onto a single line when they fit within the configured `printWidth`.
+
+```gml
+// objectWrap: "preserve"
+var enemy = {
+    name: "Slime",
+    hp: 5
+};
+
+// objectWrap: "collapse"
+var enemy = {name: "Slime", hp: 5};
+```
 
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
@@ -519,7 +532,7 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
 - Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
-- `npm install` reports `EBADENGINE` → upgrade Node.js to 18.20.0+, 20.18.1+, or 21.1.0+.
+- `npm install` reports `EBADENGINE` → upgrade Node.js to 25.0.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
 - Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.

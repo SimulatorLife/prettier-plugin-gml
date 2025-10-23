@@ -78,7 +78,11 @@ export function assertNonEmptyString(
 }
 
 export function isWordChar(character) {
-    return typeof character === "string" && /[\w]/.test(character);
+    if (typeof character !== "string" || character.length === 0) {
+        return false;
+    }
+    // Use regex to match ASCII word characters on the first character.
+    return /\w/.test(character[0]);
 }
 
 export function toTrimmedString(value) {
@@ -168,7 +172,7 @@ export function stripStringQuotes(value) {
  * Literal double-quote character shared by quote normalization helpers.
  * @type {string}
  */
-const DOUBLE_QUOTE_CHARACTER = '"';
+const DOUBLE_QUOTE_CHARACTER = `"`;
 /**
  * Literal single-quote character shared by quote normalization helpers.
  * @type {string}

@@ -21,40 +21,35 @@ export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     ENV: "env"
 });
 
+/**
+ * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
+ */
+
 const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
     [MANUAL_REPO_REQUIREMENT_SOURCE.ENV]: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
     [MANUAL_REPO_REQUIREMENT_SOURCE.CLI]:
         "Manual repository must be provided in 'owner/name' format"
 });
 
-/**
- * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
- */
-
 const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
-function formatManualRequirementSource(value) {
-    return value === undefined ? "undefined" : `'${String(value)}'`;
-}
-
-function assertManualRepoRequirementSource(value) {
-    if (Object.hasOwn(MANUAL_REPO_REQUIREMENT_MESSAGES, value)) {
-        return /** @type {ManualRepoRequirementSource} */ (value);
+function formatManualRepoRequirement(
+    source = MANUAL_REPO_REQUIREMENT_SOURCE.CLI
+) {
+    const message = MANUAL_REPO_REQUIREMENT_MESSAGES[source];
+    if (message !== undefined) {
+        return message;
     }
 
     const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
+    const received = source === undefined ? "undefined" : `'${String(source)}'`;
+
     throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatManualRequirementSource(value)}.`
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${received}.`
     );
 }
-
-function formatManualRepoRequirement(source) {
-    const normalizedSource = assertManualRepoRequirementSource(source);
-    return MANUAL_REPO_REQUIREMENT_MESSAGES[normalizedSource];
-}
-
 function describeManualRepoInput(value) {
     if (value == null) {
         return String(value);

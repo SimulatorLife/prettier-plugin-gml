@@ -61,23 +61,15 @@ export function isJsonParseError(value) {
         return false;
     }
 
-    if (value.name !== "JsonParseError") {
-        return false;
-    }
+    const { name, description, source, cause } = value;
+    const hasValidSource = source == null || typeof source === "string";
 
-    if (typeof value.description !== "string") {
-        return false;
-    }
-
-    if (value.source != null && typeof value.source !== "string") {
-        return false;
-    }
-
-    if (!isErrorLike(value.cause)) {
-        return false;
-    }
-
-    return true;
+    return (
+        name === "JsonParseError" &&
+        typeof description === "string" &&
+        hasValidSource &&
+        isErrorLike(cause)
+    );
 }
 
 function normalizeDescription(description) {
