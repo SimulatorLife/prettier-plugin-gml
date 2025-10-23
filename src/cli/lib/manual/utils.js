@@ -4,6 +4,7 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     isNonEmptyArray,
+    isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
 } from "../shared-deps.js";
@@ -63,9 +64,7 @@ function describeManualRepoInput(value) {
 }
 
 function normalizeDownloadLabel(label) {
-    return typeof label === "string" && label.trim().length > 0
-        ? label
-        : "Downloading manual files";
+    return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
 /**
@@ -531,12 +530,12 @@ async function tryReadManualFileCache({
 
         return cached;
     } catch (error) {
-        if (!isFsErrorCode(error, "ENOENT")) {
-            throw error;
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
         }
-    }
 
-    return null;
+        throw error;
+    }
 }
 
 /**
@@ -605,10 +604,7 @@ function createManualGitHubFileClient({
             contents: content,
             encoding: "utf8",
             onAfterWrite: () => {
-                if (signal?.aborted) {
-                    return;
-                }
-                if (!shouldLogDetails) {
+                if (signal?.aborted || !shouldLogDetails) {
                     return;
                 }
 

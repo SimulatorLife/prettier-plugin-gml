@@ -129,7 +129,10 @@ async function parse(text, options) {
             applyFeatherFixes(ast, {
                 sourceText: parseSource,
                 preprocessedFixMetadata,
-                options
+                options: {
+                    ...options,
+                    removeStandaloneVertexEnd: true
+                }
             });
         }
 
