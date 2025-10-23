@@ -148,7 +148,10 @@ jobs:
             fi
           done
           if [ ${#reports[@]} -ge 2 ]; then
-            node src/cli/commands/detect-test-regressions.mjs compare "${reports[@]}" --output test-results
+            if ! node src/cli/commands/detect-test-regressions.mjs compare "${reports[@]}" --output test-results; then
+              echo "::error::Test regression comparison failed. See above for details."
+              exit 1
+            fi
           fi
 
       # Use your repo’s logic to compute regressions (allows legacy failures)
