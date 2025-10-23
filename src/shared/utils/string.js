@@ -235,7 +235,10 @@ export function normalizeStringList(
     }
 
     if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const pattern =
+            splitPattern === undefined
+                ? DEFAULT_STRING_LIST_SPLIT_PATTERN
+                : splitPattern;
         const entries = pattern ? value.split(pattern) : [value];
         return collectUniqueTrimmedStrings(entries);
     }
