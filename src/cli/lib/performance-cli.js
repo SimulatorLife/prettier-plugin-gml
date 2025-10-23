@@ -36,6 +36,29 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
 
+function createDatasetSummary({ fileCount, totalBytes }) {
+    const normalizedFileCount =
+        typeof fileCount === "number" &&
+        Number.isFinite(fileCount) &&
+        fileCount >= 0
+            ? Math.trunc(fileCount)
+            : 0;
+
+    let normalizedTotalBytes = 0;
+    if (
+        typeof totalBytes === "number" &&
+        Number.isFinite(totalBytes) &&
+        totalBytes >= 0
+    ) {
+        normalizedTotalBytes = totalBytes;
+    }
+
+    return {
+        files: normalizedFileCount,
+        totalBytes: normalizedTotalBytes
+    };
+}
+
 function collectValue(value, previous = []) {
     previous.push(value);
     return previous;
@@ -133,10 +156,10 @@ async function loadFixtureDataset({ directories } = {}) {
 
     return {
         files,
-        summary: {
-            files: files.length,
+        summary: createDatasetSummary({
+            fileCount: files.length,
             totalBytes
-        }
+        })
     };
 }
 
@@ -183,10 +206,10 @@ function normalizeCustomDataset(dataset) {
 
     return {
         files,
-        summary: {
-            files: files.length,
+        summary: createDatasetSummary({
+            fileCount: files.length,
             totalBytes
-        }
+        })
     };
 }
 
@@ -274,20 +297,19 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
         (sum, duration) => sum + duration,
         0
     );
-    const datasetFiles = dataset.summary.files;
-    const datasetBytes = dataset.summary.totalBytes;
-    const totalFilesProcessed = datasetFiles * iterations;
-    const totalBytesProcessed = datasetBytes * iterations;
+    const datasetSummary = createDatasetSummary({
+        fileCount: dataset.summary.files,
+        totalBytes: dataset.summary.totalBytes
+    });
+    const totalFilesProcessed = datasetSummary.files * iterations;
+    const totalBytesProcessed = datasetSummary.totalBytes * iterations;
 
     return {
         iterations,
         durations,
         totalDurationMs: totalDuration,
         averageDurationMs: iterations > 0 ? totalDuration / iterations : 0,
-        dataset: {
-            files: datasetFiles,
-            totalBytes: datasetBytes
-        },
+        dataset: datasetSummary,
         throughput: {
             filesPerMs:
                 totalDuration > 0 ? totalFilesProcessed / totalDuration : null,
