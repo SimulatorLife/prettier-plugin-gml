@@ -21,6 +21,7 @@ export {
     normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
     parseJsonWithContext,
+    splitLines,
     resolveIntegerOption,
     toArray,
     uniqueArray,
