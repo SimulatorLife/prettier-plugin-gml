@@ -1,6 +1,6 @@
 import { getNonEmptyString } from "../../../shared/string-utils.js";
 import { splitLines } from "../../../shared/line-breaks.js";
-import { resolveProjectPathInfo } from "./path-info.js";
+import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**
  * Format parser-originated syntax errors into the structured messages surfaced
@@ -13,7 +13,7 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const { filePath, projectRoot } = context ?? {};
     const lineNumber = getFiniteNumber(error.line);
     const columnNumber = getFiniteNumber(error.column);
-    const displayPath = resolveDisplayPath(filePath, projectRoot);
+    const displayPath = resolveProjectDisplayPath(filePath, projectRoot);
 
     const baseDescription = extractBaseDescription(error.message);
     const locationSuffix = buildLocationSuffix(
@@ -45,31 +45,6 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
 function getFiniteNumber(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : null;
-}
-
-function resolveDisplayPath(filePath, projectRoot) {
-    const normalizedFilePath = getNonEmptyString(filePath);
-    if (!normalizedFilePath) {
-        return null;
-    }
-
-    const info = resolveProjectPathInfo(normalizedFilePath, projectRoot);
-    if (!info) {
-        return null;
-    }
-
-    if (!info.inputWasAbsolute) {
-        return normalizedFilePath;
-    }
-
-    if (info.hasProjectRoot && info.isInsideProjectRoot) {
-        const relative = info.relativePath;
-        if (relative) {
-            return relative;
-        }
-    }
-
-    return normalizedFilePath;
 }
 
 function extractBaseDescription(message) {
