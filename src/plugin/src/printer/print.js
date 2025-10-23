@@ -2768,12 +2768,37 @@ function mergeSyntheticDocComments(
     }
     const usedParamLineIndices = new Set();
 
+    const implicitEntriesForMerge =
+        node?.type === "FunctionDeclaration"
+            ? collectImplicitArgumentDocNames(node, options)
+            : [];
+    const implicitEntryByCanonical = new Map();
+    for (const entry of implicitEntriesForMerge) {
+        if (entry?.canonical) {
+            implicitEntryByCanonical.set(entry.canonical, entry);
+        }
+    }
+
     if (otherLines.length > 0) {
         const normalizedOtherLines = [];
 
         for (const line of otherLines) {
             const metadata = parseDocCommentMetadata(line);
             const canonical = getParamCanonicalName(line, metadata);
+            const implicitEntry =
+                canonical && implicitEntryByCanonical.has(canonical)
+                    ? implicitEntryByCanonical.get(canonical)
+                    : null;
+
+            if (
+                implicitEntry &&
+                implicitEntry.canonical === implicitEntry.fallbackCanonical &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length
+            ) {
+                continue;
+            }
 
             if (
                 canonical &&
@@ -2798,7 +2823,12 @@ function mergeSyntheticDocComments(
             if (
                 metadata?.tag === "param" &&
                 typeof metadata?.name === "string" &&
-                metadata.name.length > 0
+                metadata.name.length > 0 &&
+                !/^\s*argument\d+\s*$/i.test(metadata.name) &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length &&
+                implicitEntry?.hasDirectReference !== true
             ) {
                 let fallbackLineIndex = null;
 
@@ -2823,6 +2853,15 @@ function mergeSyntheticDocComments(
                     usedParamLineIndices.add(fallbackLineIndex);
                     continue;
                 }
+            }
+
+            if (
+                implicitEntry?.hasDirectReference === true &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length
+            ) {
+                continue;
             }
 
             normalizedOtherLines.push(line);
