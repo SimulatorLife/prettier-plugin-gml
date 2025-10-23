@@ -212,6 +212,15 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     return guessed;
 }
 
+function pushChildNode(stack, parentPath, key, candidate) {
+    if (!candidate || typeof candidate !== "object") {
+        return;
+    }
+
+    const childPath = parentPath ? `${parentPath}.${key}` : String(key);
+    stack.push({ value: candidate, path: childPath });
+}
+
 function collectAssetReferences(root, callback) {
     if (!root || typeof root !== "object") {
         return;
@@ -222,18 +231,9 @@ function collectAssetReferences(root, callback) {
     while (stack.length > 0) {
         const { value, path } = stack.pop();
 
-        const pushChild = (nextValue, key) => {
-            if (!nextValue || typeof nextValue !== "object") {
-                return;
-            }
-
-            const childPath = path ? `${path}.${key}` : String(key);
-            stack.push({ value: nextValue, path: childPath });
-        };
-
         if (Array.isArray(value)) {
             for (let index = value.length - 1; index >= 0; index -= 1) {
-                pushChild(value[index], index);
+                pushChildNode(stack, path, index, value[index]);
             }
             continue;
         }
@@ -249,7 +249,7 @@ function collectAssetReferences(root, callback) {
         const entries = Object.entries(value);
         for (let i = entries.length - 1; i >= 0; i -= 1) {
             const [key, child] = entries[i];
-            pushChild(child, key);
+            pushChildNode(stack, path, key, child);
         }
     }
 }
