@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -446,6 +447,54 @@ test("reportRegressionSummary clarifies when regressions offset resolved failure
         "- suite :: new failure (passed -> failed)",
         "Note: 1 previously failing test is now passing or missing, so totals may appear unchanged."
     ]);
+});
+
+test("runCli ignores legacy PR summary command arguments", () => {
+    const baseDir = path.join(workspace, "base/test-results");
+    const headDir = path.join(workspace, "test-results");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const cliPath = path.resolve(
+        "src/cli/commands/detect-test-regressions.mjs"
+    );
+    const result = spawnSync(
+        process.execPath,
+        [cliPath, "pr-summary-table-comment"],
+        {
+            cwd: workspace,
+            env: { ...process.env, GITHUB_WORKSPACE: workspace },
+            encoding: "utf8"
+        }
+    );
+
+    assert.strictEqual(result.status, 0);
+    assert.match(
+        result.stdout,
+        /No new failing tests compared to base using PR head/
+    );
+    assert.match(
+        result.stderr,
+        /Ignoring 1 legacy CLI argument: 'pr-summary-table-comment'/
+    );
 });
 
 test("detectResolvedFailures returns failures that now pass or are missing", () => {

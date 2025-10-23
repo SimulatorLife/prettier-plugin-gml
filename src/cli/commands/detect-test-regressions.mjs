@@ -467,7 +467,7 @@ function listXmlFiles(resolvedPath) {
             (file) =>
                 file.endsWith(".xml") &&
                 !/checkstyle/i.test(file) &&
-                !file.toLowerCase().endsWith("-summary.xml")
+                !/-summary\.xml$/i.test(file)
         );
 }
 
@@ -1287,7 +1287,10 @@ function computeTestDelta(baseTests = {}, targetTests = {}) {
     for (const key of keys) {
         const base = toFiniteNumber(baseTests[key]);
         const target = toFiniteNumber(targetTests[key]);
-        delta[key] = base === null && target === null ? null : (target ?? 0) - (base ?? 0);
+        delta[key] =
+            base === null && target === null
+                ? null
+                : (target ?? 0) - (base ?? 0);
     }
     return delta;
 }
@@ -1414,16 +1417,18 @@ function compareSummaryReports(reportSpecs, { outputDir } = {}) {
     const base = reports[0];
     if (!base.ok) {
         result.notes.push(
-            `Unable to read summary for base target '${base.label}'.`
-        , ...base.notes);
+            `Unable to read summary for base target '${base.label}'.`,
+            ...base.notes
+        );
     }
 
     for (let index = 1; index < reports.length; index += 1) {
         const target = reports[index];
         if (!target.ok) {
             result.notes.push(
-                `Unable to read summary for target '${target.label}'.`
-            , ...target.notes);
+                `Unable to read summary for target '${target.label}'.`,
+                ...target.notes
+            );
             continue;
         }
         if (!base.ok) {
@@ -1465,28 +1470,28 @@ function parseSummarizeArgs(args) {
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         switch (arg) {
-        case "--input": {
-            options.inputDir = args[index + 1];
-            index += 1;
-        
-        break;
-        }
-        case "--output": {
-            options.outputDir = args[index + 1];
-            index += 1;
-        
-        break;
-        }
-        case "--target": 
-        case "--label": {
-            options.target = args[index + 1];
-            index += 1;
-        
-        break;
-        }
-        default: {
-            throw new CliUsageError(`Unknown option for summarize: ${arg}`);
-        }
+            case "--input": {
+                options.inputDir = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--output": {
+                options.outputDir = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--target":
+            case "--label": {
+                options.target = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            default: {
+                throw new CliUsageError(`Unknown option for summarize: ${arg}`);
+            }
         }
     }
 
@@ -1626,7 +1631,11 @@ function runCli(argv = process.argv) {
         return runCompareCommand(args);
     }
     if (args.length > 0) {
-        throw new CliUsageError(`Unknown command: ${args[0]}`);
+        const details = args.map((arg) => `'${arg}'`).join(", ");
+        const suffix = args.length === 1 ? "" : "s";
+        console.warn(
+            `[detect-test-regressions] Ignoring ${args.length} legacy CLI argument${suffix}: ${details}.`
+        );
     }
     return runRegressionDetectionCli();
 }
