@@ -295,6 +295,13 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
         )
+        .option(
+            "--check",
+            [
+                "Check whether files are already formatted without writing changes.",
+                "Exits with a non-zero status when differences are found."
+            ].join(" ")
+        )
         .addOption(extensionsOption)
         .option(
             "--log-level <level>",
@@ -390,6 +397,7 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        checkMode: Boolean(options.check),
         skippedDirectorySampleLimit: options.ignoredDirectorySamples,
         usage: command.helpInformation()
     };
@@ -462,6 +470,18 @@ const skippedDirectorySummary = {
     ignored: 0,
     ignoredSamples: []
 };
+
+let checkModeEnabled = false;
+let pendingFormatCount = 0;
+
+function resetCheckModeTracking() {
+    pendingFormatCount = 0;
+}
+
+function configureCheckMode(enabled) {
+    checkModeEnabled = Boolean(enabled);
+    resetCheckModeTracking();
+}
 
 let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
 
@@ -634,6 +654,7 @@ async function resetFormattingSession(onParseError) {
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
+    resetCheckModeTracking();
 }
 
 /**
@@ -1033,6 +1054,12 @@ async function processFile(filePath, activeIgnorePaths = []) {
             return;
         }
 
+        if (checkModeEnabled) {
+            pendingFormatCount += 1;
+            console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            return;
+        }
+
         await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
@@ -1086,12 +1113,14 @@ async function prepareFormattingRun({
     configuredExtensions,
     prettierLogLevel,
     onParseError,
-    skippedDirectorySampleLimit
+    skippedDirectorySampleLimit,
+    checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     await resetFormattingSession(onParseError);
+    configureCheckMode(checkMode);
 }
 
 /**
@@ -1161,6 +1190,9 @@ async function processResolvedTarget({
  */
 function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
     if (encounteredFormattableFile) {
+        if (checkModeEnabled) {
+            logCheckModeSummary();
+        }
         logSkippedFileSummary();
     } else {
         logNoMatchingFiles({
@@ -1168,6 +1200,10 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
             targetIsDirectory,
             extensions: targetExtensions
         });
+    }
+
+    if (checkModeEnabled && pendingFormatCount > 0) {
+        process.exitCode = 1;
     }
     if (encounteredFormattingError) {
         process.exitCode = 1;
@@ -1206,7 +1242,8 @@ async function executeFormatCommand(command) {
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError,
-        skippedDirectorySampleLimit
+        skippedDirectorySampleLimit,
+        checkMode: commandOptions.checkMode
     });
 
     try {
@@ -1247,6 +1284,18 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     }
 
     logSkippedFileSummary();
+}
+
+function logCheckModeSummary() {
+    if (pendingFormatCount === 0) {
+        console.log("All matched files are already formatted.");
+        return;
+    }
+
+    const label = pendingFormatCount === 1 ? "file requires" : "files require";
+    console.log(
+        `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
+    );
 }
 
 /**

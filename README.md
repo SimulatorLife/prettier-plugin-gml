@@ -245,6 +245,7 @@ nvm use
 
    ```bash
    npm run format:gml
+   npm run format:gml -- --check
    npm run format:gml -- --path . --extensions=.gml,.yy
    node ./node_modules/root/src/cli/cli.js --path .
    node ./node_modules/root/src/cli/cli.js --help
@@ -270,7 +271,8 @@ nvm use
 
    The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
    files, prints a skipped-file summary, explains when no files match the
-   configured extensions, accepts
+   configured extensions, supports dry-run enforcement via `--check` (exits
+   with code 1 when differences remain), accepts
    `--on-parse-error=skip|abort|revert` (or
    `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`), surfaces Prettier’s logging knob via
    `--log-level=debug|info|warn|error|silent` (or
@@ -367,6 +369,12 @@ for the full suite of contributor commands.
 
   ```bash
   node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
+  ```
+
+- Preview formatting changes without writing them back:
+
+  ```bash
+  node ./node_modules/root/src/cli/cli.js --check
   ```
 
 - Discover supported flags or double-check defaults:
