@@ -171,9 +171,20 @@ jobs:
           const comparisonPath = process.env.COMPARISON_PATH;
           const outputPath = process.env.GITHUB_OUTPUT;
 
-          const raw = fs.readFileSync(comparisonPath, 'utf8');
-          const data = JSON.parse(raw);
-          const comparisons = Array.isArray(data.comparisons) ? data.comparisons : [];
+          let data;
+          let comparisons = [];
+          try {
+            const raw = fs.readFileSync(comparisonPath, 'utf8');
+            data = JSON.parse(raw);
+            comparisons = Array.isArray(data.comparisons) ? data.comparisons : [];
+          } catch (err) {
+            console.error(`::error::Failed to read or parse comparison file at ${comparisonPath}: ${err.message}`);
+            if (outputPath) {
+              fs.appendFileSync(outputPath, `all_green=false\n`);
+              fs.appendFileSync(outputPath, `status=error\n`);
+            }
+            process.exit(0);
+          }
 
           let status = 'clean';
           let allGreen = true;
