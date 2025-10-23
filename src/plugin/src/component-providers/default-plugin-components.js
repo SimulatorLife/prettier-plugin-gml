@@ -164,6 +164,7 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
             }
+
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
             // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
             // were intentionally removed so the formatter can enforce a single opinionated
