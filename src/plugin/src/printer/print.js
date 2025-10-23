@@ -477,6 +477,12 @@ export function print(path, options, print) {
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
+            const isFirstTopLevelStatement =
+                node?._gmlIsFirstTopLevelStatement === true;
+
+            if (isFirstTopLevelStatement) {
+                needsLeadingBlankLine = true;
+            }
 
             if (isNonEmptyArray(node.docComments)) {
                 const firstDocComment = node.docComments[0];
@@ -2027,7 +2033,20 @@ function printStatements(path, options, print, childrenAttribute) {
         const parts = [];
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
-        const printed = print();
+        const isFirstTopLevelStatement = isTopLevel && index === 0;
+
+        if (isFirstTopLevelStatement && node && typeof node === "object") {
+            node._gmlIsFirstTopLevelStatement = true;
+        }
+
+        let printed;
+        try {
+            printed = print();
+        } finally {
+            if (isFirstTopLevelStatement && node && typeof node === "object") {
+                delete node._gmlIsFirstTopLevelStatement;
+            }
+        }
 
         if (printed == undefined) {
             return [];
@@ -2058,7 +2077,7 @@ function printStatements(path, options, print, childrenAttribute) {
         if (
             currentNodeRequiresNewline &&
             !previousNodeHadNewlineAddedAfter &&
-            !(isTopLevel && index === 0)
+            !isFirstTopLevelStatement
         ) {
             const hasLeadingComment = isTopLevel
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
