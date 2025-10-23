@@ -36,23 +36,12 @@ const MANUAL_REPO_REQUIREMENTS = Object.freeze({
         "Manual repository must be provided in 'owner/name' format"
 });
 
-const MANUAL_REPO_REQUIREMENT_SOURCES = Object.values(
+const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Object.values(
     MANUAL_REPO_REQUIREMENT_SOURCE
-);
-
-const MANUAL_REPO_REQUIREMENTS_BY_SOURCE = new Map(
-    MANUAL_REPO_REQUIREMENT_SOURCES.flatMap((source) => {
-        const requirement = MANUAL_REPO_REQUIREMENTS[source];
-        return typeof requirement === "string" ? [[source, requirement]] : [];
-    })
-);
-
-const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Array.from(
-    MANUAL_REPO_REQUIREMENTS_BY_SOURCE.keys()
 ).join(", ");
 
 function getManualRepoRequirement(source) {
-    const requirement = MANUAL_REPO_REQUIREMENTS_BY_SOURCE.get(source);
+    const requirement = MANUAL_REPO_REQUIREMENTS[source];
     if (typeof requirement === "string") {
         return requirement;
     }
