@@ -552,7 +552,10 @@ function printHumanReadable(report) {
 
         if (suite === "parser" || suite === "formatter") {
             const datasetBytes = payload.dataset?.totalBytes ?? 0;
-            lines.push(`  - iterations: ${payload.iterations}`, `  - files: ${payload.dataset?.files ?? 0}`);
+            lines.push(
+                `  - iterations: ${payload.iterations}`,
+                `  - files: ${payload.dataset?.files ?? 0}`
+            );
             lines.push(
                 `  - total duration: ${formatDuration(payload.totalDurationMs)}`
             );

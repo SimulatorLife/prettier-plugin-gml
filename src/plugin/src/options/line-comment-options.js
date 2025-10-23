@@ -28,46 +28,10 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-/**
- * Return the canonical line comment options bag. The returned object is frozen
- * so callers can safely memoize the reference or reuse it across formatting
- * passes without worrying about accidental mutation in plugin hooks.
- *
- * @returns {{
- *   boilerplateFragments: readonly string[],
- *   codeDetectionPatterns: readonly RegExp[]
- * }} Shared options describing boilerplate filters and code heuristics.
- */
 function resolveLineCommentOptions() {
     return DEFAULT_LINE_COMMENT_OPTIONS;
 }
 
-/**
- * Surface the regular expressions used to detect commented-out code. The
- * returned array is the shared, frozen instance so consumers should treat it as
- * read-only even though individual expressions remain mutable per JavaScript
- * semantics.
- *
- * @returns {readonly RegExp[]} Detection patterns referenced by comment
- *          formatting helpers.
- */
-function getLineCommentCodeDetectionPatterns() {
-    return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
-}
-
-/**
- * Normalizes a caller-supplied options bag into the canonical structure used by
- * the formatter. Today's implementation always returns the shared default to
- * keep the dependency lightweight, but the explicit helper call makes future
- * option parsing extensions discoverable and keeps the contract consistent with
- * the other normalization utilities in this package.
- *
- * @param {unknown} [options] Placeholder for future customizations.
- * @returns {{
- *   boilerplateFragments: readonly string[],
- *   codeDetectionPatterns: readonly RegExp[]
- * }} Normalized options reference.
- */
 function normalizeLineCommentOptions() {
     return DEFAULT_LINE_COMMENT_OPTIONS;
 }
@@ -77,7 +41,6 @@ export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     LINE_COMMENT_BANNER_STANDARD_LENGTH,
-    getLineCommentCodeDetectionPatterns,
     normalizeLineCommentOptions,
     resolveLineCommentOptions
 };

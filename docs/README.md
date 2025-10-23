@@ -14,8 +14,10 @@ context.
   overview of the identifier normalisation pipeline, configuration roadmap,
   rollout workflow, and operational safeguards for `gmlIdentifierCase`.
 - [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
-  — A collection of real-world identifiers that demonstrate how the formatter
-  classifies edge cases and applies rename overrides.
+  — Real-world snippets that demonstrate how rename heuristics classify edge
+  cases and apply overrides.
+- [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
+  file tuned for common GameMaker metadata folders.
 
 ## Usage & rollout
 
@@ -29,51 +31,39 @@ context.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
-- [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
-  file tuned for common GameMaker metadata folders when rolling the formatter
-  into an existing repository.
 - [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
 
-## Planning notes
+## Architecture & planning
 
-- [Identifier Case & Naming Convention Guide](naming-conventions.md) — Also
-  contains the condensed implementation plan, testing expectations, and rename
-  risk mitigations for the feature.
-- [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline that
-  collects built-in Feather debugger metadata and how the generated files are
-  versioned.
+- [Architecture audit (October 2025)](architecture-audit-2025-10-22.md) — Daily
+  architecture snapshot that tracks the shared-module consolidation. Pair with
+  the [May 2024 audit](architecture-audit-2024-05-15.md) to see how the
+  workspace evolved.
+- [Shared module layout refresh](shared-module-layout.md) — Summary of the
+  repository-wide audit that reorganised the `src/shared` helpers into
+  focused barrels.
+- [Interface segregation investigation](interface-segregation-investigation.md)
+  — Research notes that detail why the CLI and plugin expose separate entry
+  points, how shared utilities are packaged, and where the CLI wrapper inserts
+  additional behaviour such as `.prettierignore` discovery.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
   shipped cache shape plus the instrumentation used to keep bootstrap behaviour
   predictable.
 - [Project Index next steps](project-index-next-steps.md) — Tracks remaining
   follow-up work now that cache persistence and discovery ship in the plugin.
 
-## Formatter & CLI deep dives
-
-- [Shared module layout refresh](shared-module-layout.md) — Summarises the
-  repository-wide audit that reorganised the `src/shared` helpers into
-  `ast/` and `utils/` entry points so downstream packages share a consistent
-  import surface.
-- [Architecture audit (May 2024)](architecture-audit-2024-05-15.md) — Captures
-  the state of the formatter, parser, and CLI packages after the workspace
-  split, including upgrade risks and sequencing notes for future refactors.
-- [Interface segregation investigation](interface-segregation-investigation.md)
-  — Research notes that detail why the CLI and plugin expose separate entry
-  points, how shared utilities are packaged, and where the CLI wrapper inserts
-  additional behaviour such as `.prettierignore` discovery.
-- [Project index cache design](project-index-cache-design.md) — Background on
-  the cache lifecycle, invalidation triggers, and concurrency controls that
-  back identifier-case rollouts. Pairs with the [Identifier case rollout
-  playbook](identifier-case-rollout.md) when you are tuning bootstrap behaviour
-  for CI.
-
 ## Metadata tooling
 
-- [Architecture overview](../README.md#architecture-overview) — The repository
-  README explains how the workspace packages relate, where generated assets
-  live, and which scripts refresh them. Pair it with the
-  [Feather Data Plan](feather-data-plan.md) and the reserved identifier coverage
-  in [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
+- [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline
+  that collects built-in Feather debugger metadata and how the generated files
+  are versioned.
+- [Reserved identifier metadata hook](reserved-identifier-metadata-hook.md) —
+  Explains how advanced integrations can temporarily swap the bundled
+  identifier dataset while keeping the default loader in place.
+- [Architecture overview](../README.md#architecture-overview) — High-level map
+  of the workspace packages, where generated assets live, and which scripts
+  refresh them. Pair it with the reserved identifier coverage in the
+  [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers or running metadata rebuilds through the CLI.

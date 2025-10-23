@@ -27,7 +27,15 @@ export class GameMakerSyntaxError extends Error {
 }
 
 export default class GameMakerParseErrorListener extends ErrorListener {
-    // TODO: Provide better error messages.
+    // TODO: Broaden the diagnostic surface so syntax errors surface the same
+    // hints that GameMaker Studio does. Today we lean on ANTLR's generic
+    // messages, which are technically correct but omit recovery advice such as
+    // "missing semicolon" or "unclosed struct literal". Formatter users jump to
+    // this code when the parser rejects a file, so investing in richer messages
+    // (potentially by mirroring the official compiler's phrasing documented in
+    // https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Overview%2FGML_Syntax.htm) would keep support queues
+    // manageable and prevent editor integrations from falling back to
+    // unhelpful "syntax error" toasts.
     syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
         const offendingText = resolveOffendingSymbolText(offendingSymbol);
