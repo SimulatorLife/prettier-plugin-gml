@@ -269,8 +269,8 @@ nvm use
    ```
 
    The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
-   files, prints a skipped-file summary, explains when no files match the
-   configured extensions, accepts
+   files, prints a skipped-file summary with concrete examples of unsupported
+   files, explains when no files match the configured extensions, accepts
    `--on-parse-error=skip|abort|revert` (or
    `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`), surfaces Prettier’s logging knob via
    `--log-level=debug|info|warn|error|silent` (or

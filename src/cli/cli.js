@@ -456,9 +456,12 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
+const UNSUPPORTED_EXTENSION_SAMPLE_LIMIT = 5;
+
 const skippedFileSummary = {
     ignored: 0,
     unsupportedExtension: 0,
+    unsupportedExtensionSamples: [],
     symbolicLink: 0
 };
 
@@ -476,6 +479,7 @@ function configureSkippedDirectorySampleLimit(limit) {
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
     skippedFileSummary.unsupportedExtension = 0;
+    skippedFileSummary.unsupportedExtensionSamples.length = 0;
     skippedFileSummary.symbolicLink = 0;
 }
 
@@ -941,7 +945,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         return;
     }
 
-    skippedFileSummary.unsupportedExtension += 1;
+    recordUnsupportedExtension(filePath);
 }
 
 async function processDirectoryEntries(directory, files, currentIgnorePaths) {
@@ -1134,7 +1138,7 @@ async function processNonDirectoryTarget(targetPath) {
         return;
     }
 
-    skippedFileSummary.unsupportedExtension += 1;
+    recordUnsupportedExtension(targetPath);
 }
 
 /**
@@ -1255,12 +1259,18 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
 /**
  * Build human-readable detail messages describing skipped file categories.
  *
- * @param {{ ignored: number, unsupportedExtension: number, symbolicLink: number }} summary
+ * @param {{
+ *     ignored: number,
+ *     unsupportedExtension: number,
+ *     unsupportedExtensionSamples: readonly string[],
+ *     symbolicLink: number
+ * }} summary
  * @returns {string[]}
  */
 function buildSkippedFileDetailEntries({
     ignored,
     unsupportedExtension,
+    unsupportedExtensionSamples,
     symbolicLink
 }) {
     const detailEntries = [];
@@ -1270,7 +1280,20 @@ function buildSkippedFileDetailEntries({
     }
 
     if (unsupportedExtension > 0) {
-        detailEntries.push(`unsupported extensions (${unsupportedExtension})`);
+        const formattedSamples = unsupportedExtensionSamples.map((sample) =>
+            formatPathForDisplay(sample)
+        );
+        let suffix = "";
+
+        if (formattedSamples.length > 0) {
+            const sampleList = formattedSamples.join(", ");
+            const ellipsis =
+                unsupportedExtension > formattedSamples.length ? ", ..." : "";
+            suffix = ` (e.g., ${sampleList}${ellipsis})`;
+        }
+        detailEntries.push(
+            `unsupported extensions (${unsupportedExtension})${suffix}`
+        );
     }
 
     if (symbolicLink > 0) {
@@ -1393,4 +1416,18 @@ if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
             exitCode: 1
         });
     });
+}
+function recordUnsupportedExtension(filePath) {
+    skippedFileSummary.unsupportedExtension += 1;
+
+    if (
+        skippedFileSummary.unsupportedExtensionSamples.length >=
+        UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
+    ) {
+        return;
+    }
+
+    if (!skippedFileSummary.unsupportedExtensionSamples.includes(filePath)) {
+        skippedFileSummary.unsupportedExtensionSamples.push(filePath);
+    }
 }
