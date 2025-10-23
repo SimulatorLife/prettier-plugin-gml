@@ -7,9 +7,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
+    assertPlainObject,
+    ensureDir,
     getErrorMessage,
     normalizeStringList,
-    ensureDir
+    parseJsonWithContext
 } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import {
@@ -69,6 +71,60 @@ async function loadSampleText(label, relativePath) {
     const record = { contents, path: absolutePath };
     sampleCache.set(label, record);
     return record;
+}
+
+function describeFormatterOptionsValue(value) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (Array.isArray(value)) {
+        return "an array";
+    }
+
+    const type = typeof value;
+    if (type === "undefined") {
+        return "undefined";
+    }
+
+    if (type === "object") {
+        const tag = Object.prototype.toString.call(value);
+        const match = /^\[object (\w+)\]$/.exec(tag);
+        if (match && match[1] !== "Object") {
+            const label = match[1];
+            const article = /^[AEIOU]/i.test(label) ? "an" : "a";
+            return `${article} ${label} object`;
+        }
+
+        return "an object";
+    }
+
+    const article = /^[aeiou]/i.test(type) ? "an" : "a";
+    return `${article} ${type}`;
+}
+
+function buildFormatterOptionsTypeErrorMessage(source, value) {
+    const location = source ? ` at ${source}` : "";
+    return `Formatter options fixture${location} must be a JSON object. Received ${describeFormatterOptionsValue(value)}.`;
+}
+
+/**
+ * Parse the formatter options fixture JSON and ensure it yields a plain object.
+ *
+ * @param {string} optionsRaw Raw JSON contents from the formatter options
+ *     fixture.
+ * @param {{ source?: string }} [options]
+ * @returns {Record<string, unknown>} Normalized option overrides.
+ */
+export function parseFormatterOptionsFixture(optionsRaw, { source } = {}) {
+    const payload = parseJsonWithContext(optionsRaw, {
+        source,
+        description: "formatter options fixture"
+    });
+
+    return assertPlainObject(payload, {
+        errorMessage: buildFormatterOptionsTypeErrorMessage(source, payload)
+    });
 }
 
 function captureProcessMemory() {
@@ -546,7 +602,9 @@ async function runPluginFormatSuite({ iterations }) {
     let optionOverrides = {};
     try {
         const optionsRaw = await readFile(optionsAbsolutePath, "utf8");
-        optionOverrides = JSON.parse(optionsRaw);
+        optionOverrides = parseFormatterOptionsFixture(optionsRaw, {
+            source: optionsAbsolutePath
+        });
     } catch (error) {
         if (error && error.code === "ENOENT") {
             notes.push(
