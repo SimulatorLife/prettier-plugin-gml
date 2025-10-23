@@ -907,11 +907,16 @@ export function print(path, options, print) {
                     );
                 });
 
+                const hasSingleCallArgument =
+                    node.arguments.length === 1 &&
+                    node.arguments[0]?.type === "CallExpression";
+
                 const shouldForceBreakArguments =
                     (maxParamsPerLine > 0 &&
                         node.arguments.length > maxParamsPerLine) ||
                     callbackArguments.length > 1 ||
-                    structArgumentsToBreak.length > 0;
+                    structArgumentsToBreak.length > 0 ||
+                    hasSingleCallArgument;
 
                 const shouldUseCallbackLayout = [
                     node.arguments[0],
