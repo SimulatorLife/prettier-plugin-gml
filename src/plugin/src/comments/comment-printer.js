@@ -48,7 +48,8 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing = collection == undefined;
+        const isCollectionMissing =
+            collection === undefined || collection === null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
             return true;
@@ -387,7 +388,12 @@ function isCommentOnNodeStartLine(comment, node) {
     const commentLine = comment.start?.line;
     const nodeStartLine = node?.start?.line;
 
-    if (commentLine == null || nodeStartLine == null) {
+    const isCommentLineMissing =
+        commentLine === undefined || commentLine === null;
+    const isNodeStartLineMissing =
+        nodeStartLine === undefined || nodeStartLine === null;
+
+    if (isCommentLineMissing || isNodeStartLineMissing) {
         return false;
     }
 
@@ -397,7 +403,7 @@ function isCommentOnNodeStartLine(comment, node) {
 function handleCommentInEmptyParens(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.leadingChar != "(" || comment.trailingChar != ")") {
+    if (comment.leadingChar !== "(" || comment.trailingChar !== ")") {
         return false;
     }
 
