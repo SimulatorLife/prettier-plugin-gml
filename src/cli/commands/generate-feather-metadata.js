@@ -147,6 +147,29 @@ function sanitizeManualString(value) {
     return normalizeMultilineText(value);
 }
 
+function normalizeMultilineTextCollection(
+    values,
+    { preserveEmptyEntries = false, emptyEntryValue = null } = {}
+) {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    const normalized = [];
+
+    for (const value of values) {
+        const text = normalizeMultilineText(value);
+
+        if (text) {
+            normalized.push(text);
+        } else if (preserveEmptyEntries) {
+            normalized.push(emptyEntryValue);
+        }
+    }
+
+    return normalized;
+}
+
 function getNormalizedTextContent(element, { trim = false } = {}) {
     if (!element) {
         return trim ? null : "";
@@ -235,15 +258,15 @@ function extractTable(table) {
             (cell) => getTagName(cell) === "th"
         );
         if (rowIndex === 0 && hasHeaderCells) {
-            headers.push(
-                ...values
-                    .map((value) => normalizeMultilineText(value))
-                    .filter(Boolean)
-            );
+            headers.push(...normalizeMultilineTextCollection(values));
             return;
         }
 
-        rows.push(values.map((value) => normalizeMultilineText(value) ?? null));
+        rows.push(
+            normalizeMultilineTextCollection(values, {
+                preserveEmptyEntries: true
+            })
+        );
     });
 
     return { headers, rows };
@@ -397,11 +420,7 @@ function pushNormalizedText(target, value) {
 }
 
 function normalizeListItems(items) {
-    if (!Array.isArray(items)) {
-        return [];
-    }
-
-    return items.map((item) => normalizeMultilineText(item)).filter(Boolean);
+    return normalizeMultilineTextCollection(items);
 }
 
 const BLOCK_NORMALIZERS = {
@@ -904,9 +923,9 @@ function parseTypeSystem(html) {
     const noteBlocks = Array.from(document.querySelectorAll("p.note"))
         .map((element) => createBlock(element))
         .filter(Boolean);
-    const notes = noteBlocks
-        .map((block) => normalizeMultilineText(block.text))
-        .filter(Boolean);
+    const notes = normalizeMultilineTextCollection(
+        noteBlocks.map((block) => block.text)
+    );
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
@@ -962,9 +981,9 @@ function parseTypeSystem(html) {
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
-            specifierExamples: type.specifierExamples
-                .map((example) => normalizeMultilineText(example))
-                .filter(Boolean),
+            specifierExamples: normalizeMultilineTextCollection(
+                type.specifierExamples
+            ),
             description: normalizeMultilineText(type.description)
         })),
         notes,
