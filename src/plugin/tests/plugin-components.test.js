@@ -261,4 +261,51 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
             restoreDefaultGmlPluginComponents();
         }
     });
+
+    await t.test(
+        "observer abort signals trigger automatic unsubscription",
+        () => {
+            const notifications = [];
+            const controller = new AbortController();
+
+            const unsubscribe = addGmlPluginComponentObserver(
+                (components) => {
+                    notifications.push(components);
+                },
+                { signal: controller.signal }
+            );
+
+            try {
+                const firstComponents = createCustomComponents();
+                const overridden = setGmlPluginComponentProvider(
+                    () => firstComponents
+                );
+
+                assert.strictEqual(
+                    notifications.at(-1),
+                    overridden,
+                    "observers should receive initial override notifications"
+                );
+
+                notifications.length = 0;
+                controller.abort();
+
+                const reset = resetGmlPluginComponentProvider();
+
+                assert.strictEqual(
+                    notifications.length,
+                    0,
+                    "aborted observers should stop receiving notifications"
+                );
+                assert.strictEqual(
+                    reset,
+                    gmlPluginComponents,
+                    "reset should still restore the default bundle"
+                );
+            } finally {
+                unsubscribe();
+                restoreDefaultGmlPluginComponents();
+            }
+        }
+    );
 });

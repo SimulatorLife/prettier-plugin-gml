@@ -3,6 +3,8 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getNodeEndIndex,
     getNodeStartIndex,
+    getNodeEndLine,
+    getNodeStartLine,
     cloneLocation,
     assignClonedLocation
 } from "../../../shared/ast-locations.js";
@@ -107,6 +109,18 @@ function walkAstNodes(root, visitor) {
     visit(root, null, null);
 }
 
+function hasArrayParentWithNumericIndex(parent, property) {
+    if (!Array.isArray(parent)) {
+        return false;
+    }
+
+    if (typeof property !== "number") {
+        return false;
+    }
+
+    return true;
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -129,6 +143,12 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentOut"
+);
+const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentText"
+);
 const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
@@ -1102,7 +1122,15 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
-                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
+                    // TODO: Once the identifier-case project index can expose event
+                    // ancestry we should query it here instead of trusting the
+                    // diagnostic payload alone. GM2040 only fires when
+                    // `event_inherited()` is orphaned, but without project-scope
+                    // metadata the fixer cannot distinguish a legitimate override
+                    // from a missing parent event. Integrating with the scoping
+                    // pipeline outlined in `docs/project-index-next-steps.md` will
+                    // let us re-evaluate inherited events during formatting and avoid
+                    // deleting valid calls when Feather diagnostics are unavailable.
                     ast,
                     diagnostic
                 });
@@ -1203,11 +1231,23 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM2009") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexBeginPrecedesEnd({ ast, diagnostic });
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, options }) => {
+                        const fixes = ensureVertexBeginPrecedesEnd({
+                            ast,
+                            diagnostic,
+                            options
+                        });
 
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
+                    }
+            );
             continue;
         }
 
@@ -2581,7 +2621,7 @@ function splitGlobalVarStatementInitializers({
         return [];
     }
 
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return [];
     }
 
@@ -3019,7 +3059,7 @@ function convertReadOnlyAssignment(
     diagnostic,
     nameRegistry
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -4794,7 +4834,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 }
 
 function rewritePostfixStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -5472,6 +5512,7 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
                 diagnostic
             );
             if (fixInfo) {
+                registerSanitizedMacroName(ast, node?.name?.name);
                 fixes.push(fixInfo);
             }
         }
@@ -5979,6 +6020,28 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function registerSanitizedMacroName(ast, macroName) {
+    if (!ast || typeof ast !== "object" || ast.type !== "Program") {
+        return;
+    }
+
+    if (typeof macroName !== "string" || macroName.length === 0) {
+        return;
+    }
+
+    let registry = ast._featherSanitizedMacroNames;
+
+    if (registry instanceof Set) {
+        registry.add(macroName);
+        return;
+    }
+
+    registry = Array.isArray(registry) ? new Set(registry) : new Set();
+
+    registry.add(macroName);
+    ast._featherSanitizedMacroNames = registry;
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
@@ -6839,7 +6902,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return [];
         }
 
-        if (!Array.isArray(parent) || typeof property !== "number") {
+        if (!hasArrayParentWithNumericIndex(parent, property)) {
             return [];
         }
 
@@ -7481,7 +7544,7 @@ function convertAssignmentToLocalVariable({
     sourceText,
     programAst
 }) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8293,13 +8356,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -8455,7 +8512,7 @@ function isStatementArray(entry) {
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8491,9 +8548,17 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         end: cloneLocation(node.end)
     };
 
+    const assignmentStatement = {
+        type: "ExpressionStatement",
+        expression: normalizedAssignment,
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+    assignmentStatement._featherSuppressFollowingEmptyLine = true;
+
     const blockStatement = {
         type: "BlockStatement",
-        body: [normalizedAssignment],
+        body: [assignmentStatement],
         start: cloneLocation(node.start),
         end: cloneLocation(node.end)
     };
@@ -8513,6 +8578,7 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         end: cloneLocation(node.end)
     };
 
+    copyCommentMetadata(node, assignmentStatement);
     copyCommentMetadata(node, withStatement);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -8898,13 +8964,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9026,13 +9086,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9265,13 +9319,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9439,13 +9487,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9471,8 +9513,25 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (let index = 0; index < node.length; ) {
+                const element = node[index];
+
+                if (element?.type === "CallExpression") {
+                    const fix = ensureFileFindFirstBeforeCloseCall(
+                        element,
+                        node,
+                        index,
+                        diagnostic
+                    );
+
+                    if (fix) {
+                        fixes.push(fix);
+                        continue;
+                    }
+                }
+
+                visit(element, node, index);
+                index += 1;
             }
             return;
         }
@@ -9551,13 +9610,7 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10436,13 +10489,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10533,13 +10580,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10549,6 +10590,19 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         typeof insertionInfo.index === "number"
             ? insertionInfo.index
             : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -10601,13 +10655,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10742,13 +10790,7 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -11195,13 +11237,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -11230,7 +11266,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
-function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
+function ensureVertexBeginPrecedesEnd({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -11257,7 +11293,8 @@ function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
             node,
             parent,
             property,
-            diagnostic
+            diagnostic,
+            options
         );
 
         if (fix) {
@@ -11281,7 +11318,8 @@ function ensureVertexBeginBeforeVertexEndCall(
     node,
     parent,
     property,
-    diagnostic
+    diagnostic,
+    options
 ) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -11321,15 +11359,16 @@ function ensureVertexBeginBeforeVertexEndCall(
         }
     }
 
-    const vertexBeginCall = createVertexBeginCall({
-        diagnostic,
-        referenceCall: node,
-        bufferIdentifier: bufferArgument
-    });
+    const shouldRemoveStandaloneVertexEnd =
+        options?.removeStandaloneVertexEnd === true;
 
-    if (!vertexBeginCall) {
-        return null;
-    }
+    const vertexBeginCall = shouldRemoveStandaloneVertexEnd
+        ? null
+        : createVertexBeginCall({
+              diagnostic,
+              referenceCall: node,
+              bufferIdentifier: bufferArgument
+          });
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
@@ -11343,12 +11382,19 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 0, vertexBeginCall);
-    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
-    attachFeatherFixMetadata(node, [fixDetail]);
-    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
-    markStatementToSuppressLeadingEmptyLine(node);
+    const shouldInsertVertexBegin =
+        !shouldRemoveStandaloneVertexEnd && !!vertexBeginCall;
 
+    if (shouldInsertVertexBegin) {
+        parent.splice(property, 0, vertexBeginCall);
+        attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
+        attachFeatherFixMetadata(node, [fixDetail]);
+        markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+        markStatementToSuppressLeadingEmptyLine(node);
+        return fixDetail;
+    }
+
+    parent.splice(property, 1);
     return fixDetail;
 }
 
@@ -12587,13 +12633,7 @@ function removeEventInheritedCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12699,13 +12739,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12837,13 +12871,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13423,13 +13451,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13536,12 +13558,8 @@ function createEmptyStatementLike(template) {
 }
 
 function hasOriginalBlankLineBetween(beforeNode, afterNode) {
-    const beforeEndLine =
-        typeof beforeNode?.end?.line === "number" ? beforeNode.end.line : null;
-    const afterStartLine =
-        typeof afterNode?.start?.line === "number"
-            ? afterNode.start.line
-            : null;
+    const beforeEndLine = getNodeEndLine(beforeNode);
+    const afterStartLine = getNodeStartLine(afterNode);
 
     if (beforeEndLine == undefined || afterStartLine == undefined) {
         return false;
@@ -14920,6 +14938,22 @@ function ensureVertexFormatDefinitionIsClosed(
     siblings.splice(insertionIndex, 0, vertexFormatEndCall);
     attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
 
+    const commentTargets = [];
+
+    for (let index = property; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (candidate && candidate.type === "CallExpression") {
+            commentTargets.push(candidate);
+        }
+    }
+
+    commentTargets.push(vertexFormatEndCall);
+
+    for (const target of commentTargets) {
+        markCallExpressionForFeatherComment(target);
+    }
+
     return fixDetail;
 }
 
@@ -14976,6 +15010,51 @@ function isVertexFormatAddCall(node) {
         typeof identifier.name === "string" &&
         identifier.name.startsWith("vertex_format_add_")
     );
+}
+
+function markCallExpressionForFeatherComment(node) {
+    if (!node || node.type !== "CallExpression") {
+        return;
+    }
+
+    const commentText = createCallExpressionCommentText(node);
+
+    Object.defineProperty(node, FEATHER_COMMENT_OUT_SYMBOL, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: true
+    });
+
+    if (isNonEmptyString(commentText)) {
+        Object.defineProperty(node, FEATHER_COMMENT_TEXT_SYMBOL, {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: commentText
+        });
+    }
+}
+
+function createCallExpressionCommentText(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const calleeName = getCallExpressionCalleeName(node);
+
+    if (!calleeName) {
+        return null;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (!Array.isArray(args) || args.length === 0) {
+        return `${calleeName}()`;
+    }
+
+    const placeholderArgs = args.map(() => "...").join(", ");
+    return `${calleeName}(${placeholderArgs})`;
 }
 
 function createVertexFormatEndCall(template) {
@@ -17810,6 +17889,20 @@ function createFeatherFixDetail(
     };
 }
 
+function createCallExpressionTargetFixDetail(diagnostic, node) {
+    if (!node) {
+        return null;
+    }
+
+    return createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+}
+
 function attachFeatherFixMetadata(target, fixes) {
     if (
         !target ||
@@ -18176,20 +18269,6 @@ function getArgumentBuiltinName(name) {
     }
 
     return null;
-}
-
-function getNodeStartLine(node) {
-    const location = node?.start;
-
-    if (
-        location &&
-        typeof location === "object" &&
-        typeof location.line === "number"
-    ) {
-        return location.line;
-    }
-
-    return;
 }
 
 function collectGM1100Candidates(node) {

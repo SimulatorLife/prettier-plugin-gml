@@ -8,6 +8,7 @@ const { isNextLineEmpty, isPreviousLineEmpty } = util;
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "CallExpression",
     "AssignmentExpression",
+    "ExpressionStatement",
     "GlobalVarStatement",
     "ReturnStatement",
     "BreakStatement",

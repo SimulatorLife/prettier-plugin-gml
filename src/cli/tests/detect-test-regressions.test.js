@@ -180,6 +180,49 @@ test("parses top-level test cases that are not nested in a suite", () => {
     );
 });
 
+test("ignores checkstyle reports when scanning result directories", () => {
+    const resultsDir = path.join(workspace, "test-results");
+
+    writeXml(
+        resultsDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="real failure" classname="suite">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        resultsDir,
+        "eslint-checkstyle",
+        `<checkstyle version="1.0">
+      <file name="src/example.js">
+        <error line="1" severity="error" message="nope" source="lint" />
+      </file>
+    </checkstyle>`
+    );
+
+    const head = readTestResults(["test-results"], { workspace });
+
+    assert.strictEqual(head.stats.total, 1);
+    assert.strictEqual(head.stats.failed, 1);
+    assert.strictEqual(
+        [...head.results.keys()][0],
+        "sample :: suite :: real failure"
+    );
+    assert.equal(
+        head.notes.some((note) =>
+            note.includes(
+                "Ignoring checkstyle report test-results/eslint-checkstyle.xml"
+            )
+        ),
+        true
+    );
+});
+
 test("normalizes whitespace when describing regression candidates", () => {
     const headDir = path.join(workspace, "test-results");
 

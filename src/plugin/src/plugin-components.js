@@ -1,3 +1,4 @@
+import { resolveAbortSignalFromOptions } from "../../shared/abort-utils.js";
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
 
@@ -60,14 +61,49 @@ export function getGmlPluginComponentProvider() {
     return currentProvider;
 }
 
-export function addGmlPluginComponentObserver(observer) {
+const OBSERVER_ABORT_MESSAGE =
+    "GML plugin component observer registration was aborted.";
+
+export function addGmlPluginComponentObserver(observer, options = {}) {
     if (typeof observer !== "function") {
         throw new TypeError("GML plugin component observers must be functions");
     }
 
+    let signal = null;
+    try {
+        signal = resolveAbortSignalFromOptions(options, {
+            fallbackMessage: OBSERVER_ABORT_MESSAGE
+        });
+    } catch (error) {
+        if (error?.name === "AbortError") {
+            return () => {};
+        }
+
+        throw error;
+    }
+
     componentObservers.add(observer);
 
-    return () => {
+    let aborted = false;
+    const unsubscribe = () => {
+        if (aborted) {
+            return;
+        }
+
+        aborted = true;
         componentObservers.delete(observer);
+        if (signal) {
+            signal.removeEventListener("abort", abortHandler);
+        }
     };
+
+    const abortHandler = () => {
+        unsubscribe();
+    };
+
+    if (signal) {
+        signal.addEventListener("abort", abortHandler, { once: true });
+    }
+
+    return unsubscribe;
 }

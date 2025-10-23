@@ -7,7 +7,8 @@ import {
     getIdentifierText as sharedGetIdentifierText,
     isUndefinedLiteral as sharedIsUndefinedLiteral,
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
-    unwrapParenthesizedExpression
+    unwrapParenthesizedExpression,
+    getBodyStatements
 } from "../../../shared/ast-node-helpers.js";
 import { toMutableArray } from "../../../shared/array-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
@@ -158,16 +159,15 @@ function preprocessFunctionDeclaration(node, helpers) {
     node._hasProcessedArgumentCountDefaults = true;
 
     const body = node.body;
-    if (
-        !body ||
-        body.type !== "BlockStatement" ||
-        !Array.isArray(body.body) ||
-        body.body.length === 0
-    ) {
+    if (!body || body.type !== "BlockStatement") {
         return;
     }
 
-    const statements = body.body;
+    const statements = getBodyStatements(body);
+    if (statements.length === 0) {
+        return;
+    }
+
     const matches = [];
 
     for (const [statementIndex, statement] of statements.entries()) {
@@ -648,10 +648,11 @@ function extractAssignmentFromStatement(statement, helpers) {
     }
 
     if (statement.type === "BlockStatement") {
-        if (!Array.isArray(statement.body) || statement.body.length !== 1) {
+        const blockStatements = getBodyStatements(statement);
+        if (blockStatements.length !== 1) {
             return null;
         }
-        return extractAssignmentFromStatement(statement.body[0], helpers);
+        return extractAssignmentFromStatement(blockStatements[0], helpers);
     }
 
     if (statement.type !== "ExpressionStatement") {

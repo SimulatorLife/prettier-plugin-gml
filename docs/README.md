@@ -2,11 +2,10 @@
 
 Use this index to jump straight to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
-can pick the right level of detail for your task. Looking for installation or
-contributor setup steps? Start with the [repository README](../README.md) for
-the quick-start checklist, formatter configuration matrix, CLI wrapper options,
-and day-to-day development commands, then return here when you need deeper
-context.
+can pick the right level of detail for your task. Need installation or
+onboarding steps? Start with the [repository README](../README.md) for the
+Quick start workflows, configuration reference, and contributor command cheat
+sheet, then return here when you need deeper context.
 
 ## Reference guides
 
@@ -31,6 +30,9 @@ context.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
+- [Configuration reference](../README.md#configuration-reference) — Baseline
+  Prettier options for `.gml` files, plus the identifier-case defaults surfaced
+  by the plugin.
 - [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
@@ -48,6 +50,10 @@ context.
   — Research notes that detail why the CLI and plugin expose separate entry
   points, how shared utilities are packaged, and where the CLI wrapper inserts
   additional behaviour such as `.prettierignore` discovery.
+- [Live reloading concept](live-reloading-concept.md) — Exploration of the HTML5
+  runtime fork, watcher pipeline, and transpiler requirements behind prospective
+  hot-reload tooling. Start here when scoping runtime experimentation work or
+  cross-referencing the architecture audits.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
   shipped cache shape plus the instrumentation used to keep bootstrap behaviour
   predictable.
