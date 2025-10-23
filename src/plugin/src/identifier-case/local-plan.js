@@ -1,8 +1,6 @@
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { buildRenameKey } from "./plan-state.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
-import { resolveProjectPathInfo } from "../project-index/path-info.js";
 import { createMetricsTracker } from "../reporting.js";
 import {
     isNonEmptyString,
