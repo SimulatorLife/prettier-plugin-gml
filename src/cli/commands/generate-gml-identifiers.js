@@ -32,7 +32,7 @@ import { applyStandardCommandOptions } from "../lib/command-standard-options.js"
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
+} from "../lib/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 import {
