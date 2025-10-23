@@ -7,12 +7,34 @@ const contextMap = new Map();
  * @param {string | null | undefined} filePath
  * @returns {string}
  */
-function normalizeKey(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
+function normalizeKey(filepath) {
+    if (typeof filepath !== "string" || filepath.length === 0) {
         return DEFAULT_CONTEXT_KEY;
     }
 
-    return filePath;
+    return filepath;
+}
+
+/**
+ * Resolve the normalized map key and associated context entry. Consolidates
+ * the repeated `has`/`get` guards used when consuming or peeking at stored
+ * metadata so each call site stays consistent when converting missing entries
+ * to `null` and optionally removing consumed records.
+ *
+ * @param {string | null | undefined} filepath
+ * @param {{ remove?: boolean }} [options]
+ * @returns {{ key: string, context: object | null }}
+ */
+function accessContextEntry(filepath, { remove = false } = {}) {
+    const key = normalizeKey(filepath);
+    const hasEntry = contextMap.has(key);
+    const context = hasEntry ? contextMap.get(key) : null;
+
+    if (remove && hasEntry) {
+        contextMap.delete(key);
+    }
+
+    return { key, context };
 }
 
 /**
@@ -33,7 +55,7 @@ export function setIdentifierCaseDryRunContext({
     now = null,
     projectIndex = null
 } = {}) {
-    const key = normalizeKey(filepath);
+    const { key } = accessContextEntry(filepath);
     contextMap.set(key, {
         renamePlan,
         conflicts,
@@ -54,13 +76,7 @@ export function setIdentifierCaseDryRunContext({
  * @returns {object | null}
  */
 export function consumeIdentifierCaseDryRunContext(filepath = null) {
-    const key = normalizeKey(filepath);
-    if (!contextMap.has(key)) {
-        return null;
-    }
-
-    const context = contextMap.get(key);
-    contextMap.delete(key);
+    const { context } = accessContextEntry(filepath, { remove: true });
     return context;
 }
 
@@ -72,12 +88,8 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
  * @returns {object | null}
  */
 export function peekIdentifierCaseDryRunContext(filepath = null) {
-    const key = normalizeKey(filepath);
-    if (!contextMap.has(key)) {
-        return null;
-    }
-
-    return contextMap.get(key);
+    const { context } = accessContextEntry(filepath);
+    return context;
 }
 
 /**

@@ -32,10 +32,6 @@ function resolveLineCommentOptions() {
     return DEFAULT_LINE_COMMENT_OPTIONS;
 }
 
-function getLineCommentCodeDetectionPatterns() {
-    return DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
-}
-
 function normalizeLineCommentOptions() {
     return DEFAULT_LINE_COMMENT_OPTIONS;
 }
@@ -45,7 +41,6 @@ export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     LINE_COMMENT_BANNER_STANDARD_LENGTH,
-    getLineCommentCodeDetectionPatterns,
     normalizeLineCommentOptions,
     resolveLineCommentOptions
 };
