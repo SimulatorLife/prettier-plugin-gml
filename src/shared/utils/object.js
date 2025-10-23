@@ -109,6 +109,35 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
 }
 
 /**
+ * Execute {@link onDefined} when {@link value} is not `undefined`. Centralizes
+ * the guard around optional values so call sites can focus on their core logic
+ * instead of repeating `!== undefined` checks and callback validation.
+ *
+ * Callers can optionally supply {@link onUndefined} which mirrors the fallback
+ * semantics of {@link withObjectLike}, accepting either a thunk or a direct
+ * value. When omitted the helper returns `undefined` to keep its behavior
+ * aligned with existing conditional assignments in the codebase.
+ *
+ * @template TValue
+ * @template TResult
+ * @param {TValue | undefined} value Candidate value to inspect.
+ * @param {(value: TValue) => TResult} onDefined Callback invoked when
+ *        {@link value} is defined.
+ * @param {(() => TResult) | TResult} [onUndefined] Optional fallback returned
+ *        (or invoked) when {@link value} is `undefined`.
+ * @returns {TResult | undefined}
+ */
+export function withDefinedValue(value, onDefined, onUndefined) {
+    assertFunction(onDefined, "onDefined");
+
+    if (value === undefined) {
+        return typeof onUndefined === "function" ? onUndefined() : onUndefined;
+    }
+
+    return onDefined(value);
+}
+
+/**
  * Returns the first property value on the provided object that is neither
  * `undefined` nor `null`.
  *
