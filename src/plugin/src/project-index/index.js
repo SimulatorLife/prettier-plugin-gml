@@ -638,6 +638,52 @@ function ensureCollectionEntry(map, key, initializer) {
     return getOrCreateMapEntry(map, key, initializer);
 }
 
+function assignIdentifierEntryMetadata(entry, metadata) {
+    if (!entry || typeof entry !== "object") {
+        return entry;
+    }
+
+    const {
+        identifierId,
+        name,
+        displayName,
+        resourcePath,
+        enumName,
+        scopeId,
+        scopeKind
+    } = metadata ?? {};
+
+    if (identifierId !== undefined && !entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
+
+    if (name && !entry.name) {
+        entry.name = name;
+    }
+
+    if (displayName && !entry.displayName) {
+        entry.displayName = displayName;
+    }
+
+    if (resourcePath && !entry.resourcePath) {
+        entry.resourcePath = resourcePath;
+    }
+
+    if (enumName && !entry.enumName) {
+        entry.enumName = enumName;
+    }
+
+    if (scopeId !== undefined && !entry.scopeId) {
+        entry.scopeId = scopeId;
+    }
+
+    if (scopeKind !== undefined && !entry.scopeKind) {
+        entry.scopeKind = scopeKind;
+    }
+
+    return entry;
+}
+
 function createIdentifierCollections() {
     return {
         scripts: new Map(),
@@ -956,19 +1002,13 @@ function registerScriptDeclaration({
         return;
     }
 
-    if (!entry.identifierId) {
-        entry.identifierId = buildIdentifierId("script", descriptor?.id ?? "");
-    }
-
-    if (descriptor.name && !entry.name) {
-        entry.name = descriptor.name;
-    }
-    if (descriptor.displayName && !entry.displayName) {
-        entry.displayName = descriptor.displayName;
-    }
-    if (descriptor.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = descriptor.resourcePath;
-    }
+    const identifierId = buildIdentifierId("script", descriptor?.id ?? "");
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: descriptor?.name ?? null,
+        displayName: descriptor?.displayName ?? null,
+        resourcePath: descriptor?.resourcePath ?? null
+    });
 
     if (!declarationRecord) {
         return;
@@ -1088,16 +1128,11 @@ function registerScriptReference({ identifierCollections, callRecord }) {
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
-
-    if (callRecord.target?.name && !entry.name) {
-        entry.name = callRecord.target.name;
-    }
-    if (callRecord.target?.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = callRecord.target.resourcePath;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: callRecord.target?.name ?? null,
+        resourcePath: callRecord.target?.resourcePath ?? null
+    });
 
     const reference = cloneScriptReference(callRecord);
     if (reference) {
@@ -1165,9 +1200,7 @@ function registerMacroOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1209,14 +1242,13 @@ function registerEnumOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
-
-    if (enumInfo && !entry.name) {
-        entry.name =
-            enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
-    }
+    const enumName = enumInfo
+        ? (enumInfo.name ?? identifierRecord?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: enumName
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1265,15 +1297,13 @@ function registerEnumMemberOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
-
-    if (memberInfo?.enumKey && !entry.enumName) {
-        entry.enumName =
-            enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
-            entry.enumName;
-    }
+    const enumName = memberInfo?.enumKey
+        ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        enumName
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1306,9 +1336,7 @@ function registerGlobalOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1345,9 +1373,11 @@ function registerInstanceOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
     if (role === "declaration") {
@@ -1490,9 +1520,11 @@ function registerInstanceAssignment({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
