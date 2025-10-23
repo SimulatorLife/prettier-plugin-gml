@@ -56,6 +56,20 @@ export class JsonParseError extends SyntaxError {
     }
 }
 
+/**
+ * Check whether a thrown value matches the {@link JsonParseError} contract.
+ *
+ * The guard intentionally mirrors the properties populated by
+ * {@link parseJsonWithContext}, allowing callers to branch on the enriched
+ * metadata without trusting arbitrary userland errors. It tolerates a missing
+ * `source` (which is optional) but otherwise requires the canonical
+ * `JsonParseError` naming, a string description, and an error-like `cause` so
+ * diagnostic pipelines remain predictable.
+ *
+ * @param {unknown} value Candidate error object to interrogate.
+ * @returns {value is JsonParseError} `true` when the value exposes the
+ *     expected shape for {@link JsonParseError}.
+ */
 export function isJsonParseError(value) {
     if (!isErrorLike(value)) {
         return false;
