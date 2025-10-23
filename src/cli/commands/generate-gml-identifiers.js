@@ -34,7 +34,7 @@ import {
     resolveManualCommandOptions
 } from "../lib/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+import { createManualManualAccessContext } from "../lib/manual-command-context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
@@ -48,7 +48,7 @@ const {
     },
     files: { fetchManualFile },
     refs: { resolveManualRef }
-} = createManualCommandContext({
+} = createManualManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
     outputFileName: "gml-identifiers.json"
