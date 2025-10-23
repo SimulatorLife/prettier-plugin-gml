@@ -38,3 +38,25 @@ test("omits blank lines between nested and enclosing block braces", async () => 
         "Expected the formatter to collapse extraneous blank lines between adjacent closing braces."
     );
 });
+
+test("preserves blank lines before closing braces when the preceding statement emits a semicolon", async () => {
+    const source = [
+        "function demo() {",
+        "    value = 1;",
+        "",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    const closingSegment = lines.slice(-3);
+
+    assert.deepEqual(
+        closingSegment,
+        ["    value = 1;", "", "}"],
+        "Expected blank lines between statements with semicolons and the enclosing block brace to be preserved."
+    );
+});

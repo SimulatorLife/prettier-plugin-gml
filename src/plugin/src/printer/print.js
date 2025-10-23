@@ -2252,9 +2252,16 @@ function printStatements(path, options, print, childrenAttribute) {
                     break;
                 }
 
-                shouldPreserveTrailingBlankLine = nextCharacter
-                    ? nextCharacter !== "}"
-                    : false;
+                if (!nextCharacter) {
+                    shouldPreserveTrailingBlankLine = false;
+                } else if (nextCharacter === "}") {
+                    const statementEmitsSemicolon =
+                        semi === ";" || hasTerminatingSemicolon;
+
+                    shouldPreserveTrailingBlankLine = statementEmitsSemicolon;
+                } else {
+                    shouldPreserveTrailingBlankLine = true;
+                }
             }
 
             if (shouldPreserveTrailingBlankLine) {
