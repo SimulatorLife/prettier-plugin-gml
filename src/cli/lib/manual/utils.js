@@ -4,6 +4,7 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     isNonEmptyArray,
+    isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
 } from "../shared-deps.js";
@@ -63,9 +64,7 @@ function describeManualRepoInput(value) {
 }
 
 function normalizeDownloadLabel(label) {
-    return typeof label === "string" && label.trim().length > 0
-        ? label
-        : "Downloading manual files";
+    return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
 /**
