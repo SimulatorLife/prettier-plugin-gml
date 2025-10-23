@@ -1763,8 +1763,11 @@ function printElements(
             itemsSinceLastBreak += 1;
             if (hasLimit) {
                 const childNode = childPath.getValue();
+                const nextNode =
+                    index < finalIndex ? node[listKey][index + 1] : null;
                 const shouldBreakAfter =
                     isComplexArgumentNode(childNode) ||
+                    isComplexArgumentNode(nextNode) ||
                     itemsSinceLastBreak >= maxElementsPerLine;
 
                 if (shouldBreakAfter) {
