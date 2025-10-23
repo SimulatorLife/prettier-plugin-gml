@@ -493,6 +493,16 @@ export function print(path, options, print) {
                     docCommentDocs,
                     options
                 );
+                // Nested functions (those in BlockStatement parents) should have
+                // a leading blank line before their synthetic doc comments
+                const parentNode = path.getParentNode();
+                if (
+                    parentNode &&
+                    parentNode.type === "BlockStatement" &&
+                    !needsLeadingBlankLine
+                ) {
+                    needsLeadingBlankLine = true;
+                }
             }
 
             if (docCommentDocs.length > 0) {
@@ -3254,19 +3264,23 @@ function mergeSyntheticDocComments(
         ];
 
         let shouldOmitDescriptionBlock = false;
-        if (syntheticFunctionName && descriptionBlock.length === 1) {
+        if (descriptionBlock.length === 1) {
             const descriptionMetadata = parseDocCommentMetadata(
                 descriptionBlock[0]
             );
             const descriptionText =
                 typeof descriptionMetadata?.name === "string"
                     ? descriptionMetadata.name.trim()
-                    : null;
+                    : "";
 
-            if (
-                descriptionText &&
+            // Omit empty description blocks
+            if (descriptionText.length === 0) {
+                shouldOmitDescriptionBlock = true;
+            } else if (
+                syntheticFunctionName &&
                 descriptionText.startsWith(syntheticFunctionName)
             ) {
+                // Omit alias-style descriptions like "functionName()"
                 const remainder = descriptionText.slice(
                     syntheticFunctionName.length
                 );
@@ -5302,7 +5316,11 @@ function shouldGenerateSyntheticDocForFunction(
 ) {
     const node = path.getValue();
     const parent = path.getParentNode();
-    if (!node || !parent || parent.type !== "Program") {
+    if (
+        !node ||
+        !parent ||
+        (parent.type !== "Program" && parent.type !== "BlockStatement")
+    ) {
         return false;
     }
 
