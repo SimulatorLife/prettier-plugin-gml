@@ -7,7 +7,7 @@ import {
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "../src/project-index/concurrency.js";
-import { defaultFsFacade } from "../src/project-index/fs-facade.js";
+import { defaultFsFacade } from "../../shared/fs-utils.js";
 import { defaultFsFacade as reexportedFsFacade } from "../src/project-index/index.js";
 import { defaultFsFacade as topLevelFsFacade } from "../src/project-index.js";
 

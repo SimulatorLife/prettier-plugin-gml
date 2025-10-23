@@ -7,7 +7,7 @@ import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
 import { isPlainObject } from "../../../shared/object-utils.js";
 
-import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade } from "../../../shared/fs-utils.js";
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)

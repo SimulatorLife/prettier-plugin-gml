@@ -102,3 +102,38 @@ export async function getFileMtime(fsFacade, filePath, options = {}) {
         throw error;
     }
 }
+
+/**
+ * Canonical async filesystem facade backed by Node's `fs/promises` module.
+ *
+ * Project index helpers previously defined this shim within their own module,
+ * even though the implementation simply forwarded to the shared utilities
+ * contract. Hoisting the facade alongside the other filesystem helpers keeps
+ * the default within the shared boundary and avoids sprinkling duplicate
+ * wrappers across feature areas.
+ */
+const defaultFsFacade = Object.freeze({
+    async readDir(targetPath) {
+        return nodeFs.readdir(targetPath);
+    },
+    async stat(targetPath) {
+        return nodeFs.stat(targetPath);
+    },
+    async readFile(targetPath, encoding = "utf8") {
+        return nodeFs.readFile(targetPath, encoding);
+    },
+    async writeFile(targetPath, contents, encoding = "utf8") {
+        return nodeFs.writeFile(targetPath, contents, encoding);
+    },
+    async rename(fromPath, toPath) {
+        return nodeFs.rename(fromPath, toPath);
+    },
+    async mkdir(targetPath, options = { recursive: true }) {
+        return nodeFs.mkdir(targetPath, options);
+    },
+    async unlink(targetPath) {
+        return nodeFs.unlink(targetPath);
+    }
+});
+
+export { defaultFsFacade };

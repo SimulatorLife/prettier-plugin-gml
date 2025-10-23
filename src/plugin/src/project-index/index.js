@@ -26,8 +26,11 @@ import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
-import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
+import {
+    defaultFsFacade,
+    isFsErrorCode,
+    listDirectory
+} from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -2403,7 +2406,7 @@ export async function buildProjectIndex(
         projectIndex
     });
 }
-export { defaultFsFacade } from "./fs-facade.js";
+export { defaultFsFacade } from "../../../shared/fs-utils.js";
 export { getProjectIndexParserOverride };
 export { ProjectFileCategory };
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";

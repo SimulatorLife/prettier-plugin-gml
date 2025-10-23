@@ -12,7 +12,7 @@ import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
-import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade } from "../../../shared/fs-utils.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import {
     isFsErrorCode,
