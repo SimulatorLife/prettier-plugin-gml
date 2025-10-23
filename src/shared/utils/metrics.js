@@ -159,6 +159,53 @@ function createFinalizer({ autoLog, logger, category, snapshot }) {
     };
 }
 
+/**
+ * Construct a metrics tracker that records timing, counter, cache, and metadata
+ * information for a formatter run.
+ *
+ * The tracker intentionally embraces loose inputs so callers can feed
+ * user-supplied configuration without pre-validating everything. Cache keys can
+ * arrive as iterables, timers tolerate synchronous or asynchronous callbacks,
+ * and metadata gracefully ignores blank labels. All numeric inputs are coerced
+ * through {@link Number} to avoid `NaN` pollution while still accepting string
+ * representations from environment variables.
+ *
+ * @param {{
+ *   category?: string,
+ *   logger?: { debug?: (message: string, payload: unknown) => void } | null,
+ *   autoLog?: boolean,
+ *   cacheKeys?: Iterable<string> | ArrayLike<string>
+ * }} [options]
+ * @returns {{
+ *   category: string,
+ *   timeSync: <T>(label: string, callback: () => T) => T,
+ *   timeAsync: <T>(label: string, callback: () => Promise<T>) => Promise<T>,
+ *   startTimer: (label: string) => () => void,
+ *   incrementCounter: (label: string, amount?: number) => void,
+ *   recordCacheHit: (cacheName: string) => void,
+ *   recordCacheMiss: (cacheName: string) => void,
+ *   recordCacheStale: (cacheName: string) => void,
+ *   recordCacheMetric: (cacheName: string, key: string, amount?: number) => void,
+ *   snapshot: (extra?: object) => {
+ *     category: string,
+ *     totalTimeMs: number,
+ *     timings: Record<string, number>,
+ *     counters: Record<string, number>,
+ *     caches: Record<string, Record<string, number>>,
+ *     metadata: Record<string, unknown>
+ *   },
+ *   finalize: (extra?: object) => {
+ *     category: string,
+ *     totalTimeMs: number,
+ *     timings: Record<string, number>,
+ *     counters: Record<string, number>,
+ *     caches: Record<string, Record<string, number>>,
+ *     metadata: Record<string, unknown>
+ *   },
+ *   logSummary: (message?: string, extra?: object) => void,
+ *   setMetadata: (key: string, value: unknown) => void
+ * }}
+ */
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
