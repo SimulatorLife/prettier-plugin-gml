@@ -9,6 +9,7 @@ import {
     getSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
 import { getCommentArray, isLineComment } from "../../../shared/comments.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { stripStringQuotes } from "../../../shared/string-utils.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
@@ -81,7 +82,7 @@ function visit(node, tracker, commentTools) {
 }
 
 function consolidateBlock(statements, tracker, commentTools) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 

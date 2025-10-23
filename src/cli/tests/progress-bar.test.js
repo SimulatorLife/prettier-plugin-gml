@@ -15,17 +15,30 @@ describe("progress bar utilities", () => {
         setDefaultProgressBarWidth(undefined);
     });
 
+    // Use strict equality helpers; Node deprecated the legacy assert.equal API.
+
     it("exposes the canonical default width", () => {
-        assert.equal(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+        assert.strictEqual(
+            getDefaultProgressBarWidth(),
+            DEFAULT_PROGRESS_BAR_WIDTH
+        );
     });
 
     it("returns the default width when no value is provided", () => {
-        assert.equal(resolveProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+        assert.strictEqual(
+            resolveProgressBarWidth(),
+            DEFAULT_PROGRESS_BAR_WIDTH
+        );
     });
 
     it("normalizes numeric inputs", () => {
-        assert.equal(resolveProgressBarWidth("  32 "), 32);
-        assert.equal(resolveProgressBarWidth(16.75), 16);
+        const normalizedFromString = resolveProgressBarWidth("  32 ");
+        assert.strictEqual(typeof normalizedFromString, "number");
+        assert.strictEqual(normalizedFromString, 32);
+
+        const normalizedFromFloat = resolveProgressBarWidth(16.75);
+        assert.strictEqual(typeof normalizedFromFloat, "number");
+        assert.strictEqual(normalizedFromFloat, 16);
     });
 
     it("rejects non-positive widths", () => {
@@ -36,15 +49,18 @@ describe("progress bar utilities", () => {
     it("allows configuring the default width programmatically", () => {
         setDefaultProgressBarWidth(40);
 
-        assert.equal(getDefaultProgressBarWidth(), 40);
-        assert.equal(resolveProgressBarWidth(), 40);
+        assert.strictEqual(getDefaultProgressBarWidth(), 40);
+        assert.strictEqual(resolveProgressBarWidth(), 40);
     });
 
     it("resets to the baseline default when set to undefined", () => {
         setDefaultProgressBarWidth(31);
         setDefaultProgressBarWidth(undefined);
 
-        assert.equal(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
+        assert.strictEqual(
+            getDefaultProgressBarWidth(),
+            DEFAULT_PROGRESS_BAR_WIDTH
+        );
     });
 
     it("applies the environment override for the default width", () => {
@@ -52,6 +68,6 @@ describe("progress bar utilities", () => {
             [PROGRESS_BAR_WIDTH_ENV_VAR]: "28"
         });
 
-        assert.equal(getDefaultProgressBarWidth(), 28);
+        assert.strictEqual(getDefaultProgressBarWidth(), 28);
     });
 });
