@@ -9506,8 +9506,25 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (let index = 0; index < node.length; ) {
+                const element = node[index];
+
+                if (element?.type === "CallExpression") {
+                    const fix = ensureFileFindFirstBeforeCloseCall(
+                        element,
+                        node,
+                        index,
+                        diagnostic
+                    );
+
+                    if (fix) {
+                        fixes.push(fix);
+                        continue;
+                    }
+                }
+
+                visit(element, node, index);
+                index += 1;
             }
             return;
         }
