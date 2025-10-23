@@ -3,16 +3,18 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import {
-    DEFAULT_MANUAL_REPO,
-    MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
-    normalizeManualRepository,
-    resolveManualRepoValue,
     MANUAL_CACHE_ROOT_ENV_VAR,
     resolveManualCacheRoot,
-    createManualVerboseState,
-    MANUAL_REPO_REQUIREMENT_SOURCE
+    createManualVerboseState
 } from "../lib/manual/utils.js";
+import {
+    DEFAULT_MANUAL_REPO,
+    MANUAL_REPO_ENV_VAR,
+    MANUAL_REPO_REQUIREMENT_SOURCE,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository,
+    resolveManualRepoValue
+} from "../lib/manual/repository.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,

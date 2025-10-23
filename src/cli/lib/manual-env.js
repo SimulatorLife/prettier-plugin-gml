@@ -2,7 +2,7 @@ import {
     MANUAL_REPO_ENV_VAR,
     MANUAL_REPO_REQUIREMENT_SOURCE,
     resolveManualRepoValue
-} from "./manual/utils.js";
+} from "./manual/repository.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     resolveProgressBarWidth

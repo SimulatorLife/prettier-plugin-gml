@@ -2,13 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-    buildManualRepositoryEndpoints,
     createManualGitHubFileClient,
     createManualGitHubCommitResolver,
     createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
 } from "./manual/utils.js";
+import { buildManualRepositoryEndpoints } from "./manual/repository.js";
 import { assertNonEmptyString } from "./shared-deps.js";
 
 /** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */

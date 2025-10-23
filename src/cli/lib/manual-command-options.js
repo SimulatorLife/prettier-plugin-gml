@@ -2,11 +2,11 @@ import path from "node:path";
 import process from "node:process";
 
 import { wrapInvalidArgumentResolver } from "./command-parsing.js";
+import { createManualVerboseState } from "./manual/utils.js";
 import {
     DEFAULT_MANUAL_REPO,
-    createManualVerboseState,
     resolveManualRepoValue
-} from "./manual/utils.js";
+} from "./manual/repository.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth

@@ -18,12 +18,12 @@ import {
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
 import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+import { MANUAL_CACHE_ROOT_ENV_VAR } from "../lib/manual/utils.js";
 import {
-    MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints
-} from "../lib/manual/utils.js";
+} from "../lib/manual/repository.js";
 import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,

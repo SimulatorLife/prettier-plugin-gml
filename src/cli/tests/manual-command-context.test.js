@@ -4,10 +4,8 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { createManualCommandContext } from "../lib/manual-command-context.js";
-import {
-    buildManualRepositoryEndpoints,
-    resolveManualCacheRoot
-} from "../lib/manual/utils.js";
+import { resolveManualCacheRoot } from "../lib/manual/utils.js";
+import { buildManualRepositoryEndpoints } from "../lib/manual/repository.js";
 
 test("createManualCommandContext centralizes manual command defaults", () => {
     const commandUrl = pathToFileURL(
