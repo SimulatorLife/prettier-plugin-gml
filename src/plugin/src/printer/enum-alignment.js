@@ -8,6 +8,10 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         return;
     }
 
+    if (enumNode._gmlDisableEnumAlignment === true) {
+        return;
+    }
+
     const members = enumNode.members;
     if (!isNonEmptyArray(members)) {
         return;
@@ -29,6 +33,10 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     });
 
     if (maxMemberWidth === 0) {
+        return;
+    }
+
+    if (enumNode._gmlDisableEnumTrailingCommentPadding === true) {
         return;
     }
 

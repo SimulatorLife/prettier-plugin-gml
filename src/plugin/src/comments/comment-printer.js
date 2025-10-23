@@ -73,6 +73,7 @@ function handleHoistedDeclarationLeadingComment(comment) {
 
 const OWN_LINE_COMMENT_HANDLERS = [
     handleHoistedDeclarationLeadingComment,
+    handleCommentSeparatedFromPrecedingNode,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
     handleOnlyComments
@@ -87,11 +88,13 @@ const COMMON_COMMENT_HANDLERS = [
 
 const END_OF_LINE_COMMENT_HANDLERS = [
     ...COMMON_COMMENT_HANDLERS,
+    handleSeparatedEndOfLineComment,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
     ...COMMON_COMMENT_HANDLERS,
+    handleSeparatedRemainingComment,
     handleCommentInEmptyLiteral,
     handleMacroComments
 ];
@@ -342,6 +345,65 @@ function handleCommentInEmptyBody(
     comment /*, text, options, ast, isLastComment */
 ) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
+}
+
+function handleCommentSeparatedFromPrecedingNode(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function handleSeparatedEndOfLineComment(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function handleSeparatedRemainingComment(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function reattachSeparatedComment(comment) {
+    const precedingNode = comment?.precedingNode;
+    const followingNode = comment?.followingNode;
+
+    if (!precedingNode || !followingNode) {
+        return false;
+    }
+
+    const commentLine = comment.start?.line;
+    const precedingEndLine = getNodeEndLine(precedingNode);
+
+    if (
+        typeof commentLine !== "number" ||
+        typeof precedingEndLine !== "number"
+    ) {
+        return false;
+    }
+
+    if (commentLine < precedingEndLine + 2) {
+        return false;
+    }
+
+    comment.leading = true;
+    comment.trailing = false;
+    comment.precedingNode = null;
+    followingNode._gmlForceLeadingBlankLine = true;
+    followingNode._gmlDisableEnumTrailingCommentPadding = true;
+    precedingNode._gmlForceLeadingBlankLine = true;
+    precedingNode._gmlDisableEnumAlignment = true;
+    addLeadingComment(followingNode, comment);
+    return true;
+}
+
+function getNodeEndLine(node) {
+    const { end } = node ?? {};
+
+    if (typeof end?.line === "number") {
+        return end.line;
+    }
+
+    if (typeof end === "number") {
+        return end;
+    }
+
+    return;
 }
 
 function handleMacroComments(comment) {
