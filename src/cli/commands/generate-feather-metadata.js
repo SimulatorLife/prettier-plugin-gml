@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
@@ -32,16 +33,20 @@ import { applyStandardCommandOptions } from "../lib/command-standard-options.js"
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+} from "../lib/manual/command-options.js";
+import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+
+/** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
 const {
-    repoRoot: REPO_ROOT,
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultOutputPath: OUTPUT_DEFAULT,
-    fetchManualFile,
-    resolveManualRef
-} = createManualCommandContext({
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    },
+    files: { fetchManualFile },
+    refs: { resolveManualRef }
+} = createManualManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
@@ -57,6 +62,12 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
+/**
+ * Create the CLI command for generating Feather metadata.
+ *
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @returns {import("commander").Command}
+ */
 export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -94,6 +105,13 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
 
     return command;
 }
+
+/**
+ * Resolve normalized CLI options for the Feather metadata command.
+ *
+ * @param {import("commander").Command} command
+ * @returns {ManualCommandOptions}
+ */
 function resolveFeatherMetadataOptions(command) {
     return resolveManualCommandOptions(command, {
         defaults: {
@@ -105,7 +123,7 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js.
+// Manual fetching helpers are wired via the shared manual command context.
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -205,7 +223,9 @@ function extractTable(table) {
             return lines.join("\n");
         });
 
-        const hasContent = values.some((value) => value && value.trim());
+        const hasContent = values.some((value) =>
+            getNonEmptyTrimmedString(value)
+        );
         if (!hasContent) {
             return;
         }
@@ -368,6 +388,49 @@ function normalizeTextBlock(block) {
     return getNonEmptyTrimmedString(block.text);
 }
 
+function pushNormalizedText(target, value) {
+    const normalized = normalizeMultilineText(value);
+    if (normalized) {
+        target.push(normalized);
+    }
+}
+
+function normalizeListItems(items) {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+
+    return items.map((item) => normalizeMultilineText(item)).filter(Boolean);
+}
+
+const BLOCK_NORMALIZERS = {
+    code(content, block) {
+        if (block.text) {
+            content.codeExamples.push(block.text);
+        }
+    },
+    note(content, block) {
+        pushNormalizedText(content.notes, block.text);
+    },
+    list(content, block) {
+        const items = normalizeListItems(block.items);
+        if (items.length > 0) {
+            content.lists.push(items);
+        }
+    },
+    table(content, block) {
+        if (block.table) {
+            content.tables.push(block.table);
+        }
+    },
+    heading(content, block) {
+        pushNormalizedText(content.headings, block.text);
+    },
+    default(content, block) {
+        pushNormalizedText(content.paragraphs, block.text);
+    }
+};
+
 function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
@@ -377,60 +440,22 @@ function normalizeContent(blocks) {
         headings: [],
         tables: []
     };
-    const appendNormalizedText = (target, text) => {
-        const normalized = normalizeMultilineText(text);
-        if (normalized) {
-            target.push(normalized);
-        }
-    };
 
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        switch (block.type) {
-            case "code": {
-                if (block.text) {
-                    content.codeExamples.push(block.text);
-                }
-                break;
-            }
-            case "note": {
-                appendNormalizedText(content.notes, block.text);
-                break;
-            }
-            case "list": {
-                const items = Array.isArray(block.items)
-                    ? block.items
-                          .map((item) => normalizeMultilineText(item))
-                          .filter(Boolean)
-                    : [];
-                if (items.length > 0) {
-                    content.lists.push(items);
-                }
-                break;
-            }
-            case "table": {
-                if (block.table) {
-                    content.tables.push(block.table);
-                }
-                break;
-            }
-            case "heading": {
-                appendNormalizedText(content.headings, block.text);
-                break;
-            }
-            default: {
-                appendNormalizedText(content.paragraphs, block.text);
-            }
-        }
+        const normalizeBlock =
+            BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
+        normalizeBlock(content, block);
     }
+
     return content;
 }
 
 function joinSections(parts) {
-    if (!Array.isArray(parts) || parts.length === 0) {
+    if (!isNonEmptyArray(parts)) {
         return null;
     }
 
@@ -438,7 +463,7 @@ function joinSections(parts) {
         .map((part) => getNonEmptyTrimmedString(part))
         .filter(Boolean);
 
-    if (normalizedParts.length === 0) {
+    if (!isNonEmptyArray(normalizedParts)) {
         return null;
     }
 
@@ -505,20 +530,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (badExample) {
-                goodExampleParts.push(text);
-            } else {
-                badExample = text;
-            }
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        if (badExample) {
-            correctionParts.push(text);
-        } else {
-            additionalDescriptionParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
         }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =
@@ -1110,6 +1135,12 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     };
 }
 
+/**
+ * Execute the Feather metadata generation workflow.
+ *
+ * @param {{ command?: import("commander").Command }} [context]
+ * @returns {Promise<number>}
+ */
 export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();

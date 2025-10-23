@@ -2,12 +2,42 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    addGmlPluginComponentObserver,
     gmlPluginComponents,
     resolveGmlPluginComponents,
+    resetGmlPluginComponentProvider,
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
 import * as gmlPlugin from "../src/gml.js";
+
+function createCustomComponents() {
+    return {
+        parsers: {
+            "custom-parse": {
+                parse: () => ({ type: "Program", body: [] })
+            }
+        },
+        printers: {
+            "custom-ast": {
+                print: () => "",
+                canAttachComment: () => false,
+                isBlockComment: () => false,
+                printComment: () => "",
+                handleComments: () => {}
+            }
+        },
+        options: {
+            customToggle: {
+                since: "0.0.0",
+                type: "boolean",
+                category: "gml",
+                default: false,
+                description: "Custom toggle for testing"
+            }
+        }
+    };
+}
 
 test("GML plugin component registry", { concurrency: false }, async (t) => {
     await t.test("exposes validated defaults", () => {
@@ -16,7 +46,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
         assert.strictEqual(
             resolved,
             gmlPluginComponents,
-            "resolver should return the shared component bundle"
+            "resolver should return the shared default bundle"
         );
 
         assert.ok(
@@ -70,31 +100,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
     });
 
     await t.test("allows overriding the active provider", () => {
-        const customComponents = {
-            parsers: {
-                "custom-parse": {
-                    parse: () => ({ type: "Program", body: [] })
-                }
-            },
-            printers: {
-                "custom-ast": {
-                    print: () => "",
-                    canAttachComment: () => false,
-                    isBlockComment: () => false,
-                    printComment: () => "",
-                    handleComments: () => {}
-                }
-            },
-            options: {
-                customToggle: {
-                    since: "0.0.0",
-                    type: "boolean",
-                    category: "gml",
-                    default: false,
-                    description: "Custom toggle for testing"
-                }
-            }
-        };
+        const customComponents = createCustomComponents();
 
         try {
             const resolved = setGmlPluginComponentProvider(
@@ -144,31 +150,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
     });
 
     await t.test("plugin exports track provider overrides", () => {
-        const customComponents = {
-            parsers: {
-                "custom-parse": {
-                    parse: () => ({ type: "Program", body: [] })
-                }
-            },
-            printers: {
-                "custom-ast": {
-                    print: () => "",
-                    canAttachComment: () => false,
-                    isBlockComment: () => false,
-                    printComment: () => "",
-                    handleComments: () => {}
-                }
-            },
-            options: {
-                customToggle: {
-                    since: "0.0.0",
-                    type: "boolean",
-                    category: "gml",
-                    default: false,
-                    description: "Custom toggle for testing"
-                }
-            }
-        };
+        const customComponents = createCustomComponents();
 
         try {
             setGmlPluginComponentProvider(() => customComponents);
@@ -241,4 +223,89 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
             "resolver should fall back to the default bundle"
         );
     });
+
+    await t.test("observers are notified when providers change", () => {
+        const notifications = [];
+        const unsubscribe = addGmlPluginComponentObserver((components) => {
+            notifications.push(components);
+        });
+
+        try {
+            const customComponents = createCustomComponents();
+            const overridden = setGmlPluginComponentProvider(
+                () => customComponents
+            );
+
+            assert.strictEqual(
+                notifications.at(-1),
+                overridden,
+                "observers should receive overridden bundle notifications"
+            );
+
+            notifications.length = 0;
+            unsubscribe();
+
+            const reset = resetGmlPluginComponentProvider();
+
+            assert.strictEqual(
+                notifications.length,
+                0,
+                "unsubscribed observers should not receive reset notifications"
+            );
+            assert.strictEqual(
+                reset,
+                gmlPluginComponents,
+                "reset should still restore the default bundle"
+            );
+        } finally {
+            restoreDefaultGmlPluginComponents();
+        }
+    });
+
+    await t.test(
+        "observer abort signals trigger automatic unsubscription",
+        () => {
+            const notifications = [];
+            const controller = new AbortController();
+
+            const unsubscribe = addGmlPluginComponentObserver(
+                (components) => {
+                    notifications.push(components);
+                },
+                { signal: controller.signal }
+            );
+
+            try {
+                const firstComponents = createCustomComponents();
+                const overridden = setGmlPluginComponentProvider(
+                    () => firstComponents
+                );
+
+                assert.strictEqual(
+                    notifications.at(-1),
+                    overridden,
+                    "observers should receive initial override notifications"
+                );
+
+                notifications.length = 0;
+                controller.abort();
+
+                const reset = resetGmlPluginComponentProvider();
+
+                assert.strictEqual(
+                    notifications.length,
+                    0,
+                    "aborted observers should stop receiving notifications"
+                );
+                assert.strictEqual(
+                    reset,
+                    gmlPluginComponents,
+                    "reset should still restore the default bundle"
+                );
+            } finally {
+                unsubscribe();
+                restoreDefaultGmlPluginComponents();
+            }
+        }
+    );
 });

@@ -12,40 +12,42 @@ function selectPluginComponents() {
 }
 
 function createReadOnlyView(selector, description) {
-    const target = Object.create(null);
+    const base = Object.create(null);
     const readOnlyError = new TypeError(
         `${description} cannot be modified once resolved.`
     );
 
-    function selectSource() {
+    const ensureSource = () => {
         const source = selector();
-        if (!source || typeof source !== "object") {
-            throw new TypeError(`${description} must resolve to an object.`);
+        if (source && typeof source === "object") {
+            return source;
         }
-        return source;
-    }
 
-    return new Proxy(target, {
-        get(_target, property, receiver) {
+        throw new TypeError(`${description} must resolve to an object.`);
+    };
+
+    const throwReadOnlyError = () => {
+        throw readOnlyError;
+    };
+
+    const forward =
+        (method) =>
+        (_target, ...args) =>
+            Reflect[method](ensureSource(), ...args);
+
+    return new Proxy(base, {
+        get: (_target, property, receiver) => {
             if (property === Symbol.toStringTag) {
                 return "Object";
             }
 
-            const source = selectSource();
-            return Reflect.get(source, property, receiver);
+            return Reflect.get(ensureSource(), property, receiver);
         },
-        has(_target, property) {
-            const source = selectSource();
-            return Reflect.has(source, property);
-        },
-        ownKeys() {
-            const source = selectSource();
-            return Reflect.ownKeys(source);
-        },
-        getOwnPropertyDescriptor(_target, property) {
-            const source = selectSource();
+        has: forward("has"),
+        ownKeys: forward("ownKeys"),
+        getOwnPropertyDescriptor: (_target, property) => {
             const descriptor = Reflect.getOwnPropertyDescriptor(
-                source,
+                ensureSource(),
                 property
             );
 
@@ -63,18 +65,10 @@ function createReadOnlyView(selector, description) {
                 writable: false
             };
         },
-        getPrototypeOf() {
-            return Object.prototype;
-        },
-        set() {
-            throw readOnlyError;
-        },
-        defineProperty() {
-            throw readOnlyError;
-        },
-        deleteProperty() {
-            throw readOnlyError;
-        }
+        getPrototypeOf: () => Object.prototype,
+        set: throwReadOnlyError,
+        defineProperty: throwReadOnlyError,
+        deleteProperty: throwReadOnlyError
     });
 }
 
@@ -108,7 +102,7 @@ export const languages = [
 // fixtures showcased in README.md#formatter-at-a-glance and the
 // docs/examples/* snapshots all assume "no trailing commas" plus
 // "always-parenthesised arrow parameters", so letting user configs flip those
-// bits would desynchronise the documented contract from the code we ship. We
+// bits would desynchronize the documented contract from the code we ship. We
 // therefore clamp the values here to advertise a single canonical style and to
 // prevent project-level `.prettierrc` files from surfacing ineffective or
 // misleading toggles.

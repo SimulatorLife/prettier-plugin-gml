@@ -18,7 +18,7 @@ import {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride
 } from "../src/project-index/index.js";
-import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
+import { bootstrapProjectIndex } from "../src/identifier-case/project-index-bootstrap.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
@@ -269,6 +269,13 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
             assert.equal(options.__identifierCaseProjectIndexConcurrency, 8);
             assert.equal(descriptor.buildOptions?.concurrency?.gml, 8);
             assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 8);
+        }
+
+        {
+            const { options, descriptor } = await runCase("64");
+            assert.equal(options.__identifierCaseProjectIndexConcurrency, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gml, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 16);
         }
 
         {

@@ -5,7 +5,10 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { resolvePluginEntryPoint } from "../lib/plugin-entry-point.js";
+import {
+    importPluginModule,
+    resolvePluginEntryPoint
+} from "../lib/plugin-entry-point.js";
 
 const temporaryDirectories = new Set();
 
@@ -74,5 +77,22 @@ describe("resolvePluginEntryPoint", () => {
         const resolved = resolvePluginEntryPoint({ env: {} });
 
         assert.equal(resolved, expectedDefault);
+    });
+});
+
+describe("importPluginModule", () => {
+    it("imports the module located at the resolved entry point", async () => {
+        const pluginPath = createTemporaryPluginFile();
+        const moduleContents = [
+            "export const sentinel = 1729;",
+            "export default { languages: [] };"
+        ].join("\n");
+        fs.writeFileSync(pluginPath, `${moduleContents}\n`);
+
+        const module = await importPluginModule({
+            env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: pluginPath }
+        });
+
+        assert.equal(module?.sentinel, 1729);
     });
 });
