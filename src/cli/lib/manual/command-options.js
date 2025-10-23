@@ -1,17 +1,17 @@
 import path from "node:path";
 import process from "node:process";
 
-import { wrapInvalidArgumentResolver } from "./command-parsing.js";
+import { wrapInvalidArgumentResolver } from "../command-parsing.js";
 import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
     resolveManualRepoValue
-} from "./manual/utils.js";
+} from "./utils.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
-} from "./progress-bar.js";
-import { assertFunction, hasOwn, isNonEmptyString } from "./shared-deps.js";
+} from "../progress-bar.js";
+import { assertFunction, hasOwn, isNonEmptyString } from "../shared-deps.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
