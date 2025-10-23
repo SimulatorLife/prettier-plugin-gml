@@ -2,7 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import { readFile, writeFile as writeFileAsync } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError } from "commander";
 
@@ -35,6 +35,7 @@ import {
     resolveRequestedSuites,
     createSuiteResultsPayload
 } from "./command-suite-helpers.js";
+import { importPluginModule } from "./plugin-entry-point.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -48,8 +49,6 @@ const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/tests/input/SnowState.gml";
 const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/tests/testFormatting.input.gml";
 const FORMAT_OPTIONS_RELATIVE_PATH =
     "src/plugin/tests/testFormatting.options.json";
-const PLUGIN_ENTRY_RELATIVE_PATH = "src/plugin/src/gml.js";
-
 export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
@@ -663,9 +662,7 @@ async function runPluginFormatSuite({ iterations }) {
     }
 
     const prettier = await loadPrettierStandalone();
-    const pluginModule = await import(
-        pathToFileURL(resolveProjectPath(PLUGIN_ENTRY_RELATIVE_PATH)).href
-    );
+    const pluginModule = await importPluginModule();
 
     const formatOptions = {
         ...pluginModule.defaultOptions,
