@@ -25,21 +25,62 @@ test("memory CLI writes suite results to a JSON report", async () => {
     const reportRaw = await readFile(reportPath, "utf8");
     const payload = JSON.parse(reportRaw);
 
+    assert.equal(typeof payload.environment, "object");
+    assert.equal(typeof payload.environment.nodeVersion, "string");
+    assert.ok(payload.environment.nodeVersion.length > 0);
     assert.equal(typeof payload.generatedAt, "string");
     assert.ok(payload.generatedAt.length > 0);
     assert.equal(typeof payload.suites, "object");
 
-    const suiteResult = payload.suites["normalize-string-list"];
-    assert.ok(suiteResult && typeof suiteResult === "object");
-    assert.equal(suiteResult.iterations, 1);
-    assert.ok(!("error" in suiteResult));
-    assert.equal(typeof suiteResult.totalLength, "number");
-    assert.equal(typeof suiteResult.heapUsedBefore, "number");
-    assert.equal(typeof suiteResult.heapUsedAfter, "number");
-    if (suiteResult.heapUsedAfterGc == null) {
-        assert.ok(Array.isArray(suiteResult.warnings));
-        assert.ok(suiteResult.warnings.length > 0);
+    const normalizeSuite = payload.suites["normalize-string-list"];
+    assert.ok(normalizeSuite && typeof normalizeSuite === "object");
+    assert.equal(normalizeSuite.iterations, 1);
+    assert.equal(typeof normalizeSuite.description, "string");
+    assert.ok(!("error" in normalizeSuite));
+    assert.equal(typeof normalizeSuite.totalLength, "number");
+    assert.equal(typeof normalizeSuite.heapUsedBefore, "number");
+    assert.equal(typeof normalizeSuite.heapUsedAfter, "number");
+    assert.ok(
+        normalizeSuite.memory && typeof normalizeSuite.memory === "object"
+    );
+    assert.equal(normalizeSuite.memory.unit, "bytes");
+    assert.equal(typeof normalizeSuite.memory.before.heapUsed, "number");
+    assert.equal(typeof normalizeSuite.memory.delta.heapUsed, "number");
+    assert.equal(typeof normalizeSuite.memory.deltaPerIteration, "object");
+    if (normalizeSuite.heapUsedAfterGc == null) {
+        assert.ok(Array.isArray(normalizeSuite.warnings));
+        assert.ok(
+            normalizeSuite.warnings.some((warning) =>
+                warning.includes("--expose-gc")
+            )
+        );
     } else {
-        assert.equal(typeof suiteResult.heapUsedAfterGc, "number");
+        assert.equal(typeof normalizeSuite.heapUsedAfterGc, "number");
     }
+
+    const parserSuite = payload.suites["parser-ast"];
+    assert.ok(parserSuite && typeof parserSuite === "object");
+    assert.equal(parserSuite.iterations, 1);
+    assert.equal(typeof parserSuite.description, "string");
+    assert.ok(parserSuite.description.toLowerCase().includes("parse"));
+    assert.equal(typeof parserSuite.sample.path, "string");
+    assert.ok(parserSuite.sample.path.endsWith("SnowState.gml"));
+    assert.equal(typeof parserSuite.ast.nodeCount, "number");
+    assert.ok(Array.isArray(parserSuite.ast.commonNodeTypes));
+    assert.ok(parserSuite.memory && typeof parserSuite.memory === "object");
+    assert.equal(typeof parserSuite.memory.delta.heapUsed, "number");
+
+    const formatterSuite = payload.suites["plugin-format"];
+    assert.ok(formatterSuite && typeof formatterSuite === "object");
+    assert.equal(formatterSuite.iterations, 1);
+    assert.equal(typeof formatterSuite.description, "string");
+    assert.ok(formatterSuite.description.toLowerCase().includes("format"));
+    assert.equal(typeof formatterSuite.sample.path, "string");
+    assert.ok(formatterSuite.sample.path.endsWith("testFormatting.input.gml"));
+    assert.equal(typeof formatterSuite.output.bytes, "number");
+    assert.equal(typeof formatterSuite.options.printWidth, "number");
+    assert.ok(
+        formatterSuite.memory && typeof formatterSuite.memory === "object"
+    );
+    assert.equal(typeof formatterSuite.memory.delta.heapUsed, "number");
 });
