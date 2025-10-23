@@ -33,6 +33,7 @@ import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
     getErrorMessage,
+    getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
@@ -362,9 +363,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
  */
 function normalizeTargetPathInput(rawInput) {
     if (typeof rawInput === "string") {
-        const trimmed = rawInput.trim();
+        const trimmed = getNonEmptyTrimmedString(rawInput);
         return {
-            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathInput: trimmed ?? null,
             targetPathProvided: true
         };
     }
@@ -598,26 +599,25 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    return withObjectLike(
-        snapshot,
-        async (snapshotObject) => {
-            if (snapshotObject.inlineContents != null) {
-                return snapshotObject.inlineContents;
-            }
+    if (!snapshot || typeof snapshot !== "object") {
+        return "";
+    }
 
-            const { snapshotPath } = snapshotObject;
-            if (!snapshotPath) {
-                return "";
-            }
+    const { inlineContents, snapshotPath } = snapshot;
 
-            try {
-                return await readFile(snapshotPath, "utf8");
-            } catch {
-                return null;
-            }
-        },
-        () => ""
-    );
+    if (inlineContents != null) {
+        return inlineContents;
+    }
+
+    if (!snapshotPath) {
+        return "";
+    }
+
+    try {
+        return await readFile(snapshotPath, "utf8");
+    } catch {
+        return null;
+    }
 }
 
 /**

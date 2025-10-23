@@ -1,3 +1,5 @@
+import { toArray } from "./array.js";
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -132,7 +134,7 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = Array.isArray(keys) ? keys : [keys];
+    const lookupKeys = toArray(keys);
 
     for (const key of lookupKeys) {
         const value = object[key];

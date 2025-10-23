@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     getErrorMessage,
+    getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
     isNonEmptyString,
@@ -235,7 +236,7 @@ function parseXmlDocument(xml) {
 
         const rawContent = xml.slice(nextTag + 1, closingBracket);
         index = closingBracket + 1;
-        const trimmed = rawContent.trim();
+        const trimmed = getNonEmptyTrimmedString(rawContent);
         if (!trimmed) {
             continue;
         }
@@ -295,7 +296,7 @@ function pushNormalizedSuiteSegments(target, segments) {
         throw new TypeError("target must be an array");
     }
 
-    const sourceSegments = Array.isArray(segments) ? segments : [segments];
+    const sourceSegments = toArray(segments);
 
     for (const segment of sourceSegments) {
         const normalized = normalizeSuiteName(segment);
@@ -422,7 +423,7 @@ function collectTestCases(root) {
 }
 
 function normalizeResultDirectories(candidateDirs, workspaceRoot) {
-    return (Array.isArray(candidateDirs) ? candidateDirs : [candidateDirs])
+    return toArray(candidateDirs)
         .filter(Boolean)
         .map((candidate) => {
             const resolved = path.isAbsolute(candidate)

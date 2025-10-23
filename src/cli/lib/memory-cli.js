@@ -2,8 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import { readFile, writeFile as writeFileAsync } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { Command, InvalidArgumentError } from "commander";
 
@@ -31,7 +30,6 @@ import {
     resolveRequestedSuites,
     createSuiteResultsPayload
 } from "./command-suite-helpers.js";
-import { loadPrettierStandalone } from "../../../resources/memory/prettier-runner.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -46,10 +44,6 @@ const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/tests/testFormatting.input.gml";
 const FORMAT_OPTIONS_RELATIVE_PATH =
     "src/plugin/tests/testFormatting.options.json";
 const PLUGIN_ENTRY_RELATIVE_PATH = "src/plugin/src/gml.js";
-const FORMAT_BENCHMARK_SCRIPT = path.resolve(
-    PROJECT_ROOT,
-    "resources/memory-format-benchmark.mjs"
-);
 
 const MAX_PARSER_ITERATIONS = 25;
 const MAX_FORMAT_ITERATIONS = 25;
@@ -60,56 +54,9 @@ function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
 }
 
-async function runFormatBenchmarkChild(payload) {
-    const childArgs = [
-        "--expose-gc",
-        FORMAT_BENCHMARK_SCRIPT,
-        JSON.stringify(payload)
-    ];
-
-    return new Promise((resolve, reject) => {
-        execFile(
-            process.execPath,
-            childArgs,
-            { cwd: PROJECT_ROOT },
-            (error, stdout, stderr) => {
-                const output = stdout ? String(stdout).trim() : "";
-                if (!output && error) {
-                    error.stderr = stderr;
-                    reject(error);
-                    return;
-                }
-
-                const lines = output.split(/\r?\n/).filter(Boolean);
-                const lastLine = lines.at(-1) ?? "";
-
-                try {
-                    const parsed = JSON.parse(lastLine || "{}");
-                    if (!parsed.ok) {
-                        const details = parsed.error ?? {};
-                        const message =
-                            details.message ||
-                            "Prettier format benchmark failed.";
-                        const formattedError = new Error(message);
-                        formattedError.name = details.name || "Error";
-                        formattedError.stack = Array.isArray(details.stack)
-                            ? details.stack.join("\n")
-                            : details.stack;
-                        reject(formattedError);
-                        return;
-                    }
-                    resolve(parsed.result);
-                } catch (parseError) {
-                    if (error) {
-                        error.stderr = stderr;
-                        reject(error);
-                        return;
-                    }
-                    reject(parseError);
-                }
-            }
-        );
-    });
+async function loadPrettierStandalone() {
+    const module = await import("prettier/standalone.mjs");
+    return module?.default ?? module;
 }
 
 async function loadSampleText(label, relativePath) {
@@ -528,7 +475,7 @@ async function runParserAstSuite({ iterations }) {
         Math.min(requestedIterations, MAX_PARSER_ITERATIONS)
     );
 
-    const [{ contents: source, path: samplePath }] = await loadSampleText(
+    const { contents: source, path: samplePath } = await loadSampleText(
         "parser:sample",
         PARSER_SAMPLE_RELATIVE_PATH
     );
@@ -574,6 +521,7 @@ async function runParserAstSuite({ iterations }) {
 AVAILABLE_SUITES.set("parser-ast", runParserAstSuite);
 
 async function runPluginFormatSuite({ iterations }) {
+    const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
     const effectiveIterations = Math.max(
         1,
@@ -587,16 +535,75 @@ async function runPluginFormatSuite({ iterations }) {
         );
     }
 
-    const benchmarkPayload = {
-        iterations: effectiveIterations,
-        requestedIterations,
-        samplePath: FORMAT_SAMPLE_RELATIVE_PATH,
-        pluginPath: resolveProjectPath(PLUGIN_ENTRY_RELATIVE_PATH),
-        optionsPath: resolveProjectPath(FORMAT_OPTIONS_RELATIVE_PATH),
-        notes
+    const { contents: source, path: sampleAbsolutePath } = await loadSampleText(
+        "formatter:sample",
+        FORMAT_SAMPLE_RELATIVE_PATH
+    );
+
+    const optionsAbsolutePath = resolveProjectPath(
+        FORMAT_OPTIONS_RELATIVE_PATH
+    );
+    let optionOverrides = {};
+    try {
+        const optionsRaw = await readFile(optionsAbsolutePath, "utf8");
+        optionOverrides = JSON.parse(optionsRaw);
+    } catch (error) {
+        if (error && error.code === "ENOENT") {
+            notes.push(
+                "Formatter options fixture not found; using plugin defaults."
+            );
+        } else {
+            throw error;
+        }
+    }
+
+    const prettier = await loadPrettierStandalone();
+    const pluginModule = await import(
+        pathToFileURL(resolveProjectPath(PLUGIN_ENTRY_RELATIVE_PATH)).href
+    );
+
+    const formatOptions = {
+        ...pluginModule.defaultOptions,
+        ...optionOverrides,
+        parser: "gml-parse",
+        plugins: [pluginModule],
+        filepath: sampleAbsolutePath
     };
 
-    const result = await runFormatBenchmarkChild(benchmarkPayload);
+    const measurement = await tracker.measure(async () => {
+        let lastOutput = "";
+        for (let index = 0; index < effectiveIterations; index += 1) {
+            lastOutput = await prettier.format(source, formatOptions);
+        }
+
+        const sampleBytes = Buffer.byteLength(source, "utf8");
+        const outputBytes = Buffer.byteLength(lastOutput, "utf8");
+
+        return {
+            description:
+                "Formats a complex GameMaker script using the Prettier plugin printers.",
+            iterations: effectiveIterations,
+            requestedIterations,
+            notes: notes.length > 0 ? [...notes] : undefined,
+            sample: {
+                path: sampleAbsolutePath,
+                bytes: sampleBytes,
+                lines: countLines(source)
+            },
+            output: {
+                bytes: outputBytes,
+                changed: lastOutput !== source,
+                deltaBytes: outputBytes - sampleBytes
+            },
+            options: {
+                printWidth: formatOptions.printWidth,
+                tabWidth: formatOptions.tabWidth,
+                semi: formatOptions.semi
+            }
+        };
+    });
+
+    const result = buildSuiteResult({ measurement });
     if (result?.sample?.path) {
         result.sample.path = path.relative(PROJECT_ROOT, result.sample.path);
     }

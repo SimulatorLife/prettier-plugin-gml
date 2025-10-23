@@ -22,6 +22,7 @@ export {
     parseJsonWithContext,
     resolveIntegerOption,
     toArray,
+    uniqueArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     toPosixPath,
