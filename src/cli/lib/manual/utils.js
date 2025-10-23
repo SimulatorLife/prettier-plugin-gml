@@ -10,7 +10,7 @@ import {
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "../manual-file-helpers.js";
-import { isFsErrorCode } from "../shared/fs-utils.js";
+import { isFsErrorCode } from "../../../shared/utils/fs.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
