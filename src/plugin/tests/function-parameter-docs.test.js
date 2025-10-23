@@ -43,6 +43,27 @@ test("replaces argument index references inside function bodies", async () => {
     );
 });
 
+test("reuses renamed parameters when formatting argument references", async () => {
+    const formatted = await prettier.format(
+        `/// @param width
+function demo(argument0) {
+    return argument0;
+}
+`,
+        {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        }
+    );
+
+    assert.match(
+        formatted,
+        /function demo\(width\) {\s+return width;\s+}/,
+        "Expected argument references to reuse the renamed parameter identifier."
+    );
+});
+
 const SOURCE_WITH_ALIAS = `/// @param value
 function example(argument0) {
     var value = argument0;
