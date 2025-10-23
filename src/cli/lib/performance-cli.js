@@ -297,20 +297,18 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
     };
 }
 
-export async function runParserBenchmark(options = {}) {
+async function runFixtureDatasetBenchmark(
+    options,
+    { skipReason, resolveWorker }
+) {
     const dataset = await resolveDatasetFromOptions(options);
 
     if (!dataset || dataset.summary.files === 0) {
-        return createSkipResult(
-            "No GameMaker fixtures were available to parse."
-        );
+        return createSkipResult(skipReason);
     }
 
     const iterations = resolveIterationCount(options.iterations);
-    const parser =
-        typeof options.parser === "function"
-            ? options.parser
-            : createDefaultParser();
+    const worker = await resolveWorker(options);
     const now = resolveNow(options.now);
     const durations = [];
 
@@ -318,8 +316,8 @@ export async function runParserBenchmark(options = {}) {
         const start = now();
 
         for (const file of dataset.files) {
-            // Await in case callers provide asynchronous parser implementations.
-            await parser(file);
+            // Await in case callers provide asynchronous worker implementations.
+            await worker(file);
         }
 
         durations.push(now() - start);
@@ -328,39 +326,35 @@ export async function runParserBenchmark(options = {}) {
     return createBenchmarkResult({ dataset, durations, iterations });
 }
 
+export async function runParserBenchmark(options = {}) {
+    return runFixtureDatasetBenchmark(options, {
+        skipReason: "No GameMaker fixtures were available to parse.",
+        resolveWorker: async (benchmarkOptions) =>
+            typeof benchmarkOptions.parser === "function"
+                ? benchmarkOptions.parser
+                : createDefaultParser()
+    });
+}
+
 export async function runFormatterBenchmark(options = {}) {
-    const dataset = await resolveDatasetFromOptions(options);
+    return runFixtureDatasetBenchmark(options, {
+        skipReason: "No GameMaker fixtures were available to format.",
+        resolveWorker: async (benchmarkOptions) => {
+            if (typeof benchmarkOptions.formatter === "function") {
+                return benchmarkOptions.formatter;
+            }
 
-    if (!dataset || dataset.summary.files === 0) {
-        return createSkipResult(
-            "No GameMaker fixtures were available to format."
-        );
-    }
+            const prettierInstance =
+                benchmarkOptions.prettier ?? (await resolvePrettier());
+            const pluginPath =
+                benchmarkOptions.pluginPath ?? resolvePluginEntryPoint();
 
-    const iterations = resolveIterationCount(options.iterations);
-    const prettierInstance = options.prettier ?? (await resolvePrettier());
-    const pluginPath = options.pluginPath ?? resolvePluginEntryPoint();
-    const formatter =
-        typeof options.formatter === "function"
-            ? options.formatter
-            : createDefaultFormatter({
-                  prettier: prettierInstance,
-                  pluginPath
-              });
-    const now = resolveNow(options.now);
-    const durations = [];
-
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
-        const start = now();
-
-        for (const file of dataset.files) {
-            await formatter(file);
+            return createDefaultFormatter({
+                prettier: prettierInstance,
+                pluginPath
+            });
         }
-
-        durations.push(now() - start);
-    }
-
-    return createBenchmarkResult({ dataset, durations, iterations });
+    });
 }
 
 function createIdentifierTextDataset() {
