@@ -3,7 +3,8 @@ import { builders } from "prettier/doc";
 import {
     getLineBreakCount,
     isCommentNode,
-    isObjectLike
+    isObjectLike,
+    splitLines
 } from "./comment-boundary.js";
 import {
     applyInlinePadding,
@@ -499,7 +500,7 @@ function whitespaceToDoc(text) {
         return text;
     }
 
-    const lines = text.split(/[\r\n\u2028\u2029]/);
+    const lines = splitLines(text);
     return join(hardline, lines);
 }
 

@@ -12,6 +12,7 @@ import {
     ensureDir,
     getErrorMessage,
     normalizeStringList,
+    splitLines,
     parseJsonWithContext
 } from "./shared-deps.js";
 import { applyStandardCommandOptions } from "./command-standard-options.js";
@@ -287,7 +288,7 @@ function countLines(text) {
         return 0;
     }
 
-    return text.split(/\r?\n/).length;
+    return splitLines(text).length;
 }
 
 function summarizeAst(root) {
