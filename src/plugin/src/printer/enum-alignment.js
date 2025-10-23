@@ -20,7 +20,9 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         resolveName
     );
 
-    const shouldAlignInitializers = maxInitializerNameLength > 0;
+    const shouldAlignInitializers =
+        maxInitializerNameLength > 0 &&
+        memberStats.every((entry) => entry.hasInitializer);
 
     const maxMemberWidth = applyEnumMemberAlignment({
         memberStats,

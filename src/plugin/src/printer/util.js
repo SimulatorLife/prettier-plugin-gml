@@ -71,7 +71,8 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "FunctionDeclaration",
     "ConstructorDeclaration",
     "RegionStatement",
-    "EndRegionStatement"
+    "EndRegionStatement",
+    "EnumDeclaration"
 ]);
 
 /**
