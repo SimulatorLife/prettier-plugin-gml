@@ -288,6 +288,26 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         resolveSkippedDirectorySampleLimit(value, {
             defaultLimit: defaultSkippedDirectorySampleLimit
         });
+    const skippedDirectorySampleLimitOption = new Option(
+        "--ignored-directory-sample-limit <count>",
+        [
+            "Maximum number of ignored directories to include in skip summaries.",
+            `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+            "Alias: --ignored-directory-samples.",
+            `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+        ].join(" ")
+    )
+        .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
+        .default(
+            defaultSkippedDirectorySampleLimit,
+            String(defaultSkippedDirectorySampleLimit)
+        );
+    const skippedDirectorySamplesAliasOption = new Option(
+        "--ignored-directory-samples <count>",
+        "Alias for --ignored-directory-sample-limit <count>."
+    )
+        .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
+        .hideHelp();
 
     return applyStandardCommandOptions(
         new Command()
@@ -306,16 +326,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "Directory or file to format (alias for positional argument)."
         )
         .addOption(extensionsOption)
-        .option(
-            "--ignored-directory-sample-limit <count>",
-            [
-                "Maximum number of ignored directories to include in skip summaries.",
-                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
-                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ].join(" "),
-            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
-            defaultSkippedDirectorySampleLimit
-        )
+        .addOption(skippedDirectorySampleLimitOption)
+        .addOption(skippedDirectorySamplesAliasOption)
         .option(
             "--log-level <level>",
             [
@@ -357,16 +369,6 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
-        )
-        .option(
-            "--ignored-directory-samples <count>",
-            [
-                "Maximum number of ignored directories to include in summary output.",
-                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
-                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ].join(" "),
-            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
-            defaultSkippedDirectorySampleLimit
         );
 }
 
