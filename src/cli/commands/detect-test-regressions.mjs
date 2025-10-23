@@ -1136,7 +1136,43 @@ function buildSummaryReport({ inputDir, target } = {}) {
     };
 }
 
-function summarizeReports({ inputDir, outputDir, target } = {}) {
+function resolveOutputSpec({
+    outputDir,
+    outputFile,
+    outputPath,
+    defaultFile
+} = {}) {
+    if (isNonEmptyTrimmedString(outputPath)) {
+        const resolvedPath = path.resolve(outputPath);
+        return {
+            dir: path.dirname(resolvedPath),
+            file: path.basename(resolvedPath),
+            path: resolvedPath
+        };
+    }
+
+    if (isNonEmptyTrimmedString(outputDir)) {
+        const resolvedDir = path.resolve(outputDir);
+        const fileName = isNonEmptyTrimmedString(outputFile)
+            ? outputFile
+            : defaultFile;
+        return {
+            dir: resolvedDir,
+            file: fileName,
+            path: path.join(resolvedDir, fileName)
+        };
+    }
+
+    return { dir: null, file: null, path: null };
+}
+
+function summarizeReports({
+    inputDir,
+    outputDir,
+    outputFile,
+    outputPath,
+    target
+} = {}) {
     if (!isNonEmptyTrimmedString(inputDir)) {
         throw new CliUsageError(
             "summarizeReports requires an input directory via --input."
@@ -1145,20 +1181,26 @@ function summarizeReports({ inputDir, outputDir, target } = {}) {
 
     const resolvedInput = path.resolve(inputDir);
     const summary = buildSummaryReport({ inputDir: resolvedInput, target });
-    let outputPath = null;
+    const resolvedOutput = resolveOutputSpec({
+        outputDir,
+        outputFile,
+        outputPath,
+        defaultFile: "summary.json"
+    });
 
-    if (isNonEmptyTrimmedString(outputDir)) {
-        const resolvedOutput = path.resolve(outputDir);
-        fs.mkdirSync(resolvedOutput, { recursive: true });
-        outputPath = path.join(resolvedOutput, "summary.json");
-        fs.writeFileSync(outputPath, `${JSON.stringify(summary, null, 2)}\n`);
+    if (resolvedOutput.path) {
+        fs.mkdirSync(resolvedOutput.dir, { recursive: true });
+        fs.writeFileSync(
+            resolvedOutput.path,
+            `${JSON.stringify(summary, null, 2)}\n`
+        );
     }
 
     return {
         summary,
-        outputPath,
+        outputPath: resolvedOutput.path,
         inputDir: resolvedInput,
-        outputDir: outputPath ? path.dirname(outputPath) : null
+        outputDir: resolvedOutput.path ? resolvedOutput.dir : null
     };
 }
 
@@ -1393,7 +1435,10 @@ function createSummaryComparison(baseReport, targetReport) {
     };
 }
 
-function compareSummaryReports(reportSpecs, { outputDir } = {}) {
+function compareSummaryReports(
+    reportSpecs,
+    { outputDir, outputFile, outputPath } = {}
+) {
     if (!Array.isArray(reportSpecs) || reportSpecs.length < 2) {
         throw new CliUsageError(
             "compareSummaryReports requires at least two labeled summaries."
@@ -1439,15 +1484,22 @@ function compareSummaryReports(reportSpecs, { outputDir } = {}) {
 
     result.notes = dedupeStrings(result.notes);
 
-    let outputPath = null;
-    if (isNonEmptyTrimmedString(outputDir)) {
-        const resolvedOutput = path.resolve(outputDir);
-        fs.mkdirSync(resolvedOutput, { recursive: true });
-        outputPath = path.join(resolvedOutput, "comparison.json");
-        fs.writeFileSync(outputPath, `${JSON.stringify(result, null, 2)}\n`);
+    const resolvedOutput = resolveOutputSpec({
+        outputDir,
+        outputFile,
+        outputPath,
+        defaultFile: "comparison.json"
+    });
+
+    if (resolvedOutput.path) {
+        fs.mkdirSync(resolvedOutput.dir, { recursive: true });
+        fs.writeFileSync(
+            resolvedOutput.path,
+            `${JSON.stringify(result, null, 2)}\n`
+        );
     }
 
-    return { report: result, outputPath };
+    return { report: result, outputPath: resolvedOutput.path };
 }
 
 function parseCommandLine(argv) {
@@ -1457,15 +1509,33 @@ function parseCommandLine(argv) {
     }
 
     const [first, ...rest] = args;
-    if (first === "summarize" || first === "compare") {
+    if (
+        first === "summarize" ||
+        first === "compare" ||
+        first === "pr-summary-table-comment"
+    ) {
         return { command: first, args: rest };
     }
 
     return { command: null, args };
 }
 
+function looksLikeOutputFile(value) {
+    if (!isNonEmptyTrimmedString(value)) {
+        return false;
+    }
+    const ext = path.extname(value);
+    return Boolean(ext);
+}
+
 function parseSummarizeArgs(args) {
-    const options = { inputDir: null, outputDir: null, target: null };
+    const options = {
+        inputDir: null,
+        outputDir: null,
+        outputFile: null,
+        outputPath: null,
+        target: null
+    };
 
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
@@ -1477,7 +1547,27 @@ function parseSummarizeArgs(args) {
                 break;
             }
             case "--output": {
-                options.outputDir = args[index + 1];
+                const value = args[index + 1];
+                if (looksLikeOutputFile(value)) {
+                    options.outputPath = value;
+                } else {
+                    options.outputDir = value;
+                }
+                index += 1;
+
+                break;
+            }
+            case "--output-path":
+            case "--comparison":
+            case "--comparison-path": {
+                options.outputPath = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--file":
+            case "--output-file": {
+                options.outputFile = args[index + 1];
                 index += 1;
 
                 break;
@@ -1499,8 +1589,13 @@ function parseSummarizeArgs(args) {
         throw new CliUsageError("summarize requires --input <directory>.");
     }
 
-    if (!isNonEmptyTrimmedString(options.outputDir)) {
-        throw new CliUsageError("summarize requires --output <directory>.");
+    if (
+        !isNonEmptyTrimmedString(options.outputDir) &&
+        !isNonEmptyTrimmedString(options.outputPath)
+    ) {
+        throw new CliUsageError(
+            "summarize requires --output <directory or file>."
+        );
     }
 
     return options;
@@ -1509,11 +1604,28 @@ function parseSummarizeArgs(args) {
 function parseCompareArgs(args) {
     const specs = [];
     let outputDir = null;
+    let outputFile = null;
+    let outputPath = null;
 
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index];
         if (arg === "--output") {
-            outputDir = args[index + 1];
+            const value = args[index + 1];
+            if (looksLikeOutputFile(value)) {
+                outputPath = value;
+            } else {
+                outputDir = value;
+            }
+            index += 1;
+            continue;
+        }
+        if (arg === "--output-path" || arg === "--comparison-path") {
+            outputPath = args[index + 1];
+            index += 1;
+            continue;
+        }
+        if (arg === "--file" || arg === "--output-file") {
+            outputFile = args[index + 1];
             index += 1;
             continue;
         }
@@ -1529,14 +1641,408 @@ function parseCompareArgs(args) {
         );
     }
 
-    if (!isNonEmptyTrimmedString(outputDir)) {
-        throw new CliUsageError("compare requires --output <directory>.");
+    if (
+        !isNonEmptyTrimmedString(outputDir) &&
+        !isNonEmptyTrimmedString(outputPath)
+    ) {
+        throw new CliUsageError(
+            "compare requires --output <directory or file>."
+        );
     }
 
     return {
         reports: specs.map((spec) => normalizeReportSpec(spec)),
-        outputDir
+        outputDir,
+        outputFile,
+        outputPath
     };
+}
+
+function parseLegacyPrSummaryArgs(args) {
+    const options = {
+        workspace: null,
+        comparison: null,
+        summaryRoot: null,
+        baseDir: null,
+        headDir: null,
+        mergeDir: null
+    };
+    const warnings = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        const token = args[index];
+        if (!token.startsWith("--")) {
+            warnings.push(
+                `Ignoring positional argument '${token}' for pr-summary-table-comment.`
+            );
+            continue;
+        }
+
+        const eqIndex = token.indexOf("=");
+        const name = eqIndex === -1 ? token.slice(2) : token.slice(2, eqIndex);
+        const normalized = name.toLowerCase();
+        let value = null;
+
+        if (eqIndex === -1) {
+            const next = args[index + 1];
+            if (next && !next.startsWith("--")) {
+                value = next;
+                index += 1;
+            }
+        } else {
+            value = token.slice(eqIndex + 1);
+        }
+
+        switch (normalized) {
+            case "workspace": {
+                options.workspace = value;
+                break;
+            }
+            case "comparison":
+            case "comparison-path":
+            case "comparison-file":
+            case "output":
+            case "output-path":
+            case "output-file": {
+                options.comparison = value;
+                break;
+            }
+            case "summary":
+            case "summary-root":
+            case "summary-dir":
+            case "summary-output": {
+                options.summaryRoot = value;
+                break;
+            }
+            case "base":
+            case "base-dir": {
+                options.baseDir = value;
+                break;
+            }
+            case "head":
+            case "head-dir": {
+                options.headDir = value;
+                break;
+            }
+            case "merge":
+            case "merge-dir": {
+                options.mergeDir = value;
+                break;
+            }
+            default: {
+                warnings.push(
+                    `Unknown option '--${normalized}' for pr-summary-table-comment.`
+                );
+            }
+        }
+    }
+
+    return { options, warnings };
+}
+
+function resolveMaybeRelativePath(filePath, workspaceRoot) {
+    if (!isNonEmptyTrimmedString(filePath)) {
+        return null;
+    }
+    return path.isAbsolute(filePath)
+        ? path.normalize(filePath)
+        : path.resolve(workspaceRoot, filePath);
+}
+
+function writeJsonFile(filePath, data) {
+    if (!isNonEmptyTrimmedString(filePath)) {
+        return null;
+    }
+
+    const resolvedPath = path.resolve(filePath);
+    fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    fs.writeFileSync(resolvedPath, `${JSON.stringify(data, null, 2)}\n`);
+    return resolvedPath;
+}
+
+function computeComparisonStatus(report) {
+    const comparisons = report?.comparisons;
+    if (!Array.isArray(comparisons) || comparisons.length === 0) {
+        return { status: "error", allGreen: false };
+    }
+
+    const hasRegression = comparisons.some(
+        (entry) => entry?.regressions?.hasRegression
+    );
+
+    return {
+        status: hasRegression ? "regressions" : "clean",
+        allGreen: !hasRegression
+    };
+}
+
+function formatLegacyNumber(value) {
+    return typeof value === "number" && Number.isFinite(value)
+        ? value.toLocaleString("en-US")
+        : "—";
+}
+
+function formatLegacyCoverage(coverage) {
+    const pct = coverage?.pct;
+    if (typeof pct === "number" && Number.isFinite(pct)) {
+        return `${pct.toFixed(1)}%`;
+    }
+    return "—";
+}
+
+function formatLegacyDuration(seconds) {
+    if (typeof seconds === "number" && Number.isFinite(seconds)) {
+        return `${seconds.toFixed(1)}s`;
+    }
+    return "—";
+}
+
+function buildLegacySummaryComment({
+    summaries,
+    comparisons,
+    status,
+    allGreen
+}) {
+    const lines = [];
+    if (summaries.length > 0) {
+        lines.push(
+            "| Target | Total | Passed | Failed | Skipped | Lint warnings | Lint errors | Coverage | Duration |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        );
+
+        for (const entry of summaries) {
+            const tests = entry.summary?.tests ?? {};
+            const lint = entry.summary?.lint ?? {};
+            const coverage = entry.summary?.coverage ?? {};
+
+            lines.push(
+                `| ${entry.title} | ${formatLegacyNumber(
+                    tests.total
+                )} | ${formatLegacyNumber(tests.passed)} | ${formatLegacyNumber(
+                    tests.failed
+                )} | ${formatLegacyNumber(tests.skipped)} | ${formatLegacyNumber(
+                    lint.warnings
+                )} | ${formatLegacyNumber(lint.errors)} | ${formatLegacyCoverage(
+                    coverage
+                )} | ${formatLegacyDuration(tests.duration)} |`
+            );
+        }
+
+        lines.push("");
+    }
+
+    lines.push(`Status: **${status}** (all green: ${allGreen})`);
+
+    const regressionSummaries = (comparisons || [])
+        .filter((entry) => entry?.regressions)
+        .map((entry) => {
+            const reg = entry.regressions;
+            const details = [];
+            if (reg.newFailures > 0) {
+                details.push(
+                    `${reg.newFailures} new failing test${
+                        reg.newFailures === 1 ? "" : "s"
+                    }`
+                );
+            }
+            if (reg.lintErrors > 0) {
+                details.push(
+                    `${reg.lintErrors} additional lint error${
+                        reg.lintErrors === 1 ? "" : "s"
+                    }`
+                );
+            }
+            if (typeof reg.coverageDrop === "number" && reg.coverageDrop > 0) {
+                details.push(
+                    `coverage dropped by ${reg.coverageDrop.toFixed(1)} pts`
+                );
+            }
+
+            const suffix = details.length > 0 ? ` (${details.join(", ")})` : "";
+            return `- **${entry.base} → ${entry.target}**: ${
+                reg.hasRegression ? "regressions detected" : "no regressions"
+            }${suffix}`;
+        });
+
+    if (regressionSummaries.length > 0) {
+        lines.push("", "Regression summary:", ...regressionSummaries);
+    }
+
+    return lines.join("\n");
+}
+
+function runLegacyPrSummaryCommand(args) {
+    const { options, warnings } = parseLegacyPrSummaryArgs(args);
+    for (const warning of warnings) {
+        console.warn(`[pr-summary-table-comment] ${warning}`);
+    }
+
+    const workspaceRoot =
+        resolveMaybeRelativePath(
+            options.workspace,
+            process.env.GITHUB_WORKSPACE || process.cwd()
+        ) ||
+        process.env.GITHUB_WORKSPACE ||
+        process.cwd();
+
+    const summaryRoot =
+        resolveMaybeRelativePath(options.summaryRoot, workspaceRoot) ||
+        workspaceRoot;
+
+    const baseCandidates = buildResultCandidates(
+        [
+            ...(isNonEmptyTrimmedString(options.baseDir)
+                ? [options.baseDir]
+                : []),
+            path.join("base", "test-results"),
+            "base-test-results"
+        ],
+        "BASE_RESULTS_DIR"
+    );
+    const headCandidates = [
+        ...(isNonEmptyTrimmedString(options.headDir) ? [options.headDir] : []),
+        "test-results"
+    ];
+    const mergeCandidates = buildResultCandidates(
+        [
+            ...(isNonEmptyTrimmedString(options.mergeDir)
+                ? [options.mergeDir]
+                : []),
+            path.join("merge", "test-results"),
+            "merge-test-results"
+        ],
+        "MERGE_RESULTS_DIR"
+    );
+
+    const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
+    const head = readTestResults(headCandidates, { workspace: workspaceRoot });
+    const merged = readTestResults(mergeCandidates, {
+        workspace: workspaceRoot
+    });
+
+    const targets = [
+        { label: "base", title: "Base", results: base },
+        { label: "head", title: "PR head", results: head },
+        { label: "merge", title: "Merged (base+PR)", results: merged }
+    ];
+
+    const summaries = [];
+    for (const target of targets) {
+        if (!target.results.usedDir) {
+            continue;
+        }
+
+        const summaryDir = path.join(summaryRoot, `junit-${target.label}`);
+        const { summary, outputPath } = summarizeReports({
+            inputDir: target.results.usedDir,
+            outputDir: summaryDir,
+            target: target.label
+        });
+
+        summaries.push({
+            label: target.label,
+            title: target.title,
+            summary,
+            outputPath
+        });
+
+        if (outputPath) {
+            console.log(
+                `[pr-summary-table-comment] Wrote summary for ${
+                    target.label
+                } to ${formatDisplayPath(outputPath)}.`
+            );
+        }
+
+        for (const note of summary.tests?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+        for (const note of summary.lint?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+        for (const note of summary.coverage?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+    }
+
+    if (summaries.length === 0) {
+        console.warn(
+            "[pr-summary-table-comment] No test summaries were generated; unable to produce a comparison report."
+        );
+    }
+
+    const comparisonDefault = path.join("test-results", "comparison.json");
+    const comparisonPath =
+        resolveMaybeRelativePath(options.comparison, workspaceRoot) ||
+        path.resolve(workspaceRoot, comparisonDefault);
+
+    const baseSummary = summaries.find((entry) => entry.label === "base");
+    const targetSummaries = summaries.filter((entry) => entry.label !== "base");
+
+    let comparisonResult;
+    if (baseSummary && targetSummaries.length > 0) {
+        const specs = [baseSummary, ...targetSummaries].map((entry) => ({
+            label: entry.label,
+            path: entry.outputPath
+        }));
+
+        comparisonResult = compareSummaryReports(specs, {
+            outputPath: comparisonPath
+        });
+    } else {
+        const reason = baseSummary
+            ? "Unable to generate comparisons because no additional summaries were produced."
+            : "Unable to generate comparisons because the base summary is missing.";
+        const reports = summaries.map((entry) => ({
+            label: entry.label,
+            path: entry.outputPath
+                ? relativeToWorkspace(path.resolve(entry.outputPath))
+                : "",
+            ok: Boolean(entry.outputPath),
+            notes: []
+        }));
+        const stub = {
+            generatedAt: new Date().toISOString(),
+            reports,
+            comparisons: [],
+            notes: dedupeStrings([reason])
+        };
+
+        comparisonResult = {
+            report: stub,
+            outputPath: writeJsonFile(comparisonPath, stub)
+        };
+    }
+
+    if (comparisonResult.outputPath) {
+        console.log(
+            `[pr-summary-table-comment] Wrote comparison report to ${formatDisplayPath(
+                comparisonResult.outputPath
+            )}.`
+        );
+    }
+
+    const { status, allGreen } = computeComparisonStatus(
+        comparisonResult.report
+    );
+    const comment = buildLegacySummaryComment({
+        summaries,
+        comparisons: comparisonResult.report?.comparisons ?? [],
+        status,
+        allGreen
+    });
+
+    if (comment) {
+        console.log(comment);
+    }
+
+    return 0;
 }
 
 function formatDisplayPath(filePath) {
@@ -1579,9 +2085,16 @@ function runSummarizeCommand(args) {
 }
 
 function runCompareCommand(args) {
-    const { reports, outputDir } = parseCompareArgs(args);
+    const {
+        reports,
+        outputDir,
+        outputFile,
+        outputPath: outputSpec
+    } = parseCompareArgs(args);
     const { report, outputPath } = compareSummaryReports(reports, {
-        outputDir
+        outputDir,
+        outputFile,
+        outputPath: outputSpec
     });
 
     if (report.comparisons.length === 0) {
@@ -1629,6 +2142,9 @@ function runCli(argv = process.argv) {
     }
     if (command === "compare") {
         return runCompareCommand(args);
+    }
+    if (command === "pr-summary-table-comment") {
+        return runLegacyPrSummaryCommand(args);
     }
     if (args.length > 0) {
         const details = args.map((arg) => `'${arg}'`).join(", ");

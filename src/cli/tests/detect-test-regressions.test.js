@@ -388,6 +388,88 @@ test("compareSummaryReports highlights regressions across summaries", () => {
     assert.ok(comparison.regressions.coverageDrop > 0);
 });
 
+test("summarizeReports writes to an explicit output file when provided", () => {
+    const inputDir = path.join(workspace, "custom/test-results");
+    writeXml(
+        inputDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="one" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const targetFile = path.join(workspace, "artifacts", "summary-custom.json");
+    const { summary, outputPath, outputDir } = summarizeReports({
+        inputDir,
+        outputPath: targetFile,
+        target: "custom"
+    });
+
+    assert.strictEqual(outputPath, path.resolve(targetFile));
+    assert.strictEqual(outputDir, path.dirname(path.resolve(targetFile)));
+    const parsed = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(parsed, summary);
+    assert.strictEqual(summary.target, "custom");
+});
+
+test("compareSummaryReports supports explicit output file paths", () => {
+    const baseRoot = path.join(workspace, "junit-base");
+    const headRoot = path.join(workspace, "junit-head");
+    const baseInput = path.join(baseRoot, "test-results");
+    const headInput = path.join(headRoot, "test-results");
+
+    writeXml(
+        baseInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="passes" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="passes" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const baseSummary = summarizeReports({
+        inputDir: baseInput,
+        outputDir: baseRoot,
+        target: "base"
+    });
+    const headSummary = summarizeReports({
+        inputDir: headInput,
+        outputDir: headRoot,
+        target: "head"
+    });
+
+    const comparisonFile = path.join(
+        workspace,
+        "custom",
+        "comparison-report.json"
+    );
+    const { report, outputPath } = compareSummaryReports(
+        [
+            { label: "base", path: baseSummary.outputPath },
+            { label: "head", path: headSummary.outputPath }
+        ],
+        { outputPath: comparisonFile }
+    );
+
+    assert.strictEqual(outputPath, path.resolve(comparisonFile));
+    assert.ok(fs.existsSync(outputPath));
+    const parsed = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(parsed, report);
+});
+
 test("reportRegressionSummary returns failure details when regressions exist", () => {
     const summary = reportRegressionSummary(
         [
@@ -449,7 +531,7 @@ test("reportRegressionSummary clarifies when regressions offset resolved failure
     ]);
 });
 
-test("runCli ignores legacy PR summary command arguments", () => {
+test("runCli generates summary table for legacy pr-summary-table-comment", () => {
     const baseDir = path.join(workspace, "base/test-results");
     const headDir = path.join(workspace, "test-results");
 
@@ -458,7 +540,7 @@ test("runCli ignores legacy PR summary command arguments", () => {
         "suite",
         `<testsuites>
       <testsuite name="sample">
-        <testcase name="stays green" classname="test" />
+        <testcase name="stable" classname="test" />
       </testsuite>
     </testsuites>`
     );
@@ -468,7 +550,9 @@ test("runCli ignores legacy PR summary command arguments", () => {
         "suite",
         `<testsuites>
       <testsuite name="sample">
-        <testcase name="stays green" classname="test" />
+        <testcase name="stable" classname="test">
+          <failure message="boom" />
+        </testcase>
       </testsuite>
     </testsuites>`
     );
@@ -487,13 +571,35 @@ test("runCli ignores legacy PR summary command arguments", () => {
     );
 
     assert.strictEqual(result.status, 0);
+    assert.strictEqual(result.stderr.trim(), "");
+    assert.match(result.stdout, /\| Target \| Total \| Passed \| Failed/);
     assert.match(
         result.stdout,
-        /No new failing tests compared to base using PR head/
+        /Status: \*\*regressions\*\* \(all green: false\)/
     );
     assert.match(
-        result.stderr,
-        /Ignoring 1 legacy CLI argument: 'pr-summary-table-comment'/
+        result.stdout,
+        /Regression summary:\n- \*\*base → head\*\*: regressions detected \(1 new failing test\)/
+    );
+
+    const baseSummaryPath = path.join(workspace, "junit-base", "summary.json");
+    const headSummaryPath = path.join(workspace, "junit-head", "summary.json");
+    const comparisonPath = path.join(
+        workspace,
+        "test-results",
+        "comparison.json"
+    );
+
+    assert.ok(fs.existsSync(baseSummaryPath));
+    assert.ok(fs.existsSync(headSummaryPath));
+    assert.ok(fs.existsSync(comparisonPath));
+
+    const comparison = JSON.parse(fs.readFileSync(comparisonPath, "utf8"));
+    assert.ok(Array.isArray(comparison.comparisons));
+    assert.ok(comparison.comparisons.length > 0);
+    assert.strictEqual(
+        comparison.comparisons[0].regressions.hasRegression,
+        true
     );
 });
 
