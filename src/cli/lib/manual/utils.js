@@ -428,6 +428,24 @@ function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
  * }} options
  * @returns {ManualGitHubFileClient}
  */
+async function readManualCacheEntry(cachePath, filePath, logDetails) {
+    try {
+        const cached = await fs.readFile(cachePath, "utf8");
+
+        if (logDetails) {
+            console.log(`[cache] ${filePath}`);
+        }
+
+        return cached;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
+        }
+
+        throw error;
+    }
+}
+
 function createManualGitHubFileClient({
     requestDispatcher,
     defaultCacheRoot,
@@ -452,17 +470,14 @@ function createManualGitHubFileClient({
         const cachePath = path.join(cacheRoot, sha, filePath);
 
         if (!forceRefresh) {
-            try {
-                const cached = await fs.readFile(cachePath, "utf8");
-                if (shouldLogDetails) {
-                    console.log(`[cache] ${filePath}`);
-                }
+            const cached = await readManualCacheEntry(
+                cachePath,
+                filePath,
+                shouldLogDetails
+            );
 
+            if (cached !== null) {
                 return cached;
-            } catch (error) {
-                if (!isFsErrorCode(error, "ENOENT")) {
-                    throw error;
-                }
             }
         }
 
