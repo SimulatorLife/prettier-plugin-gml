@@ -1,6 +1,8 @@
 import {
     getNodeStartIndex,
     getNodeEndIndex,
+    getNodeStartLine,
+    getNodeEndLine,
     cloneLocation
 } from "../../../shared/ast-locations.js";
 import {
@@ -9,6 +11,7 @@ import {
     getSingleMemberIndexPropertyEntry
 } from "../../../shared/ast-node-helpers.js";
 import { getCommentArray, isLineComment } from "../../../shared/comments.js";
+import { isNonEmptyArray } from "../../../shared/array-utils.js";
 import { stripStringQuotes } from "../../../shared/string-utils.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
@@ -81,7 +84,7 @@ function visit(node, tracker, commentTools) {
 }
 
 function consolidateBlock(statements, tracker, commentTools) {
-    if (!Array.isArray(statements) || statements.length === 0) {
+    if (!isNonEmptyArray(statements)) {
         return;
     }
 
@@ -542,21 +545,6 @@ function getPreferredLocation(primary, fallback) {
     return null;
 }
 
-function getNodeEndLine(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-    const end = node.end;
-    if (isNode(end) && typeof end.line === "number") {
-        return end.line;
-    }
-    const start = node.start;
-    if (isNode(start) && typeof start.line === "number") {
-        return start.line;
-    }
-    return null;
-}
-
 function isAttachableTrailingComment(comment, statement) {
     if (!isLineComment(comment)) {
         return false;
@@ -593,18 +581,6 @@ const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function isIdentifierSafe(name) {
     return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
-}
-
-function getNodeStartLine(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-
-    if (node.start && typeof node.start.line === "number") {
-        return node.start.line;
-    }
-
-    return null;
 }
 
 class CommentTracker {

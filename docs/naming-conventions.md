@@ -103,8 +103,8 @@ preserving GameMaker semantics. The implementation must:
 
 Follow this playbook to introduce identifier casing on a real project:
 
-1. **Prerequisites** – Install the plugin locally, ensure Node.js 18.20.0+ (or
-   20.18.1+/21.1.0+) is available, and commit a clean snapshot before testing
+1. **Prerequisites** – Install the plugin locally, ensure Node.js 25.0.0+ is
+   available, and commit a clean snapshot before testing
    renames.
 2. **Warm the project index cache** – From the GameMaker project root (the
    directory containing the `.yyp` file), run the formatter once so the bootstrap

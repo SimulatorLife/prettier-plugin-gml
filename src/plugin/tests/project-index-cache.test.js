@@ -18,7 +18,7 @@ import {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride
 } from "../src/project-index/index.js";
-import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
+import { bootstrapProjectIndex } from "../src/identifier-case/project-index-bootstrap.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
