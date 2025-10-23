@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
     escapeRegExp,
@@ -115,4 +115,9 @@ export function resolvePluginEntryPoint({ env, candidates } = {}) {
     }
 
     throw createMissingEntryPointError(resolvedCandidates);
+}
+
+export function importPluginModule(options = {}) {
+    const pluginPath = resolvePluginEntryPoint(options);
+    return import(pathToFileURL(pluginPath).href);
 }
