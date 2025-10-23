@@ -333,17 +333,20 @@ function getBooleanLiteralValue(node, options = {}) {
             : !!options?.acceptBooleanPrimitives;
 
     const { value } = node;
+    const isBooleanPrimitive = value === true || value === false;
 
-    if (value === true || value === false) {
-        if (!acceptBooleanPrimitives) {
-            return null;
-        }
-
-        return value ? "true" : "false";
+    if (!isBooleanPrimitive) {
+        const normalized = getLiteralStringValue(node);
+        return normalized === "true" || normalized === "false"
+            ? normalized
+            : null;
     }
 
-    const normalized = getLiteralStringValue(node);
-    return normalized === "true" || normalized === "false" ? normalized : null;
+    if (!acceptBooleanPrimitives) {
+        return null;
+    }
+
+    return value ? "true" : "false";
 }
 
 function isBooleanLiteral(node, options) {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     RESERVED_IDENTIFIER_PREFIXES,
     formatIdentifierCase,
+    getIdentifierCaseStyleMetadata,
     isIdentifierCase,
     normalizeIdentifierCase
 } from "../src/identifier-case/identifier-case-utils.js";
@@ -74,6 +75,20 @@ test("idempotence checks report already compliant identifiers", () => {
     assert.equal(isIdentifierCase("HP_MAX", "snake-upper"), true);
 
     assert.equal(isIdentifierCase("hp_max", "camel"), false);
+});
+
+test("style metadata exposes descriptions", () => {
+    assert.equal(
+        getIdentifierCaseStyleMetadata("camel").description,
+        "Convert identifiers to lower camelCase (e.g. `exampleName`)."
+    );
+    assert.equal(
+        getIdentifierCaseStyleMetadata("off").description,
+        "Disable automatic identifier case rewriting."
+    );
+    assert.throws(() => getIdentifierCaseStyleMetadata("unknown"), {
+        message: "Unsupported identifier case: unknown"
+    });
 });
 
 test("numeric suffixes remain attached regardless of case", () => {

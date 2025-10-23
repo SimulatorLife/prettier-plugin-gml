@@ -1,6 +1,16 @@
 import { isObjectLike } from "./object.js";
 
-function hasFunction(value, property) {
+/**
+ * Determine whether {@link value} exposes a callable member named
+ * {@link property}. Several capability probes rely on this check to detect
+ * RegExp, Map, and Set lookalikes along with parser-specific error facades, so
+ * centralising the logic ensures each module makes consistent decisions.
+ *
+ * @param {unknown} value Candidate object to inspect.
+ * @param {string | symbol} property Property name to look up on {@link value}.
+ * @returns {boolean} `true` when the property exists and is callable.
+ */
+export function hasFunction(value, property) {
     return typeof value?.[property] === "function";
 }
 
