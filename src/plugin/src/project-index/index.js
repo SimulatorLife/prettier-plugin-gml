@@ -467,6 +467,25 @@ function ensureCollectionEntry(map, key, initializer) {
     return getOrCreateMapEntry(map, key, initializer);
 }
 
+function recordIdentifierCollectionRole(
+    entry,
+    identifierRecord,
+    filePath,
+    role
+) {
+    if (!entry || !identifierRecord) {
+        return;
+    }
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+
+    if (role === "declaration") {
+        entry.declarations?.push?.(clone);
+    } else if (role === "reference") {
+        entry.references?.push?.(clone);
+    }
+}
+
 function assignIdentifierEntryMetadata(entry, metadata) {
     if (!entry || typeof entry !== "object") {
         return entry;
@@ -1031,12 +1050,7 @@ function registerMacroOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumOccurrence({
@@ -1079,12 +1093,7 @@ function registerEnumOccurrence({
         name: enumName
     });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumMemberOccurrence({
@@ -1134,12 +1143,7 @@ function registerEnumMemberOccurrence({
         enumName
     });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerGlobalOccurrence({
@@ -1167,12 +1171,7 @@ function registerGlobalOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerInstanceOccurrence({
@@ -1208,12 +1207,7 @@ function registerInstanceOccurrence({
         scopeKind: scopeDescriptor?.kind ?? null
     });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
