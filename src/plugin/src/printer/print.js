@@ -2852,7 +2852,22 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         return docLines;
     }
 
-    const descriptionLines = descriptionIndices.map((index) => docLines[index]);
+    const descriptionLines = descriptionIndices
+        .map((index) => docLines[index])
+        .filter((line) => {
+            const metadata = parseDocCommentMetadata(line);
+            const descriptionText =
+                typeof metadata?.name === "string" ? metadata.name.trim() : "";
+
+            return descriptionText.length > 0;
+        });
+
+    if (descriptionLines.length === 0) {
+        return docLines.filter(
+            (_, index) => !descriptionIndices.includes(index)
+        );
+    }
+
     const remainingLines = docLines.filter(
         (_, index) => !descriptionIndices.includes(index)
     );
@@ -3695,7 +3710,27 @@ function mergeSyntheticDocComments(
         result._suppressLeadingBlank = true;
     }
 
-    return result;
+    const filteredResult = result.filter((line) => {
+        if (typeof line !== "string") {
+            return true;
+        }
+
+        if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
+            return true;
+        }
+
+        const metadata = parseDocCommentMetadata(line);
+        const descriptionText =
+            typeof metadata?.name === "string" ? metadata.name.trim() : "";
+
+        return descriptionText.length > 0;
+    });
+
+    if (result._suppressLeadingBlank) {
+        filteredResult._suppressLeadingBlank = true;
+    }
+
+    return filteredResult;
 }
 
 function getCanonicalParamNameFromText(name) {
@@ -4320,8 +4355,6 @@ function computeSyntheticFunctionDocLines(
                 if (!preferredDocs.has(paramIndex)) {
                     preferredDocs.set(paramIndex, rawOrdinalName);
                 }
-            }
-
             }
         }
         if (

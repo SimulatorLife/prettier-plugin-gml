@@ -111,6 +111,118 @@ function resolveProjectIndexParser(options) {
     );
 }
 
+function normalizeEnsureReadyDescriptor(descriptor) {
+    const projectRoot = descriptor?.projectRoot;
+    if (!projectRoot) {
+        throw new Error("projectRoot must be provided to ensureReady");
+    }
+
+    return {
+        descriptor,
+        resolvedRoot: path.resolve(projectRoot)
+    };
+}
+
+function resolveEnsureReadyContext({
+    descriptor,
+    abortController,
+    disposedMessage
+}) {
+    const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
+    const signal = abortController.signal;
+    throwIfAborted(signal, disposedMessage);
+
+    return {
+        descriptor,
+        resolvedRoot,
+        key: resolvedRoot,
+        signal
+    };
+}
+
+function trackInFlightOperation(map, key, createOperation) {
+    if (map.has(key)) {
+        return map.get(key);
+    }
+
+    const pending = Promise.resolve()
+        .then(createOperation)
+        .finally(() => {
+            map.delete(key);
+        });
+
+    map.set(key, pending);
+    return pending;
+}
+
+async function executeEnsureReadyOperation({
+    descriptor,
+    resolvedRoot,
+    signal,
+    fsFacade,
+    loadCache,
+    saveCache,
+    buildIndex,
+    cacheMaxSizeBytes,
+    disposedMessage
+}) {
+    const descriptorOptions = descriptor ?? {};
+    const loadResult = await loadCache(
+        { ...descriptorOptions, projectRoot: resolvedRoot },
+        fsFacade,
+        { signal }
+    );
+    throwIfAborted(signal, disposedMessage);
+
+    if (loadResult.status === "hit") {
+        throwIfAborted(signal, disposedMessage);
+        return {
+            source: "cache",
+            projectIndex: loadResult.projectIndex,
+            cache: loadResult
+        };
+    }
+
+    const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
+        ...descriptorOptions?.buildOptions,
+        signal
+    });
+    throwIfAborted(signal, disposedMessage);
+
+    const descriptorMaxSizeBytes =
+        descriptorOptions?.maxSizeBytes === undefined
+            ? cacheMaxSizeBytes
+            : descriptorOptions.maxSizeBytes;
+
+    const saveResult = await saveCache(
+        {
+            ...descriptorOptions,
+            projectRoot: resolvedRoot,
+            projectIndex,
+            metricsSummary: projectIndex.metrics,
+            maxSizeBytes: descriptorMaxSizeBytes
+        },
+        fsFacade,
+        { signal }
+    ).catch((error) => {
+        return {
+            status: "failed",
+            error,
+            cacheFilePath: loadResult.cacheFilePath
+        };
+    });
+    throwIfAborted(signal, disposedMessage);
+
+    return {
+        source: "build",
+        projectIndex,
+        cache: {
+            ...loadResult,
+            saveResult
+        }
+    };
+}
+
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
     const { signal, ensureNotAborted } = createAbortGuard(options, {
@@ -169,80 +281,25 @@ export function createProjectIndexCoordinator(options = {}) {
 
     async function ensureReady(descriptor) {
         ensureNotDisposed();
-        const { projectRoot } = descriptor ?? {};
-        if (!projectRoot) {
-            throw new Error("projectRoot must be provided to ensureReady");
-        }
-        const resolvedRoot = path.resolve(projectRoot);
-        const key = resolvedRoot;
-        const signal = abortController.signal;
-        throwIfAborted(signal, DISPOSED_MESSAGE);
-
-        if (inFlight.has(key)) {
-            return inFlight.get(key);
-        }
-
-        const operation = (async () => {
-            const loadResult = await loadCache(
-                { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade,
-                { signal }
-            );
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            if (loadResult.status === "hit") {
-                throwIfAborted(signal, DISPOSED_MESSAGE);
-                return {
-                    source: "cache",
-                    projectIndex: loadResult.projectIndex,
-                    cache: loadResult
-                };
-            }
-
-            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
-                ...descriptor?.buildOptions,
-                signal
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            const descriptorMaxSizeBytes =
-                descriptor?.maxSizeBytes === undefined
-                    ? cacheMaxSizeBytes
-                    : descriptor.maxSizeBytes;
-
-            const saveResult = await saveCache(
-                {
-                    ...descriptor,
-                    projectRoot: resolvedRoot,
-                    projectIndex,
-                    metricsSummary: projectIndex.metrics,
-                    maxSizeBytes: descriptorMaxSizeBytes
-                },
-                fsFacade,
-                { signal }
-            ).catch((error) => {
-                return {
-                    status: "failed",
-                    error,
-                    cacheFilePath: loadResult.cacheFilePath
-                };
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            return {
-                source: "build",
-                projectIndex,
-                cache: {
-                    ...loadResult,
-                    saveResult
-                }
-            };
-        })().finally(() => {
-            inFlight.delete(key);
+        const context = resolveEnsureReadyContext({
+            descriptor,
+            abortController,
+            disposedMessage: DISPOSED_MESSAGE
         });
 
-        inFlight.set(key, operation);
-        return operation;
+        return trackInFlightOperation(inFlight, context.key, () =>
+            executeEnsureReadyOperation({
+                descriptor,
+                resolvedRoot: context.resolvedRoot,
+                signal: context.signal,
+                fsFacade,
+                loadCache,
+                saveCache,
+                buildIndex,
+                cacheMaxSizeBytes,
+                disposedMessage: DISPOSED_MESSAGE
+            })
+        );
     }
 
     function dispose() {

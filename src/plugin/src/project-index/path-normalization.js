@@ -55,13 +55,10 @@ export function resolveProjectDisplayPath(filePath, projectRoot) {
             return normalizedFilePath;
         }
 
-        if (info.hasProjectRoot && info.isInsideProjectRoot) {
-            const relative = info.relativePath;
-            if (relative) {
-                return relative;
-            }
+        if (!info.hasProjectRoot || !info.isInsideProjectRoot) {
+            return normalizedFilePath;
         }
 
-        return normalizedFilePath;
+        return info.relativePath || normalizedFilePath;
     });
 }
