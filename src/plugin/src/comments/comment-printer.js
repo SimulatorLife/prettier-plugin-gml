@@ -386,7 +386,7 @@ function reattachSeparatedComment(comment) {
     comment.precedingNode = null;
     followingNode._gmlForceLeadingBlankLine = true;
     followingNode._gmlDisableEnumTrailingCommentPadding = true;
-    precedingNode._gmlForceLeadingBlankLine = true;
+    precedingNode._gmlForceFollowingEmptyLine = true;
     precedingNode._gmlDisableEnumAlignment = true;
     addLeadingComment(followingNode, comment);
     return true;
