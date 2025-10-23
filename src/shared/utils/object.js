@@ -1,3 +1,5 @@
+import { toArray } from "./array.js";
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -5,7 +7,7 @@
  *
  * @param {unknown} value Candidate value to inspect.
  * @param {{ allowNullPrototype?: boolean }} [options]
- * @returns {value is object}
+ * @returns {value is object} `true` when {@link value} is a plain object.
  */
 export function isPlainObject(value, { allowNullPrototype = true } = {}) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -107,6 +109,35 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
 }
 
 /**
+ * Execute {@link onDefined} when {@link value} is not `undefined`. Centralizes
+ * the guard around optional values so call sites can focus on their core logic
+ * instead of repeating `!== undefined` checks and callback validation.
+ *
+ * Callers can optionally supply {@link onUndefined} which mirrors the fallback
+ * semantics of {@link withObjectLike}, accepting either a thunk or a direct
+ * value. When omitted the helper returns `undefined` to keep its behavior
+ * aligned with existing conditional assignments in the codebase.
+ *
+ * @template TValue
+ * @template TResult
+ * @param {TValue | undefined} value Candidate value to inspect.
+ * @param {(value: TValue) => TResult} onDefined Callback invoked when
+ *        {@link value} is defined.
+ * @param {(() => TResult) | TResult} [onUndefined] Optional fallback returned
+ *        (or invoked) when {@link value} is `undefined`.
+ * @returns {TResult | undefined}
+ */
+export function withDefinedValue(value, onDefined, onUndefined) {
+    assertFunction(onDefined, "onDefined");
+
+    if (value === undefined) {
+        return typeof onUndefined === "function" ? onUndefined() : onUndefined;
+    }
+
+    return onDefined(value);
+}
+
+/**
  * Returns the first property value on the provided object that is neither
  * `undefined` nor `null`.
  *
@@ -118,7 +149,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  * @template {string | number | symbol} TKey
  * @param {unknown} object Candidate object containing the properties.
  * @param {Array<TKey> | TKey} keys Property names to inspect in order.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {unknown} [options.fallback]
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
@@ -132,22 +163,14 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const lookupKeys = toArray(keys);
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of lookupKeys) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Avoid allocating a throwaway array when callers supply a single key.
-    const value = object[keys];
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;

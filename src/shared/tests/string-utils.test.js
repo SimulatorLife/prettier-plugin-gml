@@ -13,6 +13,7 @@ import {
     coalesceTrimmedString,
     toNormalizedLowerCaseString,
     toNormalizedLowerCaseSet,
+    normalizeStringList,
     capitalize,
     getNonEmptyString,
     stripStringQuotes
@@ -36,6 +37,17 @@ test("coalesceTrimmedString returns the first non-empty trimmed candidate", () =
     assert.strictEqual(coalesceTrimmedString("  first  ", "second"), "first");
     assert.strictEqual(coalesceTrimmedString(), "");
     assert.strictEqual(coalesceTrimmedString(null, "   "), "");
+});
+
+test("normalizeStringList preserves entire strings when splitting is disabled", () => {
+    assert.deepStrictEqual(
+        normalizeStringList("alpha,beta", { splitPattern: null }),
+        ["alpha,beta"]
+    );
+    assert.deepStrictEqual(
+        normalizeStringList("alpha,beta", { splitPattern: false }),
+        ["alpha,beta"]
+    );
 });
 
 test("toNormalizedLowerCaseString trims and lowercases input values", () => {

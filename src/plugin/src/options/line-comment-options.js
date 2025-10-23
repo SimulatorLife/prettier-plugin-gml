@@ -1,6 +1,7 @@
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
-const DEFAULT_LINE_COMMENT_BANNER_LENGTH = 60;
+const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
 const LINE_COMMENT_BANNER_LENGTH_OPTION_NAME = "lineCommentBannerLength";
+const DEFAULT_LINE_COMMENT_BANNER_LENGTH = LINE_COMMENT_BANNER_STANDARD_LENGTH;
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // YoYo Games injects this banner while exporting assets; stripping it keeps
@@ -29,16 +30,6 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-/**
- * Return the canonical line comment options bag. The returned object is frozen
- * so callers can safely memoize the reference or reuse it across formatting
- * passes without worrying about accidental mutation in plugin hooks.
- *
- * @returns {{
- *   boilerplateFragments: readonly string[],
- *   codeDetectionPatterns: readonly RegExp[]
- * }} Shared options describing boilerplate filters and code heuristics.
- */
 function resolveLineCommentOptions() {
     return DEFAULT_LINE_COMMENT_OPTIONS;
 }
@@ -139,6 +130,7 @@ export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    LINE_COMMENT_BANNER_STANDARD_LENGTH,
     DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     LINE_COMMENT_BANNER_LENGTH_OPTION_NAME,
     resolveLineCommentBannerLength,

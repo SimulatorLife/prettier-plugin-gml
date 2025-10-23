@@ -13,6 +13,7 @@ import {
     preprocessSourceForFeatherFixes
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
@@ -21,6 +22,7 @@ import {
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
 import { toMutableArray } from "../../../shared/array-utils.js";
+import { visitChildNodes } from "../../../shared/ast/node-helpers.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
@@ -167,6 +169,7 @@ async function parse(text, options) {
         }
 
         preprocessFunctionArgumentDefaults(ast);
+        enforceVariableBlockSpacing(ast);
         annotateStaticFunctionOverrides(ast);
 
         markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);
@@ -960,18 +963,7 @@ function markCallsMissingArgumentSeparators(ast, originalText) {
         }
         visitedNodes.add(node);
 
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        visitChildNodes(node, visit);
 
         if (shouldPreserveCallWithMissingSeparators(node, originalText)) {
             Object.defineProperty(node, "preserveOriginalCallText", {
