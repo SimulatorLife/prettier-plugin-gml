@@ -41,7 +41,7 @@
     "lint:quiet": "eslint . --cache --quiet",
     "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
-    "lint:report": "eslint . --format ./node_modules/eslint-formatter-checkstyle/index.js --output-file test-results/eslint-checkstyle.xml",
+    "lint:report": "eslint . --format node_modules/eslint-formatter-checkstyle/index.js --output-file test-results/eslint-checkstyle.xml",
     "report": "npm run lint:report && npm run test:report && npm run test:coverage && npm run memory",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "node --test",
