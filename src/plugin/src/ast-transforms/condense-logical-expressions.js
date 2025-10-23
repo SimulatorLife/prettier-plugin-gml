@@ -736,15 +736,11 @@ function createBooleanContext() {
 
 function registerVariable(node, context) {
     const key = getAstNodeKey(node);
-    if (!context.variableMap.has(key)) {
-        const index = context.variables.length;
-        const record = { index, node };
-        context.variableMap.set(key, record);
+    return getOrCreateMapEntry(context.variableMap, key, () => {
+        const record = { index: context.variables.length, node };
         context.variables.push(record);
         return record;
-    }
-
-    return context.variableMap.get(key);
+    });
 }
 
 function toBooleanExpression(node, context) {

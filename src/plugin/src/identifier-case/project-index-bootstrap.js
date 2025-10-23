@@ -9,13 +9,15 @@ import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import {
     assertFunction,
     coalesceOption,
-    isObjectLike
+    isObjectLike,
+    withDefinedValue
 } from "../../../shared/object-utils.js";
 import {
     findProjectRoot,
     createProjectIndexCoordinator,
     getProjectIndexParserOverride
-} from "./index.js";
+} from "../project-index/index.js";
+import { clampConcurrency } from "../project-index/concurrency.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
@@ -180,15 +182,13 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (Number.isFinite(numericValue) && numericValue < 1) {
-        throw new Error(formatConcurrencyValueError(optionName, received));
-    }
-
-    return coercePositiveInteger(numericValue, {
+    const positiveInteger = coercePositiveInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
             formatConcurrencyValueError(optionName, value)
     });
+
+    return clampConcurrency(positiveInteger);
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
@@ -288,22 +288,22 @@ function resolveCoordinatorInputs(options, writeOption) {
     const fsFacade = getFsFacade(options);
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
-    if (cacheMaxSizeBytes !== undefined) {
+    withDefinedValue(cacheMaxSizeBytes, (value) => {
         writeOption(
             options,
             PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-            cacheMaxSizeBytes
+            value
         );
-    }
+    });
 
     const projectIndexConcurrency = resolveProjectIndexConcurrency(options);
-    if (projectIndexConcurrency !== undefined) {
+    withDefinedValue(projectIndexConcurrency, (value) => {
         writeOption(
             options,
             PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
-            projectIndexConcurrency
+            value
         );
-    }
+    });
 
     return { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency };
 }
@@ -357,9 +357,9 @@ function resolveProjectIndexCoordinator(
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
     const coordinatorOptions = { fsFacade: fsFacade ?? undefined };
-    if (cacheMaxSizeBytes !== undefined) {
-        coordinatorOptions.cacheMaxSizeBytes = cacheMaxSizeBytes;
-    }
+    withDefinedValue(cacheMaxSizeBytes, (value) => {
+        coordinatorOptions.cacheMaxSizeBytes = value;
+    });
 
     const coordinator =
         coordinatorOverride ??
@@ -383,12 +383,12 @@ function createProjectIndexBuildOptions(
         logMetrics: options?.logIdentifierCaseMetrics === true
     };
 
-    if (projectIndexConcurrency !== undefined) {
+    withDefinedValue(projectIndexConcurrency, (value) => {
         buildOptions.concurrency = {
-            gml: projectIndexConcurrency,
-            gmlParsing: projectIndexConcurrency
+            gml: value,
+            gmlParsing: value
         };
-    }
+    });
 
     if (parserOverride) {
         if (parserOverride.facade) {
@@ -412,9 +412,9 @@ function createProjectIndexDescriptor(
         buildOptions
     };
 
-    if (cacheMaxSizeBytes !== undefined) {
-        descriptor.maxSizeBytes = cacheMaxSizeBytes;
-    }
+    withDefinedValue(cacheMaxSizeBytes, (value) => {
+        descriptor.maxSizeBytes = value;
+    });
 
     return descriptor;
 }

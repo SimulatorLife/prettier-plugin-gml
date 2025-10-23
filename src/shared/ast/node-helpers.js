@@ -333,17 +333,20 @@ function getBooleanLiteralValue(node, options = {}) {
             : !!options?.acceptBooleanPrimitives;
 
     const { value } = node;
+    const isBooleanPrimitive = value === true || value === false;
 
-    if (value === true || value === false) {
-        if (!acceptBooleanPrimitives) {
-            return null;
-        }
-
-        return value ? "true" : "false";
+    if (!isBooleanPrimitive) {
+        const normalized = getLiteralStringValue(node);
+        return normalized === "true" || normalized === "false"
+            ? normalized
+            : null;
     }
 
-    const normalized = getLiteralStringValue(node);
-    return normalized === "true" || normalized === "false" ? normalized : null;
+    if (!acceptBooleanPrimitives) {
+        return null;
+    }
+
+    return value ? "true" : "false";
 }
 
 function isBooleanLiteral(node, options) {
@@ -398,6 +401,32 @@ function visitChildNodes(node, callback) {
     }
 }
 
+/**
+ * Pushes {@link value} onto {@link stack} when it is an object, recursively
+ * walking array entries so callers can enqueue nested nodes without repeating
+ * the defensive guards. Non-object values are ignored to match the manual
+ * traversal patterns used across the parser and printer.
+ *
+ * @param {Array<unknown>} stack
+ * @param {unknown} value
+ */
+function enqueueObjectChildValues(stack, value) {
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            if (item && typeof item === "object") {
+                stack.push(item);
+            }
+        }
+        return;
+    }
+
+    stack.push(value);
+}
+
 function unwrapParenthesizedExpression(node) {
     let current = node;
 
@@ -433,6 +462,7 @@ export {
     isUndefinedLiteral,
     isNode,
     visitChildNodes,
+    enqueueObjectChildValues,
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration

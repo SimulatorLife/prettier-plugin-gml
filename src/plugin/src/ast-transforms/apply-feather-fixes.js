@@ -3,6 +3,8 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getNodeEndIndex,
     getNodeStartIndex,
+    getNodeEndLine,
+    getNodeStartLine,
     cloneLocation,
     assignClonedLocation
 } from "../../../shared/ast-locations.js";
@@ -57,7 +59,7 @@ import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "../feather/metadata.js";
+} from "../resources/feather-metadata.js";
 
 function forEachNodeChild(node, callback) {
     if (!node || typeof node !== "object") {
@@ -105,6 +107,18 @@ function walkAstNodes(root, visitor) {
     };
 
     visit(root, null, null);
+}
+
+function hasArrayParentWithNumericIndex(parent, property) {
+    if (!Array.isArray(parent)) {
+        return false;
+    }
+
+    if (typeof property !== "number") {
+        return false;
+    }
+
+    return true;
 }
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -225,7 +239,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     const processLine = (line) => {
         const indentationMatch = line.match(/^\s*/);
         const indentation = indentationMatch ? indentationMatch[0] : "";
-        const trimmed = line.trim();
+        const trimmed = toTrimmedString(line);
 
         if (trimmed.length === 0) {
             return { line, context: pendingGM1100Context };
@@ -1102,7 +1116,15 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
-                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
+                    // TODO: Once the identifier-case project index can expose event
+                    // ancestry we should query it here instead of trusting the
+                    // diagnostic payload alone. GM2040 only fires when
+                    // `event_inherited()` is orphaned, but without project-scope
+                    // metadata the fixer cannot distinguish a legitimate override
+                    // from a missing parent event. Integrating with the scoping
+                    // pipeline outlined in `docs/project-index-next-steps.md` will
+                    // let us re-evaluate inherited events during formatting and avoid
+                    // deleting valid calls when Feather diagnostics are unavailable.
                     ast,
                     diagnostic
                 });
@@ -2561,11 +2583,9 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -2583,7 +2603,7 @@ function splitGlobalVarStatementInitializers({
         return [];
     }
 
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return [];
     }
 
@@ -3004,11 +3024,9 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -3023,7 +3041,7 @@ function convertReadOnlyAssignment(
     diagnostic,
     nameRegistry
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -3164,16 +3182,14 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         const nextAncestors = ancestors.concat({ node, parent, property });
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                stack.push({
-                    node: value,
-                    parent: node,
-                    property: key,
-                    ancestors: nextAncestors
-                });
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            stack.push({
+                node: value,
+                parent: node,
+                property: key,
+                ancestors: nextAncestors
+            });
+        });
     }
 }
 
@@ -4470,11 +4486,9 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
 
         return false;
     };
@@ -4528,11 +4542,9 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key, node, key);
+        });
     };
 
     visit(ast, null, null, null, null);
@@ -4793,11 +4805,9 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -4806,7 +4816,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 }
 
 function rewritePostfixStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -5484,6 +5494,7 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
                 diagnostic
             );
             if (fixInfo) {
+                registerSanitizedMacroName(ast, node?.name?.name);
                 fixes.push(fixInfo);
             }
         }
@@ -5991,6 +6002,28 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function registerSanitizedMacroName(ast, macroName) {
+    if (!ast || typeof ast !== "object" || ast.type !== "Program") {
+        return;
+    }
+
+    if (typeof macroName !== "string" || macroName.length === 0) {
+        return;
+    }
+
+    let registry = ast._featherSanitizedMacroNames;
+
+    if (registry instanceof Set) {
+        registry.add(macroName);
+        return;
+    }
+
+    registry = Array.isArray(registry) ? new Set(registry) : new Set();
+
+    registry.add(macroName);
+    ast._featherSanitizedMacroNames = registry;
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
@@ -6851,7 +6884,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return [];
         }
 
-        if (!Array.isArray(parent) || typeof property !== "number") {
+        if (!hasArrayParentWithNumericIndex(parent, property)) {
             return [];
         }
 
@@ -7493,7 +7526,7 @@ function convertAssignmentToLocalVariable({
     sourceText,
     programAst
 }) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8305,13 +8338,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -8467,7 +8494,7 @@ function isStatementArray(entry) {
 }
 
 function convertAllAssignment(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -8910,13 +8937,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9038,13 +9059,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9277,13 +9292,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9451,13 +9460,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9483,8 +9486,25 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (let index = 0; index < node.length; ) {
+                const element = node[index];
+
+                if (element?.type === "CallExpression") {
+                    const fix = ensureFileFindFirstBeforeCloseCall(
+                        element,
+                        node,
+                        index,
+                        diagnostic
+                    );
+
+                    if (fix) {
+                        fixes.push(fix);
+                        continue;
+                    }
+                }
+
+                visit(element, node, index);
+                index += 1;
             }
             return;
         }
@@ -9563,13 +9583,7 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10448,13 +10462,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10545,13 +10553,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10561,6 +10563,19 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         typeof insertionInfo.index === "number"
             ? insertionInfo.index
             : siblings.length;
+
+    for (let index = property + 1; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (!candidate || isTriviallyIgnorableStatement(candidate)) {
+            continue;
+        }
+
+        markStatementToSuppressLeadingEmptyLine(candidate);
+    }
+
+    markStatementToSuppressFollowingEmptyLine(node);
+    markStatementToSuppressLeadingEmptyLine(resetCall);
 
     siblings.splice(insertionIndex, 0, resetCall);
     attachFeatherFixMetadata(resetCall, [fixDetail]);
@@ -10613,13 +10628,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10754,13 +10763,7 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -11207,13 +11210,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12599,13 +12596,7 @@ function removeEventInheritedCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12711,13 +12702,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12849,13 +12834,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13094,7 +13073,7 @@ function isCoercibleStringLiteral(node) {
         return false;
     }
 
-    const trimmed = literalText.trim();
+    const trimmed = toTrimmedString(literalText);
 
     if (trimmed.length === 0) {
         return false;
@@ -13435,13 +13414,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13548,12 +13521,8 @@ function createEmptyStatementLike(template) {
 }
 
 function hasOriginalBlankLineBetween(beforeNode, afterNode) {
-    const beforeEndLine =
-        typeof beforeNode?.end?.line === "number" ? beforeNode.end.line : null;
-    const afterStartLine =
-        typeof afterNode?.start?.line === "number"
-            ? afterNode.start.line
-            : null;
+    const beforeEndLine = getNodeEndLine(beforeNode);
+    const afterStartLine = getNodeStartLine(afterNode);
 
     if (beforeEndLine == undefined || afterStartLine == undefined) {
         return false;
@@ -17822,6 +17791,20 @@ function createFeatherFixDetail(
     };
 }
 
+function createCallExpressionTargetFixDetail(diagnostic, node) {
+    if (!node) {
+        return null;
+    }
+
+    return createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
+}
+
 function attachFeatherFixMetadata(target, fixes) {
     if (
         !target ||
@@ -18188,20 +18171,6 @@ function getArgumentBuiltinName(name) {
     }
 
     return null;
-}
-
-function getNodeStartLine(node) {
-    const location = node?.start;
-
-    if (
-        location &&
-        typeof location === "object" &&
-        typeof location.line === "number"
-    ) {
-        return location.line;
-    }
-
-    return;
 }
 
 function collectGM1100Candidates(node) {
