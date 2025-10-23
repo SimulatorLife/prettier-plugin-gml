@@ -16,6 +16,7 @@ import {
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
+    isObjectLike,
     isPlainObject
 } from "../../../shared/object-utils.js";
 import {
@@ -74,7 +75,7 @@ const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
  * sourced from partially populated caches.
  */
 function cloneEntryCollections(entry, ...keys) {
-    const source = entry && typeof entry === "object" ? entry : {};
+    const source = isObjectLike(entry) ? entry : {};
     const clones = {};
 
     for (const key of keys) {
@@ -85,7 +86,7 @@ function cloneEntryCollections(entry, ...keys) {
 }
 
 function getProjectIndexParserOverride(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -647,7 +648,7 @@ async function scanProjectTree(
 }
 
 function cloneIdentifierDeclaration(declaration) {
-    if (!declaration || typeof declaration !== "object") {
+    if (!isObjectLike(declaration)) {
         return null;
     }
 
@@ -910,7 +911,7 @@ function createEnumLookup(ast, filePath) {
 
     while (visitStack.length > 0) {
         const node = visitStack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -960,11 +961,11 @@ function createEnumLookup(ast, filePath) {
             if (Array.isArray(value)) {
                 for (let index = value.length - 1; index >= 0; index -= 1) {
                     const child = value[index];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         visitStack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 visitStack.push(value);
             }
         }
@@ -1587,7 +1588,7 @@ function ensureFileRecord(filesMap, relativePath, scopeId) {
 }
 
 function traverseAst(root, visitor) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return;
     }
 
@@ -1596,7 +1597,7 @@ function traverseAst(root, visitor) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -1616,11 +1617,11 @@ function traverseAst(root, visitor) {
             if (Array.isArray(value)) {
                 for (let i = value.length - 1; i >= 0; i -= 1) {
                     const child = value[i];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         stack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
