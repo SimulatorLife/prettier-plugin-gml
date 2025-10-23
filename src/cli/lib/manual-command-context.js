@@ -15,6 +15,7 @@ import { assertNonEmptyString } from "./shared-deps.js";
 /** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
 /** @typedef {import("./manual/utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
 /** @typedef {import("./manual/utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
+/** @typedef {ManualGitHubRequestDispatcher["execute"]} ManualGitHubRequestExecutor */
 
 function assertFileUrl(value) {
     return assertNonEmptyString(value, {
@@ -45,7 +46,7 @@ function resolveOutputPath(repoRoot, fileName) {
 
 /**
  * @typedef {object} ManualCommandGitHubClients
- * @property {ManualGitHubRequestDispatcher} requests
+ * @property {ManualGitHubRequestExecutor} request
  * @property {ManualGitHubCommitResolver} commitResolver
  * @property {ManualGitHubRefResolver} refResolver
  * @property {ManualGitHubFileClient} fileClient
@@ -53,6 +54,7 @@ function resolveOutputPath(repoRoot, fileName) {
 
 /**
  * @typedef {object} ManualCommandGitHubOperations
+ * @property {ManualGitHubRequestExecutor} executeManualRequest
  * @property {ManualGitHubFileClient["fetchManualFile"]} fetchManualFile
  * @property {ManualGitHubRefResolver["resolveManualRef"]} resolveManualRef
  * @property {ManualGitHubCommitResolver["resolveCommitFromRef"]} resolveCommitFromRef
@@ -108,14 +110,17 @@ export function createManualCommandContext({
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName)
     });
 
+    const manualRequestExecutor = manualRequests.execute;
+
     const clients = Object.freeze({
-        requests: manualRequests,
+        request: manualRequestExecutor,
         commitResolver: manualCommitResolver,
         refResolver: manualRefResolver,
         fileClient: manualFileFetcher
     });
 
     const operations = Object.freeze({
+        executeManualRequest: manualRequestExecutor,
         fetchManualFile: manualFileFetcher.fetchManualFile,
         resolveManualRef: manualRefResolver.resolveManualRef,
         resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
