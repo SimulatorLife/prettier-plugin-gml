@@ -313,16 +313,11 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 }
 
 function resolveManualRequestExecutor(requestDispatcher, callerName) {
-    const message = `${callerName} requires a request dispatcher with an execute function.`;
-
-    if (!requestDispatcher || typeof requestDispatcher !== "object") {
-        throw new TypeError(message);
-    }
-
-    const { execute } = requestDispatcher;
-
+    const execute = requestDispatcher?.execute;
     if (typeof execute !== "function") {
-        throw new TypeError(message);
+        throw new TypeError(
+            `${callerName} requires a request dispatcher with an execute function.`
+        );
     }
 
     return execute;
