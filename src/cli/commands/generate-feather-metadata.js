@@ -388,6 +388,49 @@ function normalizeTextBlock(block) {
     return getNonEmptyTrimmedString(block.text);
 }
 
+function pushNormalizedText(target, value) {
+    const normalized = normalizeMultilineText(value);
+    if (normalized) {
+        target.push(normalized);
+    }
+}
+
+function normalizeListItems(items) {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+
+    return items.map((item) => normalizeMultilineText(item)).filter(Boolean);
+}
+
+const BLOCK_NORMALIZERS = {
+    code(content, block) {
+        if (block.text) {
+            content.codeExamples.push(block.text);
+        }
+    },
+    note(content, block) {
+        pushNormalizedText(content.notes, block.text);
+    },
+    list(content, block) {
+        const items = normalizeListItems(block.items);
+        if (items.length > 0) {
+            content.lists.push(items);
+        }
+    },
+    table(content, block) {
+        if (block.table) {
+            content.tables.push(block.table);
+        }
+    },
+    heading(content, block) {
+        pushNormalizedText(content.headings, block.text);
+    },
+    default(content, block) {
+        pushNormalizedText(content.paragraphs, block.text);
+    }
+};
+
 function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
@@ -397,55 +440,17 @@ function normalizeContent(blocks) {
         headings: [],
         tables: []
     };
-    const appendNormalizedText = (target, text) => {
-        const normalized = normalizeMultilineText(text);
-        if (normalized) {
-            target.push(normalized);
-        }
-    };
 
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        switch (block.type) {
-            case "code": {
-                if (block.text) {
-                    content.codeExamples.push(block.text);
-                }
-                break;
-            }
-            case "note": {
-                appendNormalizedText(content.notes, block.text);
-                break;
-            }
-            case "list": {
-                const items = Array.isArray(block.items)
-                    ? block.items
-                          .map((item) => normalizeMultilineText(item))
-                          .filter(Boolean)
-                    : [];
-                if (items.length > 0) {
-                    content.lists.push(items);
-                }
-                break;
-            }
-            case "table": {
-                if (block.table) {
-                    content.tables.push(block.table);
-                }
-                break;
-            }
-            case "heading": {
-                appendNormalizedText(content.headings, block.text);
-                break;
-            }
-            default: {
-                appendNormalizedText(content.paragraphs, block.text);
-            }
-        }
+        const normalizeBlock =
+            BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
+        normalizeBlock(content, block);
     }
+
     return content;
 }
 
