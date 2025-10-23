@@ -86,19 +86,11 @@ const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
 const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
 
 export function isWordChar(character) {
-    if (typeof character !== "string" || character.length !== 1) {
+    if (typeof character !== "string" || character.length === 0) {
         return false;
     }
-
-    // Avoid the overhead of `RegExp#test` in tight lexing loops by scanning the
-    // ASCII code for a word character directly.
-    const code = character.charCodeAt(0);
-    return (
-        (code >= CHAR_CODE_0 && code <= CHAR_CODE_9) ||
-        (code >= CHAR_CODE_UPPER_A && code <= CHAR_CODE_UPPER_Z) ||
-        (code >= CHAR_CODE_LOWER_A && code <= CHAR_CODE_LOWER_Z) ||
-        code === CHAR_CODE_UNDERSCORE
-    );
+    // Use regex to match Unicode word characters on the first character.
+    return /\w/u.test(character[0]);
 }
 
 export function toTrimmedString(value) {
