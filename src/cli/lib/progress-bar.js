@@ -9,6 +9,21 @@ import {
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
+let progressBarFactory = (options, preset) => new SingleBar(options, preset);
+
+function resolveProgressStream(stdout) {
+    if (!stdout) {
+        return;
+    }
+
+    const stream = stdout;
+
+    if (typeof stream.write !== "function") {
+        return;
+    }
+
+    return stream;
+}
 
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
@@ -28,36 +43,40 @@ const progressBarWidthState = createIntegerOptionState({
     typeErrorMessage: createTypeErrorMessage
 });
 
-function getDefaultProgressBarWidth() {
-    return progressBarWidthState.getDefault();
-}
-
-function setDefaultProgressBarWidth(width) {
-    return progressBarWidthState.setDefault(width);
-}
+const {
+    getDefault: getDefaultProgressBarWidth,
+    setDefault: setDefaultProgressBarWidth,
+    resolve: resolveProgressBarWidthState,
+    applyEnvOverride: applyProgressBarWidthEnvOverride
+} = progressBarWidthState;
 
 function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    return progressBarWidthState.resolve(rawValue, {
+    return resolveProgressBarWidthState(rawValue, {
         defaultValue: defaultWidth
     });
 }
 
-function applyProgressBarWidthEnvOverride(env = process?.env) {
-    progressBarWidthState.applyEnvOverride(env);
-}
-
 applyProgressBarWidthEnvOverride();
 
-function createDefaultProgressBar(label, width) {
-    return new SingleBar(
+function setProgressBarFactoryForTesting(factory) {
+    progressBarFactory =
+        typeof factory === "function"
+            ? factory
+            : (options, preset) => new SingleBar(options, preset);
+}
+
+function createDefaultProgressBar(label, width, { stream } = {}) {
+    return progressBarFactory(
         {
             format: `${label} [{bar}] {value}/{total}`,
             barsize: width,
             hideCursor: true,
             clearOnComplete: true,
-            linewrap: true
+            linewrap: true,
+            ...(stream ? { stream } : {})
         },
-        Presets.shades_classic
+        Presets.shades_classic,
+        label
     );
 }
 
@@ -72,8 +91,11 @@ function disposeProgressBars() {
     activeProgressBars.clear();
 }
 
-function renderProgressBar(label, current, total, width) {
-    if (!process.stdout.isTTY || width <= 0) {
+function renderProgressBar(label, current, total, width, options = {}) {
+    const { stdout = process.stdout, createBar = createDefaultProgressBar } =
+        options;
+
+    if (!stdout?.isTTY || width <= 0) {
         return;
     }
 
@@ -85,7 +107,8 @@ function renderProgressBar(label, current, total, width) {
         bar.setTotal(normalizedTotal);
         bar.update(normalizedCurrent);
     } else {
-        bar = createDefaultProgressBar(label, width);
+        const stream = resolveProgressStream(stdout);
+        bar = createBar(label, width, { stream });
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }
@@ -117,6 +140,7 @@ export {
     disposeProgressBars,
     getDefaultProgressBarWidth,
     setDefaultProgressBarWidth,
+    setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
     withProgressBarCleanup

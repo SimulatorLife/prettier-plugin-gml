@@ -59,6 +59,9 @@ context.
 - [Feather Data Plan](feather-data-plan.md) — Describes the scraping pipeline
   that collects built-in Feather debugger metadata and how the generated files
   are versioned.
+- [Reserved identifier metadata hook](reserved-identifier-metadata-hook.md) —
+  Explains how advanced integrations can temporarily swap the bundled
+  identifier dataset while keeping the default loader in place.
 - [Architecture overview](../README.md#architecture-overview) — High-level map
   of the workspace packages, where generated assets live, and which scripts
   refresh them. Pair it with the reserved identifier coverage in the

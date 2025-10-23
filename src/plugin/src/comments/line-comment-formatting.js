@@ -54,6 +54,7 @@ const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
         pointer: "pointer",
         method: "method",
         asset: "asset",
+        constant: "constant",
         any: "any",
         var: "var",
         int64: "int64",
@@ -78,7 +79,7 @@ const TYPE_SPECIFIER_PREFIXES = new Set([
 const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
     Object.entries({
         asset: "Asset",
-        constant: "Constant",
+        constant: "constant",
         enum: "Enum",
         id: "Id",
         struct: "Struct"

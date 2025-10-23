@@ -39,11 +39,12 @@ import { createManualCommandContext } from "../lib/manual-command-context.js";
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
 const {
-    repoRoot: REPO_ROOT,
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultOutputPath: OUTPUT_DEFAULT,
-    fetchManualFile,
-    resolveManualRef
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    },
+    operations: { fetchManualFile, resolveManualRef }
 } = createManualCommandContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
@@ -521,20 +522,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (!badExample) {
-                badExample = text;
-                continue;
-            }
-
-            goodExampleParts.push(text);
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        const targetParts = badExample
-            ? correctionParts
-            : additionalDescriptionParts;
-        targetParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
+        }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =

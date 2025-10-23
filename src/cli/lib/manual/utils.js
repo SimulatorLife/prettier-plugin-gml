@@ -3,12 +3,12 @@ import path from "node:path";
 import {
     assertPlainObject,
     assertNonEmptyString,
+    isNonEmptyArray,
     parseJsonWithContext,
     toTrimmedString
 } from "../shared-deps.js";
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
-import { isNonEmptyArray } from "../../../shared/utils.js";
 import { writeManualFile } from "../manual-file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
@@ -21,40 +21,35 @@ export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     ENV: "env"
 });
 
+/**
+ * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
+ */
+
 const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
     [MANUAL_REPO_REQUIREMENT_SOURCE.ENV]: `${MANUAL_REPO_ENV_VAR} must specify a GitHub repository in 'owner/name' format`,
     [MANUAL_REPO_REQUIREMENT_SOURCE.CLI]:
         "Manual repository must be provided in 'owner/name' format"
 });
 
-/**
- * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
- */
-
 const MANUAL_REPO_REQUIREMENT_SOURCE_VALUES = Object.freeze(
     Object.values(MANUAL_REPO_REQUIREMENT_SOURCE)
 );
 
-function formatManualRequirementSource(value) {
-    return value === undefined ? "undefined" : `'${String(value)}'`;
-}
-
-function assertManualRepoRequirementSource(value) {
-    if (Object.hasOwn(MANUAL_REPO_REQUIREMENT_MESSAGES, value)) {
-        return /** @type {ManualRepoRequirementSource} */ (value);
+function formatManualRepoRequirement(
+    source = MANUAL_REPO_REQUIREMENT_SOURCE.CLI
+) {
+    const message = MANUAL_REPO_REQUIREMENT_MESSAGES[source];
+    if (message !== undefined) {
+        return message;
     }
 
     const allowedValues = MANUAL_REPO_REQUIREMENT_SOURCE_VALUES.join(", ");
+    const received = source === undefined ? "undefined" : `'${String(source)}'`;
+
     throw new TypeError(
-        `Manual repository requirement source must be one of: ${allowedValues}. Received ${formatManualRequirementSource(value)}.`
+        `Manual repository requirement source must be one of: ${allowedValues}. Received ${received}.`
     );
 }
-
-function formatManualRepoRequirement(source) {
-    const normalizedSource = assertManualRepoRequirementSource(source);
-    return MANUAL_REPO_REQUIREMENT_MESSAGES[normalizedSource];
-}
-
 function describeManualRepoInput(value) {
     if (value == null) {
         return String(value);
@@ -119,7 +114,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
+    const state = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -127,21 +122,16 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return baseState;
+        return state;
     }
 
-    const overrideEntries = Object.entries(overrides).filter(
-        ([, value]) => value !== undefined
-    );
-
-    if (overrideEntries.length === 0) {
-        return baseState;
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
     }
 
-    return {
-        ...baseState,
-        ...Object.fromEntries(overrideEntries)
-    };
+    return state;
 }
 
 function validateManualCommitPayload(payload, { ref }) {
@@ -309,17 +299,31 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
     return Object.freeze({ execute });
 }
 
+function resolveManualRequestExecutor(requestDispatcher, callerName) {
+    const message = `${callerName} requires a request dispatcher with an execute function.`;
+
+    if (!requestDispatcher || typeof requestDispatcher !== "object") {
+        throw new TypeError(message);
+    }
+
+    const { execute } = requestDispatcher;
+
+    if (typeof execute !== "function") {
+        throw new TypeError(message);
+    }
+
+    return execute;
+}
+
 /**
  * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
  * @returns {ManualGitHubCommitResolver}
  */
 function createManualGitHubCommitResolver({ requestDispatcher }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubCommitResolver requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubCommitResolver"
+    );
 
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
@@ -344,12 +348,10 @@ function createManualGitHubCommitResolver({ requestDispatcher }) {
  * @returns {ManualGitHubRefResolver}
  */
 function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubRefResolver requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubRefResolver"
+    );
 
     const commitResolution =
         typeof commitResolver?.resolveCommitFromRef === "function"
@@ -407,12 +409,10 @@ function createManualGitHubFileClient({
     defaultCacheRoot,
     defaultRawRoot
 }) {
-    const request = requestDispatcher?.execute;
-    if (typeof request !== "function") {
-        throw new TypeError(
-            "ManualGitHubFileClient requires a request dispatcher with an execute function."
-        );
-    }
+    const request = resolveManualRequestExecutor(
+        requestDispatcher,
+        "ManualGitHubFileClient"
+    );
 
     async function fetchManualFile(
         sha,

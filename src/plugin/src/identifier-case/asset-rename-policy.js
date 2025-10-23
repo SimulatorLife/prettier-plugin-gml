@@ -17,12 +17,14 @@ function createResult(shouldApply, reason, renames, conflicts) {
     return { shouldApply, reason, renames, conflicts };
 }
 
-function evaluateIdentifierCaseAssetRenamePolicy({
-    options = {},
-    projectIndex = null,
-    assetRenames = [],
-    assetConflicts = []
-} = {}) {
+export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
+    const {
+        options = {},
+        projectIndex = null,
+        assetRenames = [],
+        assetConflicts = []
+    } = context;
+
     if (options?.__identifierCaseDryRun !== false) {
         return createResult(
             false,
@@ -78,19 +80,4 @@ function evaluateIdentifierCaseAssetRenamePolicy({
     );
 }
 
-class IdentifierCaseAssetRenamePolicy {
-    evaluate(context) {
-        return evaluateIdentifierCaseAssetRenamePolicy(context);
-    }
-}
-
-function createIdentifierCaseAssetRenamePolicy() {
-    return new IdentifierCaseAssetRenamePolicy();
-}
-
-export {
-    IdentifierCaseAssetRenamePolicy,
-    IdentifierCaseAssetRenamePolicyReason,
-    createIdentifierCaseAssetRenamePolicy,
-    evaluateIdentifierCaseAssetRenamePolicy
-};
+export { IdentifierCaseAssetRenamePolicyReason };
