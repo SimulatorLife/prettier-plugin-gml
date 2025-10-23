@@ -11,6 +11,7 @@ import {
     createEnvConfiguredValue,
     ensureDir,
     getErrorMessage,
+    isNonEmptyString,
     normalizeStringList,
     splitLines,
     parseJsonWithContext
@@ -272,7 +273,7 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
     };
 
     const mergedWarnings = [...(warnings ?? []), ...extraWarnings].filter(
-        (warning) => typeof warning === "string" && warning.length > 0
+        (warning) => isNonEmptyString(warning)
     );
 
     if (mergedWarnings.length > 0) {
@@ -283,7 +284,7 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
 }
 
 function countLines(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return 0;
     }
 
