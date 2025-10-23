@@ -85,6 +85,33 @@ test("cache keys are configurable and support custom metrics", () => {
     });
 });
 
+test("cache key normalization trims duplicates from iterable input", () => {
+    const tracker = createMetricsTracker({
+        cacheKeys: new Set([" hits ", "", "misses", "hits"])
+    });
+
+    tracker.recordCacheHit("store");
+    tracker.recordCacheMetric("store", "misses", 2);
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 2
+    });
+});
+
+test("cache key normalization falls back to defaults when empty", () => {
+    const tracker = createMetricsTracker({ cacheKeys: [null, undefined] });
+    tracker.recordCacheHit("store");
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 0,
+        stale: 0
+    });
+});
+
 test("snapshot returns fresh copies of accumulated metrics", () => {
     const tracker = createMetricsTracker({ category: "clone" });
     tracker.incrementCounter("runs");
