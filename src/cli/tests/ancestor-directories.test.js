@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { collectAncestorDirectories } from "../lib/shared/path-utils.js";
+import { collectAncestorDirectories } from "../lib/shared-deps.js";
 
 test("collectAncestorDirectories orders and deduplicates ancestors", () => {
     const projectRoot = path.join(process.cwd(), "tmp", "cli-path-utils");

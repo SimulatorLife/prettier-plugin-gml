@@ -1,5 +1,10 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isNonEmptyString, isObjectLike, isErrorLike } from "./shared-deps.js";
+import {
+    assertArray,
+    isNonEmptyString,
+    isObjectLike,
+    isErrorLike
+} from "./shared-deps.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -31,7 +36,7 @@ function createOverrideError({ error, envVar, getUsage }) {
 /**
  * Apply an environment-driven override to a Commander option.
  *
- * Normalises optional hooks and error handling so individual overrides can
+ * Normalizes optional hooks and error handling so individual overrides can
  * focus on the mapping logic instead of defensive plumbing.
  *
  * @param {object} parameters
@@ -78,7 +83,7 @@ export function applyEnvOptionOverride({
  * Apply multiple environment-driven overrides with shared error handling.
  *
  * Reduces repetition when commands expose several environment variables that
- * need to map onto commander options by centralising the iteration and
+ * need to map onto commander options by centralizing the iteration and
  * fallback usage wiring.
  *
  * @param {object} parameters
@@ -94,11 +99,12 @@ export function applyEnvOptionOverride({
  *                                                             without its own.
  */
 export function applyEnvOptionOverrides({ command, env, overrides, getUsage }) {
-    if (!Array.isArray(overrides)) {
-        throw new TypeError("overrides must be provided as an array");
-    }
+    const overrideEntries = assertArray(overrides, {
+        name: "overrides",
+        errorMessage: "overrides must be provided as an array"
+    });
 
-    for (const override of overrides) {
+    for (const override of overrideEntries) {
         if (!isObjectLike(override)) {
             continue;
         }

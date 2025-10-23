@@ -10,8 +10,8 @@ import {
  * The original IdentifierCasePlanService bundled plan preparation, rename
  * lookups, and snapshot orchestration behind one "service" facade. That wide
  * surface made collaborators depend on behaviours they did not always need.
- * Providers must now return segregated service views so that consumers only
- * depend on the behaviours they exercise.
+ * Providers now register role-specific collaborators so consumers can opt into
+ * only the behaviour they require.
  */
 
 /**
@@ -31,14 +31,15 @@ import {
  */
 
 /**
- * @typedef {object} IdentifierCasePlanServiceBundle
- * @property {IdentifierCasePlanPreparationService} preparation
- * @property {IdentifierCaseRenameLookupService} renameLookup
- * @property {IdentifierCasePlanSnapshotService} snapshot
+ * @typedef {() => IdentifierCasePlanPreparationService} IdentifierCasePlanPreparationProvider
  */
 
 /**
- * @typedef {() => IdentifierCasePlanServiceBundle} IdentifierCasePlanServiceProvider
+ * @typedef {() => IdentifierCaseRenameLookupService} IdentifierCaseRenameLookupProvider
+ */
+
+/**
+ * @typedef {() => IdentifierCasePlanSnapshotService} IdentifierCasePlanSnapshotProvider
  */
 
 const defaultPreparationService = Object.freeze({
@@ -54,15 +55,42 @@ const defaultSnapshotService = Object.freeze({
     applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
 });
 
-let serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
-let cachedServices = null;
+function createIdentifierCaseServiceRegistry({
+    defaultService,
+    normalize,
+    providerTypeErrorMessage,
+    missingProviderMessage
+}) {
+    let provider = () => defaultService;
+    let cachedService = null;
 
-function createDefaultIdentifierCasePlanServiceProvider() {
-    return () => ({
-        preparation: defaultPreparationService,
-        renameLookup: defaultRenameLookupService,
-        snapshot: defaultSnapshotService
-    });
+    function resolve() {
+        if (!provider) {
+            throw new Error(missingProviderMessage);
+        }
+
+        if (!cachedService) {
+            cachedService = normalize(provider());
+        }
+
+        return cachedService;
+    }
+
+    function register(nextProvider) {
+        if (typeof nextProvider !== "function") {
+            throw new TypeError(providerTypeErrorMessage);
+        }
+
+        provider = nextProvider;
+        cachedService = null;
+    }
+
+    function reset() {
+        provider = () => defaultService;
+        cachedService = null;
+    }
+
+    return { resolve, register, reset };
 }
 
 function normalizeIdentifierCasePlanPreparationService(service) {
@@ -122,70 +150,61 @@ function normalizeIdentifierCasePlanSnapshotService(service) {
     });
 }
 
-function normalizeIdentifierCasePlanServices(services) {
-    const { preparation, renameLookup, snapshot } = assertPlainObject(
-        services,
-        {
-            errorMessage:
-                "Identifier case plan service provider must return an object containing segregated services"
-        }
-    );
+const preparationRegistry = createIdentifierCaseServiceRegistry({
+    defaultService: defaultPreparationService,
+    normalize: normalizeIdentifierCasePlanPreparationService,
+    providerTypeErrorMessage:
+        "Identifier case plan preparation provider must be a function",
+    missingProviderMessage:
+        "No identifier case plan preparation provider has been registered"
+});
 
-    return Object.freeze({
-        preparation: normalizeIdentifierCasePlanPreparationService(preparation),
-        renameLookup: normalizeIdentifierCaseRenameLookupService(renameLookup),
-        snapshot: normalizeIdentifierCasePlanSnapshotService(snapshot)
-    });
+const renameLookupRegistry = createIdentifierCaseServiceRegistry({
+    defaultService: defaultRenameLookupService,
+    normalize: normalizeIdentifierCaseRenameLookupService,
+    providerTypeErrorMessage:
+        "Identifier case rename lookup provider must be a function",
+    missingProviderMessage:
+        "No identifier case rename lookup provider has been registered"
+});
+
+const snapshotRegistry = createIdentifierCaseServiceRegistry({
+    defaultService: defaultSnapshotService,
+    normalize: normalizeIdentifierCasePlanSnapshotService,
+    providerTypeErrorMessage:
+        "Identifier case plan snapshot provider must be a function",
+    missingProviderMessage:
+        "No identifier case plan snapshot provider has been registered"
+});
+
+export function registerIdentifierCasePlanPreparationProvider(provider) {
+    preparationRegistry.register(provider);
 }
 
-function resolveIdentifierCasePlanServiceInternal() {
-    if (!serviceProvider) {
-        throw new Error(
-            "No identifier case plan service provider has been registered"
-        );
-    }
-
-    if (!cachedServices) {
-        cachedServices = normalizeIdentifierCasePlanServices(serviceProvider());
-    }
-
-    return cachedServices;
+export function registerIdentifierCaseRenameLookupProvider(provider) {
+    renameLookupRegistry.register(provider);
 }
 
-function invalidateCachedViews() {
-    cachedServices = null;
-}
-
-export function registerIdentifierCasePlanServiceProvider(provider) {
-    if (typeof provider !== "function") {
-        throw new TypeError(
-            "Identifier case plan service provider must be a function"
-        );
-    }
-
-    serviceProvider = () => provider();
-    invalidateCachedViews();
+export function registerIdentifierCasePlanSnapshotProvider(provider) {
+    snapshotRegistry.register(provider);
 }
 
 export function resetIdentifierCasePlanServiceProvider() {
-    serviceProvider = createDefaultIdentifierCasePlanServiceProvider();
-    invalidateCachedViews();
-}
-
-export function resolveIdentifierCasePlanService() {
-    return resolveIdentifierCasePlanServiceInternal();
+    preparationRegistry.reset();
+    renameLookupRegistry.reset();
+    snapshotRegistry.reset();
 }
 
 export function resolveIdentifierCasePlanPreparationService() {
-    return resolveIdentifierCasePlanServiceInternal().preparation;
+    return preparationRegistry.resolve();
 }
 
 export function resolveIdentifierCaseRenameLookupService() {
-    return resolveIdentifierCasePlanServiceInternal().renameLookup;
+    return renameLookupRegistry.resolve();
 }
 
 export function resolveIdentifierCasePlanSnapshotService() {
-    return resolveIdentifierCasePlanServiceInternal().snapshot;
+    return snapshotRegistry.resolve();
 }
 
 export function prepareIdentifierCasePlan(options) {
