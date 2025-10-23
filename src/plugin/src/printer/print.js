@@ -49,7 +49,8 @@ import {
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
-    isUndefinedLiteral
+    isUndefinedLiteral,
+    enqueueObjectChildValues
 } from "../../../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
@@ -4779,20 +4780,7 @@ function functionReturnsNonUndefinedValue(functionNode) {
         }
 
         for (const value of Object.values(current)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            if (Array.isArray(value)) {
-                for (const child of value) {
-                    if (child && typeof child === "object") {
-                        stack.push(child);
-                    }
-                }
-                continue;
-            }
-
-            stack.push(value);
+            enqueueObjectChildValues(stack, value);
         }
     }
 
