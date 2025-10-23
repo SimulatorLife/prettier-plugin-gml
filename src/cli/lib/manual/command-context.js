@@ -8,13 +8,13 @@ import {
     createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
-} from "./manual/utils.js";
-import { assertNonEmptyString } from "./shared-deps.js";
+} from "./utils.js";
+import { assertNonEmptyString } from "../shared-deps.js";
 
-/** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
-/** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
-/** @typedef {import("./manual/utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
-/** @typedef {import("./manual/utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
+/** @typedef {import("./utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
+/** @typedef {import("./utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
+/** @typedef {import("./utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
+/** @typedef {import("./utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
 /** @typedef {ManualGitHubRequestDispatcher["execute"]} ManualGitHubRequestExecutor */
 
 function assertFileUrl(value) {

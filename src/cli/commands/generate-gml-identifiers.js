@@ -10,7 +10,7 @@ import {
     toNormalizedLowerCaseSet,
     toPosixPath
 } from "../lib/shared-deps.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+import { writeManualJsonArtifact } from "../lib/manual/file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints
@@ -28,18 +28,18 @@ import {
 import {
     applyManualEnvOptionOverrides,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../lib/manual-env.js";
+} from "../lib/manual/env.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
 } from "../lib/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+import { createManualManualAccessContext } from "../lib/manual/command-context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
-} from "../lib/manual-payload-validation.js";
+} from "../lib/manual/payload-validation.js";
 
 const {
     environment: {

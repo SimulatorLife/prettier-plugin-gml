@@ -9,7 +9,7 @@ import {
 } from "../shared-deps.js";
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
-import { writeManualFile } from "../manual-file-helpers.js";
+import { writeManualFile } from "./file-helpers.js";
 import { isFsErrorCode } from "../../../shared/utils/fs.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";

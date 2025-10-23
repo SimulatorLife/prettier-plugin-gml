@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { ensureDir, isNonEmptyString } from "./shared-deps.js";
+import { ensureDir, isNonEmptyString } from "../shared-deps.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories

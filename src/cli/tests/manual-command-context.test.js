@@ -7,7 +7,7 @@ import {
     createManualEnvironmentContext,
     createManualManualAccessContext,
     createManualGitHubExecutionContext
-} from "../lib/manual-command-context.js";
+} from "../lib/manual/command-context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
