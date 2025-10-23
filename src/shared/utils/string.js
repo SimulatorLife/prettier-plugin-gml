@@ -260,10 +260,12 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed && !seen.has(trimmed)) {
-            seen.add(trimmed);
-            normalized.push(trimmed);
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
         }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
     return normalized;

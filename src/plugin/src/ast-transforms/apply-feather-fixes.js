@@ -143,6 +143,12 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentOut"
+);
+const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentText"
+);
 const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
@@ -8338,13 +8344,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -8943,13 +8943,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9071,13 +9065,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9310,13 +9298,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9484,13 +9466,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9613,13 +9589,7 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10498,13 +10468,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10595,13 +10559,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10676,13 +10634,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10817,13 +10769,7 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -11270,13 +11216,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12662,13 +12602,7 @@ function removeEventInheritedCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12774,13 +12708,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12912,13 +12840,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13498,13 +13420,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -14991,6 +14907,22 @@ function ensureVertexFormatDefinitionIsClosed(
     siblings.splice(insertionIndex, 0, vertexFormatEndCall);
     attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
 
+    const commentTargets = [];
+
+    for (let index = property; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (candidate && candidate.type === "CallExpression") {
+            commentTargets.push(candidate);
+        }
+    }
+
+    commentTargets.push(vertexFormatEndCall);
+
+    for (const target of commentTargets) {
+        markCallExpressionForFeatherComment(target);
+    }
+
     return fixDetail;
 }
 
@@ -15047,6 +14979,51 @@ function isVertexFormatAddCall(node) {
         typeof identifier.name === "string" &&
         identifier.name.startsWith("vertex_format_add_")
     );
+}
+
+function markCallExpressionForFeatherComment(node) {
+    if (!node || node.type !== "CallExpression") {
+        return;
+    }
+
+    const commentText = createCallExpressionCommentText(node);
+
+    Object.defineProperty(node, FEATHER_COMMENT_OUT_SYMBOL, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: true
+    });
+
+    if (typeof commentText === "string" && commentText.length > 0) {
+        Object.defineProperty(node, FEATHER_COMMENT_TEXT_SYMBOL, {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: commentText
+        });
+    }
+}
+
+function createCallExpressionCommentText(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const calleeName = getCallExpressionCalleeName(node);
+
+    if (!calleeName) {
+        return null;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (!Array.isArray(args) || args.length === 0) {
+        return `${calleeName}()`;
+    }
+
+    const placeholderArgs = args.map(() => "...").join(", ");
+    return `${calleeName}(${placeholderArgs})`;
 }
 
 function createVertexFormatEndCall(template) {
@@ -17879,6 +17856,20 @@ function createFeatherFixDetail(
         range,
         automatic
     };
+}
+
+function createCallExpressionTargetFixDetail(diagnostic, node) {
+    if (!node) {
+        return null;
+    }
+
+    return createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
 }
 
 function attachFeatherFixMetadata(target, fixes) {

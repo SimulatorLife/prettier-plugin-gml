@@ -12,6 +12,7 @@ import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "../manual-file-helpers.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode } from "../../../shared/utils/fs.js";
+import { renderProgressBar } from "../progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -59,6 +60,114 @@ function describeManualRepoInput(value) {
     }
 
     return `'${String(value)}'`;
+}
+
+function normalizeDownloadLabel(label) {
+    return typeof label === "string" && label.trim().length > 0
+        ? label
+        : "Downloading manual files";
+}
+
+/**
+ * Create a progress reporter for manual file downloads. Callers receive a
+ * stable callback that mirrors the branching previously duplicated across CLI
+ * commands when switching between progress bars and verbose console output.
+ *
+ * @param {{
+ *   label?: string,
+ *   verbose?: { downloads?: boolean, progressBar?: boolean },
+ *   progressBarWidth?: number,
+ *   formatPath?: (path: string) => string,
+ *   render?: typeof renderProgressBar
+ * }} options
+ * @returns {(update: {
+ *   path: string,
+ *   fetchedCount: number,
+ *   totalEntries: number
+ * }) => void}
+ */
+export function createManualDownloadReporter({
+    label,
+    verbose = {},
+    progressBarWidth,
+    formatPath = (path) => path,
+    render = renderProgressBar
+} = {}) {
+    const normalizedLabel = normalizeDownloadLabel(label);
+
+    return ({ path, fetchedCount, totalEntries }) => {
+        if (!verbose.downloads) {
+            return;
+        }
+
+        if (verbose.progressBar) {
+            render(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                progressBarWidth ?? 0
+            );
+            return;
+        }
+
+        const displayPath = formatPath(path);
+        if (displayPath) {
+            console.log(`✓ ${displayPath}`);
+        } else {
+            console.log("✓");
+        }
+    };
+}
+
+/**
+ * Download the provided manual file entries while collecting their payloads
+ * into an object keyed by the entry identifier. The helper centralizes the
+ * bookkeeping previously inlined by multiple commands so they can share the
+ * same progress reporting pipeline.
+ *
+ * @param {{
+ *   entries: Iterable<[string, string]>,
+ *   manualRefSha: string,
+ *   fetchManualFile: ManualGitHubFileClient["fetchManualFile"],
+ *   requestOptions?: import("./utils.js").ManualGitHubFetchOptions,
+ *   onProgress?: (update: {
+ *     key: string,
+ *     path: string,
+ *     fetchedCount: number,
+ *     totalEntries: number
+ *   }) => void
+ * }} options
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function downloadManualFileEntries({
+    entries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    onProgress
+}) {
+    const normalizedEntries = Array.from(entries);
+    const payloads = {};
+    const totalEntries = normalizedEntries.length;
+    let fetchedCount = 0;
+
+    for (const [key, filePath] of normalizedEntries) {
+        payloads[key] = await fetchManualFile(
+            manualRefSha,
+            filePath,
+            requestOptions
+        );
+
+        fetchedCount += 1;
+        onProgress?.({
+            key,
+            path: filePath,
+            fetchedCount,
+            totalEntries
+        });
+    }
+
+    return payloads;
 }
 
 /**
@@ -128,7 +237,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
+    const state = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -136,21 +245,16 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return baseState;
+        return state;
     }
 
-    const filteredOverrides = Object.entries(overrides).filter(
-        ([, value]) => value !== undefined
-    );
-
-    if (filteredOverrides.length === 0) {
-        return baseState;
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
     }
 
-    return {
-        ...baseState,
-        ...Object.fromEntries(filteredOverrides)
-    };
+    return state;
 }
 
 function validateManualCommitPayload(payload, { ref }) {

@@ -528,12 +528,12 @@ function createSuiteExecutionOptions(options) {
 
 async function writeReport(report, options) {
     if (options.skipReport) {
-        return;
+        return { skipped: true };
     }
 
     const targetFile = options.reportFile ?? DEFAULT_REPORT_FILE;
     if (!targetFile) {
-        return;
+        return { skipped: true };
     }
 
     const directory = path.dirname(targetFile);
@@ -542,6 +542,27 @@ async function writeReport(report, options) {
     const spacing = options.pretty ? 2 : 0;
     const payload = `${JSON.stringify(report, null, spacing)}\n`;
     await fs.writeFile(targetFile, payload, "utf8");
+
+    return { skipped: false, path: targetFile };
+}
+
+function formatReportFilePath(targetFile) {
+    if (!targetFile) {
+        return "";
+    }
+
+    const absolutePath = path.resolve(targetFile);
+    const relativeToCwd = path.relative(process.cwd(), absolutePath);
+
+    if (!relativeToCwd) {
+        return ".";
+    }
+
+    if (!relativeToCwd.startsWith("..") && !path.isAbsolute(relativeToCwd)) {
+        return relativeToCwd;
+    }
+
+    return absolutePath;
 }
 
 function formatThroughput(value, unit) {
@@ -662,7 +683,12 @@ export async function runPerformanceCommand({ command } = {}) {
         suites: suiteResults
     };
 
-    await writeReport(report, options);
+    const reportResult = await writeReport(report, options);
+
+    if (reportResult?.path) {
+        const displayPath = formatReportFilePath(reportResult.path);
+        console.log(`Performance report written to ${displayPath}.`);
+    }
 
     if (options.stdout) {
         emitReport(report, options);

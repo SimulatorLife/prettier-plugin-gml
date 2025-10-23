@@ -13,7 +13,6 @@ import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
-    renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
@@ -22,7 +21,9 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints
+    buildManualRepositoryEndpoints,
+    createManualDownloadReporter,
+    downloadManualFileEntries
 } from "../lib/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
@@ -1014,8 +1015,14 @@ async function fetchFeatherManualPayloads({
 
         announceManualDownloadStart(totalManualPages, verbose);
 
-        return downloadManualEntries({
-            manualEntries,
+        const reportProgress = createManualDownloadReporter({
+            label: "Downloading manual pages",
+            verbose,
+            progressBarWidth
+        });
+
+        return downloadManualFileEntries({
+            entries: manualEntries,
             manualRefSha: manualRef.sha,
             fetchManualFile: fetchManualFileFn,
             requestOptions: {
@@ -1024,44 +1031,14 @@ async function fetchFeatherManualPayloads({
                 cacheRoot,
                 rawRoot
             },
-            onProgress: ({
-                manualPath,
-                fetchedCount,
-                totalManualPages: total
-            }) =>
-                reportManualFetchProgress({
-                    manualPath,
+            onProgress: ({ path, fetchedCount, totalEntries }) =>
+                reportProgress({
+                    path,
                     fetchedCount,
-                    totalManualPages: total,
-                    verbose,
-                    progressBarWidth
+                    totalEntries
                 })
         });
     });
-}
-
-function reportManualFetchProgress({
-    manualPath,
-    fetchedCount,
-    totalManualPages,
-    verbose,
-    progressBarWidth
-}) {
-    if (!verbose.downloads) {
-        return;
-    }
-
-    if (verbose.progressBar) {
-        renderProgressBar(
-            "Downloading manual pages",
-            fetchedCount,
-            totalManualPages,
-            progressBarWidth
-        );
-        return;
-    }
-
-    console.log(`✓ ${manualPath}`);
 }
 
 function announceManualDownloadStart(totalManualPages, verbose) {
@@ -1082,29 +1059,6 @@ function announceManualDownloadStart(totalManualPages, verbose) {
  * mirroring the structure previously built inline inside
  * fetchFeatherManualPayloads.
  */
-async function downloadManualEntries({
-    manualEntries,
-    manualRefSha,
-    fetchManualFile,
-    requestOptions,
-    onProgress
-}) {
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    const totalManualPages = manualEntries.length;
-
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFile(
-            manualRefSha,
-            manualPath,
-            requestOptions
-        );
-        fetchedCount += 1;
-        onProgress?.({ manualPath, fetchedCount, totalManualPages });
-    }
-
-    return htmlPayloads;
-}
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     if (verbose.parsing) {
