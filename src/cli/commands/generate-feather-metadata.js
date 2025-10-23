@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
@@ -35,12 +36,15 @@ import {
 } from "../lib/manual-command-options.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
+/** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
+
 const {
-    repoRoot: REPO_ROOT,
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultOutputPath: OUTPUT_DEFAULT,
-    fetchManualFile,
-    resolveManualRef
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    },
+    operations: { fetchManualFile, resolveManualRef }
 } = createManualCommandContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
@@ -57,6 +61,12 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
+/**
+ * Create the CLI command for generating Feather metadata.
+ *
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @returns {import("commander").Command}
+ */
 export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -94,6 +104,13 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
 
     return command;
 }
+
+/**
+ * Resolve normalized CLI options for the Feather metadata command.
+ *
+ * @param {import("commander").Command} command
+ * @returns {ManualCommandOptions}
+ */
 function resolveFeatherMetadataOptions(command) {
     return resolveManualCommandOptions(command, {
         defaults: {
@@ -105,7 +122,7 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js.
+// Manual fetching helpers are wired via the shared manual command context.
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -430,7 +447,7 @@ function normalizeContent(blocks) {
 }
 
 function joinSections(parts) {
-    if (!Array.isArray(parts) || parts.length === 0) {
+    if (!isNonEmptyArray(parts)) {
         return null;
     }
 
@@ -438,7 +455,7 @@ function joinSections(parts) {
         .map((part) => getNonEmptyTrimmedString(part))
         .filter(Boolean);
 
-    if (normalizedParts.length === 0) {
+    if (!isNonEmptyArray(normalizedParts)) {
         return null;
     }
 
@@ -505,20 +522,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (badExample) {
-                goodExampleParts.push(text);
-            } else {
-                badExample = text;
-            }
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        if (badExample) {
-            correctionParts.push(text);
-        } else {
-            additionalDescriptionParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
         }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =
@@ -1110,6 +1127,12 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     };
 }
 
+/**
+ * Execute the Feather metadata generation workflow.
+ *
+ * @param {{ command?: import("commander").Command }} [context]
+ * @returns {Promise<number>}
+ */
 export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
     getIterableSize,
+    hasFunction,
     hasIterableItems,
     isAggregateErrorLike,
     isErrorLike,
@@ -12,6 +13,19 @@ import {
 } from "../utils/capability-probes.js";
 
 describe("capability probes", () => {
+    it("detects callable properties", () => {
+        const method = Symbol("method");
+        const target = {
+            run() {},
+            [method]() {}
+        };
+
+        assert.equal(hasFunction(target, "run"), true);
+        assert.equal(hasFunction(target, method), true);
+        assert.equal(hasFunction({ run: 1 }, "run"), false);
+        assert.equal(hasFunction(null, "run"), false);
+    });
+
     it("detects error-like values", () => {
         assert.equal(isErrorLike(new Error("boom")), true);
         assert.equal(isErrorLike({ message: "boom", name: "Custom" }), true);

@@ -14,6 +14,7 @@
  * editor integrations directly.
  */
 
+import { randomUUID } from "node:crypto";
 import {
     lstat,
     mkdtemp,
@@ -23,10 +24,9 @@ import {
     stat,
     writeFile
 } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import os from "node:os";
-import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
@@ -41,12 +41,12 @@ import {
     toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
-} from "./lib/shared/utils.js";
-import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "./lib/shared/path-utils.js";
+} from "../shared/utils/path.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -67,6 +67,7 @@ import {
 } from "./lib/ignore-path-registry.js";
 import { createCliCommandManager } from "./lib/cli-command-manager.js";
 import { resolveCliVersion } from "./lib/cli-version.js";
+import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -81,6 +82,11 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import {
+    getDefaultSkippedDirectorySampleLimit,
+    resolveSkippedDirectorySampleLimit,
+    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
+} from "./lib/skipped-directory-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -270,6 +276,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
         );
 
+    const defaultSkippedDirectorySampleLimit =
+        getDefaultSkippedDirectorySampleLimit();
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -328,6 +337,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
+        )
+        .option(
+            "--ignored-directory-samples <count>",
+            [
+                "Maximum number of ignored directories to include in summary output.",
+                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ].join(" "),
+            wrapInvalidArgumentResolver(resolveSkippedDirectorySampleLimit),
+            defaultSkippedDirectorySampleLimit
         );
 }
 
@@ -371,6 +390,7 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        skippedDirectorySampleLimit: options.ignoredDirectorySamples,
         usage: command.helpInformation()
     };
 }
@@ -438,12 +458,16 @@ const skippedFileSummary = {
     symbolicLink: 0
 };
 
-const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
-
 const skippedDirectorySummary = {
     ignored: 0,
     ignoredSamples: []
 };
+
+let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
+
+function configureSkippedDirectorySampleLimit(limit) {
+    skippedDirectorySampleLimit = resolveSkippedDirectorySampleLimit(limit);
+}
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -460,8 +484,9 @@ function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
 
     if (
+        skippedDirectorySampleLimit > 0 &&
         skippedDirectorySummary.ignoredSamples.length <
-            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+            skippedDirectorySampleLimit &&
         !skippedDirectorySummary.ignoredSamples.includes(directory)
     ) {
         skippedDirectorySummary.ignoredSamples.push(directory);
@@ -687,7 +712,7 @@ async function revertFormattedFiles() {
             // decide whether the temporary directory is still needed. Skipping
             // this step after a failed write would leak backups, block future
             // revert attempts from creating fresh snapshots, and leave the
-            // `revertSnapshotFileCount` counter desynchronised from reality.
+            // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
     }
@@ -1050,15 +1075,22 @@ function resolveTargetPathFromInput(targetPathInput) {
 /**
  * Configure global state for a formatting run based on CLI flags.
  *
- * @param {{ configuredExtensions: readonly string[], prettierLogLevel: string, onParseError: string }} params
+ * @param {{
+ *   configuredExtensions: readonly string[],
+ *   prettierLogLevel: string,
+ *   onParseError: string,
+ *   skippedDirectorySampleLimit: number
+ * }} params
  */
 async function prepareFormattingRun({
     configuredExtensions,
     prettierLogLevel,
-    onParseError
+    onParseError,
+    skippedDirectorySampleLimit
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
+    configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     await resetFormattingSession(onParseError);
 }
 
@@ -1164,7 +1196,8 @@ async function runFormattingWorkflow({ targetPath, usage }) {
 
 async function executeFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command);
-    const { usage, targetPathInput } = commandOptions;
+    const { usage, targetPathInput, skippedDirectorySampleLimit } =
+        commandOptions;
 
     validateTargetPathInput(commandOptions);
 
@@ -1172,7 +1205,8 @@ async function executeFormatCommand(command) {
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
-        onParseError: commandOptions.onParseError
+        onParseError: commandOptions.onParseError,
+        skippedDirectorySampleLimit
     });
 
     try {
@@ -1185,9 +1219,11 @@ async function executeFormatCommand(command) {
 
 function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
-    const locationDescription = targetIsDirectory
-        ? `in ${formatPathForDisplay(targetPath)}`
-        : formatPathForDisplay(targetPath);
+    const formattedTarget = formatPathForDisplay(targetPath);
+    const directoryDescription =
+        targetIsDirectory && formattedTarget === "."
+            ? "the current directory"
+            : formattedTarget;
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
@@ -1195,7 +1231,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     if (targetIsDirectory) {
         console.log(
             [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                `No files matching ${formattedExtensions} were found in ${directoryDescription}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1203,7 +1239,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     } else {
         console.log(
             [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                `${formattedTarget} does not match the configured extensions ${formattedExtensions}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
