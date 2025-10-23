@@ -13,6 +13,7 @@ import {
     preprocessSourceForFeatherFixes
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
+import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
@@ -167,6 +168,7 @@ async function parse(text, options) {
         }
 
         preprocessFunctionArgumentDefaults(ast);
+        enforceVariableBlockSpacing(ast);
         annotateStaticFunctionOverrides(ast);
 
         markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);

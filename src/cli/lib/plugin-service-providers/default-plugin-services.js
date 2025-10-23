@@ -5,6 +5,25 @@ import {
     clearIdentifierCaseDryRunContexts
 } from "prettier-plugin-gamemaker/identifier-case";
 
+/**
+ * The legacy `identifierCasePlanService` facade coupled plan preparation with
+ * cache clearing behind one "service" surface. That wide contract forced CLI
+ * collaborators that only needed to warm caches or only needed to clear them
+ * to depend on both behaviours. The typedefs below capture the narrower
+ * preparation and cache responsibilities so consumers can opt into the precise
+ * collaborator they require.
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanPreparationService
+ * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanCacheService
+ * @property {() => void} clearIdentifierCaseCaches
+ */
+
 function clearIdentifierCaseCaches() {
     clearIdentifierCaseOptionStore(null);
     clearIdentifierCaseDryRunContexts();
@@ -14,51 +33,34 @@ export const defaultProjectIndexBuilder = buildProjectIndex;
 export const defaultIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
 export const defaultIdentifierCaseCacheClearer = clearIdentifierCaseCaches;
 
-const projectIndexService = Object.freeze({
+export const defaultCliProjectIndexService = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder
 });
 
-const identifierCasePlanPreparationService = Object.freeze({
-    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+export const defaultCliIdentifierCasePlanPreparationService = Object.freeze(
+    /** @type {CliIdentifierCasePlanPreparationService} */ ({
+        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+    })
+);
+
+export const defaultCliIdentifierCaseCacheService = Object.freeze(
+    /** @type {CliIdentifierCasePlanCacheService} */ ({
+        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
+    })
+);
+
+export const defaultCliIdentifierCasePlanService = Object.freeze({
+    ...defaultCliIdentifierCasePlanPreparationService,
+    ...defaultCliIdentifierCaseCacheService
 });
 
-const identifierCasePlanCacheService = Object.freeze({
-    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
-});
-
-const identifierCasePlanService = Object.freeze({
-    ...identifierCasePlanPreparationService,
-    ...identifierCasePlanCacheService
-});
-
-const defaultCliPluginServices = Object.freeze({
+export const defaultCliPluginServices = Object.freeze({
     buildProjectIndex: defaultProjectIndexBuilder,
     prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
     clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
-    projectIndex: projectIndexService,
-    identifierCasePlan: identifierCasePlanService,
-    identifierCasePlanPreparation: identifierCasePlanPreparationService,
-    identifierCasePlanCache: identifierCasePlanCacheService
+    projectIndex: defaultCliProjectIndexService,
+    identifierCasePlan: defaultCliIdentifierCasePlanService,
+    identifierCasePlanPreparation:
+        defaultCliIdentifierCasePlanPreparationService,
+    identifierCasePlanCache: defaultCliIdentifierCaseCacheService
 });
-
-export const createDefaultCliPluginServices = () => defaultCliPluginServices;
-export const resolveCliPluginServices = createDefaultCliPluginServices;
-
-export const resolveCliProjectIndexService = () => projectIndexService;
-export const createDefaultCliProjectIndexService =
-    resolveCliProjectIndexService;
-
-export const resolveCliIdentifierCasePlanService = () =>
-    identifierCasePlanService;
-export const createDefaultCliIdentifierCasePlanService =
-    resolveCliIdentifierCasePlanService;
-
-export const resolveCliIdentifierCasePlanPreparationService = () =>
-    identifierCasePlanPreparationService;
-export const createDefaultCliIdentifierCasePlanPreparationService =
-    resolveCliIdentifierCasePlanPreparationService;
-
-export const resolveCliIdentifierCaseCacheService = () =>
-    identifierCasePlanCacheService;
-export const createDefaultCliIdentifierCaseCacheService =
-    resolveCliIdentifierCaseCacheService;
