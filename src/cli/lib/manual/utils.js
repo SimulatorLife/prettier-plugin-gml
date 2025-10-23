@@ -11,7 +11,6 @@ import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "../manual-file-helpers.js";
 
-
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
 
 /**
@@ -377,18 +376,19 @@ function createManualGitHubFileClient({
 }
 
 export {
-    
     MANUAL_CACHE_ROOT_ENV_VAR,
-    
-    
     createManualVerboseState,
-    
-    
-    
     resolveManualCacheRoot,
     createManualGitHubRequestDispatcher,
     createManualGitHubCommitResolver,
     createManualGitHubRefResolver,
     createManualGitHubFileClient
 };
-export {DEFAULT_MANUAL_REPO, MANUAL_REPO_ENV_VAR, MANUAL_REPO_REQUIREMENT_SOURCE, buildManualRepositoryEndpoints, normalizeManualRepository, resolveManualRepoValue} from "./repository.js";
+export {
+    DEFAULT_MANUAL_REPO,
+    MANUAL_REPO_ENV_VAR,
+    MANUAL_REPO_REQUIREMENT_SOURCE,
+    buildManualRepositoryEndpoints,
+    normalizeManualRepository,
+    resolveManualRepoValue
+} from "./repository.js";
