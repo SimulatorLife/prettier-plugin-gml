@@ -44,7 +44,8 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    operations: { fetchManualFile, resolveManualRef }
+    files: { fetchManualFile },
+    refs: { resolveManualRef }
 } = createManualCommandContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",

@@ -36,7 +36,10 @@ test("createManualCommandContext centralizes manual command defaults", () => {
     );
     assert.ok(Object.isFrozen(context.environment));
     assert.ok(Object.isFrozen(context.clients));
-    assert.ok(Object.isFrozen(context.operations));
+    assert.ok(Object.isFrozen(context.requests));
+    assert.ok(Object.isFrozen(context.files));
+    assert.ok(Object.isFrozen(context.refs));
+    assert.ok(Object.isFrozen(context.commits));
     assert.equal(typeof context.clients.request, "function");
     assert.equal(
         typeof context.clients.refResolver.resolveManualRef,
@@ -49,12 +52,12 @@ test("createManualCommandContext centralizes manual command defaults", () => {
     assert.equal(typeof context.clients.fileClient.fetchManualFile, "function");
     assert.equal(
         context.clients.request,
-        context.operations.executeManualRequest
+        context.requests.executeManualRequest
     );
-    assert.equal(typeof context.operations.executeManualRequest, "function");
-    assert.equal(typeof context.operations.fetchManualFile, "function");
-    assert.equal(typeof context.operations.resolveManualRef, "function");
-    assert.equal(typeof context.operations.resolveCommitFromRef, "function");
+    assert.equal(typeof context.requests.executeManualRequest, "function");
+    assert.equal(typeof context.files.fetchManualFile, "function");
+    assert.equal(typeof context.refs.resolveManualRef, "function");
+    assert.equal(typeof context.commits.resolveCommitFromRef, "function");
 });
 
 test("createManualCommandContext validates required arguments", () => {

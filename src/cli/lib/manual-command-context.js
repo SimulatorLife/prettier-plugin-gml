@@ -53,10 +53,22 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualCommandGitHubOperations
+ * @typedef {object} ManualCommandRequestService
  * @property {ManualGitHubRequestExecutor} executeManualRequest
+ */
+
+/**
+ * @typedef {object} ManualCommandFileService
  * @property {ManualGitHubFileClient["fetchManualFile"]} fetchManualFile
+ */
+
+/**
+ * @typedef {object} ManualCommandRefResolutionService
  * @property {ManualGitHubRefResolver["resolveManualRef"]} resolveManualRef
+ */
+
+/**
+ * @typedef {object} ManualCommandCommitResolutionService
  * @property {ManualGitHubCommitResolver["resolveCommitFromRef"]} resolveCommitFromRef
  */
 
@@ -64,7 +76,10 @@ function resolveOutputPath(repoRoot, fileName) {
  * @typedef {object} ManualCommandContext
  * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandGitHubClients} clients
- * @property {ManualCommandGitHubOperations} operations
+ * @property {ManualCommandRequestService} requests
+ * @property {ManualCommandFileService} files
+ * @property {ManualCommandRefResolutionService} refs
+ * @property {ManualCommandCommitResolutionService} commits
  */
 
 /**
@@ -119,12 +134,28 @@ export function createManualCommandContext({
         fileClient: manualFileFetcher
     });
 
-    const operations = Object.freeze({
-        executeManualRequest: manualRequestExecutor,
-        fetchManualFile: manualFileFetcher.fetchManualFile,
-        resolveManualRef: manualRefResolver.resolveManualRef,
+    const requests = Object.freeze({
+        executeManualRequest: manualRequestExecutor
+    });
+
+    const files = Object.freeze({
+        fetchManualFile: manualFileFetcher.fetchManualFile
+    });
+
+    const refs = Object.freeze({
+        resolveManualRef: manualRefResolver.resolveManualRef
+    });
+
+    const commits = Object.freeze({
         resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
     });
 
-    return Object.freeze({ environment, clients, operations });
+    return Object.freeze({
+        environment,
+        clients,
+        requests,
+        files,
+        refs,
+        commits
+    });
 }

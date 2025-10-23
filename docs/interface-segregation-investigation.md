@@ -77,3 +77,16 @@ no code changes were required.
   callers can depend solely on the slice they require. Updated the manual CLI
   commands and associated tests to destructure the focused views instead of the
   wide context.
+
+## Follow-up audit (2025-03-12)
+
+- Revisited `createManualCommandContext` in
+  `src/cli/lib/manual-command-context.js` and noticed the
+  `ManualCommandGitHubOperations` surface still bundled manual request
+  execution, file fetching, ref resolution, and commit resolution behind one
+  catch-all interface. Commands that only needed one of those collaborators
+  were forced to depend on all four behaviours.
+- Replaced the combined operations facade with focused services for requests,
+  files, refs, and commits. Updated the manual CLI commands and unit tests to
+  destructure the specific service they consume so each call site depends only
+  on the GitHub behaviour it requires.
