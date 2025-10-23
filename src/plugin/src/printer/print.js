@@ -2441,8 +2441,13 @@ function getSimpleAssignmentLikeEntry(
     let enablesAlignment = false;
     if (init.type === "Identifier" && typeof init.name === "string") {
         const argumentIndex = getArgumentIndexFromIdentifier(init.name);
+        const hasNamedParameters =
+            functionParameterNames && functionParameterNames.size > 0;
+
         if (argumentIndex !== null) {
-            enablesAlignment = true;
+            if (!options?.applyFeatherFixes || hasNamedParameters) {
+                enablesAlignment = true;
+            }
         } else if (functionParameterNames?.has(init.name)) {
             enablesAlignment = true;
         }

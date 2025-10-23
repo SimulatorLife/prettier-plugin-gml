@@ -37,7 +37,7 @@ test("createManualCommandContext centralizes manual command defaults", () => {
     assert.ok(Object.isFrozen(context.environment));
     assert.ok(Object.isFrozen(context.clients));
     assert.ok(Object.isFrozen(context.operations));
-    assert.equal(typeof context.clients.requests.execute, "function");
+    assert.equal(typeof context.clients.request, "function");
     assert.equal(
         typeof context.clients.refResolver.resolveManualRef,
         "function"
@@ -47,6 +47,11 @@ test("createManualCommandContext centralizes manual command defaults", () => {
         "function"
     );
     assert.equal(typeof context.clients.fileClient.fetchManualFile, "function");
+    assert.equal(
+        context.clients.request,
+        context.operations.executeManualRequest
+    );
+    assert.equal(typeof context.operations.executeManualRequest, "function");
     assert.equal(typeof context.operations.fetchManualFile, "function");
     assert.equal(typeof context.operations.resolveManualRef, "function");
     assert.equal(typeof context.operations.resolveCommitFromRef, "function");
