@@ -1166,13 +1166,18 @@ async function processResolvedTarget({
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean }} params
  */
-function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
+function finalizeFormattingRun({
+    targetPath,
+    targetIsDirectory,
+    targetPathProvided
+}) {
     if (encounteredFormattableFile) {
         logSkippedFileSummary();
     } else {
         logNoMatchingFiles({
             targetPath,
             targetIsDirectory,
+            targetPathProvided,
             extensions: targetExtensions
         });
     }
@@ -1186,7 +1191,11 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
  *
  * @param {{ targetPath: string, usage: string }} params
  */
-async function runFormattingWorkflow({ targetPath, usage }) {
+async function runFormattingWorkflow({
+    targetPath,
+    usage,
+    targetPathProvided
+}) {
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(
         targetPath,
         usage
@@ -1198,13 +1207,21 @@ async function runFormattingWorkflow({ targetPath, usage }) {
         projectRoot
     });
 
-    finalizeFormattingRun({ targetPath, targetIsDirectory });
+    finalizeFormattingRun({
+        targetPath,
+        targetIsDirectory,
+        targetPathProvided
+    });
 }
 
 async function executeFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command);
-    const { usage, targetPathInput, skippedDirectorySampleLimit } =
-        commandOptions;
+    const {
+        usage,
+        targetPathInput,
+        targetPathProvided,
+        skippedDirectorySampleLimit
+    } = commandOptions;
 
     validateTargetPathInput(commandOptions);
 
@@ -1217,20 +1234,31 @@ async function executeFormatCommand(command) {
     });
 
     try {
-        await runFormattingWorkflow({ targetPath, usage });
+        await runFormattingWorkflow({
+            targetPath,
+            usage,
+            targetPathProvided
+        });
     } finally {
         await discardFormattedFileOriginalContents();
         clearIdentifierCaseCaches();
     }
 }
 
-function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
+function logNoMatchingFiles({
+    targetPath,
+    targetIsDirectory,
+    targetPathProvided,
+    extensions
+}) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
     const formattedTarget = formatPathForDisplay(targetPath);
-    const directoryDescription =
-        targetIsDirectory && formattedTarget === "."
-            ? "the current directory"
-            : formattedTarget;
+    const locationDescription = targetIsDirectory
+        ? describeDirectoryWithoutMatches({
+              formattedTargetPath: formattedTarget,
+              targetPathProvided
+          })
+        : formattedTarget;
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
@@ -1238,7 +1266,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     if (targetIsDirectory) {
         console.log(
             [
-                `No files matching ${formattedExtensions} were found in ${directoryDescription}.`,
+                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1246,7 +1274,7 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     } else {
         console.log(
             [
-                `${formattedTarget} does not match the configured extensions ${formattedExtensions}.`,
+                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
                 "Nothing to format.",
                 guidance
             ].join(" ")
@@ -1254,6 +1282,21 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     }
 
     logSkippedFileSummary();
+}
+
+function describeDirectoryWithoutMatches({
+    formattedTargetPath,
+    targetPathProvided
+}) {
+    if (!targetPathProvided) {
+        return "in the current working directory (.)";
+    }
+
+    if (formattedTargetPath === ".") {
+        return "in the current directory";
+    }
+
+    return `in ${formattedTargetPath}`;
 }
 
 /**

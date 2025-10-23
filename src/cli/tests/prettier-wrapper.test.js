@@ -828,8 +828,12 @@ describe("Prettier wrapper CLI", () => {
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.match(
                 stdout,
-                /found in the current directory\./,
+                /found in the current (?:working )?directory(?: \(\.\))?\./,
                 "Expected stdout to describe the current directory explicitly"
+            );
+            assert.ok(
+                stdout.includes("found in the current working directory (.)"),
+                "Expected stdout to call out the current working directory"
             );
             assert.ok(
                 !stdout.includes("found in .."),
@@ -848,8 +852,12 @@ describe("Prettier wrapper CLI", () => {
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
         assert.match(
             stdout,
-            /found in the current directory\./,
+            /found in the current (?:working )?directory(?: \(\.\))?\./,
             "Expected stdout to describe the repository root using the current directory phrasing"
+        );
+        assert.ok(
+            stdout.includes("found in the current working directory (.)"),
+            "Expected stdout to describe the repository root with a clear label"
         );
         assert.ok(
             !stdout.includes("found in .."),
