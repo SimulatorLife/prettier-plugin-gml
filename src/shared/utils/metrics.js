@@ -22,24 +22,33 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
+function getCandidateCacheKeys(keys) {
+    if (keys == null) {
+        return DEFAULT_CACHE_KEYS;
+    }
+
+    if (Array.isArray(keys)) {
+        return keys;
+    }
+
+    return typeof keys?.[Symbol.iterator] === "function"
+        ? keys
+        : DEFAULT_CACHE_KEYS;
+}
+
 function normalizeCacheKeys(keys) {
-    const source =
-        keys == null
-            ? DEFAULT_CACHE_KEYS
-            : Array.isArray(keys) ||
-                typeof keys?.[Symbol.iterator] === "function"
-              ? keys
-              : DEFAULT_CACHE_KEYS;
+    const normalizedKeys = new Set();
 
-    const uniqueKeys = [
-        ...new Set(
-            Array.from(source, (value) =>
-                getNonEmptyString(value)?.trim()
-            ).filter(Boolean)
-        )
-    ];
+    for (const value of getCandidateCacheKeys(keys)) {
+        const trimmed = getNonEmptyString(value)?.trim();
+        if (trimmed) {
+            normalizedKeys.add(trimmed);
+        }
+    }
 
-    return uniqueKeys.length > 0 ? uniqueKeys : [...DEFAULT_CACHE_KEYS];
+    return normalizedKeys.size > 0
+        ? Array.from(normalizedKeys)
+        : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
