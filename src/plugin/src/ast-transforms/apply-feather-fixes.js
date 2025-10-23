@@ -8338,13 +8338,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -8943,13 +8937,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9071,13 +9059,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9310,13 +9292,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9484,13 +9460,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -9613,13 +9583,7 @@ function ensureFileFindFirstBeforeCloseCall(
         }
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10498,13 +10462,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10595,13 +10553,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10676,13 +10628,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -10817,13 +10763,7 @@ function ensureSurfaceTargetResetAfterCallForGM2005(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -11270,13 +11210,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12662,13 +12596,7 @@ function removeEventInheritedCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12774,13 +12702,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -12912,13 +12834,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -13498,13 +13414,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: node.object?.name ?? null,
-        range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
-        }
-    });
+    const fixDetail = createCallExpressionTargetFixDetail(diagnostic, node);
 
     if (!fixDetail) {
         return null;
@@ -17879,6 +17789,20 @@ function createFeatherFixDetail(
         range,
         automatic
     };
+}
+
+function createCallExpressionTargetFixDetail(diagnostic, node) {
+    if (!node) {
+        return null;
+    }
+
+    return createFeatherFixDetail(diagnostic, {
+        target: node.object?.name ?? null,
+        range: {
+            start: getNodeStartIndex(node),
+            end: getNodeEndIndex(node)
+        }
+    });
 }
 
 function attachFeatherFixMetadata(target, fixes) {
