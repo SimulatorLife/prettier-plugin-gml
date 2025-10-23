@@ -33,6 +33,7 @@ import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
     getErrorMessage,
+    getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
@@ -121,6 +122,9 @@ const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
 
+const PRETTIER_MODULE_ID =
+    process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
+
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
 }
@@ -158,7 +162,7 @@ let prettierModulePromise = null;
 
 async function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import("prettier")
+        prettierModulePromise = import(PRETTIER_MODULE_ID)
             .then((module) => module?.default ?? module)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
@@ -366,9 +370,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
  */
 function normalizeTargetPathInput(rawInput) {
     if (typeof rawInput === "string") {
-        const trimmed = rawInput.trim();
+        const trimmed = getNonEmptyTrimmedString(rawInput);
         return {
-            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathInput: trimmed ?? null,
             targetPathProvided: true
         };
     }
@@ -615,26 +619,25 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    return withObjectLike(
-        snapshot,
-        async (snapshotObject) => {
-            if (snapshotObject.inlineContents != null) {
-                return snapshotObject.inlineContents;
-            }
+    if (!snapshot || typeof snapshot !== "object") {
+        return "";
+    }
 
-            const { snapshotPath } = snapshotObject;
-            if (!snapshotPath) {
-                return "";
-            }
+    const { inlineContents, snapshotPath } = snapshot;
 
-            try {
-                return await readFile(snapshotPath, "utf8");
-            } catch {
-                return null;
-            }
-        },
-        () => ""
-    );
+    if (inlineContents != null) {
+        return inlineContents;
+    }
+
+    if (!snapshotPath) {
+        return "";
+    }
+
+    try {
+        return await readFile(snapshotPath, "utf8");
+    } catch {
+        return null;
+    }
 }
 
 /**

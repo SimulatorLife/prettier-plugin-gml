@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     getErrorMessage,
+    getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
     isNonEmptyString,
@@ -220,7 +221,7 @@ function parseXmlDocument(xml) {
 
         const rawContent = xml.slice(nextTag + 1, closingBracket);
         index = closingBracket + 1;
-        const trimmed = rawContent.trim();
+        const trimmed = getNonEmptyTrimmedString(rawContent);
         if (!trimmed) {
             continue;
         }

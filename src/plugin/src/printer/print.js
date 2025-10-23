@@ -1686,7 +1686,18 @@ function printCommaSeparatedList(
     });
 }
 
-// wrap a statement in a block if it's not already a block
+// Force statement-shaped children into explicit `{}` blocks so every call site
+// that relies on this helper inherits the same guard rails. The printer uses it
+// for `if`, loop, and struct bodies where we always emit braces regardless of
+// how the source was written. Centralising the wrapping ensures semicolon
+// bookkeeping stays wired through `optionalSemicolon`, keeps synthetic doc
+// comments anchored to the block node they describe, and prevents individual
+// callers from drifting in how they indent or collapse single-statement bodies.
+// When we experimented with open-coding the wrapping logic in each printer, it
+// was easy to miss one of those responsibilities and regress either the
+// formatter's brace guarantees or the doc comment synthesis covered by the
+// synthetic doc comment integration tests
+// (`src/plugin/tests/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
     const node = path.getValue()[expressionKey];
     return node.type === "BlockStatement"
@@ -2071,7 +2082,15 @@ function printStatements(path, options, print, childrenAttribute) {
             semi = "";
         }
 
-        // Print the statement
+        // Preserve the `statement; // trailing comment` shape that GameMaker
+        // authors rely on. When the child doc ends with a trailing comment token
+        // we cannot blindly append the semicolon because Prettier would render
+        // `statement // comment;`, effectively moving the comment past the
+        // terminator. Inserting the semicolon right before the comment keeps the
+        // formatter's "always add the final `;`" guarantee intact without
+        // rewriting author comments or dropping the semicolon entirely—a
+        // regression we previously hit when normalising legacy `#define`
+        // assignments.
         if (docHasTrailingComment(printed)) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
@@ -2637,11 +2656,13 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
               options,
               syntheticOverrides
           )
-        : computeSyntheticFunctionDocLines(
-              functionNode,
-              [],
-              options,
-              syntheticOverrides
+        : reorderDescriptionLinesAfterFunction(
+              computeSyntheticFunctionDocLines(
+                  functionNode,
+                  [],
+                  options,
+                  syntheticOverrides
+              )
           );
 
     if (syntheticLines.length === 0) {
@@ -2763,24 +2784,108 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
+function reorderDescriptionLinesAfterFunction(docLines) {
+    if (!Array.isArray(docLines) || docLines.length === 0) {
+        return Array.isArray(docLines) ? docLines : [];
+    }
+
+    const descriptionIndices = [];
+    for (const [index, line] of docLines.entries()) {
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@description\b/i.test(line.trim())
+        ) {
+            descriptionIndices.push(index);
+        }
+    }
+
+    if (descriptionIndices.length === 0) {
+        return docLines;
+    }
+
+    const functionIndex = docLines.findIndex(
+        (line) =>
+            typeof line === "string" &&
+            /^\/\/\/\s*@function\b/i.test(line.trim())
+    );
+
+    if (functionIndex === -1) {
+        return docLines;
+    }
+
+    const earliestDescriptionIndex = Math.min(...descriptionIndices);
+    if (earliestDescriptionIndex > functionIndex) {
+        return docLines;
+    }
+
+    const descriptionLines = descriptionIndices.map((index) => docLines[index]);
+    const remainingLines = docLines.filter(
+        (_, index) => !descriptionIndices.includes(index)
+    );
+
+    let lastFunctionIndex = -1;
+    for (let index = remainingLines.length - 1; index >= 0; index -= 1) {
+        const line = remainingLines[index];
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@function\b/i.test(line.trim())
+        ) {
+            lastFunctionIndex = index;
+            break;
+        }
+    }
+
+    if (lastFunctionIndex === -1) {
+        return [...remainingLines, ...descriptionLines];
+    }
+
+    let returnsInsertionIndex = remainingLines.length;
+    for (
+        let index = lastFunctionIndex + 1;
+        index < remainingLines.length;
+        index += 1
+    ) {
+        const line = remainingLines[index];
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@returns\b/i.test(line.trim())
+        ) {
+            returnsInsertionIndex = index;
+            break;
+        }
+    }
+
+    return [
+        ...remainingLines.slice(0, returnsInsertionIndex),
+        ...descriptionLines,
+        ...remainingLines.slice(returnsInsertionIndex)
+    ];
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
     options,
     overrides = {}
 ) {
-    const syntheticLines = computeSyntheticFunctionDocLines(
-        node,
-        existingDocLines,
-        options,
-        overrides
+    const normalizedExistingLines = reorderDescriptionLinesAfterFunction(
+        Array.isArray(existingDocLines) ? existingDocLines : []
+    );
+
+    const syntheticLines = reorderDescriptionLinesAfterFunction(
+        computeSyntheticFunctionDocLines(
+            node,
+            existingDocLines,
+            options,
+            overrides
+        )
     );
 
     if (syntheticLines.length === 0) {
-        return existingDocLines;
+        return normalizedExistingLines;
     }
 
-    if (existingDocLines.length === 0) {
+    if (normalizedExistingLines.length === 0) {
         return syntheticLines;
     }
 
@@ -2843,7 +2948,7 @@ function mergeSyntheticDocComments(
         return canonical;
     };
 
-    let mergedLines = [...existingDocLines];
+    let mergedLines = [...normalizedExistingLines];
     let removedAnyLine = false;
 
     if (functionLines.length > 0) {
@@ -3316,6 +3421,8 @@ function mergeSyntheticDocComments(
             ];
         }
     }
+
+    reorderedDocs = reorderDescriptionLinesAfterFunction(reorderedDocs);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
