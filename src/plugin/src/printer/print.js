@@ -3740,9 +3740,26 @@ function getCanonicalParamNameFromText(name) {
     }
 
     let trimmed = name.trim();
-    const bracketMatch = trimmed.match(/^\[([^\]]+)]$/);
-    if (bracketMatch) {
-        trimmed = bracketMatch[1] ?? "";
+
+    if (trimmed.startsWith("[")) {
+        let depth = 0;
+        let closingIndex = -1;
+
+        for (const [index, char] of trimmed.entries()) {
+            if (char === "[") {
+                depth += 1;
+            } else if (char === "]") {
+                depth -= 1;
+                if (depth === 0) {
+                    closingIndex = index;
+                    break;
+                }
+            }
+        }
+
+        if (closingIndex > 0) {
+            trimmed = trimmed.slice(1, closingIndex);
+        }
     }
 
     const equalsIndex = trimmed.indexOf("=");
