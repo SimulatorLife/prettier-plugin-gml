@@ -209,6 +209,16 @@ function printComment(commentPath, options) {
     }
 }
 
+/**
+ * Normalize the inline padding hint applied to trailing comments. Enum members
+ * and struct properties annotate their comment nodes with extra padding so the
+ * printer can preserve column alignment after banner normalization. This helper
+ * makes sure that metadata is respected without clobbering explicit padding
+ * requested by other formatting passes.
+ *
+ * @param {unknown} comment Candidate comment node to update.
+ * @returns {void}
+ */
 function applyTrailingCommentPadding(comment) {
     if (!isObjectLike(comment)) {
         return;

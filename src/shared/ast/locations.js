@@ -151,10 +151,36 @@ function getNodeRangeIndices(node) {
     };
 }
 
+function getNodeLocationLine(node, key) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const location = node[key];
+    if (!location || typeof location !== "object") {
+        return null;
+    }
+
+    const { line } = location;
+    return typeof line === "number" ? line : null;
+}
+
+function getNodeStartLine(node) {
+    return getNodeLocationLine(node, "start");
+}
+
+function getNodeEndLine(node) {
+    return (
+        getNodeLocationLine(node, "end") ?? getNodeLocationLine(node, "start")
+    );
+}
+
 export {
     getNodeStartIndex,
     getNodeEndIndex,
     getNodeRangeIndices,
+    getNodeStartLine,
+    getNodeEndLine,
     cloneLocation,
     assignClonedLocation
 };

@@ -15,7 +15,7 @@ import {
     findProjectRoot,
     createProjectIndexCoordinator,
     getProjectIndexParserOverride
-} from "./index.js";
+} from "../project-index/index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";

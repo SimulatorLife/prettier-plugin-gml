@@ -2,23 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    createDefaultCliIdentifierCasePlanService,
-    createDefaultCliIdentifierCasePlanPreparationService,
-    createDefaultCliIdentifierCaseCacheService,
     createDefaultCliPluginServices,
-    createDefaultCliProjectIndexService,
+    defaultCliIdentifierCasePlanService,
+    defaultCliIdentifierCasePlanPreparationService,
+    defaultCliIdentifierCaseCacheService,
+    defaultCliPluginServices,
+    defaultCliProjectIndexService,
     defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
-    defaultProjectIndexBuilder,
-    resolveCliIdentifierCasePlanService,
-    resolveCliIdentifierCasePlanPreparationService,
-    resolveCliIdentifierCaseCacheService,
-    resolveCliPluginServices,
-    resolveCliProjectIndexService
+    defaultProjectIndexBuilder
 } from "../lib/plugin-service-providers/default-plugin-services.js";
 
 test("CLI plugin services expose validated defaults", () => {
-    const services = createDefaultCliPluginServices();
+    const services = defaultCliPluginServices;
 
     assert.ok(Object.isFrozen(services), "service registry should be frozen");
     assert.strictEqual(
@@ -46,18 +42,8 @@ test("CLI plugin services expose validated defaults", () => {
         defaultIdentifierCaseCacheClearer,
         "default identifier case cache clearer should match exported helper"
     );
-    assert.strictEqual(
-        createDefaultCliPluginServices(),
-        services,
-        "resolver should reuse the same object reference"
-    );
-    assert.strictEqual(
-        resolveCliPluginServices(),
-        services,
-        "resolver helper should return the default services"
-    );
 
-    const projectIndexService = resolveCliProjectIndexService();
+    const projectIndexService = defaultCliProjectIndexService;
     assert.ok(
         Object.isFrozen(projectIndexService),
         "project index service should be frozen"
@@ -68,17 +54,12 @@ test("CLI plugin services expose validated defaults", () => {
         "project index service should expose the default builder"
     );
     assert.strictEqual(
-        createDefaultCliProjectIndexService(),
-        projectIndexService,
-        "default project index service helper should reuse singleton"
-    );
-    assert.strictEqual(
         services.projectIndex,
         projectIndexService,
         "root registry should expose the same project index service"
     );
 
-    const identifierCasePlanService = resolveCliIdentifierCasePlanService();
+    const identifierCasePlanService = defaultCliIdentifierCasePlanService;
     assert.ok(
         Object.isFrozen(identifierCasePlanService),
         "identifier case plan service should be frozen"
@@ -94,18 +75,13 @@ test("CLI plugin services expose validated defaults", () => {
         "identifier case plan service should expose the default cache clearer"
     );
     assert.strictEqual(
-        createDefaultCliIdentifierCasePlanService(),
-        identifierCasePlanService,
-        "default identifier case plan service helper should reuse singleton"
-    );
-    assert.strictEqual(
         services.identifierCasePlan,
         identifierCasePlanService,
         "root registry should expose the same identifier case plan service"
     );
 
     const identifierCasePlanPreparationService =
-        resolveCliIdentifierCasePlanPreparationService();
+        defaultCliIdentifierCasePlanPreparationService;
     assert.ok(
         Object.isFrozen(identifierCasePlanPreparationService),
         "identifier case plan preparation service should be frozen"
@@ -116,18 +92,12 @@ test("CLI plugin services expose validated defaults", () => {
         "preparation service should expose the default preparer"
     );
     assert.strictEqual(
-        createDefaultCliIdentifierCasePlanPreparationService(),
-        identifierCasePlanPreparationService,
-        "default identifier case plan preparation helper should reuse singleton"
-    );
-    assert.strictEqual(
         services.identifierCasePlanPreparation,
         identifierCasePlanPreparationService,
         "root registry should expose the preparation service"
     );
 
-    const identifierCasePlanCacheService =
-        resolveCliIdentifierCaseCacheService();
+    const identifierCasePlanCacheService = defaultCliIdentifierCaseCacheService;
     assert.ok(
         Object.isFrozen(identifierCasePlanCacheService),
         "identifier case plan cache service should be frozen"
@@ -138,11 +108,6 @@ test("CLI plugin services expose validated defaults", () => {
         "cache service should expose the default cache clearer"
     );
     assert.strictEqual(
-        createDefaultCliIdentifierCaseCacheService(),
-        identifierCasePlanCacheService,
-        "default identifier case cache service helper should reuse singleton"
-    );
-    assert.strictEqual(
         services.identifierCasePlanCache,
         identifierCasePlanCacheService,
         "root registry should expose the cache service"
@@ -150,7 +115,7 @@ test("CLI plugin services expose validated defaults", () => {
 });
 
 test("CLI plugin services cannot be mutated", () => {
-    const services = createDefaultCliPluginServices();
+    const services = defaultCliPluginServices;
 
     assert.throws(
         () => {
@@ -175,4 +140,75 @@ test("CLI plugin services cannot be mutated", () => {
         TypeError,
         "nested identifier case plan service should be frozen"
     );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlanPreparation.extra = {};
+        },
+        TypeError,
+        "identifier case plan preparation service should be frozen"
+    );
+
+    assert.throws(
+        () => {
+            services.identifierCasePlanCache.extra = {};
+        },
+        TypeError,
+        "identifier case plan cache service should be frozen"
+    );
+});
+
+test("default plugin services can be customized with overrides", () => {
+    const projectIndexBuilder = async () => ({ metrics: { custom: true } });
+    const identifierCasePlanPreparer = async (options) => ({ options });
+    const identifierCaseCacheClearer = () => {};
+
+    const services = createDefaultCliPluginServices({
+        projectIndexBuilder,
+        identifierCasePlanPreparer,
+        identifierCaseCacheClearer
+    });
+
+    assert.strictEqual(
+        services.projectIndexBuilder,
+        projectIndexBuilder,
+        "override project index builder should be used"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanPreparer,
+        identifierCasePlanPreparer,
+        "override identifier case plan preparer should be used"
+    );
+    assert.strictEqual(
+        services.identifierCaseCacheClearer,
+        identifierCaseCacheClearer,
+        "override identifier case cache clearer should be used"
+    );
+
+    assert.ok(
+        Object.isFrozen(services.projectIndexService),
+        "project index service should remain frozen"
+    );
+    assert.strictEqual(
+        services.projectIndexService.buildProjectIndex,
+        projectIndexBuilder,
+        "project index service should wrap override builder"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanService.prepareIdentifierCasePlan,
+        identifierCasePlanPreparer,
+        "identifier case plan service should wrap override preparer"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanService.clearIdentifierCaseCaches,
+        identifierCaseCacheClearer,
+        "identifier case plan service should wrap override clearer"
+    );
+});
+
+test("invalid plugin service descriptor sources are rejected", () => {
+    assert.throws(() => createDefaultCliPluginServices(42), {
+        name: "TypeError",
+        message: /descriptors must be provided as objects/
+    });
 });
