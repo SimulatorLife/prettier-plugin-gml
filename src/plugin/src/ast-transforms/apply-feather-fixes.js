@@ -143,6 +143,12 @@ const ALLOWED_DELETE_MEMBER_TYPES = new Set([
     "MemberIndexExpression"
 ]);
 const MANUAL_FIX_TRACKING_KEY = Symbol("manualFeatherFixes");
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentOut"
+);
+const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentText"
+);
 const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
@@ -14901,6 +14907,22 @@ function ensureVertexFormatDefinitionIsClosed(
     siblings.splice(insertionIndex, 0, vertexFormatEndCall);
     attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
 
+    const commentTargets = [];
+
+    for (let index = property; index < insertionIndex; index += 1) {
+        const candidate = siblings[index];
+
+        if (candidate && candidate.type === "CallExpression") {
+            commentTargets.push(candidate);
+        }
+    }
+
+    commentTargets.push(vertexFormatEndCall);
+
+    for (const target of commentTargets) {
+        markCallExpressionForFeatherComment(target);
+    }
+
     return fixDetail;
 }
 
@@ -14957,6 +14979,51 @@ function isVertexFormatAddCall(node) {
         typeof identifier.name === "string" &&
         identifier.name.startsWith("vertex_format_add_")
     );
+}
+
+function markCallExpressionForFeatherComment(node) {
+    if (!node || node.type !== "CallExpression") {
+        return;
+    }
+
+    const commentText = createCallExpressionCommentText(node);
+
+    Object.defineProperty(node, FEATHER_COMMENT_OUT_SYMBOL, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: true
+    });
+
+    if (typeof commentText === "string" && commentText.length > 0) {
+        Object.defineProperty(node, FEATHER_COMMENT_TEXT_SYMBOL, {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: commentText
+        });
+    }
+}
+
+function createCallExpressionCommentText(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const calleeName = getCallExpressionCalleeName(node);
+
+    if (!calleeName) {
+        return null;
+    }
+
+    const args = getCallExpressionArguments(node);
+
+    if (!Array.isArray(args) || args.length === 0) {
+        return `${calleeName}()`;
+    }
+
+    const placeholderArgs = args.map(() => "...").join(", ");
+    return `${calleeName}(${placeholderArgs})`;
 }
 
 function createVertexFormatEndCall(template) {
