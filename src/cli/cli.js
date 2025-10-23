@@ -67,6 +67,7 @@ import {
 } from "./lib/ignore-path-registry.js";
 import { createCliCommandManager } from "./lib/cli-command-manager.js";
 import { resolveCliVersion } from "./lib/cli-version.js";
+import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -81,6 +82,11 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import {
+    getDefaultSkippedDirectorySampleLimit,
+    resolveSkippedDirectorySampleLimit,
+    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
+} from "./lib/skipped-directory-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -114,6 +120,9 @@ const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
 const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
+
+const PRETTIER_MODULE_ID =
+    process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
@@ -152,7 +161,7 @@ let prettierModulePromise = null;
 
 async function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import("prettier")
+        prettierModulePromise = import(PRETTIER_MODULE_ID)
             .then((module) => module?.default ?? module)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
@@ -270,6 +279,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
         );
 
+    const defaultSkippedDirectorySampleLimit =
+        getDefaultSkippedDirectorySampleLimit();
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -328,6 +340,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
+        )
+        .option(
+            "--ignored-directory-samples <count>",
+            [
+                "Maximum number of ignored directories to include in summary output.",
+                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ].join(" "),
+            wrapInvalidArgumentResolver(resolveSkippedDirectorySampleLimit),
+            defaultSkippedDirectorySampleLimit
         );
 }
 
@@ -371,6 +393,7 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        skippedDirectorySampleLimit: options.ignoredDirectorySamples,
         usage: command.helpInformation()
     };
 }
@@ -438,12 +461,16 @@ const skippedFileSummary = {
     symbolicLink: 0
 };
 
-const MAX_SKIPPED_DIRECTORY_SAMPLES = 5;
-
 const skippedDirectorySummary = {
     ignored: 0,
     ignoredSamples: []
 };
+
+let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
+
+function configureSkippedDirectorySampleLimit(limit) {
+    skippedDirectorySampleLimit = resolveSkippedDirectorySampleLimit(limit);
+}
 
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
@@ -460,8 +487,9 @@ function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
 
     if (
+        skippedDirectorySampleLimit > 0 &&
         skippedDirectorySummary.ignoredSamples.length <
-            MAX_SKIPPED_DIRECTORY_SAMPLES &&
+            skippedDirectorySampleLimit &&
         !skippedDirectorySummary.ignoredSamples.includes(directory)
     ) {
         skippedDirectorySummary.ignoredSamples.push(directory);
@@ -570,26 +598,25 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    return withObjectLike(
-        snapshot,
-        async (snapshotObject) => {
-            if (snapshotObject.inlineContents != null) {
-                return snapshotObject.inlineContents;
-            }
+    if (!snapshot || typeof snapshot !== "object") {
+        return "";
+    }
 
-            const { snapshotPath } = snapshotObject;
-            if (!snapshotPath) {
-                return "";
-            }
+    const { inlineContents, snapshotPath } = snapshot;
 
-            try {
-                return await readFile(snapshotPath, "utf8");
-            } catch {
-                return null;
-            }
-        },
-        () => ""
-    );
+    if (inlineContents != null) {
+        return inlineContents;
+    }
+
+    if (!snapshotPath) {
+        return "";
+    }
+
+    try {
+        return await readFile(snapshotPath, "utf8");
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -1050,15 +1077,22 @@ function resolveTargetPathFromInput(targetPathInput) {
 /**
  * Configure global state for a formatting run based on CLI flags.
  *
- * @param {{ configuredExtensions: readonly string[], prettierLogLevel: string, onParseError: string }} params
+ * @param {{
+ *   configuredExtensions: readonly string[],
+ *   prettierLogLevel: string,
+ *   onParseError: string,
+ *   skippedDirectorySampleLimit: number
+ * }} params
  */
 async function prepareFormattingRun({
     configuredExtensions,
     prettierLogLevel,
-    onParseError
+    onParseError,
+    skippedDirectorySampleLimit
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
+    configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     await resetFormattingSession(onParseError);
 }
 
@@ -1164,7 +1198,8 @@ async function runFormattingWorkflow({ targetPath, usage }) {
 
 async function executeFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command);
-    const { usage, targetPathInput } = commandOptions;
+    const { usage, targetPathInput, skippedDirectorySampleLimit } =
+        commandOptions;
 
     validateTargetPathInput(commandOptions);
 
@@ -1172,7 +1207,8 @@ async function executeFormatCommand(command) {
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
-        onParseError: commandOptions.onParseError
+        onParseError: commandOptions.onParseError,
+        skippedDirectorySampleLimit
     });
 
     try {
