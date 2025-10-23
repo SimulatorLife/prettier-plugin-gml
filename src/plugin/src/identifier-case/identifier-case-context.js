@@ -7,12 +7,12 @@ const contextMap = new Map();
  * @param {string | null | undefined} filePath
  * @returns {string}
  */
-function normalizeKey(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
+function normalizeKey(filepath) {
+    if (typeof filepath !== "string" || filepath.length === 0) {
         return DEFAULT_CONTEXT_KEY;
     }
 
-    return filePath;
+    return filepath;
 }
 
 /**
