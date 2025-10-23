@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    createDefaultCliPluginServices,
     defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
@@ -155,4 +156,59 @@ test("CLI plugin services cannot be mutated", () => {
         TypeError,
         "identifier case plan cache service should be frozen"
     );
+});
+
+test("default plugin services can be customized with overrides", () => {
+    const projectIndexBuilder = async () => ({ metrics: { custom: true } });
+    const identifierCasePlanPreparer = async (options) => ({ options });
+    const identifierCaseCacheClearer = () => {};
+
+    const services = createDefaultCliPluginServices({
+        projectIndexBuilder,
+        identifierCasePlanPreparer,
+        identifierCaseCacheClearer
+    });
+
+    assert.strictEqual(
+        services.projectIndexBuilder,
+        projectIndexBuilder,
+        "override project index builder should be used"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanPreparer,
+        identifierCasePlanPreparer,
+        "override identifier case plan preparer should be used"
+    );
+    assert.strictEqual(
+        services.identifierCaseCacheClearer,
+        identifierCaseCacheClearer,
+        "override identifier case cache clearer should be used"
+    );
+
+    assert.ok(
+        Object.isFrozen(services.projectIndexService),
+        "project index service should remain frozen"
+    );
+    assert.strictEqual(
+        services.projectIndexService.buildProjectIndex,
+        projectIndexBuilder,
+        "project index service should wrap override builder"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanService.prepareIdentifierCasePlan,
+        identifierCasePlanPreparer,
+        "identifier case plan service should wrap override preparer"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanService.clearIdentifierCaseCaches,
+        identifierCaseCacheClearer,
+        "identifier case plan service should wrap override clearer"
+    );
+});
+
+test("invalid plugin service descriptor sources are rejected", () => {
+    assert.throws(() => createDefaultCliPluginServices(42), {
+        name: "TypeError",
+        message: /descriptors must be provided as objects/
+    });
 });

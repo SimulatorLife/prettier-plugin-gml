@@ -4,7 +4,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+    assertArray,
     getErrorMessage,
+    getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
     isNonEmptyString,
@@ -12,7 +14,7 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../../shared/utils.js";
+} from "../lib/shared-deps.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
@@ -220,7 +222,7 @@ function parseXmlDocument(xml) {
 
         const rawContent = xml.slice(nextTag + 1, closingBracket);
         index = closingBracket + 1;
-        const trimmed = rawContent.trim();
+        const trimmed = getNonEmptyTrimmedString(rawContent);
         if (!trimmed) {
             continue;
         }
@@ -276,11 +278,11 @@ function normalizeSuiteName(name) {
 }
 
 function pushNormalizedSuiteSegments(target, segments) {
-    if (!Array.isArray(target)) {
-        throw new TypeError("target must be an array");
-    }
-
-    const sourceSegments = Array.isArray(segments) ? segments : [segments];
+    const targetSegments = assertArray(target, {
+        name: "target",
+        errorMessage: "target must be an array"
+    });
+    const sourceSegments = toArray(segments);
 
     for (const segment of sourceSegments) {
         const normalized = normalizeSuiteName(segment);
@@ -288,10 +290,10 @@ function pushNormalizedSuiteSegments(target, segments) {
             continue;
         }
 
-        target.push(normalized);
+        targetSegments.push(normalized);
     }
 
-    return target;
+    return targetSegments;
 }
 
 function buildTestKey(testNode, suitePath) {
@@ -407,7 +409,7 @@ function collectTestCases(root) {
 }
 
 function normalizeResultDirectories(candidateDirs, workspaceRoot) {
-    return (Array.isArray(candidateDirs) ? candidateDirs : [candidateDirs])
+    return toArray(candidateDirs)
         .filter(Boolean)
         .map((candidate) => {
             const resolved = path.isAbsolute(candidate)
@@ -482,6 +484,13 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [parseResult.note] };
     }
 
+    if (parseResult.status === "ignored") {
+        return {
+            cases: [],
+            notes: parseResult.note ? [parseResult.note] : []
+        };
+    }
+
     return { cases: parseResult.cases, notes: [] };
 }
 
@@ -501,6 +510,12 @@ function readXmlFile(filePath, displayPath) {
 function parseXmlTestCases(xml, displayPath) {
     try {
         const data = parser.parse(xml);
+        if (isCheckstyleDocument(data)) {
+            return {
+                status: "ignored",
+                note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
+            };
+        }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
         const message =
@@ -510,6 +525,30 @@ function parseXmlTestCases(xml, displayPath) {
             note: `Failed to parse ${displayPath}: ${message}`
         };
     }
+}
+
+function isCheckstyleDocument(document) {
+    if (!isObjectLike(document) || Array.isArray(document)) {
+        return false;
+    }
+
+    const root = document.checkstyle;
+    if (!isObjectLike(root) || Array.isArray(root)) {
+        return false;
+    }
+
+    if (hasAnyOwn(root, ["testsuite", "testcase"])) {
+        return false;
+    }
+
+    const files = toArray(root.file);
+    if (files.length === 0) {
+        return true;
+    }
+
+    return files.every(
+        (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
+    );
 }
 
 function recordTestCases(aggregates, testCases) {

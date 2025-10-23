@@ -8,7 +8,7 @@ import {
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const activeProgressBars = new Map();
+let activeProgressBars = new Map();
 let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
 function resolveProgressStream(stdout) {
@@ -43,22 +43,17 @@ const progressBarWidthState = createIntegerOptionState({
     typeErrorMessage: createTypeErrorMessage
 });
 
-function getDefaultProgressBarWidth() {
-    return progressBarWidthState.getDefault();
-}
-
-function setDefaultProgressBarWidth(width) {
-    return progressBarWidthState.setDefault(width);
-}
+const {
+    getDefault: getDefaultProgressBarWidth,
+    setDefault: setDefaultProgressBarWidth,
+    resolve: resolveProgressBarWidthState,
+    applyEnvOverride: applyProgressBarWidthEnvOverride
+} = progressBarWidthState;
 
 function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    return progressBarWidthState.resolve(rawValue, {
+    return resolveProgressBarWidthState(rawValue, {
         defaultValue: defaultWidth
     });
-}
-
-function applyProgressBarWidthEnvOverride(env = process?.env) {
-    progressBarWidthState.applyEnvOverride(env);
 }
 
 applyProgressBarWidthEnvOverride();
@@ -94,6 +89,11 @@ function disposeProgressBars() {
         }
     }
     activeProgressBars.clear();
+}
+
+function resetProgressBarRegistryForTesting() {
+    disposeProgressBars();
+    activeProgressBars = new Map();
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {
@@ -148,5 +148,6 @@ export {
     setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
-    withProgressBarCleanup
+    withProgressBarCleanup,
+    resetProgressBarRegistryForTesting
 };

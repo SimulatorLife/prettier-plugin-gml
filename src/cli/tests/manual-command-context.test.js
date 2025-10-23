@@ -3,45 +3,92 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import { createManualCommandContext } from "../lib/manual-command-context.js";
-import { resolveManualCacheRoot } from "../lib/manual/utils.js";
+import {
+    createManualEnvironmentContext,
+    createManualManualAccessContext,
+    createManualGitHubExecutionContext
+} from "../lib/manual-command-context.js";
+import {
+    buildManualRepositoryEndpoints,
+    resolveManualCacheRoot
+} from "../lib/manual/utils.js";
 
-test("createManualCommandContext centralizes manual command defaults", () => {
+test("createManualManualAccessContext centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const context = createManualCommandContext({
+    const context = createManualManualAccessContext({
         importMetaUrl: commandUrl,
         userAgent: "manual-context-test",
         outputFileName: "example.json"
     });
 
     const expectedRepoRoot = path.resolve("src/cli/commands", "..", "..");
-    assert.equal(context.repoRoot, expectedRepoRoot);
+    assert.equal(context.environment.repoRoot, expectedRepoRoot);
     assert.equal(
-        context.defaultCacheRoot,
+        context.environment.defaultCacheRoot,
         resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
     );
     assert.equal(
-        context.defaultOutputPath,
+        context.environment.defaultOutputPath,
         path.join(expectedRepoRoot, "resources", "example.json")
     );
-    assert.equal(typeof context.manualRequests.execute, "function");
-    assert.equal(typeof context.manualRefResolver.resolveManualRef, "function");
     assert.equal(
-        typeof context.manualCommitResolver.resolveCommitFromRef,
-        "function"
+        context.environment.defaultManualRawRoot,
+        buildManualRepositoryEndpoints().rawRoot
     );
-    assert.equal(typeof context.manualFileFetcher.fetchManualFile, "function");
-    assert.equal(typeof context.fetchManualFile, "function");
-    assert.equal(typeof context.resolveManualRef, "function");
-    assert.equal(typeof context.resolveCommitFromRef, "function");
+    assert.ok(Object.isFrozen(context.environment));
+    assert.ok(Object.isFrozen(context.files));
+    assert.ok(Object.isFrozen(context.refs));
+    assert.equal(typeof context.files.fetchManualFile, "function");
+    assert.equal(typeof context.refs.resolveManualRef, "function");
 });
 
-test("createManualCommandContext validates required arguments", () => {
+test("createManualGitHubExecutionContext exposes execution helpers", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/commands/generate-feather-metadata.js")
+    ).href;
+
+    const context = createManualGitHubExecutionContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    assert.ok(Object.isFrozen(context.requests));
+    assert.ok(Object.isFrozen(context.commits));
+    assert.ok(Object.isFrozen(context));
+    assert.equal(typeof context.request, "function");
+    assert.equal(context.request, context.requests.executeManualRequest);
+    assert.equal(
+        typeof context.commitResolver.resolveCommitFromRef,
+        "function"
+    );
+    assert.equal(typeof context.refResolver.resolveManualRef, "function");
+    assert.equal(typeof context.fileClient.fetchManualFile, "function");
+    assert.equal(typeof context.commits.resolveCommitFromRef, "function");
+});
+
+test("createManualEnvironmentContext isolates repository metadata", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/commands/generate-feather-metadata.js")
+    ).href;
+
+    const context = createManualEnvironmentContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    assert.ok(Object.isFrozen(context.environment));
+    assert.equal(
+        context.environment.repoRoot,
+        path.resolve("src/cli/commands", "..", "..")
+    );
+});
+
+test("manual command context builders validate required arguments", () => {
     assert.throws(
-        () => createManualCommandContext({ userAgent: "missing-url" }),
+        () => createManualManualAccessContext({ userAgent: "missing-url" }),
         /importMetaUrl must be provided/i
     );
 
@@ -50,7 +97,7 @@ test("createManualCommandContext validates required arguments", () => {
     ).href;
 
     assert.throws(
-        () => createManualCommandContext({ importMetaUrl: commandUrl }),
+        () => createManualManualAccessContext({ importMetaUrl: commandUrl }),
         /userAgent must be provided/i
     );
 });
