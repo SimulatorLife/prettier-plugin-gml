@@ -394,8 +394,8 @@ describe("Prettier wrapper CLI", () => {
             assert.strictEqual(Number(skippedMatch[1]), 1);
             assert.match(
                 stdout,
-                /Breakdown: .*unsupported extensions \(1\)\./,
-                "Expected wrapper output to include skip rationale for non-target files"
+                /unsupported extensions \(1\) \(e\.g\., .*\.prettierignore\)/,
+                "Expected wrapper output to highlight example unsupported files"
             );
 
             const formatted = await fs.readFile(targetFile, "utf8");
@@ -805,8 +805,8 @@ describe("Prettier wrapper CLI", () => {
             );
             assert.match(
                 stdout,
-                /Breakdown: .*unsupported extensions \(\d+\)\./,
-                "Expected stdout to summarize the skipped files with extension details"
+                /unsupported extensions \(\d+\) \(e\.g\., .*notes\.txt\)/,
+                "Expected stdout to summarize skipped files with concrete examples"
             );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
