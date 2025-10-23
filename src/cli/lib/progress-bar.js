@@ -11,20 +11,6 @@ const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 let activeProgressBars = new Map();
 let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
-function resolveProgressStream(stdout) {
-    if (!stdout) {
-        return;
-    }
-
-    const stream = stdout;
-
-    if (typeof stream.write !== "function") {
-        return;
-    }
-
-    return stream;
-}
-
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
 
@@ -112,7 +98,8 @@ function renderProgressBar(label, current, total, width, options = {}) {
         bar.setTotal(normalizedTotal);
         bar.update(normalizedCurrent);
     } else {
-        const stream = resolveProgressStream(stdout);
+        const stream =
+            stdout && typeof stdout.write === "function" ? stdout : undefined;
         bar = createBar(label, width, { stream });
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
