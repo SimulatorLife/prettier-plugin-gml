@@ -70,6 +70,7 @@ function optionalSemicolon(nodeType) {
 const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "FunctionDeclaration",
     "ConstructorDeclaration",
+    "EnumDeclaration",
     "RegionStatement",
     "EndRegionStatement"
 ]);

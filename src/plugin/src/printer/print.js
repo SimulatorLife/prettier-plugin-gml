@@ -1130,7 +1130,13 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            prepareEnumMembersForPrinting(node, getNodeName);
+            const minAlignmentGroupSize =
+                getAssignmentAlignmentMinimum(options);
+            prepareEnumMembersForPrinting(
+                node,
+                getNodeName,
+                minAlignmentGroupSize
+            );
             return concat([
                 "enum ",
                 print("name"),
@@ -2049,7 +2055,11 @@ function printStatements(path, options, print, childrenAttribute) {
             shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
         // Check if a newline should be added BEFORE the statement
-        if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
+        if (
+            currentNodeRequiresNewline &&
+            !previousNodeHadNewlineAddedAfter &&
+            !(isTopLevel && index === 0)
+        ) {
             const hasLeadingComment = isTopLevel
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
                 : false;
