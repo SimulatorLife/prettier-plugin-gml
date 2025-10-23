@@ -4538,6 +4538,51 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(gm2033.range);
     });
 
+    it("removes consecutive file_find_close calls flagged by GM2032", () => {
+        const source = [
+            "file_find_close();",
+            "file_find_close();",
+            "",
+            'show_debug_message("done");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        const remainingClosers = statements.filter(
+            (statement) =>
+                statement?.type === "CallExpression" &&
+                statement?.object?.name === "file_find_close"
+        );
+
+        assert.strictEqual(
+            remainingClosers.length,
+            0,
+            "Expected all stray file_find_close() calls to be removed."
+        );
+
+        const gm2032 = (ast._appliedFeatherDiagnostics ?? []).filter(
+            (entry) => entry.id === "GM2032"
+        );
+
+        assert.strictEqual(
+            gm2032.length,
+            2,
+            "Expected GM2032 metadata to be recorded for each removal."
+        );
+
+        for (const entry of gm2032) {
+            assert.strictEqual(entry.automatic, true);
+            assert.strictEqual(entry.target, "file_find_close");
+            assert.ok(entry.range);
+        }
+    });
+
     it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
         const source = [
             "draw_primitive_begin(pr_linelist);",
