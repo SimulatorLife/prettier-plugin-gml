@@ -2070,6 +2070,16 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
+        const shouldDropConstructorMethodSemicolon =
+            semi === ";" &&
+            !hasTerminatingSemicolon &&
+            node.type === "AssignmentExpression" &&
+            isInsideConstructorFunction(childPath);
+
+        if (shouldDropConstructorMethodSemicolon) {
+            semi = "";
+        }
+
         const shouldOmitSemicolon =
             semi === ";" &&
             !hasTerminatingSemicolon &&
@@ -3962,6 +3972,41 @@ function getIdentifierFromParameterNode(param) {
     }
 
     return null;
+}
+
+function isInsideConstructorFunction(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let functionAncestorDepth = null;
+
+    for (let depth = 0; ; depth += 1) {
+        const ancestor =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!ancestor) {
+            break;
+        }
+
+        if (
+            functionAncestorDepth === null &&
+            ancestor.type === "FunctionDeclaration"
+        ) {
+            const functionParent = path.getParentNode(depth + 1);
+            if (!functionParent || functionParent.type !== "BlockStatement") {
+                return false;
+            }
+
+            functionAncestorDepth = depth;
+            continue;
+        }
+
+        if (ancestor.type === "ConstructorDeclaration") {
+            return functionAncestorDepth !== null;
+        }
+    }
+
+    return false;
 }
 
 function findEnclosingFunctionDeclaration(path) {
