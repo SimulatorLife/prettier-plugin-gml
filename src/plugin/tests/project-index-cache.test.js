@@ -272,6 +272,13 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
         }
 
         {
+            const { options, descriptor } = await runCase("64");
+            assert.equal(options.__identifierCaseProjectIndexConcurrency, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gml, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 16);
+        }
+
+        {
             const { options, descriptor } = await runCase("   ");
             assert.equal(
                 Object.prototype.hasOwnProperty.call(
