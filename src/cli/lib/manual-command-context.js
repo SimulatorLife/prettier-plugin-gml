@@ -45,14 +45,6 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualCommandGitHubClients
- * @property {ManualGitHubRequestExecutor} request
- * @property {ManualGitHubCommitResolver} commitResolver
- * @property {ManualGitHubRefResolver} refResolver
- * @property {ManualGitHubFileClient} fileClient
- */
-
-/**
  * @typedef {object} ManualCommandRequestService
  * @property {ManualGitHubRequestExecutor} executeManualRequest
  */
@@ -95,7 +87,10 @@ function resolveOutputPath(repoRoot, fileName) {
 
 /**
  * @typedef {object} ManualGitHubExecutionContext
- * @property {ManualCommandGitHubClients} clients
+ * @property {ManualGitHubRequestExecutor} request
+ * @property {ManualGitHubCommitResolver} commitResolver
+ * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubFileClient} fileClient
  * @property {ManualCommandRequestService} requests
  * @property {ManualCommandCommitResolutionService} commits
  */
@@ -138,13 +133,6 @@ function buildManualCommandContext({
 
     const manualRequestExecutor = manualRequests.execute;
 
-    const clients = Object.freeze({
-        request: manualRequestExecutor,
-        commitResolver: manualCommitResolver,
-        refResolver: manualRefResolver,
-        fileClient: manualFileFetcher
-    });
-
     const requests = Object.freeze({
         executeManualRequest: manualRequestExecutor
     });
@@ -161,14 +149,17 @@ function buildManualCommandContext({
         resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
     });
 
-    return {
+    return Object.freeze({
         environment,
-        clients,
+        request: manualRequestExecutor,
+        commitResolver: manualCommitResolver,
+        refResolver: manualRefResolver,
+        fileClient: manualFileFetcher,
         requests,
         files,
         refs,
         commits
-    };
+    });
 }
 
 /**
@@ -202,6 +193,20 @@ export function createManualManualAccessContext(options = {}) {
  * @returns {ManualGitHubExecutionContext}
  */
 export function createManualGitHubExecutionContext(options = {}) {
-    const { clients, requests, commits } = buildManualCommandContext(options);
-    return Object.freeze({ clients, requests, commits });
+    const {
+        request,
+        commitResolver,
+        refResolver,
+        fileClient,
+        requests,
+        commits
+    } = buildManualCommandContext(options);
+    return Object.freeze({
+        request,
+        commitResolver,
+        refResolver,
+        fileClient,
+        requests,
+        commits
+    });
 }
