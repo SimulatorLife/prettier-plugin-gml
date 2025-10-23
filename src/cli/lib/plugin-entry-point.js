@@ -7,7 +7,8 @@ import {
     escapeRegExp,
     getNonEmptyTrimmedString,
     normalizeStringList,
-    toArray
+    toArray,
+    uniqueArray
 } from "./shared-deps.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -78,20 +79,11 @@ function resolveCandidatePaths({ env, candidates } = {}) {
         ...DEFAULT_CANDIDATE_PLUGIN_PATHS
     ];
 
-    const resolvedCandidates = [];
-    const seen = new Set();
+    const resolvedCandidates = orderedCandidates
+        .map((candidate) => resolveCandidatePath(candidate))
+        .filter(Boolean);
 
-    for (const candidate of orderedCandidates) {
-        const resolvedPath = resolveCandidatePath(candidate);
-        if (!resolvedPath || seen.has(resolvedPath)) {
-            continue;
-        }
-
-        seen.add(resolvedPath);
-        resolvedCandidates.push(resolvedPath);
-    }
-
-    return resolvedCandidates;
+    return uniqueArray(resolvedCandidates);
 }
 
 function findFirstExistingPath(candidates) {
