@@ -383,8 +383,8 @@ function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
             : createManualGitHubCommitResolver({ requestDispatcher });
     const resolveCommitFromRef = commitResolution.resolveCommitFromRef;
 
-    async function resolveManualRef(ref, { verbose, apiRoot }) {
-        if (verbose.resolveRef) {
+    async function resolveManualRef(ref, { verbose, apiRoot } = {}) {
+        if (verbose?.resolveRef) {
             console.log(
                 ref
                     ? `Resolving manual reference '${ref}'…`
