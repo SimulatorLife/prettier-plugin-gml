@@ -11,8 +11,7 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
 } from "./progress-bar.js";
-import { assertFunction, hasOwn } from "./shared/object-utils.js";
-import { isNonEmptyString } from "./shared/string-utils.js";
+import { assertFunction, hasOwn, isNonEmptyString } from "./shared-deps.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
@@ -62,18 +61,40 @@ const DEFAULT_OPTION_ORDER = Object.freeze([
     "cacheRoot",
     "progressBarWidth"
 ]);
+const DEFAULT_PATH_NORMALIZER = (value) => path.resolve(value);
 
-function createOptionOrder({ optionOrder, handlers, customHandlers }) {
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const customKeys = Array.from(customHandlers.keys());
-    const ordering = new Set([
-        ...preferredOrder,
-        ...DEFAULT_OPTION_ORDER,
-        ...customKeys
-    ]);
+function configurePathOption(command, option) {
+    const normalize =
+        typeof option.config.normalize === "function"
+            ? option.config.normalize
+            : DEFAULT_PATH_NORMALIZER;
 
-    return [...ordering].filter(
-        (key) => handlers.has(key) || customHandlers.has(key)
+    command.option(
+        option.flag,
+        option.description,
+        normalize,
+        option.defaultValue
+    );
+}
+
+function configureResolvedOption({
+    command,
+    option,
+    fallbackResolve,
+    resolverName
+}) {
+    const resolveFn =
+        typeof option.config.resolve === "function"
+            ? option.config.resolve
+            : fallbackResolve;
+
+    assertFunction(resolveFn, resolverName);
+
+    command.option(
+        option.flag,
+        option.description,
+        wrapInvalidArgumentResolver(resolveFn),
+        option.defaultValue
     );
 }
 
@@ -123,87 +144,58 @@ export function applySharedManualCommandOptions(
         fallbackDefault: () => DEFAULT_MANUAL_REPO
     });
 
-    const handlers = new Map();
+    const builtInHandlers = new Map();
+    const addBuiltInHandler = (key, handler) => {
+        if (typeof handler === "function") {
+            builtInHandlers.set(key, handler);
+        }
+    };
 
-    if (outputOption) {
-        const normalize =
-            typeof outputOption.config.normalize === "function"
-                ? outputOption.config.normalize
-                : (value) => path.resolve(value);
-
-        handlers.set("outputPath", () =>
-            command.option(
-                outputOption.flag,
-                outputOption.description,
-                normalize,
-                outputOption.defaultValue
-            )
-        );
-    }
+    addBuiltInHandler(
+        "outputPath",
+        outputOption && (() => configurePathOption(command, outputOption))
+    );
 
     if (forceRefreshDescription !== false) {
-        handlers.set("forceRefresh", () =>
+        addBuiltInHandler("forceRefresh", () =>
             command.option("--force-refresh", forceRefreshDescription)
         );
     }
 
     if (quietDescription !== false) {
-        handlers.set("quiet", () =>
+        addBuiltInHandler("quiet", () =>
             command.option("--quiet", quietDescription)
         );
     }
 
-    if (progressOption) {
-        const resolveFn =
-            typeof progressOption.config.resolve === "function"
-                ? progressOption.config.resolve
-                : resolveProgressBarWidth;
+    addBuiltInHandler(
+        "progressBarWidth",
+        progressOption &&
+            (() =>
+                configureResolvedOption({
+                    command,
+                    option: progressOption,
+                    fallbackResolve: resolveProgressBarWidth,
+                    resolverName: "progressBarWidth.resolve"
+                }))
+    );
 
-        assertFunction(resolveFn, "progressBarWidth.resolve");
+    addBuiltInHandler(
+        "manualRepo",
+        manualRepoOption &&
+            (() =>
+                configureResolvedOption({
+                    command,
+                    option: manualRepoOption,
+                    fallbackResolve: resolveManualRepoValue,
+                    resolverName: "manualRepo.resolve"
+                }))
+    );
 
-        handlers.set("progressBarWidth", () =>
-            command.option(
-                progressOption.flag,
-                progressOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                progressOption.defaultValue
-            )
-        );
-    }
-
-    if (manualRepoOption) {
-        const resolveFn =
-            typeof manualRepoOption.config.resolve === "function"
-                ? manualRepoOption.config.resolve
-                : resolveManualRepoValue;
-
-        assertFunction(resolveFn, "manualRepo.resolve");
-
-        handlers.set("manualRepo", () =>
-            command.option(
-                manualRepoOption.flag,
-                manualRepoOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                manualRepoOption.defaultValue
-            )
-        );
-    }
-
-    if (cacheOption) {
-        const normalize =
-            typeof cacheOption.config.normalize === "function"
-                ? cacheOption.config.normalize
-                : (value) => path.resolve(value);
-
-        handlers.set("cacheRoot", () =>
-            command.option(
-                cacheOption.flag,
-                cacheOption.description,
-                normalize,
-                cacheOption.defaultValue
-            )
-        );
-    }
+    addBuiltInHandler(
+        "cacheRoot",
+        cacheOption && (() => configurePathOption(command, cacheOption))
+    );
 
     const customHandlers = new Map();
     if (customOptions && typeof customOptions === "object") {
@@ -214,21 +206,20 @@ export function applySharedManualCommandOptions(
         }
     }
 
-    const sequence = createOptionOrder({
-        optionOrder,
-        handlers,
-        customHandlers
-    });
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = [...customHandlers.keys()];
+    const builtInKeys = [...builtInHandlers.keys()];
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys,
+        ...builtInKeys
+    ]);
 
-    for (const key of sequence) {
-        if (handlers.has(key)) {
-            handlers.get(key)();
-            continue;
-        }
-
-        const customHandler = customHandlers.get(key);
-        if (customHandler) {
-            customHandler();
+    for (const key of ordering) {
+        const handler = builtInHandlers.get(key) ?? customHandlers.get(key);
+        if (handler) {
+            handler();
         }
     }
 

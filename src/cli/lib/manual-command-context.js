@@ -11,6 +11,11 @@ import {
 } from "./manual/utils.js";
 import { assertNonEmptyString } from "./shared-deps.js";
 
+/** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
+/** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
+/** @typedef {import("./manual/utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
+/** @typedef {import("./manual/utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
+
 function assertFileUrl(value) {
     return assertNonEmptyString(value, {
         name: "importMetaUrl",
@@ -29,6 +34,36 @@ function resolveOutputPath(repoRoot, fileName) {
 
     return path.join(repoRoot, "resources", fileName);
 }
+
+/**
+ * @typedef {object} ManualCommandEnvironment
+ * @property {string} repoRoot
+ * @property {string} defaultCacheRoot
+ * @property {string} defaultManualRawRoot
+ * @property {string | null} defaultOutputPath
+ */
+
+/**
+ * @typedef {object} ManualCommandGitHubClients
+ * @property {ManualGitHubRequestDispatcher} requests
+ * @property {ManualGitHubCommitResolver} commitResolver
+ * @property {ManualGitHubRefResolver} refResolver
+ * @property {ManualGitHubFileClient} fileClient
+ */
+
+/**
+ * @typedef {object} ManualCommandGitHubOperations
+ * @property {ManualGitHubFileClient["fetchManualFile"]} fetchManualFile
+ * @property {ManualGitHubRefResolver["resolveManualRef"]} resolveManualRef
+ * @property {ManualGitHubCommitResolver["resolveCommitFromRef"]} resolveCommitFromRef
+ */
+
+/**
+ * @typedef {object} ManualCommandContext
+ * @property {ManualCommandEnvironment} environment
+ * @property {ManualCommandGitHubClients} clients
+ * @property {ManualCommandGitHubOperations} operations
+ */
 
 /**
  * Normalize shared defaults used by manual-powered CLI commands.
@@ -66,17 +101,25 @@ export function createManualCommandContext({
         defaultRawRoot: defaultManualRawRoot
     });
 
-    return {
+    const environment = Object.freeze({
         repoRoot,
         defaultCacheRoot,
         defaultManualRawRoot,
-        defaultOutputPath: resolveOutputPath(repoRoot, outputFileName),
-        manualRequests,
-        manualCommitResolver,
-        manualRefResolver,
-        manualFileFetcher,
+        defaultOutputPath: resolveOutputPath(repoRoot, outputFileName)
+    });
+
+    const clients = Object.freeze({
+        requests: manualRequests,
+        commitResolver: manualCommitResolver,
+        refResolver: manualRefResolver,
+        fileClient: manualFileFetcher
+    });
+
+    const operations = Object.freeze({
         fetchManualFile: manualFileFetcher.fetchManualFile,
         resolveManualRef: manualRefResolver.resolveManualRef,
         resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
-    };
+    });
+
+    return Object.freeze({ environment, clients, operations });
 }

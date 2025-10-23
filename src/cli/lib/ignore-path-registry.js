@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./shared/string-utils.js";
+import { isNonEmptyString } from "./shared-deps.js";
 
 const registeredIgnorePaths = new Set();
 
