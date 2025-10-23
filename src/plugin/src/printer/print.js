@@ -2656,11 +2656,13 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
               options,
               syntheticOverrides
           )
-        : computeSyntheticFunctionDocLines(
-              functionNode,
-              [],
-              options,
-              syntheticOverrides
+        : reorderDescriptionLinesAfterFunction(
+              computeSyntheticFunctionDocLines(
+                  functionNode,
+                  [],
+                  options,
+                  syntheticOverrides
+              )
           );
 
     if (syntheticLines.length === 0) {
@@ -2782,24 +2784,108 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
+function reorderDescriptionLinesAfterFunction(docLines) {
+    if (!Array.isArray(docLines) || docLines.length === 0) {
+        return Array.isArray(docLines) ? docLines : [];
+    }
+
+    const descriptionIndices = [];
+    for (const [index, line] of docLines.entries()) {
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@description\b/i.test(line.trim())
+        ) {
+            descriptionIndices.push(index);
+        }
+    }
+
+    if (descriptionIndices.length === 0) {
+        return docLines;
+    }
+
+    const functionIndex = docLines.findIndex(
+        (line) =>
+            typeof line === "string" &&
+            /^\/\/\/\s*@function\b/i.test(line.trim())
+    );
+
+    if (functionIndex === -1) {
+        return docLines;
+    }
+
+    const earliestDescriptionIndex = Math.min(...descriptionIndices);
+    if (earliestDescriptionIndex > functionIndex) {
+        return docLines;
+    }
+
+    const descriptionLines = descriptionIndices.map((index) => docLines[index]);
+    const remainingLines = docLines.filter(
+        (_, index) => !descriptionIndices.includes(index)
+    );
+
+    let lastFunctionIndex = -1;
+    for (let index = remainingLines.length - 1; index >= 0; index -= 1) {
+        const line = remainingLines[index];
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@function\b/i.test(line.trim())
+        ) {
+            lastFunctionIndex = index;
+            break;
+        }
+    }
+
+    if (lastFunctionIndex === -1) {
+        return [...remainingLines, ...descriptionLines];
+    }
+
+    let returnsInsertionIndex = remainingLines.length;
+    for (
+        let index = lastFunctionIndex + 1;
+        index < remainingLines.length;
+        index += 1
+    ) {
+        const line = remainingLines[index];
+        if (
+            typeof line === "string" &&
+            /^\/\/\/\s*@returns\b/i.test(line.trim())
+        ) {
+            returnsInsertionIndex = index;
+            break;
+        }
+    }
+
+    return [
+        ...remainingLines.slice(0, returnsInsertionIndex),
+        ...descriptionLines,
+        ...remainingLines.slice(returnsInsertionIndex)
+    ];
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
     options,
     overrides = {}
 ) {
-    const syntheticLines = computeSyntheticFunctionDocLines(
-        node,
-        existingDocLines,
-        options,
-        overrides
+    const normalizedExistingLines = reorderDescriptionLinesAfterFunction(
+        Array.isArray(existingDocLines) ? existingDocLines : []
+    );
+
+    const syntheticLines = reorderDescriptionLinesAfterFunction(
+        computeSyntheticFunctionDocLines(
+            node,
+            existingDocLines,
+            options,
+            overrides
+        )
     );
 
     if (syntheticLines.length === 0) {
-        return existingDocLines;
+        return normalizedExistingLines;
     }
 
-    if (existingDocLines.length === 0) {
+    if (normalizedExistingLines.length === 0) {
         return syntheticLines;
     }
 
@@ -2862,7 +2948,7 @@ function mergeSyntheticDocComments(
         return canonical;
     };
 
-    let mergedLines = [...existingDocLines];
+    let mergedLines = [...normalizedExistingLines];
     let removedAnyLine = false;
 
     if (functionLines.length > 0) {
@@ -3335,6 +3421,8 @@ function mergeSyntheticDocComments(
             ];
         }
     }
+
+    reorderedDocs = reorderDescriptionLinesAfterFunction(reorderedDocs);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
