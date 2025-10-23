@@ -598,26 +598,25 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    return withObjectLike(
-        snapshot,
-        async (snapshotObject) => {
-            if (snapshotObject.inlineContents != null) {
-                return snapshotObject.inlineContents;
-            }
+    if (!snapshot || typeof snapshot !== "object") {
+        return "";
+    }
 
-            const { snapshotPath } = snapshotObject;
-            if (!snapshotPath) {
-                return "";
-            }
+    const { inlineContents, snapshotPath } = snapshot;
 
-            try {
-                return await readFile(snapshotPath, "utf8");
-            } catch {
-                return null;
-            }
-        },
-        () => ""
-    );
+    if (inlineContents != null) {
+        return inlineContents;
+    }
+
+    if (!snapshotPath) {
+        return "";
+    }
+
+    try {
+        return await readFile(snapshotPath, "utf8");
+    } catch {
+        return null;
+    }
 }
 
 /**
