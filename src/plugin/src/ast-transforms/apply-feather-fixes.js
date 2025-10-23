@@ -14995,7 +14995,7 @@ function markCallExpressionForFeatherComment(node) {
         value: true
     });
 
-    if (typeof commentText === "string" && commentText.length > 0) {
+    if (isNonEmptyString(commentText)) {
         Object.defineProperty(node, FEATHER_COMMENT_TEXT_SYMBOL, {
             configurable: true,
             enumerable: false,

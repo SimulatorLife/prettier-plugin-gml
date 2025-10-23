@@ -6654,7 +6654,7 @@ function resolveArgumentAliasInitializerDoc(path) {
     }
 
     const aliasName = aliasIdentifier.name;
-    if (typeof aliasName !== "string" || aliasName.length === 0) {
+    if (!isNonEmptyString(aliasName)) {
         return null;
     }
 
@@ -6673,7 +6673,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 
     if (docPreferences && docPreferences.has(argumentIndex)) {
         const preferred = docPreferences.get(argumentIndex);
-        if (typeof preferred === "string" && preferred.length > 0) {
+        if (isNonEmptyString(preferred)) {
             parameterName = preferred;
         }
     }
