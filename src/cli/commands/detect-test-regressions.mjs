@@ -4,6 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+    assertArray,
     getErrorMessage,
     getNonEmptyTrimmedString,
     hasOwn,
@@ -277,10 +278,10 @@ function normalizeSuiteName(name) {
 }
 
 function pushNormalizedSuiteSegments(target, segments) {
-    if (!Array.isArray(target)) {
-        throw new TypeError("target must be an array");
-    }
-
+    const targetSegments = assertArray(target, {
+        name: "target",
+        errorMessage: "target must be an array"
+    });
     const sourceSegments = toArray(segments);
 
     for (const segment of sourceSegments) {
@@ -289,10 +290,10 @@ function pushNormalizedSuiteSegments(target, segments) {
             continue;
         }
 
-        target.push(normalized);
+        targetSegments.push(normalized);
     }
 
-    return target;
+    return targetSegments;
 }
 
 function buildTestKey(testNode, suitePath) {
