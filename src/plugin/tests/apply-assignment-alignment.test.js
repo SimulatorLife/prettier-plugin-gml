@@ -228,6 +228,33 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
+    it("does not align argument aliases when functions lack named parameters", () => {
+        const statements = [
+            createArgumentAliasDeclaration("first", "argument0"),
+            createArgumentAliasDeclaration("second", "argument1"),
+            createArgumentAliasDeclaration("third", "argument2")
+        ];
+        const path = createFunctionBodyPath(statements);
+
+        applyAssignmentAlignment(
+            statements,
+            {
+                alignAssignmentsMinGroupSize: 3,
+                applyFeatherFixes: true
+            },
+            path,
+            "body"
+        );
+
+        assert.deepStrictEqual(
+            statements.map(
+                (node) => node.declarations[0]._alignAssignmentPadding
+            ),
+            [0, 0, 0],
+            "Argument aliases without named parameters should not align."
+        );
+    });
+
     it("aligns alias groups that reference named parameters and subsequent declarations", () => {
         const statements = [
             createArgumentAliasDeclaration("w", "width"),
