@@ -149,7 +149,7 @@ export function withDefinedValue(value, onDefined, onUndefined) {
  * @template {string | number | symbol} TKey
  * @param {unknown} object Candidate object containing the properties.
  * @param {Array<TKey> | TKey} keys Property names to inspect in order.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {unknown} [options.fallback]
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
