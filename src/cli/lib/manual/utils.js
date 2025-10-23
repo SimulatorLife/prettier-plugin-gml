@@ -411,6 +411,30 @@ function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
     return Object.freeze({ resolveManualRef });
 }
 
+async function tryReadManualFileCache({
+    cachePath,
+    filePath,
+    ensureNotAborted,
+    shouldLogDetails
+}) {
+    try {
+        const cached = await fs.readFile(cachePath, "utf8");
+        ensureNotAborted();
+
+        if (shouldLogDetails) {
+            console.log(`[cache] ${filePath}`);
+        }
+
+        return cached;
+    } catch (error) {
+        if (!isFsErrorCode(error, "ENOENT")) {
+            throw error;
+        }
+    }
+
+    return null;
+}
+
 /**
  * @param {{
  *   requestDispatcher: ManualGitHubRequestDispatcher,
@@ -448,20 +472,17 @@ function createManualGitHubFileClient({
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
-        if (!forceRefresh) {
-            try {
-                const cached = await fs.readFile(cachePath, "utf8");
-                ensureNotAborted();
-                if (shouldLogDetails) {
-                    console.log(`[cache] ${filePath}`);
-                }
+        const cached = forceRefresh
+            ? null
+            : await tryReadManualFileCache({
+                  cachePath,
+                  filePath,
+                  ensureNotAborted,
+                  shouldLogDetails
+              });
 
-                return cached;
-            } catch (error) {
-                if (!isFsErrorCode(error, "ENOENT")) {
-                    throw error;
-                }
-            }
+        if (cached !== null) {
+            return cached;
         }
 
         ensureNotAborted();
