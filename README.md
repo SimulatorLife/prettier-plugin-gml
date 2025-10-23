@@ -601,8 +601,8 @@ append `-- --watch` to any `npm run test --workspace …` command for watch mode
 package to emit the XML file that the GitHub automerge workflow parses when it
 builds its warning/error summary table. Keep the dependency in `devDependencies`
 so the CI job continues producing checkstyle output; removing it leaves the
-formatter unavailable at runtime and collapses the summary into the
-"No lint (checkstyle) data found" fallback state.
+formatter unavailable at runtime and collapses the summary into the "No lint
+(checkstyle) data found" fallback state.
 
 Fixtures under `src/plugin/tests` and `src/parser/tests/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
